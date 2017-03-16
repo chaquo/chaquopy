@@ -1,31 +1,45 @@
 package com.chaquo.python.demo;
 
-import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
-import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.os.*;
+import android.support.v7.app.*;
+import android.view.*;
+import android.widget.*;
 
 public class MainActivity extends AppCompatActivity {
+
+    private Repl repl = Repl.getInstance();
+
+    private TextView tvBuffer;
+    private EditText etInput;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        tvBuffer = (TextView) findViewById(R.id.tvBuffer);
+        etInput = (EditText) findViewById(R.id.etInput);
+        etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                String input = etInput.getText().toString().trim();
+                if (! input.isEmpty()) {
+                    tvBuffer.append(">>> ");
+                    tvBuffer.append(etInput.getText());
+                    tvBuffer.append("\n");
+                    etInput.setText("");
+
+                    String result = repl.eval(input);
+                    tvBuffer.append(result);
+                    if (! result.endsWith("\n")) {
+                        tvBuffer.append("\n");
+                    }
+                }
+                return true;
             }
         });
+
+        repl.start();
     }
 
     @Override
@@ -33,6 +47,12 @@ public class MainActivity extends AppCompatActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
+    }
+
+    @Override
+    protected void onDestroy() {
+        repl.stop();
+        super.onDestroy();
     }
 
     @Override

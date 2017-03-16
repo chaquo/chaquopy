@@ -366,7 +366,7 @@
 #define HAVE_HYPOT 1
 
 /* Define to 1 if you have the <ieeefp.h> header file. */
-#define HAVE_IEEEFP_H 1
+/* #define HAVE_IEEEFP_H 1 */
 
 /* Define if you have the 'inet_aton' function. */
 #define HAVE_INET_ATON 1
