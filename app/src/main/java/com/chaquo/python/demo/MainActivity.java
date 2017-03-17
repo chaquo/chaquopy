@@ -44,7 +44,8 @@ public class MainActivity extends AppCompatActivity {
         String input = etInput.getText().toString().trim();
         if (input.isEmpty()) return;
 
-        if (tvBuffer.getText().length() > 0) {
+        CharSequence text = tvBuffer.getText();
+        if (text.length() > 0  &&  text.charAt(text.length() - 1) != '\n') {
             tvBuffer.append("\n");
         }
         tvBuffer.append(getString(R.string.prompt));
@@ -52,7 +53,9 @@ public class MainActivity extends AppCompatActivity {
         tvBuffer.append("\n");
         etInput.setText("");
 
-        tvBuffer.append(repl.eval(input));
+        // TODO: multi-line input
+        // TODO: input history (On-screen arrow buttons? See what other Python REPL apps do.)
+        tvBuffer.append(repl.exec(input));
         scrollDown();
     }
 

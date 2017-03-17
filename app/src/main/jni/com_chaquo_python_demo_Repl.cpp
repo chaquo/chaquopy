@@ -6,6 +6,9 @@ using namespace std;
 #include <jni.h>
 #include <Python.h>
 
+#include "repl.h"
+
+
 static string fromJstring (JNIEnv *env, jstring jstr)
 {
     string str;
@@ -60,30 +63,29 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_4;
 }
 
-// This isn't in standard Python 2, but is in the Crystax build (though they neglected to add it to
+// This isn't in standard Python 2, but is in the Crystax version (though they neglected to add it to
 // the API headers as well).
 //
-// WARNING: In Python 3, this takes a wchar_t* !
+// FIXME: In Python 3, this takes a wchar_t* !
 PyAPI_FUNC(void) Py_SetPath(char *path);
 
 JNIEXPORT void JNICALL
-Java_com_chaquo_python_demo_Repl_nativeStart(JNIEnv *env, jobject instance, jstring jAssetsDir) {
+Java_com_chaquo_python_demo_Repl_nativeStart(JNIEnv *env, jobject instance, jstring path) {
     State *state = getState(env, instance);
-    string assetsDir = fromJstring(env, jAssetsDir);
 
     if (! state->started) {
-        // WARNING: In Python 3, these functions both take wchar_t* strings!
+        // FIXME: In Python 3, these functions both take wchar_t* strings!
         Py_SetProgramName((char*)"chaquo_python");
-        Py_SetPath((char*) (assetsDir + "/stdlib.zip").c_str()); // FIXME use final field
+        Py_SetPath((char*) fromJstring(env, path).c_str());
 
         Py_Initialize();
-        FILE *startFile = fopen((assetsDir + "/start.py").c_str(), "r"); // FIXME use final field
-        if (startFile == NULL) {
-            return; // FIXME
-        }
-        if (PyRun_SimpleFileEx(startFile, NULL, true) != 0) {
-            return; // FIXME
-        }
+
+        #if PY_MAJOR_VERSION < 3
+        initrepl();
+        #else
+        PyInit_repl();
+        #endif
+
         state->started = true;
     }
 }
@@ -98,37 +100,17 @@ Java_com_chaquo_python_demo_Repl_nativeStop(JNIEnv *env, jobject instance) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_chaquo_python_demo_Repl_eval(JNIEnv *env, jobject instance, jstring expr) {
+Java_com_chaquo_python_demo_Repl_exec(JNIEnv *env, jobject instance, jstring line_js) {
+    PyObject *line_py = PyString_FromString(fromJstring(env, line_js).c_str());
+    PyObject *result_py = repl_exec(line_py);
+    Py_DECREF(line_py);
 
-
-    PyRun_SimpleString(fromJstring(env, expr).c_str());
-
-
-    // FIXME
-
-
-
-    PyObject *module = PyImport_AddModule("__main__");
-    if (module == NULL) {
-        return toJstring(env, "PyImport_AddModule failed");
+    if (result_py == NULL) {
+        return toJstring(env, "repl_get_output failed");
     }
-    PyObject *dict = PyModule_GetDict(module);
-
-    PyObject *result_obj = PyRun_String(
-                                        Py_single_input, dict, dict);
-    if (result_obj == NULL) {
-        PyErr_Print();
-        return toJstring(env, "EXCEPTION");
-    }
-
-    PyObject *result_repr = PyObject_Repr(result_obj);
-    Py_DECREF(result_obj);
-    if (result_repr == NULL) {
-        return toJstring(env, "PyObject_Repr failed");
-    }
-    jstring result_jstr = toJstring(env, PyString_AsString(result_repr));
-    Py_DECREF(result_repr);
-    return result_jstr;
+    jstring result_js = toJstring(env, PyString_AsString(result_py));
+    Py_DECREF(result_py);
+    return result_js;
 }
 
 }

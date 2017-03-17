@@ -8,8 +8,7 @@ import static com.chaquo.python.demo.App.context;
 
 public class Repl {
     private static final String STDLIB_FILENAME = "stdlib.zip";
-    private static final String START_FILENAME = "start.py";
-    private static final String[] ASSETS = {STDLIB_FILENAME, START_FILENAME};
+    private static final String[] ASSETS = {STDLIB_FILENAME};
 
     private static Repl sInstance;
 
@@ -58,15 +57,15 @@ public class Repl {
     private Repl() {}
 
     public void start() {
-        nativeStart(App.context.getFilesDir().getAbsolutePath());
+        nativeStart(new File(App.context.getFilesDir(), STDLIB_FILENAME).getAbsolutePath());
     }
-    public native void nativeStart(String assetsDir);
+    public native void nativeStart(String path);
 
     public void stop() {
         nativeStop();
     }
     public native void nativeStop();
 
-    public native String eval(String expr);
+    public native String exec(String line);
 
 }

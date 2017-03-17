@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.4.1)
 add_library(
     repl SHARED
     src/main/jni/com_chaquo_python_demo_Repl.cpp
+    src/main/jni/repl.c
 )
 target_link_libraries(repl python2.7)
 
