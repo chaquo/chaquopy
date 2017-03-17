@@ -3,8 +3,6 @@
 #include <string>
 using namespace std;
 
-#include <stdlib.h>
-
 #include <jni.h>
 #include <Python.h>
 
@@ -69,18 +67,26 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 PyAPI_FUNC(void) Py_SetPath(char *path);
 
 JNIEXPORT void JNICALL
-Java_com_chaquo_python_demo_Repl_nativeStart(JNIEnv *env, jobject instance, jstring path) {
+Java_com_chaquo_python_demo_Repl_nativeStart(JNIEnv *env, jobject instance, jstring jAssetsDir) {
     State *state = getState(env, instance);
+    string assetsDir = fromJstring(env, jAssetsDir);
+
     if (! state->started) {
         // WARNING: In Python 3, these functions both take wchar_t* strings!
         Py_SetProgramName((char*)"chaquo_python");
-        Py_SetPath((char*) fromJstring(env, path).c_str());
+        Py_SetPath((char*) (assetsDir + "/stdlib.zip").c_str()); // FIXME use final field
 
         Py_Initialize();
+        FILE *startFile = fopen((assetsDir + "/start.py").c_str(), "r"); // FIXME use final field
+        if (startFile == NULL) {
+            return; // FIXME
+        }
+        if (PyRun_SimpleFileEx(startFile, NULL, true) != 0) {
+            return; // FIXME
+        }
         state->started = true;
     }
 }
-
 
 JNIEXPORT void JNICALL
 Java_com_chaquo_python_demo_Repl_nativeStop(JNIEnv *env, jobject instance) {
@@ -91,16 +97,24 @@ Java_com_chaquo_python_demo_Repl_nativeStop(JNIEnv *env, jobject instance) {
     }
 }
 
-
 JNIEXPORT jstring JNICALL
 Java_com_chaquo_python_demo_Repl_eval(JNIEnv *env, jobject instance, jstring expr) {
+
+
+    PyRun_SimpleString(fromJstring(env, expr).c_str());
+
+
+    // FIXME
+
+
+
     PyObject *module = PyImport_AddModule("__main__");
     if (module == NULL) {
         return toJstring(env, "PyImport_AddModule failed");
     }
     PyObject *dict = PyModule_GetDict(module);
 
-    PyObject *result_obj = PyRun_String(fromJstring(env, expr).c_str(),
+    PyObject *result_obj = PyRun_String(
                                         Py_single_input, dict, dict);
     if (result_obj == NULL) {
         PyErr_Print();

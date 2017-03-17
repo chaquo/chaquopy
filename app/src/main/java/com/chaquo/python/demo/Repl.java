@@ -1,7 +1,5 @@
 package com.chaquo.python.demo;
 
-import android.support.annotation.*;
-
 import com.google.common.io.*;
 
 import java.io.*;
@@ -10,6 +8,8 @@ import static com.chaquo.python.demo.App.context;
 
 public class Repl {
     private static final String STDLIB_FILENAME = "stdlib.zip";
+    private static final String START_FILENAME = "start.py";
+    private static final String[] ASSETS = {STDLIB_FILENAME, START_FILENAME};
 
     private static Repl sInstance;
 
@@ -23,36 +23,33 @@ public class Repl {
 
     public static Repl getInstance() {
         if (sInstance == null) {
-            ensureStdlib();
+            extractAssets();
             sInstance = new Repl();
         }
         return sInstance;
     }
 
-    private static void ensureStdlib() {
-        try {
-            File stdlibFile = getStdlibFile();
-            if (!stdlibFile.exists()) {
-                InputStream stdlibIn = App.context.getAssets().open(STDLIB_FILENAME);
-                try {
-                    OutputStream stdlibOut = new FileOutputStream(stdlibFile);
+    private static void extractAssets() {
+        for (String filename : ASSETS) {
+            try {
+                File outFile = new File(context.getFilesDir(), filename);
+                if (!outFile.exists()) {
+                    InputStream inStream = App.context.getAssets().open(filename);
                     try {
-                        ByteStreams.copy(stdlibIn, stdlibOut);
+                        OutputStream outStream = new FileOutputStream(outFile);
+                        try {
+                            ByteStreams.copy(inStream, outStream);
+                        } finally {
+                            outStream.close();
+                        }
                     } finally {
-                        stdlibOut.close();
+                        inStream.close();
                     }
-                } finally {
-                    stdlibIn.close();
                 }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
-    }
-
-    @NonNull
-    private static File getStdlibFile() {
-        return new File(context.getFilesDir(), STDLIB_FILENAME);
     }
 
 
@@ -61,9 +58,9 @@ public class Repl {
     private Repl() {}
 
     public void start() {
-        nativeStart(getStdlibFile().getAbsolutePath());
+        nativeStart(App.context.getFilesDir().getAbsolutePath());
     }
-    public native void nativeStart(String path);
+    public native void nativeStart(String assetsDir);
 
     public void stop() {
         nativeStop();
