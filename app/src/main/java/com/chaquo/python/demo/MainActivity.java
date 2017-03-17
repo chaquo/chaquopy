@@ -9,6 +9,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Repl repl = Repl.getInstance();
 
+    private ScrollView svBuffer;
     private TextView tvBuffer;
     private EditText etInput;
 
@@ -17,36 +18,52 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
         etInput = (EditText) findViewById(R.id.etInput);
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                String input = etInput.getText().toString().trim();
-                if (! input.isEmpty()) {
-                    tvBuffer.append(">>> ");
-                    tvBuffer.append(etInput.getText());
-                    tvBuffer.append("\n");
-                    etInput.setText("");
-
-                    String result = repl.eval(input);
-                    tvBuffer.append(result);
-                    if (! result.endsWith("\n")) {
-                        tvBuffer.append("\n");
-                    }
-                }
+                onInput();
                 return true;
+            }
+        });
+
+        // For when keyboard is shown
+        svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                scrollDown();
             }
         });
 
         repl.start();
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+    private void onInput() {
+        String input = etInput.getText().toString().trim();
+        if (input.isEmpty()) return;
+
+        if (tvBuffer.getText().length() > 0) {
+            tvBuffer.append("\n");
+        }
+        tvBuffer.append(getString(R.string.prompt));
+        tvBuffer.append(etInput.getText());
+        tvBuffer.append("\n");
+        etInput.setText("");
+
+        tvBuffer.append(repl.eval(input));
+        scrollDown();
+    }
+
+    private void scrollDown() {
+        svBuffer.post(new Runnable() {
+            @Override
+            public void run() {
+                svBuffer.fullScroll(View.FOCUS_DOWN);
+                etInput.requestFocus();
+            }
+        });
     }
 
     @Override
@@ -55,18 +72,4 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
 }
