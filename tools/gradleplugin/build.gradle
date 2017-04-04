@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'groovy'
 
 group 'com.chaquo.python'
 version '0.0.1'
@@ -10,5 +10,7 @@ repositories {
 }
 
 dependencies {
+    compile localGroovy()
+    compile gradleApi()
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }

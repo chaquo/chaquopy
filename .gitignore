@@ -1,11 +1,10 @@
 .DS_Store
 
-/.idea/libraries
-/.idea/workspace.xml
-/captures
+*/.idea/libraries
+*/.idea/workspace.xml
 *.iml
 
 .externalNativeBuild
 .gradle
-/local.properties
-/build
+build/
+local.properties
