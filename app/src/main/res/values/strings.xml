@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Chaquo demo</string>
     <string name="action_settings">Settings</string>
-    <string name="prompt"><![CDATA[>>>]]>\u0020</string>
+    <string name="prompt"><![CDATA[>>>]]>\u0020</string> <!-- TODO: use sys.ps1 instead -->
 </resources>

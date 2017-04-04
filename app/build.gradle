@@ -28,13 +28,11 @@ android {
     sourceSets {
         main {
             // Documentation says imported libraries in CMakeLists are automatically included, but
-            // it didn't work for me.
+            // it didn't work for me (https://code.google.com/p/android/issues/detail?id=232445).
             jniLibs.srcDirs = ['prebuilt/libs']
         }
     }
-
 }
-
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
@@ -45,8 +43,8 @@ dependencies {
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.android.support:design:23.4.0'
 
-    // Don't know exactly when it happened, but by version 21 Guava started using Java 8 bytecode,
-    // which isn't currently accepted by dex.
+    // Don't know exactly when it happened, but by version 21 Guava had started using Java 8
+    // bytecode, which isn't currently accepted by dex.
     compile 'com.google.guava:guava:16.0.1'
 
     testCompile 'junit:junit:4.12'
