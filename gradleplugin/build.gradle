@@ -1,0 +1,14 @@
+apply plugin: 'java'
+
+group 'com.chaquo.python'
+version '0.0.1'
+
+sourceCompatibility = 7
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
