@@ -3,6 +3,7 @@ apply plugin: 'groovy'
 group 'com.chaquo.python'
 version '0.0.1'
 
+archivesBaseName = "android-python-plugin"
 sourceCompatibility = 7
 
 repositories {
