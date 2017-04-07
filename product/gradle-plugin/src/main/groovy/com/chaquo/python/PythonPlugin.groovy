@@ -40,16 +40,36 @@ class PythonPlugin implements Plugin<Project> {
                                           "You may want to add it to defaultConfig.")
             }
 
+            createSourceTask(variant, python)
             createAssetTask(variant, python);
             createNativeLibsTask(variant, python)
-            // TODO Java lib (maybe better to generate Gradle dependency so it's on
-            // the classpath for interactive editing)
-            // TODO Java generated source
-
+            // TODO Java lib
         }
     }
 
+    void createSourceTask(variant, PythonExtension python) {
+        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
+        File sourceDir = genVariantDir(variant, "source")
+        Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
+            outputs.dir(sourceDir)
+            doLast {
+                project.delete(sourceDir)
+                def pkgDir = "$sourceDir/com/chaquo/python"
+                project.mkdir(pkgDir)
+                PrintWriter writer = new PrintWriter("$pkgDir/Generated.java")
+                writer.println("package com.chaquo.python;")
+                writer.println("public class Generated {")
+                writer.println("    public void hello() {}")
+                writer.println("}")
+                writer.close()
+            }
+        }
+        variant.registerJavaGeneratingTask(genTask, sourceDir)
+    }
+
     void createAssetTask(variant, PythonExtension python) {
+        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
+        // TODO: download target Python from server (via .part)
         File assetDir = genVariantDir(variant, "assets")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Assets",
                                     type: Copy) {
@@ -63,9 +83,10 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createNativeLibsTask(variant, PythonExtension python) {
+        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
         for (mergeTask in
              project.getTasksByName("merge${variant.name.capitalize()}JniLibFolders", false)) {
-            // TODO use ABI filters
+            // TODO use NDK ABI filters if specified
             extendMergeTask(mergeTask, null,
                             project.file("${targetDir(python)}/lib", PathValidation.DIRECTORY))
         }
@@ -87,15 +108,19 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     private File genDir() {
-        return new File(project.buildDir, "generated/${NAME}")
+        return new File(project.buildDir, "generated")
+    }
+
+    private File pythonDir() {
+        return new File(genDir(), "python")
     }
 
     File targetDir(PythonExtension python) {
-        return new File(genDir(), "target/$python.version")
+        return new File(pythonDir(), "target/$python.version")
     }
 
     private File genVariantDir(variant, String type) {
-        return new File(genDir(), "$type/$variant.dirName")
+        return new File(genDir(), "$type/${NAME}/$variant.dirName")
     }
 }
 
