@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/gradle-plugin/gradle-plugin.iml" filepath="$PROJECT_DIR$/.idea/modules/gradle-plugin/gradle-plugin.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/product.iml" filepath="$PROJECT_DIR$/.idea/modules/product.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/runtime/runtime.iml" filepath="$PROJECT_DIR$/.idea/modules/runtime/runtime.iml" />
     </modules>
   </component>
 </project>

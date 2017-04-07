@@ -1,5 +1,6 @@
 package com.chaquo.python
 
+import java.nio.file.*;
 import org.gradle.api.*
 import org.gradle.api.plugins.*
 import org.gradle.api.tasks.*
@@ -11,7 +12,7 @@ class PythonPlugin implements Plugin<Project> {
     Project project
     def android
 
-    void apply(Project project) {
+    public void apply(Project project) {
         this.project = project
         android = project.android
 
@@ -21,11 +22,31 @@ class PythonPlugin implements Plugin<Project> {
 
         // TODO add "python" source set property
 
+        setupDependencies()
+
         project.afterEvaluate { afterEvaluate() }
     }
 
     void extend(ExtensionAware ea) {
         ea.extensions.create(NAME, PythonExtension)
+    }
+
+    void setupDependencies() {
+        def filename = "runtime/android-python-runtime.jar"
+        def outFile = new File(pythonDir(), "$filename")
+        if (! outFile.exists()) {
+            project.mkdir(outFile.parent)
+            getClass().getResourceAsStream("/$filename").withStream { is ->
+                def tmpFile = new File(outFile.parent, "${outFile.name}.tmp")
+                Files.copy(is, tmpFile.toPath())
+                if (! tmpFile.renameTo(outFile)) {
+                    throw new GradleException("Failed to create $outFile")
+                }
+            }
+        }
+        project.dependencies {
+            compile project.files(outFile)
+        }
     }
 
     void afterEvaluate() {
@@ -43,7 +64,6 @@ class PythonPlugin implements Plugin<Project> {
             createSourceTask(variant, python)
             createAssetTask(variant, python);
             createNativeLibsTask(variant, python)
-            // TODO Java lib
         }
     }
 
@@ -69,7 +89,7 @@ class PythonPlugin implements Plugin<Project> {
 
     void createAssetTask(variant, PythonExtension python) {
         // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
-        // TODO: download target Python from server (via .part)
+        // TODO: download target Python from server (renamed from .tmp file)
         File assetDir = genVariantDir(variant, "assets")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Assets",
                                     type: Copy) {
@@ -107,11 +127,11 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    private File genDir() {
+    File genDir() {
         return new File(project.buildDir, "generated")
     }
 
-    private File pythonDir() {
+    File pythonDir() {
         return new File(genDir(), "python")
     }
 
@@ -119,7 +139,7 @@ class PythonPlugin implements Plugin<Project> {
         return new File(pythonDir(), "target/$python.version")
     }
 
-    private File genVariantDir(variant, String type) {
+    File genVariantDir(variant, String type) {
         return new File(genDir(), "$type/${NAME}/$variant.dirName")
     }
 }

@@ -1,0 +1,16 @@
+apply plugin: 'java'
+
+archivesBaseName = "android-python-runtime"
+sourceCompatibility = 7
+
+jar {
+    version = null
+}
+
+dependencies {
+    Properties localProps = new Properties()
+    localProps.load(project.rootProject.file('local.properties').newDataInputStream())
+    compile files("${localProps.getProperty('sdk.dir')}/platforms/android-15/android.jar")
+
+    testCompile 'junit:junit:4.11'
+}

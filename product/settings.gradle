@@ -1,1 +1,2 @@
-include ':gradle-plugin'
+include ':gradle-plugin', ':runtime'
+

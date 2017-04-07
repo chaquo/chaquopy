@@ -1,17 +1,22 @@
 apply plugin: 'groovy'
 
-group 'com.chaquo.python'
-version '0.0.1'
-
-archivesBaseName = "gradle-android-python"
+archivesBaseName = "android-python-gradle"
 sourceCompatibility = 7
 
-repositories {
-    mavenCentral()
+processResources {
+    from("../runtime/build/libs/android-python-runtime.jar") {
+        into "runtime"
+    }
 }
 
 dependencies {
     compile localGroovy()
     compile gradleApi()
+
+    // This is a library project, so use "+" notation for external dependencies rather than
+    // requiring specific versions.
+
+    compile project(":runtime")
+
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
