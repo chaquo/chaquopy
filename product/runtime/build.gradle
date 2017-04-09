@@ -2,15 +2,16 @@ apply plugin: 'java'
 
 archivesBaseName = "android-python-runtime"
 sourceCompatibility = 7
+def apiLevel = 9     // Currently the oldest version included in the NDK
 
 jar {
     version = null
 }
 
 dependencies {
-    Properties localProps = new Properties()
+    def localProps = new Properties()
     localProps.load(project.rootProject.file('local.properties').newDataInputStream())
-    compile files("${localProps.getProperty('sdk.dir')}/platforms/android-15/android.jar")
+    compile files("${localProps.getProperty('sdk.dir')}/platforms/android-$apiLevel/android.jar")
 
     testCompile 'junit:junit:4.11'
 }
