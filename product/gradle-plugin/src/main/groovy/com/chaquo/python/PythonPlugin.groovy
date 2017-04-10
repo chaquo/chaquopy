@@ -1,19 +1,28 @@
 package com.chaquo.python
 
-import java.nio.file.*;
 import org.gradle.api.*
 import org.gradle.api.plugins.*
 import org.gradle.api.tasks.*
+import java.nio.file.*
 
 // FIXME unit test everything
+// Wrong python version
+// Wrong ABIs
+// Override by flavor
+// Override by multi-flavor
+// up to date checks
 class PythonPlugin implements Plugin<Project> {
-    public static final String NAME = "python"
+    final def NAME = "python"
 
     Project project
     def android
 
     public void apply(Project project) {
         this.project = project
+        if (! project.hasProperty("android")) {
+            throw new GradleException("project.android not set. Did you apply plugin "+
+                                      "com.android.application before com.chaquo.python?")
+        }
         android = project.android
 
         extend(android.defaultConfig)
@@ -32,16 +41,17 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void setupDependencies() {
+        project.repositories { maven { url "http://chaquo.com/maven" } }
+
         def filename = "runtime/android-python-runtime.jar"
-        def outFile = new File(pythonDir(), "$filename")
-        if (! outFile.exists()) {
-            project.mkdir(outFile.parent)
-            getClass().getResourceAsStream("/$filename").withStream { is ->
-                def tmpFile = new File(outFile.parent, "${outFile.name}.tmp")
-                Files.copy(is, tmpFile.toPath())
-                if (! tmpFile.renameTo(outFile)) {
-                    throw new GradleException("Failed to create $outFile")
-                }
+        def outFile = new File(pythonGenDir(), "$filename")
+        project.delete(outFile)     // It might be an old version
+        project.mkdir(outFile.parent)
+        getClass().getResourceAsStream("/$filename").withStream { is ->
+            def tmpFile = new File(outFile.parent, "${outFile.name}.tmp")
+            Files.copy(is, tmpFile.toPath())
+            if (! tmpFile.renameTo(outFile)) {
+                throw new GradleException("Failed to create $outFile")
             }
         }
         project.dependencies {
@@ -61,15 +71,55 @@ class PythonPlugin implements Plugin<Project> {
                                           "You may want to add it to defaultConfig.")
             }
 
+            createTargetConfigs(variant, python)
             createSourceTask(variant, python)
-            createAssetTask(variant, python);
-            createNativeLibsTask(variant, python)
+            createAssetsTask(variant, python)
+            createJniLibsTask(variant, python)
         }
     }
 
+    void createTargetConfigs(variant, PythonExtension python) {
+        def stdlibConfig = configName(variant, "targetStdlib")
+        project.configurations.create(stdlibConfig)
+        project.dependencies.add(stdlibConfig, targetDependency("stdlib", python.version))
+
+        def abiConfig = configName(variant, "targetAbis")
+        project.configurations.create(abiConfig)
+        for (abi in getAbis(variant)) {
+            project.dependencies.add(abiConfig, targetDependency(abi, python.version))
+        }
+    }
+
+    String targetDependency(String artifact, String version) {
+        /** Following the Maven version number format, this is the "build number" */
+        final def TARGET_VERSION_SUFFIX = "-0"
+        return "com.chaquo.python.target:$artifact:$version$TARGET_VERSION_SUFFIX@zip"
+    }
+
+    Set<String> getAbis(variant) {
+        // variant.getMergedFlavor returns a DefaultProductFlavor base class object, which, perhaps
+        // by an oversight, doesn't contain the NDK options.
+        def abis = new TreeSet<String>()
+        if (android.defaultConfig.ndk.abiFilters) {
+            abis.addAll(android.defaultConfig.ndk.abiFilters)
+        }
+        for (flavor in variant.getProductFlavors().reverse()) {
+            // Replicate the accumulation behaviour of MergedNdkConfig.append
+            if (flavor.ndk.abiFilters) {
+                abis.addAll(flavor.ndk.abiFilters)
+            }
+        }
+        if (abis.isEmpty()) {
+            final def DEFAULT_ABIS = ["armeabi-v7a", "x86"]
+            abis.addAll(DEFAULT_ABIS)
+        }
+        return abis
+    }
+
     void createSourceTask(variant, PythonExtension python) {
-        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
-        File sourceDir = genVariantDir(variant, "source")
+        // TODO python{} parameters may need to be task inputs as well
+        // (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
+        File sourceDir = variantGenDir(variant, "source")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
             outputs.dir(sourceDir)
             doLast {
@@ -87,42 +137,39 @@ class PythonPlugin implements Plugin<Project> {
         variant.registerJavaGeneratingTask(genTask, sourceDir)
     }
 
-    void createAssetTask(variant, PythonExtension python) {
-        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
-        // TODO: download target Python from server (renamed from .tmp file)
-        File assetDir = genVariantDir(variant, "assets")
-        Task genTask = project.task("generatePython${variant.name.capitalize()}Assets",
-                                    type: Copy) {
-            doFirst {
-                project.delete(assetDir)
-            }
-            from project.file("${targetDir(python)}/stdlib.zip", PathValidation.FILE)
+    void createAssetsTask(variant, PythonExtension python) {
+        def assetDir = variantGenDir(variant, "assets")
+        def genTask = project.task(genTaskName(variant, "assets"), type: Copy) {
+            doFirst { project.delete(assetDir) }
+            from project.configurations.getByName(configName(variant, "targetStdlib"))
+            rename { "stdlib.zip" }
             into assetDir
         }
-        extendMergeTask(variant.getMergeAssets(), genTask, genTask.outputs)
+        extendMergeTask(variant.getMergeAssets(), genTask)
     }
 
-    void createNativeLibsTask(variant, PythonExtension python) {
-        // TODO python{} parameters may need to be task inputs as well (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
-        for (mergeTask in
-             project.getTasksByName("merge${variant.name.capitalize()}JniLibFolders", false)) {
-            // TODO use NDK ABI filters if specified
-            extendMergeTask(mergeTask, null,
-                            project.file("${targetDir(python)}/lib", PathValidation.DIRECTORY))
+    void createJniLibsTask(variant, PythonExtension python) {
+        def libsDir = variantGenDir(variant, "jniLibs")
+        def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
+                        .resolvedConfiguration.resolvedArtifacts
+        def genTask = project.task(genTaskName(variant, "jniLibs"), type: Copy) {
+            doFirst { project.delete(libsDir) }
+            for (art in artifacts) {
+                from(project.zipTree(art.file)) { into art.name }
+            }
+            into libsDir
         }
+        extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}JniLibFolders"),
+                        genTask)
     }
 
-    void extendMergeTask(Task mergeTask, depTasks, files) {
-        if (depTasks) {
-            mergeTask.dependsOn(depTasks)
-        }
-        if (files) {
-            mergeTask.inputs.files(files)
-            mergeTask.doLast {
-                project.copy {
-                    from files
-                    into mergeTask.outputDir
-                }
+    void extendMergeTask(Task mergeTask, Task genTask) {
+        mergeTask.dependsOn(genTask)
+        mergeTask.inputs.files(genTask.outputs)
+        mergeTask.doLast {
+            project.copy {
+                from genTask.outputs
+                into mergeTask.outputDir
             }
         }
     }
@@ -131,16 +178,20 @@ class PythonPlugin implements Plugin<Project> {
         return new File(project.buildDir, "generated")
     }
 
-    File pythonDir() {
-        return new File(genDir(), "python")
+    File pythonGenDir() {
+        return new File(genDir(), NAME)
     }
 
-    File targetDir(PythonExtension python) {
-        return new File(pythonDir(), "target/$python.version")
+    File variantGenDir(variant, String type) {
+        return new File(genDir(), "$type/$NAME/$variant.dirName")
     }
 
-    File genVariantDir(variant, String type) {
-        return new File(genDir(), "$type/${NAME}/$variant.dirName")
+    String configName(variant, String type) {
+        return "$NAME${variant.name.capitalize()}${type.capitalize()}"
+    }
+
+    String genTaskName(variant, String type) {
+        return "generate${NAME.capitalize()}${variant.name.capitalize()}${type.capitalize()}"
     }
 }
 
