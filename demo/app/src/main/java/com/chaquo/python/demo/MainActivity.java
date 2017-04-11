@@ -5,13 +5,15 @@ import android.support.v7.app.*;
 import android.view.*;
 import android.widget.*;
 
-public class MainActivity extends AppCompatActivity {
+import com.chaquo.python.*;
 
-    private Repl repl = Repl.getInstance();
+public class MainActivity extends AppCompatActivity {
 
     private ScrollView svBuffer;
     private TextView tvBuffer;
     private EditText etInput;
+
+    private PyObject interp, stdout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,7 +39,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        repl.start();
+        Python py = Python.getInstance();
+        interp = py.getModule("code").callAttr("InteractiveInterpreter");
+        PyObject sys = py.getModule("sys");
+        stdout = py.getModule("StringIO").callAttr("StringIO");
+        sys.put("stdout", stdout);
+        sys.put("stderr", stdout);
     }
 
     private void onInput() {
@@ -55,8 +62,16 @@ public class MainActivity extends AppCompatActivity {
 
         // TODO: multi-line input
         // TODO: input history (On-screen arrow buttons? See what other Python REPL apps do.)
-        tvBuffer.append(repl.exec(input));
+        tvBuffer.append(exec(input));
         scrollDown();
+    }
+
+    private String exec(String input) {
+        interp.callAttr("runsource", input);
+        String result = stdout.callAttr("getvalue").toJava();
+        stdout.callAttr("seek", 0);
+        stdout.callAttr("truncate", 0);
+        return result;
     }
 
     private void scrollDown() {
@@ -67,12 +82,6 @@ public class MainActivity extends AppCompatActivity {
                 etInput.requestFocus();
             }
         });
-    }
-
-    @Override
-    protected void onDestroy() {
-        repl.stop();
-        super.onDestroy();
     }
 
 }

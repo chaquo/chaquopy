@@ -2,16 +2,72 @@ apply plugin: 'java'
 
 archivesBaseName = "android-python-runtime"
 sourceCompatibility = 7
-def apiLevel = 9     // Currently the oldest version included in the NDK
+
+// Currently the oldest version included in the NDK. The corresponding platform JAR should be
+// manually downloaded using the SDK Manager.
+def apiLevel = 9
 
 jar {
     version = null
 }
 
+/* TODO: Add Cython build task (see "proto" dirs in build-system for example)
+externalNativeBuild {
+    cmake {
+        path 'CMakeLists.txt'
+    }
+}
+*/
+
+// The following properties file should be created manually.
+def localProps = new Properties()
+localProps.load(project.rootProject.file('local.properties').newDataInputStream())
+def sdkDir = localProps.getProperty('sdk.dir')
+def ndkDir = localProps.getProperty('ndk.dir')
+def crystaxDir = localProps.getProperty('crystax.dir')
+
+def cmakeBuildDir = "$buildDir/cmake"
+def cmakeParent = new File(sdkDir, "cmake")
+def cmakeDir = "$cmakeParent/${cmakeParent.list()[0]}"
+
+def abi = "x86" // FIXME loop
+def pythonVersion = "2.7" // FIXME loop
+def pythonAbiFlags = pythonVersion.startsWith("3") ? "m" : ""   // See PEP 3149
+
+task nativeCmake(type: Exec, group: "build") {
+    /* FIXME not sure about this
+    inputs.file "$projectDir/build.gradle"
+    outputs.dir cmakeBuildDir */
+    doFirst {
+        delete(cmakeBuildDir)
+        mkdir(cmakeBuildDir)
+    }
+    workingDir cmakeBuildDir
+    executable "$cmakeDir/bin/cmake"
+    args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja",
+         "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+         "-DCMAKE_BUILD_TYPE=Release", "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
+         "-DANDROID_NATIVE_API_LEVEL=$apiLevel", "-DANDROID_ABI=$abi",
+         "-DCRYSTAX_PYTHON=$crystaxDir/sources/python", "-DPYTHON_VERSION=$pythonVersion",
+         "-DPYTHON_ABI_FLAGS=$pythonAbiFlags",
+         "$projectDir"
+}
+
+task nativeBuild(type: Exec, group: "build") {
+    // FIXME inputs and outputs
+    dependsOn nativeCmake
+    workingDir cmakeBuildDir
+    executable "$cmakeDir/bin/cmake"
+    args "--build", cmakeBuildDir
+}
+assemble.dependsOn(nativeBuild)
+
+
 dependencies {
-    def localProps = new Properties()
-    localProps.load(project.rootProject.file('local.properties').newDataInputStream())
-    compile files("${localProps.getProperty('sdk.dir')}/platforms/android-$apiLevel/android.jar")
+    compile files("$sdkDir/platforms/android-$apiLevel/android.jar")
+
+    // Avoid adding external dependencies here if possible, because they'll inflate the size of
+    // the users' APKs.
 
     testCompile 'junit:junit:4.11'
 }
