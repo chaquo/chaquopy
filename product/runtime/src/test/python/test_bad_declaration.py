@@ -8,6 +8,7 @@ from jnius.reflect import autoclass
 class BadDeclarationTest(unittest.TestCase):
 
     def test_class_not_found(self):
+        # FIXME
         #self.assertRaises(JavaException, autoclass, 'org.unknow.class')
         #self.assertRaises(JavaException, autoclass, 'java/lang/String')
         pass

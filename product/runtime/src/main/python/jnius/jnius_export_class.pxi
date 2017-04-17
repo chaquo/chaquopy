@@ -138,6 +138,8 @@ class MetaJavaClass(type):
 cdef class JavaClass(object):
     '''Main class to do introspection.
     '''
+    # TODO special-case getClass so it can be called with or without an instance (can't support
+    # .class syntax because that's a reserved word).
 
     cdef JNIEnv *j_env
     cdef jclass j_cls
@@ -556,6 +558,10 @@ cdef class JavaMethod(object):
     cdef object definition_return
     cdef object definition_args
 
+    def __repr__(self):
+        return (f"<JavaMethod {self.definition_return} {self.classname}.{self.name}"
+                f"{self.definition_args}>")
+
     def __cinit__(self, definition, **kwargs):
         self.j_method = NULL
         self.j_cls = NULL
@@ -563,6 +569,13 @@ cdef class JavaMethod(object):
 
     def __init__(self, definition, **kwargs):
         super(JavaMethod, self).__init__()
+
+        # FIXME move to parse_definition
+        BAD_CHARS = ",."  # ',' should be ';' or nothing, and '.' should be '/'
+        for c in BAD_CHARS:
+            if c in definition:
+                raise ValueError(f"Invalid character '{c}' in definition '{definition}'")
+
         self.definition = definition
         self.definition_return, self.definition_args = \
                 parse_definition(definition)
@@ -595,6 +608,8 @@ cdef class JavaMethod(object):
         self.name = name
         self.classname = classname
         self.j_cls = j_cls
+        # FIXME this causes all existing method objects to be silently rebound to the new
+        # instance. Separate test from below.
         self.j_self = j_self
 
     def __get__(self, obj, objtype):
@@ -616,7 +631,7 @@ cdef class JavaMethod(object):
             args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
 
         if len(args) != len(d_args):
-            raise JavaException('Invalid call, number of argument mismatch')
+            raise JavaException(f'{self.name} takes {len(d_args)} arguments ({len(args)} given)')
 
         if not self.is_static and j_env == NULL:
             raise JavaException('Cannot call instance method on a un-instanciated class')

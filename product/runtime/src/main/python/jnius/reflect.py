@@ -10,13 +10,15 @@ from .jnius import (
     JavaField, JavaStaticField, JavaMultipleMethod, find_javaclass
 )
 
+# FIXME these probably contain missing varargs flags and various other errors, regenerate using
+# javap.
 
 class Class(with_metaclass(MetaJavaClass, JavaClass)):
     __javaclass__ = 'java/lang/Class'
 
     desiredAssertionStatus = JavaMethod('()Z')
     forName = JavaMultipleMethod([
-        ('(Ljava/lang/String,Z,Ljava/lang/ClassLoader;)Ljava/langClass;', True, False),
+        ('(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/langClass;', True, False),
         ('(Ljava/lang/String;)Ljava/lang/Class;', True, False), ])
     getClassLoader = JavaMethod('()Ljava/lang/ClassLoader;')
     getClasses = JavaMethod('()[Ljava/lang/Class;')
@@ -28,13 +30,15 @@ class Class(with_metaclass(MetaJavaClass, JavaClass)):
     getDeclaredConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
     getDeclaredField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
     getDeclaredFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-    getDeclaredMethod = JavaMethod('(Ljava/lang/String,[Ljava/lang/Class;)Ljava/lang/reflect/Method;')
+    getDeclaredMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
+                                   varargs=True)
     getDeclaredMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
     getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
     getField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
     getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
     getInterfaces = JavaMethod('()[Ljava/lang/Class;')
-    getMethod = JavaMethod('(Ljava/lang/String,[Ljava/lang/Class;)Ljava/lang/reflect/Method;')
+    getMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
+                           varargs=True)
     getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
     getModifiers = JavaMethod('()[I')
     getName = JavaMethod('()Ljava/lang/String;')
@@ -43,9 +47,9 @@ class Class(with_metaclass(MetaJavaClass, JavaClass)):
     getResource = JavaMethod('(Ljava/lang/String;)Ljava/net/URL;')
     getResourceAsStream = JavaMethod('(Ljava/lang/String;)Ljava/io/InputStream;')
     getSigners = JavaMethod('()[Ljava/lang/Object;')
-    getSuperclass = JavaMethod('()Ljava/lang/reflect/Class;')
+    getSuperclass = JavaMethod('()Ljava/lang/Class;')
     isArray = JavaMethod('()Z')
-    isAssignableFrom = JavaMethod('(Ljava/lang/reflect/Class;)Z')
+    isAssignableFrom = JavaMethod('(Ljava/lang/Class;)Z')
     isInstance = JavaMethod('(Ljava/lang/Object;)Z')
     isInterface = JavaMethod('()Z')
     isPrimitive = JavaMethod('()Z')
@@ -80,12 +84,15 @@ class Modifier(with_metaclass(MetaJavaClass, JavaClass)):
 class Method(with_metaclass(MetaJavaClass, JavaClass)):
     __javaclass__ = 'java/lang/reflect/Method'
 
+    # FIXME method list incomplete, and autoclass() will return the incomplete object.
     getName = JavaMethod('()Ljava/lang/String;')
     toString = JavaMethod('()Ljava/lang/String;')
     getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
     getReturnType = JavaMethod('()Ljava/lang/Class;')
     getModifiers = JavaMethod('()I')
+    invoke = JavaMethod('(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;', varargs=True)
     isVarArgs = JavaMethod('()Z')
+    setAccessible = JavaMethod('(Z)V')
 
 
 class Field(with_metaclass(MetaJavaClass, JavaClass)):

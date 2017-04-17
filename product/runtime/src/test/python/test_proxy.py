@@ -6,6 +6,7 @@ from six.moves import range
 from jnius import autoclass, java_method, PythonJavaClass, cast
 from nose.tools import *
 
+# FIXME make this into unittest format
 print('1: declare a TestImplem that implement Collection')
 
 

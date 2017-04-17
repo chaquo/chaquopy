@@ -3,7 +3,6 @@ from cpython.version cimport PY_MAJOR_VERSION
 # on desktop, we need to create an env :)
 # example taken from http://www.inonit.com/cygwin/jni/invocationApi/c.html
 
-cdef extern jint __stdcall JNI_CreateJavaVM(JavaVM **pvm, void **penv, void *args)
 cdef extern from "jni.h":
     int JNI_VERSION_1_4
     int JNI_OK
@@ -11,11 +10,12 @@ cdef extern from "jni.h":
     ctypedef struct JavaVMInitArgs:
         jint version
         jint nOptions
-        jboolean ignoreUnrecognized
         JavaVMOption *options
+        jboolean ignoreUnrecognized
     ctypedef struct JavaVMOption:
         char *optionString
         void *extraInfo
+    jint JNI_CreateJavaVM(JavaVM **pvm, void **penv, void *args)
 
 cdef JNIEnv *_platform_default_env = NULL
 
@@ -24,17 +24,14 @@ cdef void create_jnienv() except *:
     cdef JavaVMInitArgs args
     cdef JavaVMOption *options
     cdef int ret
-    cdef bytes py_bytes
     import jnius_config
 
-    optarr = jnius_config.options
-    optarr.append("-Djava.class.path=" + jnius_config.expand_classpath())
+    optarr = [str_for_c(opt) for opt in jnius_config.options]
+    optarr.append(str_for_c("-Djava.class.path=" + jnius_config.expand_classpath()))
 
     options = <JavaVMOption*>malloc(sizeof(JavaVMOption) * len(optarr))
     for i, opt in enumerate(optarr):
-        if PY_MAJOR_VERSION >= 3:
-           opt = opt.encode('utf-8')
-        options[i].optionString = <bytes>(opt)
+        options[i].optionString = <bytes?>opt
         options[i].extraInfo = NULL
 
     args.version = JNI_VERSION_1_4

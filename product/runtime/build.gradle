@@ -1,23 +1,14 @@
 apply plugin: 'java'
 
-archivesBaseName = "android-python-runtime"
+archivesBaseName = "chaquopy-runtime"
 sourceCompatibility = 7
-
-// Currently the oldest version included in the NDK. The corresponding platform JAR should be
-// manually downloaded using the SDK Manager.
-def apiLevel = 9
-
 jar {
     version = null
 }
 
-/* TODO: Add Cython build task (see "proto" dirs in build-system for example)
-externalNativeBuild {
-    cmake {
-        path 'CMakeLists.txt'
-    }
-}
-*/
+// Currently the oldest version included in the NDK. The corresponding platform JAR should be
+// manually downloaded using the SDK Manager.
+final def API_LEVEL = 9
 
 // The following properties file should be created manually.
 def localProps = new Properties()
@@ -25,49 +16,116 @@ localProps.load(project.rootProject.file('local.properties').newDataInputStream(
 def sdkDir = localProps.getProperty('sdk.dir')
 def ndkDir = localProps.getProperty('ndk.dir')
 def crystaxDir = localProps.getProperty('crystax.dir')
+def cygwinDir = localProps.getProperty('cygwin.dir')
+def jdkHome = "${System.properties.get("java.home")}/.."
+
+
+/** Provide the command line by passing a single string to args() within the closure */
+def bashTask = {Map taskArgs, String name, Closure closure ->
+    taskArgs["type"] = Exec
+    def t = task(taskArgs, name) {
+        executable "$cygwinDir/bin/bash"
+        // environment "PATH" has no effect here for some reason, so use --login to make bash set it.
+        // Unfortunately this will also change the working directory.
+        args "--login", "-c"
+    }
+    t.configure(closure)
+}
+
+def cygEnv = {Task task ->
+    task.configure {
+        environment "PATH", "$cygwinDir/bin;${System.getenv("PATH")}"
+        environment "LC_ALL", "C"  // Clang outputs UTF-8, but Android Studio expects 8-bit
+    }
+}
+
+def cygFilename(Object winFilename) {
+    return (winFilename.toString()
+            .replaceAll($/([A-Za-z]):\\/$, '/cygdrive/$1/')
+            .replaceAll($/\\/$, '/'))
+}
+
+bashTask("cython", group: "build") {
+    def cythonBuildDir = "$buildDir/cython"
+    def pyxDir = "$projectDir/src/main/python/jnius"
+    def pyxFile = "$pyxDir/jnius.pyx"
+    inputs.files pyxFile, fileTree(pyxDir) { include "*.pxi" }
+    outputs.file "$cythonBuildDir/jnius.c"
+    doFirst { mkdir(cythonBuildDir) }
+    // https://github.com/cython/cython/issues/1677
+    args "cython -t '${cygFilename(pyxFile)}' -o '${cygFilename(outputs.files.getSingleFile())}'"
+
+    // FIXME JNICALL JNIEXPORT with forward declarations in a header file
+}
 
 def cmakeBuildDir = "$buildDir/cmake"
-def cmakeParent = new File(sdkDir, "cmake")
-def cmakeDir = "$cmakeParent/${cmakeParent.list()[0]}"
+def cmakeParentDir = new File(sdkDir, "cmake")
+def cmakeDir = "$cmakeParentDir/${cmakeParentDir.list()[0]}"
 
-def abi = "x86" // FIXME loop
-def pythonVersion = "2.7" // FIXME loop
-def pythonAbiFlags = pythonVersion.startsWith("3") ? "m" : ""   // See PEP 3149
+def cmakeBuildAnchor = task("cmakeBuild", group: "build")
+assemble.dependsOn(cmakeBuildAnchor)
 
-task nativeCmake(type: Exec, group: "build") {
-    /* FIXME not sure about this
-    inputs.file "$projectDir/build.gradle"
-    outputs.dir cmakeBuildDir */
-    doFirst {
-        delete(cmakeBuildDir)
-        mkdir(cmakeBuildDir)
+for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
+    def pyAbiFlags = pyVersion.startsWith("3") ? "m" : ""   // See PEP 3149
+    for (abi in ["cygwin", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
+        def cmakeBuildSubdir = "$cmakeBuildDir/$pyVersion/$abi"
+        def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
+            inputs.files "CMakeLists.txt"
+            outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
+            doFirst {
+                delete(cmakeBuildSubdir)
+                mkdir(cmakeBuildSubdir)
+            }
+            workingDir cmakeBuildSubdir
+            executable "$cmakeDir/bin/cmake"
+            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja",
+                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO
+            if (abi == "cygwin") {
+                cygEnv(it)
+                args "-DCMAKE_TOOLCHAIN_FILE=$projectDir/cygwin.toolchain.cmake",
+                     "-DCYGWIN_DIR=$cygwinDir", "-DJDK_HOME=$jdkHome",
+                     "-DPYTHON_INCLUDE=$cygwinDir/usr/include/python$pyVersion$pyAbiFlags",
+                     "-DPYTHON_LIB=$cygwinDir/bin/libpython$pyVersion${pyAbiFlags}.dll"
+            } else {
+                def crystaxPythonDir = "$crystaxDir/sources/python/$pyVersion"
+                args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+                     "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
+                     "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
+                     "-DPYTHON_INCLUDE=$crystaxPythonDir/include/python",
+                     "-DPYTHON_LIB=$crystaxPythonDir/libs/$abi/libpython$pyVersion${pyAbiFlags}.so"
+            }
+            args "$projectDir"
+        }
+
+        def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
+            // No inputs or outputs: the command itself determines whether it's up to date.
+            dependsOn cmake, cython
+            executable "$cmakeDir/bin/cmake"
+            args "--build", cmakeBuildSubdir
+            if (abi == "cygwin") {
+                cygEnv(it)
+            }
+        }
+        cmakeBuildAnchor.dependsOn(cmakeBuild)
     }
-    workingDir cmakeBuildDir
-    executable "$cmakeDir/bin/cmake"
-    args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja",
-         "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
-         "-DCMAKE_BUILD_TYPE=Release", "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
-         "-DANDROID_NATIVE_API_LEVEL=$apiLevel", "-DANDROID_ABI=$abi",
-         "-DCRYSTAX_PYTHON=$crystaxDir/sources/python", "-DPYTHON_VERSION=$pythonVersion",
-         "-DPYTHON_ABI_FLAGS=$pythonAbiFlags",
-         "$projectDir"
-}
 
-task nativeBuild(type: Exec, group: "build") {
-    // FIXME inputs and outputs
-    dependsOn nativeCmake
-    workingDir cmakeBuildDir
-    executable "$cmakeDir/bin/cmake"
-    args "--build", cmakeBuildDir
+    def testPythonTask = bashTask("testPython-$pyVersion", group: "verification") {
+        dependsOn "cmakeBuild-$pyVersion-cygwin", "compileTestJava"
+        environment "PYTHONPATH", "${cygFilename(projectDir)}/src/main/python"
+        environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
+        // environment "PATH" has no effect in bashTask for some reason
+        args "PATH='${cygFilename(jdkHome)}/jre/bin/server':\$PATH " +
+             "python -m unittest discover -v -s ${cygFilename(projectDir)}/src/test/python"
+    }
+    check.dependsOn(testPythonTask)
 }
-assemble.dependsOn(nativeBuild)
 
 
 dependencies {
-    compile files("$sdkDir/platforms/android-$apiLevel/android.jar")
+    compile files("$sdkDir/platforms/android-$API_LEVEL/android.jar")
 
-    // Avoid adding external dependencies here if possible, because they'll inflate the size of
-    // the users' APKs.
+    // This is a library project, so use "+" notation for external dependencies.
+    // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.
 
     testCompile 'junit:junit:4.11'
 }

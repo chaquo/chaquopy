@@ -8,3 +8,5 @@
 .gradle
 build/
 local.properties
+
+*.pyc

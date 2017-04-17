@@ -1,20 +1,16 @@
 cmake_minimum_required(VERSION 3.4.1)
+project(runtime LANGUAGES C)
 
-include_directories(src/main/cpp)
-
-add_library(
-    chaquo SHARED
-    src/main/cpp/Python.cpp
-    # TODO Cython output files
+add_library(jnius MODULE
+    src/main/c/Python.c
+    build/cython/jnius.c
 )
-target_link_libraries(chaquo python)
-
-add_library(
-    python SHARED IMPORTED
+set_target_properties(jnius PROPERTIES
+    PREFIX ""
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/src/main/python/jnius
 )
-set_target_properties(
-    python PROPERTIES
-    IMPORTED_LOCATION "${CRYSTAX_PYTHON}/${PYTHON_VERSION}/libs/${ANDROID_ABI}/\
-libpython${PYTHON_VERSION}${PYTHON_ABI_FLAGS}.so"
+target_include_directories(jnius PRIVATE
+    src/main/c          # For ieeefp.h and jni.h
+    "${PYTHON_INCLUDE}"
 )
-include_directories(${CRYSTAX_PYTHON}/${PYTHON_VERSION}/include/python)
+target_link_libraries(jnius "${PYTHON_LIB}" "${JDK_HOME}/jre/bin/server/jvm.dll")

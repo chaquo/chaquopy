@@ -3,7 +3,7 @@ __all__ = ('set_options', 'add_options', 'get_options',
            'expand_classpath')
 
 import platform
-if platform.system() == 'Windows':
+if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
     split_char = ';'
 else:
     split_char = ':'
