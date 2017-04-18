@@ -35,7 +35,7 @@ def bashTask = {Map taskArgs, String name, Closure closure ->
 def cygEnv = {Task task ->
     task.configure {
         environment "PATH", "$cygwinDir/bin;${System.getenv("PATH")}"
-        environment "LC_ALL", "C"  // Clang outputs UTF-8, but Android Studio expects 8-bit
+        environment "LC_ALL", "C"  // Compiler outputs UTF-8 quotes, but Android Studio expects 8-bit
     }
 }
 
@@ -58,9 +58,6 @@ bashTask("cython", group: "build") {
     // FIXME JNICALL JNIEXPORT with forward declarations in a header file
 }
 
-def cmakeBuildDir = "$buildDir/cmake"
-def cmakeParentDir = new File(sdkDir, "cmake")
-def cmakeDir = "$cmakeParentDir/${cmakeParentDir.list()[0]}"
 
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
@@ -68,7 +65,17 @@ assemble.dependsOn(cmakeBuildAnchor)
 for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
     def pyAbiFlags = pyVersion.startsWith("3") ? "m" : ""   // See PEP 3149
     for (abi in ["cygwin", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
-        def cmakeBuildSubdir = "$cmakeBuildDir/$pyVersion/$abi"
+        def cmakeProgram, ninjaProgram
+        if (abi == "cygwin") {
+            cmakeProgram = "$cygwinDir/bin/cmake"
+        } else {
+            def sdkCmakeDir = new File(sdkDir, "cmake")
+            def sdkCmakeVerDir = "$sdkCmakeDir/${sdkCmakeDir.list()[0]}"
+            cmakeProgram = "$sdkCmakeVerDir/bin/cmake"
+            ninjaProgram = "$sdkCmakeVerDir/bin/ninja"
+        }
+
+        def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
             inputs.files "CMakeLists.txt"
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
@@ -77,18 +84,18 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 mkdir(cmakeBuildSubdir)
             }
             workingDir cmakeBuildSubdir
-            executable "$cmakeDir/bin/cmake"
-            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO
+            executable cmakeProgram
+            args "-GNinja", "-DCMAKE_BUILD_TYPE=Debug"  // TODO
+
             if (abi == "cygwin") {
                 cygEnv(it)
-                args "-DCMAKE_TOOLCHAIN_FILE=$projectDir/cygwin.toolchain.cmake",
-                     "-DCYGWIN_DIR=$cygwinDir", "-DJDK_HOME=$jdkHome",
+                args "-DCMAKE_C_STANDARD_INCLUDE_DIRECTORIES=$jdkHome/include;$jdkHome/include/win32",
                      "-DPYTHON_INCLUDE=$cygwinDir/usr/include/python$pyVersion$pyAbiFlags",
                      "-DPYTHON_LIB=$cygwinDir/bin/libpython$pyVersion${pyAbiFlags}.dll"
             } else {
                 def crystaxPythonDir = "$crystaxDir/sources/python/$pyVersion"
-                args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+                args "-DCMAKE_MAKE_PROGRAM=$ninjaProgram",
+                     "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                      "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                      "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
                      "-DPYTHON_INCLUDE=$crystaxPythonDir/include/python",
@@ -100,7 +107,7 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
         def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
             // No inputs or outputs: the command itself determines whether it's up to date.
             dependsOn cmake, cython
-            executable "$cmakeDir/bin/cmake"
+            executable cmakeProgram
             args "--build", cmakeBuildSubdir
             if (abi == "cygwin") {
                 cygEnv(it)
