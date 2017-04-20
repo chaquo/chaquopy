@@ -6,6 +6,27 @@ jar {
     version = null
 }
 
+
+/* FIXME note install (and add to path (in this order))
+MSYS2 mingw64\bin and usr\bin
+Windows Python (root and Scripts) (use winpty to run it within msys2)
+Oracle JDK (%JAVA_HOME%\bin), with JAVA_HOME set to root
+
+Set MSYS2_PATH_TYPE=inherit in msys2 ini files
+Set distutils compiler=unix ??
+
+Use the official Python Windows build, and the appropriate Microsoft compiler
+(https://wiki.python.org/moin/WindowsCompilers) in order to make sure that native extensions are
+linked with a C library compatible with the one the Python interpreter uses
+(https://bugs.python.org/issue4709#msg243605).
+
+Or use MSYS2, making sure to also use their Pacman packages of pip and setuptools and never install
+them from PyPI, because the standard versions assume that if you're on Windows you must be using the
+Microsoft compiler.
+
+My attempts to use Cygwin were not successful (see commit message of 2017-04-20. 
+*/
+
 // Currently the oldest version included in the NDK. The corresponding platform JAR should be
 // manually downloaded using the SDK Manager.
 final def API_LEVEL = 9
@@ -16,59 +37,38 @@ localProps.load(project.rootProject.file('local.properties').newDataInputStream(
 def sdkDir = localProps.getProperty('sdk.dir')
 def ndkDir = localProps.getProperty('ndk.dir')
 def crystaxDir = localProps.getProperty('crystax.dir')
-def cygwinDir = localProps.getProperty('cygwin.dir')
-def jdkHome = "${System.properties.get("java.home")}/.."
+def javaHome = System.getenv("JAVA_HOME")
+def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 
-
-/** Provide the command line by passing a single string to args() within the closure */
-def bashTask = {Map taskArgs, String name, Closure closure ->
-    taskArgs["type"] = Exec
-    def t = task(taskArgs, name) {
-        executable "$cygwinDir/bin/bash"
-        // environment "PATH" has no effect here for some reason, so use --login to make bash set it.
-        // Unfortunately this will also change the working directory.
-        args "--login", "-c"
-    }
-    t.configure(closure)
-}
-
-def cygEnv = {Task task ->
-    task.configure {
-        environment "PATH", "$cygwinDir/bin;${System.getenv("PATH")}"
-        environment "LC_ALL", "C"  // Clang outputs UTF-8, but Android Studio expects 8-bit
-    }
-}
-
-def cygFilename(Object winFilename) {
-    return (winFilename.toString()
-            .replaceAll($/([A-Za-z]):\\/$, '/cygdrive/$1/')
-            .replaceAll($/\\/$, '/'))
-}
-
-bashTask("cython", group: "build") {
+task cython(type: Exec, group: "build") {
     def cythonBuildDir = "$buildDir/cython"
     def pyxDir = "$projectDir/src/main/python/jnius"
     def pyxFile = "$pyxDir/jnius.pyx"
     inputs.files pyxFile, fileTree(pyxDir) { include "*.pxi" }
     outputs.file "$cythonBuildDir/jnius.c"
     doFirst { mkdir(cythonBuildDir) }
-    // https://github.com/cython/cython/issues/1677
-    args "cython -t '${cygFilename(pyxFile)}' -o '${cygFilename(outputs.files.getSingleFile())}'"
+    executable "cython"
+    args pyxFile, "-o", outputs.files.getSingleFile()
 
     // FIXME JNICALL JNIEXPORT with forward declarations in a header file
 }
 
-def cmakeBuildDir = "$buildDir/cmake"
-def cmakeParentDir = new File(sdkDir, "cmake")
-def cmakeDir = "$cmakeParentDir/${cmakeParentDir.list()[0]}"
+def sdkCmakeParentDir = new File(sdkDir, "cmake")
+def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
 
 for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
-    def pyAbiFlags = pyVersion.startsWith("3") ? "m" : ""   // See PEP 3149
-    for (abi in ["cygwin", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
-        def cmakeBuildSubdir = "$cmakeBuildDir/$pyVersion/$abi"
+    for (abi in ["host", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
+        def pyPlusVersion
+        if (abi == "host" && windowsHost) {
+            pyPlusVersion = "python${pyVersion.replace(".", "")}"
+        } else {
+            pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
+        }
+
+        def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
             inputs.files "CMakeLists.txt"
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
@@ -77,22 +77,28 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 mkdir(cmakeBuildSubdir)
             }
             workingDir cmakeBuildSubdir
-            executable "$cmakeDir/bin/cmake"
-            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja",
+            executable "$sdkCmakeDir/bin/cmake"
+            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
                  "-DCMAKE_BUILD_TYPE=Debug"  // TODO
-            if (abi == "cygwin") {
-                cygEnv(it)
-                args "-DCMAKE_TOOLCHAIN_FILE=$projectDir/cygwin.toolchain.cmake",
-                     "-DCYGWIN_DIR=$cygwinDir", "-DJDK_HOME=$jdkHome",
-                     "-DPYTHON_INCLUDE=$cygwinDir/usr/include/python$pyVersion$pyAbiFlags",
-                     "-DPYTHON_LIB=$cygwinDir/bin/libpython$pyVersion${pyAbiFlags}.dll"
+
+            if (abi == "host") {
+                if (windowsHost) {
+                    def pyDir = "C:/${pyPlusVersion.capitalize()}"
+                    args "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include;$javaHome/include;$javaHome/include/win32",
+                         "-DCHAQUOPY_LIB_DIRS=$pyDir/libs;$javaHome/lib",   // FIXME use dlopen instead
+                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",                //
+                         "-DCHAQUOPY_SUFFIX=.pyd"
+                } else {
+                    throw new GradleException("Host build only supported on Windows")
+                }
             } else {
-                def crystaxPythonDir = "$crystaxDir/sources/python/$pyVersion"
+                def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                      "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                      "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
-                     "-DPYTHON_INCLUDE=$crystaxPythonDir/include/python",
-                     "-DPYTHON_LIB=$crystaxPythonDir/libs/$abi/libpython$pyVersion${pyAbiFlags}.so"
+                     "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
+                     "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi",
+                     "-DCHAQUOPY_LIBS=$pyPlusVersion"
             }
             args "$projectDir"
         }
@@ -100,24 +106,24 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
         def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
             // No inputs or outputs: the command itself determines whether it's up to date.
             dependsOn cmake, cython
-            executable "$cmakeDir/bin/cmake"
+            executable "$sdkCmakeDir/bin/cmake"
             args "--build", cmakeBuildSubdir
-            if (abi == "cygwin") {
-                cygEnv(it)
-            }
         }
         cmakeBuildAnchor.dependsOn(cmakeBuild)
+
+        if (abi == "host") {
+            def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
+                dependsOn cmakeBuild, "compileTestJava"
+                environment "PYTHONPATH", "$projectDir/src/main/python"
+                environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
+                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}" // FIXME use dlopen instead
+                executable pyPlusVersion
+                args "-m", "unittest", "discover", "-v", "-s", "$projectDir/src/test/python"
+            }
+            check.dependsOn(testPython)
+        }
     }
 
-    def testPythonTask = bashTask("testPython-$pyVersion", group: "verification") {
-        dependsOn "cmakeBuild-$pyVersion-cygwin", "compileTestJava"
-        environment "PYTHONPATH", "${cygFilename(projectDir)}/src/main/python"
-        environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
-        // environment "PATH" has no effect in bashTask for some reason
-        args "PATH='${cygFilename(jdkHome)}/jre/bin/server':\$PATH " +
-             "python -m unittest discover -v -s ${cygFilename(projectDir)}/src/test/python"
-    }
-    check.dependsOn(testPythonTask)
 }
 
 
