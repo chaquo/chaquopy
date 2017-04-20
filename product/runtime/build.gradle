@@ -7,25 +7,25 @@ jar {
 }
 
 
-/* FIXME note install (and add to path (in this order))
-MSYS2 mingw64\bin and usr\bin
-Windows Python (root and Scripts) (use winpty to run it within msys2)
-Oracle JDK (%JAVA_HOME%\bin), with JAVA_HOME set to root
+/* My attempts to use Cygwin were not successful (see commit message of 2017-04-20), so there are two
+options for working on Windows:
 
-Set MSYS2_PATH_TYPE=inherit in msys2 ini files
-Set distutils compiler=unix ??
+Use the official Python Windows build, in which case you must use the appropriate Microsoft compiler
+(https://wiki.python.org/moin/WindowsCompilers), because:
+* Native modules must be linked against a C library compatible with the one the Python interpreter
+  uses (https://bugs.python.org/issue4709#msg243605).
+* The supplied C headers depend on _MSC_VER and possibly other #defines not set by any other
+  compiler.
 
-Use the official Python Windows build, and the appropriate Microsoft compiler
-(https://wiki.python.org/moin/WindowsCompilers) in order to make sure that native extensions are
-linked with a C library compatible with the one the Python interpreter uses
-(https://bugs.python.org/issue4709#msg243605).
+Or (as this file currently does) use MSYS2, making sure to also use their Pacman packages of pip and
+setuptools and never install them from PyPI, because the standard versions assume that if you're on
+Windows you must be using the Microsoft compiler. For the MSYS2 compiler to be found by cmake,
+msys64/mingw64/bin should be on the PATH.
 
-Or use MSYS2, making sure to also use their Pacman packages of pip and setuptools and never install
-them from PyPI, because the standard versions assume that if you're on Windows you must be using the
-Microsoft compiler.
+In both cases, interactive use of Python requires either using a Windows console window, or the
+winpty program in mintty. And for the Python and Cython executables to be found by their Gradle
+tasks, their directories must be on the PATH. */
 
-My attempts to use Cygwin were not successful (see commit message of 2017-04-20. 
-*/
 
 // Currently the oldest version included in the NDK. The corresponding platform JAR should be
 // manually downloaded using the SDK Manager.
@@ -37,8 +37,11 @@ localProps.load(project.rootProject.file('local.properties').newDataInputStream(
 def sdkDir = localProps.getProperty('sdk.dir')
 def ndkDir = localProps.getProperty('ndk.dir')
 def crystaxDir = localProps.getProperty('crystax.dir')
+
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
+def exeSuffix = windowsHost ? ".exe" : ""
+
 
 task cython(type: Exec, group: "build") {
     def cythonBuildDir = "$buildDir/cython"
@@ -61,12 +64,7 @@ assemble.dependsOn(cmakeBuildAnchor)
 
 for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
     for (abi in ["host", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
-        def pyPlusVersion
-        if (abi == "host" && windowsHost) {
-            pyPlusVersion = "python${pyVersion.replace(".", "")}"
-        } else {
-            pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
-        }
+        def pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
@@ -77,16 +75,17 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 mkdir(cmakeBuildSubdir)
             }
             workingDir cmakeBuildSubdir
-            executable "$sdkCmakeDir/bin/cmake"
+            executable "$sdkCmakeDir/bin/cmake"     // FIXME try msys2 cmake and ninja to fix missing output
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
                  "-DCMAKE_BUILD_TYPE=Debug"  // TODO
 
             if (abi == "host") {
                 if (windowsHost) {
-                    def pyDir = "C:/${pyPlusVersion.capitalize()}"
-                    args "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include;$javaHome/include;$javaHome/include/win32",
-                         "-DCHAQUOPY_LIB_DIRS=$pyDir/libs;$javaHome/lib",   // FIXME use dlopen instead
-                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",                //
+                    def mingwDir = "C:/msys64/mingw64"
+                    args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
+                                                 "$javaHome/include;$javaHome/include/win32",
+                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",       // FIXME use dlopen instead
+                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",      //
                          "-DCHAQUOPY_SUFFIX=.pyd"
                 } else {
                     throw new GradleException("Host build only supported on Windows")
@@ -117,7 +116,7 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 environment "PYTHONPATH", "$projectDir/src/main/python"
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}" // FIXME use dlopen instead
-                executable pyPlusVersion
+                executable "$pyPlusVersion$exeSuffix"   // filenames with dots require the ".exe"
                 args "-m", "unittest", "discover", "-v", "-s", "$projectDir/src/test/python"
             }
             check.dependsOn(testPython)
