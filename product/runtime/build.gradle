@@ -56,9 +56,6 @@ task cython(type: Exec, group: "build") {
     // FIXME JNICALL JNIEXPORT with forward declarations in a header file
 }
 
-def sdkCmakeParentDir = new File(sdkDir, "cmake")
-def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
-
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
 
@@ -67,6 +64,19 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
         def pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
+        def cmakeProgram, ninjaProgram
+        if (abi == "host") {
+            cmakeProgram = "cmake"
+        } else {
+            // msys2 cmake didn't work with android.toolchain.cmake: it tried to use the NDK gcc
+            // irrespective of the value of ANDROID_TOOLCHAIN, but passed it arguments that only
+            // clang understands.
+            def sdkCmakeParentDir = new File(sdkDir, "cmake")
+            def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
+            cmakeProgram = "$sdkCmakeDir/bin/cmake"
+            ninjaProgram = "$sdkCmakeDir/bin/ninja"
+        }
+
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
             inputs.files "CMakeLists.txt"
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
@@ -75,9 +85,8 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 mkdir(cmakeBuildSubdir)
             }
             workingDir cmakeBuildSubdir
-            executable "$sdkCmakeDir/bin/cmake"     // FIXME try msys2 cmake and ninja to fix missing output
-            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO
+            executable cmakeProgram
+            args "-GNinja", "-DCMAKE_BUILD_TYPE=Debug"  // TODO
 
             if (abi == "host") {
                 if (windowsHost) {
@@ -93,6 +102,7 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+                     "-DCMAKE_MAKE_PROGRAM=$ninjaProgram",
                      "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                      "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
                      "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
@@ -105,7 +115,7 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
         def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
             // No inputs or outputs: the command itself determines whether it's up to date.
             dependsOn cmake, cython
-            executable "$sdkCmakeDir/bin/cmake"
+            executable cmakeProgram
             args "--build", cmakeBuildSubdir
         }
         cmakeBuildAnchor.dependsOn(cmakeBuild)
