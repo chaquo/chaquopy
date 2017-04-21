@@ -12,8 +12,6 @@ cdef python_op(int op, object a, object b):
     elif op == 5:
         return a != b
 
-
-
 cdef class ByteArray:
     cdef LocalRef _jobject
     cdef long _size
@@ -24,8 +22,6 @@ cdef class ByteArray:
         self._size = 0
         self._buf = NULL
         self._arr = None
-
-
 
     def __dealloc__(self):
         cdef JNIEnv *j_env
@@ -45,9 +41,8 @@ cdef class ByteArray:
         self._buf = <unsigned char *><signed char *>buf
         self._arr = <unsigned char[:size]>self._buf
 
-    def __str__(self):
-        return '<ByteArray size={} at 0x{}>'.format(
-                self._size, id(self))
+    def __repr__(self):
+        return '<ByteArray {}>'.format(repr(self.tolist()))
 
     def __len__(self):
         return self._size
@@ -64,9 +59,6 @@ cdef class ByteArray:
         else:
             xx = index
             return self._arr[xx]
-
-    def __getslice__(self, long i, long j):
-        return self._arr[i:j]
 
     def __richcmp__(self, other, op):
         cdef ByteArray b_other
