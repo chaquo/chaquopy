@@ -1,3 +1,6 @@
+from libc.stdint cimport uintptr_t
+
+# FIXME should be called GlobalRef
 cdef class LocalRef:
     cdef jobject obj
 
@@ -16,7 +19,7 @@ cdef class LocalRef:
 
     def __repr__(self):
         return '<LocalRef obj=0x{0:x} at 0x{1:x}>'.format(
-            <long><void *>self.obj, id(self))
+            <uintptr_t>self.obj, id(self))
 
 
 cdef LocalRef create_local_ref(JNIEnv *env, jobject obj):

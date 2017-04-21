@@ -22,6 +22,7 @@ cdef class JavaObject(object):
         self.obj = NULL
 
 
+# FIXME use LocalRef instead
 cdef class JavaClassStorage:
     cdef jclass j_cls
 
@@ -57,48 +58,17 @@ class MetaJavaClass(type):
 
         cdef JavaClassStorage jcs = JavaClassStorage()
         cdef bytes __javaclass__ = <bytes>classDict['__javaclass__']
-        cdef bytes __javainterfaces__ = <bytes>classDict.get('__javainterfaces__', '')
-        cdef bytes __javabaseclass__ = <bytes>classDict.get('__javabaseclass__', '')
         cdef jmethodID getProxyClass, getClassLoader
         cdef jclass *interfaces
         cdef jobject *jargs
         cdef JNIEnv *j_env = get_jnienv()
 
-        if __javainterfaces__ and __javabaseclass__:
-            baseclass = j_env[0].FindClass(j_env, <char*>__javabaseclass__)
-            interfaces = <jclass *>malloc(sizeof(jclass) * len(__javainterfaces__))
-
-            for n, i in enumerate(__javainterfaces__):
-                interfaces[n] = j_env[0].FindClass(j_env, <char*>i)
-
-            getProxyClass = j_env[0].GetStaticMethodID(
-                j_env, baseclass, "getProxyClass",
-                "(Ljava/lang/ClassLoader,[Ljava/lang/Class;)Ljava/lang/Class;")
-
-            getClassLoader = j_env[0].GetStaticMethodID(
-                j_env, baseclass, "getClassLoader", "()Ljava/lang/Class;")
-
-            with nogil:
-                classLoader = j_env[0].CallStaticObjectMethodA(
-                        j_env, baseclass, getClassLoader, NULL)
-                jargs = <jobject *>malloc(sizeof(jobject) * 2)
-                jargs[0] = <jobject *>classLoader
-                jargs[1] = interfaces
-                jcs.j_cls = j_env[0].CallStaticObjectMethod(
-                        j_env, baseclass, getProxyClass, jargs)
-
-            j_env[0].DeleteLocalRef(j_env, baseclass)
-
-            if jcs.j_cls == NULL:
-                raise JavaException('Unable to create the class'
-                        ' {0}'.format(__javaclass__))
-        else:
-            class_name = str_for_c(__javaclass__)
-            jcs.j_cls = j_env[0].FindClass(j_env,
-                    <char *>class_name)
-            if jcs.j_cls == NULL:
-                raise JavaException('Unable to find the class'
-                        ' {0}'.format(__javaclass__))
+        class_name = str_for_c(__javaclass__)
+        jcs.j_cls = j_env[0].FindClass(j_env,
+                <char *>class_name)
+        if jcs.j_cls == NULL:
+            raise JavaException('Unable to find the class'
+                    ' {0}'.format(__javaclass__))
 
         # XXX do we need to grab a ref here?
         # -> Yes, according to http://developer.android.com/training/articles/perf-jni.html

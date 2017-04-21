@@ -1,11 +1,12 @@
-cdef extern from "jni.h":
+from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 
+cdef extern from "jni.h":
     ctypedef unsigned char   jboolean
     ctypedef signed char     jbyte
-    ctypedef unsigned short  jchar
-    ctypedef short           jshort
-    ctypedef int             jint
-    ctypedef long long       jlong
+    ctypedef uint16_t        jchar
+    ctypedef int16_t         jshort
+    ctypedef int32_t         jint
+    ctypedef int64_t         jlong
     ctypedef float           jfloat
     ctypedef double          jdouble
     ctypedef void*           jobject
@@ -399,5 +400,5 @@ cdef extern from "jni.h":
         jobjectRefType (*GetObjectRefType)(JNIEnv*, jobject)
 
     ctypedef struct JNIInvokeInterface:
-        jint        (*AttachCurrentThread)(JavaVM *, JNIEnv **, void *)
-        jint        (*DetachCurrentThread)(JavaVM *)
+        jint        (*AttachCurrentThread)(JavaVM *vm, void **p_env, void *thr_args)
+        jint        (*DetachCurrentThread)(JavaVM *vm)

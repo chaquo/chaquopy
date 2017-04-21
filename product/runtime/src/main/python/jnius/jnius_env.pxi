@@ -16,7 +16,7 @@ cdef JNIEnv *get_jnienv() except NULL:
     # return the current env attached to the thread
     # XXX it threads are created from C (not java), we'll leak here.
     cdef JNIEnv *env = NULL
-    jvm[0].AttachCurrentThread(jvm, &env, NULL)
+    jvm[0].AttachCurrentThread(jvm, <void**>&env, NULL)
     return env
 
 
