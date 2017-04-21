@@ -19,6 +19,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
                     jstringy_arg(argtype):
                 j_env[0].DeleteLocalRef(j_env, j_args[index].l)
         elif argtype[0] == '[':
+            # Copy back any modifications the Java method may have made to the array
             ret = convert_jarray_to_python(j_env, argtype[1:], j_args[index].l)
             try:
                 args[index][:] = ret
@@ -100,10 +101,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
                     py_arg = list(py_arg)
             if isinstance(py_arg, str) and PY_MAJOR_VERSION >= 3 and argtype == '[C':
                 py_arg = list(py_arg)
-            if isinstance(py_arg, ByteArray) and argtype != '[B':
-                raise JavaException(
-                    'Cannot use ByteArray for signature {}'.format(argtype))
-            if not isinstance(py_arg, (list, tuple, ByteArray, bytes, bytearray)):
+            if not isinstance(py_arg, (list, tuple, bytes, bytearray)):
                 raise JavaException('Expecting a python list/tuple, got '
                         '{0!r}'.format(py_arg))
             j_args[index].l = convert_pyarray_to_java(
@@ -223,7 +221,6 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
     cdef bytes py_str
     cdef JavaObject ret_jobject
     cdef JavaClass ret_jc
-    cdef ByteArray ret_as_bytearray
 
     if j_object == NULL:
         return None
@@ -242,13 +239,16 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
     elif r == 'B':
         j_bytes = j_env[0].GetByteArrayElements(
                 j_env, j_object, &iscopy)
-        ret_as_bytearray = ByteArray()
-        ret_as_bytearray.set_buffer(j_env, j_object, array_size, j_bytes)
-        return ret_as_bytearray
+        # FIXME is this "unsigned" consistent with other Java byte -> Python int conversions?
+        # It seems like the wrong choice.
+        ret = [(<unsigned char>j_bytes[i]) for i in range(array_size)]
+        j_env[0].ReleaseByteArrayElements(
+                j_env, j_object, j_bytes, 0)
 
     elif r == 'C':
         j_chars = j_env[0].GetCharArrayElements(
                 j_env, j_object, &iscopy)
+        # FIXME this is suspicious, Cython char is 8 bits but Java char is 16
         ret = [chr(<char>j_chars[i]) for i in range(array_size)]
         j_env[0].ReleaseCharArrayElements(
                 j_env, j_object, j_chars, 0)
@@ -465,9 +465,6 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
     cdef JavaObject jo
     cdef JavaClass jc
 
-    cdef ByteArray a_bytes
-
-
     if definition == 'Ljava/lang/Object;' and len(pyarray) > 0:
         # then the method will accept any array type as param
         # let's be as precise as we can
@@ -502,16 +499,12 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
 
     elif definition == 'B':
         ret = j_env[0].NewByteArray(j_env, array_size)
-        if isinstance(pyarray, ByteArray):
-            a_bytes = pyarray
+        for i in range(array_size):
+            # FIXME why the tmp?
+            c_tmp = pyarray[i]
+            j_byte = <signed char>c_tmp
             j_env[0].SetByteArrayRegion(j_env,
-                ret, 0, array_size, <const_jbyte *>a_bytes._buf)
-        else:
-            for i in range(array_size):
-                c_tmp = pyarray[i]
-                j_byte = <signed char>c_tmp
-                j_env[0].SetByteArrayRegion(j_env,
-                        ret, i, 1, &j_byte)
+                    ret, i, 1, &j_byte)
 
     elif definition == 'C':
         ret = j_env[0].NewCharArray(j_env, array_size)
