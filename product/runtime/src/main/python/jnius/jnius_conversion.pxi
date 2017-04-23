@@ -7,8 +7,6 @@ cdef jstringy_arg(argtype):
 
 cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
     # do the conversion from a Python object to Java from a Java definition
-    cdef JavaObject jo
-    cdef JavaClass jc
     cdef int index
     for index, argtype in enumerate(definition_args):
         py_arg = args[index]
@@ -28,9 +26,6 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    # do the conversion from a Python object to Java from a Java definition
-    cdef JavaClassStorage jcs
-    cdef JavaObject jo
     cdef JavaClass jc
     cdef PythonJavaClass pc
     cdef int index
@@ -54,6 +49,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'D':
             j_args[index].d = py_arg
         elif argtype[0] == 'L':
+            # FIXME merge with convert_python_to_jobject
             if py_arg is None:
                 j_args[index].l = NULL
             elif (isinstance(py_arg, basestring) or (PY_MAJOR_VERSION >=3 and isinstance(py_arg, str))) \
@@ -68,22 +64,12 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
                 jc = py_arg
                 check_assignable_from(j_env, jc, argtype[1:-1])
                 j_args[index].l = jc.j_self.obj
-            elif isinstance(py_arg, JavaObject):
-                jo = py_arg
-                j_args[index].l = jo.obj
             elif isinstance(py_arg, MetaJavaClass):
-                jcs = py_arg.__cls_storage
-                j_args[index].l = jcs.j_cls
+                j_args[index].l = (<LocalRef?>py_arg.j_cls).obj
             elif isinstance(py_arg, PythonJavaClass):
-                # from python class, get the proxy/python class
                 pc = py_arg
-                # get the java class
                 jc = pc.j_self
-                # get the localref
                 j_args[index].l = jc.j_self.obj
-            elif isinstance(py_arg, type):
-                jc = py_arg
-                j_args[index].l = jc.j_cls
             elif isinstance(py_arg, (tuple, list)):
                 j_args[index].l = convert_pyarray_to_java(j_env, argtype, py_arg)
             else:
@@ -115,7 +101,6 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
     cdef char *c_str
     cdef bytes py_str
     r = definition[1:-1]
-    cdef JavaObject ret_jobject
     cdef JavaClass ret_jc
     cdef jclass retclass
     cdef jmethodID retmeth
@@ -203,7 +188,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
     return ret_jc
 
 cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
-    cdef jboolean iscopy
+    cdef jboolean iscopy = 0
     cdef jboolean *j_booleans
     cdef jbyte *j_bytes
     cdef jchar *j_chars
@@ -217,10 +202,6 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
 
     cdef int i
     cdef jobject j_object_item
-    cdef char *c_str
-    cdef bytes py_str
-    cdef JavaObject ret_jobject
-    cdef JavaClass ret_jc
 
     if j_object == NULL:
         return None
@@ -321,12 +302,10 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
 
 cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
     cdef jobject retobject, retsubobject
-    cdef jclass retclass
-    cdef jmethodID redmidinit
+    cdef jclass retclass = NULL
+    cdef jmethodID retmidinit = NULL
     cdef jvalue j_ret[1]
     cdef JavaClass jc
-    cdef JavaObject jo
-    cdef JavaClassStorage jcs
     cdef PythonJavaClass pc
     cdef int index
 
@@ -351,25 +330,15 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
             retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(I)V')
             retobject = j_env[0].NewObjectA(j_env, retclass, retmidinit, j_ret)
             return retobject
-        elif isinstance(obj, type):
-            jc = obj
-            return jc.j_cls
         elif isinstance(obj, JavaClass):
             jc = obj
             check_assignable_from(j_env, jc, definition[1:-1])
             return jc.j_self.obj
-        elif isinstance(obj, JavaObject):
-            jo = obj
-            return jo.obj
         elif isinstance(obj, MetaJavaClass):
-            jcs = obj.__cls_storage
-            return jcs.j_cls
+            return (<LocalRef?>obj.j_cls).obj
         elif isinstance(obj, PythonJavaClass):
-            # from python class, get the proxy/python class
             pc = obj
-            # get the java class
             jc = pc.j_self
-            # get the localref
             return jc.j_self.obj
         elif isinstance(obj, (tuple, list)):
             return convert_pyarray_to_java(j_env, definition, obj)
@@ -439,9 +408,11 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
         retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(Z)V')
         j_ret[0].z = 1 if obj else 0
     else:
-        assert(0)
+        raise ValueError(f"Invalid definition {definition}")
 
-    assert(retclass != NULL)
+    if retclass == NULL:
+        raise ValueError(f"FindClass failed in convert_python_to_jobject")
+
     # XXX do we need a globalref or something ?
     retobject = j_env[0].NewObjectA(j_env, retclass, retmidinit, j_ret)
     return retobject
@@ -462,7 +433,6 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
     cdef jdouble j_double
     cdef jstring j_string
     cdef jclass j_class
-    cdef JavaObject jo
     cdef JavaClass jc
 
     if definition == 'Ljava/lang/Object;' and len(pyarray) > 0:
@@ -580,14 +550,9 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
                 check_assignable_from(j_env, jc, definition[1:-1])
                 j_env[0].SetObjectArrayElement(
                         j_env, <jobjectArray>ret, i, jc.j_self.obj)
-            elif isinstance(arg, type):
-                jc = arg
+            elif isinstance(arg, MetaJavaClass):
                 j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, jc.j_cls)
-            elif isinstance(arg, JavaObject):
-                jo = arg
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, jo.obj)
+                        j_env, <jobjectArray>ret, i, (<LocalRef?>arg.j_cls).obj)
             else:
                 raise JavaException('Invalid variable used for L array', definition, pyarray)
 

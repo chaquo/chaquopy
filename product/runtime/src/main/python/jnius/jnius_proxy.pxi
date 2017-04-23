@@ -1,3 +1,6 @@
+from functools import partial
+import traceback
+
 from libc.stdint cimport uintptr_t
 
 class java_method(object):
@@ -119,12 +122,10 @@ cdef jobject py_invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
         py_args.append(py_arg)
 
     # really invoke the python method
-    name = method.getName()
     ret = py_obj.invoke(method, *py_args)
 
     # convert back to the return type
     # use the populate_args(), but in the reverse way :)
-    t = ret_signature[:1]
 
     # did python returned a "native" type ?
     jtype = None
@@ -169,7 +170,7 @@ cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     invoke_methods[0].name = <char*>'invoke0'
     invoke_methods[0].signature = <char*>'(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;'
     invoke_methods[0].fnPtr = <void *>&invoke0
-    j_env[0].RegisterNatives(j_env, nih.j_cls, <JNINativeMethod *>invoke_methods, 1)
+    j_env[0].RegisterNatives(j_env, (<LocalRef?>nih.j_cls).obj, <JNINativeMethod *>invoke_methods, 1)
 
     # create the proxy and pass it the invocation handler
     cdef JavaClass j_obj

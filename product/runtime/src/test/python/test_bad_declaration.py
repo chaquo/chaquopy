@@ -8,10 +8,7 @@ from jnius.reflect import autoclass
 class BadDeclarationTest(unittest.TestCase):
 
     def test_class_not_found(self):
-        # FIXME
-        #self.assertRaises(JavaException, autoclass, 'org.unknow.class')
-        #self.assertRaises(JavaException, autoclass, 'java/lang/String')
-        pass
+        self.assertRaises(JavaException, autoclass, 'org.unknow.class')
 
     def test_invalid_attribute(self):
         Stack = autoclass('java.util.Stack')
@@ -19,12 +16,12 @@ class BadDeclarationTest(unittest.TestCase):
 
     def test_invalid_static_call(self):
         Stack = autoclass('java.util.Stack')
-        self.assertRaises(JavaException, Stack.push, 'hello')
+        self.assertRaises(TypeError, Stack.push, 'hello')
 
     def test_with_too_much_arguments(self):
         Stack = autoclass('java.util.Stack')
         stack = Stack()
-        self.assertRaises(JavaException, stack.push, 'hello', 'world', 123)
+        self.assertRaises(TypeError, stack.push, 'hello', 'world', 123)
 
     def test_java_exception_handling(self):
         Stack = autoclass('java.util.Stack')

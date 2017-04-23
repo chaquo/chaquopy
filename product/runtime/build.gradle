@@ -51,7 +51,7 @@ task cython(type: Exec, group: "build") {
     outputs.file "$cythonBuildDir/jnius.c"
     doFirst { mkdir(cythonBuildDir) }
     executable "cython"
-    args pyxFile, "-o", outputs.files.getSingleFile()
+    args pyxFile, "-Wextra", "-Werror", "-o", outputs.files.getSingleFile()
 
     // FIXME JNICALL JNIEXPORT with forward declarations in a header file
 }
@@ -75,7 +75,7 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                 mkdir(cmakeBuildSubdir)
             }
             workingDir cmakeBuildSubdir
-            executable "$sdkCmakeDir/bin/cmake"     // FIXME try msys2 cmake and ninja to fix missing output
+            executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
                  "-DCMAKE_BUILD_TYPE=Debug"  // TODO
 
@@ -84,8 +84,8 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
                     def mingwDir = "C:/msys64/mingw64"
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
                                                  "$javaHome/include;$javaHome/include/win32",
-                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",       // FIXME use dlopen instead
-                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",      //
+                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",
+                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",
                          "-DCHAQUOPY_SUFFIX=.pyd"
                 } else {
                     throw new GradleException("Host build only supported on Windows")
@@ -112,12 +112,20 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
 
         if (abi == "host") {
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
+                // FIXME don't put pyd in source tree, copy it to "site" build tree along with the
+                // py files, that way things are consistent for host and target.
                 dependsOn cmakeBuild, "compileTestJava"
                 environment "PYTHONPATH", "$projectDir/src/main/python"
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
-                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}" // FIXME use dlopen instead
+                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}"
+                workingDir "$projectDir/src/test/python"
                 executable "$pyPlusVersion$exeSuffix"   // filenames with dots require the ".exe"
-                args "-m", "unittest", "discover", "-v", "-s", "$projectDir/src/test/python"
+                args "-m", "unittest"
+                if (project.hasProperty("testPythonArgs")) {
+                    args project.testPythonArgs.split(" ")
+                } else {
+                    args "discover"
+                }
             }
             check.dependsOn(testPython)
         }

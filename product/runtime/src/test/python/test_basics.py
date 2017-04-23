@@ -18,6 +18,11 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(Test.methodStaticD(), 1.23456789)
         self.assertEquals(Test.methodStaticString(), 'helloworld')
 
+        # Static methods can also be accessed on an instance
+        t = Test()
+        self.assertEquals(t.methodStaticString(), 'helloworld')
+        self.assertEquals(t.methodStaticI(), 2147483467)
+
     def test_static_fields(self):
         Test = autoclass('org.jnius.BasicsTest')
         self.assertEquals(Test.fieldStaticZ, True)
@@ -29,9 +34,21 @@ class BasicsTest(unittest.TestCase):
         self.assertAlmostEquals(Test.fieldStaticF, 1.23456789)
         self.assertEquals(Test.fieldStaticD, 1.23456789)
         self.assertEquals(Test.fieldStaticString, 'helloworld')
+        # FIXME add array fields to this and other field tests
+
+        # Static fields can also be accessed on an instance
+        t = Test()
+        self.assertEquals(t.fieldStaticString, 'helloworld')
+        self.assertEquals(t.fieldStaticI, 2147483467)
+
+    def test_static_set_fields(self):
+        pass    # FIXME not implemented yet
+        # FIXME test what happens setting a final field: probably raises a Java exception, so no
+        # special action required.
 
     def test_instance_methods(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        Test = autoclass('org.jnius.BasicsTest')
+        test = Test()
         self.assertEquals(test.methodZ(), True)
         self.assertEquals(test.methodB(), 127)
         self.assertEquals(test.methodC(), 'k')
@@ -42,8 +59,40 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(test.methodD(), 1.23456789)
         self.assertEquals(test.methodString(), 'helloworld')
 
+    def test_instance_methods_unbound(self):
+        # Instance methods can be called on the class by passing an instance as the first argument.
+        Test = autoclass('org.jnius.BasicsTest')
+        test = Test()
+        with self.assertRaises(TypeError):
+            Test.methodString()
+        with self.assertRaises(TypeError):
+            Test.methodString(99)
+        self.assertEquals(Test.methodString(test), 'helloworld')
+
+        with self.assertRaises(TypeError):
+            Test.methodParamsString('helloworld')
+        self.assertEquals(Test.methodParamsString(test, 'helloworld'), True)
+
+    def test_instance_methods_multiple(self):
+        BT = autoclass('org.jnius.BasicsTest')
+        test1, test2 = BT(), BT(10)
+        self.assertEquals(test2.methodB(), 10)
+        self.assertEquals(test1.methodB(), 127)
+        self.assertEquals(test2.methodB(), 10)
+        method1 = test1.methodB
+        method2 = test2.methodB
+        self.assertEquals(method1(), 127)
+        self.assertEquals(method2(), 10)
+        self.assertEquals(method1(), 127)
+
+        # Instantiation shouldn't rebind existing methods
+        test3 = BT(42)
+        self.assertEquals(method1(), 127)
+        self.assertEquals(method2(), 10)
+
     def test_instance_fields(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        Test = autoclass('org.jnius.BasicsTest')
+        test = Test()
         self.assertEquals(test.fieldZ, True)
         self.assertEquals(test.fieldB, 127)
         self.assertEquals(test.fieldC, 'k')
@@ -53,13 +102,26 @@ class BasicsTest(unittest.TestCase):
         self.assertAlmostEquals(test.fieldF, 1.23456789)
         self.assertEquals(test.fieldD, 1.23456789)
         self.assertEquals(test.fieldString, 'helloworld')
-        test2 = autoclass('org.jnius.BasicsTest')(10)
+
+        # Instance fields cannot be accessed in a static context
+        with self.assertRaises(AttributeError):
+            Test.fieldString
+
+    def test_instance_fields_multiple(self):
+        BT = autoclass('org.jnius.BasicsTest')
+        test1, test2 = BT(), BT(10)
         self.assertEquals(test2.fieldB, 10)
-        self.assertEquals(test.fieldB, 127)
+        self.assertEquals(test1.fieldB, 127)
         self.assertEquals(test2.fieldB, 10)
 
+        test1.fieldB = 11
+        test2.fieldB = 22
+        self.assertEquals(test1.fieldB, 11)
+        self.assertEquals(test2.fieldB, 22)
+
     def test_instance_set_fields(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        Test = autoclass('org.jnius.BasicsTest')
+        test = Test()
         test.fieldSetZ = True
         test.fieldSetB = 127
         test.fieldSetC = ord('k')
@@ -78,10 +140,17 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(test.testFieldSetF())
         self.assertTrue(test.testFieldSetD())
 
+        # FIXME Instance fields cannot be accessed in a static context
+        # with self.assertRaises(AttributeError):
+        #    Test.fieldSetI = 42
+
+        # FIXME test what happens setting a final field: probably raises a Java exception, so no
+        # special action required.
+
     def test_instances_methods_array(self):
         test = autoclass('org.jnius.BasicsTest')()
+        # FIXME test full range of each type
         self.assertEquals(test.methodArrayZ(), [True] * 3)
-        self.assertEquals(test.methodArrayB()[0], 127)
         self.assertEquals(test.methodArrayB(), [127] * 3)
         self.assertEquals(test.methodArrayC(), ['k'] * 3)
         self.assertEquals(test.methodArrayS(), [32767] * 3)

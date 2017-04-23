@@ -10,8 +10,10 @@ from .jnius import (
     JavaField, JavaStaticField, JavaMultipleMethod, find_javaclass
 )
 
-# FIXME these probably contain missing varargs flags and various other errors, regenerate using
-# javap.
+# Bootstrap class proxies used to introspect all other classes.
+
+# FIXME these probably contain missing varargs flags, missing methods and various other errors.
+# Auto-generate using javap, and remove JavaStaticMethod/Field at the same time.
 
 class Class(with_metaclass(MetaJavaClass, JavaClass)):
     __javaclass__ = 'java/lang/Class'
@@ -160,12 +162,7 @@ def autoclass(clsname):
         return cls
 
     classDict = {}
-
-    # c = Class.forName(clsname)
     c = find_javaclass(clsname)
-    if c is None:
-        raise Exception('Java class {0} not found'.format(c))
-        return None
 
     constructors = []
     for constructor in c.getConstructors():
@@ -230,6 +227,7 @@ def autoclass(clsname):
             classDict['__getitem__'] = lambda self, index: self.get(index)
             classDict['__len__'] = lambda self: self.size()
             break
+        # TODO implement other container interfaces
 
     for field in c.getFields():
         static = Modifier.isStatic(field.getModifiers())
@@ -239,8 +237,4 @@ def autoclass(clsname):
 
     classDict['__javaclass__'] = clsname.replace('.', '/')
 
-    return MetaJavaClass.__new__(
-        MetaJavaClass,
-        clsname,  # .replace('.', '_'),
-        (JavaClass, ),
-        classDict)
+    return MetaJavaClass(clsname, (JavaClass,), classDict)

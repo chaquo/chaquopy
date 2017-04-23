@@ -20,7 +20,7 @@ cdef extern from "jni.h":
 cdef JNIEnv *_platform_default_env = NULL
 
 cdef void create_jnienv() except *:
-    cdef JavaVM* jvm
+    cdef JavaVM* jvm = NULL
     cdef JavaVMInitArgs args
     cdef JavaVMOption *options
     cdef int ret

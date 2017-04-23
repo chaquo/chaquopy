@@ -8,6 +8,8 @@ class ReflectTest(unittest.TestCase):
 
     def test_stack(self):
         Stack = autoclass('java.util.Stack')
+        StackSlash = autoclass('java/util/Stack')
+        self.assertIs(Stack, StackSlash)
         stack = Stack()
         self.assertIsInstance(stack, Stack)
         stack.push('hello')

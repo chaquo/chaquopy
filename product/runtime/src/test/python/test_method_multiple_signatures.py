@@ -47,3 +47,6 @@ class MultipleSignature(unittest.TestCase):
     def test_multiple_methods_two_args_and_varargs(self):
         MultipleMethods = autoclass('org.jnius.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('one', 'two', 1, 2, 3), 'resolved two args and varargs')
+
+    # FIXME static, and mixed static/non-static (Java pays no attention to static-ness when
+    # deciding overload resolution).

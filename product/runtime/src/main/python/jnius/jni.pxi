@@ -1,5 +1,16 @@
 from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 
+
+# TODO it would be much easier if the JNI interface was accessed through a pythonic wrapper:
+# * Call functions like env.whatever() rather than env[0].whatever(env).
+# * Take and return LocalRef or GlobalRef objects (made interchangeable using inheritance) rather
+#   than raw jobjects (which would not be touched anywhere else in the codebase).
+# * Take strings rather than char *.
+# * If the call can throw a Java exception, declare except * and call expect_exception if the
+#   call fails.
+#
+# If such an interface isn't already available, it should be possible to auto-generate one.
+
 cdef extern from "jni.h":
     ctypedef unsigned char   jboolean
     ctypedef signed char     jbyte

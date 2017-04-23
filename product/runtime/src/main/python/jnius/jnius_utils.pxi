@@ -1,3 +1,4 @@
+import six
 from cpython.version cimport PY_MAJOR_VERSION
 
 cdef str_for_c(s):
@@ -9,13 +10,13 @@ cdef str_for_c(s):
      else:
         return s.encode('utf-8')
 
-cdef items_compat(d):
-     if PY_MAJOR_VERSION >= 3:
-         return d.items()
-     else:
-        return d.iteritems()                
 
-cdef parse_definition(definition):
+def parse_definition(definition):
+    BAD_CHARS = ",."  # ',' should be ';' or nothing, and '.' should be '/'
+    for c in BAD_CHARS:
+        if c in definition:
+            raise ValueError(f"Invalid character '{c}' in definition '{definition}'")
+
     # not a function, just a field
     if definition[0] != '(':
         return definition, None
@@ -46,11 +47,17 @@ cdef parse_definition(definition):
             args.append(prefix + c + ';')
             continue
 
-        raise Exception('Invalid "{}" character in definition "{}"'.format(
-            c, definition[1:]))
+        raise ValueError(f"Invalid type code '{c}' in definition '{definition}'")
 
     return ret, tuple(args)
 
+
+cdef void expect_exception(JNIEnv *j_env, msg) except *:
+    """Raises a Java exception if one is pending, otherwise raises a Python Exception with the
+    given message.
+    """
+    check_exception(j_env)
+    raise Exception(msg)
 
 cdef void check_exception(JNIEnv *j_env) except *:
     cdef jmethodID toString = NULL
@@ -58,16 +65,11 @@ cdef void check_exception(JNIEnv *j_env) except *:
     cdef jmethodID getStackTrace = NULL
     cdef jmethodID getMessage = NULL
     cdef jstring e_msg
-    cdef jboolean isCopy
     cdef jthrowable exc = j_env[0].ExceptionOccurred(j_env)
     cdef jclass cls_object = NULL
     cdef jclass cls_throwable = NULL
     if exc:
-        # ExceptionDescribe always writes to stderr, preventing tidy exception
-        # handling, so should only be for debugging
-        # j_env[0].ExceptionDescribe(j_env)
         j_env[0].ExceptionClear(j_env)
-
         cls_object = j_env[0].FindClass(j_env, "java/lang/Object")
         cls_throwable = j_env[0].FindClass(j_env, "java/lang/Throwable")
 
@@ -163,7 +165,7 @@ cdef void check_assignable_from(JNIEnv *env, JavaClass jc, signature) except *:
         else:
             assignable_from_order = 1
 
-    # if we have a JavaObject, it's always ok.
+    # if we have an Object, it's always ok.
     if signature == 'java/lang/Object':
         return
 
@@ -188,13 +190,12 @@ cdef void check_assignable_from(JNIEnv *env, JavaClass jc, signature) except *:
         s = str_for_c(signature)
         cls = env[0].FindClass(env, s)
         if cls == NULL:
-            raise JavaException('Unable to found the class for {0!r}'.format(
-                signature))
+            raise JavaException(f'FindClass failed for {signature}')
 
         if assignable_from_order == 1:
-            result = bool(env[0].IsAssignableFrom(env, jc.j_cls, cls))
+            result = bool(env[0].IsAssignableFrom(env, (<LocalRef?>jc.j_cls).obj, cls))
         else:
-            result = bool(env[0].IsAssignableFrom(env, cls, jc.j_cls))
+            result = bool(env[0].IsAssignableFrom(env, cls, (<LocalRef?>jc.j_cls).obj))
 
         exc = env[0].ExceptionOccurred(env)
         if exc:
@@ -304,7 +305,7 @@ cdef int calculate_score(sign_args, args, is_varargs=False) except *:
             # if it's a generic object, accept python string, or any java
             # class/object
             if r == 'java/lang/Object':
-                if isinstance(arg, JavaClass) or isinstance(arg, JavaObject):
+                if isinstance(arg, JavaClass) or isinstance(arg, MetaJavaClass):
                     score += 10
                     continue
                 elif isinstance(arg, basestring):
@@ -332,10 +333,6 @@ cdef int calculate_score(sign_args, args, is_varargs=False) except *:
                 continue
 
             # always accept unknow object, but can be dangerous too.
-            if isinstance(arg, JavaObject):
-                score += 1
-                continue
-
             if isinstance(arg, PythonJavaClass):
                 score += 1
                 continue

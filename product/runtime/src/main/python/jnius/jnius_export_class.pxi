@@ -1,6 +1,9 @@
+import six
+
 class JavaException(Exception):
-    '''Can be a real java exception, or just an exception from the wrapper.
-    '''
+    # TODO: should only be used for real Java exceptions, use standard Python exceptions for
+    # internal errors.
+
     classname = None     # The classname of the exception
     innermessage = None  # The message of the inner exception
     stacktrace = None    # The stack trace of the inner exception
@@ -12,129 +15,48 @@ class JavaException(Exception):
         Exception.__init__(self, message)
 
 
-cdef class JavaObject(object):
-    '''Can contain any Java object. Used to store instance, or whatever.
-    '''
-
-    cdef jobject obj
-
-    def __cinit__(self):
-        self.obj = NULL
-
-
-# FIXME use LocalRef instead
-cdef class JavaClassStorage:
-    cdef jclass j_cls
-
-    def __cinit__(self):
-        self.j_cls = NULL
-
-    def __dealloc__(self):
-        cdef JNIEnv *j_env
-        if self.j_cls != NULL:
-            j_env = get_jnienv()
-            j_env[0].DeleteGlobalRef(j_env, self.j_cls)
-            self.j_cls = NULL
-
-
 cdef dict jclass_register = {}
 
+# TODO MetaJavaClass should be called JavaClass, while JavaClass should be called JavaObject.
+# cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class MetaJavaClass(type):
-    def __new__(meta, classname, bases, classDict):
-        meta.resolve_class(classDict)
-        tp = type.__new__(meta, str(classname), bases, classDict)
-        jclass_register[classDict['__javaclass__']] = tp
-        return tp
+    def __init__(cls, classname, bases, classDict):
+        cdef JNIEnv *j_env = get_jnienv()
+        cls.__javaclass__ = str_for_c(cls.__javaclass__)
+        cls.j_cls = LocalActualRef.create \
+            (j_env, j_env[0].FindClass(j_env, cls.__javaclass__)).global_ref()
+        if not cls.j_cls:
+            raise ValueError(f"FindClass failed for {cls.__javaclass__}")
+
+        for name, value in six.iteritems(classDict):
+            if isinstance(value, JavaMember):
+                value.set_resolve_info(cls, str_for_c(name))
+
+        jclass_register[cls.__javaclass__] = cls
 
     @staticmethod
     def get_javaclass(name):
         return jclass_register.get(name)
 
-    @classmethod
-    def resolve_class(meta, classDict):
-        # search the Java class, and bind to our object
-        if not '__javaclass__' in classDict:
-            raise JavaException('__javaclass__ definition missing')
-
-        cdef JavaClassStorage jcs = JavaClassStorage()
-        cdef bytes __javaclass__ = <bytes>classDict['__javaclass__']
-        cdef jmethodID getProxyClass, getClassLoader
-        cdef jclass *interfaces
-        cdef jobject *jargs
-        cdef JNIEnv *j_env = get_jnienv()
-
-        class_name = str_for_c(__javaclass__)
-        jcs.j_cls = j_env[0].FindClass(j_env,
-                <char *>class_name)
-        if jcs.j_cls == NULL:
-            raise JavaException('Unable to find the class'
-                    ' {0}'.format(__javaclass__))
-
-        # XXX do we need to grab a ref here?
-        # -> Yes, according to http://developer.android.com/training/articles/perf-jni.html
-        #    in the section Local and Global References
-        jcs.j_cls = j_env[0].NewGlobalRef(j_env, jcs.j_cls)
-
-        classDict['__cls_storage'] = jcs
-
-        # search all the static JavaMethod within our class, and resolve them
-        cdef JavaMethod jm
-        cdef JavaMultipleMethod jmm
-        for name, value in items_compat(classDict):
-            if isinstance(value, JavaMethod):
-                jm = value
-                if not jm.is_static:
-                    continue
-                jm.set_resolve_info(j_env, jcs.j_cls, None,
-                    str_for_c(name), str_for_c(__javaclass__))
-            elif isinstance(value, JavaMultipleMethod):
-                jmm = value
-                jmm.set_resolve_info(j_env, jcs.j_cls, None,
-                    str_for_c(name), str_for_c(__javaclass__))
-
-
-        # search all the static JavaField within our class, and resolve them
-        cdef JavaField jf
-        for name, value in items_compat(classDict):
-            if not isinstance(value, JavaField):
-                continue
-            jf = value
-            if not jf.is_static:
-                continue
-            jf.set_resolve_info(j_env, jcs.j_cls,
-                str_for_c(name), str_for_c(__javaclass__))
-
 
 cdef class JavaClass(object):
-    '''Main class to do introspection.
+    '''Base class for Python -> Java proxy classes
     '''
     # TODO special-case getClass so it can be called with or without an instance (can't support
     # .class syntax because that's a reserved word).
 
-    cdef JNIEnv *j_env
-    cdef jclass j_cls
     cdef LocalRef j_self
-
-    def __cinit__(self, *args, **kwargs):
-        self.j_cls = NULL
-        self.j_self = None
 
     def __init__(self, *args, **kwargs):
         super(JavaClass, self).__init__()
-        # copy the current attribute in the storage to our class
-        cdef JavaClassStorage jcs = self.__cls_storage
-        self.j_cls = jcs.j_cls
 
         if 'noinstance' not in kwargs:
             self.call_constructor(args)
-            self.resolve_methods()
-            self.resolve_fields()
 
     cdef void instanciate_from(self, LocalRef j_self) except *:
         self.j_self = j_self
-        self.resolve_methods()
-        self.resolve_fields()
 
+    # TODO merge duplicate parts with JavaMultipleMethod
     cdef void call_constructor(self, args) except *:
         # the goal is to find the class constructor, and call it with the
         # correct arguments.
@@ -193,13 +115,13 @@ cdef class JavaClass(object):
             # get the java constructor
             defstr = str_for_c(definition)
             constructor = j_env[0].GetMethodID(
-                j_env, self.j_cls, '<init>', <char *><bytes>defstr)
+                j_env, (<LocalRef?>self.j_cls).obj, '<init>', defstr)
             if constructor == NULL:
                 raise JavaException('Unable to found the constructor'
                         ' for {0}'.format(self.__javaclass__))
 
             # create the object
-            j_self = j_env[0].NewObjectA(j_env, self.j_cls,
+            j_self = j_env[0].NewObjectA(j_env, (<LocalRef?>self.j_cls).obj,
                     constructor, j_args)
 
             # release our arguments
@@ -216,36 +138,6 @@ cdef class JavaClass(object):
             if j_args != NULL:
                 free(j_args)
 
-    cdef void resolve_methods(self) except *:
-        # search all the JavaMethod within our class, and resolve them
-        cdef JavaMethod jm
-        cdef JavaMultipleMethod jmm
-        cdef JNIEnv *j_env = get_jnienv()
-        for name, value in items_compat(self.__class__.__dict__):
-            if isinstance(value, JavaMethod):
-                jm = value
-                if jm.is_static:
-                    continue
-                jm.set_resolve_info(j_env, self.j_cls, self.j_self,
-                    str_for_c(name), str_for_c(self.__javaclass__))
-            elif isinstance(value, JavaMultipleMethod):
-                jmm = value
-                jmm.set_resolve_info(j_env, self.j_cls, self.j_self,
-                    str_for_c(name), str_for_c(self.__javaclass__))
-
-    cdef void resolve_fields(self) except *:
-        # search all the JavaField within our class, and resolve them
-        cdef JavaField jf
-        cdef JNIEnv *j_env = get_jnienv()
-        for name, value in items_compat(self.__class__.__dict__):
-            if not isinstance(value, JavaField):
-                continue
-            jf = value
-            if jf.is_static:
-                continue
-            jf.set_resolve_info(j_env, self.j_cls,
-                name, self.__javaclass__)
-
     def __repr__(self):
         return '<{0} at 0x{1:x} jclass={2} jself={3}>'.format(
                 self.__class__.__name__,
@@ -254,69 +146,73 @@ cdef class JavaClass(object):
                 self.j_self)
 
 
-cdef class JavaField(object):
-    cdef jfieldID j_field
-    cdef JNIEnv *j_env
-    cdef jclass j_cls
-    cdef object is_static
+cdef class JavaMember(object):
+    cdef jc
     cdef name
-    cdef classname
+    cdef bint is_static
+
+    def __init__(self, bint static=False):
+        self.is_static = static
+
+    def classname(self):
+        return self.jc.__javaclass__ if self.jc else None
+
+    def set_resolve_info(self, jc, name):
+        self.jc = jc
+        self.name = name
+
+
+cdef class JavaField(JavaMember):
+    cdef jfieldID j_field
     cdef definition
 
-    def __cinit__(self, definition, **kwargs):
-        self.j_field = NULL
-        self.j_cls = NULL
+    def __repr__(self):
+        return (f"<JavaField {'static ' if self.is_static else ''}{self.definition} "
+                f"{self.classname()}.{self.name}>")
 
-    def __init__(self, definition, **kwargs):
-        super(JavaField, self).__init__()
-        self.definition = definition
-        self.is_static = kwargs.get('static', False)
-
-    cdef void set_resolve_info(self, JNIEnv *j_env, jclass j_cls,
-            name, classname):
-        j_env = get_jnienv()
-        self.name = name
-        self.classname = classname
-        self.j_cls = j_cls
+    def __init__(self, definition, *, bint static=False):
+        super(JavaField, self).__init__(static)
+        self.definition = str_for_c(definition)
 
     cdef void ensure_field(self) except *:
         cdef JNIEnv *j_env = get_jnienv()
         if self.j_field != NULL:
             return
         if self.is_static:
-            defstr = str_for_c(self.definition)
             self.j_field = j_env[0].GetStaticFieldID(
-                    j_env, self.j_cls, <char *>self.name,
-                    <char *>defstr)
+                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
         else:
-            defstr = str_for_c(self.definition)
-            namestr = str_for_c(self.name)
             self.j_field = j_env[0].GetFieldID(
-                    j_env, self.j_cls, <char *>namestr,
-                    <char *>defstr)
+                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
         if self.j_field == NULL:
-            raise JavaException('Unable to found the field {0}'.format(self.name))
+            raise AttributeError(f'Get[Static]Field failed for {self}')
 
     def __get__(self, obj, objtype):
         cdef jobject j_self
-
         self.ensure_field()
-        if obj is None:
+        if self.is_static:
             return self.read_static_field()
-
-        j_self = (<JavaClass?>obj).j_self.obj
-        return self.read_field(j_self)
+        else:
+            if obj is None:
+                raise AttributeError(f'Cannot access {self} in static context')
+            j_self = (<JavaClass?>obj).j_self.obj
+            return self.read_field(j_self)
 
     def __set__(self, obj, value):
         cdef jobject j_self
-
         self.ensure_field()
         if obj is None:
-            # set not implemented for static fields
-            raise NotImplementedError()
-
-        j_self = (<JavaClass?>obj).j_self.obj
-        self.write_field(j_self, value)
+            # FIXME obj will never be None: when setting a class attribute, it will simply be
+            # be rebound without calling __set__. This has to be done as described at
+            # http://stackoverflow.com/a/28403562/220765.
+            #
+            # Methods should be done similarly, in order to prevent them from being rebound.
+            if not self.is_static:
+                raise AttributeError(f'Cannot access {self} in static context')
+            raise NotImplementedError()  # FIXME
+        else:
+            j_self = (<JavaClass?>obj).j_self.obj
+            self.write_field(j_self, value)
 
     cdef write_field(self, jobject j_self, value):
         cdef jboolean j_boolean
@@ -330,10 +226,7 @@ cdef class JavaField(object):
         cdef jobject j_object
         cdef JNIEnv *j_env = get_jnienv()
 
-        # type of the java field
         r = self.definition[0]
-
-        # set the java field; implemented only for primitive types
         if r == 'Z':
             j_boolean = <jboolean>value
             j_env[0].SetBooleanField(j_env, j_self, self.j_field, j_boolean)
@@ -363,7 +256,7 @@ cdef class JavaField(object):
             j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object)
             j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception('Invalid field definition')
+            raise Exception(f'Invalid field definition for {self}')
 
         check_exception(j_env)
 
@@ -377,17 +270,10 @@ cdef class JavaField(object):
         cdef jfloat j_float
         cdef jdouble j_double
         cdef jobject j_object
-        cdef char *c_str
-        cdef bytes py_str
         cdef object ret = None
-        cdef JavaObject ret_jobject
-        cdef JavaClass ret_jc
         cdef JNIEnv *j_env = get_jnienv()
 
-        # return type of the java method
         r = self.definition[0]
-
-        # now call the java method
         if r == 'Z':
             j_boolean = j_env[0].GetBooleanField(
                     j_env, j_self, self.j_field)
@@ -437,12 +323,13 @@ cdef class JavaField(object):
                 ret = convert_jarray_to_python(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception('Invalid field definition')
+            raise Exception(f'Invalid field definition for {self}')
 
         check_exception(j_env)
         return ret
 
     cdef read_static_field(self):
+        cdef jclass j_class = (<LocalRef?>self.jc.j_cls).obj
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -455,45 +342,42 @@ cdef class JavaField(object):
         cdef object ret = None
         cdef JNIEnv *j_env = get_jnienv()
 
-        # return type of the java method
         r = self.definition[0]
-
-        # now call the java method
         if r == 'Z':
             j_boolean = j_env[0].GetStaticBooleanField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = True if j_boolean else False
         elif r == 'B':
             j_byte = j_env[0].GetStaticByteField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <char>j_byte
         elif r == 'C':
             j_char = j_env[0].GetStaticCharField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = chr(<char>j_char)
         elif r == 'S':
             j_short = j_env[0].GetStaticShortField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <short>j_short
         elif r == 'I':
             j_int = j_env[0].GetStaticIntField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <int>j_int
         elif r == 'J':
             j_long = j_env[0].GetStaticLongField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <long long>j_long
         elif r == 'F':
             j_float = j_env[0].GetStaticFloatField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <float>j_float
         elif r == 'D':
             j_double = j_env[0].GetStaticDoubleField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             ret = <double>j_double
         elif r == 'L':
             j_object = j_env[0].GetStaticObjectField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
                 ret = convert_jobject_to_python(
@@ -502,55 +386,35 @@ cdef class JavaField(object):
         elif r == '[':
             r = self.definition[1:]
             j_object = j_env[0].GetStaticObjectField(
-                    j_env, self.j_cls, self.j_field)
+                    j_env, j_class, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
                 ret = convert_jarray_to_python(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception('Invalid field definition')
+            raise Exception(f"{self}: invalid type definition '{self.definition}'")
 
         check_exception(j_env)
         return ret
 
 
-cdef class JavaMethod(object):
-    '''Used to resolve a Java method, and do the call
-    '''
+cdef class JavaMethod(JavaMember):
     cdef jmethodID j_method
-    cdef jclass j_cls
-    cdef LocalRef j_self
-    cdef name
-    cdef classname
     cdef definition
-    cdef object is_static
-    cdef bint is_varargs
     cdef object definition_return
     cdef object definition_args
+    cdef bint is_varargs
 
     def __repr__(self):
-        return (f"<JavaMethod {self.definition_return} {self.classname}.{self.name}"
-                f"{self.definition_args}>")
+        return (f"<JavaMethod {'static ' if self.is_static else ''}{self.definition_return} "
+                f"{self.classname()}.{self.name}{self.definition_args}>")
 
-    def __cinit__(self, definition, **kwargs):
-        self.j_method = NULL
-        self.j_cls = NULL
-        self.j_self = None
-
-    def __init__(self, definition, **kwargs):
-        super(JavaMethod, self).__init__()
-
-        # FIXME move to parse_definition
-        BAD_CHARS = ",."  # ',' should be ';' or nothing, and '.' should be '/'
-        for c in BAD_CHARS:
-            if c in definition:
-                raise ValueError(f"Invalid character '{c}' in definition '{definition}'")
-
-        self.definition = definition
+    def __init__(self, definition, *, bint static=False, bint varargs=False):
+        super(JavaMethod, self).__init__(static)
+        self.definition = str_for_c(definition)
         self.definition_return, self.definition_args = \
                 parse_definition(definition)
-        self.is_static = kwargs.get('static', False)
-        self.is_varargs = kwargs.get('varargs', False)
+        self.is_varargs = varargs
 
     cdef void ensure_method(self) except *:
         if self.j_method != NULL:
@@ -559,68 +423,52 @@ cdef class JavaMethod(object):
         if self.name is None:
             raise JavaException('Unable to find a None method!')
         if self.is_static:
-            defstr = str_for_c(self.definition)
             self.j_method = j_env[0].GetStaticMethodID(
-                    j_env, self.j_cls, <char *>self.name,
-                    <char *>defstr)
+                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
         else:
-            defstr = str_for_c(self.definition)
             self.j_method = j_env[0].GetMethodID(
-                    j_env, self.j_cls, <char *>self.name,
-                    <char *>defstr)
+                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
 
         if self.j_method == NULL:
-            raise JavaException('Unable to find the method'
-                    ' {0}({1})'.format(self.name, self.definition))
-
-    cdef void set_resolve_info(self, JNIEnv *j_env, jclass j_cls,
-            LocalRef j_self, name, classname):
-        self.name = name
-        self.classname = classname
-        self.j_cls = j_cls
-        # FIXME this causes all existing method objects to be silently rebound to the new
-        # instance. Separate test from below.
-        self.j_self = j_self
+            raise AttributeError(f"Get[Static]Method failed for {self}")
 
     def __get__(self, obj, objtype):
-        if obj is None:
-            return self
-        # XXX FIXME we MUST not change our own j_self, but return a "bound"
-        # method here, as python does!
-        cdef JavaClass jc = obj
-        self.j_self = jc.j_self
-        return self
+        self.ensure_method()
+        if obj is None and not self.is_static:
+            return self  # Unbound method: takes obj as first argument
+        else:
+            return lambda *args: self(obj, *args)
 
-    def __call__(self, *args):
-        # argument array to pass to the method
+    def __call__(self, obj, *args):
         cdef jvalue *j_args = NULL
         cdef tuple d_args = self.definition_args
         cdef JNIEnv *j_env = get_jnienv()
+
+        if not self.is_static and not isinstance(obj, self.jc):
+            raise TypeError(f"Unbound method {self} must be called with "
+                            f"{self.jc.__name__} instance as first argument (got "
+                            f"{type(obj).__name__} instance instead)")
 
         if self.is_varargs:
             args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
 
         if len(args) != len(d_args):
-            raise JavaException(f'{self.name} takes {len(d_args)} arguments ({len(args)} given)')
-
-        if not self.is_static and j_env == NULL:
-            raise JavaException('Cannot call instance method on a un-instanciated class')
-
-        self.ensure_method()
+            raise TypeError(f'{self} takes {len(d_args)} arguments ({len(args)} given)')
 
         try:
-            # convert python argument if necessary
             if len(args):
+                # FIXME replace malloc/free with alloca everywhere (find them by removing
+                # cimport from .pyx)
                 j_args = <jvalue *>malloc(sizeof(jvalue) * len(d_args))
                 if j_args == NULL:
                     raise MemoryError('Unable to allocate memory for java args')
                 populate_args(j_env, self.definition_args, j_args, args)
 
             try:
-                # do the call
                 if self.is_static:
                     return self.call_staticmethod(j_env, j_args)
-                return self.call_method(j_env, j_args)
+                else:
+                    return self.call_method(j_env, obj, j_args)
             finally:
                 release_args(j_env, self.definition_args, j_args, args)
 
@@ -628,7 +476,7 @@ cdef class JavaMethod(object):
             if j_args != NULL:
                 free(j_args)
 
-    cdef call_method(self, JNIEnv *j_env, jvalue *j_args):
+    cdef call_method(self, JNIEnv *j_env, JavaClass obj, jvalue *j_args):
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -638,19 +486,12 @@ cdef class JavaMethod(object):
         cdef jfloat j_float
         cdef jdouble j_double
         cdef jobject j_object
-        cdef char *c_str
-        cdef bytes py_str
         cdef object ret = None
-        cdef JavaObject ret_jobject
-        cdef JavaClass ret_jc
-        cdef jobject j_self = self.j_self.obj
+        cdef jobject j_self = obj.j_self.obj
 
-        # return type of the java method
         r = self.definition_return[0]
-
-        # now call the java method
         if r == 'V':
-            with nogil:
+            with nogil:  # FIXME test whether redundant: already present in jni.pxi
                 j_env[0].CallVoidMethodA(
                         j_env, j_self, self.j_method, j_args)
         elif r == 'Z':
@@ -718,6 +559,7 @@ cdef class JavaMethod(object):
         return ret
 
     cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args):
+        cdef jclass j_class = (<LocalRef?>self.jc.j_cls).obj
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -727,64 +569,60 @@ cdef class JavaMethod(object):
         cdef jfloat j_float
         cdef jdouble j_double
         cdef jobject j_object
-        cdef char *c_str
-        cdef bytes py_str
         cdef object ret = None
-        cdef JavaObject ret_jobject
-        cdef JavaClass ret_jc
 
         # return type of the java method
         r = self.definition_return[0]
 
         # now call the java method
         if r == 'V':
-            with nogil:
+            with nogil:  # FIXME test whether redundant: already present in jni.pxi
                 j_env[0].CallStaticVoidMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
         elif r == 'Z':
             with nogil:
                 j_boolean = j_env[0].CallStaticBooleanMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = True if j_boolean else False
         elif r == 'B':
             with nogil:
                 j_byte = j_env[0].CallStaticByteMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <char>j_byte
         elif r == 'C':
             with nogil:
                 j_char = j_env[0].CallStaticCharMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = chr(<char>j_char)
         elif r == 'S':
             with nogil:
                 j_short = j_env[0].CallStaticShortMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <short>j_short
         elif r == 'I':
             with nogil:
                 j_int = j_env[0].CallStaticIntMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <int>j_int
         elif r == 'J':
             with nogil:
                 j_long = j_env[0].CallStaticLongMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <long long>j_long
         elif r == 'F':
             with nogil:
                 j_float = j_env[0].CallStaticFloatMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <float>j_float
         elif r == 'D':
             with nogil:
                 j_double = j_env[0].CallStaticDoubleMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             ret = <double>j_double
         elif r == 'L':
             with nogil:
                 j_object = j_env[0].CallStaticObjectMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
                 ret = convert_jobject_to_python(
@@ -794,7 +632,7 @@ cdef class JavaMethod(object):
             r = self.definition_return[1:]
             with nogil:
                 j_object = j_env[0].CallStaticObjectMethodA(
-                        j_env, self.j_cls, self.j_method, j_args)
+                        j_env, j_class, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
                 ret = convert_jarray_to_python(j_env, r, j_object)
@@ -806,96 +644,57 @@ cdef class JavaMethod(object):
         return ret
 
 
-cdef class JavaMultipleMethod(object):
-
-    cdef LocalRef j_self
+cdef class JavaMultipleMethod(JavaMember):
     cdef list definitions
-    cdef dict static_methods
-    cdef dict instance_methods
-    cdef bytes name
-    cdef bytes classname
+    cdef list methods
 
-    def __cinit__(self, definition, **kwargs):
-        self.j_self = None
+    def __repr__(self):
+        return (f"<JavaMultipleMethod {self.methods}>")
 
     def __init__(self, definitions, **kwargs):
         super(JavaMultipleMethod, self).__init__()
         self.definitions = definitions
-        self.static_methods = {}
-        self.instance_methods = {}
-        self.name = None
+        self.methods = []
 
     def __get__(self, obj, objtype):
-        if obj is None:
-            self.j_self = None
-            return self
-        # XXX FIXME we MUST not change our own j_self, but return a "bound"
-        # method here, as python does!
-        cdef JavaClass jc = obj
-        self.j_self = jc.j_self
-        return self
+        return lambda *args: self(obj, *args)
 
-    cdef void set_resolve_info(self, JNIEnv *j_env, jclass j_cls,
-            LocalRef j_self, bytes name, bytes classname):
-        cdef JavaMethod jm
-        self.name = name
-        self.classname = classname
+    def set_resolve_info(self, jc, bytes name):
+        super(JavaMultipleMethod, self).set_resolve_info(jc, name)
+        for signature, static, varargs in self.definitions:
+            jm = JavaMethod(signature, static=static, varargs=varargs)
+            jm.set_resolve_info(jc, name)
+            self.methods.append(jm)
 
-        for signature, static, is_varargs in self.definitions:
-            jm = None
-            if j_self is None and static:
-                if signature in self.static_methods:
-                    continue
-                jm = JavaStaticMethod(signature, varargs=is_varargs)
-                jm.set_resolve_info(j_env, j_cls, j_self, name, classname)
-                self.static_methods[signature] = jm
-
-            elif j_self is not None and not static:
-                if signature in self.instance_methods:
-                    continue
-                jm = JavaMethod(signature, varargs=is_varargs)
-                jm.set_resolve_info(j_env, j_cls, None, name, classname)
-                self.instance_methods[signature] = jm
-
-    def __call__(self, *args):
-        # try to match our args to a signature
+    def __call__(self, obj, *args):
         cdef JavaMethod jm
         cdef list scores = []
-        cdef dict methods
 
-        if self.j_self:
-            methods = self.instance_methods
-        else:
-            methods = self.static_methods
-
-        for signature, jm in items_compat(methods):
-            sign_ret, sign_args = jm.definition_return, jm.definition_args
+        for jm in self.methods:
+            sign_args = jm.definition_args
             if jm.is_varargs:
                 args_ = args[:len(sign_args) - 1] + (args[len(sign_args) - 1:],)
             else:
                 args_ = args
 
             score = calculate_score(sign_args, args_, jm.is_varargs)
-
-            if score <= 0:
-                continue
-            scores.append((score, signature))
-
+            if score > 0:
+                scores.append((score, jm))
         if not scores:
-            raise JavaException('No methods matching your arguments')
+            raise AttributeError(f"No methods matching arguments {args}: options are {self.methods}")
+
+        # FIXME this cannot be how Java does it: if multiple methods have the same score, we'll
+        # call one at random.
         scores.sort()
-        score, signature = scores[-1]
-
-        jm = methods[signature]
-        jm.j_self = self.j_self
-        return jm.__call__(*args)
+        score, jm = scores[-1]
+        return jm.__get__(obj, type(obj))(*args)
 
 
+# FIXME remove these when regenerating bootstrap class proxies: they add nothing.
 class JavaStaticMethod(JavaMethod):
     def __init__(self, definition, **kwargs):
         kwargs['static'] = True
         super(JavaStaticMethod, self).__init__(definition, **kwargs)
-
 
 class JavaStaticField(JavaField):
     def __init__(self, definition, **kwargs):
