@@ -44,10 +44,11 @@ def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 
 task cython(type: Exec, group: "build") {
     def cythonBuildDir = "$buildDir/cython"
-    def pyxDir = "$projectDir/src/main/python/jnius"
-    def pyxFile = "$pyxDir/jnius.pyx"
+    doFirst { delete(cythonBuildDir); mkdir(cythonBuildDir) }
+    def pyxDir = "$projectDir/src/main/python/chaquopy"
+    def pyxFile = "$pyxDir/chaquopy.pyx"
     inputs.files pyxFile, fileTree(pyxDir) { include "*.pxi" }
-    outputs.file "$cythonBuildDir/jnius.c"
+    outputs.file "$cythonBuildDir/chaquopy.c"
     doFirst { mkdir(cythonBuildDir) }
     executable "cython"
     args pyxFile, "-Wextra", "-Werror", "-o", outputs.files.getSingleFile()
@@ -68,12 +69,10 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
+            dependsOn cython
             inputs.files "CMakeLists.txt"
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
-            doFirst {
-                delete(cmakeBuildSubdir)
-                mkdir(cmakeBuildSubdir)
-            }
+            doFirst { delete(cmakeBuildSubdir); mkdir(cmakeBuildSubdir) }
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
@@ -106,7 +105,7 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
 
         def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
             // No inputs or outputs: the command itself determines whether it's up to date.
-            dependsOn cmake, cython
+            dependsOn cmake
             executable "$sdkCmakeDir/bin/cmake"
             args "--build", cmakeBuildSubdir
         }
@@ -122,7 +121,7 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                     copy {
                         into testDir
                         from("$projectDir/src/main/python") { include "**/*.py" }
-                        from(cmakeBuildSubdir) { include "*$pyNativeSuffix"; into "jnius" }
+                        from(cmakeBuildSubdir) { include "*$pyNativeSuffix"; into "chaquopy" }
                     }
                 }
                 environment "PYTHONPATH", testDir

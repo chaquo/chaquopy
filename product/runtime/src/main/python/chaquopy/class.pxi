@@ -204,9 +204,9 @@ cdef class JavaField(JavaMember):
         if obj is None:
             # FIXME obj will never be None: when setting a class attribute, it will simply be
             # be rebound without calling __set__. This has to be done as described at
-            # http://stackoverflow.com/a/28403562/220765.
-            #
-            # Methods should be done similarly, in order to prevent them from being rebound.
+            # http://stackoverflow.com/a/28403562/220765, or by overriding __setattr__ in the
+            # metaclass so that we will actually be called with obj == None. No need to define
+            # __set__ on methods, just make __setattr__ raise an exception for them.
             if not self.is_static:
                 raise AttributeError(f'Cannot access {self} in static context')
             raise NotImplementedError()  # FIXME

@@ -1,4 +1,4 @@
-package org.jnius;
+package com.chaquo.python;
 
 public class MultipleDimensions {
 	public static boolean methodParamsMatrixI(int[][] x) {

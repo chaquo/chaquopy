@@ -5,7 +5,7 @@ from __future__ import division
 __all__ = ('autoclass', 'ensureclass')
 from six import with_metaclass
 
-from .jnius import (
+from .chaquopy import (
     JavaClass, MetaJavaClass, JavaMethod, JavaStaticMethod,
     JavaField, JavaStaticField, JavaMultipleMethod, find_javaclass
 )

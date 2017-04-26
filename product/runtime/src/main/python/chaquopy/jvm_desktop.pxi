@@ -24,7 +24,7 @@ cdef void create_jnienv() except *:
     cdef JavaVMInitArgs args
     cdef JavaVMOption *options
     cdef int ret
-    import jnius_config
+    from . import config as jnius_config
 
     optarr = [str_for_c(opt) for opt in jnius_config.options]
     optarr.append(str_for_c("-Djava.class.path=" + jnius_config.expand_classpath()))

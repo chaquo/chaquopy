@@ -1,15 +1,4 @@
-'''
-Pyjnius
-=======
-
-Accessing Java classes from Python.
-
-All the documentation is available at: http://pyjnius.readthedocs.org
-'''
-
-__version__ = '1.1.2-dev'
-
-from .jnius import *  # noqa
+from .chaquopy import *  # noqa
 from .reflect import *  # noqa
 
 # XXX monkey patch methods that cannot be in cython.
@@ -39,19 +28,19 @@ class PythonJavaClass_(PythonJavaClass):
 
 PythonJavaClass = PythonJavaClass_
 
-
+# FIXME check this
 # from https://gist.github.com/tito/09c42fb4767721dc323d
 import os
 if "ANDROID_ARGUMENT" in os.environ:
-    # on android, catch all exception to ensure about a jnius.detach
+    # on android, catch all exception a detach
     import threading
-    import jnius
+    import chaquopy
     orig_thread_run = threading.Thread.run
 
-    def jnius_thread_hook(*args, **kwargs):
+    def cqp_thread_hook(*args, **kwargs):
         try:
             return orig_thread_run(*args, **kwargs)
         finally:
-            jnius.detach()
+            chaquopy.detach()
 
-    threading.Thread.run = jnius_thread_hook
+    threading.Thread.run = cqp_thread_hook

@@ -11,21 +11,25 @@ from libc.stdlib cimport malloc, free
 
 telem = defaultdict(int)
 
+# TODO #5148
+DEF JNIUS_PYTHON3 = False
+
+# FIXME remove
+DEF JNIUS_PLATFORM = 'cygwin'
 
 include "jni.pxi"
-include "config.pxi"
 
 IF JNIUS_PLATFORM == "android":
-    include "jnius_jvm_android.pxi"
+    include "jvm_android.pxi"
 ELIF JNIUS_PLATFORM in ("win32", "cygwin"):
-    include "jnius_jvm_desktop.pxi"
+    include "jvm_desktop.pxi"
 ELSE:
-    include "jnius_jvm_dlopen.pxi"
+    include "jvm_dlopen.pxi"
 
-include "jnius_env.pxi"
-include "jnius_utils.pxi"
-include "jnius_conversion.pxi"
-include "jnius_localref.pxi"
-include "jnius_export_func.pxi"
-include "jnius_export_class.pxi"
-include "jnius_proxy.pxi"
+include "env.pxi"
+include "utils.pxi"
+include "conversion.pxi"
+include "localref.pxi"
+include "func.pxi"
+include "class.pxi"
+include "proxy.pxi"

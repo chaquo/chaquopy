@@ -40,7 +40,7 @@ cdef void create_jnienv() except *:
     cdef JavaVMOption *options
     cdef int ret
     cdef bytes py_bytes
-    import jnius_config
+    from . import config as jnius_config
 
     JAVA_HOME = os.environ['JAVA_HOME']
     if JAVA_HOME is None or JAVA_HOME == '':

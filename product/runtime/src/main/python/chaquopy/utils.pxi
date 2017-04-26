@@ -171,10 +171,10 @@ cdef void check_assignable_from(JNIEnv *env, JavaClass jc, signature) except *:
 
     # FIXME Android/libART specific check
     # check_jni.cc crash when calling the IsAssignableFrom with
-    # org/jnius/NativeInvocationHandler java/lang/reflect/InvocationHandler
+    # NativeInvocationHandler and InvocationHandler.
     # Because we know it's ok, just return here.
     if signature == 'java/lang/reflect/InvocationHandler' and \
-        jc.__javaclass__ == 'org/jnius/NativeInvocationHandler':
+        jc.__javaclass__ == 'com/chaquo/python/NativeInvocationHandler':
         return
 
     # if the signature is a direct match, it's ok too :)

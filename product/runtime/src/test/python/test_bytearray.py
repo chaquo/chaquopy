@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from jnius import autoclass
+from chaquopy import autoclass
 
 class StringArgumentForByteArrayTest(unittest.TestCase):
 
@@ -17,7 +17,7 @@ class StringArgumentForByteArrayTest(unittest.TestCase):
 
     def test_fill_byte_array(self):
         arr = [0, 0, 0]
-        Test = autoclass('org.jnius.BasicsTest')()
+        Test = autoclass('com.chaquo.python.BasicsTest')()
         Test.fillByteArray(arr)
         # we don't received signed byte, but unsigned in python.
         self.assertEquals(

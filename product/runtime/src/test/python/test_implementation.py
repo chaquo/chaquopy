@@ -3,7 +3,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from jnius.reflect import autoclass
+from chaquopy.reflect import autoclass
 
 
 class ImplementationTest(unittest.TestCase):
@@ -17,7 +17,7 @@ class ImplementationTest(unittest.TestCase):
     def test_printf(self):
         System = autoclass('java.lang.System')
         System.out.printf('hi\n')
-        System.out.printf('hi %s %s\n', 'jnius', 'other string')
+        System.out.printf('hi %s %s\n', 'chaquopy', 'other string')
 
     def test_unicode(self):
         System = autoclass('java.lang.System')

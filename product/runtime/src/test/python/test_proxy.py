@@ -5,7 +5,7 @@
 # from __future__ import absolute_import
 # from six.moves import range
 
-# from jnius import autoclass, java_method, PythonJavaClass, cast
+# from chaquopy import autoclass, java_method, PythonJavaClass, cast
 # from nose.tools import *
 
 # print('1: declare a TestImplem that implement Collection')

@@ -1,16 +1,9 @@
 '''
-signatures.py
-=============
-
-A handy API for writing JNI signatures easily
-
-Author: chrisjrn
-
 This module aims to provide a more human-friendly API for
-wiring up Java proxy methods in PyJnius.
+wiring up Java proxy methods.
 
 You can use the signature function to produce JNI method
-signautures for methods; passing PyJnius JavaClass classes
+signautures for methods; passing JavaClass classes
 as return or argument types; provided here are annotations
 representing Java's primitive and array times.
 
@@ -25,14 +18,11 @@ Methods can return just a standard primitive type:
 Or you can use autoclass proxies to specify Java classes
 for return types.
 
->>> from jnius import autoclass
 >>> String = autoclass("java.lang.String")
 >>> signature(String, ())
 '()Ljava/lang/String;'
 
 '''
-
-__version__ = '0.0.1'
 
 from . import JavaClass
 from . import java_method
@@ -47,7 +37,7 @@ class _JavaSignaturePrimitive(object):
 
 def _MakeSignaturePrimitive(name, spec):
     class __Primitive(_JavaSignaturePrimitive):
-        ''' PyJnius signature for Java %s type ''' % name
+        ''' Signature for Java %s type ''' % name
         _name = name
         _spec = spec
     __Primitive.__name__ = "j" + name
@@ -95,7 +85,7 @@ def signature(returns, takes):
 
 def _jni_type_spec(jclass):
     ''' Produces a JNI type specification string for the given argument.
-    If the argument is a jnius.JavaClass, it produces the JNI type spec
+    If the argument is a JavaClass, it produces the JNI type spec
     for the class. Signature primitives return their stored type spec.
     '''
 

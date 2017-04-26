@@ -2,12 +2,12 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from jnius.reflect import autoclass
+from chaquopy.reflect import autoclass
 
 class BasicsTest(unittest.TestCase):
 
     def test_static_methods(self):
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         self.assertEquals(Test.methodStaticZ(), True)
         self.assertEquals(Test.methodStaticB(), 127)
         self.assertEquals(Test.methodStaticC(), 'k')
@@ -24,7 +24,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(t.methodStaticI(), 2147483467)
 
     def test_static_fields(self):
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         self.assertEquals(Test.fieldStaticZ, True)
         self.assertEquals(Test.fieldStaticB, 127)
         self.assertEquals(Test.fieldStaticC, 'k')
@@ -47,7 +47,7 @@ class BasicsTest(unittest.TestCase):
         # special action required.
 
     def test_instance_methods(self):
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         test = Test()
         self.assertEquals(test.methodZ(), True)
         self.assertEquals(test.methodB(), 127)
@@ -61,7 +61,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_instance_methods_unbound(self):
         # Instance methods can be called on the class by passing an instance as the first argument.
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         test = Test()
         with self.assertRaises(TypeError):
             Test.methodString()
@@ -74,7 +74,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(Test.methodParamsString(test, 'helloworld'), True)
 
     def test_instance_methods_multiple(self):
-        BT = autoclass('org.jnius.BasicsTest')
+        BT = autoclass('com.chaquo.python.BasicsTest')
         test1, test2 = BT(), BT(10)
         self.assertEquals(test2.methodB(), 10)
         self.assertEquals(test1.methodB(), 127)
@@ -91,7 +91,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(method2(), 10)
 
     def test_instance_fields(self):
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         test = Test()
         self.assertEquals(test.fieldZ, True)
         self.assertEquals(test.fieldB, 127)
@@ -108,7 +108,7 @@ class BasicsTest(unittest.TestCase):
             Test.fieldString
 
     def test_instance_fields_multiple(self):
-        BT = autoclass('org.jnius.BasicsTest')
+        BT = autoclass('com.chaquo.python.BasicsTest')
         test1, test2 = BT(), BT(10)
         self.assertEquals(test2.fieldB, 10)
         self.assertEquals(test1.fieldB, 127)
@@ -120,7 +120,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(test2.fieldB, 22)
 
     def test_instance_set_fields(self):
-        Test = autoclass('org.jnius.BasicsTest')
+        Test = autoclass('com.chaquo.python.BasicsTest')
         test = Test()
         test.fieldSetZ = True
         test.fieldSetB = 127
@@ -148,7 +148,7 @@ class BasicsTest(unittest.TestCase):
         # special action required.
 
     def test_instances_methods_array(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         # FIXME test full range of each type
         self.assertEquals(test.methodArrayZ(), [True] * 3)
         self.assertEquals(test.methodArrayB(), [127] * 3)
@@ -167,7 +167,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(test.methodArrayString(), ['helloworld'] * 3)
 
     def test_instances_methods_params(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsZBCSIJFD(
             True, 127, 'k', 32767, 2147483467, 9223372036854775807, 1.23456789, 1.23456789), True)
         self.assertEquals(test.methodParamsString('helloworld'), True)
@@ -176,32 +176,32 @@ class BasicsTest(unittest.TestCase):
             'hello', 'world']), True)
 
     def test_instances_methods_params_object_list_str(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsObject([
             'hello', 'world']), True)
 
     def test_instances_methods_params_object_list_int(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsObject([1, 2]), True)
 
     def test_instances_methods_params_object_list_float(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsObject([3.14, 1.61]), True)
 
     def test_instances_methods_params_object_list_long(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsObject([1, 2]), True)
 
     def test_instances_methods_params_array_byte(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodParamsArrayByte([127, 127, 127]), True)
         ret = test.methodArrayB()
         self.assertEquals(test.methodParamsArrayByte(ret), True)
 
     def test_return_array_as_object_array_of_strings(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodReturnStrings(), ['Hello', 'world'])
 
     def test_return_array_as_object_of_integers(self):
-        test = autoclass('org.jnius.BasicsTest')()
+        test = autoclass('com.chaquo.python.BasicsTest')()
         self.assertEquals(test.methodReturnIntegers(), [1, 2])

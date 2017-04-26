@@ -9,12 +9,12 @@ if(CHAQUOPY_LIB_DIRS)
     link_directories(${CHAQUOPY_LIB_DIRS})
 endif()
 
-add_library(jnius MODULE
-    build/cython/jnius.c)
+add_library(chaquopy MODULE
+    build/cython/chaquopy.c)
 
-target_link_libraries(jnius ${CHAQUOPY_LIBS})
+target_link_libraries(chaquopy ${CHAQUOPY_LIBS})
 
-set_target_properties(jnius PROPERTIES PREFIX "")
+set_target_properties(chaquopy PROPERTIES PREFIX "")
 if(CHAQUOPY_SUFFIX)
-    set_target_properties(jnius PROPERTIES SUFFIX ${CHAQUOPY_SUFFIX})
+    set_target_properties(chaquopy PROPERTIES SUFFIX ${CHAQUOPY_SUFFIX})
 endif()

@@ -18,6 +18,7 @@ class java_method(object):
         return f
 
 
+# PythonJavaClass is rebound in __init__.py to add java.lang.Object methods
 cdef class PythonJavaClass(object):
     '''
     Base class to create a java class from python
@@ -160,7 +161,7 @@ cdef jobject invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
 cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     from .reflect import autoclass
     Proxy = autoclass('java.lang.reflect.Proxy')
-    NativeInvocationHandler = autoclass('org.jnius.NativeInvocationHandler')
+    NativeInvocationHandler = autoclass('com.chaquo.python.NativeInvocationHandler')
 
     # convert strings to Class
     j_interfaces = [find_javaclass(x) for x in j_interfaces]

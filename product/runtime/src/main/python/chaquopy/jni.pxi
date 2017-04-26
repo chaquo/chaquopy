@@ -5,9 +5,10 @@ from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 # * Call functions like env.whatever() rather than env[0].whatever(env).
 # * Take and return LocalRef or GlobalRef objects (made interchangeable using inheritance) rather
 #   than raw jobjects (which would not be touched anywhere else in the codebase).
-# * Take strings rather than char *.
-# * If the call can throw a Java exception, declare except * and call expect_exception if the
-#   call fails.
+# * Take strings rather than char *, and auto-encode unicode strings (no more str_for_c all over
+#   the place).
+# * If the call can fail, declare except *. If it actually does fail, call expect_exception if
+#   the call can generate a Java exception, otherwise generate one of our own.
 #
 # If such an interface isn't already available, it should be possible to auto-generate one.
 

@@ -2,8 +2,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from jnius import JavaException, JavaClass
-from jnius.reflect import autoclass
+from chaquopy import JavaException, JavaClass
+from chaquopy.reflect import autoclass
 
 class BadDeclarationTest(unittest.TestCase):
 
@@ -36,7 +36,7 @@ class BadDeclarationTest(unittest.TestCase):
             self.assertEquals("java.util.EmptyStackException", je.classname)
 
     def test_java_exception_chaining(self):
-        BasicsTest = autoclass('org.jnius.BasicsTest')
+        BasicsTest = autoclass('com.chaquo.python.BasicsTest')
         basics = BasicsTest()
         try:
             basics.methodExceptionChained()

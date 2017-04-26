@@ -1,4 +1,4 @@
-package org.jnius;
+package com.chaquo.python;
 
 import java.lang.String;
 

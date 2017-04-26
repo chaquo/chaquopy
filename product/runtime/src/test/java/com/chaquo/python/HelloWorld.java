@@ -1,4 +1,4 @@
-package org.jnius;
+package com.chaquo.python;
 
 public class HelloWorld {
 	public String hello() {

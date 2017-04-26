@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from jnius.reflect import autoclass
+from chaquopy.reflect import autoclass
 
 class MultipleSignature(unittest.TestCase):
 
@@ -21,31 +21,31 @@ class MultipleSignature(unittest.TestCase):
         self.assertEquals(s.indexOf(ord('e'), 2), -1)
 
     def test_multiple_methods_no_args(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve(), 'resolved no args')
 
     def test_multiple_methods_one_arg(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('arg'), 'resolved one arg')
 
     def test_multiple_methods_two_args(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('one', 'two'), 'resolved two args')
 
     def test_multiple_methods_two_string_and_an_integer(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('one', 'two', 1), 'resolved two string and an integer')
 
     def test_multiple_methods_two_string_and_two_integers(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('one', 'two', 1, 2), 'resolved two string and two integers')
 
     def test_multiple_methods_varargs(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve(1, 2, 3), 'resolved varargs')
 
     def test_multiple_methods_two_args_and_varargs(self):
-        MultipleMethods = autoclass('org.jnius.MultipleMethods')
+        MultipleMethods = autoclass('com.chaquo.python.MultipleMethods')
         self.assertEqual(MultipleMethods.resolve('one', 'two', 1, 2, 3), 'resolved two args and varargs')
 
     # FIXME static, and mixed static/non-static (Java pays no attention to static-ness when
