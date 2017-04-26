@@ -10,14 +10,11 @@ if(CHAQUOPY_LIB_DIRS)
 endif()
 
 add_library(jnius MODULE
-    src/main/c/Python.c
     build/cython/jnius.c)
 
 target_link_libraries(jnius ${CHAQUOPY_LIBS})
 
-set_target_properties(jnius PROPERTIES
-    PREFIX ""
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/src/main/python/jnius)
+set_target_properties(jnius PROPERTIES PREFIX "")
 if(CHAQUOPY_SUFFIX)
     set_target_properties(jnius PROPERTIES SUFFIX ${CHAQUOPY_SUFFIX})
 endif()

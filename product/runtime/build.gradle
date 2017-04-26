@@ -40,7 +40,6 @@ def crystaxDir = localProps.getProperty('crystax.dir')
 
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
-def exeSuffix = windowsHost ? ".exe" : ""
 
 
 task cython(type: Exec, group: "build") {
@@ -62,9 +61,10 @@ def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
 
-for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
+for (pyVersion in ["2.7"]) {    // TODO #5148
     for (abi in ["host", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
         def pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
+        def pyNativeSuffix = ".so"
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
@@ -77,19 +77,21 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO
+                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO #5152
 
             if (abi == "host") {
                 if (windowsHost) {
+                    pyNativeSuffix = ".pyd"
                     def mingwDir = "C:/msys64/mingw64"
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
                                                  "$javaHome/include;$javaHome/include/win32",
-                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",
-                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm",
-                         "-DCHAQUOPY_SUFFIX=.pyd"
+                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",   // FIXME remove
+                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm"   //
                 } else {
-                    throw new GradleException("Host build only supported on Windows")
+                    // TODO untested
+                    args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion"
                 }
+                args "-DCHAQUOPY_SUFFIX=$pyNativeSuffix"
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
@@ -112,13 +114,22 @@ for (pyVersion in ["2.7",/* TODO "3.5"*/]) {
 
         if (abi == "host") {
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
-                // FIXME don't put pyd in source tree, copy it to "site" build tree along with the
-                // py files, that way things are consistent for host and target.
                 dependsOn cmakeBuild, "compileTestJava"
-                environment "PYTHONPATH", "$projectDir/src/main/python"
+                def testDir = "$buildDir/testPython/$pyVersion"
+                doFirst {
+                    delete testDir
+                    mkdir testDir
+                    copy {
+                        into testDir
+                        from("$projectDir/src/main/python") { include "**/*.py" }
+                        from(cmakeBuildSubdir) { include "*$pyNativeSuffix"; into "jnius" }
+                    }
+                }
+                environment "PYTHONPATH", testDir
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
-                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}"
+                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}"     // FIXME remove
                 workingDir "$projectDir/src/test/python"
+                def exeSuffix = windowsHost ? ".exe" : ""
                 executable "$pyPlusVersion$exeSuffix"   // filenames with dots require the ".exe"
                 args "-m", "unittest"
                 if (project.hasProperty("testPythonArgs")) {
