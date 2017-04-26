@@ -1,4 +1,0 @@
-for art in stdlib arm64-v8a armeabi-v7a x86 x86_64; do mkdir -p com/chaquo/python/target/$abi/2.7.10-0; done
-for abi in arm64-v8a armeabi-v7a x86 x86_64; do cp ~/crystax-ndk-10.3.2/sources/python/2.7/libs/$abi/libpython2.7.so . ; cp ~/crystax-ndk-10.3.2/sources/crystax/libs/$abi/libcrystax.so .; zip ${abi}-2.7.10-0.zip *.so; rm *.so; mv ${abi}-2.7.10-0.zip com/chaquo/python/target/$abi/2.7.10-0; done
-cp ~/crystax-ndk-10.3.2/sources/python/2.7/libs/x86/stdlib.zip com/chaquo/python/target/stdlib/2.7.10-0/stdlib-2.7.10-0.zip
-for f in $(find -name *zip); do sha1sum $f |cut -d' ' -f1 > $f.sha1; done

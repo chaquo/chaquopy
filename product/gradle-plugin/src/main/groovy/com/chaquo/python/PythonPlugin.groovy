@@ -12,7 +12,7 @@ import java.nio.file.*
 // Override by multi-flavor
 // up to date checks
 class PythonPlugin implements Plugin<Project> {
-    final def NAME = "python"
+    static final def NAME = "python"
 
     Project project
     def android
@@ -43,15 +43,15 @@ class PythonPlugin implements Plugin<Project> {
     void setupDependencies() {
         project.repositories { maven { url "http://chaquo.com/maven" } }
 
-        def filename = "runtime/android-python-runtime.jar"
-        def outFile = new File(pythonGenDir(), "$filename")
+        def filename = "runtime/chaquopy-runtime.jar"
+        def outFile = new File(pythonGenDir(), filename)
         project.delete(outFile)     // It might be an old version
         project.mkdir(outFile.parent)
         getClass().getResourceAsStream("/$filename").withStream { is ->
             def tmpFile = new File(outFile.parent, "${outFile.name}.tmp")
             Files.copy(is, tmpFile.toPath())
             if (! tmpFile.renameTo(outFile)) {
-                throw new GradleException("Failed to create $outFile")
+                throw new IOException("Failed to create $outFile")
             }
         }
         project.dependencies {
@@ -81,19 +81,19 @@ class PythonPlugin implements Plugin<Project> {
     void createTargetConfigs(variant, PythonExtension python) {
         def stdlibConfig = configName(variant, "targetStdlib")
         project.configurations.create(stdlibConfig)
-        project.dependencies.add(stdlibConfig, targetDependency("stdlib", python.version))
+        project.dependencies.add(stdlibConfig, targetDependency(python.version, "stdlib"))
 
         def abiConfig = configName(variant, "targetAbis")
         project.configurations.create(abiConfig)
         for (abi in getAbis(variant)) {
-            project.dependencies.add(abiConfig, targetDependency(abi, python.version))
+            project.dependencies.add(abiConfig, targetDependency(python.version, abi))
         }
     }
 
-    String targetDependency(String artifact, String version) {
-        /** Following the Maven version number format, this is the "build number" */
+    String targetDependency(String version, String classifier) {
+        /** Following the Maven version number format, this is the "build number". */
         final def TARGET_VERSION_SUFFIX = "-0"
-        return "com.chaquo.python.target:$artifact:$version$TARGET_VERSION_SUFFIX@zip"
+        return "com.chaquo.python:target:$version$TARGET_VERSION_SUFFIX:$classifier@zip"
     }
 
     Set<String> getAbis(variant) {
@@ -110,8 +110,10 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         if (abis.isEmpty()) {
-            final def DEFAULT_ABIS = ["armeabi-v7a", "x86"]
-            abis.addAll(DEFAULT_ABIS)
+            // The Android plugin doesn't make abiFilters compulsory, but we will, because
+            // adding 25 MB to the APK is not something we want to do by default.
+            throw new GradleException("ndk.abiFilters not set for variant '$variant.name'. " +
+                                      "You may want to add it to defaultConfig.")
         }
         return abis
     }
@@ -143,7 +145,7 @@ class PythonPlugin implements Plugin<Project> {
             doFirst { project.delete(assetDir) }
             from project.configurations.getByName(configName(variant, "targetStdlib"))
             rename { "stdlib.zip" }
-            into assetDir
+            into "$assetDir/$NAME"
         }
         extendMergeTask(variant.getMergeAssets(), genTask)
     }

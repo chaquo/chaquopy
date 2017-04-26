@@ -1,10 +1,10 @@
 apply plugin: 'groovy'
 
-archivesBaseName = "android-python-gradle"
+archivesBaseName = "chaquopy-gradle"
 sourceCompatibility = 7
 
 processResources {
-    from("../runtime/build/libs/android-python-runtime.jar") {
+    from("../runtime/build/libs/chaquopy-runtime.jar") {
         into "runtime"
     }
 }
@@ -13,8 +13,7 @@ dependencies {
     compile localGroovy()
     compile gradleApi()
 
-    // This is a library project, so use "+" notation for external dependencies rather than
-    // requiring specific versions.
+    // This is a library project, so use "+" notation for external dependencies.
 
     compile project(":runtime")
 
