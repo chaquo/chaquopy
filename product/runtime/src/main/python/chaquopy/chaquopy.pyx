@@ -18,7 +18,6 @@ telem = defaultdict(int)
 DEF JNIUS_PYTHON3 = False
 
 include "jni.pxi"
-include "jvm_dlopen.pxi"
 include "utils.pxi"
 include "conversion.pxi"
 include "class.pxi"
