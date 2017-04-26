@@ -26,10 +26,7 @@ ELIF JNIUS_PLATFORM in ("win32", "cygwin"):
 ELSE:
     include "jvm_dlopen.pxi"
 
-include "env.pxi"
 include "utils.pxi"
 include "conversion.pxi"
-include "localref.pxi"
-include "func.pxi"
 include "class.pxi"
 include "proxy.pxi"
