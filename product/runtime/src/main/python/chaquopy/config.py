@@ -2,8 +2,8 @@ __all__ = ('set_options', 'add_options', 'get_options',
            'set_classpath', 'add_classpath', 'get_classpath',
            'expand_classpath')
 
-import platform
-if platform.system() == 'Windows' or platform.system().startswith("CYGWIN"):
+import sys
+if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
     split_char = ';'
 else:
     split_char = ':'

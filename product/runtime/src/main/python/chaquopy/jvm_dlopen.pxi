@@ -1,28 +1,22 @@
-include "config.pxi"
 import os
+import platform
+import sys
 
-cdef extern from 'dlfcn.h' nogil:
+from . import config
+
+cdef extern from 'dlfcn.h':
     void* dlopen(const char *filename, int flag)
     char *dlerror()
     void *dlsym(void *handle, const char *symbol)
     int dlclose(void *handle)
-
-    unsigned int RTLD_LAZY
-    unsigned int RTLD_NOW
-    unsigned int RTLD_GLOBAL
-    unsigned int RTLD_LOCAL
-    unsigned int RTLD_NODELETE
-    unsigned int RTLD_NOLOAD
-    unsigned int RTLD_DEEPBIND
-
-    unsigned int RTLD_DEFAULT
-    long unsigned int RTLD_NEXT
+    unsigned RTLD_LAZY, RTLD_NOW, RTLD_GLOBAL, RTLD_LOCAL, RTLD_DEFAULT, RTLD_NEXT
 
 
 cdef extern from "jni.h":
-    int JNI_VERSION_1_6
-    int JNI_OK
-    jboolean JNI_FALSE
+    jint JNI_VERSION_1_6
+    jboolean JNI_FALSE, JNI_TRUE
+    jint JNI_OK, JNI_ERR, JNI_EDETACHED, JNI_EVERSION, JNI_ENOMEM, JNI_EEXIST, JNI_EINVAL
+    jint JNI_COMMIT, JNI_ABORT
     ctypedef struct JavaVMInitArgs:
         jint version
         jint nOptions
@@ -35,55 +29,63 @@ cdef extern from "jni.h":
 cdef JNIEnv *_platform_default_env = NULL
 
 cdef void create_jnienv() except *:
-    cdef JavaVM* jvm
-    cdef JavaVMInitArgs args
-    cdef JavaVMOption *options
-    cdef int ret
-    cdef bytes py_bytes
-    from . import config as jnius_config
 
-    JAVA_HOME = os.environ['JAVA_HOME']
-    if JAVA_HOME is None or JAVA_HOME == '':
-        raise SystemError("JAVA_HOME is not set.")
-    IF JNIUS_PYTHON3:
-        try:
-            jnius_lib_suffix = JNIUS_LIB_SUFFIX.decode("utf-8")
-        except AttributeError:
-            jnius_lib_suffix = JNIUS_LIB_SUFFIX
-        lib_path = str_for_c(os.path.join(JAVA_HOME, jnius_lib_suffix))
-    ELSE:
-        lib_path = str_for_c(os.path.join(JAVA_HOME, JNIUS_LIB_SUFFIX))
+    try:
+        java_home = os.environ['JAVA_HOME']
+    except KeyError:
+        raise Exception("JAVA_HOME is not set")
+    if not os.path.exists(java_home):
+        raise Exception(f"JAVA_HOME ({java_home}) does not exist")
+    if os.path.exists(f"{java_home}/jre"):
+        jre_home = f"{java_home}/jre"
+    else:
+        jre_home = java_home
 
-    cdef void *handle = dlopen(lib_path, RTLD_NOW | RTLD_GLOBAL)
+    if sys.platform.startswith("darwin"):  # TODO untested
+        lib_path = f"{jre_home}/lib/server/libjvm.dylib"
+    elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
+        lib_path = f"{jre_home}/bin/server/jvm.dll"
+    else:  # TODO untested
+        machine2cpu = {
+            "amd64": "amd64",
+            "x86_64": "amd64",
+            "arm": "arm",
+            "armv7l": "arm",
+            "i386": "i386",
+            "i686": "i386",
+            "x86": "i386",
+        }
+        lib_path = f"{jre_home}lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
+
+    cdef void *handle = dlopen(str_for_c(lib_path), RTLD_NOW | RTLD_GLOBAL)
     if handle == NULL:
-        raise SystemError("Error calling dlopen({0}: {1}".format(lib_path, dlerror()))
+        raise Exception("dlopen: {0}: {1}".format(lib_path, dlerror()))
 
     cdef void *jniCreateJVM = dlsym(handle, b"JNI_CreateJavaVM")
-
     if jniCreateJVM == NULL:
-       raise SystemError("Error calling dlfcn for JNI_CreateJavaVM: {0}".format(dlerror()))
+       raise Exception("dlfcn: JNI_CreateJavaVM: {0}".format(dlerror()))
 
-    optarr = jnius_config.options
-    optarr.append("-Djava.class.path=" + jnius_config.expand_classpath())
-
-    options = <JavaVMOption*>malloc(sizeof(JavaVMOption) * len(optarr))
+    optarr = [str_for_c(opt) for opt in config.options]
+    optarr.append(str_for_c("-Djava.class.path=" + config.expand_classpath()))
+    cdef JavaVMOption *options = <JavaVMOption*>alloca(sizeof(JavaVMOption) * len(optarr))
     for i, opt in enumerate(optarr):
-        optbytes = str_for_c(opt)
-        options[i].optionString = <bytes>(optbytes)
+        options[i].optionString = opt
         options[i].extraInfo = NULL
 
+    cdef JavaVMInitArgs args
     args.version = JNI_VERSION_1_6
     args.options = options
     args.nOptions = len(optarr)
     args.ignoreUnrecognized = JNI_FALSE
 
-    ret = (<jint (*)(JavaVM **pvm, void **penv, void *args)> jniCreateJVM)(&jvm, <void **>&_platform_default_env, &args)
-    free(options)
-
+    cdef JavaVM* jvm = NULL
+    ret = (<jint (*)(JavaVM **pvm, void **penv, void *args)> jniCreateJVM) \
+          (&jvm, <void **>&_platform_default_env, &args)
     if ret != JNI_OK:
-        raise SystemError("JVM failed to start: {0}".format(ret))
+        raise Exception("JNI_CreateJavaVM failed: {0}".format(ret))
 
-    jnius_config.vm_running = True
+    config.vm_running = True
+
 
 cdef JNIEnv *get_platform_jnienv() except NULL:
     if _platform_default_env == NULL:

@@ -6,7 +6,10 @@ __all__ = ('JavaClass', 'JavaMethod', 'JavaField',
 
 from collections import defaultdict
 
+# FIXME remove this cimport, and replace malloc/free with alloca everywhere.
 from libc.stdlib cimport malloc, free
+cdef extern from "alloca.h":
+    void *alloca(size_t size)
 
 
 telem = defaultdict(int)
@@ -14,18 +17,8 @@ telem = defaultdict(int)
 # TODO #5148
 DEF JNIUS_PYTHON3 = False
 
-# FIXME remove
-DEF JNIUS_PLATFORM = 'cygwin'
-
 include "jni.pxi"
-
-IF JNIUS_PLATFORM == "android":
-    include "jvm_android.pxi"
-ELIF JNIUS_PLATFORM in ("win32", "cygwin"):
-    include "jvm_desktop.pxi"
-ELSE:
-    include "jvm_dlopen.pxi"
-
+include "jvm_dlopen.pxi"
 include "utils.pxi"
 include "conversion.pxi"
 include "class.pxi"

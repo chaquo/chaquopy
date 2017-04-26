@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.4.1)
 project(runtime LANGUAGES C)
 
 include_directories(
-    src/main/c          # For ieeefp.h
+    src/main/c          # For platform header overrides
     ${CHAQUOPY_INCLUDE_DIRS})
 
 if(CHAQUOPY_LIB_DIRS)

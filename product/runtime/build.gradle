@@ -83,14 +83,13 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                     pyNativeSuffix = ".pyd"
                     def mingwDir = "C:/msys64/mingw64"
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
-                                                 "$javaHome/include;$javaHome/include/win32",
-                         "-DCHAQUOPY_LIB_DIRS=$javaHome/lib",   // FIXME remove
-                         "-DCHAQUOPY_LIBS=$pyPlusVersion;jvm"   //
+                                                 "$javaHome/include;$javaHome/include/win32"
                 } else {
                     // TODO untested
                     args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion"
                 }
-                args "-DCHAQUOPY_SUFFIX=$pyNativeSuffix"
+                args "-DCHAQUOPY_LIBS=$pyPlusVersion;dl",  // On MSYS2, libdl is in the "dlfcn" package
+                     "-DCHAQUOPY_SUFFIX=$pyNativeSuffix"
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
@@ -126,7 +125,6 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                 }
                 environment "PYTHONPATH", testDir
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
-                environment "PATH", "$javaHome/jre/bin/server;${System.getenv("PATH")}"     // FIXME remove
                 workingDir "$projectDir/src/test/python"
                 def exeSuffix = windowsHost ? ".exe" : ""
                 executable "$pyPlusVersion$exeSuffix"   // filenames with dots require the ".exe"

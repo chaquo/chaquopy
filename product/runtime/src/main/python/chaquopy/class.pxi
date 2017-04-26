@@ -457,8 +457,6 @@ cdef class JavaMethod(JavaMember):
 
         try:
             if len(args):
-                # FIXME replace malloc/free with alloca everywhere (find them by removing
-                # cimport from .pyx)
                 j_args = <jvalue *>malloc(sizeof(jvalue) * len(d_args))
                 if j_args == NULL:
                     raise MemoryError('Unable to allocate memory for java args')
