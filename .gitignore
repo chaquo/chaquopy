@@ -10,3 +10,5 @@ build/
 local.properties
 
 *.pyc
+
+hs_err*.log

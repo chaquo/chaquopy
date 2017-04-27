@@ -42,19 +42,60 @@ def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 
 
-task cython(type: Exec, group: "build") {
-    def cythonBuildDir = "$buildDir/cython"
-    doFirst { delete(cythonBuildDir); mkdir(cythonBuildDir) }
-    def pyxDir = "$projectDir/src/main/python/chaquopy"
-    def pyxFile = "$pyxDir/chaquopy.pyx"
-    inputs.files pyxFile, fileTree(pyxDir) { include "*.pxi" }
-    outputs.file "$cythonBuildDir/chaquopy.c"
-    doFirst { mkdir(cythonBuildDir) }
-    executable "cython"
-    args pyxFile, "-Wextra", "-Werror", "-o", outputs.files.getSingleFile()
-
-    // FIXME JNICALL JNIEXPORT with forward declarations in a header file
+def cythonTask = {Map taskArgs, String name, Closure closure ->
+    taskArgs["type"] = Exec
+    def t = task(taskArgs, name, closure)
+    t.configure {
+        def pyxFiles = inputs.files.findAll { it.name.endsWith(".pyx") }
+        assert(pyxFiles.size() == 1)
+        def inFile = pyxFiles.get(0)
+        def stem = inFile.name.substring(0, inFile.name.length() - ".pyx".length())
+        def outStem = "$buildDir/cython/$stem"
+        def outFile = "${outStem}.c"
+        outputs.file outFile
+        executable "cython"
+        args "-Wextra", "-Werror", inFile, "-o", outFile
+    }
+    return t
 }
+
+cythonTask("cythonPython", group: "build") {
+    inputs.files fileTree("$projectDir/src/main/python/chaquopy") {
+        include "*.pyx", "*.pxi"
+    }
+}
+cythonTask("cythonJava", group: "build") {
+    inputs.files "$projectDir/src/main/python/chaquopy_java.pyx",
+                 "$projectDir/src/main/python/chaquopy/jni.pyd"
+    args "-I", "$projectDir/src/main/python/chaquopy"
+    doLast {
+        // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
+        // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
+        // some platforms including x86. So alter the generated C code to add it.
+        def cFile = outputs.files.getSingleFile()
+        def tmpFile = new File("${cFile}.tmp")
+        def replacementCount = 0
+        tmpFile.withWriter { writer ->
+            for (inLine in cFile.readLines()) {
+                def outLine = inLine.replaceAll \
+                    (/__PYX_EXTERN_C DL_EXPORT\((.+?)\)/,
+                     '/* cythonJava altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL')
+                if (! outLine.equals(inLine)) replacementCount += 1
+                writer.write(outLine + "\n")
+            }
+        }
+        if (replacementCount == 0) {
+            throw new GradleException("No exports found: has Cython output format changed?")
+        }
+        if (! (cFile.delete() && tmpFile.renameTo(cFile))) {
+            throw new GradleException("Failed to replace $cFile")
+        }
+    }
+}
+task cython(group: "build") {
+    dependsOn cythonPython, cythonJava
+}
+
 
 def sdkCmakeParentDir = new File(sdkDir, "cmake")
 def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
@@ -88,7 +129,7 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                     // TODO untested
                     args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion"
                 }
-                args "-DCHAQUOPY_LIBS=$pyPlusVersion;dl",  // On MSYS2, libdl is in the "dlfcn" package
+                args "-DCHAQUOPY_LIBS=$pyPlusVersion",
                      "-DCHAQUOPY_SUFFIX=$pyNativeSuffix"
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
@@ -136,11 +177,14 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                 }
             }
             check.dependsOn(testPython)
+
+            test {
+                dependsOn cmakeBuild
+                jvmArgs "-Djava.library.path=$cmakeBuildSubdir"
+            }
         }
     }
-
 }
-
 
 dependencies {
     compile files("$sdkDir/platforms/android-$API_LEVEL/android.jar")
