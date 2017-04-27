@@ -70,6 +70,11 @@ class PythonPlugin implements Plugin<Project> {
                 throw new GradleException("python.version not set for variant '$variant.name'. " +
                                           "You may want to add it to defaultConfig.")
             }
+            def PYTHON_VERSIONS = ["2.7.10"]  // TODO #5148
+            if (! PYTHON_VERSIONS.contains(python.version)) {
+                throw new GradleException("python.version set to invalid value '${python.version}'. " +
+                                          "Available versions: $PYTHON_VERSIONS")
+            }
 
             createTargetConfigs(variant, python)
             createSourceTask(variant, python)
