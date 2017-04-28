@@ -62,12 +62,12 @@ def cythonTask = {Map taskArgs, String name, Closure closure ->
 
 cythonTask("cythonPython", group: "build") {
     inputs.files fileTree("$projectDir/src/main/python/chaquopy") {
-        include "*.pyx", "*.pxi"
+        include "*.pyx", "*.pxi", "*.pxd"
     }
 }
 cythonTask("cythonJava", group: "build") {
-    inputs.files "$projectDir/src/main/python/chaquopy_java.pyx",
-                 "$projectDir/src/main/python/chaquopy/jni.pyd"
+    inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
+    inputs.files fileTree("$projectDir/src/main/python/chaquopy") { include "*.pxd" }
     doLast {
         // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
         // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
