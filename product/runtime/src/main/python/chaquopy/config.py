@@ -1,6 +1,6 @@
-__all__ = ('set_options', 'add_options', 'get_options',
+__all__ = ['set_options', 'add_options', 'get_options',
            'set_classpath', 'add_classpath', 'get_classpath',
-           'expand_classpath')
+           'expand_classpath']
 
 import sys
 if sys.platform.startswith("win") or sys.platform.startswith("cygwin"):

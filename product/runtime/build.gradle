@@ -37,6 +37,7 @@ localProps.load(project.rootProject.file('local.properties').newDataInputStream(
 def sdkDir = localProps.getProperty('sdk.dir')
 def ndkDir = localProps.getProperty('ndk.dir')
 def crystaxDir = localProps.getProperty('crystax.dir')
+def mingwDir = localProps.getProperty('mingw.dir')  // Windows only
 
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
@@ -67,7 +68,6 @@ cythonTask("cythonPython", group: "build") {
 cythonTask("cythonJava", group: "build") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx",
                  "$projectDir/src/main/python/chaquopy/jni.pyd"
-    args "-I", "$projectDir/src/main/python/chaquopy"
     doLast {
         // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
         // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
@@ -112,8 +112,9 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
             dependsOn cython
             inputs.files "CMakeLists.txt"
-            outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja"
-            doFirst { delete(cmakeBuildSubdir); mkdir(cmakeBuildSubdir) }
+            outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
+                          "$cmakeBuildSubdir/CMakeCache.txt"
+            doFirst { delete(outputs.files) }
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
@@ -122,7 +123,6 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
             if (abi == "host") {
                 if (windowsHost) {
                     pyNativeSuffix = ".pyd"
-                    def mingwDir = "C:/msys64/mingw64"
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
                                                  "$javaHome/include;$javaHome/include/win32"
                 } else {
@@ -152,19 +152,20 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
         cmakeBuildAnchor.dependsOn(cmakeBuild)
 
         if (abi == "host") {
-            def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
-                dependsOn cmakeBuild, "compileTestJava"
-                def testDir = "$buildDir/testPython/$pyVersion"
+            def pythonPath = "$projectDir/src/main/python"
+            def setupPythonPath = task("setupPythonPath-$pyVersion", group: "verification") {
+                dependsOn cmakeBuild
                 doFirst {
-                    delete testDir
-                    mkdir testDir
                     copy {
-                        into testDir
-                        from("$projectDir/src/main/python") { include "**/*.py" }
-                        from(cmakeBuildSubdir) { include "*$pyNativeSuffix"; into "chaquopy" }
+                        into pythonPath
+                        from(cmakeBuildSubdir) { include "chaquopy$pyNativeSuffix"; into "chaquopy" }
                     }
                 }
-                environment "PYTHONPATH", testDir
+            }
+
+            def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
+                dependsOn setupPythonPath, "compileTestJava"
+                environment "PYTHONPATH", pythonPath
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 workingDir "$projectDir/src/test/python"
                 def exeSuffix = windowsHost ? ".exe" : ""
@@ -179,12 +180,19 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
             check.dependsOn(testPython)
 
             test {
-                dependsOn cmakeBuild
+                dependsOn setupPythonPath
+                outputs.upToDateWhen { false }
+                environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
+                environment "PYTHONPATH", pythonPath
                 jvmArgs "-Djava.library.path=$cmakeBuildSubdir"
+                testLogging {
+                    exceptionFormat = 'full'
+                }
             }
         }
     }
 }
+
 
 dependencies {
     compile files("$sdkDir/platforms/android-$API_LEVEL/android.jar")

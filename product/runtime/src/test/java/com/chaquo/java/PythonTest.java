@@ -15,6 +15,12 @@ public class PythonTest {
     }
 
     @Test
+    public void hello() {
+        assertEquals("hello world", python.hello("world"));
+        assertEquals("hello ", python.hello(""));
+    }
+
+    @Test
     public void add() {
         assertEquals(42, python.add(0));
         assertEquals(45, python.add(3));

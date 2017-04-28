@@ -2,7 +2,6 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
-__all__ = ('autoclass', 'ensureclass')
 from six import with_metaclass
 
 from .chaquopy import (
@@ -10,109 +9,120 @@ from .chaquopy import (
     JavaField, JavaStaticField, JavaMultipleMethod, find_javaclass
 )
 
-# Bootstrap class proxies used to introspect all other classes.
-
-# FIXME these probably contain missing varargs flags, missing methods and various other errors.
-# Auto-generate using javap, and remove JavaStaticMethod/Field at the same time.
-
-class Class(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/Class'
-
-    desiredAssertionStatus = JavaMethod('()Z')
-    forName = JavaMultipleMethod([
-        ('(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/langClass;', True, False),
-        ('(Ljava/lang/String;)Ljava/lang/Class;', True, False), ])
-    getClassLoader = JavaMethod('()Ljava/lang/ClassLoader;')
-    getClasses = JavaMethod('()[Ljava/lang/Class;')
-    getComponentType = JavaMethod('()Ljava/lang/Class;')
-    getConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;')
-    getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
-    getDeclaredClasses = JavaMethod('()[Ljava/lang/Class;')
-    getDeclaredConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;')
-    getDeclaredConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
-    getDeclaredField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
-    getDeclaredFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-    getDeclaredMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
-                                   varargs=True)
-    getDeclaredMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
-    getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-    getField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
-    getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-    getInterfaces = JavaMethod('()[Ljava/lang/Class;')
-    getMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
-                           varargs=True)
-    getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
-    getModifiers = JavaMethod('()[I')
-    getName = JavaMethod('()Ljava/lang/String;')
-    getPackage = JavaMethod('()Ljava/lang/Package;')
-    getProtectionDomain = JavaMethod('()Ljava/security/ProtectionDomain;')
-    getResource = JavaMethod('(Ljava/lang/String;)Ljava/net/URL;')
-    getResourceAsStream = JavaMethod('(Ljava/lang/String;)Ljava/io/InputStream;')
-    getSigners = JavaMethod('()[Ljava/lang/Object;')
-    getSuperclass = JavaMethod('()Ljava/lang/Class;')
-    isArray = JavaMethod('()Z')
-    isAssignableFrom = JavaMethod('(Ljava/lang/Class;)Z')
-    isInstance = JavaMethod('(Ljava/lang/Object;)Z')
-    isInterface = JavaMethod('()Z')
-    isPrimitive = JavaMethod('()Z')
-    newInstance = JavaMethod('()Ljava/lang/Object;')
-    toString = JavaMethod('()Ljava/lang/String;')
+__all__ = ['autoclass']
 
 
-class Object(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/Object'
+# This isn't done during module initialization because we don't have a JVM yet, and we don't
+# want to automatically start one because we might already be in a Java process.
+def setup_bootstrap_classes():
+    if "Constructor" in globals():  # Last class to be created
+        return
 
-    getClass = JavaMethod('()Ljava/lang/Class;')
-    hashCode = JavaMethod('()I')
+    global Class, Object, Modifier, Method, Field, Constructor
+
+    # FIXME these probably contain missing varargs flags, missing methods and various other errors.
+    # Auto-generate using javap, and remove JavaStaticMethod/Field at the same time.
+
+    class Class(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/Class'
+
+        desiredAssertionStatus = JavaMethod('()Z')
+        forName = JavaMultipleMethod([
+            ('(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/langClass;', True, False),
+            ('(Ljava/lang/String;)Ljava/lang/Class;', True, False), ])
+        getClassLoader = JavaMethod('()Ljava/lang/ClassLoader;')
+        getClasses = JavaMethod('()[Ljava/lang/Class;')
+        getComponentType = JavaMethod('()Ljava/lang/Class;')
+        getConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;')
+        getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
+        getDeclaredClasses = JavaMethod('()[Ljava/lang/Class;')
+        getDeclaredConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;')
+        getDeclaredConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
+        getDeclaredField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
+        getDeclaredFields = JavaMethod('()[Ljava/lang/reflect/Field;')
+        getDeclaredMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
+                                       varargs=True)
+        getDeclaredMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
+        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
+        getField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
+        getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
+        getInterfaces = JavaMethod('()[Ljava/lang/Class;')
+        getMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;',
+                               varargs=True)
+        getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
+        getModifiers = JavaMethod('()[I')
+        getName = JavaMethod('()Ljava/lang/String;')
+        getPackage = JavaMethod('()Ljava/lang/Package;')
+        getProtectionDomain = JavaMethod('()Ljava/security/ProtectionDomain;')
+        getResource = JavaMethod('(Ljava/lang/String;)Ljava/net/URL;')
+        getResourceAsStream = JavaMethod('(Ljava/lang/String;)Ljava/io/InputStream;')
+        getSigners = JavaMethod('()[Ljava/lang/Object;')
+        getSuperclass = JavaMethod('()Ljava/lang/Class;')
+        isArray = JavaMethod('()Z')
+        isAssignableFrom = JavaMethod('(Ljava/lang/Class;)Z')
+        isInstance = JavaMethod('(Ljava/lang/Object;)Z')
+        isInterface = JavaMethod('()Z')
+        isPrimitive = JavaMethod('()Z')
+        newInstance = JavaMethod('()Ljava/lang/Object;')
+        toString = JavaMethod('()Ljava/lang/String;')
 
 
-class Modifier(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/reflect/Modifier'
+    class Object(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/Object'
 
-    isAbstract = JavaStaticMethod('(I)Z')
-    isFinal = JavaStaticMethod('(I)Z')
-    isInterface = JavaStaticMethod('(I)Z')
-    isNative = JavaStaticMethod('(I)Z')
-    isPrivate = JavaStaticMethod('(I)Z')
-    isProtected = JavaStaticMethod('(I)Z')
-    isPublic = JavaStaticMethod('(I)Z')
-    isStatic = JavaStaticMethod('(I)Z')
-    isStrict = JavaStaticMethod('(I)Z')
-    isSynchronized = JavaStaticMethod('(I)Z')
-    isTransient = JavaStaticMethod('(I)Z')
-    isVolatile = JavaStaticMethod('(I)Z')
+        getClass = JavaMethod('()Ljava/lang/Class;')
+        hashCode = JavaMethod('()I')
 
 
-class Method(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/reflect/Method'
+    class Modifier(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/reflect/Modifier'
 
-    # FIXME method list incomplete, and autoclass() will return the incomplete object.
-    getName = JavaMethod('()Ljava/lang/String;')
-    toString = JavaMethod('()Ljava/lang/String;')
-    getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
-    getReturnType = JavaMethod('()Ljava/lang/Class;')
-    getModifiers = JavaMethod('()I')
-    invoke = JavaMethod('(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;', varargs=True)
-    isVarArgs = JavaMethod('()Z')
-    setAccessible = JavaMethod('(Z)V')
-
-
-class Field(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/reflect/Field'
-
-    getName = JavaMethod('()Ljava/lang/String;')
-    toString = JavaMethod('()Ljava/lang/String;')
-    getType = JavaMethod('()Ljava/lang/Class;')
-    getModifiers = JavaMethod('()I')
+        isAbstract = JavaStaticMethod('(I)Z')
+        isFinal = JavaStaticMethod('(I)Z')
+        isInterface = JavaStaticMethod('(I)Z')
+        isNative = JavaStaticMethod('(I)Z')
+        isPrivate = JavaStaticMethod('(I)Z')
+        isProtected = JavaStaticMethod('(I)Z')
+        isPublic = JavaStaticMethod('(I)Z')
+        isStatic = JavaStaticMethod('(I)Z')
+        isStrict = JavaStaticMethod('(I)Z')
+        isSynchronized = JavaStaticMethod('(I)Z')
+        isTransient = JavaStaticMethod('(I)Z')
+        isVolatile = JavaStaticMethod('(I)Z')
 
 
-class Constructor(with_metaclass(MetaJavaClass, JavaClass)):
-    __javaclass__ = 'java/lang/reflect/Constructor'
+    class Method(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/reflect/Method'
 
-    toString = JavaMethod('()Ljava/lang/String;')
-    getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
-    getModifiers = JavaMethod('()I')
-    isVarArgs = JavaMethod('()Z')
+        # FIXME method list incomplete, and autoclass() will return the incomplete object.
+        getName = JavaMethod('()Ljava/lang/String;')
+        toString = JavaMethod('()Ljava/lang/String;')
+        getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
+        getReturnType = JavaMethod('()Ljava/lang/Class;')
+        getModifiers = JavaMethod('()I')
+        invoke = JavaMethod('(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;', varargs=True)
+        isVarArgs = JavaMethod('()Z')
+        setAccessible = JavaMethod('(Z)V')
+
+
+    class Field(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/reflect/Field'
+
+        getName = JavaMethod('()Ljava/lang/String;')
+        toString = JavaMethod('()Ljava/lang/String;')
+        getType = JavaMethod('()Ljava/lang/Class;')
+        getModifiers = JavaMethod('()I')
+
+
+    class Constructor(with_metaclass(MetaJavaClass, JavaClass)):
+        __javaclass__ = 'java/lang/reflect/Constructor'
+
+        toString = JavaMethod('()Ljava/lang/String;')
+        getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
+        getModifiers = JavaMethod('()I')
+        isVarArgs = JavaMethod('()Z')
+
+    # The last class defined should match the check at the top of this function.
 
 
 def get_signature(cls_tp):
@@ -129,22 +139,9 @@ def get_signature(cls_tp):
     # don't do it in recursive way for the moment,
     # error on the JNI/android: JNI ERROR (app bug): local reference table
     # overflow (max=512)
+    # autoclass(tp)
 
-    # ensureclass(tp)
     return 'L{0};'.format(tp.replace('.', '/'))
-
-
-registers = []
-
-
-def ensureclass(clsname):
-    if clsname in registers:
-        return
-    jniname = clsname.replace('.', '/')
-    if MetaJavaClass.get_javaclass(jniname):
-        return
-    registers.append(clsname)
-    autoclass(clsname)
 
 
 def lower_name(s):

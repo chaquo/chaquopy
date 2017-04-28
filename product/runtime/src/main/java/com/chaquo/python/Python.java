@@ -2,41 +2,50 @@ package com.chaquo.python;
 
 
 public class Python {
-
     public interface Platform {
         /** @return the value to assign to PYTHONPATH */
         String getPath();
     }
 
-    private static Python sInstance;
+    /** @hide (FIXME http://stackoverflow.com/questions/35076307/javadoc-hide-cant-work) */
+    public static boolean sStarted;  // Set by Python function start_jvm
 
-    public static Python start(Platform platform) {
-        if (sInstance == null) {
-            sInstance = new Python(platform);
-        } else {
-            throw new IllegalArgumentException("Python already started");
-        }
-        return sInstance;
-    }
+    private static Python sInstance;
 
     public static Python getInstance() {
         if (sInstance == null) {
-            start(new GenericPlatform());
+            try {
+                start(new GenericPlatform());
+            } catch (PyException e) {
+                throw new RuntimeException(e);
+            }
         }
         return sInstance;
     }
 
-
-    private Platform mPlatform;
-
-    public Python(Platform platform) {
-        mPlatform = platform;
-        start(platform.getPath());
+    public static Python start(Platform platform) throws PyException {
+        if (sInstance != null) {
+            throw new IllegalStateException("Python already started");
+        }
+        if (! sStarted) {
+            start(platform.getPath());
+            sStarted = true;
+        }
+        sInstance = new Python(platform);
+        return sInstance;
     }
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
      * cleanup. */
-    private native void start(String pythonPath);
+    private static native void start(String pythonPath) throws PyException;
+
+    // ========
+
+    private Platform mPlatform;
+
+    private Python(Platform platform) {
+        mPlatform = platform;
+    }
 
     public native PyObject getModule(String name) throws PyException;
 

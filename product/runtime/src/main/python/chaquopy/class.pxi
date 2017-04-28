@@ -489,7 +489,7 @@ cdef class JavaMethod(JavaMember):
 
         r = self.definition_return[0]
         if r == 'V':
-            with nogil:  # FIXME test whether redundant: already present in jni.pxi
+            with nogil:  # FIXME test whether redundant: already present in jni.pxd
                 j_env[0].CallVoidMethodA(
                         j_env, j_self, self.j_method, j_args)
         elif r == 'Z':
@@ -574,7 +574,7 @@ cdef class JavaMethod(JavaMember):
 
         # now call the java method
         if r == 'V':
-            with nogil:  # FIXME test whether redundant: already present in jni.pxi
+            with nogil:  # FIXME test whether redundant: already present in jni.pxd
                 j_env[0].CallStaticVoidMethodA(
                         j_env, j_class, self.j_method, j_args)
         elif r == 'Z':
