@@ -184,7 +184,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
             ret_jc = autoclass(r.replace('/', '.'))(noinstance=True)
     else:
         ret_jc = jclass_register[r](noinstance=True)
-    ret_jc.instanciate_from(create_local_ref(j_env, j_object))
+    ret_jc.instantiate_from(LocalRef.create(j_env, j_object))
     return ret_jc
 
 cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):

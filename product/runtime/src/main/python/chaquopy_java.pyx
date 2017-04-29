@@ -1,52 +1,72 @@
-from __future__ import print_function, unicode_literals
+from __future__ import absolute_import, division, print_function
+
+from importlib import import_module
 
 from cpython.module cimport PyImport_ImportModule
+from cpython.object cimport PyObject
+from cpython.ref cimport Py_INCREF, Py_DECREF
+cdef extern from "Python.h":
+    void Py_Initialize()
 from libc.errno cimport errno
 from libc.stdio cimport printf, snprintf
+from libc.stdint cimport uintptr_t
 from libc.stdlib cimport malloc
 from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
+from chaquopy.reflect import *
 from chaquopy.jni cimport *
 from chaquopy.chaquopy cimport *
-
-cdef extern from "Python.h":
-    void Py_Initialize()
-
 cdef extern from "chaquopy_java_init.h":
     void initchaquopy_java() except *  # TODO #5148 (name changes in Python 3)
     const char *__Pyx_BUILTIN_MODULE_NAME
+
+
+cdef LocalRef PyObject_jclass
+cdef jmethodID PyObject_init
+cdef jfieldID PyObject_obj
+
 
 cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
     return JNI_VERSION_1_6
 
 
+# === com.chaquo.python.Python ================================================
+
 cdef public void Java_com_chaquo_python_Python_start \
     (JNIEnv *env, jclass klass, jstring jPythonPath):
     # All code run before Py_Initialize must compile to pure C.
+    cdef JavaVM *jvm = NULL
+
     if jPythonPath != NULL:
         if not set_path(env, jPythonPath):
             return
     Py_Initialize()  # Calls abort() on failure
 
-    # We can now start using some Python constructs, but many things will still cause a crash
-    # until our module initialization function completes. In particular, global and built-in
-    # names won't be bound.
+    # We can now start using some Python constructs, but many things will still cause a native
+    # crash until our module initialization function completes. In particular, global and
+    # built-in names won't be bound.
     try:
         initchaquopy_java()
+
+        # Normal Cython functionality is now available.
+        if env[0].GetJavaVM(env, &jvm) != 0:
+             raise Exception("GetJavaVM failed")
+        set_jvm(jvm)
+
+        PO = autoclass("com.chaquo.python.PyObject")
+        global PyObject_jclass, PyObject_obj, PyObject_init
+        PyObject_jclass = <LocalRef?>PO.j_cls
+        PyObject_obj = (<JavaField?>PO.__dict__["obj"]).j_field
+        PyObject_init = env[0].GetMethodID(env, PyObject_jclass.obj, "<init>", "()V")
+        if PyObject_init == NULL:
+            raise Exception('Constructor GetMethodID failed for PyObject')
+
     except Exception as e:
-        java_exception(env, traceback_format_exc(e))
-        return
-    # OK, normal Cython functionality is now available.
-
-    # Prevent the Python module from trying to start Java
-    cdef JavaVM *jvm = NULL
-    if env[0].GetJavaVM(env, &jvm) != 0:
-         java_exception(env, "GetJavaVM failed")
-         return
-    set_jvm(jvm)
+        wrap_exception(env, e)
 
 
+# This runs before Py_Initialize, so it must compile to pure C.
 cdef bint set_path(JNIEnv *env, jstring jPythonPath):
     cdef const char *pythonPath = env[0].GetStringUTFChars(env, jPythonPath, NULL)
     if pythonPath == NULL:
@@ -69,19 +89,73 @@ cdef bint set_path(JNIEnv *env, jstring jPythonPath):
     return True
 
 
-cdef traceback_format_exc(Exception e):
+cdef public jobject Java_com_chaquo_python_Python_getModule \
+    (JNIEnv *env, jobject this, jstring name) with gil:
+    try:
+        return new_jpyobject(env, import_module(j2p_str(env, name)))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+# === com.chaquo.python.PyObject ==============================================
+
+cdef get_obj(JNIEnv *env, jobject this):
+    cdef PyObject *po = get_pyobject(env, this)
+    if po == NULL:
+        raise ValueError("PyObject is closed")
+    return <object>po
+
+cdef PyObject *get_pyobject(JNIEnv *env, jobject this):
+    return <PyObject*> env[0].GetLongField(env, this, PyObject_obj)
+
+
+# FIXME test this actually destroys the underlying object
+cdef public void Java_com_chaquo_python_PyObject_close \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        Py_DECREF(get_obj(env, this))
+        env[0].SetLongField(env, this, PyObject_obj, 0)
+    except Exception as e:
+        wrap_exception(env, e)
+
+
+cdef public jstring Java_com_chaquo_python_PyObject_toString \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        return p2j_str(env, str(get_obj(env, this)))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+# =============================================================================
+
+cdef jobject new_jpyobject(JNIEnv *env, obj) except NULL:
+    cdef jobject jpo = env[0].NewObject(env, PyObject_jclass.obj, PyObject_init)
+    check_exception(env)
+    Py_INCREF(obj)
+    env[0].SetLongField(env, jpo, PyObject_obj, <jlong><PyObject*>obj)
+    return jpo
+
+
+# TODO if this is a Java exception, use the original exception object.
+# TODO Integrate Python traceback into Java traceback if possible
+#
+# To do either of these things, create a new function called wrap_exception, rename this
+# original function, and only call it from Python_start() when module initialization failed.
+cdef wrap_exception(JNIEnv *env, Exception e):
     # Cython translates "import" into code which references the chaquopy_java module object,
-    # which doesn't exist if the module initialization function failed. So we'll have to do it
-    # manually.
+    # which doesn't exist if the module initialization function failed with an exception. So
+    # we'll have to do it manually.
     try:
         traceback = PyImport_ImportModule("traceback")
         result = traceback.format_exc()
     except Exception as e2:
         result = (f"{type(e).__name__}: {e} "
                   f"[Failed to get traceback: {type(e2).__name__}: {e2}]")
-    return result.encode("UTF-8")
+    java_exception(env, result.encode("UTF-8"))
 
 
+# This may run before Py_Initialize, so it must compile to pure C.
 cdef void java_exception(JNIEnv *env, char *message):
     cdef jclass re = env[0].FindClass(env, "com/chaquo/python/PyException")
     if re != NULL:
@@ -90,15 +164,21 @@ cdef void java_exception(JNIEnv *env, char *message):
     printf("Failed to throw Java exception: %s", message)
 
 
-cdef public jstring Java_com_chaquo_python_Python_getModule \
-    (JNIEnv *env, jobject this, jstring name) with gil:
-    return NULL  # FIXME
+cdef jobject p2j_str(JNIEnv *env, s) except *:
+    return convert_python_to_jobject(env, "Ljava/lang/String;", s)
+
+cdef j2p_str(JNIEnv *env, jstring s):
+    return convert_jobject_to_python(env, "Ljava/lang/String;", s)
 
 
+# FIXME remove once real tests work
 cdef public jstring Java_com_chaquo_python_Python_hello \
     (JNIEnv *env, jobject this, jstring s) with gil:
-    result = "hello " + convert_jobject_to_python(env, "Ljava/lang/String;", s)
-    return convert_python_to_jobject(env, "Ljava/lang/String;", result)
+    try:
+        return p2j_str(env, "hello " + j2p_str(env, s))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
 
 
 cdef public jint Java_com_chaquo_python_Python_add \

@@ -18,6 +18,10 @@ class JavaException(Exception):
 cdef dict jclass_register = {}
 
 # TODO MetaJavaClass should be called JavaClass, while JavaClass should be called JavaObject.
+#
+# TODO override setattr on both class and object so that assignment to nonexistent fields
+# doesn't just create a new __dict__ entry.
+#
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class MetaJavaClass(type):
     def __init__(cls, classname, bases, classDict):
@@ -39,21 +43,19 @@ class MetaJavaClass(type):
         return jclass_register.get(name)
 
 
+# TODO special-case getClass so it can be called with or without an instance (can't support
+# .class syntax because that's a reserved word).
 cdef class JavaClass(object):
-    '''Base class for Python -> Java proxy classes
-    '''
-    # TODO special-case getClass so it can be called with or without an instance (can't support
-    # .class syntax because that's a reserved word).
+    '''Base class for Python -> Java proxy classes'''
 
-    cdef LocalRef j_self
+    # Member variables declared in .pxd
 
     def __init__(self, *args, **kwargs):
         super(JavaClass, self).__init__()
-
         if 'noinstance' not in kwargs:
             self.call_constructor(args)
 
-    cdef void instanciate_from(self, LocalRef j_self) except *:
+    cdef void instantiate_from(self, LocalRef j_self) except *:
         self.j_self = j_self
 
     # TODO merge duplicate parts with JavaMultipleMethod
@@ -117,8 +119,7 @@ cdef class JavaClass(object):
             constructor = j_env[0].GetMethodID(
                 j_env, (<LocalRef?>self.j_cls).obj, '<init>', defstr)
             if constructor == NULL:
-                raise JavaException('Unable to found the constructor'
-                        ' for {0}'.format(self.__javaclass__))
+                raise JavaException(f'Constructor GetMethodID failed for {self} {defstr}')
 
             # create the object
             j_self = j_env[0].NewObjectA(j_env, (<LocalRef?>self.j_cls).obj,
@@ -129,10 +130,10 @@ cdef class JavaClass(object):
 
             check_exception(j_env)
             if j_self == NULL:
-                raise JavaException('Unable to instanciate {0}'.format(
+                raise JavaException('Unable to instantiate {0}'.format(
                     self.__javaclass__))
 
-            self.j_self = create_local_ref(j_env, j_self)
+            self.j_self = LocalRef.create(j_env, j_self)
             j_env[0].DeleteLocalRef(j_env, j_self)
         finally:
             if j_args != NULL:
@@ -147,9 +148,7 @@ cdef class JavaClass(object):
 
 
 cdef class JavaMember(object):
-    cdef jc
-    cdef name
-    cdef bint is_static
+    # Member variables declared in .pxd
 
     def __init__(self, bint static=False):
         self.is_static = static
@@ -163,8 +162,7 @@ cdef class JavaMember(object):
 
 
 cdef class JavaField(JavaMember):
-    cdef jfieldID j_field
-    cdef definition
+    # Member variables declared in .pxd
 
     def __repr__(self):
         return (f"<JavaField {'static ' if self.is_static else ''}{self.definition} "

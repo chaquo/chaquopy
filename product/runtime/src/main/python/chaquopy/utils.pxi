@@ -11,7 +11,7 @@ def cast(destclass, obj):
         jc = autoclass(destclass)(noinstance=True)
     else:
         jc = destclass(noinstance=True)
-    jc.instanciate_from(jobj.j_self)
+    jc.instantiate_from(jobj.j_self)
     return jc
 
 
@@ -34,7 +34,7 @@ def find_javaclass(name):
     from . import reflect
     reflect.setup_bootstrap_classes()
     cls = reflect.Class(noinstance=True)
-    cls.instanciate_from(create_local_ref(j_env, jc))
+    cls.instantiate_from(LocalRef.create(j_env, jc))
     j_env[0].DeleteLocalRef(j_env, jc)
     return cls
 

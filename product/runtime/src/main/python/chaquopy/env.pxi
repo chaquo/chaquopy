@@ -3,7 +3,7 @@
 
 # FIXME should be called GlobalRef
 cdef class LocalRef(object):
-    cdef jobject obj
+    # Member variables declared in .pxd
 
     def __init__(self):
         telem[self.__class__.__name__] += 1
@@ -16,9 +16,12 @@ cdef class LocalRef(object):
         self.obj = NULL
         telem[self.__class__.__name__] -= 1
 
-    # FIXME use same approach as LocalActualRef
-    cdef void create(self, JNIEnv *env, jobject obj):
-        self.obj = env[0].NewGlobalRef(env, obj)
+    # Constructors can't take C pointer arguments
+    @staticmethod
+    cdef LocalRef create(JNIEnv *env, jobject obj):
+        cdef LocalRef gr = LocalRef()
+        gr.obj = env[0].NewGlobalRef(env, obj)
+        return gr
 
     def __repr__(self):
         return '<LocalRef obj=0x{0:x} at 0x{1:x}>'.format(
@@ -26,13 +29,6 @@ cdef class LocalRef(object):
 
     def __nonzero__(self):
         return self.obj != NULL
-
-
-# FIXME use same approach as LocalActualRef
-cdef LocalRef create_local_ref(JNIEnv *env, jobject obj):
-    cdef LocalRef ret = LocalRef()
-    ret.create(env, obj)
-    return ret
 
 
 # FIXME should be called LocalRef. Named to facilitate future search and replace.
@@ -60,7 +56,7 @@ cdef class LocalActualRef(object):
         telem[self.__class__.__name__] -= 1
 
     cdef LocalRef global_ref(self):
-        return create_local_ref(self.env, self.obj)
+        return LocalRef.create(self.env, self.obj)
 
     def __repr__(self):
         return '<LocalActualRef obj=0x{0:x} at 0x{1:x}>'.format(

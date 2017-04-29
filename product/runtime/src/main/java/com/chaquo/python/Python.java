@@ -7,32 +7,33 @@ public class Python {
         String getPath();
     }
 
-    /** @hide (FIXME http://stackoverflow.com/questions/35076307/javadoc-hide-cant-work) */
-    public static boolean sStarted;  // Set by Python function start_jvm
+    /** @hide (used in jvm.pxi)
+     * FIXME http://stackoverflow.com/questions/35076307/javadoc-hide-cant-work) */
+    public static boolean started;
 
-    private static Python sInstance;
+    private static Python instance;
 
     public static Python getInstance() {
-        if (sInstance == null) {
+        if (instance == null) {
             try {
                 start(new GenericPlatform());
             } catch (PyException e) {
                 throw new RuntimeException(e);
             }
         }
-        return sInstance;
+        return instance;
     }
 
     public static Python start(Platform platform) throws PyException {
-        if (sInstance != null) {
+        if (instance != null) {
             throw new IllegalStateException("Python already started");
         }
-        if (! sStarted) {
+        if (!started) {
             start(platform.getPath());
-            sStarted = true;
+            started = true;
         }
-        sInstance = new Python(platform);
-        return sInstance;
+        instance = new Python(platform);
+        return instance;
     }
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete

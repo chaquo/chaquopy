@@ -47,10 +47,15 @@ cdef extern from "jni.h":
     ctypedef jfloat const_jfloat "const jfloat"
     ctypedef jdouble const_jdouble "const jdouble"
 
-    jint JNI_VERSION_1_6
-    jboolean JNI_FALSE, JNI_TRUE
-    jint JNI_OK, JNI_ERR, JNI_EDETACHED, JNI_EVERSION, JNI_ENOMEM, JNI_EEXIST, JNI_EINVAL
-    jint JNI_COMMIT, JNI_ABORT
+    # Defining these using their true types of jint and jboolean caused Cython to generate an
+    # assignment to JNI_VERSION_1_6 when compiling chaquopy_java.pyx. This gave exactly the
+    # same type of error as at https://groups.google.com/forum/#!topic/cython-users/oPHbR3KmX2c,
+    # but the explanation at https://github.com/mehcode/python-xmlsec/commit/01f8d0d4a275da190ca668fbc3a7a6fbeff01a18#commitcomment-13005096
+    # does not seem to be relevant here.
+    enum: JNI_VERSION_1_6
+    enum: JNI_FALSE, JNI_TRUE
+    enum: JNI_OK, JNI_ERR, JNI_EDETACHED, JNI_EVERSION, JNI_ENOMEM, JNI_EEXIST, JNI_EINVAL
+    enum: JNI_COMMIT, JNI_ABORT
 
     ctypedef struct JNINativeMethod:
         const char* name
