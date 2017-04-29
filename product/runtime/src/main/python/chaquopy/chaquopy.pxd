@@ -5,7 +5,7 @@ from .jni cimport *
 
 # === class ===================================================================
 
-cdef class JavaClass(object):
+cdef class JavaObject(object):
     cdef GlobalRef j_self
     cdef void instantiate_from(self, GlobalRef j_self) except *
     cdef void call_constructor(self, args) except *
@@ -30,7 +30,7 @@ cdef class JavaMethod(JavaMember):
     cdef object definition_args
     cdef bint is_varargs
     cdef void ensure_method(self) except *
-    cdef call_method(self, JNIEnv *j_env, JavaClass obj, jvalue *j_args)
+    cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args)
     cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args)
 
 # === conversion ==============================================================

@@ -26,7 +26,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    cdef JavaClass jc
+    cdef JavaObject jc
     cdef PythonJavaClass pc
     cdef int index
     cdef bytes py_str
@@ -60,11 +60,11 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
                 except (UnicodeEncodeError, TypeError):
                     py_str = <bytes>py_arg.encode('utf-8')
                     j_args[index].l = j_env[0].NewStringUTF(j_env, <char *>py_str)
-            elif isinstance(py_arg, JavaClass):
+            elif isinstance(py_arg, JavaObject):
                 jc = py_arg
                 check_assignable_from(j_env, jc, argtype[1:-1])
                 j_args[index].l = jc.j_self.obj
-            elif isinstance(py_arg, MetaJavaClass):
+            elif isinstance(py_arg, JavaClass):
                 j_args[index].l = (<GlobalRef?>py_arg.j_cls).obj
             elif isinstance(py_arg, PythonJavaClass):
                 pc = py_arg
@@ -101,7 +101,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
     cdef char *c_str
     cdef bytes py_str
     r = definition[1:-1]
-    cdef JavaClass ret_jc
+    cdef JavaObject ret_jc
     cdef jclass retclass
     cdef jmethodID retmeth
 
@@ -305,7 +305,7 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
     cdef jclass retclass = NULL
     cdef jmethodID retmidinit = NULL
     cdef jvalue j_ret[1]
-    cdef JavaClass jc
+    cdef JavaObject jc
     cdef PythonJavaClass pc
     cdef int index
 
@@ -330,11 +330,11 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
             retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(I)V')
             retobject = j_env[0].NewObjectA(j_env, retclass, retmidinit, j_ret)
             return retobject
-        elif isinstance(obj, JavaClass):
+        elif isinstance(obj, JavaObject):
             jc = obj
             check_assignable_from(j_env, jc, definition[1:-1])
             return jc.j_self.obj
-        elif isinstance(obj, MetaJavaClass):
+        elif isinstance(obj, JavaClass):
             return (<GlobalRef?>obj.j_cls).obj
         elif isinstance(obj, PythonJavaClass):
             pc = obj
@@ -433,7 +433,7 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
     cdef jdouble j_double
     cdef jstring j_string
     cdef jclass j_class
-    cdef JavaClass jc
+    cdef JavaObject jc
 
     if definition == 'Ljava/lang/Object;' and len(pyarray) > 0:
         # then the method will accept any array type as param
@@ -545,12 +545,12 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
                         j_env, <bytes>utf8)
                 j_env[0].SetObjectArrayElement(
                         j_env, <jobjectArray>ret, i, j_string)
-            elif isinstance(arg, JavaClass):
+            elif isinstance(arg, JavaObject):
                 jc = arg
                 check_assignable_from(j_env, jc, definition[1:-1])
                 j_env[0].SetObjectArrayElement(
                         j_env, <jobjectArray>ret, i, jc.j_self.obj)
-            elif isinstance(arg, MetaJavaClass):
+            elif isinstance(arg, JavaClass):
                 j_env[0].SetObjectArrayElement(
                         j_env, <jobjectArray>ret, i, (<GlobalRef?>arg.j_cls).obj)
             else:

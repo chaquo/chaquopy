@@ -3,8 +3,8 @@ from cpython.version cimport PY_MAJOR_VERSION
 
 
 def cast(destclass, obj):
-    cdef JavaClass jc
-    cdef JavaClass jobj = obj
+    cdef JavaObject jc
+    cdef JavaObject jobj = obj
     from .reflect import autoclass
     if (PY_MAJOR_VERSION < 3 and isinstance(destclass, basestring)) or \
           (PY_MAJOR_VERSION >=3 and isinstance(destclass, str)):
@@ -21,7 +21,7 @@ def find_javaclass(name):
     at https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/functions.html#FindClass
     """
     name = str_for_c(name.replace('.', '/'))
-    cdef JavaClass cls
+    cdef JavaObject cls
     cdef jclass jc
     cdef JNIEnv *j_env = get_jnienv()
 
@@ -184,7 +184,7 @@ cdef void _append_exception_trace_messages(
 
 cdef dict assignable_from = {}
 cdef int assignable_from_order = 0
-cdef void check_assignable_from(JNIEnv *env, JavaClass jc, signature) except *:
+cdef void check_assignable_from(JNIEnv *env, JavaObject jc, signature) except *:
     global assignable_from_order
     cdef jclass cls, clsA, clsB
     cdef jthrowable exc
@@ -262,7 +262,7 @@ cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
 cdef int calculate_score(sign_args, args, is_varargs=False) except *:
     cdef int index
     cdef int score = 0
-    cdef JavaClass jc
+    cdef JavaObject jc
 
     if len(args) != len(sign_args) and not is_varargs:
         # if the number of arguments expected is not the same
@@ -343,7 +343,7 @@ cdef int calculate_score(sign_args, args, is_varargs=False) except *:
             # if it's a generic object, accept python string, or any java
             # class/object
             if r == 'java/lang/Object':
-                if isinstance(arg, JavaClass) or isinstance(arg, MetaJavaClass):
+                if isinstance(arg, JavaObject) or isinstance(arg, JavaClass):
                     score += 10
                     continue
                 elif isinstance(arg, basestring):
@@ -356,9 +356,9 @@ cdef int calculate_score(sign_args, args, is_varargs=False) except *:
                 score += 10
                 continue
 
-            # if we pass a JavaClass, ensure the definition is matching
+            # if we pass a JavaObject, ensure the definition is matching
             # XXX FIXME what if we use a subclass or something ?
-            if isinstance(arg, JavaClass):
+            if isinstance(arg, JavaObject):
                 jc = arg
                 if jc.__javaclass__ == r:
                     score += 10

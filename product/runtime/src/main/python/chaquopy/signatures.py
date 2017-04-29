@@ -3,7 +3,7 @@ This module aims to provide a more human-friendly API for
 wiring up Java proxy methods.
 
 You can use the signature function to produce JNI method
-signautures for methods; passing JavaClass classes
+signautures for methods; passing JavaObject classes
 as return or argument types; provided here are annotations
 representing Java's primitive and array times.
 
@@ -24,7 +24,7 @@ for return types.
 
 '''
 
-from . import JavaClass
+from . import JavaObject
 from . import java_method
 
 
@@ -65,7 +65,7 @@ def JArray(of_type):
 
 
 def with_signature(returns, takes):
-    ''' Alternative version of @java_method that takes JavaClass
+    ''' Alternative version of @java_method that takes JavaObject
     objects to produce the method signature. '''
 
     sig = signature(returns, takes)
@@ -85,11 +85,11 @@ def signature(returns, takes):
 
 def _jni_type_spec(jclass):
     ''' Produces a JNI type specification string for the given argument.
-    If the argument is a JavaClass, it produces the JNI type spec
+    If the argument is a JavaObject, it produces the JNI type spec
     for the class. Signature primitives return their stored type spec.
     '''
 
-    if issubclass(jclass, JavaClass):
+    if issubclass(jclass, JavaObject):
         return "L" + jclass.__javaclass__ + ";"
     elif issubclass(jclass, _JavaSignaturePrimitive):
         return jclass._spec

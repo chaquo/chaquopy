@@ -117,7 +117,7 @@ cdef public jstring Java_com_chaquo_python_PyObject_toString \
 # =============================================================================
 
 cdef jobject get_jpyobject(JNIEnv *env, obj) except NULL:
-    cdef JavaClass jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
+    cdef JavaObject jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
     Py_INCREF(obj)
     return env[0].NewLocalRef(env, jpo.j_self.obj)
 

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 from six import with_metaclass
 
 from .chaquopy import (
-    JavaClass, MetaJavaClass, JavaMethod, JavaStaticMethod,
+    JavaObject, JavaClass, JavaMethod, JavaStaticMethod,
     JavaField, JavaStaticField, JavaMultipleMethod, find_javaclass
 )
 
@@ -20,7 +20,7 @@ def setup_bootstrap_classes():
     # FIXME these probably contain missing varargs flags, missing methods and various other errors.
     # Auto-generate using javap, and remove JavaStaticMethod/Field at the same time.
 
-    class Class(with_metaclass(MetaJavaClass, JavaClass)):
+    class Class(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/Class'
 
         desiredAssertionStatus = JavaMethod('()Z')
@@ -64,14 +64,14 @@ def setup_bootstrap_classes():
         toString = JavaMethod('()Ljava/lang/String;')
 
 
-    class Object(with_metaclass(MetaJavaClass, JavaClass)):
+    class Object(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/Object'
 
         getClass = JavaMethod('()Ljava/lang/Class;')
         hashCode = JavaMethod('()I')
 
 
-    class Modifier(with_metaclass(MetaJavaClass, JavaClass)):
+    class Modifier(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/reflect/Modifier'
 
         isAbstract = JavaStaticMethod('(I)Z')
@@ -88,7 +88,7 @@ def setup_bootstrap_classes():
         isVolatile = JavaStaticMethod('(I)Z')
 
 
-    class Method(with_metaclass(MetaJavaClass, JavaClass)):
+    class Method(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/reflect/Method'
 
         # FIXME method list incomplete, and autoclass() will return the incomplete object.
@@ -102,7 +102,7 @@ def setup_bootstrap_classes():
         setAccessible = JavaMethod('(Z)V')
 
 
-    class Field(with_metaclass(MetaJavaClass, JavaClass)):
+    class Field(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/reflect/Field'
 
         getName = JavaMethod('()Ljava/lang/String;')
@@ -111,7 +111,7 @@ def setup_bootstrap_classes():
         getModifiers = JavaMethod('()I')
 
 
-    class Constructor(with_metaclass(MetaJavaClass, JavaClass)):
+    class Constructor(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java/lang/reflect/Constructor'
 
         toString = JavaMethod('()Ljava/lang/String;')
@@ -151,7 +151,7 @@ def bean_getter(s):
 
 def autoclass(clsname):
     jniname = clsname.replace('.', '/')
-    cls = MetaJavaClass.get_javaclass(jniname)
+    cls = JavaClass.get_javaclass(jniname)
     if cls:
         return cls
 
@@ -231,4 +231,4 @@ def autoclass(clsname):
 
     classDict['__javaclass__'] = clsname.replace('.', '/')
 
-    return MetaJavaClass(clsname, (JavaClass,), classDict)
+    return JavaClass(clsname, (JavaObject,), classDict)

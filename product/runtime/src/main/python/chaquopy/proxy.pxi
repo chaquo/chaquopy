@@ -86,7 +86,7 @@ cdef jobject py_invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
     cdef jfieldID ptrField
     cdef jlong jptr
     cdef object py_obj
-    cdef JavaClass method
+    cdef JavaObject method
     cdef jobject j_arg
 
     # get the python object
@@ -166,7 +166,7 @@ cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     # convert strings to Class
     j_interfaces = [find_javaclass(x) for x in j_interfaces]
 
-    cdef JavaClass nih = NativeInvocationHandler(<uintptr_t><void *>py_obj)
+    cdef JavaObject nih = NativeInvocationHandler(<uintptr_t><void *>py_obj)
     cdef JNINativeMethod invoke_methods[1]
     invoke_methods[0].name = <char*>'invoke0'
     invoke_methods[0].signature = <char*>'(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;'
@@ -174,7 +174,7 @@ cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     j_env[0].RegisterNatives(j_env, (<GlobalRef?>nih.j_cls).obj, <JNINativeMethod *>invoke_methods, 1)
 
     # create the proxy and pass it the invocation handler
-    cdef JavaClass j_obj
+    cdef JavaObject j_obj
     if javacontext == 'app':
         Thread = autoclass('java.lang.Thread')
         classLoader = Thread.currentThread().getContextClassLoader()

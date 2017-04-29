@@ -17,13 +17,11 @@ class JavaException(Exception):
 
 cdef dict jclass_register = {}
 
-# TODO MetaJavaClass should be called JavaClass, while JavaClass should be called JavaObject.
-#
 # TODO override setattr on both class and object so that assignment to nonexistent fields
-# doesn't just create a new __dict__ entry.
+# doesn't just create a new __dict__ entry (see static field __set__ note below).
 #
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
-class MetaJavaClass(type):
+class JavaClass(type):
     def __init__(cls, classname, bases, classDict):
         cdef JNIEnv *j_env = get_jnienv()
         cls.__javaclass__ = str_for_c(cls.__javaclass__)
@@ -45,13 +43,13 @@ class MetaJavaClass(type):
 
 # TODO special-case getClass so it can be called with or without an instance (can't support
 # .class syntax because that's a reserved word).
-cdef class JavaClass(object):
+cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
 
     # Member variables declared in .pxd
 
     def __init__(self, *args, GlobalRef instance=None, **kwargs):
-        super(JavaClass, self).__init__()
+        super(JavaObject, self).__init__()
         if instance is not None:
             self.instantiate_from(instance)
         elif 'noinstance' not in kwargs:
@@ -195,7 +193,7 @@ cdef class JavaField(JavaMember):
         else:
             if obj is None:
                 raise AttributeError(f'Cannot access {self} in static context')
-            j_self = (<JavaClass?>obj).j_self.obj
+            j_self = (<JavaObject?>obj).j_self.obj
             return self.read_field(j_self)
 
     def __set__(self, obj, value):
@@ -211,7 +209,7 @@ cdef class JavaField(JavaMember):
                 raise AttributeError(f'Cannot access {self} in static context')
             raise NotImplementedError()  # FIXME
         else:
-            j_self = (<JavaClass?>obj).j_self.obj
+            j_self = (<JavaObject?>obj).j_self.obj
             self.write_field(j_self, value)
 
     cdef write_field(self, jobject j_self, value):
@@ -470,7 +468,7 @@ cdef class JavaMethod(JavaMember):
             if j_args != NULL:
                 free(j_args)
 
-    cdef call_method(self, JNIEnv *j_env, JavaClass obj, jvalue *j_args):
+    cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char

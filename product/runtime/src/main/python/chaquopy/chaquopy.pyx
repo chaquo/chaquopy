@@ -10,8 +10,8 @@ cdef extern from "alloca.h":
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
-__all__ = ['JavaClass', 'JavaMethod', 'JavaField',
-           'MetaJavaClass', 'JavaException', 'cast', 'find_javaclass',
+__all__ = ['JavaObject', 'JavaMethod', 'JavaField',
+           'JavaClass', 'JavaException', 'cast', 'find_javaclass',
            'PythonJavaClass', 'java_method', 'detach']
 
 

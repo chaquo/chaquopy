@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from chaquopy import JavaException, JavaClass
+from chaquopy import JavaException
 from chaquopy.reflect import autoclass
 
 class BadDeclarationTest(unittest.TestCase):
