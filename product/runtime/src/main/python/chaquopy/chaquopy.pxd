@@ -6,8 +6,8 @@ from .jni cimport *
 # === class ===================================================================
 
 cdef class JavaClass(object):
-    cdef LocalRef j_self
-    cdef void instantiate_from(self, LocalRef j_self) except *
+    cdef GlobalRef j_self
+    cdef void instantiate_from(self, GlobalRef j_self) except *
     cdef void call_constructor(self, args) except *
 
 cdef class JavaMember(object):
@@ -40,10 +40,10 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *
 
 # === env =====================================================================
 
-cdef class LocalRef(object):
+cdef class GlobalRef(object):
     cdef jobject obj
     @staticmethod
-    cdef LocalRef create(JNIEnv *env, jobject obj)
+    cdef GlobalRef create(JNIEnv *env, jobject obj)
 
 
 # === jni =====================================================================

@@ -27,7 +27,7 @@ class MetaJavaClass(type):
     def __init__(cls, classname, bases, classDict):
         cdef JNIEnv *j_env = get_jnienv()
         cls.__javaclass__ = str_for_c(cls.__javaclass__)
-        cls.j_cls = LocalActualRef.wrap \
+        cls.j_cls = LocalRef.wrap \
             (j_env, j_env[0].FindClass(j_env, cls.__javaclass__)).global_ref()
         if not cls.j_cls:
             raise ValueError(f"FindClass failed for {cls.__javaclass__}")
@@ -50,14 +50,14 @@ cdef class JavaClass(object):
 
     # Member variables declared in .pxd
 
-    def __init__(self, *args, LocalRef instance=None, **kwargs):
+    def __init__(self, *args, GlobalRef instance=None, **kwargs):
         super(JavaClass, self).__init__()
         if instance is not None:
             self.instantiate_from(instance)
         elif 'noinstance' not in kwargs:
             self.call_constructor(args)
 
-    cdef void instantiate_from(self, LocalRef j_self) except *:
+    cdef void instantiate_from(self, GlobalRef j_self) except *:
         self.j_self = j_self
 
     # TODO merge duplicate parts with JavaMultipleMethod
@@ -119,12 +119,12 @@ cdef class JavaClass(object):
             # get the java constructor
             defstr = str_for_c(definition)
             constructor = j_env[0].GetMethodID(
-                j_env, (<LocalRef?>self.j_cls).obj, '<init>', defstr)
+                j_env, (<GlobalRef?>self.j_cls).obj, '<init>', defstr)
             if constructor == NULL:
                 raise JavaException(f'Constructor GetMethodID failed for {self} {defstr}')
 
             # create the object
-            j_self = j_env[0].NewObjectA(j_env, (<LocalRef?>self.j_cls).obj,
+            j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.j_cls).obj,
                     constructor, j_args)
 
             # release our arguments
@@ -135,7 +135,7 @@ cdef class JavaClass(object):
                 raise JavaException('Unable to instantiate {0}'.format(
                     self.__javaclass__))
 
-            self.j_self = LocalRef.create(j_env, j_self)
+            self.j_self = GlobalRef.create(j_env, j_self)
             j_env[0].DeleteLocalRef(j_env, j_self)
         finally:
             if j_args != NULL:
@@ -180,10 +180,10 @@ cdef class JavaField(JavaMember):
             return
         if self.is_static:
             self.j_field = j_env[0].GetStaticFieldID(
-                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
         else:
             self.j_field = j_env[0].GetFieldID(
-                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
         if self.j_field == NULL:
             raise AttributeError(f'Get[Static]Field failed for {self}')
 
@@ -329,7 +329,7 @@ cdef class JavaField(JavaMember):
         return ret
 
     cdef read_static_field(self):
-        cdef jclass j_class = (<LocalRef?>self.jc.j_cls).obj
+        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -420,10 +420,10 @@ cdef class JavaMethod(JavaMember):
             raise JavaException('Unable to find a None method!')
         if self.is_static:
             self.j_method = j_env[0].GetStaticMethodID(
-                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
         else:
             self.j_method = j_env[0].GetMethodID(
-                    j_env, (<LocalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
 
         if self.j_method == NULL:
             raise AttributeError(f"Get[Static]Method failed for {self}")
@@ -553,7 +553,7 @@ cdef class JavaMethod(JavaMember):
         return ret
 
     cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args):
-        cdef jclass j_class = (<LocalRef?>self.jc.j_cls).obj
+        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char

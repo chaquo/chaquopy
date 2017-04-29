@@ -90,7 +90,7 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
 # === com.chaquo.python.PyObject ==============================================
 
 cdef get_object(JNIEnv *env, jobject this):
-    cdef PyObject *po = <PyObject*><jlong>JPyObject(instance=LocalRef.create(env, this)).obj
+    cdef PyObject *po = <PyObject*><jlong>JPyObject(instance=GlobalRef.create(env, this)).obj
     if po == NULL:
         raise ValueError("PyObject is closed")
     return <object>po
@@ -101,7 +101,7 @@ cdef public void Java_com_chaquo_python_PyObject_close \
     (JNIEnv *env, jobject this) with gil:
     try:
         Py_DECREF(get_object(env, this))
-        JPyObject(instance=LocalRef.create(env, this)).obj = 0
+        JPyObject(instance=GlobalRef.create(env, this)).obj = 0
     except Exception as e:
         wrap_exception(env, e)
 

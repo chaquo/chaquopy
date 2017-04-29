@@ -97,7 +97,7 @@ cdef jobject py_invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
 
     # extract the method information
     method = Method(noinstance=True)
-    method.instantiate_from(LocalRef.create(j_env, j_method))
+    method.instantiate_from(GlobalRef.create(j_env, j_method))
     ret_signature = get_signature(method.getReturnType())
     args_signature = [get_signature(x) for x in method.getParameterTypes()]
 
@@ -171,7 +171,7 @@ cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     invoke_methods[0].name = <char*>'invoke0'
     invoke_methods[0].signature = <char*>'(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;'
     invoke_methods[0].fnPtr = <void *>&invoke0
-    j_env[0].RegisterNatives(j_env, (<LocalRef?>nih.j_cls).obj, <JNINativeMethod *>invoke_methods, 1)
+    j_env[0].RegisterNatives(j_env, (<GlobalRef?>nih.j_cls).obj, <JNINativeMethod *>invoke_methods, 1)
 
     # create the proxy and pass it the invocation handler
     cdef JavaClass j_obj

@@ -34,7 +34,7 @@ def find_javaclass(name):
     from . import reflect
     reflect.setup_bootstrap_classes()
     cls = reflect.Class(noinstance=True)
-    cls.instantiate_from(LocalRef.create(j_env, jc))
+    cls.instantiate_from(GlobalRef.create(j_env, jc))
     j_env[0].DeleteLocalRef(j_env, jc)
     return cls
 
@@ -231,9 +231,9 @@ cdef void check_assignable_from(JNIEnv *env, JavaClass jc, signature) except *:
             raise JavaException(f'FindClass failed for {signature}')
 
         if assignable_from_order == 1:
-            result = bool(env[0].IsAssignableFrom(env, (<LocalRef?>jc.j_cls).obj, cls))
+            result = bool(env[0].IsAssignableFrom(env, (<GlobalRef?>jc.j_cls).obj, cls))
         else:
-            result = bool(env[0].IsAssignableFrom(env, cls, (<LocalRef?>jc.j_cls).obj))
+            result = bool(env[0].IsAssignableFrom(env, cls, (<GlobalRef?>jc.j_cls).obj))
 
         exc = env[0].ExceptionOccurred(env)
         if exc:

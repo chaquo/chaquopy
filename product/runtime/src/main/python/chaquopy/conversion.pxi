@@ -65,7 +65,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
                 check_assignable_from(j_env, jc, argtype[1:-1])
                 j_args[index].l = jc.j_self.obj
             elif isinstance(py_arg, MetaJavaClass):
-                j_args[index].l = (<LocalRef?>py_arg.j_cls).obj
+                j_args[index].l = (<GlobalRef?>py_arg.j_cls).obj
             elif isinstance(py_arg, PythonJavaClass):
                 pc = py_arg
                 jc = pc.j_self
@@ -184,7 +184,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
             ret_jc = autoclass(r.replace('/', '.'))(noinstance=True)
     else:
         ret_jc = jclass_register[r](noinstance=True)
-    ret_jc.instantiate_from(LocalRef.create(j_env, j_object))
+    ret_jc.instantiate_from(GlobalRef.create(j_env, j_object))
     return ret_jc
 
 cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
@@ -335,7 +335,7 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
             check_assignable_from(j_env, jc, definition[1:-1])
             return jc.j_self.obj
         elif isinstance(obj, MetaJavaClass):
-            return (<LocalRef?>obj.j_cls).obj
+            return (<GlobalRef?>obj.j_cls).obj
         elif isinstance(obj, PythonJavaClass):
             pc = obj
             jc = pc.j_self
@@ -552,7 +552,7 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
                         j_env, <jobjectArray>ret, i, jc.j_self.obj)
             elif isinstance(arg, MetaJavaClass):
                 j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, (<LocalRef?>arg.j_cls).obj)
+                        j_env, <jobjectArray>ret, i, (<GlobalRef?>arg.j_cls).obj)
             else:
                 raise JavaException('Invalid variable used for L array', definition, pyarray)
 
