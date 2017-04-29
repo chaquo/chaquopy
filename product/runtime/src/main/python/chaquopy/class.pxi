@@ -27,7 +27,7 @@ class MetaJavaClass(type):
     def __init__(cls, classname, bases, classDict):
         cdef JNIEnv *j_env = get_jnienv()
         cls.__javaclass__ = str_for_c(cls.__javaclass__)
-        cls.j_cls = LocalActualRef.create \
+        cls.j_cls = LocalActualRef.wrap \
             (j_env, j_env[0].FindClass(j_env, cls.__javaclass__)).global_ref()
         if not cls.j_cls:
             raise ValueError(f"FindClass failed for {cls.__javaclass__}")
@@ -50,9 +50,11 @@ cdef class JavaClass(object):
 
     # Member variables declared in .pxd
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, LocalRef instance=None, **kwargs):
         super(JavaClass, self).__init__()
-        if 'noinstance' not in kwargs:
+        if instance is not None:
+            self.instantiate_from(instance)
+        elif 'noinstance' not in kwargs:
             self.call_constructor(args)
 
     cdef void instantiate_from(self, LocalRef j_self) except *:
@@ -397,11 +399,7 @@ cdef class JavaField(JavaMember):
 
 
 cdef class JavaMethod(JavaMember):
-    cdef jmethodID j_method
-    cdef definition
-    cdef object definition_return
-    cdef object definition_args
-    cdef bint is_varargs
+    # Member variables declared in .pxd
 
     def __repr__(self):
         return (f"<JavaMethod {'static ' if self.is_static else ''}{self.definition_return} "

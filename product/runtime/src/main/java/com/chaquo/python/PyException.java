@@ -1,7 +1,7 @@
 package com.chaquo.python;
 
 // Has to be unchecked because it can be thrown by PyObject methods inherited from Map.
-class PyException extends RuntimeException {
+public class PyException extends RuntimeException {
     public PyException() {
     }
 

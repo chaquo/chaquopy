@@ -23,6 +23,16 @@ cdef class JavaField(JavaMember):
     cdef read_field(self, jobject j_self)
     cdef read_static_field(self)
 
+cdef class JavaMethod(JavaMember):
+    cdef jmethodID j_method
+    cdef definition
+    cdef object definition_return
+    cdef object definition_args
+    cdef bint is_varargs
+    cdef void ensure_method(self) except *
+    cdef call_method(self, JNIEnv *j_env, JavaClass obj, jvalue *j_args)
+    cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args)
+
 # === conversion ==============================================================
 
 cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object)

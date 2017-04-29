@@ -22,11 +22,6 @@ cdef extern from "chaquopy_java_init.h":
     const char *__Pyx_BUILTIN_MODULE_NAME
 
 
-cdef LocalRef PyObject_jclass
-cdef jmethodID PyObject_init
-cdef jfieldID PyObject_obj
-
-
 cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
     return JNI_VERSION_1_6
 
@@ -54,13 +49,8 @@ cdef public void Java_com_chaquo_python_Python_start \
              raise Exception("GetJavaVM failed")
         set_jvm(jvm)
 
-        PO = autoclass("com.chaquo.python.PyObject")
-        global PyObject_jclass, PyObject_obj, PyObject_init
-        PyObject_jclass = <LocalRef?>PO.j_cls
-        PyObject_obj = (<JavaField?>PO.__dict__["obj"]).j_field
-        PyObject_init = env[0].GetMethodID(env, PyObject_jclass.obj, "<init>", "()V")
-        if PyObject_init == NULL:
-            raise Exception('Constructor GetMethodID failed for PyObject')
+        global JPyObject
+        JPyObject = autoclass("com.chaquo.python.PyObject")
 
     except Exception as e:
         wrap_exception(env, e)
@@ -92,29 +82,26 @@ cdef bint set_path(JNIEnv *env, jstring jPythonPath):
 cdef public jobject Java_com_chaquo_python_Python_getModule \
     (JNIEnv *env, jobject this, jstring name) with gil:
     try:
-        return new_jpyobject(env, import_module(j2p_str(env, name)))
+        return get_jpyobject(env, import_module(j2p_str(env, name)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
 # === com.chaquo.python.PyObject ==============================================
 
-cdef get_obj(JNIEnv *env, jobject this):
-    cdef PyObject *po = get_pyobject(env, this)
+cdef get_object(JNIEnv *env, jobject this):
+    cdef PyObject *po = <PyObject*><jlong>JPyObject(instance=LocalRef.create(env, this)).obj
     if po == NULL:
         raise ValueError("PyObject is closed")
     return <object>po
-
-cdef PyObject *get_pyobject(JNIEnv *env, jobject this):
-    return <PyObject*> env[0].GetLongField(env, this, PyObject_obj)
 
 
 # FIXME test this actually destroys the underlying object
 cdef public void Java_com_chaquo_python_PyObject_close \
     (JNIEnv *env, jobject this) with gil:
     try:
-        Py_DECREF(get_obj(env, this))
-        env[0].SetLongField(env, this, PyObject_obj, 0)
+        Py_DECREF(get_object(env, this))
+        JPyObject(instance=LocalRef.create(env, this)).obj = 0
     except Exception as e:
         wrap_exception(env, e)
 
@@ -122,19 +109,17 @@ cdef public void Java_com_chaquo_python_PyObject_close \
 cdef public jstring Java_com_chaquo_python_PyObject_toString \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return p2j_str(env, str(get_obj(env, this)))
+        return p2j_str(env, str(get_object(env, this)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
 # =============================================================================
 
-cdef jobject new_jpyobject(JNIEnv *env, obj) except NULL:
-    cdef jobject jpo = env[0].NewObject(env, PyObject_jclass.obj, PyObject_init)
-    check_exception(env)
+cdef jobject get_jpyobject(JNIEnv *env, obj) except NULL:
+    cdef JavaClass jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
     Py_INCREF(obj)
-    env[0].SetLongField(env, jpo, PyObject_obj, <jlong><PyObject*>obj)
-    return jpo
+    return env[0].NewLocalRef(env, jpo.j_self.obj)
 
 
 # TODO if this is a Java exception, use the original exception object.

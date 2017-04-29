@@ -43,7 +43,7 @@ cdef class LocalActualRef(object):
 
     # Constructors can't take C pointer arguments
     @staticmethod
-    cdef LocalActualRef create(JNIEnv *env, jobject obj):
+    cdef LocalActualRef wrap(JNIEnv *env, jobject obj):
         cdef LocalActualRef lr = LocalActualRef()
         lr.env = env
         lr.obj = obj

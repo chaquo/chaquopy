@@ -1,16 +1,35 @@
 package com.chaquo.python;
 
+import java.lang.ref.*;
 import java.util.*;
 
 
 /** Proxy for an object in the Python virtual machine */
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
+    private static Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
     /** @hide (used in chaquopy_java.pyx) */
     public long obj;
 
     /** @hide (used in chaquopy_java.pyx) */
-    public PyObject() {}
+    public static PyObject getInstance(long obj) {
+        WeakReference<PyObject> wr = cache.get(obj);
+        if (wr != null) {
+            PyObject po = wr.get();
+            if (po == null) {
+                cache.remove(obj);
+            } else {
+                return po;
+            }
+        }
+        PyObject po = new PyObject(obj);
+        cache.put(obj, new WeakReference<>(po));
+        return po;
+    }
+
+    private PyObject(long obj) {
+        this.obj = obj;
+    }
 
     /** Releases the reference to the Python object. Unless the object represents an expensive
      * resource, there's no need to call this method manually: it will be called automatically when
@@ -79,7 +98,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Equivalent to Python dir() */
     @Override
-    public Set<String> keySet() { return super.keySet(); }
+    public Set<String> keySet() {
+        return super.keySet();      // Override just here to carry the Javadoc
+    }
 
     @Override
     public Set<Entry<String, PyObject>> entrySet() {

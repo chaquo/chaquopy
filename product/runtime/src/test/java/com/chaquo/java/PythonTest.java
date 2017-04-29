@@ -26,7 +26,7 @@ public class PythonTest {
     @Test
     public void start() {
         thrown.expect(IllegalStateException.class);
-        thrown.expectMessage("already started");
+        thrown.expectMessage("Python already started");
         Python.start(new GenericPlatform());
     }
 
@@ -35,6 +35,10 @@ public class PythonTest {
         PyObject sys = python.getModule("sys");
         String sysStr = sys.toString();
         assertTrue(sysStr, sysStr.contains("module 'sys'"));
+
+        thrown.expect(PyException.class);
+        thrown.expectMessage("No module named");
+        python.getModule("nonexistent");
     }
 
     @Test
