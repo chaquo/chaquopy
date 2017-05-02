@@ -41,6 +41,7 @@ def mingwDir = localProps.getProperty('mingw.dir')  // Windows only
 
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
+def PATH_SEPARATOR = windowsHost ? ";" : ":"
 
 
 def cythonTask = {Map taskArgs, String name, Closure closure ->
@@ -152,12 +153,13 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
         cmakeBuildAnchor.dependsOn(cmakeBuild)
 
         if (abi == "host") {
-            def pythonPath = "$projectDir/src/main/python"
+            def mainPythonDir = "$projectDir/src/main/python"
+            def testPythonDir = "$projectDir/src/test/python"
             def setupPythonPath = task("setupPythonPath-$pyVersion", group: "verification") {
                 dependsOn cmakeBuild
                 doFirst {
                     copy {
-                        into pythonPath
+                        into mainPythonDir
                         from(cmakeBuildSubdir) { include "chaquopy$pyNativeSuffix"; into "chaquopy" }
                     }
                 }
@@ -165,7 +167,7 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
 
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
                 dependsOn setupPythonPath, "compileTestJava"
-                environment "PYTHONPATH", pythonPath
+                environment "PYTHONPATH", mainPythonDir
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 workingDir "$projectDir/src/test/python"
                 def exeSuffix = windowsHost ? ".exe" : ""
@@ -183,10 +185,11 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                 dependsOn setupPythonPath
                 outputs.upToDateWhen { false }
                 environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
-                environment "PYTHONPATH", pythonPath
+                environment "PYTHONPATH", "$mainPythonDir$PATH_SEPARATOR$testPythonDir"
                 jvmArgs "-Djava.library.path=$cmakeBuildSubdir"
                 testLogging {
                     exceptionFormat = 'full'
+                    showStandardStreams = true
                 }
             }
         }

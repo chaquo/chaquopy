@@ -38,18 +38,15 @@ public class PythonTest {
 
         thrown.expect(PyException.class);
         thrown.expectMessage("No module named");
-        python.getModule("nonexistent");
+        python.getModule("foo");
     }
 
     @Test
-    public void hello() {
-        assertEquals("hello world", python.hello("world"));
-        assertEquals("hello ", python.hello(""));
-    }
-
-    @Test
-    public void add() {
-        assertEquals(42, python.add(0));
-        assertEquals(45, python.add(3));
+    public void getBuiltins() {
+        PyObject builtins = python.getBuiltins();
+        assertTrue(builtins.containsKey("open"));
+        assertTrue(builtins.containsKey("dict"));
+        assertTrue(builtins.containsKey("None"));
+        assertFalse(builtins.containsKey("foo"));
     }
 }

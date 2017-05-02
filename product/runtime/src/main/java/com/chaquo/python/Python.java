@@ -1,7 +1,9 @@
 package com.chaquo.python;
 
 
+/** Interface to Python */
 public class Python {
+    /** Provides information needed to start Python */
     public interface Platform {
         /** @return the value to assign to PYTHONPATH */
         String getPath();
@@ -13,18 +15,18 @@ public class Python {
 
     private static Python instance;
 
-    public static Python getInstance() {
+    /** Gets the interface to Python. If {@link #start}() has not yet been called, it will be called
+     * with a new {@link GenericPlatform}(). */
+    public static Python getInstance() throws PyException {
         if (instance == null) {
-            try {
-                start(new GenericPlatform());
-            } catch (PyException e) {
-                throw new RuntimeException(e);
-            }
+            start(new GenericPlatform());
         }
         return instance;
     }
 
-    public static Python start(Platform platform) throws PyException {
+    /** Starts Python. If this method is called, it can only be called once, and it must be before
+     * any call to {@link #getInstance}, */
+    public static synchronized Python start(Platform platform) throws PyException {
         if (instance != null) {
             throw new IllegalStateException("Python already started");
         }
@@ -48,8 +50,11 @@ public class Python {
         mPlatform = platform;
     }
 
+    /** Returns the module with the given absolute name. */
     public native PyObject getModule(String name) throws PyException;
 
-    public native String hello(String str);
-    public native int add(int x);
+    /** Returns the module '__builtin__' in Python 2 or 'builtins' in Python 3. This module
+     *  contains Python's built-in functions (e.g. open, print), types (e.g. int, dict) and
+     *  constants (e.g. None, True). */
+    public native PyObject getBuiltins() throws PyException;
 }

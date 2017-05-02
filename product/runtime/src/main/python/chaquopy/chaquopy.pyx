@@ -15,8 +15,7 @@ __all__ = ['JavaObject', 'JavaMethod', 'JavaField',
            'PythonJavaClass', 'java_method', 'detach']
 
 
-# PyEval_InitThreads() is called by all Cython-generated module initialization functions, but
-# in case that changes, let's make absolutely sure.
+# Multi-threading is unavoidable in Java.
 PyEval_InitThreads()
 
 telem = defaultdict(int)

@@ -149,6 +149,10 @@ def bean_getter(s):
     return (s.startswith('get') and len(s) > 3 and s[3].isupper()) or (s.startswith('is') and len(s) > 2 and s[2].isupper())
 
 
+# TODO: we could speed up the case of 'import *' by delaying method and field enumeration until
+# __getattr__ or __setattr__ is called. However, there's no standard API for listing the
+# classes in a package, so 'import *' requires manual scanning of the classpath, and may be
+# impossible to implement on Android.
 def autoclass(clsname):
     jniname = clsname.replace('.', '/')
     cls = JavaClass.get_javaclass(jniname)

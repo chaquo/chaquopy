@@ -1,12 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
 from importlib import import_module
+import sys
 
 from cpython.module cimport PyImport_ImportModule
 from cpython.object cimport PyObject
 from cpython.ref cimport Py_INCREF, Py_DECREF
 cdef extern from "Python.h":
     void Py_Initialize()
+    void PyEval_SaveThread()
+
 from libc.errno cimport errno
 from libc.stdio cimport printf, snprintf
 from libc.stdint cimport uintptr_t
@@ -19,7 +22,6 @@ from chaquopy.jni cimport *
 from chaquopy.chaquopy cimport *
 cdef extern from "chaquopy_java_init.h":
     void initchaquopy_java() except *  # TODO #5148 (name changes in Python 3)
-    const char *__Pyx_BUILTIN_MODULE_NAME
 
 
 cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
@@ -45,8 +47,9 @@ cdef public void Java_com_chaquo_python_Python_start \
         initchaquopy_java()
 
         # Normal Cython functionality is now available.
-        if env[0].GetJavaVM(env, &jvm) != 0:
-             raise Exception("GetJavaVM failed")
+        ret = env[0].GetJavaVM(env, &jvm)
+        if ret != 0:
+             raise Exception(f"GetJavaVM failed: {ret}")
         set_jvm(jvm)
 
         global JPyObject
@@ -54,6 +57,12 @@ cdef public void Java_com_chaquo_python_Python_start \
 
     except Exception as e:
         wrap_exception(env, e)
+
+    # We imported chaquopy.chaquopy above, which has called PyEval_InitThreads during its own
+    # module intiialization, so the GIL now exists and we have it. We must release the GIL
+    # before we return to Java so that the methods below can be called from any thread.
+    # (http://bugs.python.org/issue1720250)
+    PyEval_SaveThread();
 
 
 # This runs before Py_Initialize, so it must compile to pure C.
@@ -87,40 +96,165 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
         wrap_exception(env, e)
         return NULL
 
+
+cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        return get_jpyobject(env, import_module("six.moves.builtins"))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
 # === com.chaquo.python.PyObject ==============================================
 
-cdef get_object(JNIEnv *env, jobject this):
-    cdef PyObject *po = <PyObject*><jlong>JPyObject(instance=GlobalRef.create(env, this)).obj
+cdef jobject get_jpyobject(JNIEnv *env, obj) except NULL:
+    cdef JavaObject jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
+    return env[0].NewLocalRef(env, jpo.j_self.obj)
+
+
+cdef get_object(JNIEnv *env, jobject jpyobject):
+    jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
+    cdef PyObject *po = <PyObject*><jlong> jpo.addr
     if po == NULL:
         raise ValueError("PyObject is closed")
     return <object>po
 
 
-# FIXME test this actually destroys the underlying object
-cdef public void Java_com_chaquo_python_PyObject_close \
+cdef public void Java_com_chaquo_python_PyObject_openNative \
     (JNIEnv *env, jobject this) with gil:
     try:
-        Py_DECREF(get_object(env, this))
-        JPyObject(instance=GlobalRef.create(env, this)).obj = 0
+        Py_INCREF(get_object(env, this))
     except Exception as e:
         wrap_exception(env, e)
 
 
-cdef public jstring Java_com_chaquo_python_PyObject_toString \
+cdef public void Java_com_chaquo_python_PyObject_closeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return p2j_str(env, str(get_object(env, this)))
+        Py_DECREF(get_object(env, this))
+    except Exception as e:
+        wrap_exception(env, e)
+
+
+cdef public jlong Java_com_chaquo_python_PyObject_id \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        return id(get_object(env, this))
+    except Exception as e:
+        wrap_exception(env, e)
+        return 0
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_type \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        return get_jpyobject(env, type(get_object(env, this)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
+
+cdef public jobject Java_com_chaquo_python_PyObject_call \
+    (JNIEnv *env, jobject this, jarray args) with gil:
+    try:
+        if env[0].GetArrayLength(env, args):
+            raise Exception() # FIXME
+        return get_jpyobject(env, get_object(env, this)())
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
+    (JNIEnv *env, jobject this, jobject key) with gil:
+    try:
+        return hasattr(get_object(env, this), j2p_str(env, key))
+    except Exception as e:
+        wrap_exception(env, e)
+        return False
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_get \
+    (JNIEnv *env, jobject this, jobject key) with gil:
+    try:
+        return get_jpyobject(env, getattr(get_object(env, this), j2p_str(env, key)))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_put \
+    (JNIEnv *env, jobject this, jobject key, jobject value) with gil:
+    try:
+        raise Exception() # FIXME
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_remove \
+    (JNIEnv *env, jobject this, jobject key) with gil:
+    try:
+        obj = get_object(env, this)
+        str_key = j2p_str(env, key)
+        try:
+            old_value = getattr(obj, str_key)
+            delattr(obj, str_key)
+            return get_jpyobject(env, old_value)
+        except AttributeError:
+            return NULL
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_dir \
+    (JNIEnv *env, jobject this) with gil:
+    cdef JavaObject keys
+    try:
+        keys = autoclass("java.util.ArrayList")()
+        for key in dir(get_object(env, this)):
+            keys.add(key)
+        return env[0].NewLocalRef(env, keys.j_self.obj)
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jboolean Java_com_chaquo_python_PyObject_equals \
+    (JNIEnv *env, jobject this, jobject that) with gil:
+    try:
+        raise Exception() # FIXME
+    except Exception as e:
+        wrap_exception(env, e)
+        return False
+
+
+cdef public jstring Java_com_chaquo_python_PyObject_toString \
+    (JNIEnv *env, jobject this) with gil:
+    return to_string(env, this, str)
+
+cdef public jstring Java_com_chaquo_python_PyObject_repr \
+    (JNIEnv *env, jobject this) with gil:
+    return to_string(env, this, repr)
+
+cdef jstring to_string(JNIEnv *env, jobject this, func):
+    try:
+        return p2j_str(env, func(get_object(env, this)))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jint Java_com_chaquo_python_PyObject_hashCode \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        return hash(get_object(env, this)) & 0x7FFFFFFF
+    except Exception as e:
+        wrap_exception(env, e)
+        return 0
+
 # =============================================================================
-
-cdef jobject get_jpyobject(JNIEnv *env, obj) except NULL:
-    cdef JavaObject jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
-    Py_INCREF(obj)
-    return env[0].NewLocalRef(env, jpo.j_self.obj)
-
 
 # TODO if this is a Java exception, use the original exception object.
 # TODO Integrate Python traceback into Java traceback if possible
@@ -154,18 +288,3 @@ cdef jobject p2j_str(JNIEnv *env, s) except *:
 
 cdef j2p_str(JNIEnv *env, jstring s):
     return convert_jobject_to_python(env, "Ljava/lang/String;", s)
-
-
-# FIXME remove once real tests work
-cdef public jstring Java_com_chaquo_python_Python_hello \
-    (JNIEnv *env, jobject this, jstring s) with gil:
-    try:
-        return p2j_str(env, "hello " + j2p_str(env, s))
-    except Exception as e:
-        wrap_exception(env, e)
-        return NULL
-
-
-cdef public jint Java_com_chaquo_python_Python_add \
-    (JNIEnv *env, jobject this, jint x) with gil:
-    return x + 42
