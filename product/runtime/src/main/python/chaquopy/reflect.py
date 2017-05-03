@@ -235,4 +235,5 @@ def autoclass(clsname):
 
     classDict['__javaclass__'] = clsname.replace('.', '/')
 
-    return JavaClass(clsname, (JavaObject,), classDict)
+    # type argument 1 must be "str" type, whatever that is on this Python version.
+    return JavaClass(str(clsname), (JavaObject,), classDict)

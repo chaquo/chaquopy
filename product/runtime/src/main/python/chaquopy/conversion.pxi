@@ -1,12 +1,19 @@
 from cpython.version cimport PY_MAJOR_VERSION
 
+import sys
+
+if sys.byteorder == "little":
+    JCHAR_ENCODING = "UTF-16-LE"
+else:
+    JCHAR_ENCODING = "UTF-16-BE"
+
+
 cdef jstringy_arg(argtype):
     return argtype in ('Ljava/lang/String;',
                        'Ljava/lang/CharSequence;',
                        'Ljava/lang/Object;')
 
 cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    # do the conversion from a Python object to Java from a Java definition
     cdef int index
     for index, argtype in enumerate(definition_args):
         py_arg = args[index]
@@ -26,10 +33,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    cdef JavaObject jc
-    cdef PythonJavaClass pc
     cdef int index
-    cdef bytes py_str
     for index, argtype in enumerate(definition_args):
         py_arg = args[index]
         if argtype == 'Z':
@@ -49,33 +53,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'D':
             j_args[index].d = py_arg
         elif argtype[0] == 'L':
-            # FIXME merge with convert_python_to_jobject
-            if py_arg is None:
-                j_args[index].l = NULL
-            elif (isinstance(py_arg, basestring) or (PY_MAJOR_VERSION >=3 and isinstance(py_arg, str))) \
-                  and jstringy_arg(argtype):
-                try:
-                    py_str = <bytes>py_arg
-                    j_args[index].l = j_env[0].NewStringUTF(j_env, <char *>py_str)
-                except (UnicodeEncodeError, TypeError):
-                    py_str = <bytes>py_arg.encode('utf-8')
-                    j_args[index].l = j_env[0].NewStringUTF(j_env, <char *>py_str)
-            elif isinstance(py_arg, JavaObject):
-                jc = py_arg
-                check_assignable_from(j_env, jc, argtype[1:-1])
-                j_args[index].l = jc.j_self.obj
-            elif isinstance(py_arg, JavaClass):
-                j_args[index].l = (<GlobalRef?>py_arg.j_cls).obj
-            elif isinstance(py_arg, PythonJavaClass):
-                pc = py_arg
-                jc = pc.j_self
-                j_args[index].l = jc.j_self.obj
-            elif isinstance(py_arg, (tuple, list)):
-                j_args[index].l = convert_pyarray_to_java(j_env, argtype, py_arg)
-            else:
-                raise JavaException('Invalid python object for this '
-                        'argument. Want {0!r}, got {1!r}'.format(
-                            argtype[1:-1], py_arg))
+            j_args[index].l = convert_python_to_jobject(j_env, argtype, py_arg)
         elif argtype[0] == '[':
             if py_arg is None:
                 j_args[index].l = NULL
@@ -95,11 +73,13 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
 
 
 cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
-    # Convert a Java Object to a Python object, according to the definition.
-    # If the definition is a java/lang/Object, then try to determine what is it
-    # exactly.
-    cdef char *c_str
-    cdef bytes py_str
+    cdef jstring string
+    cdef const jchar *jchar_str
+    # We can't decode directly from a jchar array because of
+    # https://github.com/cython/cython/issues/1696 . This cdef is necessary to prevent Cython
+    # inferring the type of bytes_str and calling the decode function directly.
+    cdef object bytes_str
+
     r = definition[1:-1]
     cdef JavaObject ret_jc
     cdef jclass retclass
@@ -113,29 +93,18 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
     if definition[0] == '[':
         return convert_jarray_to_python(j_env, definition[1:], j_object)
 
-    # XXX what about others native type?
-    # It seem, in case of the proxy, that they are never passed directly,
-    # and always passed as "class" type instead.
-    # Ie, B would be passed as Ljava/lang/Character;
-
-    # if we got a string, just convert back to Python str.
     if r in ('java/lang/String', 'java/lang/CharSequence'):
         if r == 'java/lang/CharSequence':
-            # call toString()
             retclass = j_env[0].GetObjectClass(j_env, j_object)
             retmeth = j_env[0].GetMethodID(j_env, retclass, "toString", "()Ljava/lang/String;")
             string = <jstring> (j_env[0].CallObjectMethod(j_env, j_object, retmeth))
         else:
             string = <jstring>j_object
-        c_str = <char *>j_env[0].GetStringUTFChars(j_env, string, NULL)
-        py_str = <bytes>c_str
-        j_env[0].ReleaseStringUTFChars(j_env, string, c_str)
-
-
-        if PY_MAJOR_VERSION < 3:
-            return py_str
-        else:
-            return py_str.decode('utf-8')
+        jchar_str = j_env[0].GetStringChars(j_env, string, NULL)
+        str_len = j_env[0].GetStringLength(j_env, string)
+        bytes_str = (<char*>jchar_str)[:str_len * 2]  # See note at bytes_str cdef above
+        j_env[0].ReleaseStringChars(j_env, string, jchar_str)
+        return bytes_str.decode(JCHAR_ENCODING)
 
     # XXX should be deactivable from configuration
     # ie, user might not want autoconvertion of lang classes.
@@ -314,17 +283,21 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
     elif definition[0] == 'L':
         if obj is None:
             return NULL
-        elif isinstance(obj, basestring) and jstringy_arg(definition):
-            return j_env[0].NewStringUTF(j_env, <char *><bytes>obj)
-        elif isinstance(obj, str) and PY_MAJOR_VERSION >= 3 and jstringy_arg(definition):
-            utf8 = obj.encode('utf-8')
-            return j_env[0].NewStringUTF(j_env, <char *><bytes>utf8)
+        elif isinstance(obj, (unicode, bytes)) and jstringy_arg(definition):
+            if isinstance(obj, unicode):
+                utf16 = obj.encode(JCHAR_ENCODING)
+            else:
+                utf16 = obj.decode('ASCII').encode(JCHAR_ENCODING)
+            return j_env[0].NewString(j_env, <jchar*><char*>utf16,
+                                      len(utf16)/2)  # Not equal to len(obj) on a "narrow" Python
         elif isinstance(obj, (int, long)) and \
                 definition in (
                     'Ljava/lang/Integer;',
                     'Ljava/lang/Number;',
                     'Ljava/lang/Long;',
                     'Ljava/lang/Object;'):
+            # FIXME this isn't right, it could pass a Long where an Integer is required. And it
+            # needs to support all the other boxed types properly as well.
             j_ret[0].i = obj
             retclass = j_env[0].FindClass(j_env, 'java/lang/Integer')
             retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(I)V')
@@ -419,7 +392,7 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
 
 
 cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except *:
-    cdef jobject ret = NULL
+    cdef jarray ret = NULL
     cdef int array_size = len(pyarray)
     cdef int i
     cdef unsigned char c_tmp
@@ -431,9 +404,7 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
     cdef jlong j_long
     cdef jfloat j_float
     cdef jdouble j_double
-    cdef jstring j_string
     cdef jclass j_class
-    cdef JavaObject jc
 
     if definition == 'Ljava/lang/Object;' and len(pyarray) > 0:
         # then the method will accept any array type as param
@@ -495,7 +466,7 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
         for i in range(array_size):
             j_int = pyarray[i]
             j_env[0].SetIntArrayRegion(j_env,
-                    ret, i, 1, <const_jint *>&j_int)
+                    ret, i, 1, <const jint *>&j_int)
 
     elif definition == 'J':
         ret = j_env[0].NewLongArray(j_env, array_size)
@@ -520,41 +491,14 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
 
     elif definition[0] == 'L':
         defstr = str_for_c(definition[1:-1])
-        j_class = j_env[0].FindClass(
-                j_env, <bytes>defstr)
+        j_class = j_env[0].FindClass(j_env, <bytes>defstr)
         if j_class == NULL:
             raise JavaException('Cannot create array with a class not '
                     'found {0!r}'.format(definition[1:-1]))
-        ret = j_env[0].NewObjectArray(
-                j_env, array_size, j_class, NULL)
+        ret = j_env[0].NewObjectArray(j_env, array_size, j_class, NULL)
         for i in range(array_size):
-            arg = pyarray[i]
-            if arg is None:
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, NULL)
-            elif isinstance(arg, basestring) and PY_MAJOR_VERSION < 3 and \
-                    jstringy_arg(definition):
-                j_string = j_env[0].NewStringUTF(
-                        j_env, <bytes>arg)
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, j_string)
-            elif isinstance(arg, str) and PY_MAJOR_VERSION >= 3 and \
-                    jstringy_arg(definition):
-                utf8 = arg.encode('utf-8')
-                j_string = j_env[0].NewStringUTF(
-                        j_env, <bytes>utf8)
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, j_string)
-            elif isinstance(arg, JavaObject):
-                jc = arg
-                check_assignable_from(j_env, jc, definition[1:-1])
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, jc.j_self.obj)
-            elif isinstance(arg, JavaClass):
-                j_env[0].SetObjectArrayElement(
-                        j_env, <jobjectArray>ret, i, (<GlobalRef?>arg.j_cls).obj)
-            else:
-                raise JavaException('Invalid variable used for L array', definition, pyarray)
+            j_env[0].SetObjectArrayElement(j_env, ret, i,
+                                           convert_python_to_jobject(j_env, definition, pyarray[i]))
 
     elif definition[0] == '[':
         subdef = definition[1:]

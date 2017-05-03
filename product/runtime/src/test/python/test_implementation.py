@@ -8,17 +8,19 @@ from chaquopy.reflect import autoclass
 
 class ImplementationTest(unittest.TestCase):
 
-    def test_println(self):
-        # System.out.println implies recursive lookup, and j_self assignation.
-        # It was crashing during the implementation :/
+    def test_out(self):
+        # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
         System = autoclass('java.lang.System')
-        System.out.println('')
-
-    def test_printf(self):
-        System = autoclass('java.lang.System')
-        System.out.printf('hi\n')
-        System.out.printf('hi %s %s\n', 'chaquopy', 'other string')
+        # FIXME self.assertIs(System.out, System.out)
+        self.assertEqual(False, System.out.checkError())
+        self.assertIsNone(System.out.flush())
 
     def test_unicode(self):
-        System = autoclass('java.lang.System')
-        System.out.printf(u'é')
+        String = autoclass('java.lang.String')
+        self.assertEqual(u'é', String.format(u'é'))
+
+        # Null character (handled differently by "modified UTF-8")
+        self.assertEqual(u'A\u0000B', String.format(u'A\u0000B'))
+
+        # Non-BMP character (handled differently by "modified UTF-8")
+        self.assertEqual(u'A\U00012345B', String.format(u'A\U00012345B'))

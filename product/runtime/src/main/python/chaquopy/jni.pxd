@@ -38,15 +38,6 @@ cdef extern from "jni.h":
     ctypedef jobject         jweak
     ctypedef jint            jsize
 
-    ctypedef jchar const_jchar "const jchar"
-    ctypedef jbyte const_jbyte "const jbyte"
-    ctypedef jbyte const_jint "const jint"
-    ctypedef jboolean const_jboolean "const jboolean"
-    ctypedef jshort const_jshort "const jshort"
-    ctypedef jlong const_jlong "const jlong"
-    ctypedef jfloat const_jfloat "const jfloat"
-    ctypedef jdouble const_jdouble "const jdouble"
-
     # Defining these using their true types of jint and jboolean caused Cython to generate an
     # assignment to JNI_VERSION_1_6 when compiling chaquopy_java.pyx. This gave exactly the
     # same type of error as at https://groups.google.com/forum/#!topic/cython-users/oPHbR3KmX2c,
@@ -61,8 +52,6 @@ cdef extern from "jni.h":
         const char* name
         const char* signature
         void*       fnPtr
-
-    ctypedef JNINativeMethod const_JNINativeMethod "const JNINativeMethod"
 
     ctypedef union jvalue:
         jboolean    z
@@ -94,8 +83,7 @@ cdef extern from "jni.h":
 
     ctypedef struct JNINativeInterface:
         jint *GetVersion(JNIEnv *)
-        jclass      (*DefineClass)(JNIEnv*, const char*, jobject, const_jbyte*,
-                            jsize)
+        jclass      (*DefineClass)(JNIEnv*, const char*, jobject, const jbyte*, jsize)
         jclass      (*FindClass)(JNIEnv*, char*)
 
         jmethodID   (*FromReflectedMethod)(JNIEnv*, jobject)
@@ -282,13 +270,13 @@ cdef extern from "jni.h":
         void        (*SetStaticFloatField)(JNIEnv*, jclass, jfieldID, jfloat)
         void        (*SetStaticDoubleField)(JNIEnv*, jclass, jfieldID, jdouble)
 
-        jstring     (*NewString)(JNIEnv*, const_jchar*, jsize)
+        jstring     (*NewString)(JNIEnv*, const jchar*, jsize)
         jsize       (*GetStringLength)(JNIEnv*, jstring)
-        const_jchar* (*GetStringChars)(JNIEnv*, jstring, jboolean*)
-        void        (*ReleaseStringChars)(JNIEnv*, jstring, const_jchar*)
+        const jchar* (*GetStringChars)(JNIEnv*, jstring, jboolean*)
+        void        (*ReleaseStringChars)(JNIEnv*, jstring, const jchar*)
         jstring     (*NewStringUTF)(JNIEnv*, char*)
         jsize       (*GetStringUTFLength)(JNIEnv*, jstring)
-        # JNI spec says this returns const_jbyte*, but that's inconsistent
+        # JNI spec says this returns const jbyte*, but that's inconsistent
         const char* (*GetStringUTFChars)(JNIEnv*, jstring, jboolean*)
         void        (*ReleaseStringUTFChars)(JNIEnv*, jstring, const char*)
         jsize       (*GetArrayLength)(JNIEnv*, jarray)
@@ -333,17 +321,17 @@ cdef extern from "jni.h":
         void        (*GetDoubleArrayRegion)(JNIEnv*, jdoubleArray, jsize, jsize, jdouble*)
 
         # spec shows these without const some jni.h do, some don't
-        void        (*SetBooleanArrayRegion)(JNIEnv*, jbooleanArray, jsize, jsize, const_jboolean*)
-        void        (*SetByteArrayRegion)(JNIEnv*, jbyteArray, jsize, jsize, const_jbyte*)
-        void        (*SetCharArrayRegion)(JNIEnv*, jcharArray, jsize, jsize, const_jchar*)
-        void        (*SetShortArrayRegion)(JNIEnv*, jshortArray, jsize, jsize, const_jshort*)
-        void        (*SetIntArrayRegion)(JNIEnv*, jintArray, jsize, jsize, const_jint*)
-        void        (*SetLongArrayRegion)(JNIEnv*, jlongArray, jsize, jsize, const_jlong*)
-        void        (*SetFloatArrayRegion)(JNIEnv*, jfloatArray, jsize, jsize, const_jfloat*)
-        void        (*SetDoubleArrayRegion)(JNIEnv*, jdoubleArray, jsize, jsize, const_jdouble*)
+        void        (*SetBooleanArrayRegion)(JNIEnv*, jbooleanArray, jsize, jsize, const jboolean*)
+        void        (*SetByteArrayRegion)(JNIEnv*, jbyteArray, jsize, jsize, const jbyte*)
+        void        (*SetCharArrayRegion)(JNIEnv*, jcharArray, jsize, jsize, const jchar*)
+        void        (*SetShortArrayRegion)(JNIEnv*, jshortArray, jsize, jsize, const jshort*)
+        void        (*SetIntArrayRegion)(JNIEnv*, jintArray, jsize, jsize, const jint*)
+        void        (*SetLongArrayRegion)(JNIEnv*, jlongArray, jsize, jsize, const jlong*)
+        void        (*SetFloatArrayRegion)(JNIEnv*, jfloatArray, jsize, jsize, const jfloat*)
+        void        (*SetDoubleArrayRegion)(JNIEnv*, jdoubleArray, jsize, jsize, const jdouble*)
 
         #XXX not working with cython?
-        jint        (*RegisterNatives)(JNIEnv*, jclass, const_JNINativeMethod*, jint)
+        jint        (*RegisterNatives)(JNIEnv*, jclass, const JNINativeMethod*, jint)
         jint        (*UnregisterNatives)(JNIEnv*, jclass)
         jint        (*MonitorEnter)(JNIEnv*, jobject)
         jint        (*MonitorExit)(JNIEnv*, jobject)
@@ -355,8 +343,8 @@ cdef extern from "jni.h":
         void*       (*GetPrimitiveArrayCritical)(JNIEnv*, jarray, jboolean*)
         void        (*ReleasePrimitiveArrayCritical)(JNIEnv*, jarray, void*, jint)
 
-        const_jchar* (*GetStringCritical)(JNIEnv*, jstring, jboolean*)
-        void        (*ReleaseStringCritical)(JNIEnv*, jstring, const_jchar*)
+        const jchar* (*GetStringCritical)(JNIEnv*, jstring, jboolean*)
+        void        (*ReleaseStringCritical)(JNIEnv*, jstring, const jchar*)
 
         jweak       (*NewWeakGlobalRef)(JNIEnv*, jobject)
         void        (*DeleteWeakGlobalRef)(JNIEnv*, jweak)
