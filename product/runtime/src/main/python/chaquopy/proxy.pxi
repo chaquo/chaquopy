@@ -24,7 +24,7 @@ cdef class PythonJavaClass(object):
     Base class to create a java class from python
     '''
     cdef jclass j_cls
-    cdef public object j_self
+    cdef public JavaObject j_self
 
     def __cinit__(self, *args):
         self.j_cls = NULL
@@ -158,7 +158,7 @@ cdef jobject invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
         return NULL
 
 # now we need to create a proxy and pass it an invocation handler
-cdef create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
+cdef JavaObject create_proxy_instance(JNIEnv *j_env, py_obj, j_interfaces, javacontext):
     from .reflect import autoclass
     Proxy = autoclass('java.lang.reflect.Proxy')
     NativeInvocationHandler = autoclass('com.chaquo.python.NativeInvocationHandler')

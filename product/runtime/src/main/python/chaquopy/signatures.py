@@ -90,6 +90,6 @@ def _jni_type_spec(jclass):
     '''
 
     if issubclass(jclass, JavaObject):
-        return "L" + jclass.__javaclass__ + ";"
+        return "L" + jclass.__javaclass__.replace(".", "/") + ";"
     elif issubclass(jclass, _JavaSignaturePrimitive):
         return jclass._spec

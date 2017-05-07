@@ -15,8 +15,6 @@ class JavaException(Exception):
         Exception.__init__(self, message)
 
 
-cdef dict jclass_register = {}
-
 # TODO override setattr on both class and object so that assignment to nonexistent fields
 # doesn't just create a new __dict__ entry (see static field __set__ note below).
 #
@@ -24,21 +22,16 @@ cdef dict jclass_register = {}
 class JavaClass(type):
     def __init__(cls, classname, bases, classDict):
         cdef JNIEnv *j_env = get_jnienv()
-        cls.__javaclass__ = str_for_c(cls.__javaclass__)
-        cls.j_cls = LocalRef.wrap \
-            (j_env, j_env[0].FindClass(j_env, cls.__javaclass__)).global_ref()
-        if not cls.j_cls:
-            raise ValueError(f"FindClass failed for {cls.__javaclass__}")
+        cls.__javaclass__ = cls.__javaclass__.replace("/", ".")
+        jni_clsname = cls.__javaclass__.replace(".", "/")
+        j_cls = LocalRef.wrap(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
+        if not j_cls:
+            expect_exception(j_env, f"FindClass failed for {cls.__javaclass__}")
+        cls.j_cls = j_cls.global_ref()
 
         for name, value in six.iteritems(classDict):
             if isinstance(value, JavaMember):
                 value.set_resolve_info(cls, str_for_c(name))
-
-        jclass_register[cls.__javaclass__] = cls
-
-    @staticmethod
-    def get_javaclass(name):
-        return jclass_register.get(name)
 
 
 # TODO special-case getClass so it can be called with or without an instance (can't support
@@ -48,107 +41,35 @@ cdef class JavaObject(object):
 
     # Member variables declared in .pxd
 
-    def __init__(self, *args, GlobalRef instance=None, **kwargs):
+    def __init__(self, *args, GlobalRef instance=None, noinstance=False):
         super(JavaObject, self).__init__()
         if instance is not None:
             self.instantiate_from(instance)
-        elif 'noinstance' not in kwargs:
-            self.call_constructor(args)
+        elif not noinstance:
+            try:
+                constructor = self.__javaconstructor__
+            except AttributeError:
+                raise TypeError(f"{self.__javaclass__} has no accessible constructors")
+            self.instantiate_from(constructor(*args))
 
     cdef void instantiate_from(self, GlobalRef j_self) except *:
         self.j_self = j_self
 
-    # TODO merge duplicate parts with JavaMultipleMethod
-    cdef void call_constructor(self, args) except *:
-        # the goal is to find the class constructor, and call it with the
-        # correct arguments.
-        cdef jvalue *j_args = NULL
-        cdef jobject j_self = NULL
-        cdef jmethodID constructor = NULL
-        cdef JNIEnv *j_env = get_jnienv()
-
-        # get the constructor definition if exist
-        definitions = [('()V', False)]
-        if hasattr(self, '__javaconstructor__'):
-            definitions = self.__javaconstructor__
-        if isinstance(definitions, basestring):
-            definitions = [definitions]
-
-        if len(definitions) == 0:
-            raise JavaException('No constructor available')
-
-        elif len(definitions) == 1:
-            definition, is_varargs = definitions[0]
-            d_ret, d_args = parse_definition(definition)
-
-            if is_varargs:
-                args_ = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
-            else:
-                args_ = args
-            if len(args or ()) != len(d_args or ()):
-                raise JavaException('Invalid call, number of argument'
-                        ' mismatch for constructor')
-        else:
-            scores = []
-            for definition, is_varargs in definitions:
-                d_ret, d_args = parse_definition(definition)
-                if is_varargs:
-                    args_ = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
-                else:
-                    args_ = args
-
-                score = calculate_score(d_args, args)
-                if score == -1:
-                    continue
-                scores.append((score, definition, d_ret, d_args, args_))
-            if not scores:
-                raise JavaException('No constructor matching your arguments')
-            scores.sort()
-            score, definition, d_ret, d_args, args_ = scores[-1]
-
-        try:
-            # convert python arguments to java arguments
-            if len(args):
-                j_args = <jvalue *>malloc(sizeof(jvalue) * len(d_args))
-                if j_args == NULL:
-                    raise MemoryError('Unable to allocate memory for java args')
-                populate_args(j_env, d_args, j_args, args_)
-
-            # get the java constructor
-            defstr = str_for_c(definition)
-            constructor = j_env[0].GetMethodID(
-                j_env, (<GlobalRef?>self.j_cls).obj, '<init>', defstr)
-            if constructor == NULL:
-                raise JavaException(f'Constructor GetMethodID failed for {self} {defstr}')
-
-            # create the object
-            j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.j_cls).obj,
-                    constructor, j_args)
-
-            # release our arguments
-            release_args(j_env, d_args, j_args, args_)
-
-            check_exception(j_env)
-            if j_self == NULL:
-                raise JavaException('Unable to instantiate {0}'.format(
-                    self.__javaclass__))
-
-            self.j_self = GlobalRef.create(j_env, j_self)
-            j_env[0].DeleteLocalRef(j_env, j_self)
-        finally:
-            if j_args != NULL:
-                free(j_args)
-
     def __repr__(self):
-        return '<{0} at 0x{1:x} jclass={2} jself={3}>'.format(
-                self.__class__.__name__,
-                id(self),
-                self.__javaclass__,
-                self.j_self)
-
+        if self.j_self:
+            ts = self.toString()
+            if ts is not None and \
+               self.__javaclass__.split(".")[-1] in ts:  # e.g. "java.lang.Object@28d93b30"
+                return f"<'{ts}'>"
+            else:
+                return f"<{self.__javaclass__} '{ts}'>"
+        else:
+            return f"<{self.__javaclass__} (no instance)>"
 
 cdef class JavaMember(object):
-    # Member variables declared in .pxd
+    cdef jc
+    cdef name
+    cdef bint is_static
 
     def __init__(self, bint static=False):
         self.is_static = static
@@ -162,13 +83,15 @@ cdef class JavaMember(object):
 
 
 cdef class JavaField(JavaMember):
-    # Member variables declared in .pxd
+    cdef jfieldID j_field
+    cdef definition
 
     def __repr__(self):
-        return (f"<JavaField {'static ' if self.is_static else ''}{self.definition} "
-                f"{self.classname()}.{self.name}>")
+        # TODO #5155 don't expose JNI signatures to users
+        return (f"JavaField({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
+                f"{', static=True' if self.is_static else ''})")
 
-    def __init__(self, definition, *, bint static=False):
+    def __init__(self, definition, *, static=False):
         super(JavaField, self).__init__(static)
         self.definition = str_for_c(definition)
 
@@ -250,6 +173,7 @@ cdef class JavaField(JavaMember):
             j_double = <jdouble>value
             j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_double)
         elif r == 'L':
+            # FIXME can probably add "or r == '['"
             j_object = <jobject>convert_python_to_jobject(j_env, self.definition, value)
             j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object)
             j_env[0].DeleteLocalRef(j_env, j_object)
@@ -397,18 +321,30 @@ cdef class JavaField(JavaMember):
 
 
 cdef class JavaMethod(JavaMember):
-    # Member variables declared in .pxd
+    cdef jmethodID j_method
+    cdef definition
+    cdef object definition_return
+    cdef object definition_args
+    cdef bint is_constructor
+    cdef bint is_varargs
 
     def __repr__(self):
-        return (f"<JavaMethod {'static ' if self.is_static else ''}{self.definition_return} "
-                f"{self.classname()}.{self.name}{self.definition_args}>")
+        # TODO #5155 don't expose JNI signatures to users
+        return (f"JavaMethod({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
+                f"{', static=True' if self.is_static else ''}"
+                f"{', varargs=True' if self.is_varargs else ''})")
 
-    def __init__(self, definition, *, bint static=False, bint varargs=False):
+    def __init__(self, definition, *, static=False, varargs=False):
         super(JavaMethod, self).__init__(static)
         self.definition = str_for_c(definition)
-        self.definition_return, self.definition_args = \
-                parse_definition(definition)
+        self.definition_return, self.definition_args = parse_definition(definition)
         self.is_varargs = varargs
+
+    def set_resolve_info(self, jc, name):
+        if name == "__javaconstructor__":
+            name = "<init>"
+        self.is_constructor = (name == "<init>")
+        super(JavaMethod, self).set_resolve_info(jc, name)
 
     cdef void ensure_method(self) except *:
         if self.j_method != NULL:
@@ -422,13 +358,12 @@ cdef class JavaMethod(JavaMember):
         else:
             self.j_method = j_env[0].GetMethodID(
                     j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
-
         if self.j_method == NULL:
-            raise AttributeError(f"Get[Static]Method failed for {self}")
+            expect_exception(j_env, f"Get[Static]Method failed for {self}")
 
     def __get__(self, obj, objtype):
         self.ensure_method()
-        if obj is None and not self.is_static:
+        if obj is None and not (self.is_static or self.is_constructor):
             return self  # Unbound method: takes obj as first argument
         else:
             return lambda *args: self(obj, *args)
@@ -444,6 +379,9 @@ cdef class JavaMethod(JavaMember):
                             f"{type(obj).__name__} instance instead)")
 
         if self.is_varargs:
+            if len(args) < len(d_args) - 1:
+                raise TypeError(f'{self} takes at least {len(d_args) - 1} arguments '
+                                f'({len(args)} given)')
             args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
 
         if len(args) != len(d_args):
@@ -457,6 +395,8 @@ cdef class JavaMethod(JavaMember):
                 populate_args(j_env, self.definition_args, j_args, args)
 
             try:
+                if self.is_constructor:
+                    return self.call_constructor(j_env, j_args)
                 if self.is_static:
                     return self.call_staticmethod(j_env, j_args)
                 else:
@@ -467,6 +407,12 @@ cdef class JavaMethod(JavaMember):
         finally:
             if j_args != NULL:
                 free(j_args)
+
+    cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
+        cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,
+                                                  self.j_method, j_args)
+        check_exception(j_env)
+        return LocalRef.wrap(j_env, j_self).global_ref()
 
     cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
         cdef jboolean j_boolean
@@ -637,58 +583,57 @@ cdef class JavaMethod(JavaMember):
 
 
 cdef class JavaMultipleMethod(JavaMember):
-    cdef list definitions
     cdef list methods
+    cdef dict overload_cache
 
     def __repr__(self):
-        return (f"<JavaMultipleMethod {self.methods}>")
+        return f"JavaMultipleMethod({self.methods})"
 
-    def __init__(self, definitions, **kwargs):
+    def __init__(self, methods):
         super(JavaMultipleMethod, self).__init__()
-        self.definitions = definitions
-        self.methods = []
+        self.methods = methods
+        self.overload_cache = {}
 
     def __get__(self, obj, objtype):
         return lambda *args: self(obj, *args)
 
-    def set_resolve_info(self, jc, bytes name):
+    def set_resolve_info(self, jc, name):
+        if name == "__javaconstructor__":
+            name = "<init>"
         super(JavaMultipleMethod, self).set_resolve_info(jc, name)
-        for signature, static, varargs in self.definitions:
-            jm = JavaMethod(signature, static=static, varargs=varargs)
-            jm.set_resolve_info(jc, name)
-            self.methods.append(jm)
+        for jm in self.methods:
+            (<JavaMethod?>jm).set_resolve_info(jc, name)
 
     def __call__(self, obj, *args):
-        cdef JavaMethod jm
-        cdef list scores = []
+        args_types = tuple(map(type, args))
+        maximal = self.overload_cache.get(args_types)
+        if not maximal:
+            # JLS 15.12.2.2. Identify Matching Arity Methods
+            applicable = [jm for jm in self.methods
+                          if is_applicable((<JavaMethod?>jm).definition_args,
+                                           args, varargs=False)]
 
-        for jm in self.methods:
-            sign_args = jm.definition_args
-            if jm.is_varargs:
-                args_ = args[:len(sign_args) - 1] + (args[len(sign_args) - 1:],)
-            else:
-                args_ = args
+            # JLS 15.12.2.4. Identify Applicable Variable Arity Methods
+            if not applicable:
+                applicable = [jm for jm in self.methods if (<JavaMethod?>jm).is_varargs and
+                              is_applicable((<JavaMethod?>jm).definition_args,
+                                           args, varargs=True)]
+            if not applicable:
+                raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
 
-            score = calculate_score(sign_args, args_, jm.is_varargs)
-            if score > 0:
-                scores.append((score, jm))
-        if not scores:
-            raise AttributeError(f"No methods matching arguments {args}: options are {self.methods}")
+            # JLS 15.12.2.5. Choosing the Most Specific Method
+            maximal = []
+            for jm1 in applicable:
+                if not any([more_specific(jm2, jm1) for jm2 in applicable if jm2 is not jm1]):
+                    maximal.append(jm1)
+            if len(maximal) != 1:
+                raise TypeError(self.overload_err(f"is ambiguous for arguments", args, maximal))
+            self.overload_cache[args_types] = maximal
 
-        # FIXME this cannot be how Java does it: if multiple methods have the same score, we'll
-        # call one at random.
-        scores.sort()
-        score, jm = scores[-1]
-        return jm.__get__(obj, type(obj))(*args)
+        return maximal[0].__get__(obj, type(obj))(*args)
 
-
-# FIXME remove these when regenerating bootstrap class proxies: they add nothing.
-class JavaStaticMethod(JavaMethod):
-    def __init__(self, definition, **kwargs):
-        kwargs['static'] = True
-        super(JavaStaticMethod, self).__init__(definition, **kwargs)
-
-class JavaStaticField(JavaField):
-    def __init__(self, definition, **kwargs):
-        kwargs['static'] = True
-        super(JavaStaticField, self).__init__(definition, **kwargs)
+    def overload_err(self, msg, args, methods):
+        # TODO #5155 don't expose JNI signatures to users
+        args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
+        return (f"{self.classname()}.{self.name} {msg} {args_type_names}: options are " +
+                ", ".join([f"{<JavaMethod?>jm).definition}" for jm in methods]))

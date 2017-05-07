@@ -15,6 +15,11 @@ class ImplementationTest(unittest.TestCase):
         self.assertEqual(False, System.out.checkError())
         self.assertIsNone(System.out.flush())
 
+    def test_unconstructible(self):
+        System = autoclass("java.lang.System")
+        with self.assertRaisesRegexp(TypeError, "no accessible constructors"):
+            System()
+
     def test_unicode(self):
         String = autoclass('java.lang.String')
         self.assertEqual(u'é', String.format(u'é'))

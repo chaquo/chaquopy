@@ -11,6 +11,7 @@ class HelloWorldTest(unittest.TestCase):
 
         class HelloWorld(with_metaclass(JavaClass, JavaObject)):
             __javaclass__ = 'com/chaquo/python/HelloWorld'
+            __javaconstructor__ = JavaMethod("()V")
             hello = JavaMethod('()Ljava/lang/String;')
 
         a = HelloWorld()

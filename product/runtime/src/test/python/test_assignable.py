@@ -13,6 +13,6 @@ class AssignableFrom(unittest.TestCase):
 
         a = ArrayList()
         # addAll accept Collection, Object must failed
-        self.assertRaises(JavaException, a.addAll, Object())
+        self.assertRaises(TypeError, a.addAll, Object())
         # while adding another ArrayList must be ok.
         a.addAll(ArrayList())

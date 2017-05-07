@@ -2,36 +2,11 @@
 
 from .jni cimport *
 
-
 # === class ===================================================================
 
 cdef class JavaObject(object):
     cdef GlobalRef j_self
     cdef void instantiate_from(self, GlobalRef j_self) except *
-    cdef void call_constructor(self, args) except *
-
-cdef class JavaMember(object):
-    cdef jc
-    cdef name
-    cdef bint is_static
-
-cdef class JavaField(JavaMember):
-    cdef jfieldID j_field
-    cdef definition
-    cdef void ensure_field(self) except *
-    cdef write_field(self, jobject j_self, value)
-    cdef read_field(self, jobject j_self)
-    cdef read_static_field(self)
-
-cdef class JavaMethod(JavaMember):
-    cdef jmethodID j_method
-    cdef definition
-    cdef object definition_return
-    cdef object definition_args
-    cdef bint is_varargs
-    cdef void ensure_method(self) except *
-    cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args)
-    cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args)
 
 # === conversion ==============================================================
 
@@ -44,7 +19,6 @@ cdef class GlobalRef(object):
     cdef jobject obj
     @staticmethod
     cdef GlobalRef create(JNIEnv *env, jobject obj)
-
 
 # === jni =====================================================================
 

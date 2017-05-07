@@ -6,20 +6,11 @@ from chaquopy import autoclass
 
 class StringArgumentForByteArrayTest(unittest.TestCase):
 
-    def test_string_arg_for_byte_array(self):
-        # the ByteBuffer.wrap() accept only byte[].
-        ByteBuffer = autoclass('java.nio.ByteBuffer')
-        self.assertIsNotNone(ByteBuffer.wrap(b'hello world'))
-
-    def test_string_arg_with_signed_char(self):
-        ByteBuffer = autoclass('java.nio.ByteBuffer')
-        self.assertIsNotNone(ByteBuffer.wrap(b'\x00\xffHello World\x7f'))
-
     def test_fill_byte_array(self):
         arr = [0, 0, 0]
         Test = autoclass('com.chaquo.python.BasicsTest')()
         Test.fillByteArray(arr)
-        # we don't received signed byte, but unsigned in python.
+        # we don't received signed byte, but unsigned in python (FIXME think about this)
         self.assertEquals(
             arr,
             [127, 1, 129])
@@ -34,7 +25,7 @@ class StringArgumentForByteArrayTest(unittest.TestCase):
     def test_bytearray_ascii(self):
         ByteArrayInputStream = autoclass('java.io.ByteArrayInputStream')
         s = b"".join(bytes(x) for x in range(256))
-        nis = ByteArrayInputStream(s)
+        nis = ByteArrayInputStream(bytearray(s))
         barr = bytearray("\x00" * 256, encoding="ascii")
         self.assertEquals(nis.read(barr, 0, 256), 256)
         self.assertEquals(barr[:256], s[:256])

@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 # FIXME: survey all <...> casts without question mark, and remove or add question mark.
 
 from collections import defaultdict
@@ -23,7 +25,7 @@ telem = defaultdict(int)
 # TODO #5148
 DEF JNIUS_PYTHON3 = False
 
-from jni cimport *
+from .jni cimport *
 include "env.pxi"
 include "jvm.pxi"
 include "utils.pxi"

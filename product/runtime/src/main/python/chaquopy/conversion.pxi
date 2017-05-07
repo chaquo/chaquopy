@@ -1,5 +1,6 @@
 from cpython.version cimport PY_MAJOR_VERSION
 
+import six
 import sys
 
 if sys.byteorder == "little":
@@ -20,7 +21,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
         if argtype[0] == 'L':
             if py_arg is None:
                 j_args[index].l = NULL
-            if isinstance(py_arg, basestring) and \
+            if isinstance(py_arg, six.string_types) and \
                     jstringy_arg(argtype):
                 j_env[0].DeleteLocalRef(j_env, j_args[index].l)
         elif argtype[0] == '[':
@@ -33,6 +34,8 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
+    # FIXME This may produce an unhelpful exception for the primitive types if the given arg is
+    # of the wrong type.
     cdef int index
     for index, argtype in enumerate(definition_args):
         py_arg = args[index]
@@ -73,6 +76,9 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
 
 
 cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
+    if j_object == NULL:
+        return None
+
     cdef jstring string
     cdef const jchar *jchar_str
     # We can't decode directly from a jchar array because of
@@ -81,7 +87,6 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
     cdef object bytes_str
 
     r = definition[1:-1]
-    cdef JavaObject ret_jc
     cdef jclass retclass
     cdef jmethodID retmeth
 
@@ -106,8 +111,6 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
         j_env[0].ReleaseStringChars(j_env, string, jchar_str)
         return bytes_str.decode(JCHAR_ENCODING)
 
-    # XXX should be deactivable from configuration
-    # ie, user might not want autoconvertion of lang classes.
     if r == 'java/lang/Long':
         retclass = j_env[0].GetObjectClass(j_env, j_object)
         retmeth = j_env[0].GetMethodID(j_env, retclass, 'longValue', '()J')
@@ -141,20 +144,9 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object):
         retmeth = j_env[0].GetMethodID(j_env, retclass, 'charValue', '()C')
         return ord(j_env[0].CallCharMethod(j_env, j_object, retmeth))
 
-    if r not in jclass_register:
-        if r.startswith('$Proxy'):
-            # only for $Proxy on android, don't use autoclass. The dalvik vm is
-            # not able to give us introspection on that one (FindClass return
-            # NULL).
-            from .reflect import Object
-            ret_jc = Object(noinstance=True)
-        else:
-            from .reflect import autoclass
-            ret_jc = autoclass(r.replace('/', '.'))(noinstance=True)
-    else:
-        ret_jc = jclass_register[r](noinstance=True)
-    ret_jc.instantiate_from(GlobalRef.create(j_env, j_object))
-    return ret_jc
+    from .reflect import autoclass
+    return autoclass(r)(instance=LocalRef.wrap(j_env, j_object).global_ref())
+
 
 cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
     cdef jboolean iscopy = 0
@@ -274,22 +266,21 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
     cdef jclass retclass = NULL
     cdef jmethodID retmidinit = NULL
     cdef jvalue j_ret[1]
-    cdef JavaObject jc
-    cdef PythonJavaClass pc
     cdef int index
 
     if definition[0] == 'V':
+        if obj is not None:
+            raise TypeError(f"Cannot convert '{type(obj).__name__}' object to void")
         return NULL
     elif definition[0] == 'L':
+        clsname = definition[1:-1].replace("/", ".")
         if obj is None:
             return NULL
-        elif isinstance(obj, (unicode, bytes)) and jstringy_arg(definition):
-            if isinstance(obj, unicode):
-                utf16 = obj.encode(JCHAR_ENCODING)
-            else:
-                utf16 = obj.decode('ASCII').encode(JCHAR_ENCODING)
+        elif isinstance(obj, six.string_types) and jstringy_arg(definition):
+            u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
+            utf16 = u.encode(JCHAR_ENCODING)
             return j_env[0].NewString(j_env, <jchar*><char*>utf16,
-                                      len(utf16)/2)  # Not equal to len(obj) on a "narrow" Python
+                                      len(utf16)//2)  # Not equal to len(u) on a "narrow" Python
         elif isinstance(obj, (int, long)) and \
                 definition in (
                     'Ljava/lang/Integer;',
@@ -297,30 +288,29 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
                     'Ljava/lang/Long;',
                     'Ljava/lang/Object;'):
             # FIXME this isn't right, it could pass a Long where an Integer is required. And it
-            # needs to support all the other boxed types properly as well.
+            # needs to support all the other boxed types properly as well. And release_args
+            # needs to release the local ref to the temporary object.
             j_ret[0].i = obj
             retclass = j_env[0].FindClass(j_env, 'java/lang/Integer')
             retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(I)V')
             retobject = j_env[0].NewObjectA(j_env, retclass, retmidinit, j_ret)
             return retobject
         elif isinstance(obj, JavaObject):
-            jc = obj
-            check_assignable_from(j_env, jc, definition[1:-1])
-            return jc.j_self.obj
+            # Comparison to clsname prevents recursion when converting argument to isAssignableFrom
+            if obj.__javaclass__ == clsname or \
+               find_javaclass(clsname).isAssignableFrom(find_javaclass(obj.__javaclass__)):
+                return (<JavaObject?>obj).j_self.obj
         elif isinstance(obj, JavaClass):
             return (<GlobalRef?>obj.j_cls).obj
         elif isinstance(obj, PythonJavaClass):
-            pc = obj
-            jc = pc.j_self
-            return jc.j_self.obj
+            return (<PythonJavaClass?>obj).j_self.j_self.obj
         elif isinstance(obj, (tuple, list)):
             return convert_pyarray_to_java(j_env, definition, obj)
-        else:
-            raise JavaException('Invalid python object for this '
-                    'argument. Want {0!r}, got {1!r}'.format(
-                        definition[1:-1], obj))
+        raise TypeError("Cannot convert {type(obj).__name__} to {clsname}")
 
     elif definition[0] == '[':
+        if obj is None:
+            return NULL
         if PY_MAJOR_VERSION < 3:
             conversions = {
                 int: 'I',
@@ -348,6 +338,7 @@ cdef jobject convert_python_to_jobject(JNIEnv *j_env, definition, obj) except *:
                     retsubobject)
         return retobject
 
+    # FIXME not sure if this part will ever be run in current usage.
     elif definition == 'B':
         retclass = j_env[0].FindClass(j_env, 'java/lang/Byte')
         retmidinit = j_env[0].GetMethodID(j_env, retclass, '<init>', '(B)V')
