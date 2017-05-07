@@ -259,6 +259,11 @@ def more_specific(JavaMethod jm1, JavaMethod jm2):
     """Returns whether jm1 is more specific than jm2, according to JLS 15.12.2.5. Choosing the Most
     Specific Method
     """
-    return False  # FIXME #5156
+    # FIXME this is a partial implementation to allow some tests to work
+    defs1, defs2 = jm1.definition_args, jm2.definition_args
+    return (len(defs1) == len(defs2) and
+            all([find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
+                 for def1, def2 in zip(defs1, defs2)]))
+
     # FIXME (int...) is actualy more specific than (double...), but int[] is not more specific
     # than double[]. https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading

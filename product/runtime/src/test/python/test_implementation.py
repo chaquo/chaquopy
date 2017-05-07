@@ -29,3 +29,15 @@ class ImplementationTest(unittest.TestCase):
 
         # Non-BMP character (handled differently by "modified UTF-8")
         self.assertEqual(u'A\U00012345B', String.format(u'A\U00012345B'))
+
+    def test_reserved_words(self):
+        StringWriter = autoclass("java.io.StringWriter")
+        PrintWriter = autoclass("java.io.PrintWriter")
+        self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
+        sw = StringWriter()
+        pw = PrintWriter(sw)
+        self.assertTrue(hasattr(pw, "print_"))
+        self.assertFalse(hasattr(pw, "flush_"))
+        pw.print_("Hello")
+        pw.print_(" world")
+        self.assertEqual("Hello world", sw.toString())

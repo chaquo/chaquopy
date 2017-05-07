@@ -1,3 +1,4 @@
+import keyword
 import six
 
 class JavaException(Exception):
@@ -29,9 +30,26 @@ class JavaClass(type):
             expect_exception(j_env, f"FindClass failed for {cls.__javaclass__}")
         cls.j_cls = j_cls.global_ref()
 
+        reserved_word_aliases = {}
         for name, value in six.iteritems(classDict):
             if isinstance(value, JavaMember):
                 value.set_resolve_info(cls, str_for_c(name))
+                if is_reserved_word(name):
+                    # As recommended by PEP 8, append an underscore to member names which are
+                    # reserved words. (The original name is still accessible via getattr().)
+                    reserved_word_aliases[name + "_"] = value
+        for name, value in six.iteritems(reserved_word_aliases):
+            if not hasattr(cls, name):
+                setattr(cls, name, value)
+
+
+# Ensure the same aliases are available on all Python versions
+EXTRA_RESERVED_WORDS = {'exec', 'print',                      # Removed in Python 3.0
+                        'nonlocal', 'True', 'False', 'None',  # Python 3.0
+                        'async', 'await'}                     # Python 3.7
+
+def is_reserved_word(word):
+    return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
 # TODO special-case getClass so it can be called with or without an instance (can't support
