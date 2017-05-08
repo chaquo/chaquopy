@@ -47,11 +47,11 @@ cdef class LocalRef(JNIRef):
 
     @staticmethod
     cdef LocalRef create(JNIEnv *env, jobject obj):
-        return LocalRef.wrap(env,
-                             env[0].NewLocalRef(env, obj) if obj else NULL)
+        return LocalRef.adopt(env,
+                              env[0].NewLocalRef(env, obj) if obj else NULL)
 
     @staticmethod
-    cdef LocalRef wrap(JNIEnv *env, jobject obj):
+    cdef LocalRef adopt(JNIEnv *env, jobject obj):
         cdef LocalRef lr = LocalRef()
         lr.env = env
         lr.obj = obj

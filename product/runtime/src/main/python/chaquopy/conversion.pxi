@@ -24,7 +24,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
         elif argtype[0] == '[':
             # Copy back any modifications the Java method may have made to the array
-            ret = convert_jarray_to_python(j_env, argtype[1:], j_args[index].l)
+            ret = j2p_array(j_env, argtype[1:], j_args[index].l)
             try:
                 args[index][:] = ret
             except TypeError:
@@ -56,13 +56,11 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
             j_args[index].d = py_arg
         elif argtype[0] in 'L[':
             j_args[index].l = j_env[0].NewLocalRef \
-                (j_env, convert_python_to_jobject(j_env, argtype, py_arg).obj)
+                (j_env, p2j(j_env, argtype, py_arg).obj)
 
-# FIXME in separate commit, rename to j2p, j2p_array, etc. Also rename LocalRef.wrap to
-# "adopt", and *Ref.create to "new".
-#
+
 # FIXME remove definition_ignored
-cdef convert_jobject_to_python(JNIEnv *j_env, definition_ignored, jobject j_object):
+cdef j2p(JNIEnv *j_env, definition_ignored, jobject j_object):
     if j_object == NULL:
         return None
 
@@ -72,7 +70,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition_ignored, jobject j_obje
     r = lookup_java_object_name(j_env, j_object)
 
     if r[0] == '[':
-        return convert_jarray_to_python(j_env, r[1:], j_object)
+        return j2p_array(j_env, r[1:], j_object)
 
     if r == 'java.lang.String':
         return j2p_string(j_env, j_object)
@@ -112,7 +110,7 @@ cdef convert_jobject_to_python(JNIEnv *j_env, definition_ignored, jobject j_obje
         return j2p_pyobject(j_env, j_object)
 
     # Failed to convert it, so return a proxy object.
-    return chaquopy.autoclass(r)(instance=LocalRef.wrap(j_env, j_object))
+    return chaquopy.autoclass(r)(instance=LocalRef.adopt(j_env, j_object))
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):
@@ -142,7 +140,7 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
     return <object>po
 
 
-cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
+cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     cdef jboolean iscopy = 0
     cdef jboolean *j_booleans
     cdef jbyte *j_bytes
@@ -233,7 +231,7 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
             if j_object_item == NULL:
                 ret.append(None)
                 continue
-            obj = convert_jobject_to_python(j_env, definition, j_object_item)
+            obj = j2p(j_env, definition, j_object_item)
             ret.append(obj)
             j_env[0].DeleteLocalRef(j_env, j_object_item)
 
@@ -246,7 +244,7 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
             if j_object_item == NULL:
                 ret.append(None)
                 continue
-            obj = convert_jarray_to_python(j_env, r, j_object_item)
+            obj = j2p_array(j_env, r, j_object_item)
             ret.append(obj)
             j_env[0].DeleteLocalRef(j_env, j_object_item)
 
@@ -257,7 +255,7 @@ cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object):
 
 
 # Must be consistent with arg_is_applicable
-cdef JNIRef convert_python_to_jobject(JNIEnv *j_env, definition, obj):
+cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
     if definition[0] == 'V':
         # Could happen from proxy.pxi
         if obj is not None:
@@ -280,9 +278,9 @@ cdef JNIRef convert_python_to_jobject(JNIEnv *j_env, definition, obj):
                 u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
                 utf16 = u.encode(JCHAR_ENCODING)
                   # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python
-                return LocalRef.wrap(j_env, j_env[0].NewString(j_env,
-                                                               <jchar*><char*>utf16,
-                                                               len(utf16)//2))
+                return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
+                                                                <jchar*><char*>utf16,
+                                                                len(utf16)//2))
             elif len(obj) == 1:
                 Character = find_javaclass("java.lang.Character")
                 if klass.isAssignableFrom(Character):
@@ -324,17 +322,17 @@ cdef JNIRef convert_python_to_jobject(JNIEnv *j_env, definition, obj):
                 return (<PythonJavaClass?>obj).j_self.j_self
         elif isinstance(obj, (tuple, list)):
             if clsname == "java.lang.Object":
-                return LocalRef.wrap(j_env, convert_pyarray_to_java(j_env, definition, obj))
+                return LocalRef.adopt(j_env, p2j_array(j_env, definition, obj))
 
         # Anything, including the above types, can be converted to a PyObject if the signature
         # will accept it.
         if klass.isAssignableFrom(find_javaclass("com.chaquo.python.PyObject")):
-            return LocalRef.wrap(j_env, p2j_pyobject(j_env, obj))
+            return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
         if isinstance(obj, (tuple, list)) or \
            (isinstance(obj, bytearray) and definition == "[B"):
-            return LocalRef.wrap(j_env, convert_pyarray_to_java(j_env, definition[1:], obj))
+            return LocalRef.adopt(j_env, p2j_array(j_env, definition[1:], obj))
 
     else:
         raise ValueError(f"Invalid signature '{definition}'")
@@ -343,7 +341,7 @@ cdef JNIRef convert_python_to_jobject(JNIEnv *j_env, definition, obj):
 
 
 cdef JNIRef p2j_string(JNIEnv *env, s):
-    return convert_python_to_jobject(env, "Ljava/lang/String;", s)
+    return p2j(env, "Ljava/lang/String;", s)
 
 
 cdef LocalRef p2j_box(JNIEnv *env, box_klass, value):
@@ -355,7 +353,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     if obj is None:
         return NULL
     # Can't call getInstance() using autoclass because that'll immediately unwrap the
-    # returned proxy object (see convert_jobject_to_python)
+    # returned proxy object (see j2p)
     JPyObject = chaquopy.autoclass("com.chaquo.python.PyObject")
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
@@ -366,7 +364,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     return j_pyobject
 
 
-cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except *:
+cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
     """`definition` is the element type, not the array type.
     """
     cdef jobject ret = NULL
@@ -451,21 +449,21 @@ cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except 
                     'found {0!r}'.format(definition[1:-1]))
         ret = j_env[0].NewObjectArray(j_env, array_size, j_class, NULL)
         for i in range(array_size):
-            j_object = convert_python_to_jobject(j_env, definition, pyarray[i])
+            j_object = p2j(j_env, definition, pyarray[i])
             j_env[0].SetObjectArrayElement(j_env, ret, i, j_object.obj)
 
     elif definition[0] == '[':
-        # FIXME will fail when array is empty?
-        # FIXME can we cover this with the 'L' case?
+        # FIXME shouldn't depend only on first element, and will crash when array is empty. Can
+        # we combine this with the 'L' case?
         subdef = definition[1:]
-        eproto = convert_pyarray_to_java(j_env, subdef, pyarray[0])
+        eproto = p2j_array(j_env, subdef, pyarray[0])
         ret = j_env[0].NewObjectArray(
                 j_env, array_size, j_env[0].GetObjectClass(j_env, eproto), NULL)
         j_env[0].SetObjectArrayElement(
                     j_env, <jobjectArray>ret, 0, eproto)
         for i in range(1, array_size):
             j_env[0].SetObjectArrayElement(
-                    j_env, <jobjectArray>ret, i, convert_pyarray_to_java(j_env, subdef, pyarray[i]))
+                    j_env, <jobjectArray>ret, i, p2j_array(j_env, subdef, pyarray[i]))
 
     else:
         raise ValueError(f"Invalid signature '{definition}'")

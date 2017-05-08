@@ -9,15 +9,15 @@ cdef class JavaObject(object):
 
 # === conversion ==============================================================
 
-cdef convert_jobject_to_python(JNIEnv *j_env, definition, jobject j_object)
+cdef j2p(JNIEnv *j_env, definition, jobject j_object)
 cdef j2p_string(JNIEnv *env, jobject j_object)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
-cdef convert_jarray_to_python(JNIEnv *j_env, definition, jobject j_object)
+cdef j2p_array(JNIEnv *j_env, definition, jobject j_object)
 
-cdef JNIRef convert_python_to_jobject(JNIEnv *j_env, definition, obj)
+cdef JNIRef p2j(JNIEnv *j_env, definition, obj)
 cdef JNIRef p2j_string(JNIEnv *env, s)
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
-cdef jobject convert_pyarray_to_java(JNIEnv *j_env, definition, pyarray) except *
+cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *
 
 # === env =====================================================================
 
@@ -39,7 +39,7 @@ cdef class LocalRef(JNIRef):
     @staticmethod
     cdef LocalRef create(JNIEnv *env, jobject obj)
     @staticmethod
-    cdef LocalRef wrap(JNIEnv *env, jobject obj)
+    cdef LocalRef adopt(JNIEnv *env, jobject obj)
 
 # === jni =====================================================================
 

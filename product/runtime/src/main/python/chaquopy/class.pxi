@@ -25,7 +25,7 @@ class JavaClass(type):
         cdef JNIEnv *j_env = get_jnienv()
         cls.__javaclass__ = cls.__javaclass__.replace("/", ".")
         jni_clsname = cls.__javaclass__.replace(".", "/")
-        j_cls = LocalRef.wrap(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
+        j_cls = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
         if not j_cls:
             expect_exception(j_env, f"FindClass failed for {cls.__javaclass__}")
         cls.j_cls = j_cls.global_ref()
@@ -195,7 +195,7 @@ cdef class JavaField(JavaMember):
             j_double = <jdouble>value
             j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_double)
         elif r == 'L':
-            j_object = convert_python_to_jobject(j_env, self.definition, value)
+            j_object = p2j(j_env, self.definition, value)
             j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object.obj)
         # FIXME array fields
         else:
@@ -254,8 +254,7 @@ cdef class JavaField(JavaMember):
                     j_env, j_self, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jobject_to_python(
-                        j_env, self.definition, j_object)
+                ret = j2p(j_env, self.definition, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         elif r == '[':
             r = self.definition[1:]
@@ -263,7 +262,7 @@ cdef class JavaField(JavaMember):
                     j_env, j_self, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jarray_to_python(j_env, r, j_object)
+                ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
             raise Exception(f'Invalid field definition for {self}')
@@ -323,8 +322,7 @@ cdef class JavaField(JavaMember):
                     j_env, j_class, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jobject_to_python(
-                        j_env, self.definition, j_object)
+                ret = j2p(j_env, self.definition, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         elif r == '[':
             r = self.definition[1:]
@@ -332,7 +330,7 @@ cdef class JavaField(JavaMember):
                     j_env, j_class, self.j_field)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jarray_to_python(j_env, r, j_object)
+                ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
             raise Exception(f"{self}: invalid type definition '{self.definition}'")
@@ -437,7 +435,7 @@ cdef class JavaMethod(JavaMember):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,
                                                   self.j_method, j_args)
         check_exception(j_env)
-        return LocalRef.wrap(j_env, j_self)
+        return LocalRef.adopt(j_env, j_self)
 
     cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
         cdef jboolean j_boolean
@@ -503,17 +501,17 @@ cdef class JavaMethod(JavaMember):
                         j_env, j_self, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jobject_to_python(
-                        j_env, self.definition_return, j_object)
+                ret = j2p(j_env, self.definition_return, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         elif r == '[':
+            # FIXME can we combine this with the 'L' case?
             r = self.definition_return[1:]
             with nogil:
                 j_object = j_env[0].CallObjectMethodA(
                         j_env, j_self, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jarray_to_python(j_env, r, j_object)
+                ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
             raise Exception('Invalid return definition?')
@@ -588,17 +586,17 @@ cdef class JavaMethod(JavaMember):
                         j_env, j_class, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jobject_to_python(
-                        j_env, self.definition_return, j_object)
+                ret = j2p(j_env, self.definition_return, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         elif r == '[':
+            # FIXME can we combine this with the 'L' case?
             r = self.definition_return[1:]
             with nogil:
                 j_object = j_env[0].CallStaticObjectMethodA(
                         j_env, j_class, self.j_method, j_args)
             check_exception(j_env)
             if j_object != NULL:
-                ret = convert_jarray_to_python(j_env, r, j_object)
+                ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
             raise Exception('Invalid return definition?')

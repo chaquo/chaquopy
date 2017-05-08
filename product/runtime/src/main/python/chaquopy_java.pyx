@@ -125,7 +125,7 @@ cdef public void Java_com_chaquo_python_PyObject_closeNative \
 cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
     (JNIEnv *env, jobject klass, jobject o) with gil:
     try:
-        return p2j_pyobject(env, convert_jobject_to_python(env, "Ljava/lang/Object", o))
+        return p2j_pyobject(env, j2p(env, "Ljava/lang/Object", o))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -136,7 +136,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     try:
         Class = autoclass("java.lang.Class")
         to_sig = jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
-        result = convert_python_to_jobject(env, to_sig, j2p_pyobject(env, this))
+        result = p2j(env, to_sig, j2p_pyobject(env, this))
         return env[0].NewLocalRef(env, result.obj)
     except Exception as e:
         wrap_exception(env, e)
@@ -169,7 +169,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
             # array of one null which they intended.
             args = [None]
         else:
-            args = convert_jarray_to_python(env, "Ljava/lang/Object;", jargs)
+            args = j2p_array(env, "Ljava/lang/Object;", jargs)
         result = j2p_pyobject(env, this)(*args)
         return p2j_pyobject(env, result)
     except Exception as e:
@@ -204,7 +204,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
             old_value = getattr(self, str_key)
         except AttributeError:
             old_value = None
-        setattr(self, str_key, convert_jobject_to_python(env, "Ljava/lang/Object;", value))
+        setattr(self, str_key, j2p(env, "Ljava/lang/Object;", value))
         return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)

@@ -27,7 +27,7 @@ def find_javaclass(name):
     # FIXME all other uses of FindClass need to be guarded with expect_exception as well (see
     # note on exceptions in jni.pxd)
     jniname = str_for_c(name.replace('.', '/'))
-    jc = LocalRef.wrap(j_env, j_env[0].FindClass(j_env, jniname))
+    jc = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, jniname))
     if not jc:
         expect_exception(j_env, f"FindClass failed for {name}")
 
@@ -228,7 +228,7 @@ def is_applicable(sign_args, args, *, varargs):
     return True
 
 
-# Must be consistent with populate_args and convert_python_to_jobject
+# Must be consistent with populate_args and p2j
 cdef arg_is_applicable(JNIEnv *env, r, arg):
     if r == 'Z':
         return isinstance(arg, bool)
@@ -240,7 +240,7 @@ cdef arg_is_applicable(JNIEnv *env, r, arg):
         return isinstance(arg, (six.integer_types, float))
     if r[0] in 'L[':
         try:
-            convert_python_to_jobject(env, r, arg)
+            p2j(env, r, arg)
             return True
         except TypeError:
             return False
