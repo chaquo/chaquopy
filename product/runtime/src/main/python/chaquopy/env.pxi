@@ -1,45 +1,55 @@
-# TODO create base class JNIRef, which would contain the common behaviour (including __nonzero__,
-# __repr__ and telem), and facilitate the higher-level JNI interface layer.
-
-cdef class GlobalRef(object):
+cdef class JNIRef(object):
     # Member variables declared in .pxd
 
     def __init__(self):
         telem[self.__class__.__name__] += 1
 
     def __dealloc__(self):
-        cdef JNIEnv *j_env
-        if self.obj != NULL:
-            j_env = get_jnienv()
-            j_env[0].DeleteGlobalRef(j_env, self.obj)
-        self.obj = NULL
         telem[self.__class__.__name__] -= 1
 
-    # Constructors can't take C pointer arguments
-    @staticmethod
-    cdef GlobalRef create(JNIEnv *env, jobject obj):
-        cdef GlobalRef gr = GlobalRef()
-        gr.obj = env[0].NewGlobalRef(env, obj)
-        return gr
-
     def __repr__(self):
-        return '<GlobalRef obj=0x{0:x} at 0x{1:x}>'.format(
-            <uintptr_t>self.obj, id(self))
+        return f'<{self.__class__.__name__} obj=0x{<uintptr_t>self.obj:x}>'
 
     def __nonzero__(self):
         return self.obj != NULL
 
+    cdef jobject release(self):
+        obj = self.obj
+        self.obj = NULL
+        return obj
 
-cdef class LocalRef(object):
-    # It's safe to store j_env, as long as the LocalRef isn't kept beyond the thread detach
-    # or Java "native" method return.
-    cdef JNIEnv *env
-    cdef jobject obj
+    cdef GlobalRef global_ref(self):
+        if isinstance(self, GlobalRef):
+            return self
+        else:
+            return GlobalRef.create((<LocalRef?>self).env, self.obj)
 
-    def __init__(self):
-        telem[self.__class__.__name__] += 1
 
-    # Constructors can't take C pointer arguments
+cdef class GlobalRef(object):
+    def __dealloc__(self):
+        cdef JNIEnv *j_env
+        if self.obj:
+            j_env = get_jnienv()
+            j_env[0].DeleteGlobalRef(j_env, self.obj)
+        self.obj = NULL
+        # The __dealloc__() method of the superclass will be called automatically.
+
+    @staticmethod
+    cdef GlobalRef create(JNIEnv *env, jobject obj):
+        cdef GlobalRef gr = GlobalRef()
+        if obj:
+            gr.obj = env[0].NewGlobalRef(env, obj)
+        return gr
+
+
+cdef class LocalRef(JNIRef):
+    # Member variables declared in .pxd
+
+    @staticmethod
+    cdef LocalRef create(JNIEnv *env, jobject obj):
+        return LocalRef.wrap(env,
+                             env[0].NewLocalRef(env, obj) if obj else NULL)
+
     @staticmethod
     cdef LocalRef wrap(JNIEnv *env, jobject obj):
         cdef LocalRef lr = LocalRef()
@@ -51,14 +61,4 @@ cdef class LocalRef(object):
         if self.obj:
             self.env[0].DeleteLocalRef(self.env, self.obj)
         self.obj = NULL
-        telem[self.__class__.__name__] -= 1
-
-    cdef GlobalRef global_ref(self):
-        return GlobalRef.create(self.env, self.obj)
-
-    def __repr__(self):
-        return '<LocalRef obj=0x{0:x} at 0x{1:x}>'.format(
-            <uintptr_t>self.obj, id(self))
-
-    def __nonzero__(self):
-        return self.obj != NULL
+        # The __dealloc__() method of the superclass will be called automatically.

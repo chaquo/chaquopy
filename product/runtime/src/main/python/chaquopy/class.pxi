@@ -52,14 +52,12 @@ def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
-# TODO special-case getClass so it can be called with or without an instance (can't support
-# .class syntax because that's a reserved word).
 cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
 
     # Member variables declared in .pxd
 
-    def __init__(self, *args, GlobalRef instance=None, noinstance=False):
+    def __init__(self, *args, JNIRef instance=None, noinstance=False):
         super(JavaObject, self).__init__()
         if instance is not None:
             self.instantiate_from(instance)
@@ -70,8 +68,8 @@ cdef class JavaObject(object):
                 raise TypeError(f"{self.__javaclass__} has no accessible constructors")
             self.instantiate_from(constructor(*args))
 
-    cdef void instantiate_from(self, GlobalRef j_self) except *:
-        self.j_self = j_self
+    def instantiate_from(self, JNIRef instance):
+        self.j_self = instance.global_ref()
 
     def __repr__(self):
         if self.j_self:
@@ -112,6 +110,10 @@ cdef class JavaField(JavaMember):
     def __init__(self, definition, *, static=False):
         super(JavaField, self).__init__(static)
         self.definition = str_for_c(definition)
+
+    cdef jfieldID id(self) except NULL:
+        self.ensure_field()
+        return self.j_field
 
     cdef void ensure_field(self) except *:
         cdef JNIEnv *j_env = get_jnienv()
@@ -162,10 +164,12 @@ cdef class JavaField(JavaMember):
         cdef jlong j_long
         cdef jfloat j_float
         cdef jdouble j_double
-        cdef jobject j_object
+        cdef JNIRef j_object
         cdef JNIEnv *j_env = get_jnienv()
 
         r = self.definition[0]
+
+        # FIXME perform range and type checks, unless Cython checks and errors are adequate.
         if r == 'Z':
             j_boolean = <jboolean>value
             j_env[0].SetBooleanField(j_env, j_self, self.j_field, j_boolean)
@@ -191,10 +195,9 @@ cdef class JavaField(JavaMember):
             j_double = <jdouble>value
             j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_double)
         elif r == 'L':
-            # FIXME can probably add "or r == '['"
-            j_object = <jobject>convert_python_to_jobject(j_env, self.definition, value)
-            j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object)
-            j_env[0].DeleteLocalRef(j_env, j_object)
+            j_object = convert_python_to_jobject(j_env, self.definition, value)
+            j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object.obj)
+        # FIXME array fields
         else:
             raise Exception(f'Invalid field definition for {self}')
 
@@ -364,6 +367,10 @@ cdef class JavaMethod(JavaMember):
         self.is_constructor = (name == "<init>")
         super(JavaMethod, self).set_resolve_info(jc, name)
 
+    cdef jmethodID id(self) except NULL:
+        self.ensure_method()
+        return self.j_method
+
     cdef void ensure_method(self) except *:
         if self.j_method != NULL:
             return
@@ -426,11 +433,11 @@ cdef class JavaMethod(JavaMember):
             if j_args != NULL:
                 free(j_args)
 
-    cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
+    cdef LocalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,
                                                   self.j_method, j_args)
         check_exception(j_env)
-        return LocalRef.wrap(j_env, j_self).global_ref()
+        return LocalRef.wrap(j_env, j_self)
 
     cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
         cdef jboolean j_boolean

@@ -45,18 +45,6 @@ public class PyObjectTest {
     }
 
     @Test
-    @SuppressWarnings("UnusedAssignment")
-    public void finalize_close() {
-        pyobjecttest.remove("del_triggered");
-        PyObject dt = pyobjecttest.callAttr("DelTrigger");
-        assertFalse(pyobjecttest.containsKey("del_triggered"));
-        dt = null;
-        System.gc();
-        System.runFinalization();
-        assertTrue(pyobjecttest.containsKey("del_triggered"));
-    }
-
-    @Test
     public void id() {
         PyObject True = builtins.get("True"), False = builtins.get("False");
         assertNotSame(True, False);
@@ -71,9 +59,56 @@ public class PyObjectTest {
         assertSame(bool, True.type());
         assertSame(type, bool.type());
         assertSame(type, type.type());
-        assertNotSame(True.type(), bool.type());
+        assertNotSame(type, bool);
     }
 
+
+    @Test
+    public void call() {
+        // FIXME
+    }
+
+    @Test
+    public void none() {
+        assertNull(pyobjecttest.callAttr("return_none"));
+        assertTrue(pyobjecttest.callAttr("is_none", (Object)null).toJava(Boolean.class));
+        assertFalse(pyobjecttest.callAttr("is_none", 42).toJava(Boolean.class));
+    }
+
+    // ==== Map ==============================================================
+
+    @Test
+    public void clear() {
+        PyObject so = pyobjecttest.callAttr("SimpleObject");
+        assertFalse(so.isEmpty());
+        so.clear();
+        assertTrue(so.isEmpty());
+        so.put("test", 1);
+        assertFalse(so.isEmpty());
+        so.clear();
+        assertTrue(so.isEmpty());
+    }
+
+    @Test
+    public void containsKey() {
+        PyObject so = pyobjecttest.callAttr("SimpleObject");
+        assertTrue(so.containsKey("one"));
+        assertFalse(so.containsKey("six"));
+        assertTrue(so.containsKey("two"));
+        assertFalse(so.containsKey("nine"));
+    }
+
+    /* FIXME need .equals
+    @SuppressWarnings("SuspiciousMethodCalls")
+    @Test
+    public void containsValue() {
+        PyObject so = pyobjecttest.callAttr("SimpleObject");
+        assertTrue(so.containsValue(1));
+        assertFalse(so.containsValue(6));
+        assertTrue(so.containsValue(2));
+        assertFalse(so.containsValue(9));
+    }
+    */
 
     @Test
     public void get() {
@@ -85,7 +120,6 @@ public class PyObjectTest {
         // FIXME
     }
 
-
     @Test
     public void remove() {
         assertTrue(pyobjecttest.containsKey("to_remove"));
@@ -93,5 +127,20 @@ public class PyObjectTest {
         assertFalse(pyobjecttest.containsKey("to_remove"));
         assertNull(pyobjecttest.remove("to_remove"));
     }
+
+    // ==== Object ===========================================================
+
+    @SuppressWarnings("UnusedAssignment")
+    @Test
+    public void finalize_close() {
+        pyobjecttest.remove("del_triggered");
+        PyObject dt = pyobjecttest.callAttr("DelTrigger");
+        assertFalse(pyobjecttest.containsKey("del_triggered"));
+        dt = null;
+        System.gc();
+        System.runFinalization();
+        assertTrue(pyobjecttest.containsKey("del_triggered"));
+    }
+
 
 }

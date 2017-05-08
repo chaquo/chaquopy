@@ -1,14 +1,15 @@
 import six
 from cpython.version cimport PY_MAJOR_VERSION
 
+import chaquopy
+
 
 def cast(destclass, obj):
     cdef JavaObject jc
     cdef JavaObject jobj = obj
-    from .reflect import autoclass
     if (PY_MAJOR_VERSION < 3 and isinstance(destclass, basestring)) or \
           (PY_MAJOR_VERSION >=3 and isinstance(destclass, str)):
-        jc = autoclass(destclass)(noinstance=True)
+        jc = chaquopy.autoclass(destclass)(noinstance=True)
     else:
         jc = destclass(noinstance=True)
     jc.instantiate_from(jobj.j_self)
@@ -20,23 +21,19 @@ def find_javaclass(name):
     name. Either '.' or '/' notation may be used. May raise any of the Java exceptions listed
     at https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/functions.html#FindClass
     """
-    name = str_for_c(name.replace('.', '/'))
-    cdef JavaObject cls
-    cdef jclass jc
+    cdef LocalRef jc
     cdef JNIEnv *j_env = get_jnienv()
 
     # FIXME all other uses of FindClass need to be guarded with expect_exception as well (see
     # note on exceptions in jni.pxd)
-    jc = j_env[0].FindClass(j_env, name)
-    if jc == NULL:
+    jniname = str_for_c(name.replace('.', '/'))
+    jc = LocalRef.wrap(j_env, j_env[0].FindClass(j_env, jniname))
+    if not jc:
         expect_exception(j_env, f"FindClass failed for {name}")
 
     from . import reflect
     reflect.setup_bootstrap_classes()
-    cls = reflect.Class(noinstance=True)
-    cls.instantiate_from(GlobalRef.create(j_env, jc))
-    j_env[0].DeleteLocalRef(j_env, jc)
-    return cls
+    return reflect.Class(instance=jc)
 
 
 cdef str_for_c(s):
@@ -117,12 +114,12 @@ cdef void check_exception(JNIEnv *j_env) except *:
         getStackTrace = j_env[0].GetMethodID(j_env, cls_throwable, "getStackTrace", "()[Ljava/lang/StackTraceElement;");
 
         e_msg = j_env[0].CallObjectMethod(j_env, exc, getMessage);
-        pymsg = "" if e_msg == NULL else convert_jobject_to_python(j_env, <bytes> 'Ljava/lang/String;', e_msg)
+        pymsg = "" if e_msg == NULL else j2p_string(j_env, e_msg)
 
         pystack = []
         _append_exception_trace_messages(j_env, pystack, exc, getCause, getStackTrace, toString)
 
-        pyexcclass = lookup_java_object_name(j_env, exc).replace('/', '.')
+        pyexcclass = lookup_java_object_name(j_env, exc)
 
         j_env[0].DeleteLocalRef(j_env, cls_object)
         j_env[0].DeleteLocalRef(j_env, cls_throwable)
@@ -151,7 +148,7 @@ cdef void _append_exception_trace_messages(
     # Add Throwable.toString() before descending stack trace messages.
     if frames != NULL:
         msg_obj = j_env[0].CallObjectMethod(j_env, exc, mid_toString)
-        pystr = None if msg_obj == NULL else convert_jobject_to_python(j_env, <bytes> 'Ljava/lang/String;', msg_obj)
+        pystr = None if msg_obj == NULL else j2p_string(j_env, msg_obj)
         # If this is not the top-of-the-trace then this is a cause.
         if len(pystack) > 0:
             pystack.append("Caused by:")
@@ -165,7 +162,7 @@ cdef void _append_exception_trace_messages(
             # Get the string returned from the 'toString()' method of the next frame and append it to the error message.
             frame = j_env[0].GetObjectArrayElement(j_env, frames, i)
             msg_obj = j_env[0].CallObjectMethod(j_env, frame, mid_toString)
-            pystr = None if msg_obj == NULL else convert_jobject_to_python(j_env, <bytes> 'Ljava/lang/String;', msg_obj)
+            pystr = None if msg_obj == NULL else j2p_string(j_env, msg_obj)
             pystack.append(pystr)
             if msg_obj != NULL:
                 j_env[0].DeleteLocalRef(j_env, msg_obj)
@@ -183,15 +180,29 @@ cdef void _append_exception_trace_messages(
 
 
 cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
+    """Returns the fully-qualified class name of the given object, in the same format as
+    Class.getName().
+    * Array types are returned in JNI format (e.g. "[Ljava/lang/Object;" or "[I".
+    * Other types are returned in Java format (e.g. "java.lang.Object"
+    """
+    # Can't call getClass() or getName() using autoclass because that'll cause a recursive call
+    # when getting the returned object type.
     cdef jclass jcls = j_env[0].GetObjectClass(j_env, j_obj)
     cdef jclass jcls2 = j_env[0].GetObjectClass(j_env, jcls)
     cdef jmethodID jmeth = j_env[0].GetMethodID(j_env, jcls2, 'getName', '()Ljava/lang/String;')
+    # Can't call check_exception because that'll cause a recursive call when getting the
+    # exception type name.
+    if jmeth == NULL:
+        raise Exception("GetMethodID failed")
     cdef jobject js = j_env[0].CallObjectMethod(j_env, jcls, jmeth)
-    name = convert_jobject_to_python(j_env, 'Ljava/lang/String;', js)
+    if js == NULL:
+        raise Exception("getName failed")
+
+    name = j2p_string(j_env, js)
     j_env[0].DeleteLocalRef(j_env, js)
     j_env[0].DeleteLocalRef(j_env, jcls)
     j_env[0].DeleteLocalRef(j_env, jcls2)
-    return name.replace('.', '/')
+    return name
 
 
 def is_applicable(sign_args, args, *, varargs):
@@ -204,18 +215,21 @@ def is_applicable(sign_args, args, *, varargs):
     else:
         return False
 
+    cdef JNIEnv *env = get_jnienv()
     for index, sign_arg in enumerate(sign_args):
         if varargs and index == len(sign_args) - 1:
             assert sign_arg[0] == "["
             arg = args[index:]
         else:
             arg = args[index]
-        if not arg_is_applicable(sign_arg, arg):
+        if not arg_is_applicable(env, sign_arg, arg):
             return False
+
     return True
 
 
-def arg_is_applicable(r, arg):
+# Must be consistent with populate_args and convert_python_to_jobject
+cdef arg_is_applicable(JNIEnv *env, r, arg):
     if r == 'Z':
         return isinstance(arg, bool)
     if r in "BSIJ":
@@ -224,33 +238,12 @@ def arg_is_applicable(r, arg):
         return isinstance(arg, six.string_types) and len(arg) == 1
     if r == 'F' or r == 'D':
         return isinstance(arg, (six.integer_types, float))
-
-    if r[0] == 'L':
-        r = r[1:-1]
-        r_klass = find_javaclass(r)
-
-        if arg is None:
+    if r[0] in 'L[':
+        try:
+            convert_python_to_jobject(env, r, arg)
             return True
-        if isinstance(arg, six.string_types):
-            return r_klass.isAssignableFrom(find_javaclass("java.lang.String"))
-        if isinstance(arg, JavaClass):
-            return r_klass.isAssignableFrom(find_javaclass("java.lang.Class"))
-        if isinstance(arg, JavaObject):
-            return r_klass.isAssignableFrom(find_javaclass(arg.__javaclass__))
-        if isinstance(arg, PythonJavaClass):
-            return any([r_klass.isAssignableFrom(find_javaclass(i))
-                       for i in arg.__javainterfaces__])
-        # FIXME also accept primitive types and perform auto-boxing
-        return False
-
-    if r[0] == '[':
-        if arg is None:
-            return True
-        if isinstance(arg, (list, tuple)):
-            return is_applicable([r[1:]] * len(arg), arg, varargs=False)
-        if isinstance(arg, bytearray) and r == '[B':
-            return True
-        return False
+        except TypeError:
+            return False
 
     raise ValueError(f"Invalid signature '{r}'")
 

@@ -18,6 +18,7 @@ from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
 from chaquopy.reflect import *
+from chaquopy.signatures import jni_sig
 from chaquopy.jni cimport *
 from chaquopy.chaquopy cimport *
 cdef extern from "chaquopy_java_init.h":
@@ -30,7 +31,8 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 
 # === com.chaquo.python.Python ================================================
 
-cdef public void Java_com_chaquo_python_Python_start \
+# This function will crash if called more than once!
+cdef public void Java_com_chaquo_python_Python_startNative \
     (JNIEnv *env, jclass klass, jstring jPythonPath):
     # All code run before Py_Initialize must compile to pure C.
     cdef JavaVM *jvm = NULL
@@ -52,14 +54,11 @@ cdef public void Java_com_chaquo_python_Python_start \
              raise Exception(f"GetJavaVM failed: {ret}")
         set_jvm(jvm)
 
-        global JPyObject
-        JPyObject = autoclass("com.chaquo.python.PyObject")
-
     except Exception as e:
         wrap_exception(env, e)
 
     # We imported chaquopy.chaquopy above, which has called PyEval_InitThreads during its own
-    # module intiialization, so the GIL now exists and we have it. We must release the GIL
+    # module intialization, so the GIL now exists and we have it. We must release the GIL
     # before we return to Java so that the methods below can be called from any thread.
     # (http://bugs.python.org/issue1720250)
     PyEval_SaveThread();
@@ -91,7 +90,7 @@ cdef bint set_path(JNIEnv *env, jstring jPythonPath):
 cdef public jobject Java_com_chaquo_python_Python_getModule \
     (JNIEnv *env, jobject this, jstring name) with gil:
     try:
-        return get_jpyobject(env, import_module(j2p_str(env, name)))
+        return p2j_pyobject(env, import_module(j2p_string(env, name)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -100,30 +99,17 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
 cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return get_jpyobject(env, import_module("six.moves.builtins"))
+        return p2j_pyobject(env, import_module("six.moves.builtins"))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
 # === com.chaquo.python.PyObject ==============================================
 
-cdef jobject get_jpyobject(JNIEnv *env, obj) except NULL:
-    cdef JavaObject jpo = JPyObject.getInstance(<jlong><PyObject*>obj)
-    return env[0].NewLocalRef(env, jpo.j_self.obj)
-
-
-cdef get_object(JNIEnv *env, jobject jpyobject):
-    jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
-    cdef PyObject *po = <PyObject*><jlong> jpo.addr
-    if po == NULL:
-        raise ValueError("PyObject is closed")
-    return <object>po
-
-
 cdef public void Java_com_chaquo_python_PyObject_openNative \
     (JNIEnv *env, jobject this) with gil:
     try:
-        Py_INCREF(get_object(env, this))
+        Py_INCREF(j2p_pyobject(env, this))
     except Exception as e:
         wrap_exception(env, e)
 
@@ -131,15 +117,36 @@ cdef public void Java_com_chaquo_python_PyObject_openNative \
 cdef public void Java_com_chaquo_python_PyObject_closeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
-        Py_DECREF(get_object(env, this))
+        Py_DECREF(j2p_pyobject(env, this))
     except Exception as e:
         wrap_exception(env, e)
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
+    (JNIEnv *env, jobject klass, jobject o) with gil:
+    try:
+        return p2j_pyobject(env, convert_jobject_to_python(env, "Ljava/lang/Object", o))
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_toJava \
+    (JNIEnv *env, jobject this, jobject to_klass) with gil:
+    try:
+        Class = autoclass("java.lang.Class")
+        to_sig = jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
+        result = convert_python_to_jobject(env, to_sig, j2p_pyobject(env, this))
+        return env[0].NewLocalRef(env, result.obj)
+    except Exception as e:
+        wrap_exception(env, e)
+        return NULL
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_id \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return id(get_object(env, this))
+        return id(j2p_pyobject(env, this))
     except Exception as e:
         wrap_exception(env, e)
         return 0
@@ -148,18 +155,23 @@ cdef public jlong Java_com_chaquo_python_PyObject_id \
 cdef public jobject Java_com_chaquo_python_PyObject_type \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return get_jpyobject(env, type(get_object(env, this)))
+        return p2j_pyobject(env, type(j2p_pyobject(env, this)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_call \
-    (JNIEnv *env, jobject this, jarray args) with gil:
+    (JNIEnv *env, jobject this, jarray jargs) with gil:
     try:
-        if env[0].GetArrayLength(env, args):
-            raise Exception() # FIXME
-        return get_jpyobject(env, get_object(env, this)())
+        if jargs == NULL:
+            # User typed ".call(null)", which Java interprets as a null array, rather than the
+            # array of one null which they intended.
+            args = [None]
+        else:
+            args = convert_jarray_to_python(env, "Ljava/lang/Object;", jargs)
+        result = j2p_pyobject(env, this)(*args)
+        return p2j_pyobject(env, result)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -168,7 +180,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
 cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
     (JNIEnv *env, jobject this, jobject key) with gil:
     try:
-        return hasattr(get_object(env, this), j2p_str(env, key))
+        return hasattr(j2p_pyobject(env, this), j2p_string(env, key))
     except Exception as e:
         wrap_exception(env, e)
         return False
@@ -177,7 +189,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
 cdef public jobject Java_com_chaquo_python_PyObject_get \
     (JNIEnv *env, jobject this, jobject key) with gil:
     try:
-        return get_jpyobject(env, getattr(get_object(env, this), j2p_str(env, key)))
+        return p2j_pyobject(env, getattr(j2p_pyobject(env, this), j2p_string(env, key)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -186,7 +198,14 @@ cdef public jobject Java_com_chaquo_python_PyObject_get \
 cdef public jobject Java_com_chaquo_python_PyObject_put \
     (JNIEnv *env, jobject this, jobject key, jobject value) with gil:
     try:
-        raise Exception() # FIXME
+        self = j2p_pyobject(env, this)
+        str_key = j2p_string(env, key)
+        try:
+            old_value = getattr(self, str_key)
+        except AttributeError:
+            old_value = None
+        setattr(self, str_key, convert_jobject_to_python(env, "Ljava/lang/Object;", value))
+        return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -195,14 +214,14 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
 cdef public jobject Java_com_chaquo_python_PyObject_remove \
     (JNIEnv *env, jobject this, jobject key) with gil:
     try:
-        obj = get_object(env, this)
-        str_key = j2p_str(env, key)
+        self = j2p_pyobject(env, this)
+        str_key = j2p_string(env, key)
         try:
-            old_value = getattr(obj, str_key)
-            delattr(obj, str_key)
-            return get_jpyobject(env, old_value)
+            old_value = getattr(self, str_key)
         except AttributeError:
             return NULL
+        delattr(self, str_key)
+        return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -213,7 +232,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
     cdef JavaObject keys
     try:
         keys = autoclass("java.util.ArrayList")()
-        for key in dir(get_object(env, this)):
+        for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
         return env[0].NewLocalRef(env, keys.j_self.obj)
     except Exception as e:
@@ -240,7 +259,9 @@ cdef public jstring Java_com_chaquo_python_PyObject_repr \
 
 cdef jstring to_string(JNIEnv *env, jobject this, func):
     try:
-        return p2j_str(env, func(get_object(env, this)))
+        self = j2p_pyobject(env, this)
+        result =  p2j_string(env, func(self))
+        return env[0].NewLocalRef(env, result.obj)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -249,7 +270,7 @@ cdef jstring to_string(JNIEnv *env, jobject this, func):
 cdef public jint Java_com_chaquo_python_PyObject_hashCode \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return hash(get_object(env, this)) & 0x7FFFFFFF
+        return hash(j2p_pyobject(env, this)) & 0x7FFFFFFF
     except Exception as e:
         wrap_exception(env, e)
         return 0
@@ -281,10 +302,3 @@ cdef void java_exception(JNIEnv *env, char *message):
         if env[0].ThrowNew(env, re, message) == 0:
             return
     printf("Failed to throw Java exception: %s", message)
-
-
-cdef jobject p2j_str(JNIEnv *env, s) except *:
-    return convert_python_to_jobject(env, "Ljava/lang/String;", s)
-
-cdef j2p_str(JNIEnv *env, jstring s):
-    return convert_jobject_to_python(env, "Ljava/lang/String;", s)

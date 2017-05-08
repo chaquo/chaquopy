@@ -24,25 +24,26 @@ for return types.
 
 '''
 
-from . import JavaObject
-from . import java_method
+from . import autoclass, java_method, JavaClass
+
+__all__ = ["jni_sig", "signature", "with_signature", "JArray",
+           "jboolean", "jbyte", "jchar", "jdouble", "jfloat", "jint", "jlong", "jshort", "jvoid"]
 
 
-''' Type specifiers for primitives '''
-
+primitives = {}
 
 class _JavaSignaturePrimitive(object):
-    _spec = ""
+    def __init__(self, name, spec):
+        self._name = name
+        self._spec = spec
 
+    def __repr__(self):
+        return "Signature for Java %s type" % name
 
 def _MakeSignaturePrimitive(name, spec):
-    class __Primitive(_JavaSignaturePrimitive):
-        ''' Signature for Java %s type ''' % name
-        _name = name
-        _spec = spec
-    __Primitive.__name__ = "j" + name
-
-    return __Primitive
+    p = _JavaSignaturePrimitive(name, spec)
+    primitives[name] = p
+    return p
 
 
 jboolean = _MakeSignaturePrimitive("boolean", "Z")
@@ -58,38 +59,47 @@ jvoid    = _MakeSignaturePrimitive("void", "V")
 
 def JArray(of_type):
     ''' Signature helper for identifying arrays of a given object or
-    primitive type. '''
-
-    spec = "[" + _jni_type_spec(of_type)
-    return _MakeSignaturePrimitive("array", spec)
+    primitive type. Accepts the same parameter types as jni_sig().
+    '''
+    spec = "[" + jni_sig(of_type)
+    return _JavaSignaturePrimitive("array", spec)
 
 
 def with_signature(returns, takes):
-    ''' Alternative version of @java_method that takes JavaObject
-    objects to produce the method signature. '''
-
+    '''Friendlier version of @java_method that takes the same parameters as signature().
+    '''
     sig = signature(returns, takes)
     return java_method(sig)
 
 
 def signature(returns, takes):
-    ''' Produces a JNI method signature, taking the provided arguments
-    and returning the given return type. '''
-
+    '''Produces a JNI method signature, taking the provided argument types and returning the given
+    return type. Accepts the same parameter types as jni_sig(), but argument types must be
+    passed as an iterable.
+    '''
     out_takes = []
     for arg in takes:
-        out_takes.append(_jni_type_spec(arg))
+        out_takes.append(jni_sig(arg))
 
-    return "(" + "".join(out_takes) + ")" + _jni_type_spec(returns)
+    return "(" + "".join(out_takes) + ")" + jni_sig(returns)
 
 
-def _jni_type_spec(jclass):
-    ''' Produces a JNI type specification string for the given argument.
-    If the argument is a JavaObject, it produces the JNI type spec
-    for the class. Signature primitives return their stored type spec.
+def jni_sig(c):
+    ''' Produces a JNI type signature for the given argument, which may be:
+    * A JavaClass
+    * A java.lang.Class
+    * One of the objects jboolean, jbyte, etc. defined by this module
+    * A return value of JArray
     '''
-
-    if issubclass(jclass, JavaObject):
-        return "L" + jclass.__javaclass__.replace(".", "/") + ";"
-    elif issubclass(jclass, _JavaSignaturePrimitive):
-        return jclass._spec
+    if isinstance(c, JavaClass):
+        return "L" + c.__javaclass__.replace(".", "/") + ";"
+    if isinstance(c, autoclass("java.lang.Class")):
+        name = c.getName()
+        primitive = primitives.get(name)
+        if primitive:
+            return primitive._spec
+        else:
+            return "L" + name.replace(".", "/") + ";"
+    if isinstance(c, _JavaSignaturePrimitive):
+        return c._spec
+    raise TypeError("Can't produce signature from {} object".format(type(c).__name__))

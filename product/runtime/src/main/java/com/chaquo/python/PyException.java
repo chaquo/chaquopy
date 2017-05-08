@@ -1,6 +1,11 @@
 package com.chaquo.python;
 
-// Has to be unchecked because it can be thrown by PyObject methods inherited from Map.
+/** An exception originating from Python code. {@link #getMessage} will return the Python
+ * stack trace. */
+// Has to be unchecked because it can be thrown by virtually all the methods in this package,
+// including those inherited from Map which we can't add "throws" declarations to.
+//
+// TODO make exception PyObject accessible from PyException.
 public class PyException extends RuntimeException {
     public PyException() {
     }

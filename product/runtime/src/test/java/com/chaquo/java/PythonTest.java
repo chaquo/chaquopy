@@ -32,9 +32,11 @@ public class PythonTest {
 
     @Test
     public void getModule() {
-        PyObject sys = python.getModule("sys");
-        String sysStr = sys.toString();
-        assertTrue(sysStr, sysStr.contains("module 'sys'"));
+        PyObject os = python.getModule("os");
+        String osStr = os.toString();
+        assertTrue(osStr, osStr.contains("module 'os'"));
+        PyObject osPath = python.getModule("os.path");
+        assertSame(osPath, os.get("path"));
 
         thrown.expect(PyException.class);
         thrown.expectMessage("No module named");

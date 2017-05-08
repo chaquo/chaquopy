@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division, print_function
 from six import with_metaclass
 
-from .chaquopy import JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod, find_javaclass
+from .chaquopy import (JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod,
+                       find_javaclass)
 
 __all__ = ['autoclass']
 
@@ -280,11 +281,12 @@ def bean_getter(s):
     return (s.startswith('get') and len(s) > 3 and s[3].isupper()) or (s.startswith('is') and len(s) > 2 and s[2].isupper())
 
 
-# TODO: we could speed up the case of 'import *' by delaying method and field enumeration until
-# __getattr__ or __setattr__ is called. However, there's no standard API for listing the
-# classes in a package, so 'import *' requires manual scanning of the classpath, and may be
-# impossible to implement on Android.
+# FIXME: survey where this is used and consider whether there's a risk of infinite recursion,
+# either in autoclass itself or in method calls / field access.
 def autoclass(clsname):
+    """Returns the class proxy object for the given fully-qualified class name, which may use
+    either '.' or '/' notation.
+    """
     clsname = clsname.replace('/', '.')
     cls = autoclass_cache.get(clsname)
     if cls:

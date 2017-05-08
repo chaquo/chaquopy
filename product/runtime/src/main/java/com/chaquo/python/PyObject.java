@@ -4,17 +4,26 @@ import java.lang.ref.*;
 import java.util.*;
 
 
-/** Proxy for a Python object. If the same object is retrieved from Python multiple times,
- * the same PyObject will be returned (but see the notes on {@link #close}(). */
+/** Proxy for a Python object.
+ * <ul>
+ *     <li>Python None is represented by Java null. All other values can be converted to their Java
+ *     equivalents using {@link #toJava}.</li>
+ *     <li>If the same object is retrieved from Python multiple times, the same PyObject will be
+ *     returned (unless {@link #close}() has been called).</li>
+ * </ul>
+ *
+ * Unless otherwise specified, methods in this class throw {@link PyException} on failure.
+ * . */
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
-    /** @hide (used in chaquopy_java.pyx) */
+    /** @hide
+     * Used in chaquopy_java.pyx */
     public long addr;
 
-    /** @hide (used in chaquopy_java.pyx)
-     * Always called with the GIL */
-    public static PyObject getInstance(long addr) throws PyException {
+    /** @hide
+     * Used in chaquopy_java.pyx. Always called with the GIL. */
+    public static PyObject getInstance(long addr) {
         synchronized (cache) {
             WeakReference<PyObject> wr = cache.get(addr);
             if (wr != null) {
@@ -29,12 +38,12 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     }
 
     /** Always called with the GIL and the cache lock */
-    private PyObject(long addr) throws PyException {
+    private PyObject(long addr) {
         this.addr = addr;
         openNative();
         cache.put(addr, new WeakReference<>(this));
     }
-    private native void openNative() throws PyException;
+    private native void openNative();
 
 
     /** Releases the reference to the Python object. Unless the object represents an expensive
@@ -44,7 +53,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * After calling close(), the PyObject can no longer be used. If there are no other references
      * to the underlying object, it may be destroyed by Python. If it continues to exist and is
      * retrieved by Java code again, a different PyObject will be returned. */
-    public void close() throws PyException {
+    public void close() {
         if (addr == 0) return;
         synchronized (cache) {
             WeakReference<PyObject> wr = cache.remove(addr);
@@ -61,61 +70,76 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
         closeNative();
         addr = 0;
     }
-    private native void closeNative() throws PyException;
+    private native void closeNative();
 
 
-    /** If the object already has a PyObject counterpart, it will be returned */
-    public static PyObject fromJava(Object o) throws PyException {
-        // FIXME
-        return null;
-    }
+    /** Gives the given Java object a presence in the Python virtual machine.
+     * There's usually no need to call this method manually: it will be called as necessary when
+     * passing an object to Python using {@link #call} or {@link #put(String, Object)}.
+     * <ul>
+     *     <li>If the given object is of an immutable value type such as Boolean, Integer or String,
+     *     an equivalent Python object will be created.</li>
+     *     <li>If the given object is itself a proxy for a Python object, the original Python object
+     *     will be returned.</li>
+     *     <li>Otherwise, a proxy object will be created, exposing all the methods and fields of the
+     *     given object to Python code.</li>
+     * </ul> */
+    public static native PyObject fromJava(Object o);
+    // TODO #5154... If the given object implements List, Map or Set, the proxy object will also
+    // implement the corresponding Python methods (__len__, __getitem__, etc.).
 
-    /** TODO proxies implement interface with __pyobject__ method which does the reverse */
-    public <T> T toJava() throws PyException {
-        // FIXME inspect T to determine requested type. If the object is Java-owned and
-        // isinstance(T), simply return it. This makes asList etc. unnecessary, but need to think
-        // through the implications of having multiple Java objects for each PyObject.
-        return null;
-    }
+    /** Attempts to "cast" the Python object to the given Java type.
+     * <ul>
+     *     <li>If the given type is an immutable value type such as Boolean, Integer or String,
+     *     the call will succeed if the Python object is of a compatible type.</li>
+     *     <li>If the Python object is itself a proxy for a Java object of the given type, the
+     *     original Java object will be returned.</li>
+     *     <li>Otherwise, a <code>ClassCastException</code> will be thrown.</li>
+     * </ul> */
+    public native <T> T toJava(Class<T> klass);
+    // TODO  *     <li>The basic container interfaces: List, Map and Set. The toJava call will always
+    // #5154 *     succeed, returning a proxy object which calls the corresponding Python methods (__len__,
+    //       *     __getitem__, etc.).</li>
+    // Not sure whether to do this with java.lang.reflect.Proxy or with pre-defined classes PyList,
+    // PyMap, etc. Actually, the latter could be implemented entirely in Java, which would also
+    // serve as a good example for how to make a manual static proxy.
 
     /** Equivalent to Python id() */
-    public native long id() throws PyException;
+    public native long id();
 
     /** Equivalent to Python type() */
-    public native PyObject type() throws PyException;
+    public native PyObject type();
 
     /** Equivalent to Python () syntax. */ // TODO kwargs
-    public native PyObject call(Object... args) throws PyException;
+    public native PyObject call(Object... args);
 
     /** Equivalent to {@link #get}(attr).{@link #call}(args) */
-    public PyObject callAttr(String attr, Object... args) throws PyException {
+    public PyObject callAttr(String attr, Object... args) {
         return get(attr).call(args);
     }
 
-    // ==== Map ====
+    // ==== Map ==============================================================
 
     /** Equivalent to Python hasattr() */
-    @Override public native boolean containsKey(Object key) throws PyException;
+    @Override public native boolean containsKey(Object key);
 
     /** Equivalent to Python getattr() */
-    @Override public native PyObject get(Object key) throws PyException;
+    @Override public native PyObject get(Object key);
 
     /** Equivalent to Python setattr() */
-    @Override public native PyObject put(String key, PyObject value) throws PyException;
-
-    /** Equivalent to Python setattr() */
-    public PyObject put(String key, Object value) throws PyException {
-        // This can't be the only signature, because it would overload rather than override the base
-        // class put(PyObject) method which throws an unimplemented exception.
-        return put(key, fromJava(value));
+    @Override public PyObject put(String key, PyObject value) {
+        return put(key, (Object)value);
     }
 
+    /** Equivalent to Python setattr() */
+    public native PyObject put(String key, Object value);
+
     /** Equivalent to Python delattr() */
-    @Override public native PyObject remove(Object key) throws PyException;
+    @Override public native PyObject remove(Object key);
 
     /** Equivalent to Python dir() */
     @Override
-    public Set<String> keySet() throws PyException {
+    public Set<String> keySet() {
         return super.keySet();  // Override just to carry the Javadoc
     }
 
@@ -129,7 +153,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
                     List<String> keys = dir();
                     int i = 0;
 
-                    @Override public boolean hasNext() { return i < keys.size(); }
+                    @Override public boolean hasNext() {
+                        return i < keys.size();
+                    }
 
                     @Override public Entry<String, PyObject> next() {
                         if (! hasNext()) throw new NoSuchElementException();
@@ -138,37 +164,37 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
                             @Override public String getKey()     { return key; }
                             @Override public PyObject getValue() { return get(key); }
                             @Override public PyObject setValue(PyObject newValue) {
-                                PyObject oldValue = getValue();
-                                put(key, newValue);
-                                return oldValue;
+                                return put(key, newValue);
                             }
                         };
                         i += 1;
                         return entry;
                     }
 
-                    @Override public void remove() { PyObject.this.remove(keys.get(i)); }
+                    @Override public void remove() {
+                        PyObject.this.remove(keys.get(i-1));
+                    }
                 };
             }
         };
     }
 
-    private native List<String> dir() throws PyException;
+    private native List<String> dir();
 
 
-    // === Object ====
+    // === Object ============================================================
 
     /** Equivalent to Python == operator */
-    @Override public native boolean equals(Object that) throws PyException;
+    @Override public native boolean equals(Object that);
 
     /** Equivalent to Python str() */
-    @Override public native String toString() throws PyException;
+    @Override public native String toString();
 
     /** Equivalent to Python repr() */
-    public native String repr() throws PyException;
+    public native String repr();
 
     /** Equivalent to Python hash() */
-    @Override public native int hashCode() throws PyException;
+    @Override public native int hashCode();
 
     /** Calls {@link #close}() */
     @Override

@@ -144,7 +144,8 @@ cdef jobject py_invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
         jtype = ret_signature
 
     try:
-        return convert_python_to_jobject(j_env, jtype or ret_signature, ret)
+        result = convert_python_to_jobject(j_env, jtype or ret_signature, ret)
+        return j_env[0].NewLocalRef(j_env, result.obj)
     except Exception as e:
         traceback.print_exc(e)
 
