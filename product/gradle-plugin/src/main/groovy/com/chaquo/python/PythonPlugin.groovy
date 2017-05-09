@@ -3,6 +3,8 @@ package com.chaquo.python
 import org.gradle.api.*
 import org.gradle.api.plugins.*
 import org.gradle.api.tasks.*
+import org.gradle.util.*
+
 import java.nio.file.*
 
 // FIXME unit test everything
@@ -13,17 +15,41 @@ import java.nio.file.*
 // up to date checks
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
+    static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
 
     Project project
     def android
 
     public void apply(Project project) {
         this.project = project
+
+        for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
+                .getAllDependencies()) {
+            if (dep.group == "com.android.tools.build"  &&  dep.name == "gradle") {
+                def depVer = VersionNumber.parse(dep.version)
+                if (depVer < MIN_ANDROID_PLUGIN_VER) {
+                    throw new GradleException("Chaquopy requires Android Gradle plugin version " +
+                                              "$MIN_ANDROID_PLUGIN_VER (current version is " +
+                                              "$depVer). Please edit the buildscript block.")
+                }
+                if (depVer > MAX_ANDROID_PLUGIN_VER) {
+                    println("Warning: Chaquopy has not been tested with Android Gradle plugin " +
+                            "versions beyond $MAX_ANDROID_PLUGIN_VER (current version is " +
+                            "$depVer). If you experience problems, try editing the " +
+                            "buildscript block.")
+                }
+                break;
+            }
+        }
+        // If we didn't find it, the user's probably set up the build script in a non-standard way.
+        // Try to carry on regardless.
+
         if (! project.hasProperty("android")) {
             throw new GradleException("project.android not set. Did you apply plugin "+
                                       "com.android.application before com.chaquo.python?")
         }
-        android = project.android
+        this.android = project.android
 
         extend(android.defaultConfig)
         android.productFlavors.whenObjectAdded { extend(it) }
