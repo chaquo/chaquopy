@@ -1,7 +1,7 @@
 package com.chaquo.python;
 
 /** Platform for a normal Python installation. If no path is specified in the constructor, the
- * PYTHONPATH environment variable will be used. */
+ * `PYTHONPATH` environment variable will be used. */
 public class GenericPlatform implements Python.Platform {
     private String mPath;
 

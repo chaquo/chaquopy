@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply plugin: 'ch.raffael.pegdown-doclet'
 
 archivesBaseName = "chaquopy-runtime"
 sourceCompatibility = 7
@@ -41,6 +42,7 @@ def mingwDir = localProps.getProperty('mingw.dir')  // Windows only
 
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
+def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def PATH_SEPARATOR = windowsHost ? ";" : ":"
 
 
@@ -170,8 +172,7 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                 environment "PYTHONPATH", mainPythonDir
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 workingDir "$projectDir/src/test/python"
-                def exeSuffix = windowsHost ? ".exe" : ""
-                executable "$pyPlusVersion$exeSuffix"   // filenames with dots require the ".exe"
+                executable "$pyPlusVersion$EXE_SUFFIX"   // filenames with dots require the ".exe"
                 args "-m", "unittest"
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
@@ -196,6 +197,18 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
     }
 }
 
+javadoc {
+    outputs.upToDateWhen { false }
+    title "Chaquopy Java API"
+    executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
+    options {
+        addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
+        addStringOption("sourcepath", "$javaHome/src.zip")
+        addBooleanOption("nodeprecated", true)
+        addStringOption("link", "https://developer.android.com/reference/")
+        addStringOption("stylesheetfile", "$projectDir/javadoc-chaquo.css")
+    }
+}
 
 dependencies {
     compile files("$sdkDir/platforms/android-$API_LEVEL/android.jar")

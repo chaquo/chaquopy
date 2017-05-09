@@ -2,6 +2,7 @@ package com.chaquo.python;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
+/** @deprecated Internal use in proxy.pxi */
 public class NativeInvocationHandler implements InvocationHandler {
     static boolean DEBUG = false;
     private long ptr;

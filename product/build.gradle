@@ -1,4 +1,13 @@
- allprojects {
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'ch.raffael.pegdown-doclet:pegdown-doclet:1.3'
+    }
+}
+
+allprojects {
      group 'com.chaquo.python'
      version '0.0.1'
      repositories {

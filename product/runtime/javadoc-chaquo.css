@@ -287,7 +287,6 @@ Page layout container styles
 .contentContainer .description dl dd, .contentContainer .details dl dd, .serializedFormContainer dl dd {
     margin:5px 0 10px 0px;
     font-size:14px;
-    font-family:'DejaVu Sans Mono',monospace;
 }
 .serializedFormContainer dl.nameValue dt {
     margin-left:1px;
@@ -501,12 +500,13 @@ td.colOne a:link, td.colOne a:active, td.colOne a:visited, td.colOne a:hover, td
 .tableSubHeadingColor {
     background-color:#EEEEFF;
 }
-.altColor {
+
+/* Make rowColor and altColor the same, because javadoc 1.8.0u121 handles the color alternation
+   incorrectly when items are deprecated, at least on the package summary page. */
+.altColor, .rowColor {
     background-color:#FFFFFF;
 }
-.rowColor {
-    background-color:#EEEEEF;
-}
+
 /*
 Content styles
 */

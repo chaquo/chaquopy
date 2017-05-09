@@ -5,24 +5,21 @@ import java.util.*;
 
 
 /** Proxy for a Python object.
- * <ul>
- *     <li>Python None is represented by Java null. All other values can be converted to their Java
- *     equivalents using {@link #toJava}.</li>
- *     <li>If the same object is retrieved from Python multiple times, the same PyObject will be
- *     returned (unless {@link #close}() has been called).</li>
- * </ul>
  *
- * Unless otherwise specified, methods in this class throw {@link PyException} on failure.
- * . */
+ * * Python `None` is represented by Java `null`. All other values can be converted to their Java
+ *   equivalents using {@link #toJava toJava()}.
+ * * If the same object is retrieved from Python multiple times, it will be represented by the same
+ *   PyObject (unless {@link #close} is called).
+ *
+ * Unless otherwise specified, methods in this class throw {@link PyException} on failure.*/
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
-    /** @hide
-     * Used in chaquopy_java.pyx */
+    /** @deprecated Internal use in conversion.pxi */
     public long addr;
 
-    /** @hide
-     * Used in chaquopy_java.pyx. Always called with the GIL. */
+    /** @deprecated Internal use in chaquopy_java.pyx.
+     * Always called with the GIL. */
     public static PyObject getInstance(long addr) {
         synchronized (cache) {
             WeakReference<PyObject> wr = cache.get(addr);
@@ -38,6 +35,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     }
 
     /** Always called with the GIL and the cache lock */
+    @SuppressWarnings("deprecation")
     private PyObject(long addr) {
         this.addr = addr;
         openNative();
@@ -50,9 +48,10 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * resource, there's no need to call this method manually: it will be called automatically when
      * the PyObject is garbage-collected.
      *
-     * After calling close(), the PyObject can no longer be used. If there are no other references
-     * to the underlying object, it may be destroyed by Python. If it continues to exist and is
-     * retrieved by Java code again, a different PyObject will be returned. */
+     * After calling `close()`, the PyObject can no longer be used. If there are no other
+     * references to the underlying object, it may be destroyed by Python. If it continues to exist
+     * and is retrieved by Java code again, a different PyObject will be returned. */
+    @SuppressWarnings("deprecation")
     public void close() {
         if (addr == 0) return;
         synchronized (cache) {
@@ -74,74 +73,87 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
 
     /** Gives the given Java object a presence in the Python virtual machine.
-     * There's usually no need to call this method manually: it will be called as necessary when
-     * passing an object to Python using {@link #call} or {@link #put(String, Object)}.
-     * <ul>
-     *     <li>If the given object is of an immutable value type such as Boolean, Integer or String,
-     *     an equivalent Python object will be created.</li>
-     *     <li>If the given object is itself a proxy for a Python object, the original Python object
-     *     will be returned.</li>
-     *     <li>Otherwise, a proxy object will be created, exposing all the methods and fields of the
-     *     given object to Python code.</li>
-     * </ul> */
+     * There's usually no need to call this method manually: it will be called automatically when
+     * passing an object to Python using {@link #call call()} or {@link #put(String, Object) put()}.
+     *
+     * * If the given object is of an immutable value type such as `Boolean`, `Integer` or `String`,
+     *   an equivalent Python object will be created.
+     * * If the given object is itself a proxy for a Python object, the original Python object
+     *   will be returned.
+     * * Otherwise, a proxy object will be created, exposing all the methods and fields of the
+     *   Java object to Python code. */
     public static native PyObject fromJava(Object o);
     // TODO #5154... If the given object implements List, Map or Set, the proxy object will also
     // implement the corresponding Python methods (__len__, __getitem__, etc.).
 
     /** Attempts to "cast" the Python object to the given Java type.
-     * <ul>
-     *     <li>If the given type is an immutable value type such as Boolean, Integer or String,
-     *     the call will succeed if the Python object is of a compatible type.</li>
-     *     <li>If the Python object is itself a proxy for a Java object of the given type, the
-     *     original Java object will be returned.</li>
-     *     <li>Otherwise, a <code>ClassCastException</code> will be thrown.</li>
-     * </ul> */
+     *
+     * * If the given type is an immutable value type such as `Boolean`, `Integer` or `String`,
+     *   the call will succeed if the Python object is of a compatible type.
+     * * If the Python object is itself a proxy for a Java object of the given type, the
+     *   original Java object will be returned.
+     * * Otherwise, a `ClassCastException` will be thrown. */
     public native <T> T toJava(Class<T> klass);
-    // TODO  *     <li>The basic container interfaces: List, Map and Set. The toJava call will always
+    // TODO  * * The basic container interfaces: List, Map and Set. The toJava call will always
     // #5154 *     succeed, returning a proxy object which calls the corresponding Python methods (__len__,
-    //       *     __getitem__, etc.).</li>
+    //       *     __getitem__, etc.).* 
     // Not sure whether to do this with java.lang.reflect.Proxy or with pre-defined classes PyList,
     // PyMap, etc. Actually, the latter could be implemented entirely in Java, which would also
     // serve as a good example for how to make a manual static proxy.
 
-    /** Equivalent to Python id() */
+    /** @return The result of Python `id()`. */
     public native long id();
 
-    /** Equivalent to Python type() */
+    /** Equivalent to Python `type()`. */
     public native PyObject type();
 
-    /** Equivalent to Python () syntax. */ // TODO kwargs
+    /** Equivalent to Python `()` syntax. The parameters will be converted as described at
+     * {@link #fromJava fromJava()}. */
     public native PyObject call(Object... args);
+    // TODO kwargs
 
-    /** Equivalent to {@link #get}(attr).{@link #call}(args) */
+    /** Equivalent to `{@link #get get(attr)}.{@link #call call(args)}`.*/
     public PyObject callAttr(String attr, Object... args) {
         return get(attr).call(args);
     }
 
     // ==== Map ==============================================================
 
-    /** Equivalent to Python hasattr() */
+    /** Equivalent to `{@link #keySet()}.clear()`. See the notes on {@link #remove remove()} and
+     * {@link #isEmpty}. */
+    @Override public void clear() { super.clear(); }
+
+    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` also
+     * returns an object's class attributes by default, `isEmpty` is unlikely ever to
+     * return true (even after calling {@link #clear}) unless the object has a custom
+     * `__dir__` function. */
+    @Override public boolean isEmpty() { return super.isEmpty(); }
+
+    /** Equivalent to Python `hasattr()`. */
     @Override public native boolean containsKey(Object key);
 
-    /** Equivalent to Python getattr() */
+    /** Equivalent to Python `getattr()`. */
     @Override public native PyObject get(Object key);
 
-    /** Equivalent to Python setattr() */
-    @Override public PyObject put(String key, PyObject value) {
-        return put(key, (Object)value);
-    }
+    /** Equivalent to Python `setattr()`. */
+    @Override public PyObject put(String key, PyObject value) { return put(key, (Object)value); }
 
-    /** Equivalent to Python setattr() */
+    /** Equivalent to Python `setattr()`. The value will be converted as described at
+     * {@link #fromJava fromJava()}.*/
     public native PyObject put(String key, Object value);
 
-    /** Equivalent to Python delattr() */
+    /** Equivalent to Python `delattr()`. This usually means it will only succeed in removing
+     * attributes of the object itself, even though `dir()` also returns anobject's class attributes
+     * by default, */
     @Override public native PyObject remove(Object key);
 
-    /** Equivalent to Python dir() */
-    @Override
-    public Set<String> keySet() {
-        return super.keySet();  // Override just to carry the Javadoc
-    }
+    /** Equivalent to Python `dir()`. The set is backed by the object, so changes to the
+     * object are reflected in the set, and vice-versa. If the object is modified while an iteration
+     * over the set is in progress (except through the iterator's own `remove`
+     * operation), the results of the iteration are undefined. The set supports element removal, but
+     * see the notes on {@link #remove remove()}. It does not support the `add` or
+     * `addAll` operations. */
+    @Override public Set<String> keySet() { return super.keySet(); }
 
     @Override
     public Set<Entry<String, PyObject>> entrySet() {
@@ -184,19 +196,19 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     // === Object ============================================================
 
-    /** Equivalent to Python == operator */
+    /** Equivalent to Python `==` operator. */
     @Override public native boolean equals(Object that);
 
-    /** Equivalent to Python str() */
+    /** Equivalent to Python `str()`. */
     @Override public native String toString();
 
-    /** Equivalent to Python repr() */
+    /** Equivalent to Python `repr()`. */
     public native String repr();
 
-    /** Equivalent to Python hash() */
+    /** Equivalent to Python `hash()`. */
     @Override public native int hashCode();
 
-    /** Calls {@link #close}() */
+    /** Calls {@link #close}. */
     @Override
     protected void finalize() throws Throwable {
         close();

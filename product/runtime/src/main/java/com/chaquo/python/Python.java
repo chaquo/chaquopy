@@ -1,23 +1,24 @@
 package com.chaquo.python;
 
 
-/** Interface to Python. Unless otherwise specified, methods in this class throw
- * {@link PyException} on failure. */
+/** Interface to Python.
+ *
+ * Unless otherwise specified, methods in this class throw {@link PyException} on failure. */
 public class Python {
-    /** Provides information needed to start Python */
+    /** Provides information needed to start Python. */
     public interface Platform {
-        /** @return the value to assign to PYTHONPATH */
+        /** Returns the value to assign to `PYTHONPATH`. */
         String getPath();
     }
 
-    /** @hide FIXME http://stackoverflow.com/questions/35076307/javadoc-hide-cant-work)
-     * Used in jvm.pxi */
+    /** @deprecated Internal use in jvm.pxi */
     public static boolean started;
     private static boolean failed;
     private static Python instance;
 
-    /** Gets the interface to Python. If {@link #start}() has not yet been called, it will be called
-     * with a new {@link GenericPlatform}(). */
+    /** Gets the interface to Python. If {@link #start start()} has not yet been called, it will be
+     * called with a new {@link GenericPlatform}. */
+    @SuppressWarnings("deprecation")
     public static synchronized Python getInstance() {
         if (instance == null) {
             if (!started) {
@@ -30,6 +31,7 @@ public class Python {
 
     /** Starts Python. If this method is called, it can only be called once, and it must be before
      * any call to {@link #getInstance}, */
+    @SuppressWarnings("deprecation")
     public static synchronized void start(Platform platform) {
         if (started) {
             throw new IllegalStateException("Python already started");
@@ -51,15 +53,15 @@ public class Python {
      * cleanup. */
     private static native void startNative(String pythonPath);
 
-    // ========
+    // =======================================================================
 
     private Python() {}
 
     /** Returns the module with the given absolute name. */
     public native PyObject getModule(String name);
 
-    /** Returns the module '__builtin__' in Python 2 or 'builtins' in Python 3. This module
-     *  contains Python's built-in functions (e.g. open, print), types (e.g. int, dict) and
-     *  constants (e.g. None, True). */
+    /** Returns the module `__builtin__` in Python 2 or `builtins` in Python 3.
+     * This module contains Python's built-in functions (e.g. `open`, `print`), types (e.g. `int`,
+     * `dict`) and constants (e.g. `None`, `True`). */
     public native PyObject getBuiltins();
 }
