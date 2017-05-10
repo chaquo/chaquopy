@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Proxy for a Python object.
  *
- * * Python `None` is represented by Java `null`. All other values can be converted to their Java
+ * * Python `None` is represented by Java `null`. Other `PyObject`s can be converted to their Java
  *   equivalents using {@link #toJava toJava()}.
  * * If the same object is retrieved from Python multiple times, it will be represented by the same
  *   PyObject (unless {@link #close} is called).
@@ -73,8 +73,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
 
     /** Gives the given Java object a presence in the Python virtual machine.
-     * There's usually no need to call this method manually: it will be called automatically when
-     * passing an object to Python using {@link #call call()} or {@link #put(String, Object) put()}.
+     * There's usually no need to call this method manually: it will be called automatically by the
+     * methods of this class which take `Object` parameters.
      *
      * * If the given object is of an immutable value type such as `Boolean`, `Integer` or `String`,
      *   an equivalent Python object will be created.
@@ -101,18 +101,18 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     // PyMap, etc. Actually, the latter could be implemented entirely in Java, which would also
     // serve as a good example for how to make a manual static proxy.
 
-    /** @return The result of Python `id()`. */
+    /** Equivalent to Python `id()`. */
     public native long id();
 
     /** Equivalent to Python `type()`. */
     public native PyObject type();
 
-    /** Equivalent to Python `()` syntax. The parameters will be converted as described at
+    /** Equivalent to Python `()` syntax. Keyword arguments may be passed using instances of {@link
+     * Kwarg} at the end of the parameter list. Parameters will be converted as described at
      * {@link #fromJava fromJava()}. */
     public native PyObject call(Object... args);
-    // TODO kwargs
 
-    /** Equivalent to `{@link #get get(attr)}.{@link #call call(args)}`.*/
+    /** Equivalent to `{@link #get get}(attr).{@link #call call}(args)`.*/
     public PyObject callAttr(String attr, Object... args) {
         return get(attr).call(args);
     }
@@ -123,10 +123,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * {@link #isEmpty}. */
     @Override public void clear() { super.clear(); }
 
-    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` also
-     * returns an object's class attributes by default, `isEmpty` is unlikely ever to
-     * return true (even after calling {@link #clear}) unless the object has a custom
-     * `__dir__` function. */
+    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` also returns an object's class
+     * attributes by default, `isEmpty` is unlikely ever to return true (even after calling {@link
+     * #clear}), unless the object has a custom `__dir__` method. */
     @Override public boolean isEmpty() { return super.isEmpty(); }
 
     /** Equivalent to Python `hasattr()`. */
@@ -143,16 +142,15 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     public native PyObject put(String key, Object value);
 
     /** Equivalent to Python `delattr()`. This usually means it will only succeed in removing
-     * attributes of the object itself, even though `dir()` also returns anobject's class attributes
+     * attributes of the object itself, even though `dir()` also returns an object's class attributes
      * by default, */
     @Override public native PyObject remove(Object key);
 
-    /** Equivalent to Python `dir()`. The set is backed by the object, so changes to the
-     * object are reflected in the set, and vice-versa. If the object is modified while an iteration
-     * over the set is in progress (except through the iterator's own `remove`
-     * operation), the results of the iteration are undefined. The set supports element removal, but
-     * see the notes on {@link #remove remove()}. It does not support the `add` or
-     * `addAll` operations. */
+    /** Equivalent to Python `dir()`. The returned set is backed by the Python object, so changes to
+     * the object are reflected in the set, and vice-versa. If the object is modified while an
+     * iteration over the set is in progress (except through the iterator's own `remove` operation),
+     * the results of the iteration are undefined. The set supports element removal, but see the
+     * notes on {@link #remove remove()}. It does not support the `add` or `addAll` operations. */
     @Override public Set<String> keySet() { return super.keySet(); }
 
     @Override
@@ -196,16 +194,21 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     // === Object ============================================================
 
-    /** Equivalent to Python `==` operator. */
+    /** Equivalent to Python `==` operator.
+     * @param that Object to compare with this object. It will be converted as described at
+     * {@link #fromJava fromJava()}.
+     * @return `true` if the given object is equal to this object. */
     @Override public native boolean equals(Object that);
 
-    /** Equivalent to Python `str()`. */
+    /** Equivalent to Python `str()`.
+     * @return A string representation of the object. */
     @Override public native String toString();
 
     /** Equivalent to Python `repr()`. */
     public native String repr();
 
-    /** Equivalent to Python `hash()`. */
+    /** Equivalent to Python `hash()`.
+     * @return The hash code value for this object. */
     @Override public native int hashCode();
 
     /** Calls {@link #close}. */

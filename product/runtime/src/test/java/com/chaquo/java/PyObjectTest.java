@@ -40,8 +40,14 @@ public class PyObjectTest {
         assertTrue(pyobjecttest.containsKey("del_triggered"));
 
         thrown.expect(PyException.class);
+        thrown.expectMessage("ValueError");
         thrown.expectMessage("closed");
         dt.id();
+    }
+
+    @Test
+    public void toJava() {
+        // FIXME test attempted conversion to primitive type
     }
 
     @Test
@@ -62,16 +68,58 @@ public class PyObjectTest {
         assertNotSame(type, bool);
     }
 
-
     @Test
     public void call() {
-        // FIXME
+        PyObject sm = pyobjecttest.get("sum_mul");
+        assertEquals(0,  (int)sm.call().toJava(Integer.class));
+        assertEquals(3,  (int)sm.call(3).toJava(Integer.class));
+        assertEquals(6,  (int)sm.call(1, 2, 3).toJava(Integer.class));
+        assertEquals(24, (int)sm.call(6, new Kwarg("mul", 4)).toJava(Integer.class));
+        assertEquals(2,  (int)sm.call(1, 2, 3, new Kwarg("div", 3)).toJava(Integer.class));
+        assertEquals(10, (int)sm.call(1, 2, 3, new Kwarg("mul", 5),
+                                      new Kwarg("div", 3)).toJava(Integer.class));
+
+        PyObject two = sm.call(2), three = sm.call(3), four = sm.call(4);
+        assertEquals(14, (int)sm.call(three, four, new Kwarg("mul", two)).toJava(Integer.class));
+    }
+
+    @Test
+    public void call_invalid_count() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("TypeError");
+        thrown.expectMessage("got 3");
+        builtins.get("sum").call(1, 2, 3);
+    }
+
+    @Test
+    public void call_invalid_type() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("TypeError");
+        thrown.expectMessage("unsupported operand");
+        pyobjecttest.get("sum_mul").call("hello");
+    }
+
+    @Test
+    public void call_invalid_kwarg_duplicate() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("SyntaxError");
+        thrown.expectMessage("repeated");
+        pyobjecttest.get("sum_mul").call(6, new Kwarg("mul", 4), new Kwarg("mul", 4));
+    }
+
+    @Test
+    public void call_invalid_kwarg_order() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("SyntaxError");
+        thrown.expectMessage("follows keyword");
+        pyobjecttest.get("sum_mul").call(new Kwarg("mul", 4), 6);
     }
 
     @Test
     public void none() {
-        assertNull(pyobjecttest.callAttr("return_none"));
+        assertNull(builtins.get("None"));
         assertTrue(pyobjecttest.callAttr("is_none", (Object)null).toJava(Boolean.class));
+        assertTrue(pyobjecttest.callAttr("is_none", (Object[])null).toJava(Boolean.class));
         assertFalse(pyobjecttest.callAttr("is_none", 42).toJava(Boolean.class));
     }
 

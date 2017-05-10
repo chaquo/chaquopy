@@ -20,8 +20,11 @@ class SimpleObject(object):
         return self.__dict__.keys()
 
 
-def return_none():
-    return None
+def sum_mul(*args, **kwargs):
+    mul = kwargs.pop("mul", 1)
+    div = kwargs.pop("div", 1)
+    return sum(args) * mul / div
+
 
 def is_none(x):
     return x is None

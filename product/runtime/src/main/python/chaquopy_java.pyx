@@ -31,7 +31,7 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 
 # === com.chaquo.python.Python ================================================
 
-# This function will crash if called more than once!
+# This function (specifically initchaquopy_java) will crash if called more than once!
 cdef public void Java_com_chaquo_python_Python_startNative \
     (JNIEnv *env, jclass klass, jstring jPythonPath):
     # All code run before Py_Initialize must compile to pure C.
@@ -39,7 +39,9 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
     if jPythonPath != NULL:
         if not set_path(env, jPythonPath):
+            # A Java exception has already been raised.
             return
+
     Py_Initialize()  # Calls abort() on failure
 
     # We can now start using some Python constructs, but many things will still cause a native
@@ -56,6 +58,7 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
     except Exception as e:
         wrap_exception(env, e)
+        return
 
     # We imported chaquopy.chaquopy above, which has called PyEval_InitThreads during its own
     # module intialization, so the GIL now exists and we have it. We must release the GIL
@@ -167,11 +170,26 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
         if jargs == NULL:
             # User typed ".call(null)", which Java interprets as a null array, rather than the
             # array of one null which they intended.
-            args = [None]
+            all_args = [None]
         else:
-            args = j2p_array(env, "Ljava/lang/Object;", jargs)
-        result = j2p_pyobject(env, this)(*args)
+            all_args = j2p_array(env, "Ljava/lang/Object;", jargs)
+
+        Kwarg = autoclass("com.chaquo.python.Kwarg")
+        args = []
+        kwargs = {}
+        for a in all_args:
+            if isinstance(a, Kwarg):
+                if a.key in kwargs:
+                    raise SyntaxError(f"keyword argument repeated: '{a.key}'")
+                kwargs[a.key] = a.value
+            else:
+                if kwargs:
+                    raise SyntaxError("positional argument follows keyword argument")
+                args.append(a)
+
+        result = j2p_pyobject(env, this)(*args, **kwargs)
         return p2j_pyobject(env, result)
+
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -281,7 +299,8 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
 # TODO Integrate Python traceback into Java traceback if possible
 #
 # To do either of these things, create a new function called wrap_exception, rename this
-# original function, and only call it from Python_start() when module initialization failed.
+# original function, and only call it directly from Python_start() when module initialization
+# failed, in which case neither of these things will be possible.
 cdef wrap_exception(JNIEnv *env, Exception e):
     # Cython translates "import" into code which references the chaquopy_java module object,
     # which doesn't exist if the module initialization function failed with an exception. So
