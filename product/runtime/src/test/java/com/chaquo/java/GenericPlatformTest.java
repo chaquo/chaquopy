@@ -11,6 +11,6 @@ public class GenericPlatformTest {
     @Test
     public void constructor() {
         assertEquals(System.getenv("PYTHONPATH"), new GenericPlatform().getPath());
-        assertEquals("foo", new GenericPlatform("foo").getPath());
+        assertEquals("foo", new GenericPlatform().setPath("foo").getPath());
     }
 }

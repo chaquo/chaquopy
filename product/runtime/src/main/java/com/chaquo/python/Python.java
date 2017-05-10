@@ -7,6 +7,7 @@ package com.chaquo.python;
 public class Python {
     /** Provides information needed to start Python. */
     public interface Platform {
+        // TODO add getHome for PYTHONHOME (will be necessary for Android)
         /** Returns the value to assign to `PYTHONPATH`. */
         String getPath();
     }
@@ -16,8 +17,9 @@ public class Python {
     private static boolean failed;
     private static Python instance;
 
-    /** Gets the interface to Python. If {@link #start start()} has not yet been called, it will be
-     * called with a new {@link GenericPlatform}. */
+    /** Gets the interface to Python. This method always returns the same object. If
+     * {@link #start start()} has not yet been called, it will be called with a new
+     * {@link GenericPlatform}. */
     @SuppressWarnings("deprecation")
     public static synchronized Python getInstance() {
         if (instance == null) {

@@ -6,7 +6,7 @@ import android.content.res.*;
 import java.io.*;
 
 
-/** Platform for Python on Android */
+/** Platform for Chaquopy on Android. */
 public class AndroidPlatform implements Python.Platform {
     private static final String NAME = "chaquopy";
     private static final String STDLIB_FILENAME = "stdlib.zip";

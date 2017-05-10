@@ -203,8 +203,9 @@ javadoc {
     executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
     options {
         addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
-        addStringOption("sourcepath", "$javaHome/src.zip")
+        addStringOption("sourcepath", "$javaHome/src.zip")  // For inherited documentation
         addBooleanOption("nodeprecated", true)
+        addStringOption("noqualifier", "all")
         addStringOption("link", "https://developer.android.com/reference/")
         addStringOption("stylesheetfile", "$projectDir/javadoc-chaquo.css")
     }
