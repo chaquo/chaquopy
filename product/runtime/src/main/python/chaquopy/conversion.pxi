@@ -120,6 +120,13 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
     # inferring the type of bytes_str and calling the decode function directly.
     cdef object bytes_str
 
+    # GetStringChars will crash if either of these are violated
+    if string == NULL:
+        raise ValueError("String cannot be null")
+    if not j_env[0].IsInstanceOf(j_env, string,
+                                 (<JavaObject?>find_javaclass("java.lang.String")).j_self.obj):
+        raise TypeError("Object is not a String")
+
     jchar_str = j_env[0].GetStringChars(j_env, string, NULL)
     if jchar_str == NULL:
         raise Exception("GetStringChars failed")
@@ -254,6 +261,13 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     return ret
 
 
+class RangeError(ValueError):
+    """Indicates that a value could not be converted to the requested type because it was outside
+    of the type's range.
+    """
+    pass
+
+
 # Must be consistent with arg_is_applicable
 cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
     if definition[0] == 'V':
@@ -292,11 +306,11 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
         elif isinstance(obj, six.integer_types):
             # The first class in this list will be used if clsname is Number or Object.
             #
-            # TODO Allow BigInteger, which should also be the choice if Number is requested and
-            # Long isn't long enough.
+            # TODO Allow BigInteger, and use it if if Number or Object is requested and Long
+            # isn't long enough.
             #
             # FIXME this will delegate range checking to populate_args: test whether Cython
-            # checks and errors are adequate.
+            # checks and errors are adequate. And raise RangeError (see arg_is_applicable).
             for box_clsname in ["Long", "Integer", "Short", "Byte", "Double", "Float", "Character"]:
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):

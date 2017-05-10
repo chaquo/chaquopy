@@ -11,7 +11,9 @@ class ImplementationTest(unittest.TestCase):
     def test_out(self):
         # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
         System = autoclass('java.lang.System')
-        # FIXME self.assertIs(System.out, System.out)
+        # FIXME This should be implemented in JavaObject.__new__, using identityHashCode
+        # followed by IsSameObject. Test weak reference handling in the same way as in Java.
+        # self.assertIs(System.out, System.out)
         self.assertEqual(False, System.out.checkError())
         self.assertIsNone(System.out.flush())
 

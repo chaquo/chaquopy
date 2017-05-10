@@ -52,24 +52,37 @@ def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
+# TODO it would simplify things if JavaClass was the java.lang.Class proxy, and JavaObject was
+# the java.lang.Object proxy. Maybe we could even integrate this into the Python metaclass
+# system, so that type(String("foo")) is String, type(String) is Class, and type(Class) is type.
+#
+# We may also want to recreate the Java class hierarchy in Python, although the only
+# significant benefit I can think of is catching Java exceptions in Python by their proxy base
+# class type. For fields and non-overloaded methods, the usual Python inheritance mechanism can
+# be used. But if a class adds an overloaded method, or inherits a method name from multiple
+# base classes, a new JavaMultipleMethod should be created in the subclass which incorporates
+# all the overloads in itself and in the base classes. (For any given signature, the most
+# derived _override_ will always be called: that's ensured by the JVM and there's no way to
+# circumvent it.)
 cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
 
     # Member variables declared in .pxd
 
-    def __init__(self, *args, JNIRef instance=None, noinstance=False):
+    def __init__(self, *args, JNIRef instance=None):
         super(JavaObject, self).__init__()
+        cdef JNIEnv *env = get_jnienv()
         if instance is not None:
-            self.instantiate_from(instance)
-        elif not noinstance:
+            if not env[0].IsInstanceOf(env, instance.obj, (<JNIRef?>self.j_cls).obj):
+                raise TypeError(f"Cannot create {self.__javaclass__} proxy from a "
+                                f"{lookup_java_object_name(env, instance.obj)} instance")
+            self.j_self = instance.global_ref()
+        else:
             try:
                 constructor = self.__javaconstructor__
             except AttributeError:
                 raise TypeError(f"{self.__javaclass__} has no accessible constructors")
-            self.instantiate_from(constructor(*args))
-
-    def instantiate_from(self, JNIRef instance):
-        self.j_self = instance.global_ref()
+            self.j_self = constructor(*args)
 
     def __repr__(self):
         if self.j_self:
@@ -81,6 +94,7 @@ cdef class JavaObject(object):
                 return f"<{self.__javaclass__} '{ts}'>"
         else:
             return f"<{self.__javaclass__} (no instance)>"
+
 
 cdef class JavaMember(object):
     cdef jc
@@ -94,6 +108,7 @@ cdef class JavaMember(object):
         return self.jc.__javaclass__ if self.jc else None
 
     def set_resolve_info(self, jc, name):
+        # jc is the JavaClass of which we are a member, so this will cause a reference cycle.
         self.jc = jc
         self.name = name
 
@@ -431,11 +446,11 @@ cdef class JavaMethod(JavaMember):
             if j_args != NULL:
                 free(j_args)
 
-    cdef LocalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
+    cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,
                                                   self.j_method, j_args)
         check_exception(j_env)
-        return LocalRef.adopt(j_env, j_self)
+        return LocalRef.adopt(j_env, j_self).global_ref()
 
     cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
         cdef jboolean j_boolean

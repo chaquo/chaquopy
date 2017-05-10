@@ -46,6 +46,10 @@ public class PyObjectTest {
     }
 
     @Test
+    public void fromJava() {
+    }
+
+    @Test
     public void toJava() {
         // FIXME test attempted conversion to primitive type
     }
@@ -146,6 +150,24 @@ public class PyObjectTest {
         assertFalse(so.containsKey("nine"));
     }
 
+    @Test
+    public void containsKey_invalid_null() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("ValueError");
+        thrown.expectMessage("null");
+        assertFalse(builtins.containsKey(null));
+    }
+
+
+    @SuppressWarnings("SuspiciousMethodCalls")
+    @Test
+    public void containsKey_invalid_type() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("TypeError");
+        thrown.expectMessage("not a String");
+        builtins.containsKey(42);
+    }
+
     /* FIXME need .equals
     @SuppressWarnings("SuspiciousMethodCalls")
     @Test
@@ -155,6 +177,7 @@ public class PyObjectTest {
         assertFalse(so.containsValue(6));
         assertTrue(so.containsValue(2));
         assertFalse(so.containsValue(9));
+        assertFalse(so.containsValue(null));
     }
     */
 
@@ -189,6 +212,5 @@ public class PyObjectTest {
         System.runFinalization();
         assertTrue(pyobjecttest.containsKey("del_triggered"));
     }
-
 
 }

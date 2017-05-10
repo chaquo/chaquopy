@@ -4,16 +4,11 @@ from cpython.version cimport PY_MAJOR_VERSION
 import chaquopy
 
 
-def cast(destclass, obj):
-    cdef JavaObject jc
-    cdef JavaObject jobj = obj
-    if (PY_MAJOR_VERSION < 3 and isinstance(destclass, basestring)) or \
-          (PY_MAJOR_VERSION >=3 and isinstance(destclass, str)):
-        jc = chaquopy.autoclass(destclass)(noinstance=True)
-    else:
-        jc = destclass(noinstance=True)
-    jc.instantiate_from(jobj.j_self)
-    return jc
+def cast(destclass, JavaObject obj):
+    """Returns a view of the object as the given fully-qualified class name. This can be used to
+    restrict the visible methods of an object in order to affect overload resolution.
+    """
+    return chaquopy.autoclass(destclass)(instance=obj.j_self)
 
 
 def find_javaclass(name):
@@ -244,6 +239,11 @@ cdef arg_is_applicable(JNIEnv *env, r, arg):
             return True
         except TypeError:
             return False
+        except RangeError:
+            # The value is out of range, but the type matches, so give
+            # JavaMultipleMethod.__call__ a positive result so it doesn't cache a different
+            # method incorrectly (FIXME test).
+            return True
 
     raise ValueError(f"Invalid signature '{r}'")
 

@@ -51,14 +51,9 @@ class MultipleSignature(unittest.TestCase):
     # FIXME static, and mixed static/non-static (Java pays no attention to static-ness when
     # deciding overload resolution).
 
-    # TODO the most-derived override of each overload is considered when resolving overloads;
-    # position in the class hierarchy does not otherwise affect priority. So if recreating the
-    # Java class hierarchy in Python, derived classes will have to provide a JavaMultipleMethod
-    # which incorporates all the methods of the same name in all the base classes, unless the
-    # derived overload set for that name is identical to that of one of the bases, in which
-    # case the usual Python inheritance mechanism can be used.
-    #
+    # FIXME test:
     # Java doesn't allow overloads (as opposed to overrides) added in derived classes to be
     # called (or even visible) through a base class interface. If the user wants to reproduce
     # this behaviour, they'll have to use the cast() function, otherwise the object's actual
-    # class will be used.
+    # class will always be used.
+    #

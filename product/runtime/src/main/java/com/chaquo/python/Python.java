@@ -31,8 +31,8 @@ public class Python {
         return instance;
     }
 
-    /** Starts Python. If this method is called, it can only be called once, and it must be before
-     * any call to {@link #getInstance}, */
+    /** Starts the Python virtual machine. If this method is called, it can only be called once, and
+     * it must be before any call to {@link #getInstance}, */
     @SuppressWarnings("deprecation")
     public static synchronized void start(Platform platform) {
         if (started) {
@@ -62,8 +62,8 @@ public class Python {
     /** Returns the module with the given absolute name. */
     public native PyObject getModule(String name);
 
-    /** Returns the module `__builtin__` in Python 2 or `builtins` in Python 3.
-     * This module contains Python's built-in functions (e.g. `open`, `print`), types (e.g. `int`,
-     * `dict`) and constants (e.g. `None`, `True`). */
+    /** Returns the module `__builtin__` in Python 2 or `builtins` in Python 3. This module contains
+     * Python's built-in functions (e.g. `open`), types (e.g. `dict`), constants (e.g. `True`) and
+     * exceptions (e.g. `ValueError`). */
     public native PyObject getBuiltins();
 }

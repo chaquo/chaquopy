@@ -71,7 +71,6 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     }
     private native void closeNative();
 
-
     /** Gives the given Java object a presence in the Python virtual machine.
      * There's usually no need to call this method manually: it will be called automatically by the
      * methods of this class which take `Object` parameters.
@@ -82,24 +81,27 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *   will be returned.
      * * Otherwise, a proxy object will be created, exposing all the methods and fields of the
      *   Java object to Python code. */
+    //
+    // TODO #5154... If the given object implements `List`, `Map` or `Set`, the proxy object will
+    // implement the corresponding Python methods (`__len__`, `__getitem__`, etc.).
     public static native PyObject fromJava(Object o);
-    // TODO #5154... If the given object implements List, Map or Set, the proxy object will also
-    // implement the corresponding Python methods (__len__, __getitem__, etc.).
 
     /** Attempts to "cast" the Python object to the given Java type.
      *
      * * If the given type is an immutable value type such as `Boolean`, `Integer` or `String`,
-     *   the call will succeed if the Python object is of a compatible type.
+     *   and the Python object is of a compatible type, an equivalent object will be returned.
      * * If the Python object is itself a proxy for a Java object of the given type, the
      *   original Java object will be returned.
      * * Otherwise, a `ClassCastException` will be thrown. */
-    public native <T> T toJava(Class<T> klass);
-    // TODO  * * The basic container interfaces: List, Map and Set. The toJava call will always
-    // #5154 *     succeed, returning a proxy object which calls the corresponding Python methods (__len__,
-    //       *     __getitem__, etc.).* 
+    //
+    // TODO #5154 If the given type is `List`, `Map` or `Set`, a proxy object will be returned which
+    // calls the corresponding Python methods (`__len__`, `__getitem__`, etc.). (FIXME if proxy is
+    // passed back through j2p, the original Python object should be unwrapped. Maybe make proxies
+    // implement an interface with a getPyObject method. PyObject could also implement this, returning
+    // itself.)
     // Not sure whether to do this with java.lang.reflect.Proxy or with pre-defined classes PyList,
-    // PyMap, etc. Actually, the latter could be implemented entirely in Java, which would also
-    // serve as a good example for how to make a manual static proxy.
+    // PyMap, etc. It might be easier to implement this in Java.
+    public native <T> T toJava(Class<T> klass);
 
     /** Equivalent to Python `id()`. */
     public native long id();
@@ -130,6 +132,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Equivalent to Python `hasattr()`. */
     @Override public native boolean containsKey(Object key);
+
+    /** The value will be converted as described at {@link #fromJava fromJava()}.*/
+    @Override public boolean containsValue(Object o) { return super.containsValue(o); }
 
     /** Equivalent to Python `getattr()`. */
     @Override public native PyObject get(Object key);

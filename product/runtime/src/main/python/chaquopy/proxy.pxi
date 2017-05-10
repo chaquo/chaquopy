@@ -96,8 +96,7 @@ cdef jobject py_invoke0(JNIEnv *j_env, jobject j_this, jobject j_proxy, jobject
     py_obj = <object><void *>jptr
 
     # extract the method information
-    method = Method(noinstance=True)
-    method.instantiate_from(GlobalRef.create(j_env, j_method))
+    method = Method(instance=GlobalRef.create(j_env, j_method))
     ret_signature = get_signature(method.getReturnType())
     args_signature = [get_signature(x) for x in method.getParameterTypes()]
 
