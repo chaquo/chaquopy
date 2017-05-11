@@ -86,7 +86,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     // implement the corresponding Python methods (`__len__`, `__getitem__`, etc.).
     public static native PyObject fromJava(Object o);
 
-    /** Attempts to "cast" the Python object to the given Java type.
+    /** Attempts to view the Python object as the given Java type. For example.
+     * `toJava(String.class)` will attempt to view the object as a String.
      *
      * * If the given type is an immutable value type such as `Boolean`, `Integer` or `String`,
      *   and the Python object is of a compatible type, an equivalent object will be returned.
@@ -121,12 +122,15 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     // ==== Map ==============================================================
 
-    /** Equivalent to `{@link #keySet()}.clear()`. See the notes on {@link #remove remove()} and
-     * {@link #isEmpty}. */
+    /** Attempts to remove all attributes returned by `dir()`. Because `dir()` usually returns
+     * non-removable attributes such as `__class__`, this will probably fail  unless
+     * the object has a custom `__dir__` method.
+     *
+     * See also the notes on {@link #remove remove()} and {{@link #isEmpty}. */
     @Override public void clear() { super.clear(); }
 
-    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` also returns an object's class
-     * attributes by default, `isEmpty` is unlikely ever to return true (even after calling {@link
+    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` usually returns an object's
+     * class attributes, `isEmpty` is unlikely ever to return true (even after calling {@link
      * #clear}), unless the object has a custom `__dir__` method. */
     @Override public boolean isEmpty() { return super.isEmpty(); }
 
@@ -134,7 +138,17 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     @Override public native boolean containsKey(Object key);
 
     /** The value will be converted as described at {@link #fromJava fromJava()}.*/
-    @Override public boolean containsValue(Object o) { return super.containsValue(o); }
+    // Need override because the AbstractMap implementation calls equals() on the given value, not
+    // the values in the map.
+    @Override public boolean containsValue(Object o) {
+        for (Entry<String,PyObject> entry : entrySet()) {
+            PyObject value = entry.getValue();
+            if ((o == null && value == null) || value.equals(o)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /** Equivalent to Python `getattr()`. */
     @Override public native PyObject get(Object key);

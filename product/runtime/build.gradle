@@ -217,5 +217,5 @@ dependencies {
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.
 
-    testCompile 'junit:junit:4.11'
+    testCompile 'junit:junit:4.12'
 }

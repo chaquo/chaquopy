@@ -11,6 +11,7 @@ def cast(destclass, JavaObject obj):
     return chaquopy.autoclass(destclass)(instance=obj.j_self)
 
 
+# FIXME this may fail for app classes on Android, which use a child ClassLoader.
 def find_javaclass(name):
     """Returns the java.lang.Class proxy object corresponding to the given fully-qualified class
     name. Either '.' or '/' notation may be used. May raise any of the Java exceptions listed
@@ -258,5 +259,9 @@ def more_specific(JavaMethod jm1, JavaMethod jm2):
             all([find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
                  for def1, def2 in zip(defs1, defs2)]))
 
+    # FIXME primitive types also have assignability rules (JLS 4.10), but they won't work with
+    # find_javaclass, and maybe not with isAssignableFrom either. For example, consider passing
+    # an int to Float(), which has constructors taking both (float) and (double).
+    #
     # FIXME (int...) is actualy more specific than (double...), but int[] is not more specific
     # than double[]. https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading

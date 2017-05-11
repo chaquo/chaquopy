@@ -261,7 +261,7 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     return ret
 
 
-class RangeError(ValueError):
+class RangeError(TypeError):
     """Indicates that a value could not be converted to the requested type because it was outside
     of the type's range.
     """
@@ -277,8 +277,8 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
         return LocalRef()
 
     elif definition[0] in "ZBCDFIJS":
-        raise ValueError("Cannot convert to primitive type (e.g. 'int'); use the boxed type "
-                         "(e.g. 'Integer') instead")
+        raise TypeError("Cannot convert to primitive type (e.g. 'int'); use the boxed type "
+                        "(e.g. 'Integer') instead")
 
     elif definition[0] == 'L':
         clsname = definition[1:-1].replace("/", ".")
@@ -304,19 +304,26 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
             if klass.isAssignableFrom(Boolean):
                 return p2j_box(j_env, Boolean, obj)
         elif isinstance(obj, six.integer_types):
-            # The first class in this list will be used if clsname is Number or Object.
+            # Integer will be preferred if clsname is Number or Object, because that's the type
+            # of an undecorated Java floating point literal.
             #
-            # TODO Allow BigInteger, and use it if if Number or Object is requested and Long
-            # isn't long enough.
+            # TODO If clsname is Number or Object, and Integer isn't big enough, try Long.
+            #
+            # TODO support BigInteger, and make that a final fallback if clsname is Number or
+            # Object, and Long isn't big enough.
+            #
+            # FIXME this fails for Float because it has two constructors and more_specific
+            # doesn't handle primitive types.
             #
             # FIXME this will delegate range checking to populate_args: test whether Cython
             # checks and errors are adequate. And raise RangeError (see arg_is_applicable).
-            for box_clsname in ["Long", "Integer", "Short", "Byte", "Double", "Float", "Character"]:
+            for box_clsname in ["Integer", "Long", "Short", "Byte", "Double", "Float", "Character"]:
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):
                     return p2j_box(j_env, box_klass, obj)
         elif isinstance(obj, float):
-            # The first class in this list will be used if clsname is Number or Object.
+            # Double will be used if clsname is Number or Object, because that's the type of an
+            # undecorated Java floating point literal.
             for box_clsname in ["Double", "Float"]:
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):

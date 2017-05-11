@@ -7,7 +7,8 @@ class DelTrigger(object):
         del_triggered = True
 
 
-to_remove = abs     # Arbitrary built-in object
+class EmptyObject(object):
+    pass
 
 
 class SimpleObject(object):
@@ -28,3 +29,10 @@ def sum_mul(*args, **kwargs):
 
 def is_none(x):
     return x is None
+
+
+none_var = None
+bool_var = True
+int_var = 42
+float_var = 43.5
+str_var = "hello"

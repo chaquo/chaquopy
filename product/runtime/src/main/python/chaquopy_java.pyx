@@ -71,7 +71,7 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 cdef bint set_path(JNIEnv *env, jstring jPythonPath):
     cdef const char *pythonPath = env[0].GetStringUTFChars(env, jPythonPath, NULL)
     if pythonPath == NULL:
-        java_exception(env, "GetStringUTFChars failed")
+        pyexception(env, "GetStringUTFChars failed")
         return False
 
     # setenv is easier to use, but is not available on MSYS2.
@@ -79,13 +79,13 @@ cdef bint set_path(JNIEnv *env, jstring jPythonPath):
     cdef int putenvArgLen = strlen(putenvPrefix) + strlen(pythonPath) + 1
     cdef char *putenvArg = <char*>malloc(putenvArgLen)
     if snprintf(putenvArg, putenvArgLen, "%s%s", putenvPrefix, pythonPath) != (putenvArgLen - 1):
-        java_exception(env, "snprintf failed")
+        pyexception(env, "snprintf failed")
         return False
     env[0].ReleaseStringUTFChars(env, jPythonPath, pythonPath)
 
     # putenv takes ownership of the string passed to it.
     if putenv(putenvArg) != 0:
-        java_exception(env, "putenv failed")
+        pyexception(env, "putenv failed")
         return False
     return True
 
@@ -128,7 +128,7 @@ cdef public void Java_com_chaquo_python_PyObject_closeNative \
 cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
     (JNIEnv *env, jobject klass, jobject o) with gil:
     try:
-        return p2j_pyobject(env, j2p(env, "Ljava/lang/Object", o))
+        return p2j_pyobject(env, j2p(env, None, o))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -137,9 +137,14 @@ cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
 cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
+        self = j2p_pyobject(env, this)
         Class = autoclass("java.lang.Class")
         to_sig = jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
-        result = p2j(env, to_sig, j2p_pyobject(env, this))
+        try:
+            result = p2j(env, to_sig, self)
+        except TypeError as e:
+            wrap_exception(env, e, "java.lang.ClassCastException")
+            return NULL
         return env[0].NewLocalRef(env, result.obj)
     except Exception as e:
         wrap_exception(env, e)
@@ -195,34 +200,45 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
         return NULL
 
 
+# === com.chaquo.python.PyObject (Map) ========================================
+
 cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
-    (JNIEnv *env, jobject this, jobject key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
-        return hasattr(j2p_pyobject(env, this), j2p_string(env, key))
+        self = j2p_pyobject(env, this)
+        key = j2p(env, None, j_key)
+        # https://github.com/cython/cython/issues/1702
+        return __builtins__.hasattr(self, key)
     except Exception as e:
         wrap_exception(env, e)
         return False
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_get \
-    (JNIEnv *env, jobject this, jobject key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
-        return p2j_pyobject(env, getattr(j2p_pyobject(env, this), j2p_string(env, key)))
+        self = j2p_pyobject(env, this)
+        key = j2p(env, None, j_key)
+        try:
+            value = getattr(self, key)
+        except AttributeError:
+            return NULL
+        return p2j_pyobject(env, value)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_put \
-    (JNIEnv *env, jobject this, jobject key, jobject value) with gil:
+    (JNIEnv *env, jobject this, jobject j_key, jobject j_value) with gil:
     try:
         self = j2p_pyobject(env, this)
-        str_key = j2p_string(env, key)
+        key = j2p(env, None, j_key)
         try:
-            old_value = getattr(self, str_key)
+            old_value = getattr(self, key)
         except AttributeError:
             old_value = None
-        setattr(self, str_key, j2p(env, "Ljava/lang/Object;", value))
+        setattr(self, key, j2p(env, None, j_value))
         return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)
@@ -230,15 +246,15 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_remove \
-    (JNIEnv *env, jobject this, jobject key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        str_key = j2p_string(env, key)
+        key = j2p(env, None, j_key)
         try:
-            old_value = getattr(self, str_key)
+            old_value = getattr(self, key)
         except AttributeError:
             return NULL
-        delattr(self, str_key)
+        delattr(self, key)
         return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)
@@ -257,11 +273,12 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
         wrap_exception(env, e)
         return NULL
 
+# === com.chaquo.python.PyObject (Object) =====================================
 
 cdef public jboolean Java_com_chaquo_python_PyObject_equals \
     (JNIEnv *env, jobject this, jobject that) with gil:
     try:
-        raise Exception() # FIXME
+        return j2p_pyobject(env, this) == j2p(env, None, that)
     except Exception as e:
         wrap_exception(env, e)
         return False
@@ -301,7 +318,7 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
 # To do either of these things, create a new function called wrap_exception, rename this
 # original function, and only call it directly from Python_start() when module initialization
 # failed, in which case neither of these things will be possible.
-cdef wrap_exception(JNIEnv *env, Exception e):
+cdef wrap_exception(JNIEnv *env, Exception e, clsname="com.chaquo.python.PyException"):
     # Cython translates "import" into code which references the chaquopy_java module object,
     # which doesn't exist if the module initialization function failed with an exception. So
     # we'll have to do it manually.
@@ -311,12 +328,16 @@ cdef wrap_exception(JNIEnv *env, Exception e):
     except Exception as e2:
         result = (f"{type(e).__name__}: {e} "
                   f"[Failed to get traceback: {type(e2).__name__}: {e2}]")
-    java_exception(env, result.encode("UTF-8"))
+    java_exception(env, result.encode("UTF-8"), clsname.replace(".", "/"))
 
 
 # This may run before Py_Initialize, so it must compile to pure C.
-cdef void java_exception(JNIEnv *env, char *message):
-    cdef jclass re = env[0].FindClass(env, "com/chaquo/python/PyException")
+cdef void pyexception(JNIEnv *env, char *message):
+    java_exception(env, message, "com/chaquo/python/PyException")
+
+# This may run before Py_Initialize, so it must compile to pure C.
+cdef void java_exception(JNIEnv *env, char *message, char *clsname):
+    cdef jclass re = env[0].FindClass(env, clsname)
     if re != NULL:
         if env[0].ThrowNew(env, re, message) == 0:
             return

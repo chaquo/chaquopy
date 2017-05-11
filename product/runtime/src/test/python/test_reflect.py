@@ -2,7 +2,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
-from chaquopy.reflect import autoclass
+from chaquopy import *
+
 
 class ReflectTest(unittest.TestCase):
 
@@ -16,3 +17,7 @@ class ReflectTest(unittest.TestCase):
         stack.push('world')
         self.assertEqual(stack.pop(), 'world')
         self.assertEqual(stack.pop(), 'hello')
+
+    def test_failure(self):
+        with self.assertRaisesRegexp(JavaException, "NoClassDefFoundError: Foo"):
+            autoclass("Foo")
