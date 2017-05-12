@@ -1,11 +1,32 @@
 apply plugin: 'java'
 apply plugin: 'ch.raffael.pegdown-doclet'
 
-archivesBaseName = "chaquopy-runtime"
+import com.chaquo.python.Common;
+
+
+configurations {
+    sitePackages
+    jniLibs
+    libDynload
+}
+
+
+sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
+
+// The Gradle plugin is already versioned, so make our filename within the plugin consistent.
+archivesBaseName = "chaquopy-runtime"
 jar {
     version = null
 }
+
+
+task("zipSitePackages", type: Zip, group: "build") {
+    from fileTree("src/main/python") { include "**/*.py" }
+    destinationDir buildDir
+    archiveName "site-packages.zip"
+}
+artifacts { sitePackages zipSitePackages }
 
 
 /* My attempts to use Cygwin were not successful (see commit message of 2017-04-20), so there are two
@@ -95,7 +116,7 @@ cythonTask("cythonJava", group: "build") {
         }
     }
 }
-task cython(group: "build") {
+task("cython", group: "build") {
     dependsOn cythonPython, cythonJava
 }
 
@@ -106,8 +127,9 @@ def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
 
-for (pyVersion in ["2.7"]) {    // TODO #5148
-    for (abi in ["host", "x86", "x86_64", "armeabi", "armeabi-v7a", "arm64-v8a"]) {
+for (pyFullVersion in Common.PYTHON_VERSIONS) {
+    def pyVersion = pyFullVersion.substring(0, pyFullVersion.lastIndexOf("."))
+    for (abi in ["host"] + Common.ABIS) {
         def pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
         def pyNativeSuffix = ".so"
 
@@ -117,7 +139,10 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
             inputs.files "CMakeLists.txt"
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
                           "$cmakeBuildSubdir/CMakeCache.txt"
-            doFirst { delete(outputs.files) }
+            doFirst {
+                mkdir cmakeBuildSubdir
+                delete(outputs.files)   // Otherwise changes to args below won't take effect
+            }
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
@@ -193,6 +218,11 @@ for (pyVersion in ["2.7"]) {    // TODO #5148
                     showStandardStreams = true
                 }
             }
+        } else {    // Android ABI
+            project.artifacts {
+                jniLibs    (file("$cmakeBuildSubdir/chaquopy_java.so")) { builtBy cmakeBuild }
+                libDynload (file("$cmakeBuildSubdir/chaquopy.so"))      { builtBy cmakeBuild }
+            }
         }
     }
 }
@@ -212,7 +242,7 @@ javadoc {
 }
 
 dependencies {
-    compile files("$sdkDir/platforms/android-$API_LEVEL/android.jar")
+    compileOnly files("$sdkDir/platforms/android-$API_LEVEL/android.jar")
 
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.

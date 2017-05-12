@@ -1,12 +1,12 @@
 apply plugin: 'groovy'
 
-archivesBaseName = "chaquopy-gradle"
-sourceCompatibility = 7
+evaluationDependsOn ":runtime"
 
-processResources {
-    from("../runtime/build/libs/chaquopy-runtime.jar") {
-        into "runtime"
-    }
+configurations {
+    runtimeJava
+    runtimeSitePackages
+    runtimeJniLibs
+    runtimeLibDynload
 }
 
 dependencies {
@@ -15,7 +15,27 @@ dependencies {
 
     // This is a library project, so use "+" notation for external dependencies.
 
-    compile project(":runtime")
+    runtimeJava         project(path: ":runtime", configuration: "default")
+    runtimeSitePackages project(path: ":runtime", configuration: "sitePackages")
+    runtimeJniLibs      project(path: ":runtime", configuration: "jniLibs")
+    runtimeLibDynload   project(path: ":runtime", configuration: "libDynload")
 
-    testCompile group: 'junit', name: 'junit', version: '4.11'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
 }
+
+sourceCompatibility = 7
+archivesBaseName = "chaquopy-gradle"
+sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
+
+processResources {
+    def runtimeDir = "com/chaquo/python/runtime"
+    from(configurations.runtimeJava)         { into "$runtimeDir/java" }
+    from(configurations.runtimeSitePackages) { into runtimeDir }
+    for (file in configurations.runtimeJniLibs) {
+        from(file) { into "$runtimeDir/jniLibs/${file.parentFile.name}" }
+    }
+    for (file in configurations.runtimeLibDynload) {
+        from(file) { into "$runtimeDir/lib-dynload/${file.parentFile.name}" }
+    }
+}
+
