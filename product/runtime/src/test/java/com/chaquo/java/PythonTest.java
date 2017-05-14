@@ -31,6 +31,11 @@ public class PythonTest {
     }
 
     @Test
+    public void isStarted() {
+        assertTrue(Python.isStarted());
+    }
+
+    @Test
     public void getModule() {
         PyObject os = python.getModule("os");
         String osStr = os.toString();

@@ -50,6 +50,11 @@ public class Python {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    public static synchronized boolean isStarted() {
+        return started;
+    }
+
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
      * cleanup. */
     private static native void startNative(String pythonPath);

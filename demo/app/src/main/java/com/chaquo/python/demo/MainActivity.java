@@ -39,7 +39,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Python.start(new AndroidPlatform(this));
+        if (! Python.isStarted()) {
+            Python.start(new AndroidPlatform(this));
+        }
         Python py = Python.getInstance();
         interp = py.getModule("code").callAttr("InteractiveInterpreter");
         PyObject sys = py.getModule("sys");
