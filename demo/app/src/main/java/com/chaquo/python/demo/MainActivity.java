@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Python.start(new AndroidPlatform(this));
         Python py = Python.getInstance();
         interp = py.getModule("code").callAttr("InteractiveInterpreter");
         PyObject sys = py.getModule("sys");
@@ -55,12 +56,12 @@ public class MainActivity extends AppCompatActivity {
         if (text.length() > 0  &&  text.charAt(text.length() - 1) != '\n') {
             tvBuffer.append("\n");
         }
-        tvBuffer.append(getString(R.string.prompt));
+        tvBuffer.append(getString(R.string.prompt));  // TODO sys.ps1
         tvBuffer.append(etInput.getText());
         tvBuffer.append("\n");
         etInput.setText("");
 
-        // TODO: multi-line input
+        // TODO: multi-line input (InteractiveConsole)
         // TODO: input history (On-screen arrow buttons? See what other Python REPL apps do.)
         tvBuffer.append(exec(input));
         scrollDown();
@@ -68,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String exec(String input) {
         interp.callAttr("runsource", input);
-        String result = stdout.callAttr("getvalue").toJava();
+        String result = stdout.callAttr("getvalue").toJava(String.class);
         stdout.callAttr("seek", 0);
         stdout.callAttr("truncate", 0);
         return result;

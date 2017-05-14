@@ -110,7 +110,7 @@ cdef j2p(JNIEnv *j_env, definition_ignored, jobject j_object):
         return j2p_pyobject(j_env, j_object)
 
     # Failed to convert it, so return a proxy object.
-    return chaquopy.autoclass(r)(instance=LocalRef.adopt(j_env, j_object))
+    return chaquopy.autoclass(r)(instance=GlobalRef.create(j_env, j_object))
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):

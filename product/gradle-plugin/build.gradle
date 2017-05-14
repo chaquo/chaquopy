@@ -4,7 +4,7 @@ evaluationDependsOn ":runtime"
 
 configurations {
     runtimeJava
-    runtimeSitePackages
+    runtimePython
     runtimeJniLibs
     runtimeLibDynload
 }
@@ -16,7 +16,7 @@ dependencies {
     // This is a library project, so use "+" notation for external dependencies.
 
     runtimeJava         project(path: ":runtime", configuration: "default")
-    runtimeSitePackages project(path: ":runtime", configuration: "sitePackages")
+    runtimePython       project(path: ":runtime", configuration: "python")
     runtimeJniLibs      project(path: ":runtime", configuration: "jniLibs")
     runtimeLibDynload   project(path: ":runtime", configuration: "libDynload")
 
@@ -24,18 +24,26 @@ dependencies {
 }
 
 sourceCompatibility = 7
-archivesBaseName = "chaquopy-gradle"
+archivesBaseName = "chaquopy_gradle"
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 
 processResources {
-    def runtimeDir = "com/chaquo/python/runtime"
-    from(configurations.runtimeJava)         { into "$runtimeDir/java" }
-    from(configurations.runtimeSitePackages) { into runtimeDir }
-    for (file in configurations.runtimeJniLibs) {
-        from(file) { into "$runtimeDir/jniLibs/${file.parentFile.name}" }
-    }
-    for (file in configurations.runtimeLibDynload) {
-        from(file) { into "$runtimeDir/lib-dynload/${file.parentFile.name}" }
+    // Configurations passed directly to `from` are depended on automatically.
+    dependsOn configurations.runtimeJniLibs, configurations.runtimeLibDynload
+    doFirst { delete destinationDir }
+    into("com/chaquo/python/runtime") {
+        from(configurations.runtimeJava)
+        from(configurations.runtimePython)
+        into("jniLibs") {
+            for (file in configurations.runtimeJniLibs) {
+                from(file) { into "${file.parentFile.name}" }           // parent dir name is ABI
+            }
+        }
+        into("lib-dynload") {
+            for (file in configurations.runtimeLibDynload) {
+                from(file) { into "${file.parentFile.name}/chaquopy" }  // "
+            }
+        }
     }
 }
 

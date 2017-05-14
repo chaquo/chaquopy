@@ -2,10 +2,12 @@ package com.chaquo.python
 
 import org.gradle.api.*
 import org.gradle.api.plugins.*
-import org.gradle.api.tasks.*
 import org.gradle.util.*
 
 import java.nio.file.*
+
+import static java.nio.file.StandardCopyOption.*
+
 
 // FIXME unit test everything
 // Wrong python version
@@ -19,7 +21,7 @@ class PythonPlugin implements Plugin<Project> {
     static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
 
     Project project
-    def android
+    Object android
 
     public void apply(Project project) {
         this.project = project
@@ -69,19 +71,11 @@ class PythonPlugin implements Plugin<Project> {
     void setupDependencies() {
         project.repositories { maven { url "http://chaquo.com/maven" } }
 
-        def filename = "runtime/chaquopy-runtime.jar"
-        def outFile = new File(pythonGenDir(), filename)
-        project.delete(outFile)     // It might be an old version
-        project.mkdir(outFile.parent)
-        getClass().getResourceAsStream("/$filename").withStream { is ->
-            def tmpFile = new File(outFile.parent, "${outFile.name}.tmp")
-            Files.copy(is, tmpFile.toPath())
-            if (! tmpFile.renameTo(outFile)) {
-                throw new IOException("Failed to create $outFile")
-            }
-        }
+        project.delete(pythonGenDir())
+        def filename = "chaquopy_java.jar"
+        extractResource("runtime/$filename", pythonGenDir())
         project.dependencies {
-            compile project.files(outFile)
+            compile project.files("${pythonGenDir()}/$filename")
         }
     }
 
@@ -96,10 +90,9 @@ class PythonPlugin implements Plugin<Project> {
                 throw new GradleException("python.version not set for variant '$variant.name'. " +
                                           "You may want to add it to defaultConfig.")
             }
-            def PYTHON_VERSIONS = ["2.7.10"]  // TODO #5148
-            if (! PYTHON_VERSIONS.contains(python.version)) {
-                throw new GradleException("python.version set to invalid value '${python.version}'. " +
-                                          "Available versions: $PYTHON_VERSIONS")
+            if (! Common.PYTHON_VERSIONS.contains(python.version)) {
+                throw new GradleException("Invalid Python version '${python.version}'. " +
+                                          "Available versions are ${Common.PYTHON_VERSIONS}")
             }
 
             createTargetConfigs(variant, python)
@@ -117,6 +110,10 @@ class PythonPlugin implements Plugin<Project> {
         def abiConfig = configName(variant, "targetAbis")
         project.configurations.create(abiConfig)
         for (abi in getAbis(variant)) {
+            if (! Common.ABIS.contains(abi)) {
+                throw new GradleException("Unsupported ABI '$abi'. Supported ABIs are " +
+                                          Common.ABIS)
+            }
             project.dependencies.add(abiConfig, targetDependency(python.version, abi))
         }
     }
@@ -171,12 +168,25 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createAssetsTask(variant, PythonExtension python) {
-        def assetDir = variantGenDir(variant, "assets")
-        def genTask = project.task(genTaskName(variant, "assets"), type: Copy) {
-            doFirst { project.delete(assetDir) }
-            from project.configurations.getByName(configName(variant, "targetStdlib"))
-            rename { "stdlib.zip" }
-            into "$assetDir/$NAME"
+        def assetBaseDir = variantGenDir(variant, "assets")
+        def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
+        def genTask = project.task(genTaskName(variant, "assets")) {
+            outputs.files(project.fileTree(assetBaseDir))
+            doLast {
+                project.delete(assetBaseDir)
+                project.copy {
+                    from(project.configurations.getByName(configName(variant, "targetStdlib")))
+                    into assetDir
+                    rename { "stdlib.zip" }
+                }
+                extractResource("runtime/chaquopy.zip", assetDir)
+                for (abi in getAbis(variant)) {
+                    def dynloadChaquopy = "lib-dynload/$abi/chaquopy"
+                    extractResource("runtime/$dynloadChaquopy/chaquopy.so",
+                                    "$assetDir/$dynloadChaquopy")
+                    new File("$assetDir/$dynloadChaquopy/__init__.py").createNewFile();
+                }
+            }
         }
         extendMergeTask(variant.getMergeAssets(), genTask)
     }
@@ -185,12 +195,22 @@ class PythonPlugin implements Plugin<Project> {
         def libsDir = variantGenDir(variant, "jniLibs")
         def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
                         .resolvedConfiguration.resolvedArtifacts
-        def genTask = project.task(genTaskName(variant, "jniLibs"), type: Copy) {
-            doFirst { project.delete(libsDir) }
-            for (art in artifacts) {
-                from(project.zipTree(art.file)) { into art.name }
+        def genTask = project.task(genTaskName(variant, "jniLibs")) {
+            outputs.files(project.fileTree(libsDir))
+            doLast {
+                project.delete(libsDir)
+                project.copy {
+                    into libsDir
+                    for (art in artifacts) {
+                        from(project.zipTree(art.file)) {
+                            into art.classifier  // Classifier is ABI name
+                        }
+                    }
+                }
+                for (abi in getAbis(variant)) {
+                    extractResource("runtime/jniLibs/$abi/libchaquopy_java.so", "$libsDir/$abi")
+                }
             }
-            into libsDir
         }
         extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}JniLibFolders"),
                         genTask)
@@ -226,11 +246,25 @@ class PythonPlugin implements Plugin<Project> {
     String genTaskName(variant, String type) {
         return "generate${NAME.capitalize()}${variant.name.capitalize()}${type.capitalize()}"
     }
+
+    void extractResource(String name, targetDir) {
+        project.mkdir(targetDir)
+        def outFile = new File(targetDir, new File(name).name)
+        def tmpFile = new File("${outFile.path}.tmp")
+        InputStream is = getClass().getResourceAsStream(name)
+        if (is == null) {
+            throw new IOException("getResourceAsString failed for '$name'")
+        }
+        Files.copy(is, tmpFile.toPath(), REPLACE_EXISTING)
+        project.delete(outFile)
+        if (! tmpFile.renameTo(outFile)) {
+            throw new IOException("Failed to create '$outFile'")
+        }
+    }
 }
 
 
 class PythonExtension {
-
     String version
 
     void mergeFrom(o) {
@@ -241,5 +275,4 @@ class PythonExtension {
     private static <T> T chooseNotNull(T overlay, T base) {
         return overlay != null ? overlay : base
     }
-
 }

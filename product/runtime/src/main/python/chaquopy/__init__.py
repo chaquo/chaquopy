@@ -1,3 +1,9 @@
+from __future__ import absolute_import, division, print_function
+
+# On Android, the native module is stored separately to the Python modules.
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
 from .chaquopy import *  # noqa
 from .reflect import *  # noqa
 

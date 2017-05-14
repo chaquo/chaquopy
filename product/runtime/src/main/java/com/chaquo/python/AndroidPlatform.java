@@ -2,14 +2,18 @@ package com.chaquo.python;
 
 import android.content.*;
 import android.content.res.*;
+import android.os.*;
 
 import java.io.*;
 
 
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform implements Python.Platform {
-    private static final String NAME = "chaquopy";
-    private static final String STDLIB_FILENAME = "stdlib.zip";
+    private static final String[] ASSETS = {
+        "stdlib.zip",
+        "chaquopy.zip",
+        "lib-dynload/" + Build.CPU_ABI,
+    };
 
     private Context mContext;
 
@@ -21,32 +25,69 @@ public class AndroidPlatform implements Python.Platform {
 
     @Override
     public String getPath() {
-        return new File(getFilesDir(), STDLIB_FILENAME).getAbsolutePath();
+        String path = "";
+        for (int i = 0; i < ASSETS.length; i++) {
+            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + ASSETS[i];
+            if (i < ASSETS.length - 1) {
+                path += ":";
+            }
+        }
+        return path;
     }
 
     private void extractAssets() {
-        // TODO detect if the packaged assets have changed (maybe with embedded version number),
-        // and re-extract if so (Unclear whether FileOutputStream truncates, so delete first.)
+        // TODO avoid extraction (#5158)
         try {
-            AssetManager assets = mContext.getAssets();
-            for (String filename : assets.list(NAME)) {
-                File outFile = new File(getFilesDir(), filename);
-                if (!outFile.exists()) {
-                    InputStream inStream = assets.open(filename);
-                    File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
-                    OutputStream outStream = new FileOutputStream(tmpFile);
-                    try {
-                        transferStream(inStream, outStream);
-                    } finally {
-                        outStream.close();
-                    }
-                    if (! tmpFile.renameTo(outFile)) {
-                        throw new IOException("Failed to create " + outFile);
-                    }
-                }
+            for (String path : ASSETS) {
+                extractAssets(mContext.getAssets(), Common.ASSET_DIR + "/" + path);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void extractAssets(AssetManager assets, String path) throws IOException {
+        // The documentation doesn't say what list() does if the path isn't a directory, so be
+        // cautious.
+        boolean isDir;
+        try {
+            isDir = (assets.list(path).length > 0);
+        } catch (IOException e) {
+            isDir = false;
+        }
+
+        if (isDir) {
+            for (String filename : assets.list(path)) {
+                extractAssets(assets, path + "/" + filename);
+            }
+        } else {
+            File outDir = new File(mContext.getFilesDir(), new File(path).getParent());
+            if (! outDir.exists()) {
+                outDir.mkdirs();
+                if (! outDir.isDirectory()) {
+                    throw new IOException("Failed to create " + outDir);
+                }
+            }
+
+            // TODO only extract if the asset has changed. Reading flash storage is faster than
+            // writing (especially if the file's already in the OS cache), so we could read
+            // inStream into a buffer and then compare it with the content of outFile before
+            // overwriting it. Or maybe make the Gradle plugin embed a timestamp so we can avoid
+            // this entirely.
+            InputStream inStream = assets.open(path);
+            File outFile = new File(mContext.getFilesDir(), path);
+            File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
+            tmpFile.delete();
+            OutputStream outStream = new FileOutputStream(tmpFile);
+            try {
+                transferStream(inStream, outStream);
+            } finally {
+                outStream.close();
+            }
+            outFile.delete();
+            if (!tmpFile.renameTo(outFile)) {
+                throw new IOException("Failed to create " + outFile);
+            }
         }
     }
 
@@ -57,18 +98,6 @@ public class AndroidPlatform implements Python.Platform {
             out.write(buffer, 0, len);
             len = in.read(buffer);
         }
-    }
-
-
-    private File getFilesDir() {
-        File filesDir = new File(mContext.getFilesDir(), NAME);
-        if (! filesDir.exists()) {
-            filesDir.mkdirs();
-            if (! filesDir.isDirectory()) {
-                throw new RuntimeException("Failed to create " + filesDir);
-            }
-        }
-        return filesDir;
     }
 
     private void loadNativeLibs() {

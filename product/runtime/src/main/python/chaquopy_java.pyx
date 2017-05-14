@@ -21,9 +21,9 @@ from chaquopy.reflect import *
 from chaquopy.signatures import jni_sig
 from chaquopy.jni cimport *
 from chaquopy.chaquopy cimport *
-cdef extern from "chaquopy_java_init.h":
-    void initchaquopy_java() except *  # TODO #5148 (name changes in Python 3)
-
+cdef extern from "chaquopy_java_extra.h":
+    void PyInit_chaquopy_java() except *                 # These may be preprocessor macros.
+    bint set_path(JNIEnv *env, const char *python_path)  #
 
 cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
     return JNI_VERSION_1_6
@@ -31,24 +31,31 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 
 # === com.chaquo.python.Python ================================================
 
-# This function (specifically initchaquopy_java) will crash if called more than once!
+# WARNING: This function (specifically the module initialization function) will crash if called
+# more than once.
 cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jclass klass, jstring jPythonPath):
+    (JNIEnv *env, jclass klass, jobject j_python_path):
     # All code run before Py_Initialize must compile to pure C.
-    cdef JavaVM *jvm = NULL
-
-    if jPythonPath != NULL:
-        if not set_path(env, jPythonPath):
-            # A Java exception has already been raised.
+    cdef const char *python_path
+    if j_python_path != NULL:
+        python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
+        if python_path == NULL:
+            pyexception(env, "GetStringUTFChars failed")
             return
+        try:
+            if not set_path(env, python_path):
+                return
+        finally:  # Yes, this does compile to pure C, with the help of "goto".
+            env[0].ReleaseStringUTFChars(env, j_python_path, python_path)
 
     Py_Initialize()  # Calls abort() on failure
 
     # We can now start using some Python constructs, but many things will still cause a native
     # crash until our module initialization function completes. In particular, global and
     # built-in names won't be bound.
+    cdef JavaVM *jvm = NULL
     try:
-        initchaquopy_java()
+        PyInit_chaquopy_java()
 
         # Normal Cython functionality is now available.
         ret = env[0].GetJavaVM(env, &jvm)
@@ -68,32 +75,28 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
 
 # This runs before Py_Initialize, so it must compile to pure C.
-cdef bint set_path(JNIEnv *env, jstring jPythonPath):
-    cdef const char *pythonPath = env[0].GetStringUTFChars(env, jPythonPath, NULL)
-    if pythonPath == NULL:
-        pyexception(env, "GetStringUTFChars failed")
-        return False
-
+# "public" because its name is referenced from a preprocessor macro in chaquopy_java_extra.h.
+cdef public bint set_path_env(JNIEnv *env, const char *python_path):
     # setenv is easier to use, but is not available on MSYS2.
     cdef const char *putenvPrefix = "PYTHONPATH="
-    cdef int putenvArgLen = strlen(putenvPrefix) + strlen(pythonPath) + 1
+    cdef int putenvArgLen = strlen(putenvPrefix) + strlen(python_path) + 1
     cdef char *putenvArg = <char*>malloc(putenvArgLen)
-    if snprintf(putenvArg, putenvArgLen, "%s%s", putenvPrefix, pythonPath) != (putenvArgLen - 1):
+    if snprintf(putenvArg, putenvArgLen, "%s%s", putenvPrefix, python_path) != (putenvArgLen - 1):
         pyexception(env, "snprintf failed")
         return False
-    env[0].ReleaseStringUTFChars(env, jPythonPath, pythonPath)
 
     # putenv takes ownership of the string passed to it.
     if putenv(putenvArg) != 0:
         pyexception(env, "putenv failed")
         return False
+
     return True
 
 
 cdef public jobject Java_com_chaquo_python_Python_getModule \
-    (JNIEnv *env, jobject this, jstring name) with gil:
+    (JNIEnv *env, jobject this, jobject j_name) with gil:
     try:
-        return p2j_pyobject(env, import_module(j2p_string(env, name)))
+        return p2j_pyobject(env, import_module(j2p_string(env, j_name)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -145,7 +148,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
         except TypeError as e:
             wrap_exception(env, e, "java.lang.ClassCastException")
             return NULL
-        return env[0].NewLocalRef(env, result.obj)
+        return result.return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -268,7 +271,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
         keys = autoclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
-        return env[0].NewLocalRef(env, keys.j_self.obj)
+        return keys.j_self.return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -284,19 +287,18 @@ cdef public jboolean Java_com_chaquo_python_PyObject_equals \
         return False
 
 
-cdef public jstring Java_com_chaquo_python_PyObject_toString \
+cdef public jobject Java_com_chaquo_python_PyObject_toString \
     (JNIEnv *env, jobject this) with gil:
     return to_string(env, this, str)
 
-cdef public jstring Java_com_chaquo_python_PyObject_repr \
+cdef public jobject Java_com_chaquo_python_PyObject_repr \
     (JNIEnv *env, jobject this) with gil:
     return to_string(env, this, repr)
 
-cdef jstring to_string(JNIEnv *env, jobject this, func):
+cdef jobject to_string(JNIEnv *env, jobject this, func):
     try:
         self = j2p_pyobject(env, this)
-        result =  p2j_string(env, func(self))
-        return env[0].NewLocalRef(env, result.obj)
+        return p2j_string(env, func(self)).return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL

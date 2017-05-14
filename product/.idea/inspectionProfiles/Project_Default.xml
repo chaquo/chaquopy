@@ -1,6 +1,7 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
+    <inspection_tool class="ArraysAsListWithZeroOrOneArgument" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="ChangeToOperator" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="FieldCanBeLocal" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="GrMethodMayBeStatic" enabled="true" level="WARNING" enabled_by_default="true">

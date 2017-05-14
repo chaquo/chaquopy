@@ -7,7 +7,6 @@ package com.chaquo.python;
 public class Python {
     /** Provides information needed to start Python. */
     public interface Platform {
-        // TODO add getHome for PYTHONHOME (will be necessary for Android)
         /** Returns the value to assign to `PYTHONPATH`. */
         String getPath();
     }

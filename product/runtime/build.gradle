@@ -5,7 +5,7 @@ import com.chaquo.python.Common;
 
 
 configurations {
-    sitePackages
+    python
     jniLibs
     libDynload
 }
@@ -15,18 +15,18 @@ sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
 
 // The Gradle plugin is already versioned, so make our filename within the plugin consistent.
-archivesBaseName = "chaquopy-runtime"
+archivesBaseName = "chaquopy_java"
 jar {
     version = null
 }
 
 
-task("zipSitePackages", type: Zip, group: "build") {
+task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") { include "**/*.py" }
     destinationDir buildDir
-    archiveName "site-packages.zip"
+    archiveName "chaquopy.zip"
 }
-artifacts { sitePackages zipSitePackages }
+artifacts { python zipPython }
 
 
 /* My attempts to use Cygwin were not successful (see commit message of 2017-04-20), so there are two
@@ -146,7 +146,8 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=Debug"  // TODO #5152
+                 "-DCMAKE_BUILD_TYPE=Debug",  // TODO #5152
+                 "-DCHAQUOPY_LIBS=$pyPlusVersion"
 
             if (abi == "host") {
                 if (windowsHost) {
@@ -157,18 +158,16 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     // TODO untested
                     args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion"
                 }
-                args "-DCHAQUOPY_LIBS=$pyPlusVersion",
-                     "-DCHAQUOPY_SUFFIX=$pyNativeSuffix"
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                      "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                      "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
                      "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
-                     "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi",
-                     "-DCHAQUOPY_LIBS=$pyPlusVersion"
+                     "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
             }
-            args "$projectDir"
+            args "-DCHAQUOPY_SUFFIX=$pyNativeSuffix",
+                 "$projectDir"
         }
 
         def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
@@ -178,6 +177,12 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             args "--build", cmakeBuildSubdir
         }
         cmakeBuildAnchor.dependsOn(cmakeBuild)
+        if (abi != "host") {
+            project.artifacts {
+                jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
+                libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
+            }
+        }
 
         if (abi == "host") {
             def mainPythonDir = "$projectDir/src/main/python"
@@ -187,7 +192,10 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 doFirst {
                     copy {
                         into mainPythonDir
-                        from(cmakeBuildSubdir) { include "chaquopy$pyNativeSuffix"; into "chaquopy" }
+                        from(cmakeBuildSubdir) {
+                            include "chaquopy${pyNativeSuffix}"
+                            into "chaquopy"
+                        }
                     }
                 }
             }
@@ -217,11 +225,6 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     exceptionFormat = 'full'
                     showStandardStreams = true
                 }
-            }
-        } else {    // Android ABI
-            project.artifacts {
-                jniLibs    (file("$cmakeBuildSubdir/chaquopy_java.so")) { builtBy cmakeBuild }
-                libDynload (file("$cmakeBuildSubdir/chaquopy.so"))      { builtBy cmakeBuild }
             }
         }
     }

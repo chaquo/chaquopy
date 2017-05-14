@@ -1,1 +1,5 @@
+# Runtime requirements are included in the source tree itself. When we add Python dependency
+# support, user dependencies should be ahead of us in the PYTHONPATH (FIXME), but we should
+# run `pip check` to make sure their dependencies are consistent with this file.
+
 six>=1.10.0
