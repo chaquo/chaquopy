@@ -13,16 +13,19 @@ cdef class JNIRef(object):
     def __nonzero__(self):
         return self.obj != NULL
 
-    cdef jobject release(self):
-        obj = self.obj
-        self.obj = NULL
-        return obj
-
     cdef GlobalRef global_ref(self):
         if isinstance(self, GlobalRef):
             return self
         else:
             return GlobalRef.create((<LocalRef?>self).env, self.obj)
+
+    cdef jobject return_ref(self, JNIEnv *env):
+        """Returns a new local reference suitable for returning from a `native` method.
+        """
+        if self:
+            return env[0].NewLocalRef(env, self.obj)
+        else:
+            return NULL
 
 
 cdef class GlobalRef(object):

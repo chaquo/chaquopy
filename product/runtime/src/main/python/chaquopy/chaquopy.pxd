@@ -23,9 +23,8 @@ cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *
 
 cdef class JNIRef(object):
     cdef jobject obj
-
-    cdef jobject release(self)
     cdef GlobalRef global_ref(self)
+    cdef jobject return_ref(self, JNIEnv *env)
 
 cdef class GlobalRef(JNIRef):
     @staticmethod
