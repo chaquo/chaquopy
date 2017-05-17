@@ -44,6 +44,7 @@ public class BasicsTest {
 	static public float fieldStaticF = 1.23456789f;
 	static public double fieldStaticD = 1.23456789;
 	static public String fieldStaticString = "staticworld";
+    static public final String fieldStaticFinalString = "staticfinalworld";
 
 	public boolean fieldZ = true;
 	public byte fieldB = 127;

@@ -24,11 +24,12 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
         elif argtype[0] == '[':
             # Copy back any modifications the Java method may have made to the array
+            # FIXME is this tested?
             ret = j2p_array(j_env, argtype[1:], j_args[index].l)
             try:
                 args[index][:] = ret
             except TypeError:
-                pass
+                pass    # The arg was a tuple or other read-only sequence.
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 
@@ -150,6 +151,7 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
     return <object>po
 
 
+# TODO #5178: return a proxy object instead, so the Java array can be modified.
 cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     cdef jboolean iscopy = 0
     cdef jboolean *j_booleans

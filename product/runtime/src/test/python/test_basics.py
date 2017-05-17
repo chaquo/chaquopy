@@ -23,15 +23,17 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(t.methodStaticString(), 'staticworld')
         self.assertEquals(t.methodStaticI(), 2147483467)
         self.assertEquals(t.methodStaticParamsString("foo"), 'foo')
+        with self.assertRaisesRegexp(AttributeError, "not a field"):
+            t.methodStaticParamsString = 99
 
-        with self.assertRaises(AttributeError):
-            Test.methodNonexistent()
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            Test.methodStaticNonexistent()
         with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
             Test.methodStaticString("foo")
         with self.assertRaisesRegexp(TypeError, "takes 1 argument"):
             Test.methodStaticParamsString()
-
-        # FIXME test attempt to set method
+        with self.assertRaisesRegexp(AttributeError, "not a field"):
+            Test.methodStaticParamsString = 99
 
     def test_static_get_fields(self):
         Test = autoclass('com.chaquo.python.BasicsTest')
@@ -51,17 +53,61 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(t.fieldStaticString, 'staticworld')
         self.assertEquals(t.fieldStaticI, 2147483467)
 
-        with self.assertRaises(AttributeError):
-            Test.fieldStaticNonexistent()
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            Test.fieldStaticNonexistent
 
     def test_static_set_fields(self):
-        pass    # FIXME not implemented yet
-        # FIXME Static fields can also be accessed on an instance
+        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test.fieldStaticZ = False
+        Test.fieldStaticB = -127
+        Test.fieldStaticC = ord('p')
+        Test.fieldStaticS = -32767
+        Test.fieldStaticI = -2147483467
+        Test.fieldStaticJ = -9223372036854775807
+        Test.fieldStaticF = -1.23456789
+        Test.fieldStaticD = -9.87654321
+        Test.fieldStaticString = "setstaticworld"
 
-        # FIXME attempt to set nonexistent field
+        self.assertEquals(Test.fieldStaticZ, False)
+        self.assertEquals(Test.fieldStaticB, -127)
+        self.assertEquals(Test.fieldStaticC, 'p')
+        self.assertEquals(Test.fieldStaticS, -32767)
+        self.assertEquals(Test.fieldStaticI, -2147483467)
+        self.assertEquals(Test.fieldStaticJ, -9223372036854775807)
+        self.assertAlmostEquals(Test.fieldStaticF, -1.23456789)
+        self.assertAlmostEquals(Test.fieldStaticD, -9.87654321)
+        self.assertEquals(Test.fieldStaticString, 'setstaticworld')
 
-        # FIXME attempt to set final field: probably raises a Java exception, so no
-        # special action required.
+        # Check new value is visible in Java as well
+        self.assertEquals(Test.methodStaticZ(), False)
+        self.assertEquals(Test.methodStaticB(), -127)
+        self.assertEquals(Test.methodStaticC(), 'p')
+        self.assertEquals(Test.methodStaticS(), -32767)
+        self.assertEquals(Test.methodStaticI(), -2147483467)
+        self.assertEquals(Test.methodStaticJ(), -9223372036854775807)
+        self.assertAlmostEquals(Test.methodStaticF(), -1.23456789)
+        self.assertAlmostEquals(Test.methodStaticD(), -9.87654321)
+        self.assertEquals(Test.methodStaticString(), 'setstaticworld')
+
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            Test.fieldStaticNonexistent = 99
+        with self.assertRaisesRegexp(AttributeError, "final"):
+            Test.fieldStaticFinalString = "notfinal"
+        self.assertEquals(Test.fieldStaticFinalString, 'staticfinalworld')
+
+        # Static fields can also be accessed on an instance
+        t = Test()
+        t2 = Test()
+        t.fieldStaticString = "setinstanceworld"
+        self.assertEquals(t.fieldStaticString, 'setinstanceworld')
+        self.assertEquals(t2.fieldStaticString, 'setinstanceworld')
+        self.assertEquals(Test.fieldStaticString, 'setinstanceworld')
+        self.assertEquals(Test.methodStaticString(), 'setinstanceworld')
+        t2.fieldStaticI = 42
+        self.assertEquals(t.fieldStaticI, 42)
+        self.assertEquals(t2.fieldStaticI, 42)
+        self.assertEquals(Test.fieldStaticI, 42)
+        self.assertEquals(Test.methodStaticI(), 42)
 
     def test_instance_methods(self):
         Test = autoclass('com.chaquo.python.BasicsTest')
@@ -76,7 +122,7 @@ class BasicsTest(unittest.TestCase):
         self.assertAlmostEquals(test.methodD(), 9.87654321)
         self.assertEquals(test.methodString(), 'helloworld')
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             test.methodNonexistent()
         with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
             test.methodString("foo")
@@ -84,8 +130,8 @@ class BasicsTest(unittest.TestCase):
             test.methodParamsString()
         with self.assertRaisesRegexp(AttributeError, "static context"):
             Test.methodString()
-
-        # FIXME test attempt to set method
+        with self.assertRaisesRegexp(AttributeError, "not a field"):
+            test.methodString = 99
 
     def test_instance_methods_multiple_instances(self):
         BT = autoclass('com.chaquo.python.BasicsTest')
@@ -117,7 +163,7 @@ class BasicsTest(unittest.TestCase):
         self.assertAlmostEquals(test.fieldD, 9.87654321)
         self.assertEquals(test.fieldString, 'helloworld')
 
-        with self.assertRaises(AttributeError):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             test.fieldNonexistent
         with self.assertRaisesRegexp(AttributeError, "static context"):
             Test.fieldString
@@ -170,17 +216,13 @@ class BasicsTest(unittest.TestCase):
         self.assertAlmostEquals(test.methodD(), -9.87654321)
         self.assertEquals(test.methodString(), 'setworld')
 
-        # FIXME attempt to set nonexistent field
-
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            test.fieldNonexistent = 99
         with self.assertRaisesRegexp(AttributeError, "final"):
             test.fieldFinalString = "notfinal"
-
-        # FIXME
-        # with self.assertRaises(AttributeError, "static context):
-        #    Test.fieldSetI = 42
-
-        # FIXME attempt to set final field: probably raises a Java exception, so no
-        # special action required.
+        self.assertEquals(test.fieldFinalString, 'finalworld')
+        with self.assertRaisesRegexp(AttributeError, "static context"):
+            Test.fieldString = 42
 
     def test_instance_methods_array(self):
         test = autoclass('com.chaquo.python.BasicsTest')()

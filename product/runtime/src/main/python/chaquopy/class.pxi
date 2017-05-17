@@ -16,12 +16,18 @@ class JavaException(Exception):
         Exception.__init__(self, message)
 
 
-# FIXME override setattr on both class and object so that assignment to methods or nonexistent
-# fields doesn't work (see static field __set__ note below).
-#
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
+        cdef JNIEnv *j_env = get_jnienv()
+        javaclass = classDict["__javaclass__"]
+        classDict["__javaclass__"] = javaclass.replace("/", ".")
+        jni_clsname = javaclass.replace(".", "/")
+        j_cls = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
+        if not j_cls:
+            expect_exception(j_env, f"FindClass failed for {jni_clsname}")
+        classDict["j_cls"] = j_cls.global_ref()
+
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.
         classDict["__eq__"] = lambda self, other: self.equals(other)
@@ -35,28 +41,25 @@ class JavaClass(type):
         #         classDict['__getitem__'] = lambda self, index: self.get(index)
         #         classDict['__len__'] = lambda self: self.size()
 
+        # As recommended by PEP 8, append an underscore to member names which are reserved
+        # words. (The original name is still accessible via getattr().)
+        aliases = [(name + "_", name) for name in classDict if is_reserved_word(name)]
+        for alias, name in aliases:
+            if alias not in classDict:
+                classDict[alias] = classDict[name]
+
         return type.__new__(metacls, classname, bases, classDict)
 
     def __init__(cls, classname, bases, classDict):
-        cdef JNIEnv *j_env = get_jnienv()
-        cls.__javaclass__ = cls.__javaclass__.replace("/", ".")
-        jni_clsname = cls.__javaclass__.replace(".", "/")
-        j_cls = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
-        if not j_cls:
-            expect_exception(j_env, f"FindClass failed for {cls.__javaclass__}")
-        cls.j_cls = j_cls.global_ref()
-
-        reserved_word_aliases = {}
         for name, value in six.iteritems(classDict):
             if isinstance(value, JavaMember):
                 value.set_resolve_info(cls, str_for_c(name))
-                if is_reserved_word(name):
-                    # As recommended by PEP 8, append an underscore to member names which are
-                    # reserved words. (The original name is still accessible via getattr().)
-                    reserved_word_aliases[name + "_"] = value
-        for name, value in six.iteritems(reserved_word_aliases):
-            if not hasattr(cls, name):
-                setattr(cls, name, value)
+
+    # The default metaclass implementation will never call a descriptor's __set__ with the
+    # object as None, but will simply assign to the class dictionary. We override it to allow
+    # Java static fields to be set, and to prevent setting anything other than a field.
+    def __setattr__(cls, key, value):
+        cls.set_attribute(None, key, value)
 
 
 # Ensure the same aliases are available on all Python versions
@@ -68,10 +71,6 @@ def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
-# TODO it would simplify things if JavaClass was the java.lang.Class proxy, and JavaObject was
-# the java.lang.Object proxy. Maybe we could even integrate this into the Python metaclass
-# system, so that type(String("foo")) is String, type(String) is Class, and type(Class) is type.
-#
 # TODO #5168 Replicate Java class hierarchy
 cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
@@ -92,6 +91,20 @@ cdef class JavaObject(object):
             except AttributeError:
                 raise TypeError(f"{self.__javaclass__} has no accessible constructors")
             self.j_self = constructor(*args)
+
+    # Override to prevent setting anything other than a field.
+    def __setattr__(self, key, value):
+        self.set_attribute(self, key, value)
+
+    @classmethod
+    def set_attribute(cls, self, key, value):
+        try:
+            member = cls.__dict__[key]
+        except KeyError:
+            raise AttributeError(f"'{cls.__name__}' object has no attribute '{key}'")
+        if not isinstance(member, JavaField):
+            raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
+        member.__set__(self, value)
 
     def __repr__(self):
         if self.j_self:
@@ -166,7 +179,7 @@ cdef class JavaField(JavaMember):
             self.j_field = j_env[0].GetFieldID(
                     j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
         if self.j_field == NULL:
-            raise AttributeError(f'Get[Static]Field failed for {self}')
+            expect_exception(j_env, f'Get[Static]Field failed for {self}')
 
     def __get__(self, obj, objtype):
         cdef jobject j_self
@@ -182,72 +195,51 @@ cdef class JavaField(JavaMember):
     def __set__(self, obj, value):
         cdef jobject j_self
         self.ensure_field()
-        if obj is None:
-            # FIXME obj will never be None: when setting a class attribute, it will simply be
-            # be rebound without calling __set__. This has to be done as described at
-            # http://stackoverflow.com/a/28403562/220765, or by overriding __setattr__ in the
-            # metaclass so that we will actually be called with obj == None. No need to define
-            # __set__ on methods, just make __setattr__ raise an exception for them.
-            if not self.is_static:
-                raise AttributeError(f'Cannot access {self.fqn()} in static context')
-            raise NotImplementedError()  # FIXME
+        if self.is_final:  # 'final' is not enforced by JNI.
+            raise AttributeError(f"{self.fqn()} is a final field")
+
+        if self.is_static:
+            self.write_static_field(value)
         else:
-            j_self = (<JavaObject?>obj).j_self.obj
-            self.write_field(j_self, value)
+            # obj would never be None with the standard descriptor protocol, but see
+            # JavaClass.__setattr__.
+            if obj is None:
+                raise AttributeError(f'Cannot access {self.fqn()} in static context')
+            else:
+                j_self = (<JavaObject?>obj).j_self.obj
+                self.write_field(j_self, value)
 
     cdef write_field(self, jobject j_self, value):
-        cdef jboolean j_boolean
-        cdef jbyte j_byte
-        cdef jchar j_char
-        cdef jshort j_short
-        cdef jint j_int
-        cdef jlong j_long
-        cdef jfloat j_float
-        cdef jdouble j_double
-        cdef JNIRef j_object
         cdef JNIEnv *j_env = get_jnienv()
-
-        # 'final' is not enforced by JNI.
-        if self.is_final:
-            raise AttributeError(f"Cannot set final field {self.fqn()}")
-
-        r = self.definition[0]
 
         # FIXME perform range and type checks, unless Cython checks and errors are adequate.
         #
         # We don't implement auto-unboxing: see note in populate_args
+        r = self.definition[0]
         if r == 'Z':
-            j_boolean = <jboolean>value
-            j_env[0].SetBooleanField(j_env, j_self, self.j_field, j_boolean)
+            if not isinstance(value, bool):
+                raise TypeError(f"{self.fqn()} cannot be set from a '{type(value).__name__}'")
+            j_env[0].SetBooleanField(j_env, j_self, self.j_field, <jboolean>value)
         elif r == 'B':
-            j_byte = <jbyte>value
-            j_env[0].SetByteField(j_env, j_self, self.j_field, j_byte)
+            j_env[0].SetByteField(j_env, j_self, self.j_field, <jbyte>value)
         elif r == 'C':
-            j_char = <jchar>value
-            j_env[0].SetCharField(j_env, j_self, self.j_field, j_char)
+            j_env[0].SetCharField(j_env, j_self, self.j_field, <jchar>value)
         elif r == 'S':
-            j_short = <jshort>value
-            j_env[0].SetShortField(j_env, j_self, self.j_field, j_short)
+            j_env[0].SetShortField(j_env, j_self, self.j_field, <jshort>value)
         elif r == 'I':
-            j_int = <jint>value
-            j_env[0].SetIntField(j_env, j_self, self.j_field, j_int)
+            j_env[0].SetIntField(j_env, j_self, self.j_field, <jint>value)
         elif r == 'J':
-            j_long = <jlong>value
-            j_env[0].SetLongField(j_env, j_self, self.j_field, j_long)
+            j_env[0].SetLongField(j_env, j_self, self.j_field, <jlong>value)
         elif r == 'F':
-            j_float = <jfloat>value
-            j_env[0].SetFloatField(j_env, j_self, self.j_field, j_float)
+            j_env[0].SetFloatField(j_env, j_self, self.j_field, <jfloat>value)
         elif r == 'D':
-            j_double = <jdouble>value
-            j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_double)
+            j_env[0].SetDoubleField(j_env, j_self, self.j_field, <jdouble>value)
         elif r == 'L':
-            j_object = p2j(j_env, self.definition, value)
-            j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object.obj)
-        # FIXME #5177 array fields
+            j_env[0].SetObjectField(j_env, j_self, self.j_field,
+                                    p2j(j_env, self.definition, value).obj)
+        # TODO #5177 array fields
         else:
-            raise Exception(f'Invalid field definition for {self}')
-
-        check_exception(j_env)
+            raise Exception(f'Invalid definition for {self}')
 
     cdef read_field(self, jobject j_self):
         cdef jboolean j_boolean
@@ -298,23 +290,46 @@ cdef class JavaField(JavaMember):
         elif r == 'L':
             j_object = j_env[0].GetObjectField(
                     j_env, j_self, self.j_field)
-            check_exception(j_env)
             if j_object != NULL:
                 ret = j2p(j_env, self.definition, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
-        elif r == '[':
-            r = self.definition[1:]
-            j_object = j_env[0].GetObjectField(
-                    j_env, j_self, self.j_field)
-            check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p_array(j_env, r, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
+        # TODO #5177 array fields
         else:
-            raise Exception(f'Invalid field definition for {self}')
-
-        check_exception(j_env)
+            raise Exception(f'Invalid definition for {self}')
         return ret
+
+    cdef write_static_field(self, value):
+        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
+        cdef JNIEnv *j_env = get_jnienv()
+
+        # FIXME perform range and type checks, unless Cython checks and errors are adequate.
+        #
+        # We don't implement auto-unboxing: see note in populate_args
+        r = self.definition[0]
+        if r == 'Z':
+            if not isinstance(value, bool):
+                raise TypeError(f"{self.fqn()} cannot be set from a '{type(value).__name__}'")
+            j_env[0].SetStaticBooleanField(j_env, j_class, self.j_field, <jboolean>value)
+        elif r == 'B':
+            j_env[0].SetStaticByteField(j_env, j_class, self.j_field, <jbyte>value)
+        elif r == 'C':
+            j_env[0].SetStaticCharField(j_env, j_class, self.j_field, <jchar>value)
+        elif r == 'S':
+            j_env[0].SetStaticShortField(j_env, j_class, self.j_field, <jshort>value)
+        elif r == 'I':
+            j_env[0].SetStaticIntField(j_env, j_class, self.j_field, <jint>value)
+        elif r == 'J':
+            j_env[0].SetStaticLongField(j_env, j_class, self.j_field, <jlong>value)
+        elif r == 'F':
+            j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, <jfloat>value)
+        elif r == 'D':
+            j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, <jdouble>value)
+        elif r == 'L':
+            j_env[0].SetStaticObjectField(j_env, j_class, self.j_field,
+                                          p2j(j_env, self.definition, value).obj)
+        # TODO #5177 array fields
+        else:
+            raise Exception(f'Invalid definition for {self}')
 
     cdef read_static_field(self):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
@@ -366,22 +381,12 @@ cdef class JavaField(JavaMember):
         elif r == 'L':
             j_object = j_env[0].GetStaticObjectField(
                     j_env, j_class, self.j_field)
-            check_exception(j_env)
+            ret = j2p(j_env, self.definition, j_object)
             if j_object != NULL:
-                ret = j2p(j_env, self.definition, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
-        elif r == '[':
-            r = self.definition[1:]
-            j_object = j_env[0].GetStaticObjectField(
-                    j_env, j_class, self.j_field)
-            check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p_array(j_env, r, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
+        # TODO #5177 array fields
         else:
-            raise Exception(f'Invalid field definition for {self}')
-
-        check_exception(j_env)
+            raise Exception(f'Invalid definition for {self}')
         return ret
 
 
@@ -570,7 +575,7 @@ cdef class JavaMethod(JavaMember):
                 ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception('Invalid return definition?')
+            raise Exception(f'Invalid definition for {self}')
 
         check_exception(j_env)
         return ret
@@ -655,7 +660,7 @@ cdef class JavaMethod(JavaMember):
                 ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception('Invalid return definition?')
+            raise Exception(f'Invalid definition for {self}')
 
         check_exception(j_env)
         return ret
