@@ -340,10 +340,6 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
                 return <GlobalRef?>obj.j_cls
-        elif isinstance(obj, PythonJavaClass):
-            if any([klass.isAssignableFrom(find_javaclass(i))
-                    for i in obj.__javainterfaces__]):
-                return (<PythonJavaClass?>obj).j_self.j_self
         elif isinstance(obj, (tuple, list)):
             if clsname == "java.lang.Object":
                 return LocalRef.adopt(j_env, p2j_array(j_env, definition, obj))

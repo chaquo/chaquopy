@@ -24,9 +24,9 @@ for return types.
 
 '''
 
-from . import autoclass, java_method, JavaClass
+from . import autoclass, JavaClass
 
-__all__ = ["jni_sig", "signature", "with_signature", "JArray",
+__all__ = ["jni_sig", "signature", "JArray",
            "jboolean", "jbyte", "jchar", "jdouble", "jfloat", "jint", "jlong", "jshort", "jvoid"]
 
 
@@ -63,13 +63,6 @@ def JArray(of_type):
     '''
     spec = "[" + jni_sig(of_type)
     return _JavaSignaturePrimitive("array", spec)
-
-
-def with_signature(returns, takes):
-    '''Friendlier version of @java_method that takes the same parameters as signature().
-    '''
-    sig = signature(returns, takes)
-    return java_method(sig)
 
 
 def signature(returns, takes):

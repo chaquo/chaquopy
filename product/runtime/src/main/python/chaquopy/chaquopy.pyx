@@ -13,8 +13,7 @@ cdef extern from "Python.h":
     void PyEval_InitThreads()
 
 __all__ = ['JavaObject', 'JavaMethod', 'JavaField',
-           'JavaClass', 'JavaException', 'cast', 'find_javaclass',
-           'PythonJavaClass', 'java_method', 'detach']
+           'JavaClass', 'JavaException', 'cast', 'find_javaclass', 'detach']
 
 
 # Multi-threading is unavoidable in Java.
@@ -31,4 +30,3 @@ include "jvm.pxi"
 include "utils.pxi"
 include "conversion.pxi"
 include "class.pxi"
-include "proxy.pxi"
