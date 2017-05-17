@@ -131,7 +131,12 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
     def pyVersion = pyFullVersion.substring(0, pyFullVersion.lastIndexOf("."))
     for (abi in ["host"] + Common.ABIS) {
         def pyPlusVersion = "python$pyVersion${pyVersion.startsWith("3") ? "m" : ""}"   // See PEP 3149
-        def pyNativeSuffix = ".so"
+
+        // Linux defaults
+        def pyLibPrefix = ""
+        def pyLibSuffix = ".so"
+        def javaLibPrefix = "lib"
+        def javaLibSuffix = ".so"
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
@@ -151,7 +156,9 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
             if (abi == "host") {
                 if (windowsHost) {
-                    pyNativeSuffix = ".pyd"
+                    pyLibSuffix = ".pyd"
+                    javaLibPrefix = ""
+                    javaLibSuffix = ".dll"
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
                                                  "$javaHome/include;$javaHome/include/win32"
                 } else {
@@ -166,7 +173,8 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                      "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
                      "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
             }
-            args "-DCHAQUOPY_SUFFIX=$pyNativeSuffix",
+            args "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
+                 "-DJAVA_LIB_PREFIX=$javaLibPrefix", "-DJAVA_LIB_SUFFIX=$javaLibSuffix",
                  "$projectDir"
         }
 
@@ -193,7 +201,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     copy {
                         into mainPythonDir
                         from(cmakeBuildSubdir) {
-                            include "chaquopy${pyNativeSuffix}"
+                            include "chaquopy${pyLibSuffix}"
                             into "chaquopy"
                         }
                     }

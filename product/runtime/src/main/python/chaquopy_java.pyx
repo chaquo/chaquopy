@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import ctypes
 from importlib import import_module
 import sys
 
@@ -307,7 +308,8 @@ cdef jobject to_string(JNIEnv *env, jobject this, func):
 cdef public jint Java_com_chaquo_python_PyObject_hashCode \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return hash(j2p_pyobject(env, this)) & 0x7FFFFFFF
+        self = j2p_pyobject(env, this)
+        return ctypes.c_int32(hash(self)).value
     except Exception as e:
         wrap_exception(env, e)
         return 0

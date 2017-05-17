@@ -437,9 +437,14 @@ public class PyObjectTest {
 
     @Test
     public void hashCode_() {
-        PyObject True = builtins.get("True"), False = builtins.get("False");
-        assertNotEquals(True.hashCode(), False.hashCode());
-        assertEquals(True.hashCode(), (int)builtins.callAttr("hash", True).toJava(Integer.class));
+        PyObject HashObject = pyobjecttest.get("HashObject");
+        assertEquals(Integer.MAX_VALUE,  HashObject.call(Integer.MAX_VALUE).hashCode());
+        assertEquals(1,  HashObject.call(1).hashCode());
+        assertEquals(0,  HashObject.call(0).hashCode());
+        assertEquals(-2,  HashObject.call(-1).hashCode());  // CPython implementation detail
+        assertEquals(-2,  HashObject.call(-2).hashCode());
+        assertEquals(-3,  HashObject.call(-3).hashCode());
+        assertEquals(Integer.MIN_VALUE,  HashObject.call(Integer.MIN_VALUE).hashCode());
     }
 
     @Test
@@ -460,7 +465,8 @@ public class PyObjectTest {
         assertFalse(pyobjecttest.containsKey("del_triggered"));
         dt = null;
 
-        // This may not be totally reliable, but it works almost all the time.
+        // There may be no way to make a watertight test of finalization, but this fails less than
+        // 5% of the time.
         System.gc();
         System.runFinalization();
         assertTrue(pyobjecttest.containsKey("del_triggered"));

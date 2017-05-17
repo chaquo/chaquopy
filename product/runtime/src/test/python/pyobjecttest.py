@@ -36,3 +36,11 @@ bool_var = True
 int_var = 42
 float_var = 43.5
 str_var = "hello"
+
+
+class HashObject(object):
+    def __init__(self, x):
+        self.x = x
+
+    def __hash__(self):
+        return self.x
