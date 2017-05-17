@@ -172,6 +172,9 @@ class BasicsTest(unittest.TestCase):
 
         # FIXME attempt to set nonexistent field
 
+        with self.assertRaisesRegexp(AttributeError, "final"):
+            test.fieldFinalString = "notfinal"
+
         # FIXME
         # with self.assertRaises(AttributeError, "static context):
         #    Test.fieldSetI = 42

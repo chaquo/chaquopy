@@ -131,15 +131,25 @@ cdef class JavaMember(object):
 cdef class JavaField(JavaMember):
     cdef jfieldID j_field
     cdef definition
+    cdef bint is_final
 
     def __repr__(self):
         # TODO #5155 don't expose JNI signatures to users
         return (f"JavaField({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
-                f"{', static=True' if self.is_static else ''})")
+                f"{', static=True' if self.is_static else ''}"
+                f"{', final=True' if self.is_final else ''}"
+                f")")
 
-    def __init__(self, definition, *, static=False):
+    def __init__(self, definition, *, static=False, final=False):
         super(JavaField, self).__init__(static)
         self.definition = str_for_c(definition)
+        self.is_final = final
+
+    def fqn(self):
+        """Returns the fully-qualified name of the field. Not used in any place where the field type
+        might also be relevant.
+        """
+        return f"{self.classname()}.{self.name}"
 
     cdef jfieldID id(self) except NULL:
         self.ensure_field()
@@ -165,7 +175,7 @@ cdef class JavaField(JavaMember):
             return self.read_static_field()
         else:
             if obj is None:
-                raise AttributeError(f'Cannot access {self} in static context')
+                raise AttributeError(f'Cannot access {self.fqn()} in static context')
             j_self = (<JavaObject?>obj).j_self.obj
             return self.read_field(j_self)
 
@@ -179,7 +189,7 @@ cdef class JavaField(JavaMember):
             # metaclass so that we will actually be called with obj == None. No need to define
             # __set__ on methods, just make __setattr__ raise an exception for them.
             if not self.is_static:
-                raise AttributeError(f'Cannot access {self} in static context')
+                raise AttributeError(f'Cannot access {self.fqn()} in static context')
             raise NotImplementedError()  # FIXME
         else:
             j_self = (<JavaObject?>obj).j_self.obj
@@ -196,6 +206,10 @@ cdef class JavaField(JavaMember):
         cdef jdouble j_double
         cdef JNIRef j_object
         cdef JNIEnv *j_env = get_jnienv()
+
+        # 'final' is not enforced by JNI.
+        if self.is_final:
+            raise AttributeError(f"Cannot set final field {self.fqn()}")
 
         r = self.definition[0]
 
@@ -365,7 +379,7 @@ cdef class JavaField(JavaMember):
                 ret = j2p_array(j_env, r, j_object)
                 j_env[0].DeleteLocalRef(j_env, j_object)
         else:
-            raise Exception(f"{self}: invalid type definition '{self.definition}'")
+            raise Exception(f'Invalid field definition for {self}')
 
         check_exception(j_env)
         return ret
@@ -384,6 +398,12 @@ cdef class JavaMethod(JavaMember):
         return (f"JavaMethod({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
                 f"{', static=True' if self.is_static else ''}"
                 f"{', varargs=True' if self.is_varargs else ''})")
+
+    def fqn(self):
+        """Returns the fully-qualified name of the method, plus its parameter types. Not used in any
+        place where the return type might also be relevant.
+        """
+        return f"{self.classname()}.{self.name}{self.definition_args}"
 
     def __init__(self, definition, *, static=False, varargs=False):
         super(JavaMethod, self).__init__(static)
@@ -422,7 +442,7 @@ cdef class JavaMethod(JavaMember):
             # We don't allow the user to get unbound method objects, because that wouldn't be
             # compatible with the way we implement overload resolution. (It might be possible
             # to fix this, but it's not worth the effort.)
-            raise AttributeError(f'Cannot access {self} in static context')
+            raise AttributeError(f'Cannot access {self.fqn()} in static context')
         else:
             return lambda *args: self(obj, *args)
 
@@ -433,18 +453,18 @@ cdef class JavaMethod(JavaMember):
 
         # Should never happen, but worth keeping as an extra defense against a native crash.
         if not self.is_static and not isinstance(obj, self.jc):
-            raise TypeError(f"Unbound method {self} must be called with "
+            raise TypeError(f"Unbound method {self.fqn()} must be called with "
                             f"{self.jc.__name__} instance as first argument (got "
                             f"{type(obj).__name__} instance instead)")
 
         if self.is_varargs:
             if len(args) < len(d_args) - 1:
-                raise TypeError(f'{self} takes at least {len(d_args) - 1} arguments '
+                raise TypeError(f'{self.fqn()} takes at least {len(d_args) - 1} arguments '
                                 f'({len(args)} given)')
             args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
 
         if len(args) != len(d_args):
-            raise TypeError(f'{self} takes {len(d_args)} arguments ({len(args)} given)')
+            raise TypeError(f'{self.fqn()} takes {len(d_args)} arguments ({len(args)} given)')
 
         try:
             if len(args):

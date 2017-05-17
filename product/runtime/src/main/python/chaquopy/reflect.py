@@ -332,8 +332,10 @@ def autoclass(clsname):
         classDict[name] = method
 
     for field in c.getFields():
+        modifiers = field.getModifiers()
         classDict[field.getName()] = JavaField(get_signature(field.getType()),
-                                               static=Modifier.isStatic(field.getModifiers()))
+                                               static=Modifier.isStatic(modifiers),
+                                               final=Modifier.isFinal(modifiers))
 
     # type argument 1 must be "str" type, whatever that is on this Python version.
     cls = JavaClass(str(clsname), (JavaObject,), classDict)
