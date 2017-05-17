@@ -331,15 +331,6 @@ def autoclass(clsname):
             name = "__javaconstructor__"
         classDict[name] = method
 
-    # TODO disabled until tested (#5154), and should also implement other container interfaces.
-    # for iclass in c.getInterfaces():
-    #     if iclass.getName() == 'java.util.List':
-    #         classDict['__getitem__'] = lambda self, index: self.get(index)
-    #         classDict['__len__'] = lambda self: self.size()
-
-    # FIXME implement __str__, __eq__, and __hash__ (__repr__ should remain but should
-    # incorporate __str__ result)
-
     for field in c.getFields():
         classDict[field.getName()] = JavaField(get_signature(field.getType()),
                                                static=Modifier.isStatic(field.getModifiers()))

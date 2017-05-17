@@ -20,8 +20,8 @@ cdef class JNIRef(object):
             return GlobalRef.create((<LocalRef?>self).env, self.obj)
 
     cdef jobject return_ref(self, JNIEnv *env):
-        """Returns a new local reference suitable for returning from a `native` method.
-        """
+        """Returns a new local reference suitable for returning from a `native` method or otherwise
+        outliving the JNIRef object."""
         if self:
             return env[0].NewLocalRef(env, self.obj)
         else:

@@ -35,6 +35,10 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
 # Must be consistent with arg_is_applicable
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
     # FIXME perform range and type checks, unless Cython checks and errors are adequate.
+    #
+    # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
+    # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
+    # the other hand, will be done if necessary by p2j.
     cdef int index
     for index, argtype in enumerate(definition_args):
         py_arg = args[index]
@@ -55,8 +59,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'D':
             j_args[index].d = py_arg
         elif argtype[0] in 'L[':
-            j_args[index].l = j_env[0].NewLocalRef \
-                (j_env, p2j(j_env, argtype, py_arg).obj)
+            j_args[index].l = p2j(j_env, argtype, py_arg).return_ref(j_env)
 
 
 # FIXME remove definition_ignored
@@ -309,8 +312,8 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
             #
             # TODO If clsname is Number or Object, and Integer isn't big enough, try Long.
             #
-            # TODO support BigInteger, and make that a final fallback if clsname is Number or
-            # Object, and Long isn't big enough.
+            # TODO support BigInteger (#5174), and make that a final fallback if clsname is
+            # Number or Object, and Long isn't big enough.
             #
             # FIXME this fails for Float because it has two constructors and more_specific
             # doesn't handle primitive types.

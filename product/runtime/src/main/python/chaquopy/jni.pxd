@@ -1,21 +1,12 @@
 from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 
-# TODO it would be much easier if the JNI interface was accessed through a pythonic wrapper:
-# * Call functions like env.whatever() rather than env[0].whatever(env).
-# * Take and return GlobalRef or GlobalRef objects (made interchangeable using inheritance) rather
-#   than raw jobjects (which would not be touched anywhere else in the codebase).
-# * Take strings rather than char *, and auto-encode unicode strings (no more str_for_c all over
-#   the place).
-# * If the call can fail, declare except *. If it actually does fail, call expect_exception if
-#   the call can generate a Java exception, otherwise generate one of our own.
-#
-# If such an interface isn't already available, it should be possible to auto-generate one.
 
+# TODO #5176 provide friendlier interface
 cdef extern from "jni.h":
-    ctypedef unsigned char   jboolean
-    ctypedef signed char     jbyte
-    ctypedef uint16_t        jchar
-    ctypedef int16_t         jshort
+    ctypedef unsigned char   jboolean   # TODO #5175: try the stdint names, as Cython is generating
+    ctypedef signed char     jbyte      # redundant conversion functions only for jboolean and
+    ctypedef uint16_t        jchar      # jbyte. But only once we have the test suite running
+    ctypedef int16_t         jshort     # on Android.
     ctypedef int32_t         jint
     ctypedef int64_t         jlong
     ctypedef float           jfloat

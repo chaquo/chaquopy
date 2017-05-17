@@ -3,15 +3,16 @@ package com.chaquo.python;
 import java.lang.String;
 
 public class BasicsTest {
-	static public boolean methodStaticZ() { return true; }
-	static public byte methodStaticB() { return 127; }
-	static public char methodStaticC() { return 'k'; }
-	static public short methodStaticS() { return 32767; }
-	static public int methodStaticI() { return 2147483467; }
-	static public long methodStaticJ() { return 9223372036854775807L; }
-	static public float methodStaticF() { return 1.23456789f; }
-	static public double methodStaticD() { return 1.23456789; }
-	static public String methodStaticString() { return "helloworld"; }
+	static public boolean methodStaticZ() { return fieldStaticZ; }
+	static public byte methodStaticB() { return fieldStaticB; }
+	static public char methodStaticC() { return fieldStaticC; }
+	static public short methodStaticS() { return fieldStaticS; }
+	static public int methodStaticI() { return fieldStaticI; }
+	static public long methodStaticJ() { return fieldStaticJ; }
+	static public float methodStaticF() { return fieldStaticF; }
+	static public double methodStaticD() { return fieldStaticD; }
+	static public String methodStaticString() { return fieldStaticString; }
+	static public String methodStaticParamsString(String s) { return s; }
 
     public boolean methodZ() { return fieldZ; }
     public byte methodB() { return fieldB; }
@@ -42,7 +43,7 @@ public class BasicsTest {
 	static public long fieldStaticJ = 9223372036854775807L;
 	static public float fieldStaticF = 1.23456789f;
 	static public double fieldStaticD = 1.23456789;
-	static public String fieldStaticString = "helloworld";
+	static public String fieldStaticString = "staticworld";
 
 	public boolean fieldZ = true;
 	public byte fieldB = 127;
@@ -51,18 +52,9 @@ public class BasicsTest {
 	public int fieldI = 2147483467;
 	public long fieldJ = 9223372036854775807L;
 	public float fieldF = 1.23456789f;
-	public double fieldD = 1.23456789;
+	public double fieldD = 9.87654321;
 	public String fieldString = "helloworld";
-
-	public boolean fieldSetZ;
-	public byte fieldSetB;
-	public char fieldSetC;
-	public short fieldSetS;
-	public int fieldSetI;
-	public long fieldSetJ;
-	public float fieldSetF;
-	public double fieldSetD;
-	public String fieldSetString;
+    public final String fieldFinalString = "finalworld";
 
 	// Floating-point comparison epsilon
 	private final static double EPSILON = 1E-6;
@@ -117,7 +109,6 @@ public class BasicsTest {
 		x[0] = x[1] = x[2] = "helloworld";
 		return x;
 	}
-
 
 	public boolean methodParamsZBCSIJFD(boolean x1, byte x2, char x3, short x4,
 			int x5, long x6, float x7, double x8) {
@@ -175,35 +166,4 @@ public class BasicsTest {
 		x[2] = -127;
 	}
 
-	public boolean testFieldSetZ() {
-		return (fieldSetZ == true);
-	}
-
-	public boolean testFieldSetB() {
-		return (fieldSetB == 127);
-	}
-
-	public boolean testFieldSetC() {
-		return (fieldSetC == 'k');
-	}
-
-	public boolean testFieldSetS() {
-		return (fieldSetS == 32767);
-	}
-
-	public boolean testFieldSetI() {
-		return (fieldSetI == 2147483467);
-	}
-
-	public boolean testFieldSetJ() {
-		return (fieldSetJ == 9223372036854775807L);
-	}
-
-	public boolean testFieldSetF() {
-		return (Math.abs(fieldSetF - 1.23456789f) < EPSILON);
-	}
-
-	public boolean testFieldSetD() {
-		return (Math.abs(fieldSetD - 1.23456789) < EPSILON);
-	}
 }

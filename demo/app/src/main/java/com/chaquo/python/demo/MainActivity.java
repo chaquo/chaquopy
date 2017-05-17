@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
         tvBuffer.append("\n");
         etInput.setText("");
 
+        // TODO: make text copyable
         // TODO: multi-line input (InteractiveConsole)
         // TODO: input history (On-screen arrow buttons? See what other Python REPL apps do.)
         tvBuffer.append(exec(input));

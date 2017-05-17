@@ -16,11 +16,27 @@ class JavaException(Exception):
         Exception.__init__(self, message)
 
 
-# TODO override setattr on both class and object so that assignment to nonexistent fields
-# doesn't just create a new __dict__ entry (see static field __set__ note below).
+# FIXME override setattr on both class and object so that assignment to methods or nonexistent
+# fields doesn't work (see static field __set__ note below).
 #
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
+    def __new__(metacls, classname, bases, classDict):
+        # These are defined here rather than in JavaObject because cdef classes are required to
+        # use __richcmp__ instead.
+        classDict["__eq__"] = lambda self, other: self.equals(other)
+        classDict["__ne__"] = lambda self, other: not self.equals(other)
+
+        # TODO disabled until tested (#5154), and should also implement other container
+        # interfaces.
+        #
+        # for iclass in c.getInterfaces():
+        #     if iclass.getName() == 'java.util.List':
+        #         classDict['__getitem__'] = lambda self, index: self.get(index)
+        #         classDict['__len__'] = lambda self: self.size()
+
+        return type.__new__(metacls, classname, bases, classDict)
+
     def __init__(cls, classname, bases, classDict):
         cdef JNIEnv *j_env = get_jnienv()
         cls.__javaclass__ = cls.__javaclass__.replace("/", ".")
@@ -56,14 +72,7 @@ def is_reserved_word(word):
 # the java.lang.Object proxy. Maybe we could even integrate this into the Python metaclass
 # system, so that type(String("foo")) is String, type(String) is Class, and type(Class) is type.
 #
-# We may also want to recreate the Java class hierarchy in Python, although the only
-# significant benefit I can think of is catching Java exceptions in Python by their proxy base
-# class type. For fields and non-overloaded methods, the usual Python inheritance mechanism can
-# be used. But if a class adds an overloaded method, or inherits a method name from multiple
-# base classes, a new JavaMultipleMethod should be created in the subclass which incorporates
-# all the overloads in itself and in the base classes. (For any given signature, the most
-# derived _override_ will always be called: that's ensured by the JVM and there's no way to
-# circumvent it.)
+# TODO #5168 Replicate Java class hierarchy
 cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
 
@@ -86,7 +95,7 @@ cdef class JavaObject(object):
 
     def __repr__(self):
         if self.j_self:
-            ts = self.toString()
+            ts = str(self)
             if ts is not None and \
                self.__javaclass__.split(".")[-1] in ts:  # e.g. "java.lang.Object@28d93b30"
                 return f"<'{ts}'>"
@@ -94,6 +103,12 @@ cdef class JavaObject(object):
                 return f"<{self.__javaclass__} '{ts}'>"
         else:
             return f"<{self.__javaclass__} (no instance)>"
+
+    def __str__(self):
+        return self.toString()
+
+    def __hash__(self):
+        return self.hashCode()
 
 
 cdef class JavaMember(object):
@@ -185,6 +200,8 @@ cdef class JavaField(JavaMember):
         r = self.definition[0]
 
         # FIXME perform range and type checks, unless Cython checks and errors are adequate.
+        #
+        # We don't implement auto-unboxing: see note in populate_args
         if r == 'Z':
             j_boolean = <jboolean>value
             j_env[0].SetBooleanField(j_env, j_self, self.j_field, j_boolean)
@@ -212,7 +229,7 @@ cdef class JavaField(JavaMember):
         elif r == 'L':
             j_object = p2j(j_env, self.definition, value)
             j_env[0].SetObjectField(j_env, j_self, self.j_field, j_object.obj)
-        # FIXME array fields
+        # FIXME #5177 array fields
         else:
             raise Exception(f'Invalid field definition for {self}')
 
@@ -402,7 +419,10 @@ cdef class JavaMethod(JavaMember):
     def __get__(self, obj, objtype):
         self.ensure_method()
         if obj is None and not (self.is_static or self.is_constructor):
-            return self  # Unbound method: takes obj as first argument
+            # We don't allow the user to get unbound method objects, because that wouldn't be
+            # compatible with the way we implement overload resolution. (It might be possible
+            # to fix this, but it's not worth the effort.)
+            raise AttributeError(f'Cannot access {self} in static context')
         else:
             return lambda *args: self(obj, *args)
 
@@ -411,6 +431,7 @@ cdef class JavaMethod(JavaMember):
         cdef tuple d_args = self.definition_args
         cdef JNIEnv *j_env = get_jnienv()
 
+        # Should never happen, but worth keeping as an extra defense against a native crash.
         if not self.is_static and not isinstance(obj, self.jc):
             raise TypeError(f"Unbound method {self} must be called with "
                             f"{self.jc.__name__} instance as first argument (got "
@@ -644,8 +665,8 @@ cdef class JavaMultipleMethod(JavaMember):
 
     def __call__(self, obj, *args):
         args_types = tuple(map(type, args))
-        maximal = self.overload_cache.get(args_types)
-        if not maximal:
+        best_overload = self.overload_cache.get(args_types)
+        if not best_overload:
             # JLS 15.12.2.2. Identify Matching Arity Methods
             applicable = [jm for jm in self.methods
                           if is_applicable((<JavaMethod?>jm).definition_args,
@@ -666,12 +687,13 @@ cdef class JavaMultipleMethod(JavaMember):
                     maximal.append(jm1)
             if len(maximal) != 1:
                 raise TypeError(self.overload_err(f"is ambiguous for arguments", args, maximal))
-            self.overload_cache[args_types] = maximal
+            best_overload = maximal[0]
+            self.overload_cache[args_types] = best_overload
 
-        return maximal[0].__get__(obj, type(obj))(*args)
+        return best_overload.__get__(obj, type(obj))(*args)
 
     def overload_err(self, msg, args, methods):
         # TODO #5155 don't expose JNI signatures to users
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.classname()}.{self.name} {msg} {args_type_names}: options are " +
-                ", ".join([f"{<JavaMethod?>jm).definition}" for jm in methods]))
+                ", ".join([f"{<JavaMethod?>jm).definition_args}" for jm in methods]))

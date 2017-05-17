@@ -1,27 +1,12 @@
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 import unittest
-from chaquopy import JavaException
-from chaquopy.reflect import autoclass
+from chaquopy import autoclass, JavaException
 
-class BadDeclarationTest(unittest.TestCase):
+
+class TestException(unittest.TestCase):
 
     def test_class_not_found(self):
         self.assertRaises(JavaException, autoclass, 'org.unknow.class')
-
-    def test_invalid_attribute(self):
-        Stack = autoclass('java.util.Stack')
-        self.assertRaises(AttributeError, getattr, Stack, 'helloworld')
-
-    def test_invalid_static_call(self):
-        Stack = autoclass('java.util.Stack')
-        self.assertRaises(TypeError, Stack.push, 'hello')
-
-    def test_with_too_much_arguments(self):
-        Stack = autoclass('java.util.Stack')
-        stack = Stack()
-        self.assertRaises(TypeError, stack.push, 'hello', 'world', 123)
 
     def test_java_exception_handling(self):
         Stack = autoclass('java.util.Stack')
