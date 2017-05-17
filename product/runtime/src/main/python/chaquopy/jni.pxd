@@ -1,7 +1,6 @@
 from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 
 
-# TODO #5176 provide friendlier interface
 cdef extern from "jni.h":
     ctypedef unsigned char   jboolean   # TODO #5175: try the stdint names, as Cython is generating
     ctypedef signed char     jbyte      # redundant conversion functions only for jboolean and

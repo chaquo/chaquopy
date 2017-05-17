@@ -4,32 +4,29 @@ from cpython.version cimport PY_MAJOR_VERSION
 import chaquopy
 
 
-def cast(destclass, JavaObject obj):
-    """Returns a view of the object as the given fully-qualified class name. This can be used to
-    restrict the visible methods of an object in order to affect overload resolution.
+def cast(cls, JavaObject obj):
+    """Returns a view of the given object as the given class, which may be specified either as a
+    proxy class returned by `jclass` or as a fully-qualified class name. This can be used to
+    restrict the visible methods of the object in order to affect overload resolution.
     """
-    return chaquopy.autoclass(destclass)(instance=obj.j_self)
+    if isinstance(cls, six.string_types):
+        proxy_class = chaquopy.autoclass(cls)
+    elif isinstance(cls, JavaClass):
+        proxy_class = cls
+    else:
+        raise TypeError(f"{type(cls)} object does not specify a class")
+    return proxy_class(instance=obj.j_self)
 
 
-# FIXME this may fail for app classes on Android, which use a child ClassLoader.
+# TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
+# wrong ClassLoader.
 def find_javaclass(name):
     """Returns the java.lang.Class proxy object corresponding to the given fully-qualified class
-    name. Either '.' or '/' notation may be used. May raise any of the Java exceptions listed
-    at https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/functions.html#FindClass
+    name. Either '.' or '/' notation may be used. Raises java.lang.LinkageError on failure.
     """
-    cdef LocalRef jc
-    cdef JNIEnv *j_env = get_jnienv()
-
-    # FIXME all other uses of FindClass need to be guarded with expect_exception as well (see
-    # note on exceptions in jni.pxd)
-    jniname = str_for_c(name.replace('.', '/'))
-    jc = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, jniname))
-    if not jc:
-        expect_exception(j_env, f"FindClass failed for {name}")
-
     from . import reflect
     reflect.setup_bootstrap_classes()
-    return reflect.Class(instance=jc)
+    return reflect.Class(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):
@@ -83,14 +80,15 @@ def parse_definition(definition):
     return ret, tuple(args)
 
 
-cdef void expect_exception(JNIEnv *j_env, msg) except *:
+cdef expect_exception(JNIEnv *j_env, msg):
     """Raises a Java exception if one is pending, otherwise raises a Python Exception with the
     given message.
     """
     check_exception(j_env)
     raise Exception(msg)
 
-cdef void check_exception(JNIEnv *j_env) except *:
+# To avoid recursion, this function must not use anything which could itself call check_exception.
+cdef check_exception(JNIEnv *j_env):
     cdef jmethodID toString = NULL
     cdef jmethodID getCause = NULL
     cdef jmethodID getStackTrace = NULL
@@ -108,9 +106,11 @@ cdef void check_exception(JNIEnv *j_env) except *:
         getMessage = j_env[0].GetMethodID(j_env, cls_throwable, "getMessage", "()Ljava/lang/String;");
         getCause = j_env[0].GetMethodID(j_env, cls_throwable, "getCause", "()Ljava/lang/Throwable;");
         getStackTrace = j_env[0].GetMethodID(j_env, cls_throwable, "getStackTrace", "()[Ljava/lang/StackTraceElement;");
-
         e_msg = j_env[0].CallObjectMethod(j_env, exc, getMessage);
         pymsg = "" if e_msg == NULL else j2p_string(j_env, e_msg)
+
+        if j_env[0].ExceptionOccurred(j_env):
+            raise JavaException("Another exception occurred while getting exception details")
 
         pystack = []
         _append_exception_trace_messages(j_env, pystack, exc, getCause, getStackTrace, toString)
@@ -126,6 +126,8 @@ cdef void check_exception(JNIEnv *j_env) except *:
         raise JavaException(f'{pyexcclass}: {pymsg}', pyexcclass, pymsg, pystack)
 
 
+# FIXME #5179: this does not appear to work, I've never seen a Java stack trace on a JavaException,
+# even in its description string.
 cdef void _append_exception_trace_messages(
     JNIEnv*      j_env,
     list         pystack,
@@ -175,6 +177,7 @@ cdef void _append_exception_trace_messages(
     j_env[0].DeleteLocalRef(j_env, frames)
 
 
+# To avoid recursion, this function must not use anything which could call check_exception.
 cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     """Returns the fully-qualified class name of the given object, in the same format as
     Class.getName().
@@ -226,25 +229,34 @@ def is_applicable(sign_args, args, *, varargs):
 
 # Must be consistent with populate_args and p2j
 cdef arg_is_applicable(JNIEnv *env, r, arg):
+    # We don't implement auto-unboxing: see note in populate_args
     if r == 'Z':
         return isinstance(arg, bool)
     if r in "BSIJ":
         return isinstance(arg, six.integer_types)
     if r == 'C':
+        # FIXME any test involving the value rather than the type may cause JavaMultipleMethod
+        # to cache the wrong overload.
         return isinstance(arg, six.string_types) and len(arg) == 1
     if r == 'F' or r == 'D':
         return isinstance(arg, (six.integer_types, float))
     if r[0] in 'L[':
+        # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
+        # values inside, but JavaMultipleMethod will cache based only on the container type.
+        # Make it so that all lists/tuples are considered applicable to all arrays, but can be
+        # wrapped with jarray(type, obj), where type is a JavaClass, primitive, or
+        # jarray(type). For caching to work, calls to jarray with different types must return
+        # objects of different types.
         try:
             p2j(env, r, arg)
             return True
-        except TypeError:
-            return False
-        except RangeError:
+        except RangeError:  # FIXME maybe no longer necessary
             # The value is out of range, but the type matches, so give
             # JavaMultipleMethod.__call__ a positive result so it doesn't cache a different
             # method incorrectly (FIXME test).
             return True
+        except TypeError:
+            return False
 
     raise ValueError(f"Invalid signature '{r}'")
 
@@ -259,9 +271,32 @@ def more_specific(JavaMethod jm1, JavaMethod jm2):
             all([find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
                  for def1, def2 in zip(defs1, defs2)]))
 
-    # FIXME primitive types also have assignability rules (JLS 4.10), but they won't work with
-    # find_javaclass, and maybe not with isAssignableFrom either. For example, consider passing
-    # an int to Float(), which has constructors taking both (float) and (double).
+    # FIXME rename this function to better_overload, and make it take the actual parameter
+    # types as a third argument. When passed a Python int or long, prefer the largest of the 4
+    # Java integral types. (Java rules, in conjunction with arg_is_applicable, would have us
+    # prefer the smallest.) Likewise, when passed a Python float, prefer Java double over
+    # float, and always prefer String over char. In all cases, only the actual parameter type
+    # determines which overload is used, not the value.
     #
-    # FIXME (int...) is actualy more specific than (double...), but int[] is not more specific
-    # than double[]. https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading
+    # In all other cases, follow Java rules. For example, when passing an int (whether Python
+    # or Java) to Float(), which has constructors taking both float and double, float should be
+    # used because it's more specific, even though it may be less accurate. The rules for this
+    # phase also state that boxed and unboxed types are NOT treated as related. (The JLS
+    # requires an initial search for applicable methods with boxing and unboxing disabled, but
+    # that's not relevant to us: see note in populate_args.)
+    #
+    # If this causes an ambiguous call error, or other undesired behaviour, the user can wrap
+    # values using java.jint etc, which will return a ctypes.c_int32 etc. Keyword argument
+    # specifies whether truncation is acceptable. populate_args, write_field and p2j will
+    # accept these types wherever Java would. Likewise java.jchar returns ctypes.c_wchar,
+    # throwing an error if the string's not of length 1, or the character's not in the BMP.
+
+    # FIXME Child[] is more specific than Parent, and int is more specific than double, but
+    # int[] is not more specific than double[] (neither is assignable to the other, or to
+    # Object[], although both are assignable to Object itself).
+    #
+    # However, (int...) actualy is more specific than (double...), because in this case
+    # assignability is checked on a parameter-by-parameter basis, including the possibility
+    # that the more specific overload has more or fewer parameters than the other. Like
+    # is_applicable, this method needs to be informed whether we to use varargs or not.
+    # https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading

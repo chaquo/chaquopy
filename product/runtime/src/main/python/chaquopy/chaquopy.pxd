@@ -46,5 +46,5 @@ cdef void set_jvm(JavaVM *new_jvm)
 
 # === utils ===================================================================
 
-cdef void expect_exception(JNIEnv *j_env, msg) except *
-cdef void check_exception(JNIEnv *j_env) except *
+cdef expect_exception(JNIEnv *j_env, msg)
+cdef check_exception(JNIEnv *j_env)

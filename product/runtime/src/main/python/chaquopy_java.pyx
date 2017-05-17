@@ -346,3 +346,5 @@ cdef void java_exception(JNIEnv *env, char *message, char *clsname):
         if env[0].ThrowNew(env, re, message) == 0:
             return
     printf("Failed to throw Java exception: %s", message)
+    # No need to release the reference: if we're throwing a Java exception we must be
+    # imminently returning from a `native` method.

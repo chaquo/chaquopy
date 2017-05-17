@@ -20,14 +20,9 @@ class JavaException(Exception):
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
-        cdef JNIEnv *j_env = get_jnienv()
         javaclass = classDict["__javaclass__"]
         classDict["__javaclass__"] = javaclass.replace("/", ".")
-        jni_clsname = javaclass.replace(".", "/")
-        j_cls = LocalRef.adopt(j_env, j_env[0].FindClass(j_env, str_for_c(jni_clsname)))
-        if not j_cls:
-            expect_exception(j_env, f"FindClass failed for {jni_clsname}")
-        classDict["j_cls"] = j_cls.global_ref()
+        classDict["j_cls"] = CQPEnv().FindClass(javaclass).global_ref()
 
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.

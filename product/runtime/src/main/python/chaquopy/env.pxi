@@ -1,3 +1,29 @@
+# TODO #5176 expand and use more widely
+cdef class CQPEnv(object):
+    """Friendlier interface to JNIEnv"""
+
+    cdef JNIEnv *j_env
+
+    def __init__(self):
+        self.j_env = get_jnienv()
+
+    cdef LocalRef FindClass(self, name):
+        jniname = str_for_c(name.replace('.', '/'))
+        result = self.adopt(self.j_env[0].FindClass(self.j_env, jniname))
+        if not result:
+            self.expect_exception(f"FindClass failed for {name}")
+        return result
+
+    def expect_exception(self, msg):
+        expect_exception(self.j_env, msg)
+
+    def check_exception(self):
+        check_exception(self.j_env)
+
+    cdef LocalRef adopt(self, jobject j_obj):
+        return LocalRef.adopt(self.j_env, j_obj)
+
+
 cdef class JNIRef(object):
     # Member variables declared in .pxd
 

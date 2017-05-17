@@ -400,8 +400,6 @@ cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
     cdef jlong j_long
     cdef jfloat j_float
     cdef jdouble j_double
-    cdef JNIRef j_object
-    cdef jclass j_class
 
     if pyarray is None:
         return NULL
@@ -464,11 +462,8 @@ cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
                     ret, i, 1, &j_double)
 
     elif definition[0] == 'L':
-        defstr = str_for_c(definition[1:-1])
-        j_class = j_env[0].FindClass(j_env, <bytes>defstr)
-        if j_class == NULL:
-            expect_exception(j_env, f"FindClass failed for {defstr}")
-        ret = j_env[0].NewObjectArray(j_env, array_size, j_class, NULL)
+        j_class = CQPEnv().FindClass(definition[1:-1])
+        ret = j_env[0].NewObjectArray(j_env, array_size, j_class.obj, NULL)
         for i in range(array_size):
             j_object = p2j(j_env, definition, pyarray[i])
             j_env[0].SetObjectArrayElement(j_env, ret, i, j_object.obj)
