@@ -1,9 +1,10 @@
 import keyword
 import six
 
+
+# TODO #5169 use proxy for actual exception class
 class JavaException(Exception):
-    # TODO: should only be used for real Java exceptions, use standard Python exceptions for
-    # internal errors.
+    """An exception originating from Java code"""
 
     classname = None     # The classname of the exception
     innermessage = None  # The message of the inner exception
@@ -169,9 +170,11 @@ cdef class JavaField(JavaMember):
         return self.j_field
 
     cdef void ensure_field(self) except *:
-        cdef JNIEnv *j_env = get_jnienv()
         if self.j_field != NULL:
             return
+        cdef JNIEnv *j_env = get_jnienv()
+        if self.name is None:
+            raise Exception('Field name has not been set')
         if self.is_static:
             self.j_field = j_env[0].GetStaticFieldID(
                     j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
@@ -431,7 +434,7 @@ cdef class JavaMethod(JavaMember):
             return
         cdef JNIEnv *j_env = get_jnienv()
         if self.name is None:
-            raise JavaException('Unable to find a None method!')
+            raise Exception('Method name has not been set')
         if self.is_static:
             self.j_method = j_env[0].GetStaticMethodID(
                     j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
@@ -456,12 +459,6 @@ cdef class JavaMethod(JavaMember):
         cdef tuple d_args = self.definition_args
         cdef JNIEnv *j_env = get_jnienv()
 
-        # Should never happen, but worth keeping as an extra defense against a native crash.
-        if not self.is_static and not isinstance(obj, self.jc):
-            raise TypeError(f"Unbound method {self.fqn()} must be called with "
-                            f"{self.jc.__name__} instance as first argument (got "
-                            f"{type(obj).__name__} instance instead)")
-
         if self.is_varargs:
             if len(args) < len(d_args) - 1:
                 raise TypeError(f'{self.fqn()} takes at least {len(d_args) - 1} arguments '
@@ -484,6 +481,12 @@ cdef class JavaMethod(JavaMember):
                 if self.is_static:
                     return self.call_staticmethod(j_env, j_args)
                 else:
+                    # Should never happen, but worth keeping as an extra defense against a
+                    # native crash.
+                    if not isinstance(obj, self.jc):
+                        raise TypeError(f"Unbound method {self.fqn()} must be called with "
+                                        f"{self.jc.__name__} instance as first argument (got "
+                                        f"{type(obj).__name__} instance instead)")
                     return self.call_method(j_env, obj, j_args)
             finally:
                 release_args(j_env, self.definition_args, j_args, args)

@@ -21,7 +21,6 @@ cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
         set_jvm(start_jvm())
         # Prevent the Java module from trying to start Python
-        # FIXME add test that this works (requires static field set)
         from . import reflect
         reflect.autoclass("com.chaquo.python.Python").started = True
 

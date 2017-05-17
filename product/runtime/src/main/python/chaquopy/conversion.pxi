@@ -261,7 +261,7 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
             j_env[0].DeleteLocalRef(j_env, j_object_item)
 
     else:
-        raise JavaException('Invalid return definition for array')
+        raise Exception(f"Invalid signature '{definition}'")
 
     return ret
 
@@ -467,8 +467,7 @@ cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
         defstr = str_for_c(definition[1:-1])
         j_class = j_env[0].FindClass(j_env, <bytes>defstr)
         if j_class == NULL:
-            raise JavaException('Cannot create array with a class not '
-                    'found {0!r}'.format(definition[1:-1]))
+            expect_exception(j_env, f"FindClass failed for {defstr}")
         ret = j_env[0].NewObjectArray(j_env, array_size, j_class, NULL)
         for i in range(array_size):
             j_object = p2j(j_env, definition, pyarray[i])
