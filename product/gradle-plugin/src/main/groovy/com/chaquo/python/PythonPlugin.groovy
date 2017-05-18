@@ -10,6 +10,7 @@ import static java.nio.file.StandardCopyOption.*
 
 
 // FIXME unit test everything
+// Unsupported Android plugin version
 // Wrong python version
 // Wrong ABIs
 // Override by flavor
@@ -17,8 +18,9 @@ import static java.nio.file.StandardCopyOption.*
 // up to date checks
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
-    static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5144
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
+    static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0")  // TODO #5180
 
     Project project
     Object android
@@ -32,12 +34,19 @@ class PythonPlugin implements Plugin<Project> {
                 def depVer = VersionNumber.parse(dep.version)
                 if (depVer < MIN_ANDROID_PLUGIN_VER) {
                     throw new GradleException("Chaquopy requires Android Gradle plugin version " +
-                                              "$MIN_ANDROID_PLUGIN_VER (current version is " +
+                                              "$MIN_ANDROID_PLUGIN_VER or later (current version is " +
                                               "$depVer). Please edit the buildscript block.")
+                    // FIXME point to GitHub issue to vote for
                 }
                 if (depVer > MAX_ANDROID_PLUGIN_VER) {
+                    throw new GradleException("Chaquopy does not work with Android Gradle plugin " +
+                                    "version $MAX_ANDROID_PLUGIN_VER or later (current version is " +
+                                    "$depVer). Please edit the buildscript block.")
+                    // FIXME point to GitHub issue to vote for
+                }
+                if (depVer > MAX_TESTED_ANDROID_PLUGIN_VER) {
                     println("Warning: Chaquopy has not been tested with Android Gradle plugin " +
-                            "versions beyond $MAX_ANDROID_PLUGIN_VER (current version is " +
+                            "versions beyond $MAX_TESTED_ANDROID_PLUGIN_VER (current version is " +
                             "$depVer). If you experience problems, try editing the " +
                             "buildscript block.")
                 }
