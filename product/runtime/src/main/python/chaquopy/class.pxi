@@ -463,32 +463,25 @@ cdef class JavaMethod(JavaMember):
         if len(args) != len(d_args):
             raise TypeError(f'{self.fqn()} takes {len(d_args)} arguments ({len(args)} given)')
 
+        if len(args):
+            j_args = <jvalue*>alloca(sizeof(jvalue) * len(d_args))
+            populate_args(j_env, self.definition_args, j_args, args)
+
         try:
-            if len(args):
-                j_args = <jvalue *>malloc(sizeof(jvalue) * len(d_args))
-                if j_args == NULL:
-                    raise MemoryError('Unable to allocate memory for java args')
-                populate_args(j_env, self.definition_args, j_args, args)
-
-            try:
-                if self.is_constructor:
-                    return self.call_constructor(j_env, j_args)
-                if self.is_static:
-                    return self.call_staticmethod(j_env, j_args)
-                else:
-                    # Should never happen, but worth keeping as an extra defense against a
-                    # native crash.
-                    if not isinstance(obj, self.jc):
-                        raise TypeError(f"Unbound method {self.fqn()} must be called with "
-                                        f"{self.jc.__name__} instance as first argument (got "
-                                        f"{type(obj).__name__} instance instead)")
-                    return self.call_method(j_env, obj, j_args)
-            finally:
-                release_args(j_env, self.definition_args, j_args, args)
-
+            if self.is_constructor:
+                return self.call_constructor(j_env, j_args)
+            if self.is_static:
+                return self.call_staticmethod(j_env, j_args)
+            else:
+                # Should never happen, but worth keeping as an extra defense against a
+                # native crash.
+                if not isinstance(obj, self.jc):
+                    raise TypeError(f"Unbound method {self.fqn()} must be called with "
+                                    f"{self.jc.__name__} instance as first argument (got "
+                                    f"{type(obj).__name__} instance instead)")
+                return self.call_method(j_env, obj, j_args)
         finally:
-            if j_args != NULL:
-                free(j_args)
+            release_args(j_env, self.definition_args, j_args, args)
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,

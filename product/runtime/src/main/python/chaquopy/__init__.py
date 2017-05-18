@@ -41,7 +41,8 @@ from .chaquopy import *  # noqa
 from .reflect import *  # noqa
 
 
-# FIXME check this
+# FIXME test this. I don't see any reason why it has to be Android-specific, though maybe it's
+# only Android which enforces it.
 # from https://gist.github.com/tito/09c42fb4767721dc323d
 import os
 if "ANDROID_ARGUMENT" in os.environ:

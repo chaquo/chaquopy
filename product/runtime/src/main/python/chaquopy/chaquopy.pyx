@@ -4,8 +4,6 @@ from __future__ import absolute_import, division, print_function
 
 from collections import defaultdict
 
-# FIXME remove this cimport, and replace malloc/free with alloca everywhere.
-from libc.stdlib cimport malloc, free
 cdef extern from "alloca.h":
     void *alloca(size_t size)
 
