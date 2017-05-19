@@ -146,10 +146,14 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
         to_sig = jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
         try:
             result = p2j(env, to_sig, self)
+            if isinstance(result, JNIRef):
+                return (<JNIRef?>result).return_ref(env)
+            else:
+                raise TypeError("Cannot convert to primitive type (e.g. 'int'); use the boxed type "
+                                "(e.g. 'Integer') instead")
         except TypeError as e:
             wrap_exception(env, e, "java.lang.ClassCastException")
             return NULL
-        return result.return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL

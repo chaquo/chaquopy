@@ -7,6 +7,10 @@ from cpython.object cimport PyObject
 
 import chaquopy
 
+INT_TYPES = "BSIJ"                          # Order matters: see is_assignable_from.
+FLOAT_TYPES = "FD"                          #   "      "
+NUMERIC_TYPES = INT_TYPES + FLOAT_TYPES     #   "      "
+PRIMITIVE_TYPES = NUMERIC_TYPES + "CZ"      # Order doesn't matter here.
 
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
@@ -33,16 +37,10 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 
-# Must be consistent with arg_is_applicable
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    # FIXME perform range and type checks, unless Cython checks and errors are adequate.
-    #
-    # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
-    # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
-    # the other hand, will be done if necessary by p2j.
     cdef int index
     for index, argtype in enumerate(definition_args):
-        py_arg = args[index]
+        py_arg = p2j(j_env, argtype, args[index])
         if argtype == 'Z':
             j_args[index].z = py_arg
         elif argtype == 'B':
@@ -60,7 +58,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'D':
             j_args[index].d = py_arg
         elif argtype[0] in 'L[':
-            j_args[index].l = p2j(j_env, argtype, py_arg).return_ref(j_env)
+            j_args[index].l = (<JNIRef?>py_arg).return_ref(j_env)
 
 
 # FIXME remove definition_ignored
@@ -266,24 +264,46 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     return ret
 
 
-class RangeError(TypeError):
-    """Indicates that a value could not be converted to the requested type because it was outside
-    of the type's range.
-    """
-    pass
-
-
-# Must be consistent with arg_is_applicable
-cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
-    if definition[0] == 'V':
-        # Could happen from proxy.pxi
+cdef p2j(JNIEnv *j_env, definition, obj):
+    if definition == 'V':
+        # Used to be a possibility when using java.lang.reflect.Proxy; keeping in case we do
+        # something similar in the future.
         if obj is not None:
             raise TypeError("Void method cannot return a value")
         return LocalRef()
 
-    elif definition[0] in "ZBCDFIJS":
-        raise TypeError("Cannot convert to primitive type (e.g. 'int'); use the boxed type "
-                        "(e.g. 'Integer') instead")
+    # For primitive types we simply check type and then return the original object:
+    # populate_args, write_field and write_static_field will convert it to the C type.
+    #
+    # FIXME Cython range checks and errors are probably adequate, but add tests.
+    elif definition in PRIMITIVE_TYPES:
+        # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
+        # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
+        # the other hand, will be done if necessary by p2j.
+        if definition == 'Z':
+            if isinstance(obj, bool):
+                return obj
+        elif definition in INT_TYPES:
+            # We don't perform range checks here because of the caching in JavaMultipleMethod:
+            # see note at is_applicable_arg.
+            #
+            # Java allows a char to be implicitly converted to an int or larger, but this would
+            # be surprising in Python. Be explicit and use the functions `ord` or `chr`.
+            #
+            # For backwards compatibility with old versions of Python, bool is a subclass of
+            # int, but we should be stricter.
+            if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
+                return obj
+        elif definition in FLOAT_TYPES:
+            if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
+                return obj
+        elif definition == "C":
+            # We don't call ord() or check that len(obj) == 1, for the same reason we don't
+            # range-check an int.
+            if isinstance(obj, six.string_types):
+                return obj
+        else:
+            raise Exception(f"Unknown primitive type {definition}")
 
     elif definition[0] == 'L':
         clsname = definition[1:-1].replace("/", ".")
@@ -304,35 +324,31 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
                 Character = find_javaclass("java.lang.Character")
                 if klass.isAssignableFrom(Character):
                     return p2j_box(j_env, Character, obj)
+
+        # Auto-boxing
         elif isinstance(obj, bool):
             Boolean = find_javaclass("java.lang.Boolean")
             if klass.isAssignableFrom(Boolean):
                 return p2j_box(j_env, Boolean, obj)
         elif isinstance(obj, six.integer_types):
-            # Integer will be preferred if clsname is Number or Object, because that's the type
-            # of an undecorated Java floating point literal.
-            #
-            # TODO If clsname is Number or Object, and Integer isn't big enough, try Long.
+            # Long will be used if clsname is Number or Object.
             #
             # TODO support BigInteger (#5174), and make that a final fallback if clsname is
             # Number or Object, and Long isn't big enough.
-            #
-            # FIXME this fails for Float because it has two constructors and more_specific
-            # doesn't handle primitive types.
-            #
-            # FIXME this will delegate range checking to populate_args: test whether Cython
-            # checks and errors are adequate. And raise RangeError (see arg_is_applicable).
-            for box_clsname in ["Integer", "Long", "Short", "Byte", "Double", "Float", "Character"]:
+            for box_clsname in ["Long", "Integer", "Short", "Byte", "Double", "Float"]:
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):
                     return p2j_box(j_env, box_klass, obj)
         elif isinstance(obj, float):
-            # Double will be used if clsname is Number or Object, because that's the type of an
-            # undecorated Java floating point literal.
+            # Double will be used if clsname is Number or Object.
             for box_clsname in ["Double", "Float"]:
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):
                     return p2j_box(j_env, box_klass, obj)
+        elif isinstance(obj, six.string_types):
+            Character = find_javaclass("java.lang.Character")
+            if klass.isAssignableFrom(Character):
+                return p2j_box(j_env, Character, obj)
 
         elif isinstance(obj, JavaObject):
             # Comparison to clsname prevents recursion when converting argument to isAssignableFrom
@@ -359,16 +375,19 @@ cdef JNIRef p2j(JNIEnv *j_env, definition, obj):
     else:
         raise ValueError(f"Invalid signature '{definition}'")
 
-    raise TypeError(f"Cannot convert {type(obj).__name__} to {definition}")
+    # TODO #5155 don't expose JNI signatures to users
+    raise TypeError(f"Cannot convert {type(obj).__name__} object to {definition}")
 
 
 cdef JNIRef p2j_string(JNIEnv *env, s):
     return p2j(env, "Ljava/lang/String;", s)
 
 
-cdef LocalRef p2j_box(JNIEnv *env, box_klass, value):
+cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
+    # This will result in a recursive call to p2j, this time requesting the primitive type of
+    # the constructor parameter.
     cdef JavaObject boxed = chaquopy.autoclass(box_klass.getName())(value)
-    return LocalRef.create(env, boxed.j_self.obj)
+    return boxed.j_self
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
@@ -465,7 +484,7 @@ cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
         j_class = CQPEnv().FindClass(definition[1:-1])
         ret = j_env[0].NewObjectArray(j_env, array_size, j_class.obj, NULL)
         for i in range(array_size):
-            j_object = p2j(j_env, definition, pyarray[i])
+            j_object = <JNIRef?>p2j(j_env, definition, pyarray[i])
             j_env[0].SetObjectArrayElement(j_env, ret, i, j_object.obj)
 
     elif definition[0] == '[':

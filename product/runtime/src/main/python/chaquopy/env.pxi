@@ -40,10 +40,7 @@ cdef class JNIRef(object):
         return self.obj != NULL
 
     cdef GlobalRef global_ref(self):
-        if isinstance(self, GlobalRef):
-            return self
-        else:
-            return GlobalRef.create((<LocalRef?>self).env, self.obj)
+        raise NotImplementedError()
 
     cdef jobject return_ref(self, JNIEnv *env):
         """Returns a new local reference suitable for returning from a `native` method or otherwise
@@ -55,6 +52,13 @@ cdef class JNIRef(object):
 
 
 cdef class GlobalRef(object):
+    @staticmethod
+    cdef GlobalRef create(JNIEnv *env, jobject obj):
+        cdef GlobalRef gr = GlobalRef()
+        if obj:
+            gr.obj = env[0].NewGlobalRef(env, obj)
+        return gr
+
     def __dealloc__(self):
         cdef JNIEnv *j_env
         if self.obj:
@@ -63,12 +67,8 @@ cdef class GlobalRef(object):
         self.obj = NULL
         # The __dealloc__() method of the superclass will be called automatically.
 
-    @staticmethod
-    cdef GlobalRef create(JNIEnv *env, jobject obj):
-        cdef GlobalRef gr = GlobalRef()
-        if obj:
-            gr.obj = env[0].NewGlobalRef(env, obj)
-        return gr
+    cdef GlobalRef global_ref(self):
+        return self
 
 
 cdef class LocalRef(JNIRef):
@@ -91,3 +91,6 @@ cdef class LocalRef(JNIRef):
             self.env[0].DeleteLocalRef(self.env, self.obj)
         self.obj = NULL
         # The __dealloc__() method of the superclass will be called automatically.
+
+    cdef GlobalRef global_ref(self):
+        return GlobalRef.create(self.env, self.obj)

@@ -5,9 +5,17 @@ import chaquopy
 
 
 def cast(cls, JavaObject obj):
-    """Returns a view of the given object as the given class, which may be specified either as a
-    proxy class returned by `jclass` or as a fully-qualified class name. This can be used to
-    restrict the visible methods of the object in order to affect overload resolution.
+    """Returns a view of the given object as the given class. The class may be specified either as a
+    proxy class returned by `jclass` or as a fully-qualified class name. Raises TypeError if the
+    object is not an instance of the given class.
+
+    Situations where this could be useful:
+
+    * By changing the apparent type of the object to one of its superclasses, a less specific
+      overload may be chosen when passing the object to a method.
+
+    * By removing visibility of a method's overloads added in a subclass, a superclass overload
+      may be chosen instead when calling that method on the object.
     """
     if isinstance(cls, six.string_types):
         proxy_class = chaquopy.autoclass(cls)
@@ -221,75 +229,86 @@ def is_applicable(sign_args, args, *, varargs):
             arg = args[index:]
         else:
             arg = args[index]
-        if not arg_is_applicable(env, sign_arg, arg):
+        if not is_applicable_arg(env, sign_arg, arg):
             return False
 
     return True
 
 
-# Must be consistent with populate_args and p2j
-cdef arg_is_applicable(JNIEnv *env, r, arg):
-    # We don't implement auto-unboxing: see note in populate_args
-    if r == 'Z':
-        return isinstance(arg, bool)
-    if r in "BSIJ":
-        return isinstance(arg, six.integer_types)
-    if r == 'C':
-        # FIXME any test involving the value rather than the type may cause JavaMultipleMethod
-        # to cache the wrong overload.
-        return isinstance(arg, six.string_types) and len(arg) == 1
-    if r == 'F' or r == 'D':
-        return isinstance(arg, (six.integer_types, float))
-    if r[0] in 'L[':
-        # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
-        # values inside, but JavaMultipleMethod will cache based only on the container type.
-        # Make it so that all lists/tuples are considered applicable to all arrays, but can be
-        # wrapped with jarray(type, obj), where type is a JavaClass, primitive, or
-        # jarray(type). For caching to work, calls to jarray with different types must return
-        # objects of different types.
-        try:
-            p2j(env, r, arg)
-            return True
-        except RangeError:  # FIXME maybe no longer necessary
-            # The value is out of range, but the type matches, so give
-            # JavaMultipleMethod.__call__ a positive result so it doesn't cache a different
-            # method incorrectly (FIXME test).
-            return True
-        except TypeError:
-            return False
-
-    raise ValueError(f"Invalid signature '{r}'")
+# Because of the caching in JavaMultipleMethod, the result of this function must only be
+# affected by the actual parameter types, not their values.
+cdef is_applicable_arg(JNIEnv *env, r, arg):
+    # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
+    # values inside, but JavaMultipleMethod will cache based only on the container type.
+    # Make it so that all lists/tuples are considered applicable to all arrays, but can be
+    # wrapped with jarray(type, obj), where type is a JavaClass, primitive, or
+    # jarray(type). For caching to work, calls to jarray with different types must return
+    # objects of different types.
+    try:
+        p2j(env, r, arg)
+        return True
+    except TypeError:
+        return False
 
 
-def more_specific(JavaMethod jm1, JavaMethod jm2):
-    """Returns whether jm1 is more specific than jm2, according to JLS 15.12.2.5. Choosing the Most
-    Specific Method
+def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
+    """Returns whether jm1 is an equal or better match than jm2 for the given actual parameter
+    types. This is based on JLS 15.12.2.5. "Choosing the Most Specific Method" and JLS 4.10.
+    "Subtyping".
     """
-    # FIXME this is a partial implementation to allow some tests to work
     defs1, defs2 = jm1.definition_args, jm2.definition_args
-    return (len(defs1) == len(defs2) and
-            all([find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
-                 for def1, def2 in zip(defs1, defs2)]))
 
-    # FIXME rename this function to better_overload, and make it take the actual parameter
-    # types as a third argument. When passed a Python int or long, prefer the largest of the 4
-    # Java integral types. (Java rules, in conjunction with arg_is_applicable, would have us
-    # prefer the smallest.) Likewise, when passed a Python float, prefer Java double over
-    # float, and always prefer String over char. In all cases, only the actual parameter type
-    # determines which overload is used, not the value.
-    #
-    # In all other cases, follow Java rules. For example, when passing an int (whether Python
-    # or Java) to Float(), which has constructors taking both float and double, float should be
-    # used because it's more specific, even though it may be less accurate. The rules for this
-    # phase also state that boxed and unboxed types are NOT treated as related. (The JLS
-    # requires an initial search for applicable methods with boxing and unboxing disabled, but
-    # that's not relevant to us: see note in populate_args.)
-    #
-    # If this causes an ambiguous call error, or other undesired behaviour, the user can wrap
-    # values using java.jint etc, which will return a ctypes.c_int32 etc. Keyword argument
-    # specifies whether truncation is acceptable. populate_args, write_field and p2j will
-    # accept these types wherever Java would. Likewise java.jchar returns ctypes.c_wchar,
-    # throwing an error if the string's not of length 1, or the character's not in the BMP.
+    if varargs:
+        return False  # FIXME
+    else:
+        return (len(defs1) == len(defs2) and
+                all([better_overload_arg(d1, d2, at)
+                     for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
+
+
+# Because of the caching in JavaMultipleMethod, the result of this function must only be
+# affected by the actual parameter types, not their values.
+#
+# We don't have to handle combinations which will be filtered out by is_applicable_arg. For
+# example, we'll never be asked to compare a numeric type with a boolean or char, because any
+# actual parameter type which is applicable to one will not be applicable to the others.
+#
+# In this context, boxed and unboxed types are NOT treated as related. The JLS requires an
+# initial search for applicable overloads with boxing and unboxing disabled, but that's not
+# relevant to us: see note about unboxing in p2j.
+def better_overload_arg(def1, def2, actual_type):
+    if def2 == def1:
+        return True
+    elif def2.startswith("L"):
+        if def1.startswith("L"):
+            return find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
+        elif def1.startswith("["):
+            return def2 in ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
+    elif def2.startswith("["):
+            return (def2[1] not in PRIMITIVE_TYPES and
+                    def1.startswith("[") and
+                    better_overload_arg(def2[1:], def1[1:], None))
+
+    # To avoid data loss, we prefer to treat a Python int or float as the largest of the
+    # corresponding Java types.
+    elif issubclass(actual_type, six.integer_types) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
+        return INT_TYPES.find(def1) >= INT_TYPES.find(def2)
+    elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
+        return FLOAT_TYPES.find(def1) >= FLOAT_TYPES.find(def2)
+
+    # Similarly, we prefer to treat a Python string as a Java String rather than a char (see
+    # note above about caching).
+    elif issubclass(actual_type, six.string_types) and \
+         (def2 == "C") and (def1 == "Ljava/lang/String;"):
+        return True
+
+    # Otherwise we prefer the smallest (i.e. most specific) Java type. This includes the case
+    # of passing a Python int where float and double overloads exist: the float overload will
+    # be called, just like in Java.
+    elif (def1 in NUMERIC_TYPES) and (def2 in NUMERIC_TYPES):
+        return NUMERIC_TYPES.find(def1) <= NUMERIC_TYPES.find(def2)
+
+    return False
 
     # FIXME Child[] is more specific than Parent, and int is more specific than double, but
     # int[] is not more specific than double[] (neither is assignable to the other, or to

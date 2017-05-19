@@ -11,9 +11,15 @@ class ImplementationTest(unittest.TestCase):
     def test_out(self):
         # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
         System = autoclass('java.lang.System')
-        # FIXME This should be implemented in JavaObject.__new__, using identityHashCode
-        # followed by IsSameObject. Test weak reference handling in the same way as in Java.
+
+        # TODO #5181 This should be implemented in JavaObject.__new__, using identityHashCode
+        # followed by IsSameObject. Consider how this will interact with aliases created by
+        # `cast`; `is` probably can't say that they're also the same object, but that's not a
+        # major problem (document at `cast`). Test garbage collection just like in the Java
+        # unit tests.
+        #
         # self.assertIs(System.out, System.out)
+
         self.assertEqual(False, System.out.checkError())
         self.assertIsNone(System.out.flush())
 

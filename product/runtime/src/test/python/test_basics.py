@@ -60,7 +60,7 @@ class BasicsTest(unittest.TestCase):
         Test = autoclass('com.chaquo.python.BasicsTest')
         Test.fieldStaticZ = False
         Test.fieldStaticB = -127
-        Test.fieldStaticC = ord('p')
+        Test.fieldStaticC = 'p'
         Test.fieldStaticS = -32767
         Test.fieldStaticI = -2147483467
         Test.fieldStaticJ = -9223372036854775807
@@ -187,7 +187,7 @@ class BasicsTest(unittest.TestCase):
         test = Test()
         test.fieldZ = False
         test.fieldB = -127
-        test.fieldC = ord('p')
+        test.fieldC = 'p'
         test.fieldS = -32767
         test.fieldI = -2147483467
         test.fieldJ = -9223372036854775807

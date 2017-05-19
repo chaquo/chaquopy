@@ -20,9 +20,8 @@ class JavaException(Exception):
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
-        javaclass = classDict["__javaclass__"]
-        classDict["__javaclass__"] = javaclass.replace("/", ".")
-        classDict["j_cls"] = CQPEnv().FindClass(javaclass).global_ref()
+        classDict["__javaclass__"] = classname = classDict["__javaclass__"].replace("/", ".")
+        classDict["j_cls"] = CQPEnv().FindClass(classname).global_ref()
 
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.
@@ -44,7 +43,8 @@ class JavaClass(type):
             if alias not in classDict:
                 classDict[alias] = classDict[name]
 
-        return type.__new__(metacls, classname, bases, classDict)
+        # classname must be "str" type, whatever that is on this Python version.
+        return type.__new__(metacls, str(classname), bases, classDict)
 
     def __init__(cls, classname, bases, classDict):
         for name, value in six.iteritems(classDict):
@@ -209,32 +209,27 @@ cdef class JavaField(JavaMember):
 
     cdef write_field(self, jobject j_self, value):
         cdef JNIEnv *j_env = get_jnienv()
+        j_value = p2j(j_env, self.definition, value)
 
-        # FIXME perform range and type checks, unless Cython checks and errors are adequate.
-        #
-        # We don't implement auto-unboxing: see note in populate_args
         r = self.definition[0]
         if r == 'Z':
-            if not isinstance(value, bool):
-                raise TypeError(f"{self.fqn()} cannot be set from a '{type(value).__name__}'")
-            j_env[0].SetBooleanField(j_env, j_self, self.j_field, <jboolean>value)
+            j_env[0].SetBooleanField(j_env, j_self, self.j_field, <jboolean>j_value)
         elif r == 'B':
-            j_env[0].SetByteField(j_env, j_self, self.j_field, <jbyte>value)
+            j_env[0].SetByteField(j_env, j_self, self.j_field, <jbyte>j_value)
         elif r == 'C':
-            j_env[0].SetCharField(j_env, j_self, self.j_field, <jchar>value)
+            j_env[0].SetCharField(j_env, j_self, self.j_field, <jchar>ord(j_value))
         elif r == 'S':
-            j_env[0].SetShortField(j_env, j_self, self.j_field, <jshort>value)
+            j_env[0].SetShortField(j_env, j_self, self.j_field, <jshort>j_value)
         elif r == 'I':
-            j_env[0].SetIntField(j_env, j_self, self.j_field, <jint>value)
+            j_env[0].SetIntField(j_env, j_self, self.j_field, <jint>j_value)
         elif r == 'J':
-            j_env[0].SetLongField(j_env, j_self, self.j_field, <jlong>value)
+            j_env[0].SetLongField(j_env, j_self, self.j_field, <jlong>j_value)
         elif r == 'F':
-            j_env[0].SetFloatField(j_env, j_self, self.j_field, <jfloat>value)
+            j_env[0].SetFloatField(j_env, j_self, self.j_field, <jfloat>j_value)
         elif r == 'D':
-            j_env[0].SetDoubleField(j_env, j_self, self.j_field, <jdouble>value)
+            j_env[0].SetDoubleField(j_env, j_self, self.j_field, <jdouble>j_value)
         elif r == 'L':
-            j_env[0].SetObjectField(j_env, j_self, self.j_field,
-                                    p2j(j_env, self.definition, value).obj)
+            j_env[0].SetObjectField(j_env, j_self, self.j_field, (<JNIRef?>j_value).obj)
         # TODO #5177 array fields
         else:
             raise Exception(f'Invalid definition for {self}')
@@ -299,32 +294,27 @@ cdef class JavaField(JavaMember):
     cdef write_static_field(self, value):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
         cdef JNIEnv *j_env = get_jnienv()
+        j_value = p2j(j_env, self.definition, value)
 
-        # FIXME perform range and type checks, unless Cython checks and errors are adequate.
-        #
-        # We don't implement auto-unboxing: see note in populate_args
         r = self.definition[0]
         if r == 'Z':
-            if not isinstance(value, bool):
-                raise TypeError(f"{self.fqn()} cannot be set from a '{type(value).__name__}'")
-            j_env[0].SetStaticBooleanField(j_env, j_class, self.j_field, <jboolean>value)
+            j_env[0].SetStaticBooleanField(j_env, j_class, self.j_field, <jboolean>j_value)
         elif r == 'B':
-            j_env[0].SetStaticByteField(j_env, j_class, self.j_field, <jbyte>value)
+            j_env[0].SetStaticByteField(j_env, j_class, self.j_field, <jbyte>j_value)
         elif r == 'C':
-            j_env[0].SetStaticCharField(j_env, j_class, self.j_field, <jchar>value)
+            j_env[0].SetStaticCharField(j_env, j_class, self.j_field, <jchar>ord(j_value))
         elif r == 'S':
-            j_env[0].SetStaticShortField(j_env, j_class, self.j_field, <jshort>value)
+            j_env[0].SetStaticShortField(j_env, j_class, self.j_field, <jshort>j_value)
         elif r == 'I':
-            j_env[0].SetStaticIntField(j_env, j_class, self.j_field, <jint>value)
+            j_env[0].SetStaticIntField(j_env, j_class, self.j_field, <jint>j_value)
         elif r == 'J':
-            j_env[0].SetStaticLongField(j_env, j_class, self.j_field, <jlong>value)
+            j_env[0].SetStaticLongField(j_env, j_class, self.j_field, <jlong>j_value)
         elif r == 'F':
-            j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, <jfloat>value)
+            j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, <jfloat>j_value)
         elif r == 'D':
-            j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, <jdouble>value)
+            j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, <jdouble>j_value)
         elif r == 'L':
-            j_env[0].SetStaticObjectField(j_env, j_class, self.j_field,
-                                          p2j(j_env, self.definition, value).obj)
+            j_env[0].SetStaticObjectField(j_env, j_class, self.j_field, (<JNIRef?>j_value).obj)
         # TODO #5177 array fields
         else:
             raise Exception(f'Invalid definition for {self}')
@@ -683,23 +673,26 @@ cdef class JavaMultipleMethod(JavaMember):
         args_types = tuple(map(type, args))
         best_overload = self.overload_cache.get(args_types)
         if not best_overload:
-            # JLS 15.12.2.2. Identify Matching Arity Methods
+            # JLS 15.12.2.2. "Identify Matching Arity Methods"
+            varargs = False
             applicable = [jm for jm in self.methods
                           if is_applicable((<JavaMethod?>jm).definition_args,
                                            args, varargs=False)]
 
-            # JLS 15.12.2.4. Identify Applicable Variable Arity Methods
+            # JLS 15.12.2.4. "Identify Applicable Variable Arity Methods"
             if not applicable:
+                varargs = True
                 applicable = [jm for jm in self.methods if (<JavaMethod?>jm).is_varargs and
                               is_applicable((<JavaMethod?>jm).definition_args,
                                            args, varargs=True)]
             if not applicable:
                 raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
 
-            # JLS 15.12.2.5. Choosing the Most Specific Method
+            # JLS 15.12.2.5. "Choosing the Most Specific Method"
             maximal = []
             for jm1 in applicable:
-                if not any([more_specific(jm2, jm1) for jm2 in applicable if jm2 is not jm1]):
+                if not any([better_overload(jm2, jm1, args_types, varargs=varargs)
+                            for jm2 in applicable if jm2 is not jm1]):
                     maximal.append(jm1)
             if len(maximal) != 1:
                 raise TypeError(self.overload_err(f"is ambiguous for arguments", args, maximal))

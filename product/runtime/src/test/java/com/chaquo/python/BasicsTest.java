@@ -2,6 +2,7 @@ package com.chaquo.python;
 
 import java.lang.String;
 
+/** See test_basics.py */
 public class BasicsTest {
 	static public boolean methodStaticZ() { return fieldStaticZ; }
 	static public byte methodStaticB() { return fieldStaticB; }

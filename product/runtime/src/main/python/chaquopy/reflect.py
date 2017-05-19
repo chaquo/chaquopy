@@ -281,11 +281,30 @@ def bean_getter(s):
     return (s.startswith('get') and len(s) > 3 and s[3].isupper()) or (s.startswith('is') and len(s) > 2 and s[2].isupper())
 
 
-# FIXME: survey where this is used and consider whether there's a risk of infinite recursion,
-# either in autoclass itself or in method calls / field access.
 def autoclass(clsname):
-    """Returns the class proxy object for the given fully-qualified class name, which may use
-    either '.' or '/' notation.
+    """Returns the Java class proxy for the given fully-qualified class name. The name may use
+    either '.' or '/' notation. To refer to a nested or inner class, use '$' as the separator,
+    e.g. `java.lang.Map$Entry`.
+
+    To create new instances of the class, simply call it like a normal Python class::
+
+        StringBuffer = autoclass("java.lang.StringBuffer")
+        sb = StringBuffer(1024)
+    
+    As in Java, static methods and fields can be accessed on either the class or instances of
+    the class, while instance methods and fields can only be accessed on instances::
+
+        FIXME give examples of the above
+
+    The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
+    Object)` and `isinstance(String("hello"), Object) will both return `False`. This may change
+    in the future.
+
+    Link to sections on type conversion and overloading (which should maybe be combined).
+
+        Java objects returned from methods or read from fields are represented as their actual
+        run-time type, not the declared type of the method or field. To change this, pass the
+        object to the :any:`cast` function.
     """
     clsname = clsname.replace('/', '.')
     cls = autoclass_cache.get(clsname)
@@ -309,7 +328,9 @@ def autoclass(clsname):
             method = JavaMethod(method_signature(method),
                                 static=Modifier.isStatic(method.getModifiers()),
                                 varargs=method.isVarArgs())
-            # TODO disabled until tested (#5153), and should also generate a setter
+            # TODO disabled until tested (#5153), and should also generate a setter, AND should
+            # be moved to the metaclass so it also takes effect on bootstrap classes.
+            #
             # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
             #     classDict[lower_name(name[3:])] = \
             #         (lambda n: property(lambda self: getattr(self, n)()))(name)
@@ -337,8 +358,7 @@ def autoclass(clsname):
                                                static=Modifier.isStatic(modifiers),
                                                final=Modifier.isFinal(modifiers))
 
-    # type argument 1 must be "str" type, whatever that is on this Python version.
-    cls = JavaClass(str(clsname), (JavaObject,), classDict)
+    cls = JavaClass(clsname, (JavaObject,), classDict)
     cache_class(cls)
     return cls
 

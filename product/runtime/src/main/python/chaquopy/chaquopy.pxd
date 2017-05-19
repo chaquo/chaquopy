@@ -14,7 +14,7 @@ cdef j2p_string(JNIEnv *env, jobject j_object)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
 cdef j2p_array(JNIEnv *j_env, definition, jobject j_object)
 
-cdef JNIRef p2j(JNIEnv *j_env, definition, obj)
+cdef p2j(JNIEnv *j_env, definition, obj)
 cdef JNIRef p2j_string(JNIEnv *env, s)
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
 cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *
@@ -29,6 +29,7 @@ cdef class JNIRef(object):
 cdef class GlobalRef(JNIRef):
     @staticmethod
     cdef GlobalRef create(JNIEnv *env, jobject obj)
+    cdef GlobalRef global_ref(self)
 
 cdef class LocalRef(JNIRef):
     # It's safe to store j_env here, as long as the LocalRef isn't kept beyond the thread
@@ -39,6 +40,7 @@ cdef class LocalRef(JNIRef):
     cdef LocalRef create(JNIEnv *env, jobject obj)
     @staticmethod
     cdef LocalRef adopt(JNIEnv *env, jobject obj)
+    cdef GlobalRef global_ref(self)
 
 # === jni =====================================================================
 

@@ -68,8 +68,8 @@ public class PyObjectTest {
 
         assertEquals(42, (int)pyobjecttest.get("int_var").toJava(Integer.class));
         assertEquals(42.0, pyobjecttest.get("int_var").toJava(Double.class), 0.0001);
-        assertEquals(42, pyobjecttest.get("int_var").toJava(Number.class));
-        assertEquals(42, pyobjecttest.get("int_var").toJava(Object.class));
+        assertEquals(42L, pyobjecttest.get("int_var").toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
+        assertEquals(42L, pyobjecttest.get("int_var").toJava(Object.class));    //
 
         assertEquals(43.5, pyobjecttest.get("float_var").toJava(Double.class), 0.0001);
         assertEquals(43.5, pyobjecttest.get("float_var").toJava(Number.class));
