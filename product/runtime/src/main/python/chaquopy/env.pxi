@@ -36,7 +36,9 @@ cdef class JNIRef(object):
     def __repr__(self):
         return f'<{self.__class__.__name__} obj=0x{<uintptr_t>self.obj:x}>'
 
-    def __nonzero__(self):
+    def __nonzero__(self):      # Python 2 name
+        return self.obj != NULL
+    def __bool__(self):         # Python 3 name
         return self.obj != NULL
 
     cdef GlobalRef global_ref(self):

@@ -1,6 +1,6 @@
 package com.chaquo.python;
 
-public class MultipleDimensions {
+public class Arrays {
 	public static boolean methodParamsMatrixI(int[][] x) {
 		if (x.length != 3 || x[0].length != 3)
 			return false;

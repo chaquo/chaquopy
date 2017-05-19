@@ -1,9 +1,11 @@
 from cpython.version cimport PY_MAJOR_VERSION
 
+import re
 import six
 import sys
 
 from cpython.object cimport PyObject
+from libc.float cimport FLT_MAX
 
 import chaquopy
 
@@ -28,7 +30,6 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
         elif argtype[0] == '[':
             # Copy back any modifications the Java method may have made to the array
-            # FIXME is this tested?
             ret = j2p_array(j_env, argtype[1:], j_args[index].l)
             try:
                 args[index][:] = ret
@@ -46,6 +47,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'B':
             j_args[index].b = py_arg
         elif argtype == 'C':
+            check_range_char(py_arg)
             j_args[index].c = ord(py_arg)
         elif argtype == 'S':
             j_args[index].s = py_arg
@@ -54,6 +56,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'J':
             j_args[index].j = py_arg
         elif argtype == 'F':
+            check_range_float32(py_arg)
             j_args[index].f = py_arg
         elif argtype == 'D':
             j_args[index].d = py_arg
@@ -272,21 +275,18 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             raise TypeError("Void method cannot return a value")
         return LocalRef()
 
-    # For primitive types we simply check type and then return the original object:
-    # populate_args, write_field and write_static_field will convert it to the C type.
-    #
-    # FIXME Cython range checks and errors are probably adequate, but add tests.
+    # For primitive types we simply check type check and then return the original object: it's
+    # the caller's responsibility to convert it to the C type. It's also the caller's
+    # responsibility to perform range checks: see note at is_applicable_arg for why we can't do
+    # it here.
     elif definition in PRIMITIVE_TYPES:
         # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
         # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
-        # the other hand, will be done if necessary by p2j.
+        # the other hand, will be done if necessary below.
         if definition == 'Z':
             if isinstance(obj, bool):
                 return obj
         elif definition in INT_TYPES:
-            # We don't perform range checks here because of the caching in JavaMultipleMethod:
-            # see note at is_applicable_arg.
-            #
             # Java allows a char to be implicitly converted to an int or larger, but this would
             # be surprising in Python. Be explicit and use the functions `ord` or `chr`.
             #
@@ -298,8 +298,7 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
                 return obj
         elif definition == "C":
-            # We don't call ord() or check that len(obj) == 1, for the same reason we don't
-            # range-check an int.
+            # We don't check that len(obj) == 1; see note above about range checks.
             if isinstance(obj, six.string_types):
                 return obj
         else:
@@ -377,6 +376,22 @@ cdef p2j(JNIEnv *j_env, definition, obj):
 
     # TODO #5155 don't expose JNI signatures to users
     raise TypeError(f"Cannot convert {type(obj).__name__} object to {definition}")
+
+
+# https://github.com/cython/cython/issues/1709
+def check_range_float32(value):
+    if value not in [float("nan"), float("inf"), float("-inf")] and \
+       (value < -FLT_MAX or value > FLT_MAX):  # FLT_MIN is an infintesimal number.
+        raise OverflowError("value too large to convert to float")
+
+
+# `ord` will raise a TypeError if not passed a string of length 1. In Python 2, a non-BMP
+# character is represented as a string of length 2, so avoid a potentially confusing error
+# message.
+def check_range_char(value):
+    if (len(value) == 2 and re.match(u'[\ud800-\udbff][\udc00-\udfff]', value, re.UNICODE)) or \
+       ord(value) > 0xFFFF:
+        raise TypeError("Cannot convert non-BMP character to char")
 
 
 cdef JNIRef p2j_string(JNIEnv *env, s):

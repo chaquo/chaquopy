@@ -213,21 +213,23 @@ cdef class JavaField(JavaMember):
 
         r = self.definition[0]
         if r == 'Z':
-            j_env[0].SetBooleanField(j_env, j_self, self.j_field, <jboolean>j_value)
+            j_env[0].SetBooleanField(j_env, j_self, self.j_field, j_value)
         elif r == 'B':
-            j_env[0].SetByteField(j_env, j_self, self.j_field, <jbyte>j_value)
+            j_env[0].SetByteField(j_env, j_self, self.j_field, j_value)
         elif r == 'C':
-            j_env[0].SetCharField(j_env, j_self, self.j_field, <jchar>ord(j_value))
+            check_range_char(j_value)
+            j_env[0].SetCharField(j_env, j_self, self.j_field, ord(j_value))
         elif r == 'S':
-            j_env[0].SetShortField(j_env, j_self, self.j_field, <jshort>j_value)
+            j_env[0].SetShortField(j_env, j_self, self.j_field, j_value)
         elif r == 'I':
-            j_env[0].SetIntField(j_env, j_self, self.j_field, <jint>j_value)
+            j_env[0].SetIntField(j_env, j_self, self.j_field, j_value)
         elif r == 'J':
-            j_env[0].SetLongField(j_env, j_self, self.j_field, <jlong>j_value)
+            j_env[0].SetLongField(j_env, j_self, self.j_field, j_value)
         elif r == 'F':
-            j_env[0].SetFloatField(j_env, j_self, self.j_field, <jfloat>j_value)
+            check_range_float32(j_value)
+            j_env[0].SetFloatField(j_env, j_self, self.j_field, j_value)
         elif r == 'D':
-            j_env[0].SetDoubleField(j_env, j_self, self.j_field, <jdouble>j_value)
+            j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_value)
         elif r == 'L':
             j_env[0].SetObjectField(j_env, j_self, self.j_field, (<JNIRef?>j_value).obj)
         # TODO #5177 array fields
@@ -298,21 +300,23 @@ cdef class JavaField(JavaMember):
 
         r = self.definition[0]
         if r == 'Z':
-            j_env[0].SetStaticBooleanField(j_env, j_class, self.j_field, <jboolean>j_value)
+            j_env[0].SetStaticBooleanField(j_env, j_class, self.j_field, j_value)
         elif r == 'B':
-            j_env[0].SetStaticByteField(j_env, j_class, self.j_field, <jbyte>j_value)
+            j_env[0].SetStaticByteField(j_env, j_class, self.j_field, j_value)
         elif r == 'C':
-            j_env[0].SetStaticCharField(j_env, j_class, self.j_field, <jchar>ord(j_value))
+            check_range_char(j_value)
+            j_env[0].SetStaticCharField(j_env, j_class, self.j_field, ord(j_value))
         elif r == 'S':
-            j_env[0].SetStaticShortField(j_env, j_class, self.j_field, <jshort>j_value)
+            j_env[0].SetStaticShortField(j_env, j_class, self.j_field, j_value)
         elif r == 'I':
-            j_env[0].SetStaticIntField(j_env, j_class, self.j_field, <jint>j_value)
+            j_env[0].SetStaticIntField(j_env, j_class, self.j_field, j_value)
         elif r == 'J':
-            j_env[0].SetStaticLongField(j_env, j_class, self.j_field, <jlong>j_value)
+            j_env[0].SetStaticLongField(j_env, j_class, self.j_field, j_value)
         elif r == 'F':
-            j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, <jfloat>j_value)
+            check_range_float32(j_value)
+            j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, j_value)
         elif r == 'D':
-            j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, <jdouble>j_value)
+            j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, j_value)
         elif r == 'L':
             j_env[0].SetStaticObjectField(j_env, j_class, self.j_field, (<JNIRef?>j_value).obj)
         # TODO #5177 array fields

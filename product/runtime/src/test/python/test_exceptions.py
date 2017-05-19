@@ -21,8 +21,8 @@ class TestException(unittest.TestCase):
             self.assertEquals("java.util.EmptyStackException", je.classname)
 
     def test_java_exception_chaining(self):
-        BasicsTest = autoclass('com.chaquo.python.BasicsTest')
-        basics = BasicsTest()
+        Basics = autoclass('com.chaquo.python.Basics')
+        basics = Basics()
         try:
             basics.methodExceptionChained()
             self.fail("Expected exception to be thrown")

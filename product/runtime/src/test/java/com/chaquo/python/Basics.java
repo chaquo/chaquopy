@@ -3,7 +3,7 @@ package com.chaquo.python;
 import java.lang.String;
 
 /** See test_basics.py */
-public class BasicsTest {
+public class Basics {
 	static public boolean methodStaticZ() { return fieldStaticZ; }
 	static public byte methodStaticB() { return fieldStaticB; }
 	static public char methodStaticC() { return fieldStaticC; }
@@ -55,14 +55,17 @@ public class BasicsTest {
 	public long fieldJ = 9223372036854775807L;
 	public float fieldF = 1.23456789f;
 	public double fieldD = 9.87654321;
-	public String fieldString = "helloworld";
+    public Object fieldObject = null;
+    public CharSequence fieldCharSequence = null;
+    public String fieldString = "helloworld";
+    public Class fieldClass = null;
     public final String fieldFinalString = "finalworld";
 
 	// Floating-point comparison epsilon
 	private final static double EPSILON = 1E-6;
 
-    public BasicsTest() {}
-    public BasicsTest(byte fieldBVal) {
+    public Basics() {}
+    public Basics(byte fieldBVal) {
         fieldB = fieldBVal;
     }
 

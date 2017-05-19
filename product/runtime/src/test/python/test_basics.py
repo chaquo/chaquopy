@@ -6,7 +6,7 @@ from chaquopy import autoclass
 class BasicsTest(unittest.TestCase):
 
     def test_static_methods(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         self.assertEquals(Test.methodStaticZ(), True)
         self.assertEquals(Test.methodStaticB(), 127)
         self.assertEquals(Test.methodStaticC(), 'k')
@@ -36,7 +36,7 @@ class BasicsTest(unittest.TestCase):
             Test.methodStaticParamsString = 99
 
     def test_static_get_fields(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         self.assertEquals(Test.fieldStaticZ, True)
         self.assertEquals(Test.fieldStaticB, 127)
         self.assertEquals(Test.fieldStaticC, 'k')
@@ -57,7 +57,7 @@ class BasicsTest(unittest.TestCase):
             Test.fieldStaticNonexistent
 
     def test_static_set_fields(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         Test.fieldStaticZ = False
         Test.fieldStaticB = -127
         Test.fieldStaticC = 'p'
@@ -110,7 +110,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(Test.methodStaticI(), 42)
 
     def test_instance_methods(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         test = Test()
         self.assertEquals(test.methodZ(), True)
         self.assertEquals(test.methodB(), 127)
@@ -134,7 +134,7 @@ class BasicsTest(unittest.TestCase):
             test.methodString = 99
 
     def test_instance_methods_multiple_instances(self):
-        BT = autoclass('com.chaquo.python.BasicsTest')
+        BT = autoclass('com.chaquo.python.Basics')
         test1, test2 = BT(), BT(10)
         self.assertEquals(test2.methodB(), 10)
         self.assertEquals(test1.methodB(), 127)
@@ -151,7 +151,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(method2(), 10)
 
     def test_instance_get_fields(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         test = Test()
         self.assertEquals(test.fieldZ, True)
         self.assertEquals(test.fieldB, 127)
@@ -169,7 +169,7 @@ class BasicsTest(unittest.TestCase):
             Test.fieldString
 
     def test_instance_fields_multiple_instances(self):
-        BT = autoclass('com.chaquo.python.BasicsTest')
+        BT = autoclass('com.chaquo.python.Basics')
         test1, test2 = BT(), BT(10)
         self.assertEquals(test2.fieldB, 10)
         self.assertEquals(test1.fieldB, 127)
@@ -183,7 +183,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(test2.methodB(), 22)
 
     def test_instance_set_fields(self):
-        Test = autoclass('com.chaquo.python.BasicsTest')
+        Test = autoclass('com.chaquo.python.Basics')
         test = Test()
         test.fieldZ = False
         test.fieldB = -127
@@ -225,7 +225,7 @@ class BasicsTest(unittest.TestCase):
             Test.fieldString = 42
 
     def test_instance_methods_array(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         # FIXME test full range of each type
         self.assertEquals(test.methodArrayZ(), [True] * 3)
         self.assertEquals(test.methodArrayB(), [127] * 3)
@@ -244,7 +244,7 @@ class BasicsTest(unittest.TestCase):
         self.assertEquals(test.methodArrayString(), ['helloworld'] * 3)
 
     def test_instance_methods_params(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsZBCSIJFD(
             True, 127, 'k', 32767, 2147483467, 9223372036854775807, 1.23456789, 1.23456789), True)
         self.assertEquals(test.methodParamsString('helloworld'), True)
@@ -253,32 +253,32 @@ class BasicsTest(unittest.TestCase):
             'hello', 'world']), True)
 
     def test_instance_methods_params_object_list_str(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsObject([
             'hello', 'world']), True)
 
     def test_instance_methods_params_object_list_int(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsObject([1, 2]), True)
 
     def test_instance_methods_params_object_list_float(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsObject([3.14, 1.61]), True)
 
     def test_instance_methods_params_object_list_long(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsObject([1, 2]), True)
 
     def test_instance_methods_params_array_byte(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodParamsArrayByte([127, 127, 127]), True)
         ret = test.methodArrayB()
         self.assertEquals(test.methodParamsArrayByte(ret), True)
 
     def test_return_array_as_object_array_of_strings(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodReturnStrings(), ['Hello', 'world'])
 
     def test_return_array_as_object_of_integers(self):
-        test = autoclass('com.chaquo.python.BasicsTest')()
+        test = autoclass('com.chaquo.python.Basics')()
         self.assertEquals(test.methodReturnIntegers(), [1, 2])
