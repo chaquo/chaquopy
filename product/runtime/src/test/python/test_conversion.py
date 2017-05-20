@@ -1,76 +1,129 @@
 from __future__ import absolute_import, division, print_function
+
+from contextlib import contextmanager
+import math
 import unittest
+
 from chaquopy import autoclass
 
 
 class TestConversion(unittest.TestCase):
 
     def test_boolean(self):
-        basics = autoclass('com.chaquo.python.Basics')()
-        basics.fieldZ = False
-        basics.fieldZ = True
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            basics.fieldZ = 1
+        obj = autoclass('com.chaquo.python.TestConversion')()
+        self.check_boolean_field(obj, "fieldZ")
+        self.check_boolean_field(obj, "fieldBoolean")
+        self.check_boolean_field(obj, "fieldObject", allow_int=True)
+
+    def check_boolean_field(self, obj, field, allow_int=False):
+        self.verify_value(obj, field, False)
+        self.verify_value(obj, field, True)
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_int):
+            self.verify_value(obj, field, 1)
 
     def test_int(self):
-        basics = autoclass('com.chaquo.python.Basics')()
-        self.range_check_int(basics, "fieldB", 8)
-        self.range_check_int(basics, "fieldS", 16)
-        self.range_check_int(basics, "fieldI", 32)
-        self.range_check_int(basics, "fieldJ", 64)
+        obj = autoclass('com.chaquo.python.TestConversion')()
+        self.check_int_field(obj, "fieldB", 8)
+        self.check_int_field(obj, "fieldS", 16)
+        self.check_int_field(obj, "fieldI", 32)
+        self.check_int_field(obj, "fieldJ", 64)
 
-    def range_check_int(self, basics, field_name, bits):
+        self.check_int_field(obj, "fieldByte", 8)
+        self.check_int_field(obj, "fieldShort", 16)
+        self.check_int_field(obj, "fieldInteger", 32)
+        self.check_int_field(obj, "fieldLong", 64)
+
+        self.check_int_field(obj, "fieldObject", 64, allow_bool=True, allow_float=True)
+        self.check_int_field(obj, "fieldNumber", 64, allow_float=True)
+
+    def check_int_field(self, obj, field, bits, allow_bool=False, allow_float=False):
         max_val = (2 ** (bits-1)) - 1
         min_val = -max_val - 1
 
-        setattr(basics, field_name, min_val)
-        setattr(basics, field_name, max_val)
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            setattr(basics, field_name, True)
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            setattr(basics, field_name, 1.23)
+        self.verify_value(obj, field, min_val)
+        self.verify_value(obj, field, max_val)
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_bool):
+            self.verify_value(obj, field, True)
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_float):
+            self.verify_value(obj, field, 1.23)
         with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
-            setattr(basics, field_name, min_val - 1)
+            self.verify_value(obj, field, min_val - 1)
         with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
-            setattr(basics, field_name, max_val + 1)
+            self.verify_value(obj, field, max_val + 1)
 
     def test_float(self):
-        basics = autoclass('com.chaquo.python.Basics')()
-        self.range_check_float(basics, "fieldF", 8)
-        self.range_check_float(basics, "fieldD", 11)
+        obj = autoclass('com.chaquo.python.TestConversion')()
+        self.check_float_field(obj, "fieldF", 8)
+        self.check_float_field(obj, "fieldD", 11)
 
-    def range_check_float(self, basics, field_name, exponent_bits):
+        self.check_float_field(obj, "fieldFloat", 8)
+        self.check_float_field(obj, "fieldDouble", 11)
+
+        self.check_float_field(obj, "fieldObject", 11, allow_bool=True)
+        self.check_float_field(obj, "fieldNumber", 11)
+
+    def check_float_field(self, obj, field, exponent_bits, allow_bool=False):
         max_exponent = (2 ** (exponent_bits - 1)) - 1
 
-        setattr(basics, field_name, -(2.0 ** max_exponent))
-        setattr(basics, field_name, 2.0 ** max_exponent)
-        setattr(basics, field_name, float("nan"))
-        setattr(basics, field_name, float("inf"))
-        setattr(basics, field_name, float("-inf"))
+        self.verify_value(obj, field, -(2.0 ** max_exponent))
+        self.verify_value(obj, field, 2.0 ** max_exponent)
+        self.verify_value(obj, field, float("nan"),
+                          verify=lambda expected, actual: self.assertTrue(math.isnan(actual)))
+        self.verify_value(obj, field, float("inf"))
+        self.verify_value(obj, field, float("-inf"))
 
-        setattr(basics, field_name, 123)
-        self.assertEqual(123, getattr(basics, field_name))
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            setattr(basics, field_name, True)
+        # Floating-point fields always accept an int.
+        self.verify_value(obj, field, 123)
+
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_bool):
+            self.verify_value(obj, field, True)
 
         # In the case of double, the error will come from the unit test itself.
         with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
-            setattr(basics, field_name, -(2.0 ** (max_exponent + 1)))
+            self.verify_value(obj, field, -(2.0 ** (max_exponent + 1)))
         with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
-            setattr(basics, field_name, 2.0 ** (max_exponent + 1))
+            self.verify_value(obj, field, 2.0 ** (max_exponent + 1))
+
+        # FIXME should be able to wrap in jfloat with truncate=True to avoid range checks.
 
     def test_char(self):
-        basics = autoclass('com.chaquo.python.Basics')()
-        basics.fieldC = u"\u0000"
-        basics.fieldC = u"\uFFFF"
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            basics.fieldC = True
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            basics.fieldC = 1
-        with self.assertRaisesRegexp(TypeError, "expected a character"):
-            basics.fieldC = "ab"
-        with self.assertRaisesRegexp(TypeError, "non-BMP"):
-            basics.fieldC = u"\U00010000"
+        obj = autoclass('com.chaquo.python.TestConversion')()
+        self.check_char_field(obj, "fieldC")
+        self.check_char_field(obj, "fieldCharacter")
+        self.check_char_field(obj, "fieldObject", allow_bool=True, allow_int=True, allow_string=True)
+
+    def check_char_field(self, obj, field, allow_bool=False, allow_int=False, allow_string=False):
+        self.verify_value(obj, field, "x")  # Will be a byte string in Python 2.
+        self.verify_value(obj, field, u"\u0000")
+        self.verify_value(obj, field, u"\uFFFF")
+
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_bool):
+            self.verify_value(obj, field, True)
+        with self.assertRaisesRegexpOptional(TypeError, "Cannot convert", allow_int):
+            self.verify_value(obj, field, 1)
+        with self.assertRaisesRegexpOptional(TypeError, "expected a character", allow_string):
+            self.verify_value(obj, field, "ab")
+        with self.assertRaisesRegexpOptional(TypeError, "non-BMP", allow_string):
+            self.verify_value(obj, field, u"\U00010000")
+
+    # FIXME extend this to generate, from a suffix, names of fields, static fields, methods
+    # which take an argument and set a field, and methods which return a field. Rewrite Basics
+    # to do this, remove TestConversion. Remove those parts of test_basics which duplicate
+    # this, and move the rest, along with test_reflect, into test_class.
+
+    def verify_value(self, obj, field, value, verify=None):
+        if verify is None:
+            verify = self.assertEqual
+        setattr(obj, field, value)
+        verify(value, getattr(obj, field))
+
+    @contextmanager
+    def assertRaisesRegexpOptional(self, cls, regexp, should_succeed):
+        if should_succeed:
+            yield
+        else:
+            with self.assertRaisesRegexp(cls, regexp):
+                yield
 
     def test_class(self):
         Object = autoclass("java.lang.Object")

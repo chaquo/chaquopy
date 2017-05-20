@@ -17,12 +17,6 @@ PRIMITIVE_TYPES = NUMERIC_TYPES + "CZ"      # Order doesn't matter here.
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
-cdef jstringy_arg(argtype):
-    return argtype in ('Ljava/lang/String;',
-                       'Ljava/lang/CharSequence;',
-                       'Ljava/lang/Object;')
-
-
 cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
     cdef int index
     for index, argtype in enumerate(definition_args):
@@ -79,6 +73,8 @@ cdef j2p(JNIEnv *j_env, definition_ignored, jobject j_object):
 
     if r == 'java.lang.String':
         return j2p_string(j_env, j_object)
+
+    # FIXME can we call through autoclass?
     if r == 'java.lang.Long':
         retclass = j_env[0].GetObjectClass(j_env, j_object)
         retmeth = j_env[0].GetMethodID(j_env, retclass, 'longValue', '()J')
@@ -110,7 +106,7 @@ cdef j2p(JNIEnv *j_env, definition_ignored, jobject j_object):
     if r == 'java.lang.Character':
         retclass = j_env[0].GetObjectClass(j_env, j_object)
         retmeth = j_env[0].GetMethodID(j_env, retclass, 'charValue', '()C')
-        return ord(j_env[0].CallCharMethod(j_env, j_object, retmeth))
+        return unichr(j_env[0].CallCharMethod(j_env, j_object, retmeth))
     if r == 'com.chaquo.python.PyObject':
         return j2p_pyobject(j_env, j_object)
 
@@ -312,17 +308,18 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             return LocalRef()
 
         elif isinstance(obj, six.string_types):
-            if jstringy_arg(definition):
+            String = find_javaclass("java.lang.String")
+            if klass.isAssignableFrom(String):
                 u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
                 utf16 = u.encode(JCHAR_ENCODING)
                   # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python
                 return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
                                                                 <jchar*><char*>utf16,
                                                                 len(utf16)//2))
-            elif len(obj) == 1:
-                Character = find_javaclass("java.lang.Character")
-                if klass.isAssignableFrom(Character):
-                    return p2j_box(j_env, Character, obj)
+            # Auto-boxing
+            Character = find_javaclass("java.lang.Character")
+            if klass.isAssignableFrom(Character):
+                return p2j_box(j_env, Character, obj)
 
         # Auto-boxing
         elif isinstance(obj, bool):
@@ -344,10 +341,6 @@ cdef p2j(JNIEnv *j_env, definition, obj):
                 box_klass = find_javaclass("java.lang." + box_clsname)
                 if klass.isAssignableFrom(box_klass):
                     return p2j_box(j_env, box_klass, obj)
-        elif isinstance(obj, six.string_types):
-            Character = find_javaclass("java.lang.Character")
-            if klass.isAssignableFrom(Character):
-                return p2j_box(j_env, Character, obj)
 
         elif isinstance(obj, JavaObject):
             # Comparison to clsname prevents recursion when converting argument to isAssignableFrom
@@ -367,6 +360,7 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
+        # FIXME we can't support bytearray here: it's unsigned but Java byte is signed.
         if isinstance(obj, (tuple, list)) or \
            (isinstance(obj, bytearray) and definition == "[B"):
             return LocalRef.adopt(j_env, p2j_array(j_env, definition[1:], obj))
@@ -379,15 +373,18 @@ cdef p2j(JNIEnv *j_env, definition, obj):
 
 
 # https://github.com/cython/cython/issues/1709
+#
+# TODO #5182 we should also test against FLT_MIN, which is the most infintesimal float32, to
+# avoid accidental conversion to zero.
 def check_range_float32(value):
     if value not in [float("nan"), float("inf"), float("-inf")] and \
-       (value < -FLT_MAX or value > FLT_MAX):  # FLT_MIN is an infintesimal number.
+       (value < -FLT_MAX or value > FLT_MAX):
         raise OverflowError("value too large to convert to float")
 
 
-# `ord` will raise a TypeError if not passed a string of length 1. In Python 2, a non-BMP
-# character is represented as a string of length 2, so avoid a potentially confusing error
-# message.
+# `ord` will raise a TypeError if not passed a string of length 1. In "narrow" Python builds, a
+# non-BMP character is represented as a string of length 2, so avoid a potentially confusing
+# error message.
 def check_range_char(value):
     if (len(value) == 2 and re.match(u'[\ud800-\udbff][\udc00-\udfff]', value, re.UNICODE)) or \
        ord(value) > 0xFFFF:
@@ -399,9 +396,15 @@ cdef JNIRef p2j_string(JNIEnv *env, s):
 
 
 cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
+    # Uniquely among the boxed types, the Float class has two primitive-typed constructors, one
+    # of which takes a double, which our overload resolution will prefer.
+    clsname = box_klass.getName()
+    if clsname == "java.lang.Float":
+        check_range_float32(value)
+
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter.
-    cdef JavaObject boxed = chaquopy.autoclass(box_klass.getName())(value)
+    cdef JavaObject boxed = chaquopy.autoclass(clsname)(value)
     return boxed.j_self
 
 

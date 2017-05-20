@@ -55,10 +55,7 @@ public class Basics {
 	public long fieldJ = 9223372036854775807L;
 	public float fieldF = 1.23456789f;
 	public double fieldD = 9.87654321;
-    public Object fieldObject = null;
-    public CharSequence fieldCharSequence = null;
     public String fieldString = "helloworld";
-    public Class fieldClass = null;
     public final String fieldFinalString = "finalworld";
 
 	// Floating-point comparison epsilon

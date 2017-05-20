@@ -237,61 +237,30 @@ cdef class JavaField(JavaMember):
             raise Exception(f'Invalid definition for {self}')
 
     cdef read_field(self, jobject j_self):
-        cdef jboolean j_boolean
-        cdef jbyte j_byte
-        cdef jchar j_char
-        cdef jshort j_short
-        cdef jint j_int
-        cdef jlong j_long
-        cdef jfloat j_float
-        cdef jdouble j_double
-        cdef jobject j_object
-        cdef object ret = None
         cdef JNIEnv *j_env = get_jnienv()
-
         r = self.definition[0]
         if r == 'Z':
-            j_boolean = j_env[0].GetBooleanField(
-                    j_env, j_self, self.j_field)
-            ret = True if j_boolean else False
+            return bool(j_env[0].GetBooleanField(j_env, j_self, self.j_field))
         elif r == 'B':
-            j_byte = j_env[0].GetByteField(
-                    j_env, j_self, self.j_field)
-            ret = <char>j_byte
+            return j_env[0].GetByteField(j_env, j_self, self.j_field)
         elif r == 'C':
-            j_char = j_env[0].GetCharField(
-                    j_env, j_self, self.j_field)
-            ret = chr(<char>j_char)
+            return six.unichr(j_env[0].GetCharField(j_env, j_self, self.j_field))
         elif r == 'S':
-            j_short = j_env[0].GetShortField(
-                    j_env, j_self, self.j_field)
-            ret = <short>j_short
+            return j_env[0].GetShortField(j_env, j_self, self.j_field)
         elif r == 'I':
-            j_int = j_env[0].GetIntField(
-                    j_env, j_self, self.j_field)
-            ret = <int>j_int
+            return j_env[0].GetIntField(j_env, j_self, self.j_field)
         elif r == 'J':
-            j_long = j_env[0].GetLongField(
-                    j_env, j_self, self.j_field)
-            ret = <long long>j_long
+            return j_env[0].GetLongField(j_env, j_self, self.j_field)
         elif r == 'F':
-            j_float = j_env[0].GetFloatField(
-                    j_env, j_self, self.j_field)
-            ret = <float>j_float
+            return j_env[0].GetFloatField(j_env, j_self, self.j_field)
         elif r == 'D':
-            j_double = j_env[0].GetDoubleField(
-                    j_env, j_self, self.j_field)
-            ret = <double>j_double
+            return j_env[0].GetDoubleField(j_env, j_self, self.j_field)
         elif r == 'L':
-            j_object = j_env[0].GetObjectField(
-                    j_env, j_self, self.j_field)
-            if j_object != NULL:
-                ret = j2p(j_env, self.definition, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
+            j_object = LocalRef.adopt(j_env, j_env[0].GetObjectField(j_env, j_self, self.j_field))
+            return j2p(j_env, None, j_object.obj)
         # TODO #5177 array fields
         else:
             raise Exception(f'Invalid definition for {self}')
-        return ret
 
     cdef write_static_field(self, value):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
@@ -325,61 +294,31 @@ cdef class JavaField(JavaMember):
 
     cdef read_static_field(self):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
-        cdef jboolean j_boolean
-        cdef jbyte j_byte
-        cdef jchar j_char
-        cdef jshort j_short
-        cdef jint j_int
-        cdef jlong j_long
-        cdef jfloat j_float
-        cdef jdouble j_double
-        cdef jobject j_object
-        cdef object ret = None
         cdef JNIEnv *j_env = get_jnienv()
-
         r = self.definition[0]
         if r == 'Z':
-            j_boolean = j_env[0].GetStaticBooleanField(
-                    j_env, j_class, self.j_field)
-            ret = True if j_boolean else False
+            return bool(j_env[0].GetStaticBooleanField(j_env, j_class, self.j_field))
         elif r == 'B':
-            j_byte = j_env[0].GetStaticByteField(
-                    j_env, j_class, self.j_field)
-            ret = <char>j_byte
+            return j_env[0].GetStaticByteField(j_env, j_class, self.j_field)
         elif r == 'C':
-            j_char = j_env[0].GetStaticCharField(
-                    j_env, j_class, self.j_field)
-            ret = chr(<char>j_char)
+            return six.unichr(j_env[0].GetStaticCharField(j_env, j_class, self.j_field))
         elif r == 'S':
-            j_short = j_env[0].GetStaticShortField(
-                    j_env, j_class, self.j_field)
-            ret = <short>j_short
+            return j_env[0].GetStaticShortField(j_env, j_class, self.j_field)
         elif r == 'I':
-            j_int = j_env[0].GetStaticIntField(
-                    j_env, j_class, self.j_field)
-            ret = <int>j_int
+            return j_env[0].GetStaticIntField(j_env, j_class, self.j_field)
         elif r == 'J':
-            j_long = j_env[0].GetStaticLongField(
-                    j_env, j_class, self.j_field)
-            ret = <long long>j_long
+            return j_env[0].GetStaticLongField(j_env, j_class, self.j_field)
         elif r == 'F':
-            j_float = j_env[0].GetStaticFloatField(
-                    j_env, j_class, self.j_field)
-            ret = <float>j_float
+            return j_env[0].GetStaticFloatField(j_env, j_class, self.j_field)
         elif r == 'D':
-            j_double = j_env[0].GetStaticDoubleField(
-                    j_env, j_class, self.j_field)
-            ret = <double>j_double
+            return j_env[0].GetStaticDoubleField(j_env, j_class, self.j_field)
         elif r == 'L':
-            j_object = j_env[0].GetStaticObjectField(
-                    j_env, j_class, self.j_field)
-            ret = j2p(j_env, self.definition, j_object)
-            if j_object != NULL:
-                j_env[0].DeleteLocalRef(j_env, j_object)
+            j_object = LocalRef.adopt(j_env, j_env[0].GetStaticObjectField(j_env, j_class,
+                                                                           self.j_field))
+            return j2p(j_env, None, j_object.obj)
         # TODO #5177 array fields
         else:
             raise Exception(f'Invalid definition for {self}')
-        return ret
 
 
 cdef class JavaMethod(JavaMember):
