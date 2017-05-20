@@ -93,14 +93,15 @@ cdef class JavaObject(object):
         self.set_attribute(self, key, value)
 
     @classmethod
-    def set_attribute(cls, self, key, value):
+    def set_attribute(cls, obj, key, value):
         try:
             member = cls.__dict__[key]
         except KeyError:
-            raise AttributeError(f"'{cls.__name__}' object has no attribute '{key}'")
+            subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name}'"
+            raise AttributeError(f"{subject} has no attribute '{key}'")
         if not isinstance(member, JavaField):
             raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
-        member.__set__(self, value)
+        member.__set__(obj, value)
 
     def __repr__(self):
         if self.j_self:
@@ -193,7 +194,7 @@ cdef class JavaField(JavaMember):
     def __set__(self, obj, value):
         cdef jobject j_self
         self.ensure_field()
-        if self.is_final:  # 'final' is not enforced by JNI.
+        if self.is_final:  # 'final' is not enforced by JNI, so we need to do it ourselves.
             raise AttributeError(f"{self.fqn()} is a final field")
 
         if self.is_static:
@@ -230,11 +231,10 @@ cdef class JavaField(JavaMember):
             j_env[0].SetFloatField(j_env, j_self, self.j_field, j_value)
         elif r == 'D':
             j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_value)
-        elif r == 'L':
+        elif r in 'L[':
             j_env[0].SetObjectField(j_env, j_self, self.j_field, (<JNIRef?>j_value).obj)
-        # TODO #5177 array fields
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef read_field(self, jobject j_self):
         cdef JNIEnv *j_env = get_jnienv()
@@ -255,12 +255,11 @@ cdef class JavaField(JavaMember):
             return j_env[0].GetFloatField(j_env, j_self, self.j_field)
         elif r == 'D':
             return j_env[0].GetDoubleField(j_env, j_self, self.j_field)
-        elif r == 'L':
+        elif r in 'L[':
             j_object = LocalRef.adopt(j_env, j_env[0].GetObjectField(j_env, j_self, self.j_field))
-            return j2p(j_env, None, j_object.obj)
-        # TODO #5177 array fields
+            return j2p(j_env, j_object)
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef write_static_field(self, value):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
@@ -286,11 +285,10 @@ cdef class JavaField(JavaMember):
             j_env[0].SetStaticFloatField(j_env, j_class, self.j_field, j_value)
         elif r == 'D':
             j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, j_value)
-        elif r == 'L':
+        elif r in 'L[':
             j_env[0].SetStaticObjectField(j_env, j_class, self.j_field, (<JNIRef?>j_value).obj)
-        # TODO #5177 array fields
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef read_static_field(self):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
@@ -312,13 +310,12 @@ cdef class JavaField(JavaMember):
             return j_env[0].GetStaticFloatField(j_env, j_class, self.j_field)
         elif r == 'D':
             return j_env[0].GetStaticDoubleField(j_env, j_class, self.j_field)
-        elif r == 'L':
+        elif r in 'L[':
             j_object = LocalRef.adopt(j_env, j_env[0].GetStaticObjectField(j_env, j_class,
                                                                            self.j_field))
-            return j2p(j_env, None, j_object.obj)
-        # TODO #5177 array fields
+            return j2p(j_env, j_object)
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
 
 cdef class JavaMethod(JavaMember):
@@ -404,7 +401,7 @@ cdef class JavaMethod(JavaMember):
             if self.is_constructor:
                 return self.call_constructor(j_env, j_args)
             if self.is_static:
-                return self.call_staticmethod(j_env, j_args)
+                return self.call_static_method(j_env, j_args)
             else:
                 # Should never happen, but worth keeping as an extra defense against a
                 # native crash.
@@ -423,6 +420,8 @@ cdef class JavaMethod(JavaMember):
         return LocalRef.adopt(j_env, j_self).global_ref()
 
     cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
+        # These temporary variables are required because Python objects can't be touched during
+        # "with nogil".
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -432,80 +431,59 @@ cdef class JavaMethod(JavaMember):
         cdef jfloat j_float
         cdef jdouble j_double
         cdef jobject j_object
-        cdef object ret = None
-        cdef jobject j_self = obj.j_self.obj
 
+        ret = None
+        cdef jobject j_self = obj.j_self.obj
         r = self.definition_return[0]
         if r == 'V':
             with nogil:
-                j_env[0].CallVoidMethodA(
-                        j_env, j_self, self.j_method, j_args)
+                j_env[0].CallVoidMethodA(j_env, j_self, self.j_method, j_args)
         elif r == 'Z':
             with nogil:
-                j_boolean = j_env[0].CallBooleanMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = True if j_boolean else False
+                j_boolean = j_env[0].CallBooleanMethodA(j_env, j_self, self.j_method, j_args)
+            ret = bool(j_boolean)
         elif r == 'B':
             with nogil:
-                j_byte = j_env[0].CallByteMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <char>j_byte
+                j_byte = j_env[0].CallByteMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_byte
         elif r == 'C':
             with nogil:
-                j_char = j_env[0].CallCharMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = chr(<char>j_char)
+                j_char = j_env[0].CallCharMethodA(j_env, j_self, self.j_method, j_args)
+            ret = six.unichr(j_char)
         elif r == 'S':
             with nogil:
-                j_short = j_env[0].CallShortMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <short>j_short
+                j_short = j_env[0].CallShortMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_short
         elif r == 'I':
             with nogil:
-                j_int = j_env[0].CallIntMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <int>j_int
+                j_int = j_env[0].CallIntMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_int
         elif r == 'J':
             with nogil:
-                j_long = j_env[0].CallLongMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <long long>j_long
+                j_long = j_env[0].CallLongMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_long
         elif r == 'F':
             with nogil:
-                j_float = j_env[0].CallFloatMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <float>j_float
+                j_float = j_env[0].CallFloatMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_float
         elif r == 'D':
             with nogil:
-                j_double = j_env[0].CallDoubleMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            ret = <double>j_double
-        elif r == 'L':
+                j_double = j_env[0].CallDoubleMethodA(j_env, j_self, self.j_method, j_args)
+            ret = j_double
+        elif r in 'L[':
             with nogil:
-                j_object = j_env[0].CallObjectMethodA(
-                        j_env, j_self, self.j_method, j_args)
+                j_object = j_env[0].CallObjectMethodA(j_env, j_self, self.j_method, j_args)
             check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p(j_env, self.definition_return, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
-        elif r == '[':
-            # FIXME can we combine this with the 'L' case?
-            r = self.definition_return[1:]
-            with nogil:
-                j_object = j_env[0].CallObjectMethodA(
-                        j_env, j_self, self.j_method, j_args)
-            check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p_array(j_env, r, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
+            ret = j2p(j_env, LocalRef.adopt(j_env, j_object))
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
 
         check_exception(j_env)
         return ret
 
-    cdef call_staticmethod(self, JNIEnv *j_env, jvalue *j_args):
-        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
+    cdef call_static_method(self, JNIEnv *j_env, jvalue *j_args):
+        # These temporary variables are required because Python objects can't be touched during
+        # "with nogil".
         cdef jboolean j_boolean
         cdef jbyte j_byte
         cdef jchar j_char
@@ -515,76 +493,52 @@ cdef class JavaMethod(JavaMember):
         cdef jfloat j_float
         cdef jdouble j_double
         cdef jobject j_object
-        cdef object ret = None
 
-        # return type of the java method
+        ret = None
+        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
         r = self.definition_return[0]
-
-        # now call the java method
         if r == 'V':
             with nogil:
-                j_env[0].CallStaticVoidMethodA(
-                        j_env, j_class, self.j_method, j_args)
+                j_env[0].CallStaticVoidMethodA(j_env, j_class, self.j_method, j_args)
         elif r == 'Z':
             with nogil:
-                j_boolean = j_env[0].CallStaticBooleanMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = True if j_boolean else False
+                j_boolean = j_env[0].CallStaticBooleanMethodA(j_env, j_class, self.j_method, j_args)
+            ret = bool(j_boolean)
         elif r == 'B':
             with nogil:
-                j_byte = j_env[0].CallStaticByteMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <char>j_byte
+                j_byte = j_env[0].CallStaticByteMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_byte
         elif r == 'C':
             with nogil:
-                j_char = j_env[0].CallStaticCharMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = chr(<char>j_char)
+                j_char = j_env[0].CallStaticCharMethodA(j_env, j_class, self.j_method, j_args)
+            ret = six.unichr(j_char)
         elif r == 'S':
             with nogil:
-                j_short = j_env[0].CallStaticShortMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <short>j_short
+                j_short = j_env[0].CallStaticShortMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_short
         elif r == 'I':
             with nogil:
-                j_int = j_env[0].CallStaticIntMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <int>j_int
+                j_int = j_env[0].CallStaticIntMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_int
         elif r == 'J':
             with nogil:
-                j_long = j_env[0].CallStaticLongMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <long long>j_long
+                j_long = j_env[0].CallStaticLongMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_long
         elif r == 'F':
             with nogil:
-                j_float = j_env[0].CallStaticFloatMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <float>j_float
+                j_float = j_env[0].CallStaticFloatMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_float
         elif r == 'D':
             with nogil:
-                j_double = j_env[0].CallStaticDoubleMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            ret = <double>j_double
-        elif r == 'L':
+                j_double = j_env[0].CallStaticDoubleMethodA(j_env, j_class, self.j_method, j_args)
+            ret = j_double
+        elif r in 'L[':
             with nogil:
-                j_object = j_env[0].CallStaticObjectMethodA(
-                        j_env, j_class, self.j_method, j_args)
+                j_object = j_env[0].CallStaticObjectMethodA(j_env, j_class, self.j_method, j_args)
             check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p(j_env, self.definition_return, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
-        elif r == '[':
-            # FIXME can we combine this with the 'L' case?
-            r = self.definition_return[1:]
-            with nogil:
-                j_object = j_env[0].CallStaticObjectMethodA(
-                        j_env, j_class, self.j_method, j_args)
-            check_exception(j_env)
-            if j_object != NULL:
-                ret = j2p_array(j_env, r, j_object)
-                j_env[0].DeleteLocalRef(j_env, j_object)
+            ret = j2p(j_env, LocalRef.adopt(j_env, j_object))
         else:
-            raise Exception(f'Invalid definition for {self}')
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
 
         check_exception(j_env)
         return ret

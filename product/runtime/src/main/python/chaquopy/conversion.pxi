@@ -58,60 +58,42 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
             j_args[index].l = (<JNIRef?>py_arg).return_ref(j_env)
 
 
-# FIXME remove definition_ignored
-cdef j2p(JNIEnv *j_env, definition_ignored, jobject j_object):
-    if j_object == NULL:
+cdef j2p(JNIEnv *j_env, JNIRef j_object):
+    if not j_object:
         return None
 
-    cdef jclass retclass
-    cdef jmethodID retmeth
-
-    r = lookup_java_object_name(j_env, j_object)
+    from chaquopy import autoclass
+    r = lookup_java_object_name(j_env, j_object.obj)
 
     if r[0] == '[':
-        return j2p_array(j_env, r[1:], j_object)
+        return j2p_array(j_env, r[1:], j_object.obj)
 
     if r == 'java.lang.String':
-        return j2p_string(j_env, j_object)
+        return j2p_string(j_env, j_object.obj)
 
-    # FIXME can we call through autoclass?
+    # Unboxing
     if r == 'java.lang.Long':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'longValue', '()J')
-        return j_env[0].CallLongMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).longValue()
     if r == 'java.lang.Integer':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'intValue', '()I')
-        return j_env[0].CallIntMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).intValue()
     if r == 'java.lang.Float':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'floatValue', '()F')
-        return j_env[0].CallFloatMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).floatValue()
     if r == 'java.lang.Double':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'doubleValue', '()D')
-        return j_env[0].CallDoubleMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).doubleValue()
     if r == 'java.lang.Short':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'shortValue', '()S')
-        return j_env[0].CallShortMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).shortValue()
     if r == 'java.lang.Boolean':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'booleanValue', '()Z')
-        return j_env[0].CallBooleanMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).booleanValue()
     if r == 'java.lang.Byte':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'byteValue', '()B')
-        return j_env[0].CallByteMethod(j_env, j_object, retmeth)
+        return autoclass(r)(instance=j_object).byteValue()
     if r == 'java.lang.Character':
-        retclass = j_env[0].GetObjectClass(j_env, j_object)
-        retmeth = j_env[0].GetMethodID(j_env, retclass, 'charValue', '()C')
-        return unichr(j_env[0].CallCharMethod(j_env, j_object, retmeth))
+        return autoclass(r)(instance=j_object).charValue()
+
     if r == 'com.chaquo.python.PyObject':
-        return j2p_pyobject(j_env, j_object)
+        return j2p_pyobject(j_env, j_object.obj)
 
     # Failed to convert it, so return a proxy object.
-    return chaquopy.autoclass(r)(instance=GlobalRef.create(j_env, j_object))
+    return autoclass(r)(instance=j_object)
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):
@@ -240,9 +222,8 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
             if j_object_item == NULL:
                 ret.append(None)
                 continue
-            obj = j2p(j_env, definition, j_object_item)
+            obj = j2p(j_env, LocalRef.adopt(j_env, j_object_item))
             ret.append(obj)
-            j_env[0].DeleteLocalRef(j_env, j_object_item)
 
     elif r == '[':
         r = definition[1:]

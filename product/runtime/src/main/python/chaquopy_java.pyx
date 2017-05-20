@@ -132,7 +132,7 @@ cdef public void Java_com_chaquo_python_PyObject_closeNative \
 cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
     (JNIEnv *env, jobject klass, jobject o) with gil:
     try:
-        return p2j_pyobject(env, j2p(env, None, o))
+        return p2j_pyobject(env, j2p(env, LocalRef.adopt(env, o)))
     except Exception as e:
         wrap_exception(env, e)
         return NULL
@@ -214,7 +214,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, None, j_key)
+        key = j2p(env, LocalRef.adopt(env, j_key))
         # https://github.com/cython/cython/issues/1702
         return __builtins__.hasattr(self, key)
     except Exception as e:
@@ -226,7 +226,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_get \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, None, j_key)
+        key = j2p(env, LocalRef.adopt(env, j_key))
         try:
             value = getattr(self, key)
         except AttributeError:
@@ -241,12 +241,12 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
     (JNIEnv *env, jobject this, jobject j_key, jobject j_value) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, None, j_key)
+        key = j2p(env, LocalRef.adopt(env, j_key))
         try:
             old_value = getattr(self, key)
         except AttributeError:
             old_value = None
-        setattr(self, key, j2p(env, None, j_value))
+        setattr(self, key, j2p(env, LocalRef.adopt(env, j_value)))
         return p2j_pyobject(env, old_value)
     except Exception as e:
         wrap_exception(env, e)
@@ -257,7 +257,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_remove \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, None, j_key)
+        key = j2p(env, LocalRef.adopt(env, j_key))
         try:
             old_value = getattr(self, key)
         except AttributeError:
@@ -286,7 +286,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
 cdef public jboolean Java_com_chaquo_python_PyObject_equals \
     (JNIEnv *env, jobject this, jobject that) with gil:
     try:
-        return j2p_pyobject(env, this) == j2p(env, None, that)
+        return j2p_pyobject(env, this) == j2p(env, LocalRef.adopt(env, that))
     except Exception as e:
         wrap_exception(env, e)
         return False

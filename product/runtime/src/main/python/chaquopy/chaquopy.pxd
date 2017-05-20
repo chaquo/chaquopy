@@ -9,7 +9,7 @@ cdef class JavaObject(object):
 
 # === conversion ==============================================================
 
-cdef j2p(JNIEnv *j_env, definition, jobject j_object)
+cdef j2p(JNIEnv *j_env, JNIRef j_object)
 cdef j2p_string(JNIEnv *env, jobject j_object)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
 cdef j2p_array(JNIEnv *j_env, definition, jobject j_object)
