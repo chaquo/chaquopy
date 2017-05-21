@@ -1,98 +1,164 @@
-'''
-This module aims to provide a more human-friendly API for
-wiring up Java proxy methods.
+from __future__ import absolute_import, division, print_function
 
-You can use the signature function to produce JNI method
-signautures for methods; passing JavaObject classes
-as return or argument types; provided here are annotations
-representing Java's primitive and array times.
+import ctypes
+import six
 
-Methods can return just a standard primitive type:
+import chaquopy
+from .chaquopy import JavaClass, check_range_char, check_range_float32
 
->>> signature(jint, ())
-'()I'
-
->>> s.signature(jvoid, [jint])
-'(I)V'
-
-Or you can use autoclass proxies to specify Java classes
-for return types.
-
->>> String = autoclass("java.lang.String")
->>> signature(String, ())
-'()Ljava/lang/String;'
-
-'''
-
-from . import autoclass, JavaClass
-
-__all__ = ["jni_sig", "signature", "JArray",
-           "jboolean", "jbyte", "jchar", "jdouble", "jfloat", "jint", "jlong", "jshort", "jvoid"]
+__all__ = ["jni_sig", "jni_method_sig",
+           "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
+           "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble",
+           "jchar", "jarray"]
 
 
+# These functions wrap a method parameter to specify its Java primitive type.
+#
+# Java has more primitive types than Python, so where more than one compatible integer or
+# floating-point overload is available for a method call, the widest one will be used by
+# default. Similarly, where an overload is available for both `String` and `char`, `String`
+# will be used. If this behavior gives undesired results, these functions can be used to
+# choose a specific primitive type for the parameter.
+#
+# For example, if `p` is a `PrintStream`, `p.print(42)` will call `print(long)`, whereas
+# `p.print(jint(42))` will call `print(int)`. Likewise, `p.print("x")` will call
+# `print(String)`, while `p.print(jchar("x"))` will call `print(char)`.
+#
+# The numeric type functions take an optional `truncate` parameter. If this is true, any excess
+# high-order bits of the given value will be discarded, as with a Java cast. Otherwise, an
+# out-of-range value will result in an OverflowError.
+#
+# The object types returned by these functions are not specified, but are guaranteed to be
+# accepted by compatible Java method calls and field assignments.
+
+
+# `Wrapper` subclasses for the 9 primitive types (including `void`), indexed by Java language
+# name (e.g. `int`).
 primitives = {}
 
-class _JavaSignaturePrimitive(object):
-    def __init__(self, name, spec):
-        self._name = name
-        self._spec = spec
-
-    def __repr__(self):
-        return "Signature for Java %s type" % name
-
-def _MakeSignaturePrimitive(name, spec):
-    p = _JavaSignaturePrimitive(name, spec)
-    primitives[name] = p
-    return p
+class Wrapper(object):
+    pass
 
 
-jboolean = _MakeSignaturePrimitive("boolean", "Z")
-jbyte    = _MakeSignaturePrimitive("byte", "B")
-jchar    = _MakeSignaturePrimitive("char", "C")
-jdouble  = _MakeSignaturePrimitive("double", "D")
-jfloat   = _MakeSignaturePrimitive("float", "F")
-jint     = _MakeSignaturePrimitive("int", "I")
-jlong    = _MakeSignaturePrimitive("long", "J")
-jshort   = _MakeSignaturePrimitive("short", "S")
-jvoid    = _MakeSignaturePrimitive("void", "V")
+class PrimitiveMeta(type):
+    def __init__(cls, cls_name, bases, cls_dict):
+        if hasattr(cls, "sig") and len(cls.sig) == 1:
+            primitives[cls_name[1:]] = cls
+
+class Primitive(six.with_metaclass(PrimitiveMeta, Wrapper)):
+    pass
+
+class jvoid(Primitive):
+    sig = "V"
+    def __init__(self):
+        raise TypeError("Cannot create a jvoid object")
+
+class jboolean(Primitive):
+    sig = "Z"
+    def __init__(self, value):
+        self.value = bool(value)
+
+class NumericPrimitive(Primitive):
+    pass
+
+class IntPrimitive(NumericPrimitive):
+    def __init__(self, value, truncate=False):
+        self.value = self.truncator(value).value
+        if not truncate and self.value != value:
+            raise OverflowError("value too large to convert to " + cls.__name__)
+
+class jbyte(IntPrimitive):
+    sig = "B"
+    truncator = ctypes.c_int8
+
+class jshort(IntPrimitive):
+    sig = "S"
+    truncator = ctypes.c_int16
+
+class jint(IntPrimitive):
+    sig = "I"
+    truncator = ctypes.c_int32
+
+class jlong(IntPrimitive):
+    sig = "J"
+    truncator = ctypes.c_int64
+
+class FloatPrimitive(NumericPrimitive):
+    pass
+
+class jfloat(FloatPrimitive):
+    sig = "F"
+    def __init__(self, value, truncate=False):
+        if not truncate:
+            check_range_float32(value)
+        self.value = value
+
+class jdouble(FloatPrimitive):
+    sig = "D"
+    def __init__(self, value, truncate=False):  # truncate is ignored, but included for consistency.
+        self.value = value
+
+class jchar(Primitive):
+    sig = "C"
+    def __init__(self, value):
+        check_range_char(value)
+        self.value = value
+
+class ArrayWrapper(Wrapper):
+    def __init__(self, value):
+        self.value = value
+
+def jarray(element_type, *args):
+    """With one argument, returns a wrapper class for an array of the given element type. With two
+    arguments, the second argument must be an iterable which is wrapped and returned.
+
+    A Python iterable can normally be passed directly to a Java field or method taking an
+    array. But where a method has multiple overloads taking an array, the iterable must be
+    wrapped with `jarray` to indicate the intended type.
+
+    For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, the `int[]`
+    overload can be selected using the syntax `f(jarray(jint, [1,2,3]))` or
+    `f(jarray(jint)([1,2,3]))`.
+
+    The element type may be specified as:
+
+    * A class returned by `autoclass`
+    * A java.lang.Class instance
+    * `jboolean`, `jbyte`, etc.
+    * A class returned by the one-argument form of `jarray`
+
+    Examples::
+
+        int[]       jarray(jint)
+        int[][]     jarray(jarray(jint))
+        String[]    jarray(autoclass("java.lang.String"))
+    """
+    element_sig = jni_sig(element_type)
+    wrapper = type("jarray_" + element_sig,
+                   (ArrayWrapper,),
+                   {"sig": "[" + element_sig})
+    if args:
+        (value,) = args
+        return wrapper(args)
+    else:
+        return wrapper
 
 
-def JArray(of_type):
-    ''' Signature helper for identifying arrays of a given object or
-    primitive type. Accepts the same parameter types as jni_sig().
-    '''
-    spec = "[" + jni_sig(of_type)
-    return _JavaSignaturePrimitive("array", spec)
-
-
-def signature(returns, takes):
-    '''Produces a JNI method signature, taking the provided argument types and returning the given
-    return type. Accepts the same parameter types as jni_sig(), but argument types must be
-    passed as an iterable.
-    '''
-    out_takes = []
-    for arg in takes:
-        out_takes.append(jni_sig(arg))
-
-    return "(" + "".join(out_takes) + ")" + jni_sig(returns)
+def jni_method_sig(returns, takes):
+    return "(" + "".join(map(jni_sig, takes)) + ")" + jni_sig(returns)
 
 
 def jni_sig(c):
-    ''' Produces a JNI type signature for the given argument, which may be:
-    * A JavaClass
-    * A java.lang.Class
-    * One of the objects jboolean, jbyte, etc. defined by this module
-    * A return value of JArray
-    '''
     if isinstance(c, JavaClass):
         return "L" + c.__javaclass__.replace(".", "/") + ";"
-    if isinstance(c, autoclass("java.lang.Class")):
+    elif isinstance(c, chaquopy.autoclass("java.lang.Class")):
         name = c.getName()
-        primitive = primitives.get(name)
-        if primitive:
-            return primitive._spec
+        if name in primitives:
+            return primitives[name].sig
+        elif name.startswith("["):
+            return name.replace(".", "/")
         else:
             return "L" + name.replace(".", "/") + ";"
-    if isinstance(c, _JavaSignaturePrimitive):
-        return c._spec
+    elif issubclass(c, Wrapper):
+        return c.sig
     raise TypeError("Can't produce signature from {} object".format(type(c).__name__))

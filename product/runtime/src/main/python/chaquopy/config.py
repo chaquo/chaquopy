@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 __all__ = ['set_options', 'add_options', 'get_options',
            'set_classpath', 'add_classpath', 'get_classpath',
            'expand_classpath']

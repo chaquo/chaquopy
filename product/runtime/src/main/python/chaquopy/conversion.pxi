@@ -200,7 +200,7 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             raise TypeError("Void method cannot return a value")
         return LocalRef()
 
-    # For primitive types we simply check type check and then return the original object: it's
+    # For primitive types we simply check type check and then return the Python value: it's
     # the caller's responsibility to convert it to the C type. It's also the caller's
     # responsibility to perform range checks: see note at is_applicable_arg for why we can't do
     # it here.
@@ -211,21 +211,33 @@ cdef p2j(JNIEnv *j_env, definition, obj):
         if definition == 'Z':
             if isinstance(obj, bool):
                 return obj
+            if isinstance(obj, chaquopy.jboolean):
+                return obj.value
+
         elif definition in INT_TYPES:
             # Java allows a char to be implicitly converted to an int or larger, but this would
-            # be surprising in Python. Be explicit and use the functions `ord` or `chr`.
+            # be surprising in Python. Require the user to be explicit and use the function `ord`.
             #
             # For backwards compatibility with old versions of Python, bool is a subclass of
             # int, but we should be stricter.
             if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
                 return obj
+            if isinstance(obj, chaquopy.IntPrimitive) and \
+               INT_TYPES.find(obj.sig) <= INT_TYPES.find(definition):
+                return obj.value
+
         elif definition in FLOAT_TYPES:
             if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
                 return obj
+            if isinstance(obj, chaquopy.NumericPrimitive) and \
+               NUMERIC_TYPES.find(obj.sig) <= NUMERIC_TYPES.find(definition):
+                return obj.value
         elif definition == "C":
             # We don't check that len(obj) == 1; see note above about range checks.
             if isinstance(obj, six.string_types):
                 return obj
+            if isinstance(obj, chaquopy.jchar):
+                return obj.value
         else:
             raise Exception(f"Unknown primitive type {definition}")
 

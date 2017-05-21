@@ -1,7 +1,6 @@
 package com.chaquo.python;
 
-/** See test_overload.py */
-public class Overload {
+public class TestOverload {
 
     public static class Basic {
         public String resolve() {
@@ -62,51 +61,60 @@ public class Overload {
 
     public static class Primitive {
         public String resolve(boolean a) {
-            return "boolean";
+            return "boolean " + a;
         }
         public String resolve(byte a) {
-            return "byte";
+            return "byte " + a;
         }
         public String resolve(short a) {
-            return "short";
+            return "short " + a;
         }
         public String resolve(int a) {
-            return "int";
+            return "int " + a;
         }
         public String resolve(long a) {
-            return "long";
+            return "long " + a;
         }
         public String resolve(float a) {
-            return "float";
+            return "float " + a;
         }
         public String resolve(double a) {
-            return "double";
+            return "double " + a;
         }
         public String resolve(char a) {
-            return "char";
+            return "char " + a;
         }
         public String resolve(String a) {
-            return "String";
+            return "String " + a;
         }
 
-        public String resolve_float_double(float a) {
-            return "float";
+        public String resolve_BIF(byte a) {
+            return "byte " + a;
         }
-        public String resolve_float_double(double a) {
-            return "double";
+        public String resolve_BIF(int a) {
+            return "int " + a;
+        }
+        public String resolve_BIF(float a) {
+            return "float " + a;
+        }
+
+        public String resolve_FD(float a) {
+            return "float " + a;
+        }
+        public String resolve_FD(double a) {
+            return "double " + a;
         }
     }
 
 
     public static class Arrays {
-        // FIXME probably move everything from Basics into here
+        // FIXME probably move everything from TestBasics into here
     }
 
 
     public static class Varargs {
-        // FIXME probably move everything from Basics into here
+        // FIXME probably move everything from TestBasics into here
         // Also include interaction with arrays
     }
-
 
 }

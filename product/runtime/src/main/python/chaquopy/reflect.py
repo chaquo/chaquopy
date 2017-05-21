@@ -3,6 +3,7 @@ from six import with_metaclass
 
 from .chaquopy import (JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod,
                        find_javaclass)
+from .signatures import *
 
 __all__ = ['autoclass']
 
@@ -259,20 +260,6 @@ def setup_bootstrap_classes():
         cache_class(cls)
 
 
-def get_signature(cls_tp):
-    tp = cls_tp.getName()
-    if tp[0] == '[':
-        return tp.replace('.', '/')
-    signatures = {
-        'void': 'V', 'boolean': 'Z', 'byte': 'B',
-        'char': 'C', 'short': 'S', 'int': 'I',
-        'long': 'J', 'float': 'F', 'double': 'D'}
-    ret = signatures.get(tp)
-    if ret:
-        return ret
-    return 'L{0};'.format(tp.replace('.', '/'))
-
-
 def lower_name(s):
     return s[:1].lower() + s[1:] if s else ''
 
@@ -354,7 +341,7 @@ def autoclass(clsname):
 
     for field in c.getFields():
         modifiers = field.getModifiers()
-        classDict[field.getName()] = JavaField(get_signature(field.getType()),
+        classDict[field.getName()] = JavaField(jni_sig(field.getType()),
                                                static=Modifier.isStatic(modifiers),
                                                final=Modifier.isFinal(modifiers))
 
@@ -368,9 +355,8 @@ def cache_class(cls):
 
 
 def method_signature(method):
-    params_sig = ''.join(get_signature(x) for x in method.getParameterTypes())
     if method.getClass().getName() == "java.lang.reflect.Constructor":
-        return_sig = "V"
+        return_type = jvoid
     else:
-        return_sig = get_signature(method.getReturnType())
-    return "({}){}".format(params_sig, return_sig)
+        return_type = method.getReturnType()
+    return jni_method_sig(return_type, method.getParameterTypes())

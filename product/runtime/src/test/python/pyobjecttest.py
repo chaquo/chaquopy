@@ -1,4 +1,6 @@
-# Test data for PyObjectTest.java
+"""Test data for PyObjectTest.java"""
+
+from __future__ import absolute_import, division, print_function
 
 
 class DelTrigger(object):
@@ -24,7 +26,7 @@ class SimpleObject(object):
 def sum_mul(*args, **kwargs):
     mul = kwargs.pop("mul", 1)
     div = kwargs.pop("div", 1)
-    return sum(args) * mul / div
+    return sum(args) * mul // div
 
 
 def is_none(x):

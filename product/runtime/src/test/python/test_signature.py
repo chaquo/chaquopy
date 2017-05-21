@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import unittest
 
 from chaquopy import autoclass
@@ -9,58 +11,58 @@ class SignaturesTest(unittest.TestCase):
     def test_return_types(self):
 
         # Void
-        sig = signature(jvoid, [])
+        sig = jni_method_sig(jvoid, [])
         self.assertEquals(sig, "()V")
 
         # Boolean
-        sig = signature(jboolean, [])
+        sig = jni_method_sig(jboolean, [])
         self.assertEquals(sig, "()Z")
 
         # Byte
-        sig = signature(jbyte, [])
+        sig = jni_method_sig(jbyte, [])
         self.assertEquals(sig, "()B")
 
         # Char
-        sig = signature(jchar, [])
+        sig = jni_method_sig(jchar, [])
         self.assertEquals(sig, "()C")
 
         # Double
-        sig = signature(jdouble, [])
+        sig = jni_method_sig(jdouble, [])
         self.assertEquals(sig, "()D")
 
         # Float
-        sig = signature(jfloat, [])
+        sig = jni_method_sig(jfloat, [])
         self.assertEquals(sig, "()F")
 
         # Int 
-        sig = signature(jint, [])
+        sig = jni_method_sig(jint, [])
         self.assertEquals(sig, "()I")
 
         # Long 
-        sig = signature(jlong, [])
+        sig = jni_method_sig(jlong, [])
         self.assertEquals(sig, "()J")
 
         # Short 
-        sig = signature(jshort, [])
+        sig = jni_method_sig(jshort, [])
         self.assertEquals(sig, "()S")
 
         # Object return method
         String = autoclass("java.lang.String")
-        sig = signature(String, [])
+        sig = jni_method_sig(String, [])
         self.assertEquals(sig, "()Ljava/lang/String;")
 
         # Array return
-        sig = signature(JArray(jint), [])
+        sig = jni_method_sig(jarray(jint), [])
         self.assertEquals(sig, "()[I")
 
     def test_params(self):
         String = autoclass("java.lang.String")
 
         # Return void, takes objects as parameters
-        sig = signature(jvoid, [String, String])
+        sig = jni_method_sig(jvoid, [String, String])
         self.assertEquals(sig, "(Ljava/lang/String;Ljava/lang/String;)V")
 
         # Multiple array parameter types
-        sig = signature(jvoid, [JArray(jint), JArray(jboolean)])
+        sig = jni_method_sig(jvoid, [jarray(jint), jarray(jboolean)])
         self.assertEquals(sig, "([I[Z)V")
 
