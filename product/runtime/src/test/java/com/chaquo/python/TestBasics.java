@@ -5,6 +5,18 @@ import java.lang.String;
 /** See test_basics.py */
 public class TestBasics {
 
+    private final static double EPSILON = 1E-6;
+
+    public boolean methodParamsZBCSIJFD(boolean x1, byte x2, char x3, short x4,
+                                        int x5, long x6, float x7, double x8) {
+        return (x1 == true && x2 == 127 && x3 == 'k' && x4 == 32767 &&
+            x5 == 2147483467 && x6 == 9223372036854775807L &&
+            (Math.abs(x7 - 1.23f) < EPSILON) &&
+            (Math.abs(x8 - 9.87) < EPSILON));
+    }
+
+    // === Instance ==========================================================
+
     public final boolean fieldFinalZ = false;
     public boolean fieldZ;
     public byte fieldB;
@@ -32,6 +44,28 @@ public class TestBasics {
     public String fieldString;
 
     public Class fieldKlass;
+
+    public boolean[] fieldZArray;
+    public byte[] fieldBArray;
+    public char[] fieldCArray;
+    public short[] fieldSArray;
+    public int[] fieldIArray;
+    public long[] fieldJArray;
+    public float[] fieldFArray;
+    public double[] fieldDArray;
+    public Object[] fieldObjectArray;
+    public Number[] fieldNumberArray;
+    public Byte[] fieldByteArray;
+    public Short[] fieldShortArray;
+    public Integer[] fieldIntegerArray;
+    public Long[] fieldLongArray;
+    public Float[] fieldFloatArray;
+    public Double[] fieldDoubleArray;
+    public Boolean[] fieldBooleanArray;
+    public Character[] fieldCharacterArray;
+    public CharSequence[] fieldCharSequenceArray;
+    public String[] fieldStringArray;
+    public Class[] fieldKlassArray;
 
 
     public void noArgs() {}
@@ -204,6 +238,176 @@ public class TestBasics {
         this.fieldKlass = fieldClass;
     }
 
+    
+    public boolean[] getZArray() {
+        return fieldZArray;
+    }
+
+    public void setZArray(boolean[] fieldZArray) {
+        this.fieldZArray = fieldZArray;
+    }
+
+    public byte[] getBArray() {
+        return fieldBArray;
+    }
+
+    public void setBArray(byte[] fieldBArray) {
+        this.fieldBArray = fieldBArray;
+    }
+
+    public char[] getCArray() {
+        return fieldCArray;
+    }
+
+    public void setCArray(char[] fieldCArray) {
+        this.fieldCArray = fieldCArray;
+    }
+
+    public short[] getSArray() {
+        return fieldSArray;
+    }
+
+    public void setSArray(short[] fieldSArray) {
+        this.fieldSArray = fieldSArray;
+    }
+
+    public int[] getIArray() {
+        return fieldIArray;
+    }
+
+    public void setIArray(int[] fieldIArray) {
+        this.fieldIArray = fieldIArray;
+    }
+
+    public long[] getJArray() {
+        return fieldJArray;
+    }
+
+    public void setJArray(long[] fieldJArray) {
+        this.fieldJArray = fieldJArray;
+    }
+
+    public float[] getFArray() {
+        return fieldFArray;
+    }
+
+    public void setFArray(float[] fieldFArray) {
+        this.fieldFArray = fieldFArray;
+    }
+
+    public double[] getDArray() {
+        return fieldDArray;
+    }
+
+    public void setDArray(double[] fieldDArray) {
+        this.fieldDArray = fieldDArray;
+    }
+
+    public Object[] getObjectArray() {
+        return fieldObjectArray;
+    }
+
+    public void setObjectArray(Object[] fieldObjectArray) {
+        this.fieldObjectArray = fieldObjectArray;
+    }
+
+    public Number[] getNumberArray() {
+        return fieldNumberArray;
+    }
+
+    public void setNumberArray(Number[] fieldNumberArray) {
+        this.fieldNumberArray = fieldNumberArray;
+    }
+
+    public Byte[] getByteArray() {
+        return fieldByteArray;
+    }
+
+    public void setByteArray(Byte[] fieldByteArray) {
+        this.fieldByteArray = fieldByteArray;
+    }
+
+    public Short[] getShortArray() {
+        return fieldShortArray;
+    }
+
+    public void setShortArray(Short[] fieldShortArray) {
+        this.fieldShortArray = fieldShortArray;
+    }
+
+    public Integer[] getIntegerArray() {
+        return fieldIntegerArray;
+    }
+
+    public void setIntegerArray(Integer[] fieldIntegerArray) {
+        this.fieldIntegerArray = fieldIntegerArray;
+    }
+
+    public Long[] getLongArray() {
+        return fieldLongArray;
+    }
+
+    public void setLongArray(Long[] fieldLongArray) {
+        this.fieldLongArray = fieldLongArray;
+    }
+
+    public Float[] getFloatArray() {
+        return fieldFloatArray;
+    }
+
+    public void setFloatArray(Float[] fieldFloatArray) {
+        this.fieldFloatArray = fieldFloatArray;
+    }
+
+    public Double[] getDoubleArray() {
+        return fieldDoubleArray;
+    }
+
+    public void setDoubleArray(Double[] fieldDoubleArray) {
+        this.fieldDoubleArray = fieldDoubleArray;
+    }
+
+    public Boolean[] getBooleanArray() {
+        return fieldBooleanArray;
+    }
+
+    public void setBooleanArray(Boolean[] fieldBooleanArray) {
+        this.fieldBooleanArray = fieldBooleanArray;
+    }
+
+    public Character[] getCharacterArray() {
+        return fieldCharacterArray;
+    }
+
+    public void setCharacterArray(Character[] fieldCharacterArray) {
+        this.fieldCharacterArray = fieldCharacterArray;
+    }
+
+    public CharSequence[] getCharSequenceArray() {
+        return fieldCharSequenceArray;
+    }
+
+    public void setCharSequenceArray(CharSequence[] fieldCharSequenceArray) {
+        this.fieldCharSequenceArray = fieldCharSequenceArray;
+    }
+
+    public String[] getStringArray() {
+        return fieldStringArray;
+    }
+
+    public void setStringArray(String[] fieldStringArray) {
+        this.fieldStringArray = fieldStringArray;
+    }
+
+    public Class[] getKlassArray() {
+        return fieldKlassArray;
+    }
+
+    public void setKlassArray(Class[] fieldKlassArray) {
+        this.fieldKlassArray = fieldKlassArray;
+    }
+
+    // === Static ============================================================
 
     public static final boolean fieldStaticFinalZ = false;
     public static boolean fieldStaticZ;
@@ -232,6 +436,28 @@ public class TestBasics {
     public static String fieldStaticString;
 
     public static Class fieldStaticKlass;
+
+    public static boolean[] fieldStaticZArray;
+    public static byte[] fieldStaticBArray;
+    public static char[] fieldStaticCArray;
+    public static short[] fieldStaticSArray;
+    public static int[] fieldStaticIArray;
+    public static long[] fieldStaticJArray;
+    public static float[] fieldStaticFArray;
+    public static double[] fieldStaticDArray;
+    public static Object[] fieldStaticObjectArray;
+    public static Number[] fieldStaticNumberArray;
+    public static Byte[] fieldStaticByteArray;
+    public static Short[] fieldStaticShortArray;
+    public static Integer[] fieldStaticIntegerArray;
+    public static Long[] fieldStaticLongArray;
+    public static Float[] fieldStaticFloatArray;
+    public static Double[] fieldStaticDoubleArray;
+    public static Boolean[] fieldStaticBooleanArray;
+    public static Character[] fieldStaticCharacterArray;
+    public static CharSequence[] fieldStaticCharSequenceArray;
+    public static String[] fieldStaticStringArray;
+    public static Class[] fieldStaticKlassArray;
 
 
     public static void staticNoArgs() {}
@@ -403,6 +629,176 @@ public class TestBasics {
     public static void setStaticKlass(Class fieldStaticKlass) {
         TestBasics.fieldStaticKlass = fieldStaticKlass;
     }
+
+
+    public static boolean[] getStaticZArray() {
+        return fieldStaticZArray;
+    }
+
+    public static void setStaticZArray(boolean[] fieldStaticZArray) {
+        TestBasics.fieldStaticZArray = fieldStaticZArray;
+    }
+
+    public static byte[] getStaticBArray() {
+        return fieldStaticBArray;
+    }
+
+    public static void setStaticBArray(byte[] fieldStaticBArray) {
+        TestBasics.fieldStaticBArray = fieldStaticBArray;
+    }
+
+    public static char[] getStaticCArray() {
+        return fieldStaticCArray;
+    }
+
+    public static void setStaticCArray(char[] fieldStaticCArray) {
+        TestBasics.fieldStaticCArray = fieldStaticCArray;
+    }
+
+    public static short[] getStaticSArray() {
+        return fieldStaticSArray;
+    }
+
+    public static void setStaticSArray(short[] fieldStaticSArray) {
+        TestBasics.fieldStaticSArray = fieldStaticSArray;
+    }
+
+    public static int[] getStaticIArray() {
+        return fieldStaticIArray;
+    }
+
+    public static void setStaticIArray(int[] fieldStaticIArray) {
+        TestBasics.fieldStaticIArray = fieldStaticIArray;
+    }
+
+    public static long[] getStaticJArray() {
+        return fieldStaticJArray;
+    }
+
+    public static void setStaticJArray(long[] fieldStaticJArray) {
+        TestBasics.fieldStaticJArray = fieldStaticJArray;
+    }
+
+    public static float[] getStaticFArray() {
+        return fieldStaticFArray;
+    }
+
+    public static void setStaticFArray(float[] fieldStaticFArray) {
+        TestBasics.fieldStaticFArray = fieldStaticFArray;
+    }
+
+    public static double[] getStaticDArray() {
+        return fieldStaticDArray;
+    }
+
+    public static void setStaticDArray(double[] fieldStaticDArray) {
+        TestBasics.fieldStaticDArray = fieldStaticDArray;
+    }
+
+    public static Object[] getStaticObjectArray() {
+        return fieldStaticObjectArray;
+    }
+
+    public static void setStaticObjectArray(Object[] fieldStaticObjectArray) {
+        TestBasics.fieldStaticObjectArray = fieldStaticObjectArray;
+    }
+
+    public static Number[] getStaticNumberArray() {
+        return fieldStaticNumberArray;
+    }
+
+    public static void setStaticNumberArray(Number[] fieldStaticNumberArray) {
+        TestBasics.fieldStaticNumberArray = fieldStaticNumberArray;
+    }
+
+    public static Byte[] getStaticByteArray() {
+        return fieldStaticByteArray;
+    }
+
+    public static void setStaticByteArray(Byte[] fieldStaticByteArray) {
+        TestBasics.fieldStaticByteArray = fieldStaticByteArray;
+    }
+
+    public static Short[] getStaticShortArray() {
+        return fieldStaticShortArray;
+    }
+
+    public static void setStaticShortArray(Short[] fieldStaticShortArray) {
+        TestBasics.fieldStaticShortArray = fieldStaticShortArray;
+    }
+
+    public static Integer[] getStaticIntegerArray() {
+        return fieldStaticIntegerArray;
+    }
+
+    public static void setStaticIntegerArray(Integer[] fieldStaticIntegerArray) {
+        TestBasics.fieldStaticIntegerArray = fieldStaticIntegerArray;
+    }
+
+    public static Long[] getStaticLongArray() {
+        return fieldStaticLongArray;
+    }
+
+    public static void setStaticLongArray(Long[] fieldStaticLongArray) {
+        TestBasics.fieldStaticLongArray = fieldStaticLongArray;
+    }
+
+    public static Float[] getStaticFloatArray() {
+        return fieldStaticFloatArray;
+    }
+
+    public static void setStaticFloatArray(Float[] fieldStaticFloatArray) {
+        TestBasics.fieldStaticFloatArray = fieldStaticFloatArray;
+    }
+
+    public static Double[] getStaticDoubleArray() {
+        return fieldStaticDoubleArray;
+    }
+
+    public static void setStaticDoubleArray(Double[] fieldStaticDoubleArray) {
+        TestBasics.fieldStaticDoubleArray = fieldStaticDoubleArray;
+    }
+
+    public static Boolean[] getStaticBooleanArray() {
+        return fieldStaticBooleanArray;
+    }
+
+    public static void setStaticBooleanArray(Boolean[] fieldStaticBooleanArray) {
+        TestBasics.fieldStaticBooleanArray = fieldStaticBooleanArray;
+    }
+
+    public static Character[] getStaticCharacterArray() {
+        return fieldStaticCharacterArray;
+    }
+
+    public static void setStaticCharacterArray(Character[] fieldStaticCharacterArray) {
+        TestBasics.fieldStaticCharacterArray = fieldStaticCharacterArray;
+    }
+
+    public static CharSequence[] getStaticCharSequenceArray() {
+        return fieldStaticCharSequenceArray;
+    }
+
+    public static void setStaticCharSequenceArray(CharSequence[] fieldStaticCharSequenceArray) {
+        TestBasics.fieldStaticCharSequenceArray = fieldStaticCharSequenceArray;
+    }
+
+    public static String[] getStaticStringArray() {
+        return fieldStaticStringArray;
+    }
+
+    public static void setStaticStringArray(String[] fieldStaticStringArray) {
+        TestBasics.fieldStaticStringArray = fieldStaticStringArray;
+    }
+
+    public static Class[] getStaticKlassArray() {
+        return fieldStaticKlassArray;
+    }
+
+    public static void setStaticKlassArray(Class[] fieldStaticKlassArray) {
+        TestBasics.fieldStaticKlassArray = fieldStaticKlassArray;
+    }
+
 
 
 }

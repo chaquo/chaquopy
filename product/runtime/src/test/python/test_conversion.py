@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from contextlib import contextmanager
 import math
+import six
 import unittest
 
 from chaquopy import autoclass
@@ -15,11 +16,23 @@ class TestConversion(unittest.TestCase):
 
     def setUp(self):
         self.obj = autoclass('com.chaquo.python.TestBasics')()
+        self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
 
     def test_null(self):
-        conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
-        self.verify_value(self.obj, "Z", None, context=conv_error)
+        self.verify_value(self.obj, "Z", None, context=self.conv_error, test_array=False)
         self.verify_value(self.obj, "Boolean", None)
+        self.verify_value(self.obj, "String", None)
+        # Assigning None to arrays is tested by verify_array.
+
+    def test_unrelated(self):
+        String = autoclass("java.lang.String")
+        for value in ["hello", String, String("hello")]:
+            self.verify_value(self.obj, "Boolean", value, context=self.conv_error)
+
+    def test_parent_to_child(self):
+        Object = autoclass("java.lang.Object")
+        for name in ["Boolean", "ZArray"]:
+            self.verify_value(self.obj, name, Object(), context=self.conv_error)
 
     def test_boolean(self):
         self.verify_boolean(self.obj, "Z")
@@ -31,6 +44,7 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, True)
         self.verify_value(obj, name, 1,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_int))
+        self.verify_array(obj, name, False, True)
 
     def test_int(self):
         self.verify_int(self.obj, "B", 8)
@@ -60,6 +74,7 @@ class TestConversion(unittest.TestCase):
                           context=self.assertRaisesRegexp(OverflowError, "too (big|large)"))
         self.verify_value(obj, name, max_val + 1,
                           context=self.assertRaisesRegexp(OverflowError, "too (big|large)"))
+        self.verify_array(obj, name, min_val, max_val)
 
     def test_float(self):
         self.verify_float(self.obj, "F", FLOAT32_EXPONENT_BITS)
@@ -73,15 +88,18 @@ class TestConversion(unittest.TestCase):
 
     def verify_float(self, obj, name, exponent_bits, allow_bool=False):
         max_exponent = (2 ** (exponent_bits - 1)) - 1
+        max_val = 2.0 ** max_exponent
+        min_val = -max_val
 
-        self.verify_value(obj, name, -(2.0 ** max_exponent))
-        self.verify_value(obj, name, 2.0 ** max_exponent)
+        self.verify_value(obj, name, min_val)
+        self.verify_value(obj, name, max_val)
         self.verify_value(obj, name, float("nan"),
-                          verify=lambda expected, actual: self.assertTrue(math.isnan(actual)))
+                          verify=lambda expected, actual: self.assertTrue(math.isnan(actual)),
+                          test_array=False)
         self.verify_value(obj, name, float("inf"))
         self.verify_value(obj, name, float("-inf"))
 
-        # Floating-point names always accept an int.
+        # Floating-point types always accept an int.
         self.verify_value(obj, name, 123)
 
         self.verify_value(obj, name, True,
@@ -95,15 +113,20 @@ class TestConversion(unittest.TestCase):
 
         # FIXME should be able to wrap in jfloat with truncate=True to avoid range checks.
 
+        self.verify_array(obj, name, min_val, max_val)
+
     def test_char(self):
         self.verify_char(self.obj, "C")
         self.verify_char(self.obj, "Character")
         self.verify_char(self.obj, "Object", allow_bool=True, allow_int=True, allow_string=True)
 
     def verify_char(self, obj, name, allow_bool=False, allow_int=False, allow_string=False):
+        min_val = u"\u0000"
+        max_val = u"\uFFFF"
+        self.verify_value(obj, name, min_val)
+        self.verify_value(obj, name, max_val)
+
         self.verify_value(obj, name, "x")  # Will be a byte string in Python 2.
-        self.verify_value(obj, name, u"\u0000")
-        self.verify_value(obj, name, u"\uFFFF")
 
         self.verify_value(obj, name, True,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_bool))
@@ -114,28 +137,60 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, u"\U00010000",
                           context=self.arrOptional(TypeError, "non-BMP", allow_string))
 
-    def test_string(self):
-        self.verify_string(self.obj, "String")
-        self.verify_string(self.obj, "CharSequence")
-        self.verify_string(self.obj, "Object")
+        self.verify_array(obj, name, min_val, max_val)
 
-    def verify_string(self, obj, name):
-        self.verify_value(obj, name, "")        # Will be a byte string in Python 2.
-        self.verify_value(obj, name, "hello")   #
-        self.verify_value(obj, name, u"")
-        self.verify_value(obj, name, u"hello")
+    def test_string(self):
+        for name in ["String", "CharSequence", "Object"]:
+            self.verify_string(self.obj, name)
+        for name in ["CArray", "CharacterArray"]:
+            def verify(expected, actual):
+                return actual == list(six.text_type(expected))
+            self.verify_string(self.obj, name, verify=verify)
+
+    def verify_string(self, obj, name, verify=None):
+        self.verify_value(obj, name, "", verify=verify)        # Will be a byte string in Python 2.
+        self.verify_value(obj, name, "hello", verify=verify)   #
+        self.verify_value(obj, name, u"", verify=verify)
+        self.verify_value(obj, name, u"hello", verify=verify)
+
+        if not name.endswith("Array"):
+            self.verify_array(obj, name, "hello", "world")
+            self.verify_array(obj, name, u"hello", "world")
+            self.verify_array(obj, name, u"hello", u"world")
 
     def test_class(self):
-        self.verify_value(self.obj, "Klass", autoclass("java.lang.System"))
+        for name in ["Klass", "Object"]:
+            self.verify_class(self.obj, name)
 
-    def test_failure(self):
-        conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
-        String = autoclass("java.lang.String")
-        self.verify_value(self.obj, "Number", "hello", context=conv_error)
-        self.verify_value(self.obj, "Number", String, context=conv_error)
-        self.verify_value(self.obj, "Number", String("hello"), context=conv_error)
+    def verify_class(self, obj, name):
+        System = autoclass("java.lang.System")
+        Class = autoclass("java.lang.Class")
+        self.verify_value(obj, name, System)
+        self.verify_value(obj, name, Class)
+        self.verify_array(obj, name, System, Class)
 
-    def verify_value(self, obj, name, value, context=None, verify=None):
+    def test_mixed_array(self):
+        mixed =  [False, "hello"]
+        self.verify_array(self.obj, "Object", *mixed)
+        for name in ["ZArray", "BooleanArray", "StringArray"]:
+            self.verify_value(self.obj, name, mixed, context=self.conv_error)
+
+    def test_array_with_nulls(self):
+        self.verify_array(self.obj, "String", "hello", None)
+        self.verify_array(self.obj, "String", None, None)
+        self.verify_value(self.obj, "ZArray", [None], context=self.conv_error)
+        self.verify_value(self.obj, "ZArray", [None, False], context=self.conv_error)
+        self.verify_value(self.obj, "ZArray", [False, None], context=self.conv_error)
+
+    def verify_array(self, obj, name, val1, val2):
+        for field in [name + "Array", "Object"]:  # All arrays are assignable to Object.
+            self.verify_value(obj, field, None)
+            self.verify_value(obj, field, [])
+            # Single-element arrays are tested by verify_value.
+            self.verify_value(obj, field, [val1, val2])
+            self.verify_value(obj, field, [val2, val1])
+
+    def verify_value(self, obj, name, value, context=None, verify=None, test_array=True):
         if context is None:
             context = no_context()
         if verify is None:
@@ -144,6 +199,9 @@ class TestConversion(unittest.TestCase):
         self.verify_value_1(type(obj), "Static" + name, value, context, verify)
         # Static members can also be accessed on an instance.
         self.verify_value_1(obj, "Static" + name, value, context, verify)
+
+        if test_array and not name.endswith("Array"):
+            self.verify_value(obj, name + "Array", [value], context, verify)
 
     def verify_value_1(self, obj, name, value, context, verify):
         field = "field" + name

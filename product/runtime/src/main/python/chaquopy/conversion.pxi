@@ -132,20 +132,6 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
 
 # TODO #5178: return a proxy object instead, so the Java array can be modified.
 cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
-    cdef jboolean iscopy = 0
-    cdef jboolean *j_booleans
-    cdef jbyte *j_bytes
-    cdef jchar *j_chars
-    cdef jshort *j_shorts
-    cdef jint *j_ints
-    cdef jlong *j_longs
-    cdef jfloat *j_floats
-    cdef jdouble *j_doubles
-    cdef object ret = None
-    cdef jsize array_size
-
-    cdef int i
-    cdef jobject j_object_item
 
     if j_object == NULL:
         return None
@@ -154,89 +140,51 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
 
     r = definition[0]
     if r == 'Z':
-        j_booleans = j_env[0].GetBooleanArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(True if j_booleans[i] else False)
-                for i in range(array_size)]
-        j_env[0].ReleaseBooleanArrayElements(
-                j_env, j_object, j_booleans, 0)
+        j_booleans = j_env[0].GetBooleanArrayElements(j_env, j_object, NULL)
+        ret = [bool(j_booleans[i]) for i in range(array_size)]
+        j_env[0].ReleaseBooleanArrayElements(j_env, j_object, j_booleans, 0)
 
     elif r == 'B':
-        j_bytes = j_env[0].GetByteArrayElements(
-                j_env, j_object, &iscopy)
-        # FIXME is this "unsigned" consistent with other Java byte -> Python int conversions?
-        # It seems like the wrong choice.
-        ret = [(<unsigned char>j_bytes[i]) for i in range(array_size)]
-        j_env[0].ReleaseByteArrayElements(
-                j_env, j_object, j_bytes, 0)
+        j_bytes = j_env[0].GetByteArrayElements(j_env, j_object, NULL)
+        ret = [j_bytes[i] for i in range(array_size)]
+        j_env[0].ReleaseByteArrayElements(j_env, j_object, j_bytes, 0)
 
     elif r == 'C':
-        j_chars = j_env[0].GetCharArrayElements(
-                j_env, j_object, &iscopy)
-        # FIXME this is suspicious, Cython char is 8 bits but Java char is 16
-        ret = [chr(<char>j_chars[i]) for i in range(array_size)]
-        j_env[0].ReleaseCharArrayElements(
-                j_env, j_object, j_chars, 0)
+        j_chars = j_env[0].GetCharArrayElements(j_env, j_object, NULL)
+        ret = [six.unichr(j_chars[i]) for i in range(array_size)]
+        j_env[0].ReleaseCharArrayElements(j_env, j_object, j_chars, 0)
 
     elif r == 'S':
-        j_shorts = j_env[0].GetShortArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(<short>j_shorts[i]) for i in range(array_size)]
-        j_env[0].ReleaseShortArrayElements(
-                j_env, j_object, j_shorts, 0)
+        j_shorts = j_env[0].GetShortArrayElements(j_env, j_object, NULL)
+        ret = [j_shorts[i] for i in range(array_size)]
+        j_env[0].ReleaseShortArrayElements(j_env, j_object, j_shorts, 0)
 
     elif r == 'I':
-        j_ints = j_env[0].GetIntArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(<int>j_ints[i]) for i in range(array_size)]
-        j_env[0].ReleaseIntArrayElements(
-                j_env, j_object, j_ints, 0)
+        j_ints = j_env[0].GetIntArrayElements(j_env, j_object, NULL)
+        ret = [j_ints[i] for i in range(array_size)]
+        j_env[0].ReleaseIntArrayElements(j_env, j_object, j_ints, 0)
 
     elif r == 'J':
-        j_longs = j_env[0].GetLongArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(<long long>j_longs[i]) for i in range(array_size)]
-        j_env[0].ReleaseLongArrayElements(
-                j_env, j_object, j_longs, 0)
+        j_longs = j_env[0].GetLongArrayElements(j_env, j_object, NULL)
+        ret = [j_longs[i] for i in range(array_size)]
+        j_env[0].ReleaseLongArrayElements(j_env, j_object, j_longs, 0)
 
     elif r == 'F':
-        j_floats = j_env[0].GetFloatArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(<float>j_floats[i]) for i in range(array_size)]
-        j_env[0].ReleaseFloatArrayElements(
-                j_env, j_object, j_floats, 0)
+        j_floats = j_env[0].GetFloatArrayElements(j_env, j_object, NULL)
+        ret = [j_floats[i] for i in range(array_size)]
+        j_env[0].ReleaseFloatArrayElements(j_env, j_object, j_floats, 0)
 
     elif r == 'D':
-        j_doubles = j_env[0].GetDoubleArrayElements(
-                j_env, j_object, &iscopy)
-        ret = [(<double>j_doubles[i]) for i in range(array_size)]
-        j_env[0].ReleaseDoubleArrayElements(
-                j_env, j_object, j_doubles, 0)
+        j_doubles = j_env[0].GetDoubleArrayElements(j_env, j_object, NULL)
+        ret = [j_doubles[i] for i in range(array_size)]
+        j_env[0].ReleaseDoubleArrayElements(j_env, j_object, j_doubles, 0)
 
-    elif r == 'L':
-        r = definition[1:-1]
+    elif r in 'L[':
         ret = []
         for i in range(array_size):
-            j_object_item = j_env[0].GetObjectArrayElement(
-                    j_env, j_object, i)
-            if j_object_item == NULL:
-                ret.append(None)
-                continue
-            obj = j2p(j_env, LocalRef.adopt(j_env, j_object_item))
-            ret.append(obj)
-
-    elif r == '[':
-        r = definition[1:]
-        ret = []
-        for i in range(array_size):
-            j_object_item = j_env[0].GetObjectArrayElement(
-                    j_env, j_object, i)
-            if j_object_item == NULL:
-                ret.append(None)
-                continue
-            obj = j2p_array(j_env, r, j_object_item)
-            ret.append(obj)
-            j_env[0].DeleteLocalRef(j_env, j_object_item)
+            j_object_item = j_env[0].GetObjectArrayElement(j_env, j_object, i)
+            check_exception(j_env)
+            ret.append(j2p(j_env, LocalRef.adopt(j_env, j_object_item)))
 
     else:
         raise Exception(f"Invalid signature '{definition}'")
@@ -331,9 +279,9 @@ cdef p2j(JNIEnv *j_env, definition, obj):
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
                 return <GlobalRef?>obj.j_cls
-        elif isinstance(obj, (tuple, list)):
-            if clsname == "java.lang.Object":
-                return LocalRef.adopt(j_env, p2j_array(j_env, definition, obj))
+        elif is_iterable(obj):
+            if clsname in ["java.lang.Object", "java.lang.Cloneable", "java.io.Serializable"]:
+                return LocalRef.adopt(j_env, p2j_array(j_env, "Ljava/lang/Object;", obj))
 
         # Anything, including the above types, can be converted to a PyObject if the signature
         # will accept it.
@@ -341,9 +289,7 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
-        # FIXME we can't support bytearray here: it's unsigned but Java byte is signed.
-        if isinstance(obj, (tuple, list)) or \
-           (isinstance(obj, bytearray) and definition == "[B"):
+        if obj is None or is_iterable(obj):
             return LocalRef.adopt(j_env, p2j_array(j_env, definition[1:], obj))
 
     else:
@@ -352,6 +298,13 @@ cdef p2j(JNIEnv *j_env, definition, obj):
     # TODO #5155 don't expose JNI signatures to users
     raise TypeError(f"Cannot convert {type(obj).__name__} object to {definition}")
 
+
+def is_iterable(obj):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
 
 # https://github.com/cython/cython/issues/1709
 #
@@ -407,97 +360,78 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
 cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
     """`definition` is the element type, not the array type.
     """
-    cdef jobject ret = NULL
-    cdef int array_size = len(pyarray)
-    cdef int i
-    cdef jboolean j_boolean
-    cdef jbyte j_byte
-    cdef jchar j_char
-    cdef jshort j_short
-    cdef jint j_int
-    cdef jlong j_long
-    cdef jfloat j_float
-    cdef jdouble j_double
-
     if pyarray is None:
         return NULL
+    array_size = len(pyarray)
+    pyarray_checked = [p2j(j_env, definition, pyarray[i]) for i in range(array_size)]
 
     if definition == 'Z':
         ret = j_env[0].NewBooleanArray(j_env, array_size)
+        z_array = j_env[0].GetBooleanArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_boolean = 1 if pyarray[i] else 0
-            j_env[0].SetBooleanArrayRegion(j_env,
-                    ret, i, 1, &j_boolean)
+            z_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseBooleanArrayElements(j_env, ret, z_array, 0)
 
     elif definition == 'B':
         ret = j_env[0].NewByteArray(j_env, array_size)
+        b_array = j_env[0].GetByteArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            # FIXME compare signedness with other byte conversions, and test properly
-            j_byte = <jbyte><unsigned char>pyarray[i]
-            j_env[0].SetByteArrayRegion(j_env,
-                    ret, i, 1, &j_byte)
+            b_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseByteArrayElements(j_env, ret, b_array, 0)
 
     elif definition == 'C':
         ret = j_env[0].NewCharArray(j_env, array_size)
+        c_array = j_env[0].GetCharArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_char = ord(pyarray[i])
-            j_env[0].SetCharArrayRegion(j_env,
-                    ret, i, 1, &j_char)
+            c = pyarray_checked[i]
+            check_range_char(c)
+            c_array[i] = ord(c)
+        j_env[0].ReleaseCharArrayElements(j_env, ret, c_array, 0)
 
     elif definition == 'S':
         ret = j_env[0].NewShortArray(j_env, array_size)
+        s_array = j_env[0].GetShortArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_short = pyarray[i]
-            j_env[0].SetShortArrayRegion(j_env,
-                    ret, i, 1, &j_short)
+            s_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseShortArrayElements(j_env, ret, s_array, 0)
 
     elif definition == 'I':
         ret = j_env[0].NewIntArray(j_env, array_size)
+        i_array = j_env[0].GetIntArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_int = pyarray[i]
-            j_env[0].SetIntArrayRegion(j_env,
-                    ret, i, 1, <const jint *>&j_int)
+            i_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseIntArrayElements(j_env, ret, i_array, 0)
 
     elif definition == 'J':
         ret = j_env[0].NewLongArray(j_env, array_size)
+        j_array = j_env[0].GetLongArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_long = pyarray[i]
-            j_env[0].SetLongArrayRegion(j_env,
-                    ret, i, 1, &j_long)
+            j_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseLongArrayElements(j_env, ret, j_array, 0)
 
     elif definition == 'F':
         ret = j_env[0].NewFloatArray(j_env, array_size)
+        f_array = j_env[0].GetFloatArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_float = pyarray[i]
-            j_env[0].SetFloatArrayRegion(j_env,
-                    ret, i, 1, &j_float)
+            f = pyarray_checked[i]
+            check_range_float32(f)
+            f_array[i] = f
+        j_env[0].ReleaseFloatArrayElements(j_env, ret, f_array, 0)
 
     elif definition == 'D':
         ret = j_env[0].NewDoubleArray(j_env, array_size)
+        d_array = j_env[0].GetDoubleArrayElements(j_env, ret, NULL)
         for i in range(array_size):
-            j_double = pyarray[i]
-            j_env[0].SetDoubleArrayRegion(j_env,
-                    ret, i, 1, &j_double)
+            d_array[i] = pyarray_checked[i]
+        j_env[0].ReleaseDoubleArrayElements(j_env, ret, d_array, 0)
 
-    elif definition[0] == 'L':
-        j_class = CQPEnv().FindClass(definition[1:-1])
+    elif definition[0] in 'L[':
+        clsname = definition[1:-1] if (definition[0] == 'L') else definition
+        j_class = CQPEnv().FindClass(clsname)
         ret = j_env[0].NewObjectArray(j_env, array_size, j_class.obj, NULL)
         for i in range(array_size):
-            j_object = <JNIRef?>p2j(j_env, definition, pyarray[i])
-            j_env[0].SetObjectArrayElement(j_env, ret, i, j_object.obj)
-
-    elif definition[0] == '[':
-        # FIXME shouldn't depend only on first element, and will crash when array is empty. Can
-        # we combine this with the 'L' case?
-        subdef = definition[1:]
-        eproto = p2j_array(j_env, subdef, pyarray[0])
-        ret = j_env[0].NewObjectArray(
-                j_env, array_size, j_env[0].GetObjectClass(j_env, eproto), NULL)
-        j_env[0].SetObjectArrayElement(
-                    j_env, <jobjectArray>ret, 0, eproto)
-        for i in range(1, array_size):
-            j_env[0].SetObjectArrayElement(
-                    j_env, <jobjectArray>ret, i, p2j_array(j_env, subdef, pyarray[i]))
+            j_env[0].SetObjectArrayElement(j_env, ret, i, (<JNIRef?>pyarray_checked[i]).obj)
+            check_exception(j_env)
 
     else:
         raise ValueError(f"Invalid signature '{definition}'")

@@ -239,11 +239,11 @@ def is_applicable(sign_args, args, *, varargs):
 # affected by the actual parameter types, not their values.
 cdef is_applicable_arg(JNIEnv *env, r, arg):
     # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
-    # values inside, but JavaMultipleMethod will cache based only on the container type.
-    # Make it so that all lists/tuples are considered applicable to all arrays, but can be
-    # wrapped with jarray(type, obj), where type is a JavaClass, primitive, or
-    # jarray(type). For caching to work, calls to jarray with different types must return
-    # objects of different types.
+    # values inside, but JavaMultipleMethod will cache based only on the container type. Make
+    # it so that all lists/tuples are considered applicable to all arrays but never more
+    # specific. They can be wrapped with jarray(type, obj), where type is a JavaClass,
+    # primitive, or jarray(type). For caching to work, calls to jarray with different types
+    # must return objects of different types.
     try:
         p2j(env, r, arg)
         return True
@@ -279,6 +279,26 @@ def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
 def better_overload_arg(def1, def2, actual_type):
     if def2 == def1:
         return True
+
+    # To avoid data loss, we prefer to treat a Python int or float as the largest of the
+    # corresponding Java types.
+    elif issubclass(actual_type, six.integer_types) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
+        return INT_TYPES.find(def1) >= INT_TYPES.find(def2)
+    elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
+        return FLOAT_TYPES.find(def1) >= FLOAT_TYPES.find(def2)
+
+    # Similarly, we prefer to treat a Python string as a Java String rather than a char or a
+    # char array. (Its length cannot be taken into account: see note above about caching.)
+    elif issubclass(actual_type, six.string_types) and \
+         (def2 in ["C", "[C"]) and (def1 == "Ljava/lang/String;"):
+        return True
+
+    # Otherwise we prefer the smallest (i.e. most specific) Java type. This includes the case
+    # of passing a Python int where float and double overloads exist: the float overload will
+    # be called, just like in Java.
+    elif (def1 in NUMERIC_TYPES) and (def2 in NUMERIC_TYPES):
+        return NUMERIC_TYPES.find(def1) <= NUMERIC_TYPES.find(def2)
+
     elif def2.startswith("L"):
         if def1.startswith("L"):
             return find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
@@ -288,25 +308,6 @@ def better_overload_arg(def1, def2, actual_type):
             return (def2[1] not in PRIMITIVE_TYPES and
                     def1.startswith("[") and
                     better_overload_arg(def2[1:], def1[1:], None))
-
-    # To avoid data loss, we prefer to treat a Python int or float as the largest of the
-    # corresponding Java types.
-    elif issubclass(actual_type, six.integer_types) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
-        return INT_TYPES.find(def1) >= INT_TYPES.find(def2)
-    elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
-        return FLOAT_TYPES.find(def1) >= FLOAT_TYPES.find(def2)
-
-    # Similarly, we prefer to treat a Python string as a Java String rather than a char (see
-    # note above about caching).
-    elif issubclass(actual_type, six.string_types) and \
-         (def2 == "C") and (def1 == "Ljava/lang/String;"):
-        return True
-
-    # Otherwise we prefer the smallest (i.e. most specific) Java type. This includes the case
-    # of passing a Python int where float and double overloads exist: the float overload will
-    # be called, just like in Java.
-    elif (def1 in NUMERIC_TYPES) and (def2 in NUMERIC_TYPES):
-        return NUMERIC_TYPES.find(def1) <= NUMERIC_TYPES.find(def2)
 
     return False
 

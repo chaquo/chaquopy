@@ -94,3 +94,8 @@ class ReflectTest(unittest.TestCase):
         self.assertEquals(test2.fieldB, 22)
         self.assertEquals(test1.getB(), 11)
         self.assertEquals(test2.getB(), 22)
+
+    def test_mixed_params(self):
+        test = autoclass('com.chaquo.python.TestBasics')()
+        self.assertEquals(test.methodParamsZBCSIJFD(
+            True, 127, 'k', 32767, 2147483467, 9223372036854775807, 1.23, 9.87), True)
