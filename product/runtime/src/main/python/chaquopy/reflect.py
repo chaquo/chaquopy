@@ -132,8 +132,7 @@ def reflect_class(clsname):
             method = JavaMethod(method_signature(method),
                                 static=Modifier.isStatic(method.getModifiers()),
                                 varargs=method.isVarArgs())
-            # TODO disabled until tested (#5153), and should also generate a setter, AND should
-            # be moved to the metaclass so it also takes effect on bootstrap classes.
+            # TODO #5153 disabled until tested, and should also generate a setter.
             #
             # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
             #     classDict[lower_name(name[3:])] = \

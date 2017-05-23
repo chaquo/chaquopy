@@ -80,11 +80,11 @@ def jvm_lib_path():
     else:
         jre_home = java_home
 
-    if sys.platform.startswith("darwin"):  # TODO untested
+    if sys.platform.startswith("darwin"):  # TODO #5184 untested
         return f"{jre_home}/lib/server/libjvm.dylib"
     elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
         return f"{jre_home}/bin/server/jvm.dll"
-    else:  # TODO untested
+    else:  # Probably Linux (TODO #5184 untested)
         machine2cpu = {
             "amd64": "amd64",
             "x86_64": "amd64",

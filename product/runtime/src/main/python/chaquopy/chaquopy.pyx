@@ -1,7 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-# FIXME: survey all <...> casts without question mark, and remove or add question mark.
-
 from collections import defaultdict
 
 cdef extern from "alloca.h":

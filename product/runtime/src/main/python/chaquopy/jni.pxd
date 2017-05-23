@@ -320,7 +320,6 @@ cdef extern from "jni.h":
         void        (*SetFloatArrayRegion)(JNIEnv*, jfloatArray, jsize, jsize, const jfloat*)
         void        (*SetDoubleArrayRegion)(JNIEnv*, jdoubleArray, jsize, jsize, const jdouble*)
 
-        #XXX not working with cython?
         jint        (*RegisterNatives)(JNIEnv*, jclass, const JNINativeMethod*, jint)
         jint        (*UnregisterNatives)(JNIEnv*, jclass)
         jint        (*MonitorEnter)(JNIEnv*, jobject)

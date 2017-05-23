@@ -320,8 +320,9 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
 
 # =============================================================================
 
-# TODO if this is a Java exception, use the original exception object.
-# TODO Integrate Python traceback into Java traceback if possible
+# TODO #5169:
+#   * If this is a Java exception, use the original exception object.
+#   * Integrate Python traceback into Java traceback if possible
 #
 # To do either of these things, create a new function called wrap_exception, rename this
 # original function, and only call it directly from Python_start() when module initialization
