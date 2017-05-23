@@ -5,7 +5,7 @@ import math
 import six
 import unittest
 
-from chaquopy import autoclass
+from chaquopy import *
 
 
 FLOAT32_EXPONENT_BITS = 8
@@ -19,7 +19,7 @@ class TestConversion(unittest.TestCase):
         self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
 
     def test_null(self):
-        self.verify_value(self.obj, "Z", None, context=self.conv_error, test_array=False)
+        self.verify_value(self.obj, "Z", None, context=self.conv_error)
         self.verify_value(self.obj, "Boolean", None)
         self.verify_value(self.obj, "String", None)
         # Assigning None to arrays is tested by verify_array.
@@ -40,32 +40,42 @@ class TestConversion(unittest.TestCase):
         self.verify_boolean(self.obj, "Object", allow_int=True)
 
     def verify_boolean(self, obj, name, allow_int=False):
-        self.verify_value(obj, name, False)
-        self.verify_value(obj, name, True)
+        self.verify_value(obj, name, False, wrapper=jboolean)
+        self.verify_value(obj, name, True, wrapper=jboolean)
+
+        # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, 1,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_int))
+
         self.verify_array(obj, name, False, True)
 
     def test_int(self):
-        self.verify_int(self.obj, "B", 8)
-        self.verify_int(self.obj, "S", 16)
-        self.verify_int(self.obj, "I", 32)
-        self.verify_int(self.obj, "J", 64)
+        self.verify_int(self.obj, "B", 8, jbyte)
+        self.verify_int(self.obj, "S", 16, jshort)
+        self.verify_int(self.obj, "I", 32, jint)
+        self.verify_int(self.obj, "J", 64, jlong)
 
-        self.verify_int(self.obj, "Byte", 8)
-        self.verify_int(self.obj, "Short", 16)
-        self.verify_int(self.obj, "Integer", 32)
-        self.verify_int(self.obj, "Long", 64)
+        self.verify_int(self.obj, "Byte", 8, jbyte)
+        self.verify_int(self.obj, "Short", 16, jshort)
+        self.verify_int(self.obj, "Integer", 32, jint)
+        self.verify_int(self.obj, "Long", 64, jlong)
 
+        # Bounds will only be checked if we use the wrappers, so we can't test wrapped and
+        # unwrapped together.
         self.verify_int(self.obj, "Object", 64, allow_bool=True, allow_float=True)
         self.verify_int(self.obj, "Number", 64, allow_float=True)
+        for wrapper in [jbyte, jshort, jint, jlong]:
+            self.verify_value(self.obj, "Object", 42)
+            self.verify_value(self.obj, "Number", 42)
 
-    def verify_int(self, obj, name, bits, allow_bool=False, allow_float=False):
+    def verify_int(self, obj, name, bits, wrapper=None, allow_bool=False, allow_float=False):
         max_val = (2 ** (bits-1)) - 1
         min_val = -max_val - 1
 
-        self.verify_value(obj, name, min_val)
-        self.verify_value(obj, name, max_val)
+        self.verify_value(obj, name, min_val, wrapper=wrapper)
+        self.verify_value(obj, name, max_val, wrapper=wrapper)
+
+        # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_bool))
         self.verify_value(obj, name, 1.23,
@@ -77,41 +87,42 @@ class TestConversion(unittest.TestCase):
         self.verify_array(obj, name, min_val, max_val)
 
     def test_float(self):
-        self.verify_float(self.obj, "F", FLOAT32_EXPONENT_BITS)
-        self.verify_float(self.obj, "D", FLOAT64_EXPONENT_BITS)
+        self.verify_float(self.obj, "F", FLOAT32_EXPONENT_BITS, jfloat)
+        self.verify_float(self.obj, "D", FLOAT64_EXPONENT_BITS, jdouble)
 
-        self.verify_float(self.obj, "Float", FLOAT32_EXPONENT_BITS)
-        self.verify_float(self.obj, "Double", FLOAT64_EXPONENT_BITS)
+        self.verify_float(self.obj, "Float", FLOAT32_EXPONENT_BITS, jfloat)
+        self.verify_float(self.obj, "Double", FLOAT64_EXPONENT_BITS, jdouble)
 
+        # Bounds will only be checked if we use the wrappers, so we can't test wrapped and
+        # unwrapped together.
         self.verify_float(self.obj, "Object", FLOAT64_EXPONENT_BITS, allow_bool=True)
         self.verify_float(self.obj, "Number", FLOAT64_EXPONENT_BITS)
+        for wrapper in [jfloat, jdouble]:
+            self.verify_value(self.obj, "Object", 42)
+            self.verify_value(self.obj, "Number", 42)
 
-    def verify_float(self, obj, name, exponent_bits, allow_bool=False):
+    def verify_float(self, obj, name, exponent_bits, wrapper=None, allow_bool=False):
         max_exponent = (2 ** (exponent_bits - 1)) - 1
         max_val = 2.0 ** max_exponent
         min_val = -max_val
 
-        self.verify_value(obj, name, min_val)
-        self.verify_value(obj, name, max_val)
-        self.verify_value(obj, name, float("nan"),
-                          verify=lambda expected, actual: self.assertTrue(math.isnan(actual)),
-                          test_array=False)
-        self.verify_value(obj, name, float("inf"))
-        self.verify_value(obj, name, float("-inf"))
+        for val in [42,  # Floating-point types always accept an int.
+                    min_val, max_val, float("inf"), float("-inf")]:
+            self.verify_value(obj, name, val, wrapper=wrapper)
 
-        # Floating-point types always accept an int.
-        self.verify_value(obj, name, 123)
+        self.verify_value(obj, name, float("nan"),  # NaN is unequal to everything including itself.
+                          wrapper=wrapper,
+                          verify=lambda expected, actual: self.assertTrue(math.isnan(actual)))
 
+        # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_bool))
 
         if exponent_bits < FLOAT64_EXPONENT_BITS:
-            self.verify_value(obj, name, -(2.0 ** (max_exponent + 1)),
-                              context=self.assertRaisesRegexp(OverflowError, "too (big|large)"))
-            self.verify_value(obj, name, 2.0 ** (max_exponent + 1),
-                              context=self.assertRaisesRegexp(OverflowError, "too (big|large)"))
-
-        # FIXME should be able to wrap in jfloat with truncate=True to avoid range checks.
+            for val in [2.0 ** (max_exponent + 1),
+                        -2.0 ** (max_exponent + 1)]:
+                self.verify_value(obj, name, val,
+                                  context=self.assertRaisesRegexp(OverflowError, "too (big|large)"))
 
         self.verify_array(obj, name, min_val, max_val)
 
@@ -123,11 +134,12 @@ class TestConversion(unittest.TestCase):
     def verify_char(self, obj, name, allow_bool=False, allow_int=False, allow_string=False):
         min_val = u"\u0000"
         max_val = u"\uFFFF"
-        self.verify_value(obj, name, min_val)
-        self.verify_value(obj, name, max_val)
+        self.verify_value(obj, name, min_val, wrapper=jchar)
+        self.verify_value(obj, name, max_val, wrapper=jchar)
 
-        self.verify_value(obj, name, "x")  # Will be a byte string in Python 2.
+        self.verify_value(obj, name, "x", wrapper=jchar)  # Will be a byte string in Python 2.
 
+        # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_bool))
         self.verify_value(obj, name, 1,
@@ -143,20 +155,19 @@ class TestConversion(unittest.TestCase):
         for name in ["String", "CharSequence", "Object"]:
             self.verify_string(self.obj, name)
         for name in ["CArray", "CharacterArray"]:
-            def verify(expected, actual):
-                return actual == list(six.text_type(expected))
-            self.verify_string(self.obj, name, verify=verify)
+            # TODO #5148 this will fail with non-BMP characters in Python 3.3 and later (PEP 393).
+            self.verify_string(self.obj, name,
+                               verify=lambda expected, actual:
+                                          actual == list(six.text_type(expected)))
 
     def verify_string(self, obj, name, verify=None):
-        self.verify_value(obj, name, "", verify=verify)        # Will be a byte string in Python 2.
-        self.verify_value(obj, name, "hello", verify=verify)   #
-        self.verify_value(obj, name, u"", verify=verify)
-        self.verify_value(obj, name, u"hello", verify=verify)
+        for val in ["", "h", "hello",   # Will be byte strings in Python 2
+                    u"a\u0000b",        # Null character (handled differently by "modified UTF-8")
+                    u"a\U00012345b"]:   # Non-BMP character
+            self.verify_value(obj, name, val, verify=verify)
 
         if not name.endswith("Array"):
             self.verify_array(obj, name, "hello", "world")
-            self.verify_array(obj, name, u"hello", "world")
-            self.verify_array(obj, name, u"hello", u"world")
 
     def test_class(self):
         for name in ["Klass", "Object"]:
@@ -190,31 +201,42 @@ class TestConversion(unittest.TestCase):
             self.verify_value(obj, field, [val1, val2])
             self.verify_value(obj, field, [val2, val1])
 
-    def verify_value(self, obj, name, value, context=None, verify=None, test_array=True):
+    def verify_value(self, obj, name, value, context=None, verify=None, wrapper=None):
         if context is None:
             context = no_context()
         if verify is None:
             verify = self.assertEqual
-        self.verify_value_1(obj, name, value, context, verify)
-        self.verify_value_1(type(obj), "Static" + name, value, context, verify)
+
+        self.verify_value_1(obj, name, value, context, verify, wrapper=None)
+        if wrapper:
+            self.verify_value_1(obj, name, value, context, verify, wrapper)
+
+    def verify_value_1(self, obj, name, value, context, verify, wrapper):
+        if wrapper is None:
+            wrapper = lambda value: value
+
+        self.verify_value_2(obj, name, value, context, verify, wrapper)
+        self.verify_value_2(type(obj), "Static" + name, value, context, verify, wrapper)
         # Static members can also be accessed on an instance.
-        self.verify_value_1(obj, "Static" + name, value, context, verify)
+        self.verify_value_2(obj, "Static" + name, value, context, verify, wrapper)
 
-        if test_array and not name.endswith("Array"):
-            self.verify_value(obj, name + "Array", [value], context, verify)
+        if not name.endswith("Array"):
+            self.verify_value_1(obj, name + "Array", value, context,
+                                verify=lambda expected, actual: verify(expected, actual[0]),
+                                wrapper=lambda value: [wrapper(value)])
 
-    def verify_value_1(self, obj, name, value, context, verify):
+    def verify_value_2(self, obj, name, value, context, verify, wrapper):
         field = "field" + name
         getter = "get" + name
         setter = "set" + name
         old_value = getattr(obj, field)
 
         with context:
-            setattr(obj, field, value)
+            setattr(obj, field, wrapper(value))
             verify(value, getattr(obj, field))
             verify(value, getattr(obj, getter)())  # Check new value is visible in Java as well.
         with context:
-            getattr(obj, setter)(value)
+            getattr(obj, setter)(wrapper(value))
             verify(value, getattr(obj, field))
             verify(value, getattr(obj, getter)())
 
