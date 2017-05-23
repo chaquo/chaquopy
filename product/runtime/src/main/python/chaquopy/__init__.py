@@ -10,7 +10,7 @@ from .chaquopy import *  # noqa
 from .signatures import *  # noqa
 from .reflect import *  # noqa
 
-# # Not including jvoid because the user would have no use for it.
+# jvoid is not in the public API because the user would have no use for it.
 __all__ = ["autoclass", "cast", "detach", "JavaException",
            "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]

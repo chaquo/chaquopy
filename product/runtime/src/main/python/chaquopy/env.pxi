@@ -7,7 +7,7 @@ cdef class CQPEnv(object):
     def __init__(self):
         self.j_env = get_jnienv()
 
-    cdef LocalRef FindClass(self, name):
+    cpdef LocalRef FindClass(self, name):
         jniname = str_for_c(name.replace('.', '/'))
         result = self.adopt(self.j_env[0].FindClass(self.j_env, jniname))
         if not result:

@@ -5,36 +5,28 @@ import chaquopy
 
 
 def cast(cls, JavaObject obj):
-    """Returns a view of the given object as the given class. The class may be specified either as a
-    proxy class returned by `jclass` or as a fully-qualified class name. Raises TypeError if the
-    object is not an instance of the given class.
+    """Returns a view of the given object as the given class. Raises TypeError if the object is not
+    assignable to the class.
 
     Situations where this could be useful:
 
     * By changing the apparent type of the object to one of its superclasses, a less specific
       overload may be chosen when passing the object to a method.
-
     * By removing visibility of a method's overloads added in a subclass, a superclass overload
       may be chosen instead when calling that method on the object.
     """
-    if isinstance(cls, six.string_types):
-        proxy_class = chaquopy.autoclass(cls)
-    elif isinstance(cls, JavaClass):
-        proxy_class = cls
-    else:
-        raise TypeError(f"{type(cls)} object does not specify a class")
-    return proxy_class(instance=obj.j_self)
+    if not isinstance(cls, JavaClass):
+        raise TypeError(f"{type(cls).__name__} object is not a Java class")
+    return cls(instance=obj.j_self)
 
 
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
 # wrong ClassLoader.
 def find_javaclass(name):
     """Returns the java.lang.Class proxy object corresponding to the given fully-qualified class
-    name. Either '.' or '/' notation may be used. Raises java.lang.LinkageError on failure.
+    name. Either '.' or '/' notation may be used. Raises the same exceptions as Class.forName.
     """
-    from . import reflect
-    reflect.setup_bootstrap_classes()
-    return reflect.Class(instance=CQPEnv().FindClass(name))
+    return chaquopy.autoclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):

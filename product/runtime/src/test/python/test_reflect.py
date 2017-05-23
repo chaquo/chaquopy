@@ -9,6 +9,12 @@ class ReflectTest(unittest.TestCase):
         self.Test = autoclass('com.chaquo.python.TestBasics')
         self.t = self.Test()
 
+    def test_bootstrap(self):
+        # Test a non-inherited method which we are unlikely ever to use in the reflection
+        # process.
+        klass = autoclass("java.lang.Class").forName("java.lang.String")
+        self.assertIsInstance(klass.desiredAssertionStatus(), bool)
+
     def test_autoclass(self):
         Stack = autoclass('java.util.Stack')
         StackSlash = autoclass('java/util/Stack')

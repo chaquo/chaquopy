@@ -1,8 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from six import with_metaclass
 
-from .chaquopy import (JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod,
-                       find_javaclass)
+from .chaquopy import CQPEnv, JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod
 from .signatures import *
 
 __all__ = ['autoclass']
@@ -17,247 +16,53 @@ def setup_bootstrap_classes():
     if "Constructor" in globals():  # Last class to be defined
         return
 
-    global Class, Object, Modifier, Method, Field, Constructor
-
-    # Generated with runtime/make_proxy.py
-    # TODO this still omits the base class methods of AccessibleObject.
+    # Declare only the members used by reflect_class or anything it calls.
+    # Generated with the help of runtime/make_proxy.py
+    global Class, Modifier, Method, Field, Constructor
 
     class Class(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.Class'
-        asSubclass = JavaMethod('(Ljava/lang/Class;)Ljava/lang/Class;')
-        cast = JavaMethod('(Ljava/lang/Object;)Ljava/lang/Object;')
-        desiredAssertionStatus = JavaMethod('()Z')
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        forName = JavaMultipleMethod([
-            JavaMethod('(Ljava/lang/String;)Ljava/lang/Class;', static=True),
-            JavaMethod('(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;', static=True)])
-        getAnnotatedInterfaces = JavaMethod('()[Ljava/lang/reflect/AnnotatedType;')
-        getAnnotatedSuperclass = JavaMethod('()Ljava/lang/reflect/AnnotatedType;')
-        getAnnotation = JavaMethod('(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;')
-        getAnnotations = JavaMethod('()[Ljava/lang/annotation/Annotation;')
-        getAnnotationsByType = JavaMethod('(Ljava/lang/Class;)[Ljava/lang/annotation/Annotation;')
-        getCanonicalName = JavaMethod('()Ljava/lang/String;')
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        getClassLoader = JavaMethod('()Ljava/lang/ClassLoader;')
-        getClasses = JavaMethod('()[Ljava/lang/Class;')
-        getComponentType = JavaMethod('()Ljava/lang/Class;')
-        getConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;', varargs=True)
         getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
-        getDeclaredAnnotation = JavaMethod('(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;')
-        getDeclaredAnnotations = JavaMethod('()[Ljava/lang/annotation/Annotation;')
-        getDeclaredAnnotationsByType = JavaMethod('(Ljava/lang/Class;)[Ljava/lang/annotation/Annotation;')
-        getDeclaredClasses = JavaMethod('()[Ljava/lang/Class;')
-        getDeclaredConstructor = JavaMethod('([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;', varargs=True)
-        getDeclaredConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
-        getDeclaredField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
-        getDeclaredFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-        getDeclaredMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;', varargs=True)
-        getDeclaredMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getEnclosingClass = JavaMethod('()Ljava/lang/Class;')
-        getEnclosingConstructor = JavaMethod('()Ljava/lang/reflect/Constructor;')
-        getEnclosingMethod = JavaMethod('()Ljava/lang/reflect/Method;')
-        getEnumConstants = JavaMethod('()[Ljava/lang/Object;')
-        getField = JavaMethod('(Ljava/lang/String;)Ljava/lang/reflect/Field;')
         getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-        getGenericInterfaces = JavaMethod('()[Ljava/lang/reflect/Type;')
-        getGenericSuperclass = JavaMethod('()Ljava/lang/reflect/Type;')
-        getInterfaces = JavaMethod('()[Ljava/lang/Class;')
-        getMethod = JavaMethod('(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;', varargs=True)
         getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
-        getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
-        getPackage = JavaMethod('()Ljava/lang/Package;')
-        getProtectionDomain = JavaMethod('()Ljava/security/ProtectionDomain;')
-        getResource = JavaMethod('(Ljava/lang/String;)Ljava/net/URL;')
-        getResourceAsStream = JavaMethod('(Ljava/lang/String;)Ljava/io/InputStream;')
-        getSigners = JavaMethod('()[Ljava/lang/Object;')
-        getSimpleName = JavaMethod('()Ljava/lang/String;')
-        getSuperclass = JavaMethod('()Ljava/lang/Class;')
-        getTypeName = JavaMethod('()Ljava/lang/String;')
-        getTypeParameters = JavaMethod('()[Ljava/lang/reflect/TypeVariable;')
-        hashCode = JavaMethod('()I')
-        isAnnotation = JavaMethod('()Z')
-        isAnnotationPresent = JavaMethod('(Ljava/lang/Class;)Z')
-        isAnonymousClass = JavaMethod('()Z')
-        isArray = JavaMethod('()Z')
-        isAssignableFrom = JavaMethod('(Ljava/lang/Class;)Z')
-        isEnum = JavaMethod('()Z')
-        isInstance = JavaMethod('(Ljava/lang/Object;)Z')
-        isInterface = JavaMethod('()Z')
-        isLocalClass = JavaMethod('()Z')
-        isMemberClass = JavaMethod('()Z')
-        isPrimitive = JavaMethod('()Z')
-        isSynthetic = JavaMethod('()Z')
-        newInstance = JavaMethod('()Ljava/lang/Object;')
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        toGenericString = JavaMethod('()Ljava/lang/String;')
-        toString = JavaMethod('()Ljava/lang/String;')
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
-
-    class Object(with_metaclass(JavaClass, JavaObject)):
-        __javaclass__ = 'java.lang.Object'
-        __javaconstructor__ = JavaMethod('()V')
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        hashCode = JavaMethod('()I')
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        toString = JavaMethod('()Ljava/lang/String;')
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
 
     class Modifier(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Modifier'
         __javaconstructor__ = JavaMethod('()V')
-        classModifiers = JavaMethod('()I', static=True)
-        constructorModifiers = JavaMethod('()I', static=True)
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        fieldModifiers = JavaMethod('()I', static=True)
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        hashCode = JavaMethod('()I')
-        interfaceModifiers = JavaMethod('()I', static=True)
-        isAbstract = JavaMethod('(I)Z', static=True)
         isFinal = JavaMethod('(I)Z', static=True)
-        isInterface = JavaMethod('(I)Z', static=True)
-        isNative = JavaMethod('(I)Z', static=True)
-        isPrivate = JavaMethod('(I)Z', static=True)
-        isProtected = JavaMethod('(I)Z', static=True)
-        isPublic = JavaMethod('(I)Z', static=True)
         isStatic = JavaMethod('(I)Z', static=True)
-        isStrict = JavaMethod('(I)Z', static=True)
-        isSynchronized = JavaMethod('(I)Z', static=True)
-        isTransient = JavaMethod('(I)Z', static=True)
-        isVolatile = JavaMethod('(I)Z', static=True)
-        methodModifiers = JavaMethod('()I', static=True)
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        parameterModifiers = JavaMethod('()I', static=True)
-        toString = JavaMethod('(I)Ljava/lang/String;', static=True)
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
 
     class Method(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Method'
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        getAnnotatedReturnType = JavaMethod('()Ljava/lang/reflect/AnnotatedType;')
-        getAnnotation = JavaMethod('(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;')
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        getDeclaredAnnotations = JavaMethod('()[Ljava/lang/annotation/Annotation;')
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getDefaultValue = JavaMethod('()Ljava/lang/Object;')
-        getExceptionTypes = JavaMethod('()[Ljava/lang/Class;')
-        getGenericExceptionTypes = JavaMethod('()[Ljava/lang/reflect/Type;')
-        getGenericParameterTypes = JavaMethod('()[Ljava/lang/reflect/Type;')
-        getGenericReturnType = JavaMethod('()Ljava/lang/reflect/Type;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
-        getParameterAnnotations = JavaMethod('()[[Ljava/lang/annotation/Annotation;')
-        getParameterCount = JavaMethod('()I')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
         getReturnType = JavaMethod('()Ljava/lang/Class;')
-        getTypeParameters = JavaMethod('()[Ljava/lang/reflect/TypeVariable;')
-        hashCode = JavaMethod('()I')
-        invoke = JavaMethod('(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;', varargs=True)
-        isBridge = JavaMethod('()Z')
-        isDefault = JavaMethod('()Z')
-        isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        toGenericString = JavaMethod('()Ljava/lang/String;')
-        toString = JavaMethod('()Ljava/lang/String;')
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
 
     class Field(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Field'
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        get = JavaMethod('(Ljava/lang/Object;)Ljava/lang/Object;')
-        getAnnotatedType = JavaMethod('()Ljava/lang/reflect/AnnotatedType;')
-        getAnnotation = JavaMethod('(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;')
-        getAnnotationsByType = JavaMethod('(Ljava/lang/Class;)[Ljava/lang/annotation/Annotation;')
-        getBoolean = JavaMethod('(Ljava/lang/Object;)Z')
-        getByte = JavaMethod('(Ljava/lang/Object;)B')
-        getChar = JavaMethod('(Ljava/lang/Object;)C')
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        getDeclaredAnnotations = JavaMethod('()[Ljava/lang/annotation/Annotation;')
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getDouble = JavaMethod('(Ljava/lang/Object;)D')
-        getFloat = JavaMethod('(Ljava/lang/Object;)F')
-        getGenericType = JavaMethod('()Ljava/lang/reflect/Type;')
-        getInt = JavaMethod('(Ljava/lang/Object;)I')
-        getLong = JavaMethod('(Ljava/lang/Object;)J')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
-        getShort = JavaMethod('(Ljava/lang/Object;)S')
         getType = JavaMethod('()Ljava/lang/Class;')
-        hashCode = JavaMethod('()I')
-        isEnumConstant = JavaMethod('()Z')
-        isSynthetic = JavaMethod('()Z')
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        set = JavaMethod('(Ljava/lang/Object;Ljava/lang/Object;)V')
-        setBoolean = JavaMethod('(Ljava/lang/Object;Z)V')
-        setByte = JavaMethod('(Ljava/lang/Object;B)V')
-        setChar = JavaMethod('(Ljava/lang/Object;C)V')
-        setDouble = JavaMethod('(Ljava/lang/Object;D)V')
-        setFloat = JavaMethod('(Ljava/lang/Object;F)V')
-        setInt = JavaMethod('(Ljava/lang/Object;I)V')
-        setLong = JavaMethod('(Ljava/lang/Object;J)V')
-        setShort = JavaMethod('(Ljava/lang/Object;S)V')
-        toGenericString = JavaMethod('()Ljava/lang/String;')
-        toString = JavaMethod('()Ljava/lang/String;')
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
 
     class Constructor(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Constructor'
-        equals = JavaMethod('(Ljava/lang/Object;)Z')
-        getAnnotatedReceiverType = JavaMethod('()Ljava/lang/reflect/AnnotatedType;')
-        getAnnotatedReturnType = JavaMethod('()Ljava/lang/reflect/AnnotatedType;')
-        getAnnotation = JavaMethod('(Ljava/lang/Class;)Ljava/lang/annotation/Annotation;')
-        getClass = JavaMethod('()Ljava/lang/Class;')
-        getDeclaredAnnotations = JavaMethod('()[Ljava/lang/annotation/Annotation;')
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getExceptionTypes = JavaMethod('()[Ljava/lang/Class;')
-        getGenericExceptionTypes = JavaMethod('()[Ljava/lang/reflect/Type;')
-        getGenericParameterTypes = JavaMethod('()[Ljava/lang/reflect/Type;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
-        getParameterAnnotations = JavaMethod('()[[Ljava/lang/annotation/Annotation;')
-        getParameterCount = JavaMethod('()I')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
-        getTypeParameters = JavaMethod('()[Ljava/lang/reflect/TypeVariable;')
-        hashCode = JavaMethod('()I')
-        isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
-        newInstance = JavaMethod('([Ljava/lang/Object;)Ljava/lang/Object;', varargs=True)
-        notify = JavaMethod('()V')
-        notifyAll = JavaMethod('()V')
-        toGenericString = JavaMethod('()Ljava/lang/String;')
-        toString = JavaMethod('()Ljava/lang/String;')
-        wait = JavaMultipleMethod([
-            JavaMethod('(J)V'),
-            JavaMethod('(JI)V'),
-            JavaMethod('()V')])
 
     # The last class defined should match the check at the top of this function.
 
-    for cls in [Class, Object, Modifier, Method, Field, Constructor]:
+    classes = [Class, Modifier, Method, Field, Constructor]
+    for cls in classes:
         cache_class(cls)
+
+    # Now fill in all the other members.
+    for cls in classes:
+        cache_class(reflect_class(cls.__name__))
 
 
 def lower_name(s):
@@ -283,6 +88,9 @@ def autoclass(clsname):
 
         FIXME give examples of the above
 
+    If a method or field name clashes with a Python reserved word, an underscore is appended,
+    e.g. `print` becomes `print_`. The original name is still accessible via `getattr`.
+
     The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
     Object)` and `isinstance(String("hello"), Object) will both return `False`. This may change
     in the future.
@@ -300,10 +108,19 @@ def autoclass(clsname):
 
     if clsname.startswith('$Proxy'):
         # The Dalvik VM is not able to give us introspection on these (FindClass returns NULL).
-        return Object
+        return autoclass("java.lang.Object")
+
+    cls = reflect_class(clsname)
+    cache_class(cls)
+    return cls
+
+
+def reflect_class(clsname):
+    setup_bootstrap_classes()
 
     classDict = {"__javaclass__": clsname}
-    c = find_javaclass(clsname)
+    c = Class(instance=CQPEnv().FindClass(clsname))
+
     methods = c.getMethods() + c.getConstructors()
     methods_name = [x.getName() for x in methods]
     for index, method in enumerate(methods):
@@ -345,18 +162,16 @@ def autoclass(clsname):
                                                static=Modifier.isStatic(modifiers),
                                                final=Modifier.isFinal(modifiers))
 
-    cls = JavaClass(clsname, (JavaObject,), classDict)
-    cache_class(cls)
-    return cls
+    return JavaClass(clsname, (JavaObject,), classDict)
 
 
 def cache_class(cls):
-    autoclass_cache[cls.__javaclass__.replace("/", ".")] = cls
+    autoclass_cache[cls.__name__] = cls
 
 
 def method_signature(method):
-    if method.getClass().getName() == "java.lang.reflect.Constructor":
-        return_type = jvoid
-    else:
+    if hasattr(method, "getReturnType"):
         return_type = method.getReturnType()
+    else:  # Constructor
+        return_type = jvoid
     return jni_method_sig(return_type, method.getParameterTypes())
