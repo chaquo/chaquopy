@@ -20,6 +20,8 @@ BOXED_INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), 
 BOXED_FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
 BOXED_NUMERIC_TYPES = OrderedDict(list(BOXED_INT_TYPES.items()) + list(BOXED_FLOAT_TYPES.items()))
 
+ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
+
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
@@ -310,9 +312,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
                 return <GlobalRef?>obj.j_cls
-        elif is_iterable(obj):
-            if clsname in ["java.lang.Object", "java.lang.Cloneable", "java.io.Serializable"]:
-                return LocalRef.adopt(j_env, p2j_array(j_env, "Ljava/lang/Object;", obj))
+        elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
+            return LocalRef.adopt(j_env, p2j_array(j_env, "Ljava/lang/Object;", obj))
 
         # Anything, including the above types, can be converted to a PyObject if the signature
         # will accept it.
@@ -320,7 +321,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
-        if obj is None or is_iterable(obj):
+        if assignable_to_array(definition, obj):
             return LocalRef.adopt(j_env, p2j_array(j_env, definition[1:], obj))
 
     else:
@@ -330,12 +331,25 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     raise TypeError(f"Cannot convert {type(obj).__name__} object to {definition}")
 
 
-def is_iterable(obj):
+# Because of the caching in JavaMultipleMethod, the result of this function must only be
+# affected by the object type, not its value.
+def assignable_to_array(definition, obj):
+    if not (definition.startswith("[") or definition in ARRAY_CONVERSIONS):
+        return False
+    if obj is None:
+        return True
+    if isinstance(obj, six.string_types):
+        return False  # Introduces too many complications.
+    if isinstance(obj, chaquopy.ArrayWrapper):
+        return find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig))
+
+    # All other iterable types are convertible to arrays.
     try:
         iter(obj)
         return True
     except TypeError:
         return False
+
 
 # https://github.com/cython/cython/issues/1709
 #
@@ -394,8 +408,11 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
 cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
     """`definition` is the element type, not the array type.
     """
+    if isinstance(pyarray, chaquopy.ArrayWrapper):
+        pyarray = pyarray.value
     if pyarray is None:
         return NULL
+
     array_size = len(pyarray)
     pyarray_checked = [p2j(j_env, definition, pyarray[i]) for i in range(array_size)]
 

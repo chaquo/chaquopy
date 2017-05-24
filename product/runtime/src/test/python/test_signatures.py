@@ -9,49 +9,42 @@ from chaquopy.signatures import *
 
 class TestSignatures(unittest.TestCase):
 
+    def test_jni_sig(self):
+        Object = autoclass("java.lang.Object")
+
+        self.assertEquals("V", jni_sig(jvoid))
+        self.assertEquals("Z", jni_sig(jboolean))
+        self.assertEquals("B", jni_sig(jbyte))
+        self.assertEquals("C", jni_sig(jchar))
+        self.assertEquals("D", jni_sig(jdouble))
+        self.assertEquals("F", jni_sig(jfloat))
+        self.assertEquals("I", jni_sig(jint))
+        self.assertEquals("J", jni_sig(jlong))
+        self.assertEquals("S", jni_sig(jshort))
+        self.assertEquals("Ljava/lang/Object;", jni_sig(Object))
+
+        self.assertEquals("[Z", jni_sig(jarray(jboolean)))
+        self.assertEquals("[[Z", jni_sig(jarray(jarray(jboolean))))
+
+        self.assertEquals("[Ljava/lang/Object;", jni_sig(jarray(Object)))
+        self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
+
     def test_jni_method_sig(self):
-        sig = jni_method_sig(jvoid, [])
-        self.assertEquals(sig, "()V")
-
-        sig = jni_method_sig(jboolean, [])
-        self.assertEquals(sig, "()Z")
-
-        sig = jni_method_sig(jbyte, [])
-        self.assertEquals(sig, "()B")
-
-        sig = jni_method_sig(jchar, [])
-        self.assertEquals(sig, "()C")
-
-        sig = jni_method_sig(jdouble, [])
-        self.assertEquals(sig, "()D")
-
-        sig = jni_method_sig(jfloat, [])
-        self.assertEquals(sig, "()F")
-
-        sig = jni_method_sig(jint, [])
-        self.assertEquals(sig, "()I")
-
-        sig = jni_method_sig(jlong, [])
-        self.assertEquals(sig, "()J")
-
-        sig = jni_method_sig(jshort, [])
-        self.assertEquals(sig, "()S")
-
+        Object = autoclass("java.lang.Object")
         String = autoclass("java.lang.String")
-        sig = jni_method_sig(String, [])
-        self.assertEquals(sig, "()Ljava/lang/String;")
+        Integer = autoclass("java.lang.Integer")
 
-        sig = jni_method_sig(jarray(jint), [])
-        self.assertEquals(sig, "()[I")
+        self.assertEquals("()V", jni_method_sig(jvoid, []))
+        self.assertEquals("()J", jni_method_sig(jlong, []))
+        self.assertEquals("()Ljava/lang/String;", jni_method_sig(String, []))
 
-    def test_params(self):
-        String = autoclass("java.lang.String")
+        self.assertEquals("(Ljava/lang/Integer;)Ljava/lang/String;",
+                          jni_method_sig(String, [Integer]))
+        self.assertEquals("(Ljava/lang/Object;ZLjava/lang/Integer;)D",
+                          jni_method_sig(jdouble, [Object, jboolean, Integer]))
 
-        sig = jni_method_sig(jvoid, [String, String])
-        self.assertEquals(sig, "(Ljava/lang/String;Ljava/lang/String;)V")
-
-        sig = jni_method_sig(jvoid, [jarray(jint), jarray(jboolean)])
-        self.assertEquals(sig, "([I[Z)V")
+        self.assertEquals("()[I", jni_method_sig(jarray(jint), []))
+        self.assertEquals("([I[Z)V", jni_method_sig(jvoid, [jarray(jint), jarray(jboolean)]))
 
     def test_jvoid(self):
         with self.assertRaisesRegexp(TypeError, "Cannot create"):
@@ -129,7 +122,22 @@ class TestSignatures(unittest.TestCase):
             jchar(u"\U00010000")
 
     def test_array(self):
-        pass   # FIXME verify class names
+        list_bool = [True, False]
+        for jarray_Z in [jarray(jboolean, list_bool), jarray(jboolean)(list_bool),
+                         jarray("Z", list_bool)]:
+            self.assertEqual("jarray_Z", type(jarray_Z).__name__)
+            self.assertEqual("jarray('Z', {!r})".format(list_bool), str(jarray_Z))
+
+        list_list_bool = [[True, False], [False, True]]
+        jarray_jarray_Z = jarray(jarray(jboolean), list_list_bool)
+        self.assertEqual("jarray_[Z", type(jarray_jarray_Z).__name__)
+        self.assertEqual("jarray('[Z', {!r})".format(list_list_bool), str(jarray_jarray_Z))
+
+        list_str = ["one", "two"]
+        String = autoclass("java.lang.String")
+        jarray_String = jarray(String, list_str)
+        self.assertEqual("jarray_Ljava/lang/String;", type(jarray_String).__name__)
+        self.assertEqual("jarray('Ljava/lang/String;', {!r})".format(list_str), str(jarray_String))
 
 
 def truncate(value, bits):

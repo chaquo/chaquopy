@@ -23,9 +23,14 @@ def cast(cls, JavaObject obj):
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
 # wrong ClassLoader.
 def find_javaclass(name):
-    """Returns the java.lang.Class proxy object corresponding to the given fully-qualified class
-    name. Either '.' or '/' notation may be used. Raises the same exceptions as Class.forName.
+    """Returns the java.lang.Class proxy object corresponding to the given fully-qualified name.
+    All common notations may be used, including '.' or '/' to separate package names, and
+    optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
+    exceptions as Class.forName.
     """
+    name = name.replace(".", "/")
+    if name.startswith("L") and name.endswith(";"):
+        name = name[1:-1]
     return chaquopy.autoclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
@@ -228,14 +233,10 @@ def is_applicable(sign_args, args, autobox, varargs):
 
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
-# affected by the actual parameter types, not their values.
+# affected by the actual parameter type, not its value.
 cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
-    # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
-    # values inside, but JavaMultipleMethod will cache based only on the container type. Make
-    # it so that all lists/tuples are considered applicable to all arrays but never more
-    # specific. They can be wrapped with jarray(type, obj), where type is a JavaClass,
-    # primitive, or jarray(type). For caching to work, calls to jarray with different types
-    # must return objects of different types.
+    if assignable_to_array(r, arg):
+        return True
     try:
         p2j(env, r, arg, autobox)
         return True
@@ -277,10 +278,10 @@ def better_overload_arg(def1, def2, actual_type):
     elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
         return FLOAT_TYPES.find(def1) >= FLOAT_TYPES.find(def2)
 
-    # Similarly, we prefer to treat a Python string as a Java String rather than a char or a
-    # char array. (Its length cannot be taken into account: see note above about caching.)
+    # Similarly, we prefer to treat a Python string as a Java String rather than a char.
+    # array. (Its length cannot be taken into account: see note above about caching.)
     elif issubclass(actual_type, six.string_types) and \
-         (def2 in ["C", "[C"]) and (def1 == "Ljava/lang/String;"):
+         def2 in ["C", "Ljava/lang/Character;"] and def1 == "Ljava/lang/String;":
         return True
 
     # Otherwise we prefer the smallest (i.e. most specific) Java type. This includes the case
@@ -293,20 +294,11 @@ def better_overload_arg(def1, def2, actual_type):
         if def1.startswith("L"):
             return find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
         elif def1.startswith("["):
-            return def2 in ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
+            return def2 in ARRAY_CONVERSIONS
     elif def2.startswith("["):
             return (def2[1] not in PRIMITIVE_TYPES and
                     def1.startswith("[") and
-                    better_overload_arg(def2[1:], def1[1:], None))
+                    better_overload_arg(def1[1:], def2[1:], type(None)))
 
     return False
 
-    # FIXME Child[] is more specific than Parent, and int is more specific than double, but
-    # int[] is not more specific than double[] (neither is assignable to the other, or to
-    # Object[], although both are assignable to Object itself).
-    #
-    # However, (int...) actualy is more specific than (double...), because in this case
-    # assignability is checked on a parameter-by-parameter basis, including the possibility
-    # that the more specific overload has more or fewer parameters than the other. Like
-    # is_applicable, this method needs to be informed whether we to use varargs or not.
-    # https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading

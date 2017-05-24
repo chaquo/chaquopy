@@ -612,7 +612,7 @@ cdef class JavaMultipleMethod(JavaMember):
         return result
 
     def overload_err(self, msg, args, methods):
-        # TODO #5155 don't expose JNI signatures to users
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.classname()}.{self.name} {msg} {args_type_names}: options are " +
-                ", ".join([f"{<JavaMethod?>jm).definition_args}" for jm in methods]))
+                ", ".join([chaquopy.signatures.format_args((<JavaMethod?>jm).definition_args)
+                          for jm in methods]))

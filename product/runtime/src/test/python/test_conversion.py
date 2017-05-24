@@ -154,20 +154,12 @@ class TestConversion(unittest.TestCase):
     def test_string(self):
         for name in ["String", "CharSequence", "Object"]:
             self.verify_string(self.obj, name)
-        for name in ["CArray", "CharacterArray"]:
-            # TODO #5148 this will fail with non-BMP characters in Python 3.3 and later (PEP 393).
-            self.verify_string(self.obj, name,
-                               verify=lambda expected, actual:
-                                          actual == list(six.text_type(expected)))
 
-    def verify_string(self, obj, name, verify=None):
+    def verify_string(self, obj, name):
         for val in ["", "h", "hello",   # Will be byte strings in Python 2
                     u"a\u0000b",        # Null character (handled differently by "modified UTF-8")
                     u"a\U00012345b"]:   # Non-BMP character
-            self.verify_value(obj, name, val, verify=verify)
-
-        if not name.endswith("Array"):
-            self.verify_array(obj, name, "hello", "world")
+            self.verify_value(obj, name, val)
 
     def test_class(self):
         for name in ["Klass", "Object"]:
@@ -179,6 +171,17 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, System)
         self.verify_value(obj, name, Class)
         self.verify_array(obj, name, System, Class)
+
+    def test_array(self):
+        Object = autoclass("java.lang.Number")
+        Number = autoclass("java.lang.Object")
+        self.verify_value(self.obj, "ObjectArray", jarray(Number, [False, True]))
+        with self.conv_error:
+            self.verify_value(self.obj, "NumberArray", jarray(Object, [False, True]))
+
+        # Arrays of primitives are not assignable to arrays of Object.
+        with self.conv_error:
+            self.verify_value(self.obj, "ObjectArray", jarray(jboolean, [False, True]))
 
     def test_mixed_array(self):
         mixed =  [False, "hello"]

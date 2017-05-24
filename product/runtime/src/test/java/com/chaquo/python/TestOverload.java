@@ -1,5 +1,7 @@
 package com.chaquo.python;
 
+import java.util.*;
+
 public class TestOverload {
 
     public static class Basic {
@@ -150,17 +152,60 @@ public class TestOverload {
             return "Long " + a;
         }
 
+        public String resolve_Integer_Float(Integer a) {
+            return "Integer " + a;
+        }
+        public String resolve_Integer_Float(Float a) {
+            return "Float " + a;
+        }
+
+        public String resolve_Float_Double(Float a) {
+            return "Float " + a;
+        }
+        public String resolve_Float_Double(Double a) {
+            return "Double " + a;
+        }
     }
 
 
-    public static class Arrays {
-        // FIXME probably move everything from TestBasics into here
+    public static class TestString {
+
+    }
+
+
+    public static class TestArrays {
+        public String resolve_ZB(boolean[] a) {
+            return "boolean[] " + Arrays.toString(a);
+        }
+        public String resolve_ZB(byte[] a) {
+            return "byte[] " + Arrays.toString(a);
+        }
+
+        public String resolve_Object_Number(Object[] a) {
+            return "Object[] " + Arrays.toString(a);
+        }
+        public String resolve_Object_Number(Number[] a) {
+            return "Number[] " + Arrays.toString(a);
+        }
+
+        public String resolve_Integer_Long(Integer[] a) {
+            return "Integer[] " + Arrays.toString(a);
+        }
+        public String resolve_Integer_Long(Long[] a) {
+            return "Long[] " + Arrays.toString(a);
+        }
+
+        public String resolve_Z_Object(boolean[] a) {
+            return "boolean[] " + Arrays.toString(a);
+        }
+        public String resolve_Z_Object(Object a) {
+            return "Object " + a;
+        }
     }
 
 
     public static class Varargs {
-        // FIXME probably move everything from TestBasics into here
-        // Also include interaction with arrays
+        // FIXME Also include interaction with arrays
     }
 
 }

@@ -140,8 +140,7 @@ class ArrayWrapper(Wrapper):
         self.value = value
 
     def __repr__(self):
-        # TODO #5155 don't expose JNI signatures to users
-        return "jarray({}. {})".format(self.sig, self.value)
+        return "jarray('{}', {!r})".format(self.sig[1:], self.value)
 
 def jarray(element_type, *args):
     """With one argument, `jarray` returns a wrapper class for an array of the given element type.
@@ -162,6 +161,7 @@ def jarray(element_type, *args):
     * A class returned by the one-argument form of `jarray`
     * A class returned by `autoclass`
     * A java.lang.Class instance
+    * A JNI type signature
 
     Examples::
 
@@ -169,19 +169,25 @@ def jarray(element_type, *args):
         int[][]     jarray(jarray(jint))
         String[]    jarray(autoclass("java.lang.String"))
     """
-    element_sig = jni_sig(element_type)
-    wrapper = type("jarray_" + element_sig,
+    element_sig = (element_type if isinstance(element_type, six.string_types)
+                   else jni_sig(element_type))
+    wrapper = type(str("jarray_" + element_sig),
                    (ArrayWrapper,),
                    {"sig": "[" + element_sig})
     if args:
-        (value,) = args
-        return wrapper(args)
+        value, = args
+        return wrapper(value)
     else:
         return wrapper
 
 
 def jni_method_sig(returns, takes):
     return "(" + "".join(map(jni_sig, takes)) + ")" + jni_sig(returns)
+
+# TODO #5155 don't expose JNI signatures to users
+def format_args(args):
+    """args is in the same format as JavaMethod.definition_args."""
+    return "(" + ", ".join(args) + ")"
 
 
 def jni_sig(c):
