@@ -88,6 +88,13 @@ public class TestOverload {
             return "String " + a;
         }
 
+        public String resolve_SF(short a) {
+            return "short " + a;
+        }
+        public String resolve_SF(float a) {
+            return "float " + a;
+        }
+
         public String resolve_BIF(byte a) {
             return "byte " + a;
         }
@@ -104,6 +111,45 @@ public class TestOverload {
         public String resolve_FD(double a) {
             return "double " + a;
         }
+    }
+
+
+    public static class Boxing {
+        public String resolve_Z_Boolean(boolean a) {
+            return "boolean " + a;
+        }
+        public String resolve_Z_Boolean(Boolean a) {
+            return "Boolean " + a;
+        }
+
+        public String resolve_Z_Object(boolean a) {
+            return "boolean " + a;
+        }
+        public String resolve_Z_Object(Object a) {
+            return "Object " + a;
+        }
+
+        public String resolve_S_Long(short a) {
+            return "short " + a;
+        }
+        public String resolve_S_Long(Long a) {
+            return "Long " + a;
+        }
+
+        public String resolve_Short_L(Short a) {
+            return "Short " + a;
+        }
+        public String resolve_Short_L(long a) {
+            return "long " + a;
+        }
+
+        public String resolve_Integer_Long(Integer a) {
+            return "Integer " + a;
+        }
+        public String resolve_Integer_Long(Long a) {
+            return "Long " + a;
+        }
+
     }
 
 

@@ -1,5 +1,6 @@
 from cpython.version cimport PY_MAJOR_VERSION
 
+from collections import OrderedDict
 import re
 import six
 import sys
@@ -13,6 +14,11 @@ INT_TYPES = "BSIJ"                          # Order matters: see is_assignable_f
 FLOAT_TYPES = "FD"                          #   "      "
 NUMERIC_TYPES = INT_TYPES + FLOAT_TYPES     #   "      "
 PRIMITIVE_TYPES = NUMERIC_TYPES + "CZ"      # Order doesn't matter here.
+
+# In order of preference when assigning to a Number or Object.
+BOXED_INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), ("B", "Byte")])
+BOXED_FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
+BOXED_NUMERIC_TYPES = OrderedDict(list(BOXED_INT_TYPES.items()) + list(BOXED_FLOAT_TYPES.items()))
 
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
@@ -32,6 +38,7 @@ cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, arg
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 
+# Cython auto-generates range checking code for the integral types.
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
     cdef int index
     for index, argtype in enumerate(definition_args):
@@ -192,7 +199,9 @@ cdef j2p_array(JNIEnv *j_env, definition, jobject j_object):
     return ret
 
 
-cdef p2j(JNIEnv *j_env, definition, obj):
+# If the definition is for a Java object or array, returns a JNIRef.
+# If the definition is for a Java primitive, returns a Python int/float/bool/str.
+cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     if definition == 'V':
         # Used to be a possibility when using java.lang.reflect.Proxy; keeping in case we do
         # something similar in the future.
@@ -204,10 +213,11 @@ cdef p2j(JNIEnv *j_env, definition, obj):
     # the caller's responsibility to convert it to the C type. It's also the caller's
     # responsibility to perform range checks: see note at is_applicable_arg for why we can't do
     # it here.
+    #
+    # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
+    # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
+    # the other hand, will be done if necessary below.
     elif definition in PRIMITIVE_TYPES:
-        # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
-        # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
-        # the other hand, will be done if necessary below.
         if definition == 'Z':
             if isinstance(obj, bool):
                 return obj
@@ -232,12 +242,14 @@ cdef p2j(JNIEnv *j_env, definition, obj):
             if isinstance(obj, chaquopy.NumericPrimitive) and \
                NUMERIC_TYPES.find(obj.sig) <= NUMERIC_TYPES.find(definition):
                 return obj.value
+
         elif definition == "C":
             # We don't check that len(obj) == 1; see note above about range checks.
             if isinstance(obj, six.string_types):
                 return obj
             if isinstance(obj, chaquopy.jchar):
                 return obj.value
+
         else:
             raise Exception(f"Unknown primitive type {definition}")
 
@@ -248,40 +260,47 @@ cdef p2j(JNIEnv *j_env, definition, obj):
         if obj is None:
             return LocalRef()
 
-        elif isinstance(obj, six.string_types):
-            String = find_javaclass("java.lang.String")
-            if klass.isAssignableFrom(String):
-                u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
-                utf16 = u.encode(JCHAR_ENCODING)
-                  # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python
-                return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
-                                                                <jchar*><char*>utf16,
-                                                                len(utf16)//2))
-            # Auto-boxing
-            Character = find_javaclass("java.lang.Character")
-            if klass.isAssignableFrom(Character):
-                return p2j_box(j_env, Character, obj)
+        elif isinstance(obj, (six.string_types, chaquopy.jchar)):
+            if isinstance(obj, six.string_types):
+                String = find_javaclass("java.lang.String")
+                if klass.isAssignableFrom(String):
+                    u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
+                    utf16 = u.encode(JCHAR_ENCODING)
+                      # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python build.
+                    return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
+                                                                    <jchar*><char*>utf16,
+                                                                    len(utf16)//2))
+            if autobox:
+                Character = find_javaclass("java.lang.Character")
+                if klass.isAssignableFrom(Character):
+                    return p2j_box(j_env, Character, obj)
 
-        # Auto-boxing
-        elif isinstance(obj, bool):
-            Boolean = find_javaclass("java.lang.Boolean")
-            if klass.isAssignableFrom(Boolean):
-                return p2j_box(j_env, Boolean, obj)
-        elif isinstance(obj, six.integer_types):
-            # Long will be used if clsname is Number or Object.
-            #
-            # TODO support BigInteger (#5174), and make that a final fallback if clsname is
-            # Number or Object, and Long isn't big enough.
-            for box_clsname in ["Long", "Integer", "Short", "Byte", "Double", "Float"]:
-                box_klass = find_javaclass("java.lang." + box_clsname)
-                if klass.isAssignableFrom(box_klass):
-                    return p2j_box(j_env, box_klass, obj)
-        elif isinstance(obj, float):
-            # Double will be used if clsname is Number or Object.
-            for box_clsname in ["Double", "Float"]:
-                box_klass = find_javaclass("java.lang." + box_clsname)
-                if klass.isAssignableFrom(box_klass):
-                    return p2j_box(j_env, box_klass, obj)
+        elif isinstance(obj, (bool, chaquopy.jboolean)):
+            if autobox:
+                Boolean = find_javaclass("java.lang.Boolean")
+                if klass.isAssignableFrom(Boolean):
+                    return p2j_box(j_env, Boolean, obj)
+        elif isinstance(obj, (six.integer_types, chaquopy.IntPrimitive)):
+            if autobox:
+                # TODO #5174 support BigInteger, and make that a final fallback if clsname is
+                # Number or Object, and Long isn't big enough.
+                #
+                # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
+                box_clsnames = ([BOXED_NUMERIC_TYPES[obj.sig]] if isinstance(obj, chaquopy.IntPrimitive)
+                                else BOXED_NUMERIC_TYPES.values())
+                for box_clsname in box_clsnames:
+                    box_klass = find_javaclass("java.lang." + box_clsname)
+                    if klass.isAssignableFrom(box_klass):
+                        return p2j_box(j_env, box_klass, obj)
+        elif isinstance(obj, (float, chaquopy.FloatPrimitive)):
+            if autobox:
+                # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
+                box_clsnames = ([BOXED_FLOAT_TYPES[obj.sig]] if isinstance(obj, chaquopy.FloatPrimitive)
+                                else BOXED_FLOAT_TYPES.values())
+                for box_clsname in box_clsnames:
+                    box_klass = find_javaclass("java.lang." + box_clsname)
+                    if klass.isAssignableFrom(box_klass):
+                        return p2j_box(j_env, box_klass, obj)
 
         elif isinstance(obj, JavaObject):
             # Comparison to clsname prevents recursion when converting argument to isAssignableFrom
@@ -297,7 +316,7 @@ cdef p2j(JNIEnv *j_env, definition, obj):
 
         # Anything, including the above types, can be converted to a PyObject if the signature
         # will accept it.
-        if klass.isAssignableFrom(find_javaclass("com.chaquo.python.PyObject")):
+        elif klass.isAssignableFrom(find_javaclass("com.chaquo.python.PyObject")):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
@@ -342,6 +361,9 @@ cdef JNIRef p2j_string(JNIEnv *env, s):
 
 
 cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
+    if isinstance(value, chaquopy.Primitive):
+        value = value.value
+
     # Uniquely among the boxed types, the Float class has two primitive-typed constructors, one
     # of which takes a double, which our overload resolution will prefer.
     clsname = box_klass.getName()
@@ -349,7 +371,7 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
         check_range_float32(value)
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
-    # the constructor parameter.
+    # the constructor parameter. Range checks will be performed by populate_args.
     cdef JavaObject boxed = chaquopy.autoclass(clsname)(value)
     return boxed.j_self
 

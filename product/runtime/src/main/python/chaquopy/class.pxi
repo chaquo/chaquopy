@@ -28,7 +28,7 @@ class JavaClass(type):
         classDict["__eq__"] = lambda self, other: self.equals(other)
         classDict["__ne__"] = lambda self, other: not self.equals(other)
 
-        # TODO disabled until tested (#5154), and should also implement other container
+        # TODO #5154 disabled until tested, and should also implement other container
         # interfaces.
         #
         # for iclass in c.getInterfaces():
@@ -208,6 +208,7 @@ cdef class JavaField(JavaMember):
                 j_self = (<JavaObject?>obj).j_self.obj
                 self.write_field(j_self, value)
 
+    # Cython auto-generates range checking code for the integral types.
     cdef write_field(self, jobject j_self, value):
         cdef JNIEnv *j_env = get_jnienv()
         j_value = p2j(j_env, self.definition, value)
@@ -261,6 +262,7 @@ cdef class JavaField(JavaMember):
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
+    # Cython auto-generates range checking code for the integral types.
     cdef write_static_field(self, value):
         cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
         cdef JNIEnv *j_env = get_jnienv()
@@ -570,18 +572,20 @@ cdef class JavaMultipleMethod(JavaMember):
         args_types = tuple(map(type, args))
         best_overload = self.overload_cache.get(args_types)
         if not best_overload:
-            # JLS 15.12.2.2. "Identify Matching Arity Methods"
+            # JLS 15.12.2.2. "Identify Matching Arity Methods Applicable by Subtyping"
             varargs = False
-            applicable = [jm for jm in self.methods
-                          if is_applicable((<JavaMethod?>jm).definition_args,
-                                           args, varargs=False)]
+            applicable = self.find_applicable(args, autobox=False, varargs=False)
+
+            # JLS 15.12.2.3. "Identify Matching Arity Methods Applicable by Method Invocation
+            # Conversion"
+            if not applicable:
+                applicable = self.find_applicable(args, autobox=True, varargs=False)
 
             # JLS 15.12.2.4. "Identify Applicable Variable Arity Methods"
             if not applicable:
                 varargs = True
-                applicable = [jm for jm in self.methods if (<JavaMethod?>jm).is_varargs and
-                              is_applicable((<JavaMethod?>jm).definition_args,
-                                           args, varargs=True)]
+                applicable = self.find_applicable(args, autobox=True, varargs=True)
+
             if not applicable:
                 raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
 
@@ -597,6 +601,15 @@ cdef class JavaMultipleMethod(JavaMember):
             self.overload_cache[args_types] = best_overload
 
         return best_overload.__get__(obj, type(obj))(*args)
+
+    def find_applicable(self, args, *, autobox, varargs):
+        result = []
+        cdef JavaMethod jm
+        for jm in self.methods:
+            if not (varargs and not jm.is_varargs) and \
+               is_applicable(jm.definition_args, args, autobox, varargs):
+                result.append(jm)
+        return result
 
     def overload_err(self, msg, args, methods):
         # TODO #5155 don't expose JNI signatures to users

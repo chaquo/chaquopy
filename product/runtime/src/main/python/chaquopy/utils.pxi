@@ -204,7 +204,7 @@ cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     return name
 
 
-def is_applicable(sign_args, args, *, varargs):
+def is_applicable(sign_args, args, autobox, varargs):
     if len(args) == len(sign_args):
         if len(args) == 0:
             return True
@@ -221,7 +221,7 @@ def is_applicable(sign_args, args, *, varargs):
             arg = args[index:]
         else:
             arg = args[index]
-        if not is_applicable_arg(env, sign_arg, arg):
+        if not is_applicable_arg(env, sign_arg, arg, autobox):
             return False
 
     return True
@@ -229,7 +229,7 @@ def is_applicable(sign_args, args, *, varargs):
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the actual parameter types, not their values.
-cdef is_applicable_arg(JNIEnv *env, r, arg):
+cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
     # FIXME in the case of a list/tuple, p2j will succeed or fail based on the types of the
     # values inside, but JavaMultipleMethod will cache based only on the container type. Make
     # it so that all lists/tuples are considered applicable to all arrays but never more
@@ -237,7 +237,7 @@ cdef is_applicable_arg(JNIEnv *env, r, arg):
     # primitive, or jarray(type). For caching to work, calls to jarray with different types
     # must return objects of different types.
     try:
-        p2j(env, r, arg)
+        p2j(env, r, arg, autobox)
         return True
     except TypeError:
         return False
@@ -265,9 +265,7 @@ def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
 # example, we'll never be asked to compare a numeric type with a boolean or char, because any
 # actual parameter type which is applicable to one will not be applicable to the others.
 #
-# In this context, boxed and unboxed types are NOT treated as related. The JLS requires an
-# initial search for applicable overloads with boxing and unboxing disabled, but that's not
-# relevant to us: see note about unboxing in p2j.
+# In this context, boxed and unboxed types are NOT treated as related.
 def better_overload_arg(def1, def2, actual_type):
     if def2 == def1:
         return True
