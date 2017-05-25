@@ -1,5 +1,3 @@
-# FIXME Rename top-level chaquopy module to java
-
 from __future__ import absolute_import, division, print_function
 
 # On Android, the native module is stored separately to the Python modules.
@@ -22,13 +20,13 @@ import os
 if "ANDROID_ARGUMENT" in os.environ:
     # on android, catch all exception a detach
     import threading
-    import chaquopy
+    import java
     orig_thread_run = threading.Thread.run
 
     def cqp_thread_hook(*args, **kwargs):
         try:
             return orig_thread_run(*args, **kwargs)
         finally:
-            chaquopy.detach()
+            java.detach()
 
     threading.Thread.run = cqp_thread_hook

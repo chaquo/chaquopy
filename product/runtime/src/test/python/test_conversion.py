@@ -5,7 +5,7 @@ import math
 import six
 import unittest
 
-from chaquopy import *
+from java import *
 
 
 FLOAT32_EXPONENT_BITS = 8

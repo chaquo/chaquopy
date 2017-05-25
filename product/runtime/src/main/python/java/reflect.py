@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from six import with_metaclass
 
-import chaquopy
+import java
 from .chaquopy import CQPEnv, JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod
 from .signatures import *
 
@@ -113,7 +113,7 @@ def reflect_class(clsname):
 
     if clsname.startswith("["):
         raise ValueError("Cannot reflect an array type")
-    if clsname in chaquopy.primitives_by_name:
+    if clsname in java.primitives_by_name:
         raise ValueError("Cannot reflect a primitive type")
 
     classDict = {"__javaclass__": clsname}

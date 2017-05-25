@@ -2,7 +2,7 @@ import six
 
 from cpython.version cimport PY_MAJOR_VERSION
 
-import chaquopy
+import java
 
 
 def cast(cls, obj):
@@ -21,7 +21,7 @@ def cast(cls, obj):
     if not isinstance(cls, JavaClass):
         raise TypeError(f"{type(cls).__name__} object is not a Java class")
     if obj is None or isinstance(obj, NoneCast):
-        return none_casts[chaquopy.jni_sig(cls)]
+        return none_casts[java.jni_sig(cls)]
     elif isinstance(obj, JavaObject):
         return cls(instance=(<JavaObject?>obj).j_self)
     else:
@@ -53,7 +53,7 @@ def find_javaclass(name):
     name = name.replace(".", "/")
     if name.startswith("L") and name.endswith(";"):
         name = name[1:-1]
-    return chaquopy.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
+    return java.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):

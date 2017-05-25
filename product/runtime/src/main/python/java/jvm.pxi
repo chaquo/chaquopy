@@ -2,7 +2,7 @@ import os
 import platform
 import sys
 
-import chaquopy
+import java
 from . import config
 
 from libc.stdint cimport uintptr_t
@@ -21,9 +21,9 @@ cdef JavaVM *jvm = NULL
 cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
         set_jvm(start_jvm())
-        platform = chaquopy.jclass("com.chaquo.python.GenericPlatform")()
+        platform = java.jclass("com.chaquo.python.GenericPlatform")()
         platform.setShouldInitialize(False)
-        chaquopy.jclass("com.chaquo.python.Python").start(platform)
+        java.jclass("com.chaquo.python.Python").start(platform)
 
     cdef JNIEnv *env = NULL
     jvm[0].AttachCurrentThread(jvm, <void**>&env, NULL)

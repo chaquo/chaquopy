@@ -85,13 +85,13 @@ def cythonTask = {Map taskArgs, String name, Closure closure ->
 }
 
 cythonTask("cythonPython", group: "build") {
-    inputs.files fileTree("$projectDir/src/main/python/chaquopy") {
+    inputs.files fileTree("$projectDir/src/main/python/java") {
         include "*.pyx", "*.pxi", "*.pxd"
     }
 }
 cythonTask("cythonJava", group: "build") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
-    inputs.files fileTree("$projectDir/src/main/python/chaquopy") { include "*.pxd" }
+    inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
     doLast {
         // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
         // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
@@ -202,7 +202,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                         into mainPythonDir
                         from(cmakeBuildSubdir) {
                             include "chaquopy${pyLibSuffix}"
-                            into "chaquopy"
+                            into "java"
                         }
                     }
                 }

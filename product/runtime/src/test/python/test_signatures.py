@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function
 import math
 import unittest
 
-from chaquopy import *
-from chaquopy.signatures import *
+from java import *
+from java.signatures import *
 
 
 class TestSignatures(unittest.TestCase):

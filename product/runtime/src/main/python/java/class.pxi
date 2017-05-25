@@ -359,9 +359,9 @@ cdef class JavaMethod(JavaMember):
         formatted_args = []
         for i, arg in enumerate(self.definition_args):
             if self.is_varargs and i == (len(self.definition_args) - 1):
-                formatted_args.append(chaquopy.sig_to_java(arg[1:]) + "...")
+                formatted_args.append(java.sig_to_java(arg[1:]) + "...")
             else:
-                formatted_args.append(chaquopy.sig_to_java(arg))
+                formatted_args.append(java.sig_to_java(arg))
         return "(" + ", ".join(formatted_args) + ")"
 
     def __init__(self, definition, *, static=False, varargs=False):

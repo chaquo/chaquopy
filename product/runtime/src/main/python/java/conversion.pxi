@@ -8,7 +8,7 @@ import sys
 from cpython.object cimport PyObject
 from libc.float cimport FLT_MAX
 
-import chaquopy
+import java
 
 INT_TYPES = "BSIJ"                          # Order matters: see is_assignable_from.
 FLOAT_TYPES = "FD"                          #   "      "
@@ -71,7 +71,7 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if not j_object:
         return None
 
-    from chaquopy import jclass
+    from java import jclass
     r = lookup_java_object_name(j_env, j_object.obj)
 
     if r[0] == '[':
@@ -131,7 +131,7 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
     if jpyobject == NULL:
         return None
-    JPyObject = chaquopy.jclass("com.chaquo.python.PyObject")
+    JPyObject = java.jclass("com.chaquo.python.PyObject")
     jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
     cdef PyObject *po = <PyObject*><jlong> jpo.addr
     if po == NULL:
@@ -223,7 +223,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         if definition == 'Z':
             if isinstance(obj, bool):
                 return obj
-            if isinstance(obj, chaquopy.jboolean):
+            if isinstance(obj, java.jboolean):
                 return obj.value
 
         elif definition in INT_TYPES:
@@ -234,14 +234,14 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             # int, but we should be stricter.
             if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
                 return obj
-            if isinstance(obj, chaquopy.IntPrimitive) and \
+            if isinstance(obj, java.IntPrimitive) and \
                INT_TYPES.find(obj.sig) <= INT_TYPES.find(definition):
                 return obj.value
 
         elif definition in FLOAT_TYPES:
             if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
                 return obj
-            if isinstance(obj, chaquopy.NumericPrimitive) and \
+            if isinstance(obj, java.NumericPrimitive) and \
                NUMERIC_TYPES.find(obj.sig) <= NUMERIC_TYPES.find(definition):
                 return obj.value
 
@@ -249,7 +249,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             # We don't check that len(obj) == 1; see note above about range checks.
             if isinstance(obj, six.string_types):
                 return obj
-            if isinstance(obj, chaquopy.jchar):
+            if isinstance(obj, java.jchar):
                 return obj.value
 
         else:
@@ -265,7 +265,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             if find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig)):
                 return LocalRef()
 
-        elif isinstance(obj, (six.string_types, chaquopy.jchar)):
+        elif isinstance(obj, (six.string_types, java.jchar)):
             if isinstance(obj, six.string_types):
                 String = find_javaclass("java.lang.String")
                 if klass.isAssignableFrom(String):
@@ -280,27 +280,27 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                 if klass.isAssignableFrom(Character):
                     return p2j_box(j_env, Character, obj)
 
-        elif isinstance(obj, (bool, chaquopy.jboolean)):
+        elif isinstance(obj, (bool, java.jboolean)):
             if autobox:
                 Boolean = find_javaclass("java.lang.Boolean")
                 if klass.isAssignableFrom(Boolean):
                     return p2j_box(j_env, Boolean, obj)
-        elif isinstance(obj, (six.integer_types, chaquopy.IntPrimitive)):
+        elif isinstance(obj, (six.integer_types, java.IntPrimitive)):
             if autobox:
                 # TODO #5174 support BigInteger, and make that a final fallback if clsname is
                 # Number or Object, and Long isn't big enough.
                 #
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([BOXED_NUMERIC_TYPES[obj.sig]] if isinstance(obj, chaquopy.IntPrimitive)
+                box_clsnames = ([BOXED_NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
                                 else BOXED_NUMERIC_TYPES.values())
                 for box_clsname in box_clsnames:
                     box_klass = find_javaclass("java.lang." + box_clsname)
                     if klass.isAssignableFrom(box_klass):
                         return p2j_box(j_env, box_klass, obj)
-        elif isinstance(obj, (float, chaquopy.FloatPrimitive)):
+        elif isinstance(obj, (float, java.FloatPrimitive)):
             if autobox:
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([BOXED_FLOAT_TYPES[obj.sig]] if isinstance(obj, chaquopy.FloatPrimitive)
+                box_clsnames = ([BOXED_FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
                                 else BOXED_FLOAT_TYPES.values())
                 for box_clsname in box_clsnames:
                     box_klass = find_javaclass("java.lang." + box_clsname)
@@ -343,7 +343,7 @@ def assignable_to_array(definition, obj):
         return True
     if isinstance(obj, six.string_types):
         return False  # Introduces too many complications.
-    if isinstance(obj, chaquopy.ArrayWrapper):
+    if isinstance(obj, java.ArrayWrapper):
         return find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig))
 
     # All other iterable types are convertible to arrays.
@@ -378,7 +378,7 @@ cdef JNIRef p2j_string(JNIEnv *env, s):
 
 
 cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
-    if isinstance(value, chaquopy.Primitive):
+    if isinstance(value, java.Primitive):
         value = value.value
 
     # Uniquely among the boxed types, the Float class has two primitive-typed constructors, one
@@ -389,7 +389,7 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    cdef JavaObject boxed = chaquopy.jclass(clsname)(value)
+    cdef JavaObject boxed = java.jclass(clsname)(value)
     return boxed.j_self
 
 
@@ -398,7 +398,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
         return NULL
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
-    JPyObject = chaquopy.jclass("com.chaquo.python.PyObject")
+    JPyObject = java.jclass("com.chaquo.python.PyObject")
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
          (<GlobalRef?>JPyObject.j_cls).obj,
@@ -411,7 +411,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
 cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *:
     """`definition` is the element type, not the array type.
     """
-    if isinstance(pyarray, chaquopy.ArrayWrapper):
+    if isinstance(pyarray, java.ArrayWrapper):
         pyarray = pyarray.value
     if pyarray is None:
         return NULL

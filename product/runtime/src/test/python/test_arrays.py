@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 import ctypes
 import unittest
-from chaquopy import jclass
+from java import jclass
 
 
 class TestArrays(unittest.TestCase):

@@ -18,10 +18,10 @@ from libc.stdlib cimport malloc
 from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
-import chaquopy
+import java
 
-from chaquopy.jni cimport *
-from chaquopy.chaquopy cimport *
+from java.jni cimport *
+from java.chaquopy cimport *
 cdef extern from "chaquopy_java_extra.h":
     void PyInit_chaquopy_java() except *                 # These may be preprocessor macros.
     bint set_path(JNIEnv *env, const char *python_path)  #
@@ -72,7 +72,7 @@ cdef public void Java_com_chaquo_python_Python_startNative \
         wrap_exception(env, e)
         return
 
-    # We imported chaquopy.chaquopy above, which has called PyEval_InitThreads during its own
+    # We imported java.chaquopy above, which has called PyEval_InitThreads during its own
     # module intialization, so the GIL now exists and we have it. We must release the GIL
     # before we return to Java so that the methods below can be called from any thread.
     # (http://bugs.python.org/issue1720250)
@@ -153,8 +153,8 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
         self = j2p_pyobject(env, this)
-        Class = chaquopy.jclass("java.lang.Class")
-        to_sig = chaquopy.jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
+        Class = java.jclass("java.lang.Class")
+        to_sig = java.jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
         try:
             result = p2j(env, to_sig, self)
             if isinstance(result, JNIRef):
@@ -198,7 +198,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
         else:
             all_args = j2p_array(env, "Ljava/lang/Object;", jargs)
 
-        Kwarg = chaquopy.jclass("com.chaquo.python.Kwarg")
+        Kwarg = java.jclass("com.chaquo.python.Kwarg")
         args = []
         kwargs = {}
         for a in all_args:
@@ -284,7 +284,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
     (JNIEnv *env, jobject this) with gil:
     cdef JavaObject keys
     try:
-        keys = chaquopy.jclass("java.util.ArrayList")()
+        keys = java.jclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
         return keys.j_self.return_ref(env)

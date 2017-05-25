@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 import unittest
-from chaquopy import jclass, JavaException
+from java import jclass, JavaException
 
 
 class TestException(unittest.TestCase):

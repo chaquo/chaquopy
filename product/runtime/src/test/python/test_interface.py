@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import absolute_import
 import unittest
 
-from chaquopy import jclass, JavaException
+from java import jclass, JavaException
 
 
 class Interface(unittest.TestCase):

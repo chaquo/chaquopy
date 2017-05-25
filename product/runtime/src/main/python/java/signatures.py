@@ -4,7 +4,7 @@ import ctypes
 from functools import total_ordering
 import six
 
-import chaquopy
+import java
 from .chaquopy import JavaClass, check_range_char, check_range_float32
 
 __all__ = ["jni_sig", "jni_method_sig", "sig_to_java", "primitives_by_name", "primitives_by_sig",
@@ -206,7 +206,7 @@ def jni_method_sig(returns, takes):
 def jni_sig(c):
     if isinstance(c, JavaClass):
         return "L" + c.__javaclass__.replace(".", "/") + ";"
-    elif isinstance(c, chaquopy.jclass("java.lang.Class")):
+    elif isinstance(c, java.jclass("java.lang.Class")):
         name = c.getName()
         if name in primitives_by_name:
             return primitives_by_name[name].sig

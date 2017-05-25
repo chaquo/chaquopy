@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import absolute_import
 import unittest
 
-from chaquopy.reflect import jclass
+from java.reflect import jclass
 
 
 class SimpleEnum(unittest.TestCase):
