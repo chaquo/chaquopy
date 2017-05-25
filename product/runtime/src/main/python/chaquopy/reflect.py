@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 from six import with_metaclass
 
+import chaquopy
 from .chaquopy import CQPEnv, JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod
 from .signatures import *
 
@@ -65,14 +66,6 @@ def setup_bootstrap_classes():
         cache_class(reflect_class(cls.__name__))
 
 
-def lower_name(s):
-    return s[:1].lower() + s[1:] if s else ''
-
-
-def bean_getter(s):
-    return (s.startswith('get') and len(s) > 3 and s[3].isupper()) or (s.startswith('is') and len(s) > 2 and s[2].isupper())
-
-
 def autoclass(clsname):
     """Returns the Java class proxy for the given fully-qualified class name. The name may use
     either '.' or '/' notation. To refer to a nested or inner class, use '$' as the separator,
@@ -118,6 +111,11 @@ def autoclass(clsname):
 def reflect_class(clsname):
     setup_bootstrap_classes()
 
+    if clsname.startswith("["):
+        raise ValueError("Cannot reflect an array type")
+    if clsname in chaquopy.primitives_by_name:
+        raise ValueError("Cannot reflect a primitive type")
+
     classDict = {"__javaclass__": clsname}
     c = Class(instance=CQPEnv().FindClass(clsname))
 
@@ -132,11 +130,6 @@ def reflect_class(clsname):
             method = JavaMethod(method_signature(method),
                                 static=Modifier.isStatic(method.getModifiers()),
                                 varargs=method.isVarArgs())
-            # TODO #5153 disabled until tested, and should also generate a setter.
-            #
-            # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
-            #     classDict[lower_name(name[3:])] = \
-            #         (lambda n: property(lambda self: getattr(self, n)()))(name)
         else:
             jms = []
             for index, subname in enumerate(methods_name):

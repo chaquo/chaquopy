@@ -34,11 +34,20 @@ class TestOverload(unittest.TestCase):
         Integer = autoclass("java.lang.Integer")
         s = String()
         i = Integer(42)
+        o = Object()
         child = Child()
 
         self.assertEqual(child.resolve(s), 'String')
         self.assertEqual(child.resolve(i), 'Integer')
+        self.assertEqual(child.resolve(o), 'Object')
         self.assertEqual(child.resolve(cast(Object, s)), 'Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, s))), 'String')
+
+        with self.ambiguous:
+            child.resolve(None)
+        self.assertEqual(child.resolve(cast(String, None)), 'String')
+        self.assertEqual(child.resolve(cast(Object, None)), 'Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, None))), 'String')
 
         self.assertEqual(child.resolve(s, i), 'String, Object')
         self.assertEqual(child.resolve(i, s), 'Object, String')
@@ -90,9 +99,6 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_BIF(jfloat(42)), 'float 42.0')
         with self.inapplicable:
             obj.resolve_BIF(jdouble(42))
-
-        self.assertEqual(obj.resolve("x"), 'String x')
-        self.assertEqual(obj.resolve(jchar("x")), 'char x')
 
         # This may seem inconsistent, but it's what Java does. float and double are both
         # applicable, and float is more specific.
@@ -153,9 +159,14 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_Float_Double(jdouble(42)), 'Double 42.0')
 
     def test_string(self):
-        pass
-        # FIXME a string can be converted to String, char, and Character, in that order of
-        # preference.
+        obj = autoclass("com.chaquo.python.TestOverload$TestString")()
+        Character = autoclass("java.lang.Character")
+
+        self.assertEqual("String x", obj.resolve_String_C_Character("x"))
+        self.assertEqual("char x", obj.resolve_String_C_Character(jchar("x")))
+        self.assertEqual("Character x", obj.resolve_String_C_Character(Character("x")))
+
+        self.assertEqual("Character x", obj.resolve_Z_Character("x"))
 
     def test_array(self):
         obj = autoclass("com.chaquo.python.TestOverload$TestArrays")()
@@ -190,20 +201,41 @@ class TestOverload(unittest.TestCase):
         # FIXME how to select the Object overload? See #5178.
 
     def test_varargs(self):
-        pass
+        obj = autoclass("com.chaquo.python.TestOverload$Varargs")()
 
-        # # FIXME remove once covered elsewhere
-        # basic = autoclass("com.chaquo.python.TestOverload$Basic")()
-        # self.assertEqual(basic.resolve(), '')
-        # self.assertEqual(basic.resolve('arg'), 'String')
-        # self.assertEqual(basic.resolve('one', 'two'), 'String, String')
-        # self.assertEqual(basic.resolve('one', 'two', 1), 'String, String, int')
-        # self.assertEqual(basic.resolve('one', 'two', 1, 2), 'String, String, int, int')
-        # self.assertEqual(basic.resolve(1, 2, 3), 'int...')
-        # self.assertEqual(basic.resolve('one', 'two', 1, 2, 3), 'String, String, int...')
+        self.assertEqual("", obj.resolve_empty_single_I())
+        self.assertEqual("int... []", obj.resolve_empty_single_I([]))
+        self.assertEqual("int 1", obj.resolve_empty_single_I(1))
+        self.assertEqual("int... [1]", obj.resolve_empty_single_I([1]))
+        self.assertEqual("int... [1, 2]", obj.resolve_empty_single_I(1, 2))
+        self.assertEqual("int... [1, 2]", obj.resolve_empty_single_I([1, 2]))
 
-        # FIXME (int...) actualy is more specific than (double...), because in this case
-        # assignability is checked on a parameter-by-parameter basis, including the possibility
-        # that the more specific overload has more or fewer parameters than the other. Like
-        # is_applicable, this method needs to be informed whether we to use varargs or not.
-        # https://relaxbuddy.com/forum/thread/20288/bug-with-varargs-and-overloading
+        self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double
+        self.assertEqual("int 42", obj.resolve_ID(42))
+        self.assertEqual("double 42.0", obj.resolve_ID(42.0))
+        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(jarray(jdouble, [1, 2])))
+        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1.0, 2.0))
+        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1, 2.0))
+        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1.0, 2))
+
+        Long = autoclass("java.lang.Long")
+        with self.ambiguous:
+            obj.resolve_I_Long()    # Neither int nor Long are more specific
+        with self.ambiguous:
+            obj.resolve_I_Long(42)
+        with self.inapplicable:
+            obj.resolve_I_Long(42.0)
+        self.assertEqual("int... [42]", obj.resolve_I_Long(jint(42)))
+        self.assertEqual("Long... [42]", obj.resolve_I_Long(jlong(42)))
+        self.assertEqual("Long... [42]", obj.resolve_I_Long(Long(42)))
+
+        Number = autoclass("java.lang.Number")
+        self.assertEqual("Long... []", obj.resolve_Number_Long())
+        self.assertEqual("Long... [42]", obj.resolve_Number_Long(42))
+        self.assertEqual("Long... null", obj.resolve_Number_Long(None))
+        self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
+        self.assertEqual("Number... [42]", obj.resolve_Number_Long(cast(Number, Long(42))))
+        self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number, None)))
+        self.assertEqual("Number... [null]", obj.resolve_Number_Long(cast(Number, None)))
+        self.assertEqual("Number... [42]", obj.resolve_Number_Long(jarray(Number, [42])))
+        self.assertEqual("Number... [null]", obj.resolve_Number_Long(jarray(Number, [None])))

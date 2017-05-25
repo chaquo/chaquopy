@@ -28,9 +28,13 @@ class JavaClass(type):
         classDict["__eq__"] = lambda self, other: self.equals(other)
         classDict["__ne__"] = lambda self, other: not self.equals(other)
 
+        # TODO #5153 disabled until tested, and should also generate a setter.
+        # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
+        #     classDict[lower_name(name[3:])] = \
+        #         (lambda n: property(lambda self: getattr(self, n)()))(name)
+        #
         # TODO #5154 disabled until tested, and should also implement other container
         # interfaces.
-        #
         # for iclass in c.getInterfaces():
         #     if iclass.getName() == 'java.util.List':
         #         classDict['__getitem__'] = lambda self, index: self.get(index)
@@ -56,6 +60,13 @@ class JavaClass(type):
     # Java static fields to be set, and to prevent setting anything other than a field.
     def __setattr__(cls, key, value):
         cls.set_attribute(None, key, value)
+
+
+def lower_name(s):
+    return s[:1].lower() + s[1:] if s else ''
+
+def bean_getter(s):
+    return (s.startswith('get') and len(s) > 3 and s[3].isupper()) or (s.startswith('is') and len(s) > 2 and s[2].isupper())
 
 
 # Ensure the same aliases are available on all Python versions
@@ -233,6 +244,8 @@ cdef class JavaField(JavaMember):
         elif r == 'D':
             j_env[0].SetDoubleField(j_env, j_self, self.j_field, j_value)
         elif r in 'L[':
+            # SetObjectField cannot throw an exception, so p2j must never return an
+            # incompatible object.
             j_env[0].SetObjectField(j_env, j_self, self.j_field, (<JNIRef?>j_value).obj)
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
@@ -288,6 +301,8 @@ cdef class JavaField(JavaMember):
         elif r == 'D':
             j_env[0].SetStaticDoubleField(j_env, j_class, self.j_field, j_value)
         elif r in 'L[':
+            # SetStaticObjectField cannot throw an exception, so p2j must never return an
+            # incompatible object.
             j_env[0].SetStaticObjectField(j_env, j_class, self.j_field, (<JNIRef?>j_value).obj)
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
@@ -338,7 +353,16 @@ cdef class JavaMethod(JavaMember):
         """Returns the fully-qualified name of the method, plus its parameter types. Not used in any
         place where the return type might also be relevant.
         """
-        return f"{self.classname()}.{self.name}{self.definition_args}"
+        return f"{self.classname()}.{self.name}{self.format_args()}"
+
+    def format_args(self):
+        formatted_args = []
+        for i, arg in enumerate(self.definition_args):
+            if self.is_varargs and i == (len(self.definition_args) - 1):
+                formatted_args.append(chaquopy.sig_to_java(arg[1:]) + "...")
+            else:
+                formatted_args.append(chaquopy.sig_to_java(arg))
+        return "(" + ", ".join(formatted_args) + ")"
 
     def __init__(self, definition, *, static=False, varargs=False):
         super(JavaMethod, self).__init__(static)
@@ -390,7 +414,11 @@ cdef class JavaMethod(JavaMember):
             if len(args) < len(d_args) - 1:
                 raise TypeError(f'{self.fqn()} takes at least {len(d_args) - 1} arguments '
                                 f'({len(args)} given)')
-            args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
+
+            if len(args) == len(d_args) and assignable_to_array(d_args[-1], args[-1]):
+                pass  # Non-varargs call.
+            else:
+                args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
 
         if len(args) != len(d_args):
             raise TypeError(f'{self.fqn()} takes {len(d_args)} arguments ({len(args)} given)')
@@ -596,7 +624,8 @@ cdef class JavaMultipleMethod(JavaMember):
                             for jm2 in applicable if jm2 is not jm1]):
                     maximal.append(jm1)
             if len(maximal) != 1:
-                raise TypeError(self.overload_err(f"is ambiguous for arguments", args, maximal))
+                raise TypeError(self.overload_err(f"is ambiguous for arguments", args,
+                                                  maximal if maximal else applicable))
             best_overload = maximal[0]
             self.overload_cache[args_types] = best_overload
 
@@ -614,5 +643,4 @@ cdef class JavaMultipleMethod(JavaMember):
     def overload_err(self, msg, args, methods):
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.classname()}.{self.name} {msg} {args_type_names}: options are " +
-                ", ".join([chaquopy.signatures.format_args((<JavaMethod?>jm).definition_args)
-                          for jm in methods]))
+                ", ".join([jm.format_args() for jm in methods]))

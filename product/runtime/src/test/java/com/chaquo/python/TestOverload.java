@@ -4,31 +4,6 @@ import java.util.*;
 
 public class TestOverload {
 
-    public static class Basic {
-        public String resolve() {
-            return "";
-        }
-        public String resolve(String i) {
-            return "String";
-        }
-        public String resolve(String i, String j) {
-            return "String, String";
-        }
-        public String resolve(String i, String j, int k) {
-            return "String, String, int";
-        }
-        public String resolve(String i, String j, int k, int l) {
-            return "String, String, int, int";
-        }
-        public String resolve(String i, String j, int... integers) {
-            return "String, String, int...";
-        }
-        public String resolve(int... integers) {
-            return "int...";
-        }
-    }
-
-
     public static class MixedStaticInstance {
         public static String resolve(Object j) {
             return "Object";
@@ -82,12 +57,6 @@ public class TestOverload {
         }
         public String resolve(double a) {
             return "double " + a;
-        }
-        public String resolve(char a) {
-            return "char " + a;
-        }
-        public String resolve(String a) {
-            return "String " + a;
         }
 
         public String resolve_SF(short a) {
@@ -169,6 +138,22 @@ public class TestOverload {
 
 
     public static class TestString {
+        public String resolve_String_C_Character(String a) {
+            return "String " + a;
+        }
+        public String resolve_String_C_Character(char a) {
+            return "char " + a;
+        }
+        public String resolve_String_C_Character(Character a) {
+            return "Character " + a;
+        }
+
+        public String resolve_Z_Character(boolean a) {
+            return "boolean " + a;
+        }
+        public String resolve_Z_Character(Character a) {
+            return "Character " + a;
+        }
 
     }
 
@@ -205,7 +190,42 @@ public class TestOverload {
 
 
     public static class Varargs {
-        // FIXME Also include interaction with arrays
+        public String resolve_empty_single_I() {
+            return "";
+        }
+        public String resolve_empty_single_I(int a) {
+            return "int " + a;
+        }
+        public String resolve_empty_single_I(int... a) {
+            return "int... " + Arrays.toString(a);
+        }
+
+        public String resolve_ID(int a) {
+            return "int " + a;
+        }
+        public String resolve_ID(double a) {
+            return "double " + a;
+        }
+        public String resolve_ID(int... a) {
+            return "int... " + Arrays.toString(a);
+        }
+        public String resolve_ID(double... a) {
+            return "double... " + Arrays.toString(a);
+        }
+
+        public String resolve_I_Long(int... a) {
+            return "int... " + Arrays.toString(a);
+        }
+        public String resolve_I_Long(Long... a) {
+            return "Long... " + Arrays.toString(a);
+        }
+
+        public String resolve_Number_Long(Number... a) {
+            return "Number... " + Arrays.toString(a);
+        }
+        public String resolve_Number_Long(Long... a) {
+            return "Long... " + Arrays.toString(a);
+        }
     }
 
 }

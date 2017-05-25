@@ -1,23 +1,45 @@
 import six
+
 from cpython.version cimport PY_MAJOR_VERSION
 
 import chaquopy
 
 
-def cast(cls, JavaObject obj):
-    """Returns a view of the given object as the given class. Raises TypeError if the object is not
-    assignable to the class.
+def cast(cls, obj):
+    """Returns a view of the given object (which may be `None` for Java `null`) as the given class.
+    The class must be one created by :any:`autoclass` or (TODO #5178) :any:`jarray`. The object
+    must be assignable to the class according to Java language rules, otherwise TypeError will
+    be raised.
 
     Situations where this could be useful:
 
-    * By changing the apparent type of the object to one of its superclasses, a less specific
-      overload may be chosen when passing the object to a method.
+    * By changing the apparent type of the object, a different overload may be chosen when
+      passing the object to a method.
     * By removing visibility of a method's overloads added in a subclass, a superclass overload
       may be chosen instead when calling that method on the object.
     """
     if not isinstance(cls, JavaClass):
         raise TypeError(f"{type(cls).__name__} object is not a Java class")
-    return cls(instance=obj.j_self)
+    if obj is None or isinstance(obj, NoneCast):
+        return none_casts[chaquopy.jni_sig(cls)]
+    elif isinstance(obj, JavaObject):
+        return cls(instance=(<JavaObject?>obj).j_self)
+    else:
+        raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
+
+class NoneCast(object):
+    pass
+
+class none_cast_dict(dict):
+    # Use a different subclass for each type, so overload resolution can be cached.
+    def __missing__(self, sig):
+        obj = type(str("NoneCast_" + sig),
+                   (NoneCast,),
+                   {"sig": sig})()
+        self[sig] = obj
+        return obj
+
+none_casts = none_cast_dict()
 
 
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
@@ -221,9 +243,11 @@ def is_applicable(sign_args, args, autobox, varargs):
 
     cdef JNIEnv *env = get_jnienv()
     for index, sign_arg in enumerate(sign_args):
-        if varargs and index == len(sign_args) - 1:
+        if varargs and (index == len(sign_args) - 1):
             assert sign_arg[0] == "["
-            arg = args[index:]
+            remaining_args = args[index:]
+            return is_applicable([sign_arg[1:]] * len(remaining_args),
+                                 remaining_args, autobox, False)
         else:
             arg = args[index]
         if not is_applicable_arg(env, sign_arg, arg, autobox):
@@ -252,11 +276,22 @@ def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
     defs1, defs2 = jm1.definition_args, jm2.definition_args
 
     if varargs:
-        return False  # FIXME
-    else:
-        return (len(defs1) == len(defs2) and
-                all([better_overload_arg(d1, d2, at)
-                     for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
+        if not actual_types:
+            # No arguments were given, so the definitions must both be of the form (X...). Give
+            # a fake argument so they can be compared.
+            actual_types = [type(None)]
+        defs1 = extend_varargs(defs1, len(actual_types))
+        defs2 = extend_varargs(defs2, len(actual_types))
+
+    return (len(defs1) == len(defs2) and
+            all([better_overload_arg(d1, d2, at)
+                 for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
+
+
+def extend_varargs(defs, length):
+    varargs_count = length - (len(defs) - 1)
+    vararg_type = defs[-1][1:]
+    return defs[:-1] + ((vararg_type,) * varargs_count)
 
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be

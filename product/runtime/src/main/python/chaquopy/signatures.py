@@ -7,7 +7,7 @@ import six
 import chaquopy
 from .chaquopy import JavaClass, check_range_char, check_range_float32
 
-__all__ = ["jni_sig", "jni_method_sig",
+__all__ = ["jni_sig", "jni_method_sig", "sig_to_java", "primitives_by_name", "primitives_by_sig",
            "Wrapper", "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
            "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble",
            "jchar",  "ArrayWrapper", "jarray"]
@@ -47,14 +47,14 @@ class Wrapper(object):
         return hash(self.value)
 
 
-# `Wrapper` subclasses for the 9 primitive types (including `void`), indexed by Java language
-# name (e.g. `int`).
-primitives = {}
+primitives_by_name = {}
+primitives_by_sig = {}
 
 class PrimitiveMeta(type):
     def __init__(cls, cls_name, bases, cls_dict):
-        if hasattr(cls, "sig") and len(cls.sig) == 1:
-            primitives[cls_name[1:]] = cls
+        if hasattr(cls, "name"):
+            primitives_by_name[cls.name] = cls
+            primitives_by_sig[cls.sig] = cls
 
 @total_ordering
 class Primitive(six.with_metaclass(PrimitiveMeta, Wrapper)):
@@ -62,6 +62,7 @@ class Primitive(six.with_metaclass(PrimitiveMeta, Wrapper)):
         return "{}({})".format(type(self).__name__, self.value)
 
 class jvoid(Primitive):
+    name = "void"
     sig = "V"
 
     def __init__(self):
@@ -69,6 +70,7 @@ class jvoid(Primitive):
 
 
 class jboolean(Primitive):
+    name = "boolean"
     sig = "Z"
 
     def __init__(self, value):
@@ -88,18 +90,22 @@ class IntPrimitive(NumericPrimitive):
             raise OverflowError("value too large to convert to " + type(self).__name__)
 
 class jbyte(IntPrimitive):
+    name = "byte"
     sig = "B"
     truncator = ctypes.c_int8
 
 class jshort(IntPrimitive):
+    name = "short"
     sig = "S"
     truncator = ctypes.c_int16
 
 class jint(IntPrimitive):
+    name = "int"
     sig = "I"
     truncator = ctypes.c_int32
 
 class jlong(IntPrimitive):
+    name = "long"
     sig = "J"
     truncator = ctypes.c_int64
 
@@ -111,6 +117,7 @@ class FloatPrimitive(NumericPrimitive):
         self.value = float(value)
 
 class jfloat(FloatPrimitive):
+    name = "float"
     sig = "F"
 
     def __init__(self, value, truncate=False):
@@ -120,10 +127,12 @@ class jfloat(FloatPrimitive):
             check_range_float32(value)
 
 class jdouble(FloatPrimitive):
+    name = "double"
     sig = "D"
 
 
 class jchar(Primitive):
+    name = "char"
     sig = "C"
 
     def __init__(self, value):
@@ -134,6 +143,17 @@ class jchar(Primitive):
         # repr(self.value) will include a 'u' prefix in Python 2.
         return "{}('{}')".format(type(self).__name__, self.value)
 
+
+class jarray_dict(dict):
+    # Use a different subclass for each element type, so overload resolution can be cached.
+    def __missing__(self, element_sig):
+        subclass = type(str("jarray_" + element_sig),
+                        (ArrayWrapper,),
+                        {"sig": "[" + element_sig})
+        self[element_sig] = subclass
+        return subclass
+
+jarray_types = jarray_dict()
 
 class ArrayWrapper(Wrapper):
     def __init__(self, value):
@@ -171,9 +191,7 @@ def jarray(element_type, *args):
     """
     element_sig = (element_type if isinstance(element_type, six.string_types)
                    else jni_sig(element_type))
-    wrapper = type(str("jarray_" + element_sig),
-                   (ArrayWrapper,),
-                   {"sig": "[" + element_sig})
+    wrapper = jarray_types[element_sig]
     if args:
         value, = args
         return wrapper(value)
@@ -184,19 +202,14 @@ def jarray(element_type, *args):
 def jni_method_sig(returns, takes):
     return "(" + "".join(map(jni_sig, takes)) + ")" + jni_sig(returns)
 
-# TODO #5155 don't expose JNI signatures to users
-def format_args(args):
-    """args is in the same format as JavaMethod.definition_args."""
-    return "(" + ", ".join(args) + ")"
-
 
 def jni_sig(c):
     if isinstance(c, JavaClass):
         return "L" + c.__javaclass__.replace(".", "/") + ";"
     elif isinstance(c, chaquopy.autoclass("java.lang.Class")):
         name = c.getName()
-        if name in primitives:
-            return primitives[name].sig
+        if name in primitives_by_name:
+            return primitives_by_name[name].sig
         elif name.startswith("["):
             return name.replace(".", "/")
         else:
@@ -204,3 +217,13 @@ def jni_sig(c):
     elif issubclass(c, Wrapper):
         return c.sig
     raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
+
+
+def sig_to_java(sig):
+    if sig in primitives_by_sig:
+        return primitives_by_sig[sig].name
+    if sig.startswith("["):
+        return sig_to_java(sig[1:]) + "[]"
+    if sig.startswith("L") and sig.endswith(";"):
+        return sig[1:-1].replace("/", ".")
+    raise ValueError("Invalid definition: '{}'".format(sig))

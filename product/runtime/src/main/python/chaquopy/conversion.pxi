@@ -261,6 +261,9 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
 
         if obj is None:
             return LocalRef()
+        elif isinstance(obj, NoneCast):
+            if find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig)):
+                return LocalRef()
 
         elif isinstance(obj, (six.string_types, chaquopy.jchar)):
             if isinstance(obj, six.string_types):
