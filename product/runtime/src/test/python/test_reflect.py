@@ -6,24 +6,24 @@ from chaquopy import *
 class ReflectTest(unittest.TestCase):
 
     def setUp(self):
-        self.Test = autoclass('com.chaquo.python.TestBasics')
+        self.Test = jclass('com.chaquo.python.TestBasics')
         self.t = self.Test()
 
     def test_bootstrap(self):
         # Test a non-inherited method which we are unlikely ever to use in the reflection
         # process.
-        klass = autoclass("java.lang.Class").forName("java.lang.String")
+        klass = jclass("java.lang.Class").forName("java.lang.String")
         self.assertIsInstance(klass.desiredAssertionStatus(), bool)
 
-    def test_autoclass(self):
-        Stack = autoclass('java.util.Stack')
-        StackSlash = autoclass('java/util/Stack')
+    def test_jclass(self):
+        Stack = jclass('java.util.Stack')
+        StackSlash = jclass('java/util/Stack')
         self.assertIs(Stack, StackSlash)
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
         with self.assertRaisesRegexp(JavaException, "NoClassDefFoundError: java/lang/Stakk"):
-            autoclass("java.lang.Stakk")
+            jclass("java.lang.Stakk")
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
@@ -102,13 +102,13 @@ class ReflectTest(unittest.TestCase):
         self.assertEquals(test2.getB(), 22)
 
     def test_mixed_params(self):
-        test = autoclass('com.chaquo.python.TestBasics')()
+        test = jclass('com.chaquo.python.TestBasics')()
         self.assertEquals(test.methodParamsZBCSIJFD(
             True, 127, 'k', 32767, 2147483467, 9223372036854775807, 1.23, 9.87), True)
 
     def test_out(self):
         # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
-        System = autoclass('java.lang.System')
+        System = jclass('java.lang.System')
 
         # TODO #5181 This should be implemented in JavaObject.__new__, using identityHashCode
         # followed by IsSameObject. Consider how this will interact with aliases created by
@@ -122,13 +122,13 @@ class ReflectTest(unittest.TestCase):
         self.assertIsNone(System.out.flush())
 
     def test_unconstructible(self):
-        System = autoclass("java.lang.System")
+        System = jclass("java.lang.System")
         with self.assertRaisesRegexp(TypeError, "no accessible constructors"):
             System()
 
     def test_reserved_words(self):
-        StringWriter = autoclass("java.io.StringWriter")
-        PrintWriter = autoclass("java.io.PrintWriter")
+        StringWriter = jclass("java.io.StringWriter")
+        PrintWriter = jclass("java.io.PrintWriter")
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)

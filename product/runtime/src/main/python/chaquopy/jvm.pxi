@@ -21,9 +21,9 @@ cdef JavaVM *jvm = NULL
 cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
         set_jvm(start_jvm())
-        platform = chaquopy.autoclass("com.chaquo.python.GenericPlatform")()
+        platform = chaquopy.jclass("com.chaquo.python.GenericPlatform")()
         platform.setShouldInitialize(False)
-        chaquopy.autoclass("com.chaquo.python.Python").start(platform)
+        chaquopy.jclass("com.chaquo.python.Python").start(platform)
 
     cdef JNIEnv *env = NULL
     jvm[0].AttachCurrentThread(jvm, <void**>&env, NULL)

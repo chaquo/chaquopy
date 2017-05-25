@@ -12,11 +12,11 @@ class TestJavaAPI(unittest.TestCase):
     # Any use of the Python module should set a flag preventing the Java module from trying to
     # start Python.
     def test_start(self):
-        Python = autoclass("com.chaquo.python.Python")
+        Python = jclass("com.chaquo.python.Python")
         self.assertTrue(Python.isStarted())
         with self.assertRaisesRegexp(JavaException, "already started"):
             Python.start(None)
 
     def test_pyobject(self):
-        Python = autoclass("com.chaquo.python.Python")
+        Python = jclass("com.chaquo.python.Python")
         self.assertIs(unittest, Python.getInstance().getModule("unittest"))

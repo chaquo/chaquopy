@@ -10,7 +10,7 @@ from chaquopy.signatures import *
 class TestSignatures(unittest.TestCase):
 
     def test_jni_sig(self):
-        Object = autoclass("java.lang.Object")
+        Object = jclass("java.lang.Object")
 
         self.assertEquals("V", jni_sig(jvoid))
         self.assertEquals("Z", jni_sig(jboolean))
@@ -30,9 +30,9 @@ class TestSignatures(unittest.TestCase):
         self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
 
     def test_jni_method_sig(self):
-        Object = autoclass("java.lang.Object")
-        String = autoclass("java.lang.String")
-        Integer = autoclass("java.lang.Integer")
+        Object = jclass("java.lang.Object")
+        String = jclass("java.lang.String")
+        Integer = jclass("java.lang.Integer")
 
         self.assertEquals("()V", jni_method_sig(jvoid, []))
         self.assertEquals("()J", jni_method_sig(jlong, []))
@@ -134,7 +134,7 @@ class TestSignatures(unittest.TestCase):
         self.assertEqual("jarray('[Z', {!r})".format(list_list_bool), str(jarray_jarray_Z))
 
         list_str = ["one", "two"]
-        String = autoclass("java.lang.String")
+        String = jclass("java.lang.String")
         jarray_String = jarray(String, list_str)
         self.assertEqual("jarray_Ljava/lang/String;", type(jarray_String).__name__)
         self.assertEqual("jarray('Ljava/lang/String;', {!r})".format(list_str), str(jarray_String))

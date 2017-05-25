@@ -7,7 +7,7 @@ import chaquopy
 
 def cast(cls, obj):
     """Returns a view of the given object (which may be `None` for Java `null`) as the given class.
-    The class must be one created by :any:`autoclass` or (TODO #5178) :any:`jarray`. The object
+    The class must be one created by :any:`jclass` or (TODO #5178) :any:`jarray`. The object
     must be assignable to the class according to Java language rules, otherwise TypeError will
     be raised.
 
@@ -53,7 +53,7 @@ def find_javaclass(name):
     name = name.replace(".", "/")
     if name.startswith("L") and name.endswith(";"):
         name = name[1:-1]
-    return chaquopy.autoclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
+    return chaquopy.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):
@@ -211,7 +211,7 @@ cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     * Array types are returned in JNI format (e.g. "[Ljava/lang/Object;" or "[I".
     * Other types are returned in Java format (e.g. "java.lang.Object"
     """
-    # Can't call getClass() or getName() using autoclass because that'll cause a recursive call
+    # Can't call getClass() or getName() using jclass because that'll cause a recursive call
     # when getting the returned object type.
     cdef jclass jcls = j_env[0].GetObjectClass(j_env, j_obj)
     cdef jclass jcls2 = j_env[0].GetObjectClass(j_env, jcls)

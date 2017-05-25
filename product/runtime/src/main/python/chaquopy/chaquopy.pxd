@@ -42,7 +42,7 @@ cdef class LocalRef(JNIRef):
     cdef LocalRef adopt(JNIEnv *env, jobject obj)
     cdef GlobalRef global_ref(self)
 
-# === jni =====================================================================
+# === jvm =====================================================================
 
 cdef void set_jvm(JavaVM *new_jvm)
 

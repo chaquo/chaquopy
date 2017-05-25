@@ -71,7 +71,7 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if not j_object:
         return None
 
-    from chaquopy import autoclass
+    from chaquopy import jclass
     r = lookup_java_object_name(j_env, j_object.obj)
 
     if r[0] == '[':
@@ -82,27 +82,27 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
 
     # Unboxing
     if r == 'java.lang.Long':
-        return autoclass(r)(instance=j_object).longValue()
+        return jclass(r)(instance=j_object).longValue()
     if r == 'java.lang.Integer':
-        return autoclass(r)(instance=j_object).intValue()
+        return jclass(r)(instance=j_object).intValue()
     if r == 'java.lang.Float':
-        return autoclass(r)(instance=j_object).floatValue()
+        return jclass(r)(instance=j_object).floatValue()
     if r == 'java.lang.Double':
-        return autoclass(r)(instance=j_object).doubleValue()
+        return jclass(r)(instance=j_object).doubleValue()
     if r == 'java.lang.Short':
-        return autoclass(r)(instance=j_object).shortValue()
+        return jclass(r)(instance=j_object).shortValue()
     if r == 'java.lang.Boolean':
-        return autoclass(r)(instance=j_object).booleanValue()
+        return jclass(r)(instance=j_object).booleanValue()
     if r == 'java.lang.Byte':
-        return autoclass(r)(instance=j_object).byteValue()
+        return jclass(r)(instance=j_object).byteValue()
     if r == 'java.lang.Character':
-        return autoclass(r)(instance=j_object).charValue()
+        return jclass(r)(instance=j_object).charValue()
 
     if r == 'com.chaquo.python.PyObject':
         return j2p_pyobject(j_env, j_object.obj)
 
     # Failed to convert it, so return a proxy object.
-    return autoclass(r)(instance=j_object)
+    return jclass(r)(instance=j_object)
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):
@@ -131,7 +131,7 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
     if jpyobject == NULL:
         return None
-    JPyObject = chaquopy.autoclass("com.chaquo.python.PyObject")
+    JPyObject = chaquopy.jclass("com.chaquo.python.PyObject")
     jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
     cdef PyObject *po = <PyObject*><jlong> jpo.addr
     if po == NULL:
@@ -389,16 +389,16 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    cdef JavaObject boxed = chaquopy.autoclass(clsname)(value)
+    cdef JavaObject boxed = chaquopy.jclass(clsname)(value)
     return boxed.j_self
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     if obj is None:
         return NULL
-    # Can't call getInstance() using autoclass because that'll immediately unwrap the
+    # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
-    JPyObject = chaquopy.autoclass("com.chaquo.python.PyObject")
+    JPyObject = chaquopy.jclass("com.chaquo.python.PyObject")
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
          (<GlobalRef?>JPyObject.j_cls).obj,

@@ -18,8 +18,8 @@ from libc.stdlib cimport malloc
 from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
-from chaquopy.reflect import *
-from chaquopy.signatures import jni_sig
+import chaquopy
+
 from chaquopy.jni cimport *
 from chaquopy.chaquopy cimport *
 cdef extern from "chaquopy_java_extra.h":
@@ -153,8 +153,8 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
         self = j2p_pyobject(env, this)
-        Class = autoclass("java.lang.Class")
-        to_sig = jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
+        Class = chaquopy.jclass("java.lang.Class")
+        to_sig = chaquopy.jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
         try:
             result = p2j(env, to_sig, self)
             if isinstance(result, JNIRef):
@@ -198,7 +198,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
         else:
             all_args = j2p_array(env, "Ljava/lang/Object;", jargs)
 
-        Kwarg = autoclass("com.chaquo.python.Kwarg")
+        Kwarg = chaquopy.jclass("com.chaquo.python.Kwarg")
         args = []
         kwargs = {}
         for a in all_args:
@@ -284,7 +284,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
     (JNIEnv *env, jobject this) with gil:
     cdef JavaObject keys
     try:
-        keys = autoclass("java.util.ArrayList")()
+        keys = chaquopy.jclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
         return keys.j_self.return_ref(env)

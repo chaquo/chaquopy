@@ -15,7 +15,7 @@ FLOAT64_EXPONENT_BITS = 11
 class TestConversion(unittest.TestCase):
 
     def setUp(self):
-        self.obj = autoclass('com.chaquo.python.TestBasics')()
+        self.obj = jclass('com.chaquo.python.TestBasics')()
         self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
 
     def test_null(self):
@@ -25,12 +25,12 @@ class TestConversion(unittest.TestCase):
         # Assigning None to arrays is tested by verify_array.
 
     def test_unrelated(self):
-        String = autoclass("java.lang.String")
+        String = jclass("java.lang.String")
         for value in ["hello", String, String("hello")]:
             self.verify_value(self.obj, "Boolean", value, context=self.conv_error)
 
     def test_parent_to_child(self):
-        Object = autoclass("java.lang.Object")
+        Object = jclass("java.lang.Object")
         for name in ["Boolean", "ZArray"]:
             self.verify_value(self.obj, name, Object(), context=self.conv_error)
 
@@ -166,15 +166,15 @@ class TestConversion(unittest.TestCase):
             self.verify_class(self.obj, name)
 
     def verify_class(self, obj, name):
-        System = autoclass("java.lang.System")
-        Class = autoclass("java.lang.Class")
+        System = jclass("java.lang.System")
+        Class = jclass("java.lang.Class")
         self.verify_value(obj, name, System)
         self.verify_value(obj, name, Class)
         self.verify_array(obj, name, System, Class)
 
     def test_array(self):
-        Object = autoclass("java.lang.Number")
-        Number = autoclass("java.lang.Object")
+        Object = jclass("java.lang.Number")
+        Number = jclass("java.lang.Object")
         self.verify_value(self.obj, "ObjectArray", jarray(Number, [False, True]))
         with self.conv_error:
             self.verify_value(self.obj, "NumberArray", jarray(Object, [False, True]))

@@ -12,6 +12,7 @@ cdef extern from "jni.h":
     ctypedef double          jdouble
     ctypedef void*           jobject
 
+    # These typedefs are for documentation only and are not enforced by the compiler.
     ctypedef jobject         jclass
     ctypedef jobject         jstring
     ctypedef jobject         jarray

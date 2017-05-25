@@ -10,8 +10,8 @@ from .chaquopy import *  # noqa
 from .signatures import *  # noqa
 from .reflect import *  # noqa
 
-# jvoid is not in the public API because the user would have no use for it.
-__all__ = ["autoclass", "cast", "detach", "JavaException",
+# This is the public API. jvoid is not included because the user would have no use for it.
+__all__ = ["jclass", "cast", "detach", "JavaException",
            "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]
 

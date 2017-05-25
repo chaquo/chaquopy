@@ -179,7 +179,7 @@ def jarray(element_type, *args):
 
     * `jboolean`, `jbyte`, etc.
     * A class returned by the one-argument form of `jarray`
-    * A class returned by `autoclass`
+    * A class returned by `jclass`
     * A java.lang.Class instance
     * A JNI type signature
 
@@ -187,7 +187,7 @@ def jarray(element_type, *args):
 
         int[]       jarray(jint)
         int[][]     jarray(jarray(jint))
-        String[]    jarray(autoclass("java.lang.String"))
+        String[]    jarray(jclass("java.lang.String"))
     """
     element_sig = (element_type if isinstance(element_type, six.string_types)
                    else jni_sig(element_type))
@@ -206,7 +206,7 @@ def jni_method_sig(returns, takes):
 def jni_sig(c):
     if isinstance(c, JavaClass):
         return "L" + c.__javaclass__.replace(".", "/") + ";"
-    elif isinstance(c, chaquopy.autoclass("java.lang.Class")):
+    elif isinstance(c, chaquopy.jclass("java.lang.Class")):
         name = c.getName()
         if name in primitives_by_name:
             return primitives_by_name[name].sig

@@ -3,8 +3,8 @@ from __future__ import division
 from __future__ import absolute_import
 # run it, and check with Java VisualVM if we are eating too much memory or not!
 if __name__ == '__main__':
-    from chaquopy import autoclass
-    Stack = autoclass('java.util.Stack')
+    from chaquopy import jclass
+    Stack = jclass('java.util.Stack')
     i = 0
     while True:
         i += 1

@@ -5,10 +5,10 @@ import chaquopy
 from .chaquopy import CQPEnv, JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod
 from .signatures import *
 
-__all__ = ['autoclass']
+__all__ = ['jclass']
 
 
-autoclass_cache = {}
+jclass_cache = {}
 
 
 # This isn't done during module initialization because we don't have a JVM yet, and we don't
@@ -66,14 +66,14 @@ def setup_bootstrap_classes():
         cache_class(reflect_class(cls.__name__))
 
 
-def autoclass(clsname):
+def jclass(clsname):
     """Returns the Java class proxy for the given fully-qualified class name. The name may use
     either '.' or '/' notation. To refer to a nested or inner class, use '$' as the separator,
     e.g. `java.lang.Map$Entry`.
 
     To create new instances of the class, simply call it like a normal Python class::
 
-        StringBuffer = autoclass("java.lang.StringBuffer")
+        StringBuffer = jclass("java.lang.StringBuffer")
         sb = StringBuffer(1024)
     
     As in Java, static methods and fields can be accessed on either the class or instances of
@@ -95,13 +95,13 @@ def autoclass(clsname):
         object to the :any:`cast` function.
     """
     clsname = clsname.replace('/', '.')
-    cls = autoclass_cache.get(clsname)
+    cls = jclass_cache.get(clsname)
     if cls:
         return cls
 
     if clsname.startswith('$Proxy'):
         # The Dalvik VM is not able to give us introspection on these (FindClass returns NULL).
-        return autoclass("java.lang.Object")
+        return jclass("java.lang.Object")
 
     cls = reflect_class(clsname)
     cache_class(cls)
@@ -158,7 +158,7 @@ def reflect_class(clsname):
 
 
 def cache_class(cls):
-    autoclass_cache[cls.__name__] = cls
+    jclass_cache[cls.__name__] = cls
 
 
 def method_signature(method):

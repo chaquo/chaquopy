@@ -10,7 +10,7 @@ class TestOverload(unittest.TestCase):
         self.inapplicable = self.assertRaisesRegexp(TypeError, "cannot be applied")
 
     def test_constructors(self):
-        String = autoclass('java.lang.String')
+        String = jclass('java.lang.String')
         self.assertEqual("", String())
         self.assertEqual("Hello World", String('Hello World'))
         with self.ambiguous:
@@ -21,17 +21,17 @@ class TestOverload(unittest.TestCase):
     # Whether a call's in static or instance context should make no difference to the methods
     # considered and chosen during overload resolution.
     def test_mixed_static_and_instance(self):
-        MSI = autoclass("com.chaquo.python.TestOverload$MixedStaticInstance")
+        MSI = jclass("com.chaquo.python.TestOverload$MixedStaticInstance")
         with self.assertRaisesRegexp(AttributeError, "static context"):
             MSI.resolve("two")
         self.assertEqual(MSI().resolve("two"), 'String')
 
     def test_class(self):
-        Parent = autoclass("com.chaquo.python.TestOverload$Parent")
-        Child = autoclass("com.chaquo.python.TestOverload$Child")
-        Object = autoclass("java.lang.Object")
-        String = autoclass("java.lang.String")
-        Integer = autoclass("java.lang.Integer")
+        Parent = jclass("com.chaquo.python.TestOverload$Parent")
+        Child = jclass("com.chaquo.python.TestOverload$Child")
+        Object = jclass("java.lang.Object")
+        String = jclass("java.lang.String")
+        Integer = jclass("java.lang.Integer")
         s = String()
         i = Integer(42)
         o = Object()
@@ -70,7 +70,7 @@ class TestOverload(unittest.TestCase):
             cast(42, child)
 
     def test_primitive(self):
-        obj = autoclass("com.chaquo.python.TestOverload$Primitive")()
+        obj = jclass("com.chaquo.python.TestOverload$Primitive")()
 
         self.assertEqual(obj.resolve(True), 'boolean true')
         self.assertEqual(obj.resolve(jboolean(True)), 'boolean true')
@@ -106,9 +106,9 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_FD(jdouble(42)), 'double 42.0')
 
     def test_boxing(self):
-        obj = autoclass("com.chaquo.python.TestOverload$Boxing")()
+        obj = jclass("com.chaquo.python.TestOverload$Boxing")()
 
-        Boolean = autoclass("java.lang.Boolean")
+        Boolean = jclass("java.lang.Boolean")
         self.assertEqual(obj.resolve_Z_Boolean(True), 'boolean true')
         self.assertEqual(obj.resolve_Z_Boolean(jboolean(True)), 'boolean true')
         self.assertEqual(obj.resolve_Z_Boolean(Boolean(True)), 'Boolean true')
@@ -117,7 +117,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_Z_Object(jboolean(True)), 'boolean true')
         self.assertEqual(obj.resolve_Z_Object(Boolean(True)), 'Object true')
 
-        Long = autoclass("java.lang.Long")
+        Long = jclass("java.lang.Long")
         self.assertEqual(obj.resolve_S_Long(42), 'short 42')
         self.assertEqual(obj.resolve_S_Long(jbyte(42)), 'short 42')
         self.assertEqual(obj.resolve_S_Long(jshort(42)), 'short 42')
@@ -127,7 +127,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_S_Long(jlong(42)), 'Long 42')
         self.assertEqual(obj.resolve_S_Long(Long(42)), 'Long 42')
 
-        Short = autoclass("java.lang.Short")
+        Short = jclass("java.lang.Short")
         self.assertEqual(obj.resolve_Short_L(42), 'long 42')
         self.assertEqual(obj.resolve_Short_L(jbyte(42)), 'long 42')
         self.assertEqual(obj.resolve_Short_L(jshort(42)), 'long 42')
@@ -159,8 +159,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(obj.resolve_Float_Double(jdouble(42)), 'Double 42.0')
 
     def test_string(self):
-        obj = autoclass("com.chaquo.python.TestOverload$TestString")()
-        Character = autoclass("java.lang.Character")
+        obj = jclass("com.chaquo.python.TestOverload$TestString")()
+        Character = jclass("java.lang.Character")
 
         self.assertEqual("String x", obj.resolve_String_C_Character("x"))
         self.assertEqual("char x", obj.resolve_String_C_Character(jchar("x")))
@@ -169,7 +169,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Character x", obj.resolve_Z_Character("x"))
 
     def test_array(self):
-        obj = autoclass("com.chaquo.python.TestOverload$TestArrays")()
+        obj = jclass("com.chaquo.python.TestOverload$TestArrays")()
 
         # Arrays of primitives are always ambiguous, irrespective of the values in the array.
         for l in [None, [True, False], [1, 2]]:
@@ -183,14 +183,14 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("byte[] null", obj.resolve_ZB(jarray(jbyte, None)))
 
         # Arrays of parent/child classes: prefer the most derived class.
-        Object = autoclass("java.lang.Object")
-        Integer = autoclass("java.lang.Integer")
+        Object = jclass("java.lang.Object")
+        Integer = jclass("java.lang.Integer")
         self.assertEqual("Number[] [1, 2]", obj.resolve_Object_Number([1, 2]))
         self.assertEqual("Number[] [1, 2]", obj.resolve_Object_Number(jarray(Integer, [1, 2])))
         self.assertEqual("Object[] [1, 2]", obj.resolve_Object_Number(jarray(Object, [1, 2])))
 
         # Arrays of sibling classes are always ambiguous.
-        Long = autoclass("java.lang.Long")
+        Long = jclass("java.lang.Long")
         with self.ambiguous:
             obj.resolve_Integer_Long([1, 2])
         self.assertEqual("Integer[] [1, 2]", obj.resolve_Integer_Long(jarray(Integer, [1, 2])))
@@ -201,7 +201,7 @@ class TestOverload(unittest.TestCase):
         # FIXME how to select the Object overload? See #5178.
 
     def test_varargs(self):
-        obj = autoclass("com.chaquo.python.TestOverload$Varargs")()
+        obj = jclass("com.chaquo.python.TestOverload$Varargs")()
 
         self.assertEqual("", obj.resolve_empty_single_I())
         self.assertEqual("int... []", obj.resolve_empty_single_I([]))
@@ -218,7 +218,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1, 2.0))
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1.0, 2))
 
-        Long = autoclass("java.lang.Long")
+        Long = jclass("java.lang.Long")
         with self.ambiguous:
             obj.resolve_I_Long()    # Neither int nor Long are more specific
         with self.ambiguous:
@@ -229,7 +229,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... [42]", obj.resolve_I_Long(jlong(42)))
         self.assertEqual("Long... [42]", obj.resolve_I_Long(Long(42)))
 
-        Number = autoclass("java.lang.Number")
+        Number = jclass("java.lang.Number")
         self.assertEqual("Long... []", obj.resolve_Number_Long())
         self.assertEqual("Long... [42]", obj.resolve_Number_Long(42))
         self.assertEqual("Long... null", obj.resolve_Number_Long(None))
