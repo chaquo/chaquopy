@@ -2,10 +2,21 @@ package com.chaquo.python;
 
 /** Platform for a normal Python installation. */
 public class GenericPlatform implements Python.Platform {
-    private String mPath;
+    private String mPath = System.getenv("PYTHONPATH");
+    private boolean mShouldInitialize = true;
 
     public GenericPlatform() {
         System.loadLibrary("chaquopy_java");
+    }
+
+    @Override
+    public boolean shouldInitialize() {
+        return mShouldInitialize;
+    }
+
+    @Override
+    public String getPath() {
+        return mPath;
     }
 
     public GenericPlatform setPath(String path) {
@@ -13,12 +24,8 @@ public class GenericPlatform implements Python.Platform {
         return this;
     }
 
-    @Override
-    public String getPath() {
-        String path = mPath;
-        if (path == null) {
-            path = System.getenv("PYTHONPATH");
-        }
-        return path;
+    public GenericPlatform setShouldInitialize(boolean shouldInitialize) {
+        mShouldInitialize = shouldInitialize;
+        return this;
     }
 }

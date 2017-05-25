@@ -35,6 +35,11 @@ public class AndroidPlatform implements Python.Platform {
         return path;
     }
 
+    @Override
+    public boolean shouldInitialize() {
+        return true;
+    }
+
     private void extractAssets() {
         // TODO avoid extraction (#5158)
         try {

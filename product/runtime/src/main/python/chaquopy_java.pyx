@@ -35,8 +35,12 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 # WARNING: This function (specifically the module initialization function) will crash if called
 # more than once.
 cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jclass klass, jobject j_python_path):
+    (JNIEnv *env, jclass klass, jboolean should_initialize, jobject j_python_path):
     # All code run before Py_Initialize must compile to pure C.
+    if not should_initialize:
+        startNativeNoInit(env)
+        return
+
     cdef const char *python_path
     if j_python_path != NULL:
         python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
@@ -73,6 +77,13 @@ cdef public void Java_com_chaquo_python_Python_startNative \
     # before we return to Java so that the methods below can be called from any thread.
     # (http://bugs.python.org/issue1720250)
     PyEval_SaveThread();
+
+
+cdef void startNativeNoInit(JNIEnv *env) with gil:
+    try:
+        PyInit_chaquopy_java()
+    except Exception as e:
+        wrap_exception(env, e)
 
 
 # This runs before Py_Initialize, so it must compile to pure C.

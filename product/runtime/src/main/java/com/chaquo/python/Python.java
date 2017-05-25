@@ -5,21 +5,23 @@ package com.chaquo.python;
  *
  * Unless otherwise specified, methods in this class throw {@link PyException} on failure. */
 public class Python {
+
     /** Provides information needed to start Python. */
     public interface Platform {
+        /** Returns whether the Python VM needs to be intiialized. */
+        boolean shouldInitialize();
+
         /** Returns the value to assign to `PYTHONPATH`. */
         String getPath();
     }
 
-    /** @deprecated Internal use in jvm.pxi */
-    public static boolean started;
+    private static boolean started;
     private static boolean failed;
     private static Python instance;
 
     /** Gets the interface to Python. This method always returns the same object. If
      * {@link #start start()} has not yet been called, it will be called with a new
      * {@link GenericPlatform}. */
-    @SuppressWarnings("deprecation")
     public static synchronized Python getInstance() {
         if (instance == null) {
             if (!started) {
@@ -32,7 +34,6 @@ public class Python {
 
     /** Starts the Python virtual machine. If this method is called, it can only be called once, and
      * it must be before any call to {@link #getInstance}, */
-    @SuppressWarnings("deprecation")
     public static synchronized void start(Platform platform) {
         if (started) {
             throw new IllegalStateException("Python already started");
@@ -42,7 +43,7 @@ public class Python {
             throw new IllegalStateException("Python startup previously failed, and cannot be retried");
         }
         try {
-            startNative(platform.getPath());
+            startNative(platform.shouldInitialize(), platform.getPath());
             started = true;
         } catch (Exception e) {
             failed = true;
@@ -50,14 +51,13 @@ public class Python {
         }
     }
 
-    @SuppressWarnings("deprecation")
     public static synchronized boolean isStarted() {
         return started;
     }
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
      * cleanup. */
-    private static native void startNative(String pythonPath);
+    private static native void startNative(boolean shouldInitialize, String pythonPath);
 
     // =======================================================================
 

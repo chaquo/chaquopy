@@ -208,10 +208,15 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 }
             }
 
-            def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
+            def testCommonConfig = {
                 dependsOn setupPythonPath, "compileTestJava"
-                environment "PYTHONPATH", mainPythonDir
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
+                environment "PATH", "${System.getenv("PATH")}$PATH_SEPARATOR$cmakeBuildSubdir"
+                environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
+                environment "PYTHONPATH", "$mainPythonDir$PATH_SEPARATOR$testPythonDir"
+            }
+
+            def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
                 workingDir "$projectDir/src/test/python"
                 executable "$pyPlusVersion$EXE_SUFFIX"   // filenames with dots require the ".exe"
                 args "-m", "unittest"
@@ -221,19 +226,17 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     args "discover"
                 }
             }
+            testPython.configure(testCommonConfig)
             check.dependsOn(testPython)
 
             test {
-                dependsOn setupPythonPath
                 outputs.upToDateWhen { false }
-                environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
-                environment "PYTHONPATH", "$mainPythonDir$PATH_SEPARATOR$testPythonDir"
-                jvmArgs "-Djava.library.path=$cmakeBuildSubdir"
                 testLogging {
                     exceptionFormat = 'full'
                     showStandardStreams = true
                 }
             }
+            test.configure(testCommonConfig)
         }
     }
 }

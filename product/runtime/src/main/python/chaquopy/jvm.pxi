@@ -2,7 +2,8 @@ import os
 import platform
 import sys
 
-from . import config  # Don't import reflect here, it causes a circular reference
+import chaquopy
+from . import config
 
 from libc.stdint cimport uintptr_t
 
@@ -20,9 +21,9 @@ cdef JavaVM *jvm = NULL
 cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
         set_jvm(start_jvm())
-        # Prevent the Java module from trying to start Python
-        from . import reflect
-        reflect.autoclass("com.chaquo.python.Python").started = True
+        platform = chaquopy.autoclass("com.chaquo.python.GenericPlatform")()
+        platform.setShouldInitialize(False)
+        chaquopy.autoclass("com.chaquo.python.Python").start(platform)
 
     cdef JNIEnv *env = NULL
     jvm[0].AttachCurrentThread(jvm, <void**>&env, NULL)
