@@ -3,7 +3,7 @@ import unittest
 from java import *
 
 
-class ReflectTest(unittest.TestCase):
+class TestReflect(unittest.TestCase):
 
     def setUp(self):
         self.Test = jclass('com.chaquo.python.TestBasics')
@@ -137,3 +137,23 @@ class ReflectTest(unittest.TestCase):
         pw.print_("Hello")
         pw.print_(" world")
         self.assertEqual("Hello world", sw.toString())
+
+    def test_interface(self):
+        I = jclass("com.chaquo.python.TestReflect$I")
+        with self.assertRaisesRegexp(TypeError, "no accessible constructors"):
+            I()
+        self.assertEqual("I constant", I.iConstant)
+        with self.assertRaisesRegexp(AttributeError, "static context"):
+            I.iMethod()
+
+        C = jclass("com.chaquo.python.TestReflect$C")
+        c = C()
+        self.assertEqual("I constant", C.iConstant)
+        self.assertEqual("I constant", c.iConstant)
+        with self.assertRaisesRegexp(AttributeError, "static context"):
+            C.iMethod()
+        self.assertEqual("I constant", c.iMethod())
+
+        c_I = cast(I, c)
+        self.assertEqual("I constant", c_I.iConstant)
+        self.assertEqual("I constant", c_I.iMethod())

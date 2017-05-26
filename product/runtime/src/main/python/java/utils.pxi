@@ -114,7 +114,9 @@ cdef expect_exception(JNIEnv *j_env, msg):
     check_exception(j_env)
     raise Exception(msg)
 
-# To avoid recursion, this function must not use anything which could itself call check_exception.
+# To avoid recursion, this function must not use anything which could call check_exception itself.
+#
+# FIXME use LocalRef.adopt to eliminate all the DeleteLocalRef in this file.
 cdef check_exception(JNIEnv *j_env):
     cdef jmethodID toString = NULL
     cdef jmethodID getCause = NULL
@@ -204,7 +206,10 @@ cdef void _append_exception_trace_messages(
     j_env[0].DeleteLocalRef(j_env, frames)
 
 
-# To avoid recursion, this function must not use anything which could call check_exception.
+cdef jmethodID mid_getName = NULL
+
+# To avoid infinite recursion, this function must not use anything which could call
+# check_exception or lookup_java_object_name itself.
 cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     """Returns the fully-qualified class name of the given object, in the same format as
     Class.getName().
@@ -212,23 +217,22 @@ cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     * Other types are returned in Java format (e.g. "java.lang.Object"
     """
     # Can't call getClass() or getName() using jclass because that'll cause a recursive call
-    # when getting the returned object type.
-    cdef jclass jcls = j_env[0].GetObjectClass(j_env, j_obj)
-    cdef jclass jcls2 = j_env[0].GetObjectClass(j_env, jcls)
-    cdef jmethodID jmeth = j_env[0].GetMethodID(j_env, jcls2, 'getName', '()Ljava/lang/String;')
-    # Can't call check_exception because that'll cause a recursive call when getting the
-    # exception type name.
-    if jmeth == NULL:
-        raise Exception("GetMethodID failed")
-    cdef jobject js = j_env[0].CallObjectMethod(j_env, jcls, jmeth)
-    if js == NULL:
-        raise Exception("getName failed")
+    # when converting their return values.
+    j_cls = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj))
 
-    name = j2p_string(j_env, js)
-    j_env[0].DeleteLocalRef(j_env, js)
-    j_env[0].DeleteLocalRef(j_env, jcls)
-    j_env[0].DeleteLocalRef(j_env, jcls2)
-    return name
+    global mid_getName
+    if not mid_getName:
+        j_Class = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_cls.obj))
+        mid_getName = j_env[0].GetMethodID(j_env, j_Class.obj, 'getName', '()Ljava/lang/String;')
+        if not mid_getName:
+            j_env[0].ExceptionClear(j_env)
+            raise Exception("GetMethodID failed")
+
+    j_name = LocalRef.adopt(j_env, j_env[0].CallObjectMethod(j_env, j_cls.obj, mid_getName))
+    if not j_name:
+        j_env[0].ExceptionClear(j_env)
+        raise Exception("getName failed")
+    return j2p_string(j_env, j_name.obj)
 
 
 def is_applicable(sign_args, args, autobox, varargs):

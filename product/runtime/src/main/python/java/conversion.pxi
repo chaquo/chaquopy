@@ -26,23 +26,20 @@ JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
 cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    cdef int index
     for index, argtype in enumerate(definition_args):
-        if argtype[0] == 'L':
-            j_env[0].DeleteLocalRef(j_env, j_args[index].l)
-        elif argtype[0] == '[':
-            # Copy back any modifications the Java method may have made to the array
-            ret = j2p_array(j_env, argtype[1:], j_args[index].l)
-            try:
-                args[index][:] = ret
-            except TypeError:
-                pass    # The arg was a tuple or other read-only sequence.
+        if argtype[0] in "L[":
+            if argtype[0] == "[":
+                # Copy back any modifications the Java method may have made to the array
+                ret = j2p_array(j_env, argtype[1:], j_args[index].l)
+                try:
+                    args[index][:] = ret
+                except TypeError:
+                    pass    # The arg was a tuple or other read-only sequence.
             j_env[0].DeleteLocalRef(j_env, j_args[index].l)
 
 
 # Cython auto-generates range checking code for the integral types.
 cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
-    cdef int index
     for index, argtype in enumerate(definition_args):
         py_arg = p2j(j_env, argtype, args[index])
         if argtype == 'Z':

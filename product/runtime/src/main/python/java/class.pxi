@@ -398,9 +398,10 @@ cdef class JavaMethod(JavaMember):
     def __get__(self, obj, objtype):
         self.ensure_method()
         if obj is None and not (self.is_static or self.is_constructor):
-            # We don't allow the user to get unbound method objects, because that wouldn't be
-            # compatible with the way we implement overload resolution. (It might be possible
-            # to fix this, but it's not worth the effort.)
+            # We don't allow the user to get unbound method objects, because passing the target
+            # object as the first parameter wouldn't be compatible with the way we implement
+            # overload resolution. (It might be possible to fix this, but it's not worth the
+            # effort.)
             raise AttributeError(f'Cannot access {self.fqn()} in static context')
         else:
             return lambda *args: self(obj, *args)
