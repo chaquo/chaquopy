@@ -9,7 +9,7 @@ from .signatures import *  # noqa
 from .reflect import *  # noqa
 
 # This is the public API. jvoid is not included because the user would have no use for it.
-__all__ = ["jclass", "cast", "detach", "JavaException",
+__all__ = ["jclass", "cast", "JavaException",
            "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]
 

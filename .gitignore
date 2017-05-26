@@ -7,11 +7,9 @@
 .externalNativeBuild
 .gradle
 build/
-javadoc/
 local.properties
 
 *.pyc
 *.pyd
 *.so
-
 hs_err*.log

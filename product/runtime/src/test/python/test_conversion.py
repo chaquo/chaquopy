@@ -175,13 +175,13 @@ class TestConversion(unittest.TestCase):
     def test_array(self):
         Object = jclass("java.lang.Number")
         Number = jclass("java.lang.Object")
-        self.verify_value(self.obj, "ObjectArray", jarray(Number, [False, True]))
+        self.verify_value(self.obj, "ObjectArray", jarray(Number)([False, True]))
         with self.conv_error:
-            self.verify_value(self.obj, "NumberArray", jarray(Object, [False, True]))
+            self.verify_value(self.obj, "NumberArray", jarray(Object)([False, True]))
 
         # Arrays of primitives are not assignable to arrays of Object.
         with self.conv_error:
-            self.verify_value(self.obj, "ObjectArray", jarray(jboolean, [False, True]))
+            self.verify_value(self.obj, "ObjectArray", jarray(jboolean)([False, True]))
 
     def test_mixed_array(self):
         mixed =  [False, "hello"]

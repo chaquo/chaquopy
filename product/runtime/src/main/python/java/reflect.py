@@ -40,6 +40,7 @@ def setup_bootstrap_classes():
         getName = JavaMethod('()Ljava/lang/String;')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
         getReturnType = JavaMethod('()Ljava/lang/Class;')
+        isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
 
     class Field(with_metaclass(JavaClass, JavaObject)):
@@ -53,6 +54,7 @@ def setup_bootstrap_classes():
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
+        isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
 
     # The last class defined should match the check at the top of this function.
@@ -67,32 +69,44 @@ def setup_bootstrap_classes():
 
 
 def jclass(clsname):
-    """Returns the Java class proxy for the given fully-qualified class name. The name may use
-    either '.' or '/' notation. To refer to a nested or inner class, use '$' as the separator,
-    e.g. `java.lang.Map$Entry`.
+    """Returns a proxy class for the given fully-qualified Java class name. The name may use either
+    `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
+    class with `$`, e.g. `java.lang.Map$Entry`.
 
-    To create new instances of the class, simply call it like a normal Python class::
+    To construct new instances of the class, simply call it like a normal Python class::
 
-        StringBuffer = jclass("java.lang.StringBuffer")
-        sb = StringBuffer(1024)
+        >>> StringBuffer = jclass("java.lang.StringBuffer")
+        >>> sb = StringBuffer(1024)
     
-    As in Java, static methods and fields can be accessed on either the class or instances of
-    the class, while instance methods and fields can only be accessed on instances::
+    Methods and fields can be accessed using normal Python syntax::
 
-        FIXME give examples of the above
+        >>> String = jclass("java.lang.String")
+        >>> sb.append(True).append(123).append(cast(String, None)).append(3.142)
+        <java.lang.StringBuffer 'true123null3.142'>
+        >>> sb.length()
+        16
+        >>> System = jclass("java.lang.System")
+        >>> sb.toString()
+        u'true123null3.142'
+        >>> System.out.println(sb)
+        true123null3.142
+
+        >>> Point = jclass("java.awt.Point")
+        >>> p = Point(3, 4)
+        >>> p.x
+        3
+        >>> p.y
+        4
+        >>> p.x = 7
+        >>> p.getX()
+        7.0
 
     If a method or field name clashes with a Python reserved word, an underscore is appended,
-    e.g. `print` becomes `print_`. The original name is still accessible via `getattr`.
+    e.g. `print` becomes `print_`. The original name is still accessible via :any:`getattr`.
 
     The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
-    Object)` and `isinstance(String("hello"), Object) will both return `False`. This may change
+    Object)` and `isinstance(String("hello"), Object)` will both return `False`. This may change
     in the future.
-
-    Link to sections on type conversion and overloading (which should maybe be combined).
-
-        Java objects returned from methods or read from fields are represented as their actual
-        run-time type, not the declared type of the method or field. To change this, pass the
-        object to the :any:`cast` function.
     """
     clsname = clsname.replace('/', '.')
     cls = jclass_cache.get(clsname)
@@ -122,10 +136,12 @@ def reflect_class(clsname):
     methods = c.getMethods() + c.getConstructors()
     methods_name = [x.getName() for x in methods]
     for index, method in enumerate(methods):
+        if method.isSynthetic():
+            continue
+
         name = methods_name[index]
         if name in classDict:
             continue
-
         if methods_name.count(name) == 1:
             method = JavaMethod(method_signature(method),
                                 static=Modifier.isStatic(method.getModifiers()),
@@ -136,6 +152,8 @@ def reflect_class(clsname):
                 if subname != name:
                     continue
                 method = methods[index]
+                if method.isSynthetic():
+                    continue
                 jms.append(JavaMethod(method_signature(method),
                                       static=Modifier.isStatic(method.getModifiers()),
                                       varargs=method.isVarArgs()))

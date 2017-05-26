@@ -98,5 +98,11 @@ def jvm_lib_path():
         return f"{jre_home}lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
 
 
+# TODO #5167: this is not in the public API because non-Java-created threads haven't been
+# tested and probably won't work properly.
 def detach():
+    """Detaches the current thread from the Java VM. This must only be called on a non-Java-created
+    thread, and it must be called on every such thread which uses this module, before the
+    thread exits.
+    """
     jvm[0].DetachCurrentThread(jvm)

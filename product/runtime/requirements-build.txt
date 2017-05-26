@@ -1,3 +1,4 @@
 -r requirements-run.txt
 
 Cython>=0.25.2
+Sphinx>=1.6.1

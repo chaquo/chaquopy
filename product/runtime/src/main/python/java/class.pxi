@@ -118,8 +118,8 @@ cdef class JavaObject(object):
         if self.j_self:
             ts = str(self)
             if ts is not None and \
-               self.__javaclass__.split(".")[-1] in ts:  # e.g. "java.lang.Object@28d93b30"
-                return f"<'{ts}'>"
+               ts.startswith(self.__javaclass__):  # e.g. "java.lang.Object@28d93b30"
+                return f"<{ts}>"
             else:
                 return f"<{self.__javaclass__} '{ts}'>"
         else:
@@ -574,12 +574,12 @@ cdef class JavaMethod(JavaMember):
         return ret
 
 
-cdef class JavaMultipleMethod(JavaMember):
-    cdef list methods
-    cdef dict overload_cache
-
+class JavaMultipleMethod(JavaMember):
     def __repr__(self):
         return f"JavaMultipleMethod({self.methods})"
+
+    def fqn(self):
+        return f"{self.classname()}.{(<JavaMember?>self).name}"
 
     def __init__(self, methods):
         super(JavaMultipleMethod, self).__init__()
@@ -642,5 +642,5 @@ cdef class JavaMultipleMethod(JavaMember):
 
     def overload_err(self, msg, args, methods):
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
-        return (f"{self.classname()}.{self.name} {msg} {args_type_names}: options are " +
+        return (f"{self.fqn()} {msg} {args_type_names}: options are " +
                 ", ".join([jm.format_args() for jm in methods]))

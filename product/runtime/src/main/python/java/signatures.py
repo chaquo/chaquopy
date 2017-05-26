@@ -13,23 +13,6 @@ __all__ = ["jni_sig", "jni_method_sig", "sig_to_java", "primitives_by_name", "pr
            "jchar",  "ArrayWrapper", "jarray"]
 
 
-# These classes wrap a method parameter to specify its Java primitive type.
-#
-# Java has more primitive types than Python, so where more than one compatible integer or
-# floating-point overload is available for a method call, the widest one will be used by
-# default. Similarly, where a Python string is passed to a method which has overloads for
-# `String` `char` and `char[]`, `String` will be used. If this behavior gives undesired
-# results, these wrapper classes can be used to specify a primitive type for the parameter.
-#
-# For example, if `p` is a `PrintStream`, `p.print(42)` will call `print(long)`, whereas
-# `p.print(jint(42))` will call `print(int)`. Likewise, `p.print("x")` will call
-# `print(String)`, while `p.print(jchar("x"))` will call `print(char)`.
-#
-# The numeric type wrappers take an optional `truncate` parameter. If this is true, any excess
-# high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
-# passing an out-of-range value will result in an OverflowError.
-
-
 class Wrapper(object):
     def __eq__(self, other):
         if isinstance(other, Primitive):
@@ -132,6 +115,34 @@ class jdouble(FloatPrimitive):
 
 
 class jchar(Primitive):
+    """These classes wrap a method parameter to specify its Java primitive type.
+
+    A Python boolean, integer, float or string can normally be used directly as a parameter of
+    a Java method. Java has more primitive types than Python, so when more than one compatible
+    integer or floating-point overload is applicable for a method call, the longest one will be
+    used. Similarly, when a Python string is passed to a method which has overloads for both
+    `String` and `char`, the `String` overload will be used. If these rules do not give the
+    desired result, the wrapper classes can be used to be more specific about the intended
+    type.
+
+    For example, if `p` is a `PrintStream
+    <https://docs.oracle.com/javase/7/docs/api/java/io/PrintStream.html>`_::
+
+        p.print(42)              # will call print(long)
+        p.print(jint(42))        # will call print(int)
+        p.print(42.0)            # will call print(double)
+        p.print(jfloat(42.0))    # will call print(float)
+        p.print("x")             # will call print(String)
+        p.print(jchar("x"))      # will call print(char)
+
+    The numeric type wrappers take an optional `truncate` parameter. If this is set, any excess
+    high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
+    passing an out-of-range value will result in an `OverflowError`.
+
+    .. note:: When these wrappers are used, Java overload resolution rules will be in effect
+              for the wrapped parameter. For example, a `jint` will only be applicable to a
+              Java `int` or larger, and the *shortest* applicable overload will be used.
+    """
     name = "char"
     sig = "C"
 
@@ -160,43 +171,39 @@ class ArrayWrapper(Wrapper):
         self.value = value
 
     def __repr__(self):
-        return "jarray('{}', {!r})".format(self.sig[1:], self.value)
+        return "jarray('{}')({!r})".format(self.sig[1:], self.value)
 
-def jarray(element_type, *args):
-    """With one argument, `jarray` returns a wrapper class for an array of the given element type.
-    With two arguments, the second argument must be an iterable which is wrapped with the class
-    and returned.
+def jarray(element_type):
+    """Returns a proxy class for a Java array type. Objects of this class implement the Python
+    sequence protocol, so they can be manipulated using `[]` syntax.
 
-    A Python iterable can normally be passed directly to a Java method. But where a method has
-    multiple overloads which take an array, the iterable must be wrapped with `jarray` to
-    specify the intended type.
+    A Python iterable (or `None` for `null`) can normally be used directly as an array
+    parameter of a Java method. But where the method has multiple equally-specific overloads,
+    the value must be converted to a `jarray` type to disambiguate the call.
 
     For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, calling
-    `f([1,2,3])` will fail with an ambiguous overload error. To select the `int[]` overload,
-    use the syntax `f(jarray(jint, [1,2,3]))` or `f(jarray(jint)([1,2,3]))`.
+    `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
+    `f(jarray(jint)([1,2,3]))`.
 
     The element type may be specified as any of:
 
-    * `jboolean`, `jbyte`, etc.
-    * A class returned by the one-argument form of `jarray`
-    * A class returned by `jclass`
-    * A java.lang.Class instance
+    * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
+    * A proxy class returned by :any:`jclass`, or by `jarray` itself.
+    * A `java.lang.Class` instance
     * A JNI type signature
+
+    .. "A JNI type signature" is documented, not because we encourage people to use it, but
+       because it's the form used by `__repr__`.
 
     Examples::
 
-        int[]       jarray(jint)
-        int[][]     jarray(jarray(jint))
-        String[]    jarray(jclass("java.lang.String"))
+        jarray(jint)                            # int[]
+        jarray(jarray(jint))                    # int[][]
+        jarray(jclass("java.lang.String"))      # String[]
     """
     element_sig = (element_type if isinstance(element_type, six.string_types)
                    else jni_sig(element_type))
-    wrapper = jarray_types[element_sig]
-    if args:
-        value, = args
-        return wrapper(value)
-    else:
-        return wrapper
+    return jarray_types[element_sig]
 
 
 def jni_method_sig(returns, takes):

@@ -21,6 +21,11 @@ public class TestOverload {
         public String resolve(Object j, String k) {
             return "Object, String";
         }
+
+        // This signature will exist in the Child class as a synthetic method.
+        public Object resolveCovariantOverride() {
+            return "Parent";
+        }
     }
 
     public static class Child extends Parent {
@@ -32,6 +37,10 @@ public class TestOverload {
         }
         public String resolve(String j, Object k) {
             return "String, Object";
+        }
+
+        public String resolveCovariantOverride() {
+            return "Child";
         }
     }
 
@@ -64,6 +73,13 @@ public class TestOverload {
         }
         public String resolve_SF(float a) {
             return "float " + a;
+        }
+
+        public String resolve_IJ(int a) {
+            return "int " + a;
+        }
+        public String resolve_IJ(long a) {
+            return "long " + a;
         }
 
         public String resolve_BIF(byte a) {

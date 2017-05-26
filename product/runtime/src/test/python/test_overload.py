@@ -15,8 +15,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Hello World", String('Hello World'))
         with self.ambiguous:
             String(list('Hello World'))  # byte[] and char[] overloads both exist.
-        self.assertEqual("Hello World", String(jarray(jchar, 'Hello World')))
-        self.assertEqual("lo Wo", String(jarray(jchar, 'Hello World'), 3, 5))
+        self.assertEqual("Hello World", String(jarray(jchar)('Hello World')))
+        self.assertEqual("lo Wo", String(jarray(jchar)('Hello World'), 3, 5))
 
     # Whether a call's in static or instance context should make no difference to the methods
     # considered and chosen during overload resolution.
@@ -69,6 +69,8 @@ class TestOverload(unittest.TestCase):
         with self.assertRaisesRegexp(TypeError, "Java class"):
             cast(42, child)
 
+        self.assertEqual("Child", child.resolveCovariantOverride())
+
     def test_primitive(self):
         obj = jclass("com.chaquo.python.TestOverload$Primitive")()
 
@@ -90,6 +92,12 @@ class TestOverload(unittest.TestCase):
         with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
             obj.resolve_SF(100000)
         self.assertEqual(obj.resolve_SF(42), 'short 42')
+
+        self.assertEqual(obj.resolve_IJ(42), 'long 42')
+        self.assertEqual(obj.resolve_IJ(jbyte(42)), 'int 42')
+        self.assertEqual(obj.resolve_IJ(jshort(42)), 'int 42')
+        self.assertEqual(obj.resolve_IJ(jint(42)), 'int 42')
+        self.assertEqual(obj.resolve_IJ(jlong(42)), 'long 42')
 
         self.assertEqual(obj.resolve_BIF(42), 'int 42')
         self.assertEqual(obj.resolve_BIF(jbyte(42)), 'byte 42')
@@ -175,26 +183,26 @@ class TestOverload(unittest.TestCase):
         for l in [None, [True, False], [1, 2]]:
             with self.ambiguous:
                 obj.resolve_ZB(l)
-        self.assertEqual("boolean[] [true, false]", obj.resolve_ZB(jarray(jboolean, [True, False])))
-        self.assertEqual("byte[] [1, 2]", obj.resolve_ZB(jarray(jbyte, [1, 2])))
-        self.assertEqual("boolean[] []", obj.resolve_ZB(jarray(jboolean, [])))
-        self.assertEqual("byte[] []", obj.resolve_ZB(jarray(jbyte, [])))
-        self.assertEqual("boolean[] null", obj.resolve_ZB(jarray(jboolean, None)))
-        self.assertEqual("byte[] null", obj.resolve_ZB(jarray(jbyte, None)))
+        self.assertEqual("boolean[] [true, false]", obj.resolve_ZB(jarray(jboolean)([True, False])))
+        self.assertEqual("byte[] [1, 2]", obj.resolve_ZB(jarray(jbyte)([1, 2])))
+        self.assertEqual("boolean[] []", obj.resolve_ZB(jarray(jboolean)([])))
+        self.assertEqual("byte[] []", obj.resolve_ZB(jarray(jbyte)([])))
+        self.assertEqual("boolean[] null", obj.resolve_ZB(jarray(jboolean)(None)))
+        self.assertEqual("byte[] null", obj.resolve_ZB(jarray(jbyte)(None)))
 
         # Arrays of parent/child classes: prefer the most derived class.
         Object = jclass("java.lang.Object")
         Integer = jclass("java.lang.Integer")
         self.assertEqual("Number[] [1, 2]", obj.resolve_Object_Number([1, 2]))
-        self.assertEqual("Number[] [1, 2]", obj.resolve_Object_Number(jarray(Integer, [1, 2])))
-        self.assertEqual("Object[] [1, 2]", obj.resolve_Object_Number(jarray(Object, [1, 2])))
+        self.assertEqual("Number[] [1, 2]", obj.resolve_Object_Number(jarray(Integer)([1, 2])))
+        self.assertEqual("Object[] [1, 2]", obj.resolve_Object_Number(jarray(Object)([1, 2])))
 
         # Arrays of sibling classes are always ambiguous.
         Long = jclass("java.lang.Long")
         with self.ambiguous:
             obj.resolve_Integer_Long([1, 2])
-        self.assertEqual("Integer[] [1, 2]", obj.resolve_Integer_Long(jarray(Integer, [1, 2])))
-        self.assertEqual("Long[] [1, 2]", obj.resolve_Integer_Long(jarray(Long, [1, 2])))
+        self.assertEqual("Integer[] [1, 2]", obj.resolve_Integer_Long(jarray(Integer)([1, 2])))
+        self.assertEqual("Long[] [1, 2]", obj.resolve_Integer_Long(jarray(Long)([1, 2])))
 
         # Arrays are preferred over Object.
         self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object([True, False]))
@@ -213,7 +221,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double
         self.assertEqual("int 42", obj.resolve_ID(42))
         self.assertEqual("double 42.0", obj.resolve_ID(42.0))
-        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(jarray(jdouble, [1, 2])))
+        self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(jarray(jdouble)([1, 2])))
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1.0, 2.0))
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1, 2.0))
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(1.0, 2))
@@ -235,7 +243,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... null", obj.resolve_Number_Long(None))
         self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(cast(Number, Long(42))))
-        self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number, None)))
+        self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number)(None)))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(cast(Number, None)))
-        self.assertEqual("Number... [42]", obj.resolve_Number_Long(jarray(Number, [42])))
-        self.assertEqual("Number... [null]", obj.resolve_Number_Long(jarray(Number, [None])))
+        self.assertEqual("Number... [42]", obj.resolve_Number_Long(jarray(Number)([42])))
+        self.assertEqual("Number... [null]", obj.resolve_Number_Long(jarray(Number)([None])))

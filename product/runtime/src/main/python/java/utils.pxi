@@ -6,17 +6,17 @@ import java
 
 
 def cast(cls, obj):
-    """Returns a view of the given object (which may be `None` for Java `null`) as the given class.
-    The class must be one created by :any:`jclass` or (TODO #5178) :any:`jarray`. The object
-    must be assignable to the class according to Java language rules, otherwise TypeError will
-    be raised.
+    """Returns a view of the given object as the given class, which must be one created by
+    :any:`jclass` or :any:`jarray` (TODO #5178). The object must be of a `jclass` or `jarray`
+    type which is compatible with the class according to Java's rules, otherwise `TypeError`
+    will be raised. `None` (representing Java `null`) is also accepted.
 
     Situations where this could be useful:
 
-    * By changing the apparent type of the object, a different overload may be chosen when
-      passing the object to a method.
-    * By removing visibility of a method's overloads added in a subclass, a superclass overload
-      may be chosen instead when calling that method on the object.
+    * By changing the apparent type of an object:
+       * A different overload may be chosen when passing the object to a method.
+       * A different overload may be chosen when calling a method on the object itself.
+    * By selecting a type for `None`, an ambiguous overload can be resolved.
     """
     if not isinstance(cls, JavaClass):
         raise TypeError(f"{type(cls).__name__} object is not a Java class")
