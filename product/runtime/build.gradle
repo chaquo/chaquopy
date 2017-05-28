@@ -67,6 +67,26 @@ def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def PATH_SEPARATOR = windowsHost ? ";" : ":"
 
 
+javadoc {
+    outputs.upToDateWhen { false }
+    destinationDir = file("$docsDir/java")
+    doFirst { delete(destinationDir) }
+    title "Chaquopy Java API"
+    executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
+    options {
+        addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
+        addStringOption("sourcepath", "$javaHome/src.zip")  // For documentation of inherited members
+        addBooleanOption("nodeprecated", true)
+        addStringOption("noqualifier", "all")
+        addStringOption("link", "https://developer.android.com/reference/")
+        addStringOption("stylesheetfile", "docs/javadoc/javadoc-chaquo.css")
+    }
+}
+
+task("doc", group: "documentation")
+doc.dependsOn(javadoc)
+
+
 def cythonTask = {Map taskArgs, String name, Closure closure ->
     taskArgs["type"] = Exec
     def t = task(taskArgs, name, closure)
@@ -264,25 +284,9 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     args "-msphinx", "-v", "-b", "html", "docs/sphinx", "build/docs/python"
                 }
                 sphinx.configure(testCommonConfig)
+                doc.dependsOn(sphinx)
             }
         }
-    }
-}
-
-
-javadoc {
-    outputs.upToDateWhen { false }
-    destinationDir = file("$docsDir/java")
-    doFirst { delete(destinationDir) }
-    title "Chaquopy Java API"
-    executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
-    options {
-        addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
-        addStringOption("sourcepath", "$javaHome/src.zip")  // For documentation of inherited members
-        addBooleanOption("nodeprecated", true)
-        addStringOption("noqualifier", "all")
-        addStringOption("link", "https://developer.android.com/reference/")
-        addStringOption("stylesheetfile", "docs/javadoc/javadoc-chaquo.css")
     }
 }
 

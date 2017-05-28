@@ -2,10 +2,6 @@ java
 ####
 The `java` module provides facilities to use Java classes and objects.
 
-jclass
-======
-.. autofunction:: java.jclass
-
 Data types
 ==========
 
@@ -22,13 +18,19 @@ Python and Java data types are converted as follows:
 * Java `String` and `char` both correspond to a Python Unicode string. (In Python 2, a byte
   string is also accepted.)
 
-* A Java array obtained from a method or field is represented as a :any:`jarray` proxy object.
-  Java array parameters and fields can also be assigned from any Python iterable.
+* A Java object is represented as a :any:`jclass` proxy object.
 
-* A Java object obtained from a method or field is initially represented as a :any:`jclass`
-  proxy object for its actual run-time type, which is not necessarily the declared type of the
-  method or field. It can be transformed into another compatible type using the :any:`cast`
-  function.
+* A Java array is represented as a :any:`jarray` proxy object. Java array parameters and fields
+  can also be implicitly converted from any Python iterable, except a string.
+
+.. note:: A Java object or array obtained from a method or field will intially be represented
+          as a proxy for its actual run-time type, which is not necessarily the declared type
+          of the method or field. It can be viewed as another compatible type using the
+          :any:`cast` function.
+
+jclass
+------
+.. autofunction:: java.jclass
 
 Primitive wrappers
 ------------------
@@ -49,6 +51,6 @@ cast
 ----
 .. autofunction:: java.cast(cls, obj)
 
-JavaException
-=============
+Exceptions
+==========
 .. autoclass:: java.JavaException
