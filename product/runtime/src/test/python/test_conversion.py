@@ -154,6 +154,8 @@ class TestConversion(unittest.TestCase):
     def test_string(self):
         for name in ["String", "CharSequence", "Object"]:
             self.verify_string(self.obj, name)
+        for name in ["CArray", "CharacterArray"]:
+            self.verify_value(self.obj, name, "hello", context=self.conv_error)
 
     def verify_string(self, obj, name):
         for val in ["", "h", "hello",   # Will be byte strings in Python 2
@@ -176,7 +178,7 @@ class TestConversion(unittest.TestCase):
         Object = jclass("java.lang.Number")
         Number = jclass("java.lang.Object")
         self.verify_value(self.obj, "ObjectArray", jarray(Number)([False, True]))
-        with self.conv_error:
+        with self.conv_error:  # Can't use `context`: exception is raised by `jarray` constructor.
             self.verify_value(self.obj, "NumberArray", jarray(Object)([False, True]))
 
         # Arrays of primitives are not assignable to arrays of Object.

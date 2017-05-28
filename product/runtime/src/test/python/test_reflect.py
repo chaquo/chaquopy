@@ -25,6 +25,51 @@ class TestReflect(unittest.TestCase):
         with self.assertRaisesRegexp(JavaException, "NoClassDefFoundError: java/lang/Stakk"):
             jclass("java.lang.Stakk")
 
+    def test_str_repr(self):
+        Object = jclass('java.lang.Object')
+        String = jclass('java.lang.String')
+
+        o = Object()
+        object_str = str(o)
+        self.assertRegexpMatches(object_str, "^java.lang.Object@")
+        self.assertEqual("<" + object_str + ">", repr(o))
+
+        s = String("hello")
+        self.assertEqual("hello", str(s))
+        self.assertEqual("<java.lang.String 'hello'>", repr(s))
+
+        self.assertEqual("cast('Ljava/lang/Object;', None)", repr(cast(Object, None)))
+        self.assertEqual("cast('Ljava/lang/String;', None)", repr(cast(String, None)))
+
+    def test_eq_hash(self):
+        String = jclass('java.lang.String')
+        self.verify_equal(String("hello"), String("hello"))
+        self.verify_not_equal(String("hello"), String("world"))
+
+        LinkedList = jclass("java.util.LinkedList")
+        ArrayList = jclass("java.util.ArrayList")
+        Arrays = jclass("java.util.Arrays")
+        l = [1, 2]
+        ll = LinkedList(Arrays.asList(l))
+        al = ArrayList(Arrays.asList(l))
+        self.verify_equal(ll, al)
+        ll.set(1, 7)
+        self.verify_not_equal(ll, al)
+
+    def verify_equal(self, a, b):
+        self.assertEqual(a, b)
+        self.assertEqual(b, a)
+        self.assertFalse(a != b)
+        self.assertFalse(b != a)
+        self.assertEqual(hash(a), hash(b))
+
+    def verify_not_equal(self, a, b):
+        self.assertNotEqual(a, b)
+        self.assertNotEqual(b, a)
+        self.assertFalse(a == b)
+        self.assertFalse(b == a)
+        self.assertNotEqual(hash(a), hash(b))
+
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
         for obj in [self.Test, self.t]:
@@ -111,10 +156,8 @@ class TestReflect(unittest.TestCase):
         System = jclass('java.lang.System')
 
         # TODO #5181 This should be implemented in JavaObject.__new__, using identityHashCode
-        # followed by IsSameObject. Consider how this will interact with aliases created by
-        # `cast`; `is` probably can't say that they're also the same object, but that's not a
-        # major problem (document at `cast`). Test garbage collection just like in the Java
-        # unit tests.
+        # followed by IsSameObject. Aliases created by `cast` can't be considered identical by
+        # `is`, so we should provide a new function `jis` which tests for this.
         #
         # self.assertIs(System.out, System.out)
 
@@ -137,6 +180,21 @@ class TestReflect(unittest.TestCase):
         pw.print_("Hello")
         pw.print_(" world")
         self.assertEqual("Hello world", sw.toString())
+
+
+    def test_enum(self):
+        SimpleEnum = jclass('com.chaquo.python.TestReflect$SimpleEnum')
+        self.assertTrue(SimpleEnum.GOOD)
+        self.assertTrue(SimpleEnum.BAD)
+        self.assertTrue(SimpleEnum.UGLY)
+
+        self.assertEqual(SimpleEnum.GOOD, SimpleEnum.GOOD)
+        self.assertNotEqual(SimpleEnum.GOOD, SimpleEnum.BAD)
+
+        self.assertEqual(0, SimpleEnum.GOOD.ordinal())
+        self.assertEqual(1, SimpleEnum.BAD.ordinal())
+        self.assertEqual(SimpleEnum.values()[0], SimpleEnum.GOOD)
+        self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
 
     def test_interface(self):
         I = jclass("com.chaquo.python.TestReflect$I")

@@ -14,4 +14,8 @@ public class TestReflect {
         }
     }
 
+    public enum SimpleEnum {
+        GOOD, BAD, UGLY,
+    }
+
 }
