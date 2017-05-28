@@ -214,12 +214,19 @@ class TestOverload(unittest.TestCase):
 
         self.assertEqual("", obj.resolve_empty_single_I())
         self.assertEqual("int... []", obj.resolve_empty_single_I([]))
+        self.assertEqual("int... null", obj.resolve_empty_single_I(None))
         self.assertEqual("int 1", obj.resolve_empty_single_I(1))
         self.assertEqual("int... [1]", obj.resolve_empty_single_I([1]))
         self.assertEqual("int... [1, 2]", obj.resolve_empty_single_I(1, 2))
         self.assertEqual("int... [1, 2]", obj.resolve_empty_single_I([1, 2]))
 
-        self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double
+        self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double.
+        with self.ambiguous:
+            obj.resolve_ID(None)                         # But int[] is not more specific than double[].
+        self.assertEqual("int... null", obj.resolve_ID(jarray(jint)(None)))
+        self.assertEqual("double... null", obj.resolve_ID(jarray(jdouble)(None)))
+        with self.inapplicable:
+            obj.resolve_ID(None, None)
         self.assertEqual("int 42", obj.resolve_ID(42))
         self.assertEqual("double 42.0", obj.resolve_ID(42.0))
         self.assertEqual("double... [1.0, 2.0]", obj.resolve_ID(jarray(jdouble)([1, 2])))
@@ -229,7 +236,10 @@ class TestOverload(unittest.TestCase):
 
         Long = jclass("java.lang.Long")
         with self.ambiguous:
-            obj.resolve_I_Long()    # Neither int nor Long are more specific
+            obj.resolve_I_Long()        # Neither int nor Long are more specific.
+        with self.ambiguous:
+            obj.resolve_I_Long(None)    # Neither int[] nor Long[] are more specific.
+        self.assertEqual("Long... [null, null]", obj.resolve_I_Long(None, None))
         with self.ambiguous:
             obj.resolve_I_Long(42)
         with self.inapplicable:
@@ -239,10 +249,11 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... [42]", obj.resolve_I_Long(Long(42)))
 
         Number = jclass("java.lang.Number")
-        self.assertEqual("Long... []", obj.resolve_Number_Long())
+        self.assertEqual("Long... []", obj.resolve_Number_Long())  # Long[] is more specific than Number[].
         self.assertEqual("Long... [42]", obj.resolve_Number_Long(42))
         self.assertEqual("Long... null", obj.resolve_Number_Long(None))
         self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
+        self.assertEqual("Long... [null, null]", obj.resolve_Number_Long(None, None))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(cast(Number, Long(42))))
         self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number)(None)))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(cast(Number, None)))

@@ -417,6 +417,8 @@ cdef class JavaMethod(JavaMember):
                                 f'({len(args)} given)')
 
             if len(args) == len(d_args) and assignable_to_array(d_args[-1], args[-1]):
+                # As in Java, passing a single None as the varargs parameter will be
+                # interpreted as a null array. To pass an an array of one null, use [None].
                 pass  # Non-varargs call.
             else:
                 args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)

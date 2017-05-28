@@ -191,7 +191,7 @@ public class PyObjectTest {
     public void none() {
         assertNull(builtins.get("None"));
         assertEquals(pyobjecttest.callAttr("is_none", (Object)null), true);
-        assertEquals(pyobjecttest.callAttr("is_none", (Object[])null), true);
+        assertEquals(pyobjecttest.callAttr("is_none", (Object[])null), true);  // Equivalent to an uncasted null
         assertEquals(pyobjecttest.callAttr("is_none", 42), false);
     }
 
