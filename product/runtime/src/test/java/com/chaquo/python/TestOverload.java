@@ -174,7 +174,7 @@ public class TestOverload {
     }
 
 
-    public static class TestArrays {
+    public static class TestArray {
         public String resolve_ZB(boolean[] a) {
             return "boolean[] " + Arrays.toString(a);
         }
@@ -200,7 +200,7 @@ public class TestOverload {
             return "boolean[] " + Arrays.toString(a);
         }
         public String resolve_Z_Object(Object a) {
-            return "Object " + a;
+            return "Object " + Arrays.toString((boolean[])a);
         }
     }
 

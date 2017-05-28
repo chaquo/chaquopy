@@ -178,7 +178,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Character x", obj.resolve_Z_Character("x"))
 
     def test_array(self):
-        obj = jclass("com.chaquo.python.TestOverload$TestArrays")()
+        obj = jclass("com.chaquo.python.TestOverload$TestArray")()
 
         # Arrays of primitives are always ambiguous, irrespective of the values in the array.
         for l in [None, [True, False], [1, 2]]:
@@ -206,8 +206,14 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long[] [1, 2]", obj.resolve_Integer_Long(jarray(Long)([1, 2])))
 
         # Arrays are preferred over Object.
+        array_Z = jarray(jboolean)([True, False])
+        self.assertEqual("boolean[] null", obj.resolve_Z_Object(None))
+        self.assertEqual("Object null", obj.resolve_Z_Object(cast(Object, None)))
         self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object([True, False]))
-        # FIXME how to select the Object overload? See #5178.
+        self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object(array_Z))
+        self.assertEqual("Object [true, false]", obj.resolve_Z_Object(cast(Object, array_Z)))
+        self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object(cast(jarray(jboolean),
+                                                                              cast(Object, array_Z))))
 
     def test_varargs(self):
         obj = jclass("com.chaquo.python.TestOverload$Varargs")()
