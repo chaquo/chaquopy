@@ -196,7 +196,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_call \
             # array of one null which they intended.
             all_args = [None]
         else:
-            all_args = j2p_array(env, "Ljava/lang/Object;", jargs)
+            all_args = java.jarray("Ljava/lang/Object;")(instance=LocalRef.adopt(env, jargs))
 
         Kwarg = java.jclass("com.chaquo.python.Kwarg")
         args = []

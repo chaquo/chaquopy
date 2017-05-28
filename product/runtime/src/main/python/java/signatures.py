@@ -5,12 +5,12 @@ from functools import total_ordering
 import six
 
 import java
-from .chaquopy import JavaClass, check_range_char, check_range_float32
+from .chaquopy import JavaArray, JavaClass, check_range_char, check_range_float32
 
 __all__ = ["jni_sig", "jni_method_sig", "sig_to_java", "primitives_by_name", "primitives_by_sig",
            "Wrapper", "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
-           "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble",
-           "jchar",  "ArrayWrapper", "jarray"]
+           "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
+           "jarray"]
 
 
 class Wrapper(object):
@@ -151,7 +151,7 @@ class jchar(Primitive):
         self.value = six.text_type(value)
 
     def __repr__(self):
-        # repr(self.value) will include a 'u' prefix in Python 2.
+        # Remove 'u' prefix in Python 2 so tests are consistent.
         return "{}('{}')".format(type(self).__name__, self.value)
 
 
@@ -159,27 +159,21 @@ class jarray_dict(dict):
     # Use a different subclass for each element type, so overload resolution can be cached.
     def __missing__(self, element_sig):
         subclass = type(str("jarray_" + element_sig),
-                        (ArrayWrapper,),
+                        (JavaArray,),
                         {"sig": "[" + element_sig})
         self[element_sig] = subclass
         return subclass
 
 jarray_types = jarray_dict()
 
-class ArrayWrapper(Wrapper):
-    def __init__(self, value):
-        self.value = value
-
-    def __repr__(self):
-        return "jarray('{}')({!r})".format(self.sig[1:], self.value)
 
 def jarray(element_type):
     """Returns a proxy class for a Java array type. Objects of this class implement the Python
-    sequence protocol, so they can be manipulated using `[]` syntax.
+    sequence protocol, so they can be read and modified using `[]` syntax.
 
-    A Python iterable (or `None` for `null`) can normally be used directly as an array
-    parameter of a Java method. But where the method has multiple equally-specific overloads,
-    the value must be converted to a `jarray` type to disambiguate the call.
+    Any Python iterable (except a string) can normally be used directly as an array parameter
+    of a Java method. But where the method has multiple equally-specific overloads, the value
+    must be converted to a `jarray` type to disambiguate the call.
 
     For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, calling
     `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
@@ -192,18 +186,16 @@ def jarray(element_type):
     * A `java.lang.Class` instance
     * A JNI type signature
 
-    .. "A JNI type signature" is documented, not because we encourage people to use it, but
-       because it's the form used by `__repr__`.
-
     Examples::
 
+        # Python code                           # Java equivalent
         jarray(jint)                            # int[]
         jarray(jarray(jint))                    # int[][]
         jarray(jclass("java.lang.String"))      # String[]
+        jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
+        jarray(jint)(None)                      # (int[])null
     """
-    element_sig = (element_type if isinstance(element_type, six.string_types)
-                   else jni_sig(element_type))
-    return jarray_types[element_sig]
+    return jarray_types[jni_sig(element_type)]
 
 
 def jni_method_sig(returns, takes):
@@ -211,8 +203,14 @@ def jni_method_sig(returns, takes):
 
 
 def jni_sig(c):
-    if isinstance(c, JavaClass):
-        return "L" + c.__javaclass__.replace(".", "/") + ";"
+    if isinstance(c, six.string_types):
+        sig_to_java(c)  # Check syntax
+        return c
+    elif isinstance(c, type):
+        if isinstance(c, JavaClass):
+            return "L" + c.__javaclass__.replace(".", "/") + ";"
+        elif issubclass(c, (Wrapper, JavaArray)):
+            return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):
         name = c.getName()
         if name in primitives_by_name:
@@ -221,8 +219,6 @@ def jni_sig(c):
             return name.replace(".", "/")
         else:
             return "L" + name.replace(".", "/") + ";"
-    elif issubclass(c, Wrapper):
-        return c.sig
     raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
 
 

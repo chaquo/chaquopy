@@ -157,8 +157,8 @@ class TestConversion(unittest.TestCase):
 
     def verify_string(self, obj, name):
         for val in ["", "h", "hello",   # Will be byte strings in Python 2
-                    u"a\u0000b",        # Null character (handled differently by "modified UTF-8")
-                    u"a\U00012345b"]:   # Non-BMP character
+                    u"\u0000",          # Null character       # (handled differently by
+                    u"\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
             self.verify_value(obj, name, val)
 
     def test_class(self):
@@ -203,6 +203,22 @@ class TestConversion(unittest.TestCase):
             # Single-element arrays are tested by verify_value.
             self.verify_value(obj, field, [val1, val2])
             self.verify_value(obj, field, [val2, val1])
+
+        # Test modification of array obtained from a field, and from a method.
+        fieldArray, getArray, setArray = [prefix + name + "Array"
+                                          for prefix in ("field", "get", "set")]
+
+        def verify_array_modify(array_source):
+            setattr(obj, fieldArray, [val1, val2])
+            array = array_source()
+            self.assertEqual([val1, val2], array)
+            array[0] = val2
+            array[1] = val1
+            self.assertEqual([val2, val1], getattr(obj, fieldArray))
+            self.assertEqual([val2, val1], getattr(obj, getArray)())
+
+        verify_array_modify(lambda: getattr(obj, fieldArray))
+        verify_array_modify(lambda: getattr(obj, getArray)())
 
     def verify_value(self, obj, name, value, context=None, verify=None, wrapper=None):
         if context is None:

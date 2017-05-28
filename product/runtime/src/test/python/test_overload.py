@@ -67,7 +67,7 @@ class TestOverload(unittest.TestCase):
         with self.inapplicable:
             cast(Parent, child).resolve(s, i)
 
-        with self.assertRaisesRegexp(TypeError, "Java class"):
+        with self.assertRaisesRegexp(TypeError, "Java type"):
             cast(42, child)
 
         self.assertEqual("Child", child.resolveCovariantOverride())

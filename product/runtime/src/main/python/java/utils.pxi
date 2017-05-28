@@ -5,11 +5,19 @@ from cpython.version cimport PY_MAJOR_VERSION
 import java
 
 
+# I considered whether to make `cast` aliases clearly distinguishable from plain objects, by
+# generalizing `NoneCast` to `Cast`, and giving it a `repr` of `cast('<jni-signature>',
+# repr(<underlying-object>))`. However, this would require the `Cast` type to support all the
+# same `__special__` methods as Java objects, and to be kept in sync as those methods are
+# expanded in the future, and I don't see any benefit to justify that work.
+#
+# TODO #5181 provide way to check whether two proxy objects are the same Java object, even if
+# one of them has been casted.
 def cast(cls, obj):
-    """Returns a view of the given object as the given class, which must be one created by
-    :any:`jclass` or :any:`jarray` (TODO #5178). The object must be of a `jclass` or `jarray`
-    type which is compatible with the class according to Java's rules, otherwise `TypeError`
-    will be raised. `None` (representing Java `null`) is also accepted.
+    """Returns a view of the given object as the given class. The class must a class created by
+    :any:`jclass` or :any:`jarray`, or a JNI type signature for a class or array. The object
+    must be of a `jclass` or `jarray` type which is assignable to the given class, otherwise
+    `TypeError` will be raised. `None` (representing Java `null`) is also accepted.
 
     Situations where this could be useful:
 
@@ -18,17 +26,29 @@ def cast(cls, obj):
        * A different overload may be chosen when calling a method on the object itself.
     * By selecting a type for `None`, an ambiguous overload can be resolved.
     """
-    if not isinstance(cls, JavaClass):
-        raise TypeError(f"{type(cls).__name__} object is not a Java class")
-    if obj is None or isinstance(obj, NoneCast):
-        return none_casts[java.jni_sig(cls)]
-    elif isinstance(obj, JavaObject):
-        return cls(instance=(<JavaObject?>obj).j_self)
+    sig = java.jni_sig(cls)
+    if sig.startswith("L"):
+        proxy_type = java.jclass(sig)
+    elif sig.startswith("["):
+        proxy_type = java.jarray(sig[1:])
     else:
-        raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
+        raise TypeError(f"{type(cls).__name__} object does not specify a Java class or array type")
+
+    if obj is None or isinstance(obj, NoneCast):
+        return none_casts[sig]
+    else:
+        if isinstance(obj, JavaObject):
+            instance = (<JavaObject?>obj).j_self
+        elif isinstance(obj, JavaArray):
+            instance = obj.j_self
+        else:
+            raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
+        return proxy_type(instance=instance)
+
 
 class NoneCast(object):
-    pass
+    def __repr__(self):
+        return f"cast('{self.sig}', None)"
 
 class none_cast_dict(dict):
     # Use a different subclass for each type, so overload resolution can be cached.
@@ -50,20 +70,15 @@ def find_javaclass(name):
     optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
     exceptions as Class.forName.
     """
-    name = name.replace(".", "/")
-    if name.startswith("L") and name.endswith(";"):
-        name = name[1:-1]
     return java.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):
-     if PY_MAJOR_VERSION < 3:
-        if isinstance(s, unicode):
-            return s.encode('utf-8')
-        else:
-            return s
-     else:
+    if isinstance(s, unicode):
         return s.encode('utf-8')
+    else:
+        assert isinstance(s, bytes)
+        return s
 
 
 def parse_definition(definition):

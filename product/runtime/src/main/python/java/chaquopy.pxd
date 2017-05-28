@@ -12,12 +12,10 @@ cdef class JavaObject(object):
 cdef j2p(JNIEnv *j_env, JNIRef j_object)
 cdef j2p_string(JNIEnv *env, jobject j_object)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
-cdef j2p_array(JNIEnv *j_env, definition, jobject j_object)
 
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)
 cdef JNIRef p2j_string(JNIEnv *env, s)
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
-cdef jobject p2j_array(JNIEnv *j_env, definition, pyarray) except *
 
 # === env =====================================================================
 

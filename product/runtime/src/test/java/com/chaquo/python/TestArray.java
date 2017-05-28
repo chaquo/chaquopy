@@ -1,6 +1,6 @@
 package com.chaquo.python;
 
-public class TestArrays {
+public class TestArray {
 
 	public static boolean methodParamsMatrixI(int[][] x) {
 		if (x.length != 3 || x[0].length != 3)

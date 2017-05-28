@@ -8,8 +8,7 @@ cdef extern from "alloca.h":
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
-__all__ = ['JavaObject', 'JavaMethod', 'JavaField',
-           'JavaClass', 'JavaException', 'cast', 'find_javaclass', 'detach']
+__all__ = ['JavaException', 'cast', 'detach']
 
 
 # Multi-threading is unavoidable in Java.
@@ -26,3 +25,4 @@ include "jvm.pxi"
 include "utils.pxi"
 include "conversion.pxi"
 include "class.pxi"
+include "array.pxi"

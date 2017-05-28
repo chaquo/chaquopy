@@ -104,21 +104,31 @@ def jclass(clsname):
     If a method or field name clashes with a Python reserved word, an underscore is appended,
     e.g. `print` becomes `print_`. The original name is still accessible via :any:`getattr`.
 
+    Aside from attribute access, Java proxy objects also support the following Python
+    operations:
+
+    * :any:`str` calls `toString
+      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#toString()>`_.
+    * `==` and `!=` call `equals
+      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
+    * :any:`hash` calls `hashCode
+      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#hashCode()>`_.
+
     The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
     Object)` and `isinstance(String("hello"), Object)` will both return `False`. This may change
     in the future.
     """
     clsname = clsname.replace('/', '.')
-    cls = jclass_cache.get(clsname)
-    if cls:
-        return cls
-
+    if clsname.startswith("L") and clsname.endswith(";"):
+        clsname = clsname[1:-1]
     if clsname.startswith('$Proxy'):
         # The Dalvik VM is not able to give us introspection on these (FindClass returns NULL).
         return jclass("java.lang.Object")
 
-    cls = reflect_class(clsname)
-    cache_class(cls)
+    cls = jclass_cache.get(clsname)
+    if not cls:
+        cls = reflect_class(clsname)
+        cache_class(cls)
     return cls
 
 
