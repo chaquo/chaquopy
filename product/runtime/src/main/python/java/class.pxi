@@ -2,21 +2,6 @@ import keyword
 import six
 
 
-# TODO #5169 use proxy for actual exception class
-class JavaException(Exception):
-    """An exception originating from Java code"""
-
-    classname = None     # The classname of the exception
-    innermessage = None  # The message of the inner exception
-    stacktrace = None    # The stack trace of the inner exception
-
-    def __init__(self, message, classname=None, innermessage=None, stacktrace=None):
-        self.classname = classname
-        self.innermessage = innermessage
-        self.stacktrace = stacktrace
-        Exception.__init__(self, message)
-
-
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):

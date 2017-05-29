@@ -1,7 +1,5 @@
 import six
 
-from cpython.version cimport PY_MAJOR_VERSION
-
 import java
 
 
@@ -122,6 +120,13 @@ def parse_definition(definition):
     return ret, tuple(args)
 
 
+# TODO #5169 use proxy for actual exception class
+class JavaException(Exception):
+    """Raised when an exception arises from Java code. The message contains the Java exception
+    class and stack trace.
+    """
+
+
 cdef expect_exception(JNIEnv *j_env, msg):
     """Raises a Java exception if one is pending, otherwise raises a Python Exception with the
     given message.
@@ -129,110 +134,46 @@ cdef expect_exception(JNIEnv *j_env, msg):
     check_exception(j_env)
     raise Exception(msg)
 
-# To avoid recursion, this function must not use anything which could call check_exception itself.
-#
-# FIXME use LocalRef.adopt to eliminate all the DeleteLocalRef in this file.
+
+# TODO #5167 is this thread-safe?
+processing_exception = False
+
 cdef check_exception(JNIEnv *j_env):
-    cdef jmethodID toString = NULL
-    cdef jmethodID getCause = NULL
-    cdef jmethodID getStackTrace = NULL
-    cdef jmethodID getMessage = NULL
-    cdef jstring e_msg
-    cdef jthrowable exc = j_env[0].ExceptionOccurred(j_env)
-    cdef jclass cls_object = NULL
-    cdef jclass cls_throwable = NULL
-    if exc:
-        j_env[0].ExceptionClear(j_env)
-        cls_object = j_env[0].FindClass(j_env, "java/lang/Object")
-        cls_throwable = j_env[0].FindClass(j_env, "java/lang/Throwable")
+    env = CQPEnv()
+    j_exc = env.ExceptionOccurred()
+    if not j_exc:
+        return
+    env.ExceptionClear()
 
-        toString = j_env[0].GetMethodID(j_env, cls_object, "toString", "()Ljava/lang/String;");
-        getMessage = j_env[0].GetMethodID(j_env, cls_throwable, "getMessage", "()Ljava/lang/String;");
-        getCause = j_env[0].GetMethodID(j_env, cls_throwable, "getCause", "()Ljava/lang/Throwable;");
-        getStackTrace = j_env[0].GetMethodID(j_env, cls_throwable, "getStackTrace", "()[Ljava/lang/StackTraceElement;");
-        e_msg = j_env[0].CallObjectMethod(j_env, exc, getMessage);
-        pymsg = "" if e_msg == NULL else j2p_string(j_env, e_msg)
-
-        if j_env[0].ExceptionOccurred(j_env):
+    try:
+        global processing_exception
+        if processing_exception:
             raise JavaException("Another exception occurred while getting exception details")
+        processing_exception = True
 
-        pystack = []
-        _append_exception_trace_messages(j_env, pystack, exc, getCause, getStackTrace, toString)
+        exc = j2p(env.j_env, j_exc)
+        PrintWriter = java.jclass("java.io.PrintWriter")
+        StringWriter = java.jclass("java.io.StringWriter")
+        sw = StringWriter()
+        pw = PrintWriter(sw)
+        exc.printStackTrace(pw)
+        pw.close()
+        raise JavaException(sw.toString())
 
-        pyexcclass = lookup_java_object_name(j_env, exc)
-
-        j_env[0].DeleteLocalRef(j_env, cls_object)
-        j_env[0].DeleteLocalRef(j_env, cls_throwable)
-        if e_msg != NULL:
-            j_env[0].DeleteLocalRef(j_env, e_msg)
-        j_env[0].DeleteLocalRef(j_env, exc)
-
-        raise JavaException(f'{pyexcclass}: {pymsg}', pyexcclass, pymsg, pystack)
-
-
-# FIXME #5179: this does not appear to work, I've never seen a Java stack trace on a JavaException,
-# even in its description string.
-cdef void _append_exception_trace_messages(
-    JNIEnv*      j_env,
-    list         pystack,
-    jthrowable   exc,
-    jmethodID    mid_getCause,
-    jmethodID    mid_getStackTrace,
-    jmethodID    mid_toString):
-
-    # Get the array of StackTraceElements.
-    cdef jobjectArray frames = j_env[0].CallObjectMethod(j_env, exc, mid_getStackTrace)
-    cdef jsize frames_length = j_env[0].GetArrayLength(j_env, frames)
-    cdef jstring msg_obj
-    cdef jobject frame
-    cdef jthrowable cause
-
-    # Add Throwable.toString() before descending stack trace messages.
-    if frames != NULL:
-        msg_obj = j_env[0].CallObjectMethod(j_env, exc, mid_toString)
-        pystr = None if msg_obj == NULL else j2p_string(j_env, msg_obj)
-        # If this is not the top-of-the-trace then this is a cause.
-        if len(pystack) > 0:
-            pystack.append("Caused by:")
-        pystack.append(pystr)
-        if msg_obj != NULL:
-            j_env[0].DeleteLocalRef(j_env, msg_obj)
-
-    # Append stack trace messages if there are any.
-    if frames_length > 0:
-        for i in range(frames_length):
-            # Get the string returned from the 'toString()' method of the next frame and append it to the error message.
-            frame = j_env[0].GetObjectArrayElement(j_env, frames, i)
-            msg_obj = j_env[0].CallObjectMethod(j_env, frame, mid_toString)
-            pystr = None if msg_obj == NULL else j2p_string(j_env, msg_obj)
-            pystack.append(pystr)
-            if msg_obj != NULL:
-                j_env[0].DeleteLocalRef(j_env, msg_obj)
-            j_env[0].DeleteLocalRef(j_env, frame)
-
-    # If 'exc' has a cause then append the stack trace messages from the cause.
-    if frames != NULL:
-        cause = j_env[0].CallObjectMethod(j_env, exc, mid_getCause)
-        if cause != NULL:
-            _append_exception_trace_messages(j_env, pystack, cause,
-                                             mid_getCause, mid_getStackTrace, mid_toString)
-            j_env[0].DeleteLocalRef(j_env, cause)
-
-    j_env[0].DeleteLocalRef(j_env, frames)
+    finally:
+        processing_exception = False
 
 
 cdef jmethodID mid_getName = NULL
 
 # To avoid infinite recursion, this function must not use anything which could call
-# check_exception or lookup_java_object_name itself.
+# lookup_java_object_name itself, including any jclass proxy methods.
 cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
     """Returns the fully-qualified class name of the given object, in the same format as
     Class.getName().
     * Array types are returned in JNI format (e.g. "[Ljava/lang/Object;" or "[I".
     * Other types are returned in Java format (e.g. "java.lang.Object"
     """
-    # Can't call getClass() or getName() using jclass because that'll cause a recursive call
-    # when converting their return values.
     j_cls = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj))
 
     global mid_getName

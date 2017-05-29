@@ -29,6 +29,12 @@ cdef class CQPEnv(object):
                 self.expect_exception(f"FindClass failed for {name}")
             return result
 
+    cdef LocalRef ExceptionOccurred(self):
+        return self.adopt(self.j_env[0].ExceptionOccurred(self.j_env))
+
+    cdef ExceptionClear(self):
+        self.j_env[0].ExceptionClear(self.j_env)
+
     cdef IsInstanceOf(self, JNIRef obj, cls):
         return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, self.FindClass(cls).obj))
 

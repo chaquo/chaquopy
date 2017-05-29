@@ -71,7 +71,8 @@ def setup_bootstrap_classes():
 def jclass(clsname):
     """Returns a proxy class for the given fully-qualified Java class name. The name may use either
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
-    class with `$`, e.g. `java.lang.Map$Entry`.
+    class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
+    :any:`JavaException` is raised.
 
     To construct new instances of the class, simply call it like a normal Python class::
 
