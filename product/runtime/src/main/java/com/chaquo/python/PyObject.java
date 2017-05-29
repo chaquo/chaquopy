@@ -96,7 +96,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * * Otherwise, a `ClassCastException` will be thrown. */
     //
     // TODO #5154 If the given type is `List`, `Map` or `Set`, a proxy object will be returned which
-    // calls the corresponding Python methods (`__len__`, `__getitem__`, etc.). (FIXME if proxy is
+    // calls the corresponding Python methods (`__len__`, `__getitem__`, etc.). (If proxy is
     // passed back through j2p, the original Python object should be unwrapped. Maybe make proxies
     // implement an interface with a getPyObject method. PyObject could also implement this, returning
     // itself.)

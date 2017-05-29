@@ -41,7 +41,7 @@ public class AndroidPlatform implements Python.Platform {
     }
 
     private void extractAssets() {
-        // TODO avoid extraction (#5158)
+        // TODO #5158 avoid extraction
         try {
             for (String path : ASSETS) {
                 extractAssets(mContext.getAssets(), Common.ASSET_DIR + "/" + path);
@@ -74,7 +74,7 @@ public class AndroidPlatform implements Python.Platform {
                 }
             }
 
-            // TODO only extract if the asset has changed. Reading flash storage is faster than
+            // TODO #5159 only extract if the asset has changed. Reading flash storage is faster than
             // writing (especially if the file's already in the OS cache), so we could read
             // inStream into a buffer and then compare it with the content of outFile before
             // overwriting it. Or maybe make the Gradle plugin embed a timestamp so we can avoid
