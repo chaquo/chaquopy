@@ -347,10 +347,13 @@ cdef extern from "jni.h":
 
         jobjectRefType (*GetObjectRefType)(JNIEnv*, jobject)
 
+    # p_env should be a JNIEnv ** (and is defined that way in the Android NDK headers), but
+    # it's defined as a void ** in the JNI spec and the Oracle headers. We work around this
+    # in chaquopy_extra.h.
+    ctypedef JNIEnv Attach_JNIEnv
+
     ctypedef struct JNIInvokeInterface:
-        # p_env should be a JNIEnv** (and is defined that way in the Android NDK headers), but
-        # it's defined as a void** in the JNI spec and the Oracle headers.
-        jint        (*AttachCurrentThread)(JavaVM *vm, void **p_env, void *thr_args)
+        jint        (*AttachCurrentThread)(JavaVM *vm, Attach_JNIEnv **p_env, void *thr_args)
         jint        (*DetachCurrentThread)(JavaVM *vm)
 
     ctypedef struct JavaVMInitArgs:

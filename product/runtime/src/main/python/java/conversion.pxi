@@ -2,13 +2,11 @@ from cpython.version cimport PY_MAJOR_VERSION
 
 from collections import OrderedDict
 import re
-import six
 import sys
 
 from cpython.object cimport PyObject
 from libc.float cimport FLT_MAX
 
-import java
 
 INT_TYPES = "BSIJ"                          # Order matters: see is_assignable_from.
 FLOAT_TYPES = "FD"                          #   "      "

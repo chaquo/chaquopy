@@ -32,7 +32,7 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 
 # === com.chaquo.python.Python ================================================
 
-# WARNING: This function (specifically the module initialization function) will crash if called
+# WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
 # more than once.
 cdef public void Java_com_chaquo_python_Python_startNative \
     (JNIEnv *env, jclass klass, jboolean should_initialize, jobject j_python_path):

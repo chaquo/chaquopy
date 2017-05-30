@@ -1,5 +1,4 @@
 import keyword
-import six
 
 
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)

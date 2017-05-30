@@ -1,12 +1,18 @@
 from __future__ import absolute_import, division, print_function
 
+cdef extern from "chaquopy_extra.h":
+    pass
+
+# Imports used in this file
 from collections import defaultdict
-
-cdef extern from "alloca.h":
-    void *alloca(size_t size)
-
 cdef extern from "Python.h":
     void PyEval_InitThreads()
+
+# Imports used in multiple .pxi files
+import java
+import six
+cdef extern from "alloca.h":
+    void *alloca(size_t size)
 
 __all__ = ['JavaException', 'cast', 'detach']
 

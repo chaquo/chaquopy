@@ -2,7 +2,6 @@ import os
 import platform
 import sys
 
-import java
 from . import config
 
 from libc.stdint cimport uintptr_t
@@ -25,8 +24,9 @@ cdef JNIEnv *get_jnienv() except NULL:
         platform.setShouldInitialize(False)
         java.jclass("com.chaquo.python.Python").start(platform)
 
-    cdef JNIEnv *env = NULL
-    jvm[0].AttachCurrentThread(jvm, <void**>&env, NULL)
+    # See comment in jni.pxd.
+    cdef Attach_JNIEnv *env = NULL
+    jvm[0].AttachCurrentThread(jvm, &env, NULL)
     return env
 
 

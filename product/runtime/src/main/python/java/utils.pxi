@@ -1,8 +1,3 @@
-import six
-
-import java
-
-
 # I considered whether to make `cast` aliases clearly distinguishable from plain objects, by
 # generalizing `NoneCast` to `Cast`, and giving it a `repr` of `cast('<jni-signature>',
 # repr(<underlying-object>))`. However, this would require the `Cast` type to support all the
