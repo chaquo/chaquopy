@@ -5,9 +5,6 @@ import android.support.v7.app.*;
 import android.text.*;
 import android.view.*;
 import android.widget.*;
-
-import junit.runner.*;
-
 import org.junit.runner.*;
 import org.junit.runner.notification.*;
 
@@ -53,7 +50,21 @@ public class JavaTestActivity extends AppCompatActivity {
 
         @Override
         public void testFailure(Failure failure) throws Exception {
-            append(BaseTestRunner.getFilteredTrace(failure.getException()));
+            String trace = failure.getTrace();
+            StringBuilder filteredTrace = new StringBuilder();
+            boolean filterOn = false;
+            for (String line : trace.split("\n")) {
+                if (line.matches(".*org.junit.*")) {
+                    filterOn = true;
+                } else {
+                    if (filterOn) {
+                        filteredTrace.append("...\n");
+                        filterOn = false;
+                    }
+                    filteredTrace.append(line).append("\n");
+                }
+            }
+            append(filteredTrace.toString());
         }
 
         @Override

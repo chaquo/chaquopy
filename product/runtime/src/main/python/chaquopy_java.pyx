@@ -344,7 +344,7 @@ cdef wrap_exception(JNIEnv *env, Exception e, clsname="com.chaquo.python.PyExcep
     # we'll have to do it manually.
     try:
         traceback = PyImport_ImportModule("traceback")
-        result = traceback.format_exc()
+        result = traceback.format_exc().strip()
     except Exception as e2:
         result = (f"{type(e).__name__}: {e} "
                   f"[Failed to get traceback: {type(e2).__name__}: {e2}]")
