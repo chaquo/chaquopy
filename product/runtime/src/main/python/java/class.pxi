@@ -43,7 +43,7 @@ class JavaClass(type):
     # object as None, but will simply assign to the class dictionary. We override it to allow
     # Java static fields to be set, and to prevent setting anything other than a field.
     def __setattr__(cls, key, value):
-        cls.set_attribute(None, key, value)
+        set_attribute(cls, None, key, value)
 
 
 def lower_name(s):
@@ -63,6 +63,8 @@ def is_reserved_word(word):
 
 
 # TODO #5168 Replicate Java class hierarchy
+#
+# Avoid adding "def" methods to this class because they may conflict with Java member names.
 cdef class JavaObject(object):
     '''Base class for Python -> Java proxy classes'''
 
@@ -85,18 +87,7 @@ cdef class JavaObject(object):
 
     # Override to prevent setting anything other than a field.
     def __setattr__(self, key, value):
-        self.set_attribute(self, key, value)
-
-    @classmethod
-    def set_attribute(cls, obj, key, value):
-        try:
-            member = cls.__dict__[key]
-        except KeyError:
-            subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name}'"
-            raise AttributeError(f"{subject} has no attribute '{key}'")
-        if not isinstance(member, JavaField):
-            raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
-        member.__set__(obj, value)
+        set_attribute(type(self), self, key, value)
 
     def __repr__(self):
         if self.j_self:
@@ -114,6 +105,17 @@ cdef class JavaObject(object):
 
     def __hash__(self):
         return self.hashCode()
+
+
+def set_attribute(cls, obj, key, value):
+    try:
+        member = cls.__dict__[key]
+    except KeyError:
+        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name}'"
+        raise AttributeError(f"{subject} has no attribute '{key}'")
+    if not isinstance(member, JavaField):
+        raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
+    member.__set__(obj, value)
 
 
 cdef class JavaMember(object):

@@ -17,6 +17,9 @@ public class AndroidPlatform implements Python.Platform {
 
     private Context mContext;
 
+    /** The context is used only for initialization, and does not need to remain valid after
+     * {@link Python#start Python.start()} is called. */
+    // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
         mContext = context;
         extractAssets();

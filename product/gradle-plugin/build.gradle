@@ -24,7 +24,7 @@ dependencies {
 }
 
 sourceCompatibility = 7
-archivesBaseName = "chaquopy_gradle"
+archivesBaseName = "gradle"
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 
 processResources {
@@ -41,7 +41,7 @@ processResources {
         }
         into("lib-dynload") {
             for (file in configurations.runtimeLibDynload) {
-                from(file) { into "${file.parentFile.name}/chaquopy" }  // "
+                from(file) { into "${file.parentFile.name}/java" }      // "
             }
         }
     }

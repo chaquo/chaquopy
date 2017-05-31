@@ -15,7 +15,7 @@ android {
             version "2.7.10"
         }
         ndk {
-             abiFilters "x86", "armeabi-v7a"
+            abiFilters "x86", "armeabi-v7a"
         }
     }
     buildTypes {
@@ -24,15 +24,22 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        main {
+            java.srcDirs += ['../../product/runtime/src/test/java']
+        }
+    }
 }
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:23.4.0'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    compile 'junit:junit:4.12'
+
+    testCompile 'junit:junit:4.12'
+
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    compile 'com.android.support:appcompat-v7:23.4.0'
-    compile 'com.android.support.constraint:constraint-layout:1.0.2'
-
-    testCompile 'junit:junit:4.12'
 }

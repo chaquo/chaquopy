@@ -381,11 +381,10 @@ public class PyObjectTest {
         pyobjecttest.put(null, "hello");
     }
 
+    @Test
     @SuppressWarnings("unchecked")
     public void put_fail_type() {
-        thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expect(ClassCastException.class);
         ((Map)pyobjecttest).put(11, "hello");
     }
 
@@ -457,7 +456,7 @@ public class PyObjectTest {
         assertEquals("'hello'", pyobjecttest.get("str_var").repr());
     }
 
-    @SuppressWarnings("UnusedAssignment")
+    @SuppressWarnings({"UnusedAssignment", "unused"})
     @Test
     public void finalize_() {
         pyobjecttest.remove("del_triggered");
@@ -465,8 +464,8 @@ public class PyObjectTest {
         assertFalse(pyobjecttest.containsKey("del_triggered"));
         dt = null;
 
-        // There may be no way to make a watertight test of finalization, but this fails less than
-        // 5% of the time.
+        // It's hard to make a totally deterministic test of finalization: this test still
+        // occasionally fails.
         System.gc();
         System.runFinalization();
         assertTrue(pyobjecttest.containsKey("del_triggered"));

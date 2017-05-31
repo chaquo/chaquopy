@@ -216,6 +216,8 @@ cdef class LocalRef(JNIRef):
         return LocalRef.adopt(env,
                               env[0].NewLocalRef(env, obj) if obj else NULL)
 
+    # This should not be used for parameters of `native` methods: on Android, that causes the
+    # warning "Attempt to remove non-JNI local reference". Use `LocalRef.create` instead.
     @staticmethod
     cdef LocalRef adopt(JNIEnv *env, jobject obj):
         cdef LocalRef lr = LocalRef()

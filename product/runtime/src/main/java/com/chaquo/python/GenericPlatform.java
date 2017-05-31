@@ -6,6 +6,10 @@ public class GenericPlatform implements Python.Platform {
     private boolean mShouldInitialize = true;
 
     public GenericPlatform() {
+        if (System.getProperty("java.vendor").toLowerCase().contains("android")) {
+            throw new RuntimeException("Cannot use GenericPlatform on Android. Call Python.start" +
+                                       "(new AndroidPlatform(context)) before Python.getInstance().");
+        }
         System.loadLibrary("chaquopy_java");
     }
 

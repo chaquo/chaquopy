@@ -1,6 +1,6 @@
 package com.chaquo.java;
-import com.chaquo.python.*;
 
+import com.chaquo.python.*;
 import org.junit.*;
 import org.junit.rules.*;
 
@@ -27,7 +27,7 @@ public class PythonTest {
     public void start() {
         thrown.expect(IllegalStateException.class);
         thrown.expectMessage("Python already started");
-        Python.start(new GenericPlatform());
+        Python.start(null);
     }
 
     @Test

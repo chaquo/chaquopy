@@ -1,6 +1,7 @@
 package com.chaquo.python
 
 import org.gradle.api.*
+import org.gradle.api.file.*
 import org.gradle.api.plugins.*
 import org.gradle.util.*
 
@@ -128,8 +129,9 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     String targetDependency(String version, String classifier) {
-        /** Following the Maven version number format, this is the "build number". */
-        final def TARGET_VERSION_SUFFIX = "-0"
+        /** Following the Maven version number format, this is the "build number"
+         * (see maven/build.sh). */
+        final def TARGET_VERSION_SUFFIX = "-1"
         return "com.chaquo.python:target:$version$TARGET_VERSION_SUFFIX:$classifier@zip"
     }
 
@@ -188,12 +190,23 @@ class PythonPlugin implements Plugin<Project> {
                     into assetDir
                     rename { "stdlib.zip" }
                 }
+
                 extractResource("runtime/chaquopy.zip", assetDir)
                 for (abi in getAbis(variant)) {
-                    def dynloadChaquopy = "lib-dynload/$abi/chaquopy"
-                    extractResource("runtime/$dynloadChaquopy/chaquopy.so",
-                                    "$assetDir/$dynloadChaquopy")
-                    new File("$assetDir/$dynloadChaquopy/__init__.py").createNewFile();
+                    def dynloadJava = "lib-dynload/$abi/java"
+                    extractResource("runtime/$dynloadJava/chaquopy.so",
+                                    "$assetDir/$dynloadJava")
+                    new File("$assetDir/$dynloadJava/__init__.py").createNewFile();
+                }
+
+                def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
+                        .resolvedConfiguration.resolvedArtifacts
+                for (art in artifacts) {
+                    project.copy {
+                        from project.zipTree(art.file)
+                        include "lib-dynload/**"
+                        into assetDir
+                    }
                 }
             }
         }
@@ -202,20 +215,26 @@ class PythonPlugin implements Plugin<Project> {
 
     void createJniLibsTask(variant, PythonExtension python) {
         def libsDir = variantGenDir(variant, "jniLibs")
-        def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
-                        .resolvedConfiguration.resolvedArtifacts
         def genTask = project.task(genTaskName(variant, "jniLibs")) {
             outputs.files(project.fileTree(libsDir))
             doLast {
                 project.delete(libsDir)
-                project.copy {
-                    into libsDir
-                    for (art in artifacts) {
-                        from(project.zipTree(art.file)) {
-                            into art.classifier  // Classifier is ABI name
+                def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
+                        .resolvedConfiguration.resolvedArtifacts
+                for (art in artifacts) {
+                    project.copy {
+                        from project.zipTree(art.file)
+                        include "jniLibs/**"
+                        into libsDir
+                        eachFile { FileCopyDetails fcd ->  // https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1
+                            fcd.relativePath = new RelativePath
+                                    (!fcd.file.isDirectory(),
+                                     fcd.relativePath.segments[1..-1] as String[])
                         }
+                        includeEmptyDirs = false
                     }
                 }
+
                 for (abi in getAbis(variant)) {
                     extractResource("runtime/jniLibs/$abi/libchaquopy_java.so", "$libsDir/$abi")
                 }
