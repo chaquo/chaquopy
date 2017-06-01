@@ -47,3 +47,14 @@ processResources {
     }
 }
 
+task("integrationTest", type: Exec, group: "verification") {
+    dependsOn assemble
+    workingDir "$projectDir/src/test/integration"
+    executable "python"
+    args "-m", "unittest"
+    if (project.hasProperty("testPythonArgs")) {
+        args project.testPythonArgs.split(" ")
+    } else {
+        args "discover", "-v", "--failfast"
+    }
+}
