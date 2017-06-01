@@ -60,10 +60,9 @@ class PythonPlugin implements Plugin<Project> {
         this.android = project.android
 
         extend(android.defaultConfig)
-        android.productFlavors.whenObjectAdded { extend(it) }
+        /* TODO 5202
+        android.productFlavors.whenObjectAdded { extend(it) } */
         // I also tried adding it to buildTypes but it had no effect for some reason
-
-        // TODO add "python" source set property
 
         setupDependencies()
 
@@ -89,20 +88,23 @@ class PythonPlugin implements Plugin<Project> {
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
             python.mergeFrom(android.defaultConfig)
+            /* TODO #5202
             for (flavor in variant.getProductFlavors().reverse()) {
                 python.mergeFrom(flavor)
             }
+            */
             if (python.version == null) {
                 throw new GradleException("python.version not set for variant '$variant.name'. " +
                                           "You may want to add it to defaultConfig.")
             }
             if (! Common.PYTHON_VERSIONS.contains(python.version)) {
                 throw new GradleException("Invalid Python version '${python.version}'. " +
-                                          "Available versions are ${Common.PYTHON_VERSIONS}")
+                                          "Available versions are ${Common.PYTHON_VERSIONS}.")
             }
 
             createTargetConfigs(variant, python)
-            createSourceTask(variant, python)
+            /* TODO #5193
+            createSourceTask(variant, python) */
             createAssetsTask(variant, python)
             createJniLibsTask(variant, python)
         }
@@ -117,8 +119,8 @@ class PythonPlugin implements Plugin<Project> {
         project.configurations.create(abiConfig)
         for (abi in getAbis(variant)) {
             if (! Common.ABIS.contains(abi)) {
-                throw new GradleException("Unsupported ABI '$abi'. Supported ABIs are " +
-                                          Common.ABIS)
+                throw new GradleException("Chaquopy does not support the ABI '$abi'. " +
+                                          "Supported ABIs are ${Common.ABIS}.")
             }
             project.dependencies.add(abiConfig, targetDependency(python.version, abi))
         }
@@ -139,9 +141,11 @@ class PythonPlugin implements Plugin<Project> {
             abis.addAll(android.defaultConfig.ndk.abiFilters)
         }
         for (flavor in variant.getProductFlavors().reverse()) {
-            // Replicate the accumulation behaviour of MergedNdkConfig.append
             if (flavor.ndk.abiFilters) {
-                abis.addAll(flavor.ndk.abiFilters)
+                /* TODO #5202
+                // Replicate the accumulation behaviour of MergedNdkConfig.append
+                abis.addAll(flavor.ndk.abiFilters) */
+                raise GradleException("Chaquopy does not yet support per-flavor abiFilters.")
             }
         }
         if (abis.isEmpty()) {
@@ -153,8 +157,9 @@ class PythonPlugin implements Plugin<Project> {
         return abis
     }
 
+    /* TODO #5193
     void createSourceTask(variant, PythonExtension python) {
-        // TODO python{} parameters may need to be task inputs as well
+        // FIXME python{} parameters may need to be task inputs as well
         // (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
         File sourceDir = variantGenDir(variant, "source")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
@@ -172,9 +177,10 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         variant.registerJavaGeneratingTask(genTask, sourceDir)
-    }
+    } */
 
     void createAssetsTask(variant, PythonExtension python) {
+        // FIXME python{} parameters and abiFilters may need to be task inputs as well
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
         def genTask = project.task(genTaskName(variant, "assets")) {
@@ -210,6 +216,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createJniLibsTask(variant, PythonExtension python) {
+        // FIXME python{} parameters and abiFilters may need to be task inputs as well
         def libsDir = variantGenDir(variant, "jniLibs")
         def genTask = project.task(genTaskName(variant, "jniLibs")) {
             outputs.files(project.fileTree(libsDir))
