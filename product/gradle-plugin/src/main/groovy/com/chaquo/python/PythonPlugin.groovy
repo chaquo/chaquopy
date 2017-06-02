@@ -1,6 +1,7 @@
 package com.chaquo.python
 
 import org.gradle.api.*
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
 import org.gradle.util.*
@@ -102,7 +103,7 @@ class PythonPlugin implements Plugin<Project> {
                                           "Available versions are ${Common.PYTHON_VERSIONS}.")
             }
 
-            createTargetConfigs(variant, python)
+            createConfigs(variant, python)
             /* TODO #5193
             createSourceTask(variant, python) */
             createAssetsTask(variant, python)
@@ -110,7 +111,7 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createTargetConfigs(variant, PythonExtension python) {
+    void createConfigs(variant, PythonExtension python) {
         def stdlibConfig = configName(variant, "targetStdlib")
         project.configurations.create(stdlibConfig)
         project.dependencies.add(stdlibConfig, targetDependency(python.version, "stdlib"))
@@ -124,6 +125,10 @@ class PythonPlugin implements Plugin<Project> {
             }
             project.dependencies.add(abiConfig, targetDependency(python.version, abi))
         }
+    }
+
+    Configuration getConfig(variant, name) {
+        return project.configurations.getByName(configName(variant, name))
     }
 
     String targetDependency(String version, String classifier) {
@@ -159,8 +164,6 @@ class PythonPlugin implements Plugin<Project> {
 
     /* TODO #5193
     void createSourceTask(variant, PythonExtension python) {
-        // FIXME python{} parameters may need to be task inputs as well
-        // (https://afterecho.uk/blog/create-a-standalone-gradle-plugin-for-android-part-3.html)
         File sourceDir = variantGenDir(variant, "source")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
             outputs.dir(sourceDir)
@@ -180,15 +183,17 @@ class PythonPlugin implements Plugin<Project> {
     } */
 
     void createAssetsTask(variant, PythonExtension python) {
-        // FIXME python{} parameters and abiFilters may need to be task inputs as well
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
+        def stdlibConfig = getConfig(variant, "targetStdlib")
+        def abiConfig = getConfig(variant, "targetAbis")
         def genTask = project.task(genTaskName(variant, "assets")) {
+            inputs.files(stdlibConfig, abiConfig)
             outputs.files(project.fileTree(assetBaseDir))
             doLast {
                 project.delete(assetBaseDir)
                 project.copy {
-                    from(project.configurations.getByName(configName(variant, "targetStdlib")))
+                    from(stdlibConfig)
                     into assetDir
                     rename { "stdlib.zip" }
                 }
@@ -201,8 +206,7 @@ class PythonPlugin implements Plugin<Project> {
                     new File("$assetDir/$dynloadJava/__init__.py").createNewFile();
                 }
 
-                def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
-                        .resolvedConfiguration.resolvedArtifacts
+                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
                     project.copy {
                         from project.zipTree(art.file)
@@ -216,14 +220,14 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createJniLibsTask(variant, PythonExtension python) {
-        // FIXME python{} parameters and abiFilters may need to be task inputs as well
         def libsDir = variantGenDir(variant, "jniLibs")
+        def abiConfig = getConfig(variant, "targetAbis")
         def genTask = project.task(genTaskName(variant, "jniLibs")) {
+            inputs.files(abiConfig)
             outputs.files(project.fileTree(libsDir))
             doLast {
                 project.delete(libsDir)
-                def artifacts = project.configurations.getByName(configName(variant, "targetAbis"))
-                        .resolvedConfiguration.resolvedArtifacts
+                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
                     project.copy {
                         from project.zipTree(art.file)

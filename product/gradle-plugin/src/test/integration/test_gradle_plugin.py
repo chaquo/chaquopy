@@ -12,7 +12,7 @@ from zipfile import ZipFile
 
 class GradleTestCase(TestCase):
     @kwonly_defaults
-    def check_apk_structure(self, run, variant="debug", abis=KWONLY_REQUIRED):
+    def check_apk(self, run, variant="debug", abis=KWONLY_REQUIRED):
         apk_subdir = join(run.apk, variant)
         for filename in ["chaquopy.zip", "stdlib.zip"]:
             self.assertIsFile(join(apk_subdir, "assets/chaquopy", filename))
@@ -48,15 +48,9 @@ class GradleTestCase(TestCase):
 class Basic(GradleTestCase):
     def test_base(self):
         run = RunGradle("base")
-        self.check_apk_structure(run, abis=["armeabi-v7a", "x86"])
+        self.check_apk(run, abis=["armeabi-v7a", "x86"])
 
-        # For some reason, our tasks fail to be detected as up to date on the second run, even
-        # though most of the Android-plugin-generated tasks are. The Gradle debug log doesn't
-        # give any more useful information than "No history is available". The third run works
-        # fine.
-        #
-        # This problem doesn't happen when doing the same thing manually on the demo project.
-        run.rerun()
+        run.rerun()  # TODO #5204 extra run required
         run.rerun()
         self.assertInLong(":app:generatePythonDebugAssets UP-TO-DATE", run.stdout)
         self.assertInLong(":app:generatePythonDebugJniLibs UP-TO-DATE", run.stdout)
@@ -65,7 +59,7 @@ class Basic(GradleTestCase):
         variants = ["red-debug", "blue-debug"]
         run = RunGradle("base", "variant", variants=variants)
         for variant in variants:
-            self.check_apk_structure(run, variant=variant, abis=["armeabi-v7a", "x86"])
+            self.check_apk(run, variant=variant, abis=["armeabi-v7a", "x86"])
 
 
 class AndroidPlugin(GradleTestCase):
@@ -118,9 +112,19 @@ class AbiFilters(GradleTestCase):
         run = RunGradle("base", "abi_filters_variant", succeed=False)
         self.assertInLong("not yet support per-flavor abiFilters", run.stderr)
 
-    def test_single(self):
+    # Testing adding an ABI, because when removing one I kept getting this error: Execution
+    # failed for task ':app:transformNativeLibsWithStripDebugSymbolForDebug'.
+    # java.io.IOException: Failed to delete
+    # ....\app\build\intermediates\transforms\stripDebugSymbol\release\folders\2000\1f\main\lib\armeabi-v7a
+    # I've reported https://issuetracker.google.com/issues/62291921. Other people have had
+    # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
+    def test_change(self):
         run = RunGradle("base", "abi_filters_single")
-        self.check_apk_structure(run, abis=["x86"])
+        self.check_apk(run, abis=["x86"])
+        run.rerun()  # TODO #5204 extra run required
+        run.apply_layer("base")
+        run.rerun()
+        self.check_apk(run, abis=["armeabi-v7a", "x86"])
 
 
 data_dir  = abspath(join(dirname(__file__), "data"))
@@ -139,11 +143,14 @@ class RunGradle(object):
         self.project_dir = join(self.run_dir, "project")
         os.makedirs(self.project_dir)
         shutil.copy(join(demo_dir, "local.properties"), self.project_dir)
-        for d in data_layers:
-            copy_tree(join(data_dir, d), self.project_dir)
+        for layer in data_layers:
+            self.apply_layer(layer)
 
         self.succeed = succeed
         self.rerun(variants=variants)
+
+    def apply_layer(self, layer):
+        copy_tree(join(data_dir, layer), self.project_dir)
 
     @kwonly_defaults
     def rerun(self, variants=["debug"]):
