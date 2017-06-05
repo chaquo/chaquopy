@@ -13,3 +13,6 @@ local.properties
 *.pyd
 *.so
 hs_err*.log
+
+demo/app/src/main/python/test*.py
+demo/app/src/main/python/pyobjecttest.py

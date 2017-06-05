@@ -15,7 +15,7 @@ android {
             version "2.7.10"
         }
         ndk {
-            abiFilters "x86"//, "armeabi-v7a"
+            abiFilters "x86", "armeabi-v7a"
         }
     }
     buildTypes {
@@ -43,3 +43,18 @@ dependencies {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
 }
+
+
+// === Remove rest of file in public repository ==============================
+
+// TODO #5203 use sourceSets, and remove .gitignore entries
+afterEvaluate {
+    task("copyPythonSrc", type: Copy) {
+        from "../../product/runtime/src/test/python"
+        into "src/main/python"
+        include "**/test*.py"
+    }
+    generatePythonDebugAssets.dependsOn(copyPythonSrc)
+}
+
+

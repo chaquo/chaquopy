@@ -12,4 +12,9 @@
             android:targetClass="com.chaquo.python.demo.JavaTestActivity"/>
     </Preference>
 
+    <Preference android:title="@string/python_unit_test">
+        <intent android:targetPackage="com.chaquo.python.demo"
+            android:targetClass="com.chaquo.python.demo.PythonTestActivity"/>
+    </Preference>
+
 </PreferenceScreen>

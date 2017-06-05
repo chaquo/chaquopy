@@ -115,15 +115,20 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * {@link #fromJava fromJava()}. */
     public native PyObject call(Object... args);
 
-    /** Equivalent to `{@link #get get}(attr).{@link #call call}(args)`.*/
-    public PyObject callAttr(String attr, Object... args) {
-        return get(attr).call(args);
+    /** Equivalent to `{@link #get get}(key).{@link #call call}(args)`, except it throws a
+     * PyException if the attribute does not exist. */
+    public PyObject callAttr(String key, Object... args) {
+        PyObject value = get(key);
+        if (value == null) {
+            throw new PyException("AttributeError: object has no attribute '" + key + "'");
+        }
+        return value.call(args);
     }
 
     // ==== Map ==============================================================
 
     /** Attempts to remove all attributes returned by `dir()`. Because `dir()` usually returns
-     * non-removable attributes such as `__class__`, this will probably fail  unless
+     * non-removable attributes such as `__class__`, this will probably fail unless
      * the object has a custom `__dir__` method.
      *
      * See also the notes on {@link #remove remove()} and {{@link #isEmpty}. */

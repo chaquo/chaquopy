@@ -185,14 +185,31 @@ class PythonPlugin implements Plugin<Project> {
     void createAssetsTask(variant, PythonExtension python) {
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
+
+        def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
+        project.mkdir(srcDir)
         def stdlibConfig = getConfig(variant, "targetStdlib")
         def abiConfig = getConfig(variant, "targetAbis")
+
         def genTask = project.task(genTaskName(variant, "assets")) {
+            inputs.dir(srcDir)
             inputs.files(stdlibConfig, abiConfig)
             outputs.files(project.fileTree(assetBaseDir))
             doLast {
                 project.delete(assetBaseDir)
-                project.copy {
+                project.mkdir(assetDir)
+
+                project.ant.zip(basedir: srcDir, destfile: "$assetDir/app.zip", whenempty: "create")
+
+                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
+                for (art in artifacts) {    // Stdlib native modules
+                    project.copy {
+                        from project.zipTree(art.file)
+                        include "lib-dynload/**"
+                        into assetDir
+                    }
+                }
+                project.copy {              // Stdlib Python modules
                     from(stdlibConfig)
                     into assetDir
                     rename { "stdlib.zip" }
@@ -204,15 +221,6 @@ class PythonPlugin implements Plugin<Project> {
                     extractResource("runtime/$dynloadJava/chaquopy.so",
                                     "$assetDir/$dynloadJava")
                     new File("$assetDir/$dynloadJava/__init__.py").createNewFile();
-                }
-
-                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
-                for (art in artifacts) {
-                    project.copy {
-                        from project.zipTree(art.file)
-                        include "lib-dynload/**"
-                        into assetDir
-                    }
                 }
             }
         }

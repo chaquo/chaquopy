@@ -117,7 +117,7 @@ public class PyObjectTest {
         PyObject True = builtins.get("True"), False = builtins.get("False");
         assertNotSame(True, False);
         assertNotEquals(True.id(), False.id());
-        assertEquals(True.id(), (int)builtins.callAttr("id", True).toJava(Integer.class));
+        assertEquals(True.id(), (long)builtins.callAttr("id", True).toJava(Long.class));
     }
 
     @Test
@@ -152,6 +152,10 @@ public class PyObjectTest {
         assertEquals(3,  (int)pyobjecttest.callAttr("sum_mul", 3).toJava(Integer.class));
         assertEquals(6,  (int)pyobjecttest.callAttr("sum_mul", 1, 2, 3).toJava(Integer.class));
         assertEquals(24, (int)pyobjecttest.callAttr("sum_mul", 6, new Kwarg("mul", 4)).toJava(Integer.class));
+
+        thrown.expect(PyException.class);
+        thrown.expectMessage("AttributeError: object has no attribute 'nonexistent'");
+        pyobjecttest.callAttr("nonexistent");
     }
 
     @Test

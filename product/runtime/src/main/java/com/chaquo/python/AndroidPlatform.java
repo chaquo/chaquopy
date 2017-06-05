@@ -10,6 +10,7 @@ import java.io.*;
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform implements Python.Platform {
     private static final String[] ASSETS = {
+        "app.zip",
         "stdlib.zip",
         "chaquopy.zip",
         "lib-dynload/" + Build.CPU_ABI,
