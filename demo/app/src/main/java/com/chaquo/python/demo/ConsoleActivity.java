@@ -2,7 +2,6 @@ package com.chaquo.python.demo;
 
 import android.os.*;
 import android.support.v7.app.*;
-import android.util.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -11,7 +10,11 @@ public class ConsoleActivity extends AppCompatActivity {
 
     private ScrollView svBuffer;
     private TextView tvBuffer;
-    private boolean pendingNewline = false;  // Prevent empty line at bottom of screen
+
+    protected static class State {
+        boolean pendingNewline = false;  // Prevent empty line at bottom of screen
+    }
+    protected State state;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +36,20 @@ public class ConsoleActivity extends AppCompatActivity {
         PyObject sys = py.getModule("sys");
         sys.put("stdout", stream);
         sys.put("stderr", stream);
+
+        state = (State) getLastCustomNonConfigurationInstance();
+        if (state == null) {
+            state = initState();
+        }
+    }
+
+    protected State initState() {
+        return new State();
+    }
+
+    @Override
+    public Object onRetainCustomNonConfigurationInstance() {
+        return state;
     }
 
     @Override
@@ -63,13 +80,13 @@ public class ConsoleActivity extends AppCompatActivity {
     public void append(String text) {
         if (text.length() == 0) return;
 
-        if (pendingNewline) {
+        if (state.pendingNewline) {
             text = "\n" + text;
-            pendingNewline = false;
+            state.pendingNewline = false;
         }
         if (text.endsWith("\n")) {
             text = text.substring(0, text.length() - 1);
-            pendingNewline = true;
+            state.pendingNewline = true;
         }
         
         final String appendText = text;

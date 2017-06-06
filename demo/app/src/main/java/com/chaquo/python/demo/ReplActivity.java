@@ -7,8 +7,18 @@ import com.chaquo.python.*;
 
 
 public class ReplActivity extends ConsoleActivity {
+
     private EditText etInput;
-    private PyObject interp;
+
+    protected static class State extends ConsoleActivity.State {
+        PyObject interp;
+
+        public State() {
+            Python py = Python.getInstance();
+            interp = py.getModule("code").callAttr("InteractiveInterpreter");
+        }
+    }
+    private State state;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -23,10 +33,18 @@ public class ReplActivity extends ConsoleActivity {
             }
         });
 
-        Python py = Python.getInstance();
-        interp = py.getModule("code").callAttr("InteractiveInterpreter");
-        PyObject sys = py.getModule("sys");
-        append("Python " + sys.get("version") + "\n");
+        if (savedInstanceState == null) {
+            Python py = Python.getInstance();
+            PyObject sys = py.getModule("sys");
+            append("Python " + sys.get("version") + "\n");
+        }
+
+        state = (State) ((ConsoleActivity)this).state;
+    }
+
+    @Override
+    protected State initState() {
+        return new State();
     }
 
     private void onInput() {
@@ -38,7 +56,7 @@ public class ReplActivity extends ConsoleActivity {
     }
 
     private void exec(String input) {
-        interp.callAttr("runsource", input);
+        state.interp.callAttr("runsource", input);
     }
 
     protected void scroll(int direction) {
