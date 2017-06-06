@@ -22,7 +22,9 @@ class TestReflect(unittest.TestCase):
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
-        with self.assertRaisesRegexp(JavaException, "NoClassDefFoundError: java/lang/Stakk"):
+        # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
+        # ClassNotFoundException.
+        with self.assertRaisesRegexp(JavaException, "(NoClassDefFoundError|ClassNotFoundException)"):
             jclass("java.lang.Stakk")
 
     def test_str_repr(self):
@@ -181,6 +183,11 @@ class TestReflect(unittest.TestCase):
         pw.print_(" world")
         self.assertEqual("Hello world", sw.toString())
 
+    # TODO #5183
+    def test_name_clash(self):
+        NameClash = jclass("com.chaquo.python.TestReflect$NameClash")
+        self.assertEqual("method", NameClash.member())
+        self.assertNotEqual("field", NameClash.member)
 
     def test_enum(self):
         SimpleEnum = jclass('com.chaquo.python.TestReflect$SimpleEnum')
@@ -196,22 +203,55 @@ class TestReflect(unittest.TestCase):
         self.assertEqual(SimpleEnum.values()[0], SimpleEnum.GOOD)
         self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
 
+
     def test_interface(self):
-        I = jclass("com.chaquo.python.TestReflect$I")
-        with self.assertRaisesRegexp(TypeError, "no accessible constructors"):
-            I()
-        self.assertEqual("I constant", I.iConstant)
+        Interface = jclass("com.chaquo.python.TestReflect$Interface")
+        with self.assertRaisesRegexp(TypeError, "abstract"):
+            Interface()
+        self.assertEqual("Interface constant", Interface.iConstant)
+        with self.assertRaisesRegexp(AttributeError, "final"):
+            Interface.iConstant = "not constant"
         with self.assertRaisesRegexp(AttributeError, "static context"):
-            I.iMethod()
+            Interface.iMethod()
 
-        C = jclass("com.chaquo.python.TestReflect$C")
-        c = C()
-        self.assertEqual("I constant", C.iConstant)
-        self.assertEqual("I constant", c.iConstant)
-        with self.assertRaisesRegexp(AttributeError, "static context"):
-            C.iMethod()
-        self.assertEqual("I constant", c.iMethod())
+    def test_inheritance(self):
+        Interface = jclass("com.chaquo.python.TestReflect$Interface")
+        Parent = jclass("com.chaquo.python.TestReflect$Parent")
+        Child = jclass("com.chaquo.python.TestReflect$Child")
 
-        c_I = cast(I, c)
-        self.assertEqual("I constant", c_I.iConstant)
-        self.assertEqual("I constant", c_I.iMethod())
+        self.assertEqual("Interface constant", Child.iConstant)
+        self.assertEqual("Parent static field", Child.pStaticField)
+        self.assertEqual("Parent static method", Child.pStaticMethod())
+        self.assertEqual("Overridden static field", Child.oStaticField)
+        self.assertEqual("Overridden static method", Child.oStaticMethod())
+
+        c = Child()
+        self.assertEqual("Interface constant", c.iConstant)
+        self.assertEqual("Implemented method", c.iMethod())
+        self.assertEqual("Parent static field", c.pStaticField)
+        self.assertEqual("Parent field", c.pField)
+        self.assertEqual("Parent static method", c.pStaticMethod())
+        self.assertEqual("Parent method", c.pMethod())
+        self.assertEqual("Overridden static field", c.oStaticField)
+        self.assertEqual("Overridden field", c.oField)
+        self.assertEqual("Overridden static method", c.oStaticMethod())
+        self.assertEqual("Overridden method", c.oMethod())
+
+        c_Interface = cast(Interface, c)
+        self.assertEqual("Interface constant", c_Interface.iConstant)
+        self.assertEqual("Implemented method", c_Interface.iMethod())
+
+        c_Parent = cast(Parent, c)
+        self.assertEqual("Parent static field", c_Parent.pStaticField)
+        self.assertEqual("Parent field", c_Parent.pField)
+        self.assertEqual("Parent static method", c_Parent.pStaticMethod())
+        self.assertEqual("Parent method", c_Parent.pMethod())
+        self.assertEqual("Non-overridden static field", c_Parent.oStaticField)
+        self.assertEqual("Non-overridden field", c_Parent.oField)
+        self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
+        self.assertEqual("Overridden method", c_Parent.oMethod())
+
+    def test_abstract(self):
+        Abstract = jclass("com.chaquo.python.TestReflect$Abstract")
+        with self.assertRaisesRegexp(TypeError, "abstract"):
+            Abstract()

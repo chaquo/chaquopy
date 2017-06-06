@@ -24,11 +24,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    // *** Remove in public repository ***************************************
     sourceSets {
         main {
             java.srcDirs += ['../../product/runtime/src/test/java']
         }
     }
+    // **********************************************************************
 }
 
 dependencies {
@@ -45,8 +48,7 @@ dependencies {
 }
 
 
-// === Remove rest of file in public repository ==============================
-
+// *** Remove in public repository ********************************************
 // TODO #5203 use sourceSets, and remove .gitignore entries
 afterEvaluate {
     task("copyPythonSrc", type: Copy) {
@@ -56,5 +58,6 @@ afterEvaluate {
     }
     generatePythonDebugAssets.dependsOn(copyPythonSrc)
 }
+// **********************************************************************
 
 

@@ -23,22 +23,21 @@ ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Se
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
-cdef void release_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
+# Copy back any modifications the Java method may have made to mutable parameters.
+def copy_output_args(definition_args, args, p2j_args):
     for index, argtype in enumerate(definition_args):
-        if argtype[0] in "L[":
-            if argtype[0] == "[" and not isinstance(args[index], JavaArray):
-                # Copy back any modifications the Java method may have made to the array
-                ret = java.jarray(argtype[1:])(instance=LocalRef.adopt(j_env, j_args[index].l))
-                try:
-                    args[index][:] = ret
-                except TypeError:
-                    pass    # The arg was a tuple or other read-only sequence.
+        if argtype[0] == "[" and not isinstance(args[index], JavaArray):
+            ret = java.jarray(argtype[1:])(instance=p2j_args[index])
+            try:
+                args[index][:] = ret
+            except TypeError:
+                pass    # The arg was a tuple or other read-only sequence.
 
 
 # Cython auto-generates range checking code for the integral types.
-cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args) except *:
+cdef populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args):
     for index, argtype in enumerate(definition_args):
-        py_arg = p2j(j_env, argtype, args[index])
+        py_arg = args[index]
         if argtype == 'Z':
             j_args[index].z = py_arg
         elif argtype == 'B':
@@ -58,7 +57,7 @@ cdef void populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, ar
         elif argtype == 'D':
             j_args[index].d = py_arg
         elif argtype[0] in 'L[':
-            j_args[index].l = (<JNIRef?>py_arg).return_ref(j_env)
+            j_args[index].l = (<JNIRef?>py_arg).obj
 
 
 cdef j2p(JNIEnv *j_env, JNIRef j_object):
@@ -262,8 +261,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     else:
         raise ValueError(f"Invalid signature '{definition}'")
 
-    # TODO #5155 don't expose JNI signatures to users
-    raise TypeError(f"Cannot convert {type(obj).__name__} object to {definition}")
+    raise TypeError(f"Cannot convert {type(obj).__name__} object to {java.sig_to_java(definition)}")
 
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be

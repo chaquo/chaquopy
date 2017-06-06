@@ -63,11 +63,6 @@ public class ConsoleActivity extends AppCompatActivity {
     public void append(String text) {
         if (text.length() == 0) return;
 
-        // FIXME
-        Python py = Python.getInstance();
-        PyObject dict = py.getBuiltins().get("dict");
-        Log.d("append", text + " " + dict.call(py.getModule("java.chaquopy").get("telem")));
-
         if (pendingNewline) {
             text = "\n" + text;
             pendingNewline = false;
@@ -76,6 +71,7 @@ public class ConsoleActivity extends AppCompatActivity {
             text = text.substring(0, text.length() - 1);
             pendingNewline = true;
         }
+        
         final String appendText = text;
         runOnUiThread(new Runnable() {
             @Override

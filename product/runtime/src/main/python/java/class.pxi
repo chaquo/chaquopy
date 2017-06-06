@@ -79,6 +79,12 @@ cdef class JavaObject(object):
                                 f"{lookup_java_object_name(env, instance.obj)} instance")
             self.j_self = instance.global_ref()
         else:
+            # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
+            # class, but Android 6 crashes with a CheckJNI error.
+            klass = j2p(env, self.j_cls)
+            Modifier = java.jclass("java.lang.reflect.Modifier")
+            if Modifier.isAbstract(klass.getModifiers()):
+                raise TypeError(f"{self.__javaclass__} is abstract and cannot be instantiated")
             try:
                 constructor = self.__javaconstructor__
             except AttributeError:
@@ -136,6 +142,13 @@ cdef class JavaMember(object):
 
 
 cdef class JavaField(JavaMember):
+    # On Android 6.0, accessing an inherited static field or interface constant via a subclass
+    # causes a CheckJNI error like "static jfieldID 0xaa6529e8 not valid for class", even
+    # though GetStaticField had no problem with it. So we use the declaring class instead.
+    #
+    # This doesn't seem to affect methods or non-static fields.
+    cdef JavaObject klass
+
     cdef jfieldID j_field
     cdef definition
     cdef bint is_final
@@ -147,8 +160,9 @@ cdef class JavaField(JavaMember):
                 f"{', final=True' if self.is_final else ''}"
                 f")")
 
-    def __init__(self, definition, *, static=False, final=False):
+    def __init__(self, JavaObject klass, definition, *, static=False, final=False):
         super(JavaField, self).__init__(static)
+        self.klass = klass
         self.definition = str_for_c(definition)
         self.is_final = final
 
@@ -170,10 +184,10 @@ cdef class JavaField(JavaMember):
             raise Exception('Field name has not been set')
         if self.is_static:
             self.j_field = j_env[0].GetStaticFieldID(
-                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, self.klass.j_self.obj, self.name, self.definition)
         else:
             self.j_field = j_env[0].GetFieldID(
-                    j_env, (<GlobalRef?>self.jc.j_cls).obj, self.name, self.definition)
+                    j_env, self.klass.j_self.obj, self.name, self.definition)
         if self.j_field == NULL:
             expect_exception(j_env, f'Get[Static]Field failed for {self}')
 
@@ -263,7 +277,7 @@ cdef class JavaField(JavaMember):
 
     # Cython auto-generates range checking code for the integral types.
     cdef write_static_field(self, value):
-        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
+        cdef jclass j_class = self.klass.j_self.obj
         cdef JNIEnv *j_env = get_jnienv()
         j_value = p2j(j_env, self.definition, value)
 
@@ -294,7 +308,7 @@ cdef class JavaField(JavaMember):
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef read_static_field(self):
-        cdef jclass j_class = (<GlobalRef?>self.jc.j_cls).obj
+        cdef jclass j_class = self.klass.j_self.obj
         cdef JNIEnv *j_env = get_jnienv()
         r = self.definition[0]
         if r == 'Z':
@@ -412,25 +426,27 @@ cdef class JavaMethod(JavaMember):
         if len(args) != len(d_args):
             raise TypeError(f'{self.fqn()} takes {len(d_args)} arguments ({len(args)} given)')
 
+        p2j_args = [p2j(j_env, argtype, arg)
+                    for argtype, arg in six.moves.zip(d_args, args)]
         if len(args):
             j_args = <jvalue*>alloca(sizeof(jvalue) * len(d_args))
-            populate_args(j_env, self.definition_args, j_args, args)
+            populate_args(j_env, d_args, j_args, p2j_args)
 
-        try:
-            if self.is_constructor:
-                return self.call_constructor(j_env, j_args)
-            if self.is_static:
-                return self.call_static_method(j_env, j_args)
-            else:
-                # Should never happen, but worth keeping as an extra defense against a
-                # native crash.
-                if not isinstance(obj, self.jc):
-                    raise TypeError(f"Unbound method {self.fqn()} must be called with "
-                                    f"{self.jc.__name__} instance as first argument (got "
-                                    f"{type(obj).__name__} instance instead)")
-                return self.call_method(j_env, obj, j_args)
-        finally:
-            release_args(j_env, self.definition_args, j_args, args)
+        if self.is_constructor:
+            result = self.call_constructor(j_env, j_args)
+        elif self.is_static:
+            result = self.call_static_method(j_env, j_args)
+        else:
+            # Should never happen, but worth keeping as an extra defense against a
+            # native crash.
+            if not isinstance(obj, self.jc):
+                raise TypeError(f"Unbound method {self.fqn()} must be called with "
+                                f"{self.jc.__name__} instance as first argument (got "
+                                f"{type(obj).__name__} instance instead)")
+            result =  self.call_method(j_env, obj, j_args)
+
+        copy_output_args(d_args, args, p2j_args)
+        return result
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, (<GlobalRef?>self.jc.j_cls).obj,

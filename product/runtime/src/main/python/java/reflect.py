@@ -31,11 +31,13 @@ def setup_bootstrap_classes():
     class Modifier(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Modifier'
         __javaconstructor__ = JavaMethod('()V')
+        isAbstract = JavaMethod('(I)Z', static=True)
         isFinal = JavaMethod('(I)Z', static=True)
         isStatic = JavaMethod('(I)Z', static=True)
 
     class Method(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Method'
+        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
@@ -45,12 +47,14 @@ def setup_bootstrap_classes():
 
     class Field(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Field'
+        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
         getType = JavaMethod('()Ljava/lang/Class;')
 
     class Constructor(with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Constructor'
+        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
@@ -178,8 +182,15 @@ def reflect_class(clsname):
         classDict[name] = method
 
     for field in c.getFields():
+        # TODO #5183 method and field with same name
+        #
+        # TODO #5208 depending on the order of getFields(), this may hide the wrong field in
+        # case of a parent/child duplicate name.
+        if field.getName() in classDict:
+            continue
         modifiers = field.getModifiers()
-        classDict[field.getName()] = JavaField(jni_sig(field.getType()),
+        classDict[field.getName()] = JavaField(field.getDeclaringClass(),
+                                               jni_sig(field.getType()),
                                                static=Modifier.isStatic(modifiers),
                                                final=Modifier.isFinal(modifiers))
 
