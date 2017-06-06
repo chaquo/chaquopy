@@ -2,6 +2,16 @@ package com.chaquo.python;
 
 public class TestReflect {
 
+    public static class DelTrigger {
+        public static boolean delTriggered = false;
+
+        @Override
+        protected void finalize() throws Throwable {
+            delTriggered = true;
+            super.finalize();
+        }
+    }
+
     interface Interface {
         String iConstant = "Interface constant";
         String iMethod();

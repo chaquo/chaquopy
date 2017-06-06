@@ -117,7 +117,7 @@ def set_attribute(cls, obj, key, value):
     try:
         member = cls.__dict__[key]
     except KeyError:
-        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name}'"
+        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
         raise AttributeError(f"{subject} has no attribute '{key}'")
     if not isinstance(member, JavaField):
         raise AttributeError(f"'{cls.__name__}.{key}' is not a field")

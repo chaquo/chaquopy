@@ -27,6 +27,23 @@ class TestReflect(unittest.TestCase):
         with self.assertRaisesRegexp(JavaException, "(NoClassDefFoundError|ClassNotFoundException)"):
             jclass("java.lang.Stakk")
 
+    def test_identity(self):
+        # TODO #5181
+        # self.assertIs(System.out, System.out)
+        pass
+
+    # See notes in PyObjectTest.finalize_
+    def test_gc(self):
+        System = jclass('java.lang.System')
+        DelTrigger = jclass("com.chaquo.python.TestReflect$DelTrigger")
+        DelTrigger.delTriggered = False
+        dt = DelTrigger()
+        self.assertFalse(DelTrigger.delTriggered)
+        del dt
+        System.gc()
+        System.runFinalization()
+        self.assertTrue(DelTrigger.delTriggered)
+
     def test_str_repr(self):
         Object = jclass('java.lang.Object')
         String = jclass('java.lang.String')
@@ -156,13 +173,6 @@ class TestReflect(unittest.TestCase):
     def test_out(self):
         # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
         System = jclass('java.lang.System')
-
-        # TODO #5181 This should be implemented in JavaObject.__new__, using identityHashCode
-        # followed by IsSameObject. Aliases created by `cast` can't be considered identical by
-        # `is`, so we should provide a new function `jis` which tests for this.
-        #
-        # self.assertIs(System.out, System.out)
-
         self.assertEqual(False, System.out.checkError())
         self.assertIsNone(System.out.flush())
 
