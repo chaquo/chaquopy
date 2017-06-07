@@ -15,7 +15,7 @@ class JavaArray(collections.Sequence):
             assert value is None
             if not env.IsInstanceOf(instance, self.sig):
                 instance_sig = lookup_java_object_name(env.j_env, instance.obj)
-                raise TypeError(f"Cannot create {java.sig_to_java(self.sig)} proxy from a "
+                raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
                                 f"{java.sig_to_java(instance_sig)} instance")
 
             self.j_self = instance.global_ref()
@@ -136,6 +136,8 @@ class JavaArray(collections.Sequence):
 
     def _set_one(self, index, value):
         env = CQPEnv()
+        # TODO #5209 use actual rather than declared signature: old Android versions don't
+        # type-check correctly.
         value_p2j = p2j(env.j_env, self.sig[1:], value)
         r = self.sig[1]
         if r == "Z":

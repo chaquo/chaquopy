@@ -468,8 +468,8 @@ public class PyObjectTest {
         assertFalse(pyobjecttest.containsKey("del_triggered"));
         dt = null;
 
-        // It's hard to make a totally deterministic test of finalization: this test still
-        // occasionally fails.
+        // It's hard to make a totally deterministic test of finalization. This test and its Python
+        // counterpart still fail sometimes, especially on the emulator for API level 17.
         System.gc();
         System.runFinalization();
         assertTrue(pyobjecttest.containsKey("del_triggered"));

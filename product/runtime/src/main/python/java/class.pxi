@@ -75,7 +75,7 @@ cdef class JavaObject(object):
         cdef JNIEnv *env = get_jnienv()
         if instance is not None:
             if not env[0].IsInstanceOf(env, instance.obj, (<JNIRef?>self.j_cls).obj):
-                raise TypeError(f"Cannot create {self.__javaclass__} proxy from a "
+                raise TypeError(f"cannot create {self.__javaclass__} proxy from "
                                 f"{lookup_java_object_name(env, instance.obj)} instance")
             self.j_self = instance.global_ref()
         else:

@@ -27,6 +27,16 @@ class TestReflect(unittest.TestCase):
         with self.assertRaisesRegexp(JavaException, "(NoClassDefFoundError|ClassNotFoundException)"):
             jclass("java.lang.Stakk")
 
+    def test_cast(self):
+        Object = jclass("java.lang.Object")
+        Boolean = jclass("java.lang.Boolean")
+        o = Object()
+        b = Boolean(True)
+
+        cast(Object, b)
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from java.lang.Object"):
+            cast(Boolean, o)
+
     def test_identity(self):
         # TODO #5181
         # self.assertIs(System.out, System.out)

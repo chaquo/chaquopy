@@ -14,6 +14,27 @@ class TestArray(unittest.TestCase):
         self.assertEqual(repr(array_C).replace("u'", "'"),
                          "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
 
+    def test_cast(self):
+        Object = jclass("java.lang.Object")
+        Boolean = jclass("java.lang.Boolean")
+
+        Boolean_array = jarray(Boolean)([True, False])
+        self.assertEqual(Boolean_array, cast(jarray(Object), Boolean_array))
+        self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(jarray(Object), Boolean_array)))
+        self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(Object, Boolean_array)))
+        with self.assertRaisesRegexp(TypeError, "cannot create boolean[] proxy from java.lang.Boolean[]"):
+            cast(jarray(jboolean), Boolean_array)
+
+        Object_array = jarray(Object)([True, False])
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean[] proxy from java.lang.Object[]"):
+            cast(jarray(Boolean), Object_array)
+        self.assertEqual(Object_array, cast(jarray(Object), cast(Object, Object_array)))
+
+        Z_array = jarray(jboolean)([True, False])
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object[] proxy from boolean[]"):
+            cast(jarray(Object), Z_array)
+        self.assertEqual(Z_array, cast(jarray(jboolean), cast(Object, Z_array)))
+
     def test_output_arg(self):
         String = jclass('java.lang.String')
         string = String(u'\u1156\u2278\u3390\u44AB')
