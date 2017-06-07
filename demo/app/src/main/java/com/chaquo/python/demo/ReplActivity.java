@@ -13,9 +13,10 @@ public class ReplActivity extends ConsoleActivity {
     protected static class State extends ConsoleActivity.State {
         PyObject interp;
 
-        public State() {
+        public State(ReplActivity activity) {
             Python py = Python.getInstance();
-            interp = py.getModule("code").callAttr("InteractiveInterpreter");
+            PyObject locals = py.getBuiltins().callAttr("dict", new Kwarg("activity", activity));
+            interp = py.getModule("code").callAttr("InteractiveInterpreter", locals);
         }
     }
     private State state;
@@ -24,38 +25,37 @@ public class ReplActivity extends ConsoleActivity {
     protected void onCreate(Bundle savedInstanceState) {
         setContentView(R.layout.activity_repl);
         super.onCreate(savedInstanceState);
+
         etInput = (EditText) findViewById(R.id.etInput);
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                onInput();
+                String input = etInput.getText().toString().trim();
+                if (! input.isEmpty()) {
+                    etInput.setText("");
+                    exec(input);
+                }
                 return true;
             }
         });
 
+        state = (State) ((ConsoleActivity)this).state;
         if (savedInstanceState == null) {
             Python py = Python.getInstance();
             PyObject sys = py.getModule("sys");
-            append("Python " + sys.get("version") + "\n");
+            append("Python " + sys.get("version") + "\n" +
+                   getString(R.string.repl_banner) + "\n");
+            exec("from java import *");
         }
-
-        state = (State) ((ConsoleActivity)this).state;
     }
 
     @Override
     protected State initState() {
-        return new State();
-    }
-
-    private void onInput() {
-        String input = etInput.getText().toString().trim();
-        if (input.isEmpty()) return;
-        append(getString(R.string.prompt) + etInput.getText() + "\n");
-        etInput.setText("");
-        exec(input);
+        return new State(this);
     }
 
     private void exec(String input) {
+        append(getString(R.string.repl_prompt) + input + "\n");
         state.interp.callAttr("runsource", input);
     }
 
