@@ -1,11 +1,11 @@
 package com.chaquo.python.demo;
 
 import android.os.*;
-import android.preference.*;
-
+import android.support.v7.app.*;
+import android.support.v7.preference.*;
 import com.chaquo.python.*;
 
-public class MainActivity extends PreferenceActivity {
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -13,6 +13,15 @@ public class MainActivity extends PreferenceActivity {
         if (! Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
-        addPreferencesFromResource(R.xml.activity_main);
+        getSupportFragmentManager().beginTransaction()
+            .replace(android.R.id.content, new MenuFragment())
+            .commit();
+    }
+
+    public static class MenuFragment extends PreferenceFragmentCompat {
+        @Override
+        public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+            addPreferencesFromResource(R.xml.activity_main);
+        }
     }
 }
