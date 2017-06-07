@@ -22,6 +22,7 @@
         <item name="android:layout_marginRight">8dp</item>
         <item name="android:textSize">14sp</item>
         <item name="android:typeface">monospace</item>
+        <item name="android:textIsSelectable">true</item>
         <item name="android:freezesText">true</item>
     </style>
 
