@@ -11,11 +11,27 @@ from zipfile import ZipFile
 
 
 class GradleTestCase(TestCase):
+    def check_up_to_date(self, run):
+        run.rerun()  # TODO #5204 extra run required
+        run.rerun()
+        self.assertInLong(":app:generatePythonDebugAssets UP-TO-DATE", run.stdout)
+        self.assertInLong(":app:generatePythonDebugJniLibs UP-TO-DATE", run.stdout)
+
     @kwonly_defaults
-    def check_apk(self, run, variant="debug", abis=KWONLY_REQUIRED):
+    def check_apk(self, run, variant="debug", abis=["armeabi-v7a", "x86"]):
         apk_subdir = join(run.apk, variant)
-        for filename in ["chaquopy.zip", "stdlib.zip"]:
+        for filename in ["app.zip", "chaquopy.zip", "stdlib.zip"]:
             self.assertIsFile(join(apk_subdir, "assets/chaquopy", filename))
+
+        app_check_base_name = join(run.run_dir, "app-check")
+        # If app/src/main/python didn't already exist, the plugin should have created it.
+        shutil.make_archive(app_check_base_name, "zip",
+                            join(run.project_dir, "app/src/main/python"))
+        app_check = ZipFile(app_check_base_name + ".zip")
+        app = ZipFile(join(apk_subdir, "assets/chaquopy/app.zip"))
+        self.assertEqual(sorted(app.namelist()), sorted(app_check.namelist()))
+        for name in app.namelist():
+            self.assertEqual(app.getinfo(name).CRC, app_check.getinfo(name).CRC, name)
 
         self.assertEqual(set(abis),
                          set(os.listdir(join(apk_subdir, "assets/chaquopy/lib-dynload"))))
@@ -48,18 +64,14 @@ class GradleTestCase(TestCase):
 class Basic(GradleTestCase):
     def test_base(self):
         run = RunGradle("base")
-        self.check_apk(run, abis=["armeabi-v7a", "x86"])
-
-        run.rerun()  # TODO #5204 extra run required
-        run.rerun()
-        self.assertInLong(":app:generatePythonDebugAssets UP-TO-DATE", run.stdout)
-        self.assertInLong(":app:generatePythonDebugJniLibs UP-TO-DATE", run.stdout)
+        self.check_apk(run)
+        self.check_up_to_date(run)
 
     def test_variant(self):
         variants = ["red-debug", "blue-debug"]
         run = RunGradle("base", "variant", variants=variants)
         for variant in variants:
-            self.check_apk(run, variant=variant, abis=["armeabi-v7a", "x86"])
+            self.check_apk(run, variant=variant)
 
 
 class AndroidPlugin(GradleTestCase):
@@ -82,14 +94,25 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("does not work with Android Gradle plugin version 3.0.0", run.stderr)
 
 
+class ApiLevel(GradleTestCase):
+    def test_old(self):
+        RunGradle("base", "api_level_9")
+        run = RunGradle("base", "api_level_8", succeed=False)
+        self.assertInLong("debug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
+
+    def test_variant(self):
+        run = RunGradle("base", "api_level_variant", succeed=False)
+        self.assertInLong("redDebug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
+
+
 class PythonVersion(GradleTestCase):
     def test_missing(self):
         run = RunGradle("base", "python_version_missing", succeed=False)
-        self.assertInLong("python.version not set", run.stderr)
+        self.assertInLong("debug: python.version not set", run.stderr)
 
     def test_invalid(self):
         run = RunGradle("base", "python_version_invalid", succeed=False)
-        self.assertInLong("Python version '2.7.99'. Available versions are [2.7.10]",
+        self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are [2.7.10]",
                           run.stderr)
 
     # TODO #5202
@@ -101,16 +124,17 @@ class PythonVersion(GradleTestCase):
 class AbiFilters(GradleTestCase):
     def test_missing(self):
         run = RunGradle("base", "abi_filters_missing", succeed=False)
-        self.assertInLong("ndk.abiFilters not set", run.stderr)
+        self.assertInLong("debug: Chaquopy requires ndk.abiFilters", run.stderr)
 
     def test_invalid(self):
         run = RunGradle("base", "abi_filters_invalid", succeed=False)
-        self.assertInLong("ABI 'armeabi'. Supported ABIs are [armeabi-v7a, x86].", run.stderr)
+        self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
+                          "Supported ABIs are [armeabi-v7a, x86].", run.stderr)
 
     # TODO #5202
     def test_variant(self):
         run = RunGradle("base", "abi_filters_variant", succeed=False)
-        self.assertInLong("not yet support per-flavor abiFilters", run.stderr)
+        self.assertInLong("redDebug: Chaquopy does not yet support per-flavor abiFilters", run.stderr)
 
     # Testing adding an ABI, because when removing one I kept getting this error: Execution
     # failed for task ':app:transformNativeLibsWithStripDebugSymbolForDebug'.
@@ -125,6 +149,33 @@ class AbiFilters(GradleTestCase):
         run.apply_layer("base")
         run.rerun()
         self.check_apk(run, abis=["armeabi-v7a", "x86"])
+
+
+class PythonSrc(GradleTestCase):
+    # Missing python src directory is already tested by Basic.
+
+    def test_change(self):
+        run = RunGradle("base", "python_src_empty")
+        self.check_apk(run)
+        self.check_up_to_date(run)
+
+        # Add
+        run.apply_layer("python_src_1")
+        run.rerun()
+        self.check_apk(run)
+        self.check_up_to_date(run)
+
+        # Modify
+        run.apply_layer("python_src_2")
+        run.rerun()
+        self.check_apk(run)
+        self.check_up_to_date(run)
+
+        # Remove
+        os.remove(join(run.project_dir, "app/src/main/python/one.py"))
+        run.rerun()
+        self.check_apk(run)
+        self.check_up_to_date(run)
 
 
 data_dir  = abspath(join(dirname(__file__), "data"))

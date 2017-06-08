@@ -48,11 +48,6 @@ In both cases, interactive use of Python requires either using a Windows console
 winpty program in mintty. And for the Python and Cython executables to be found by their Gradle
 tasks, their directories must be on the PATH. */
 
-
-// Currently the oldest version included in the NDK. The corresponding platform JAR should be
-// manually downloaded using the SDK Manager.
-final def API_LEVEL = 9
-
 // The following properties file should be created manually.
 def localProps = new Properties()
 localProps.load(project.rootProject.file('local.properties').newDataInputStream())
@@ -197,7 +192,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
                 args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                      "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
-                     "-DANDROID_NATIVE_API_LEVEL=$API_LEVEL", "-DANDROID_ABI=$abi",
+                     "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION", "-DANDROID_ABI=$abi",
                      "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
                      "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
             }
@@ -298,7 +293,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
 
 dependencies {
-    compileOnly files("$sdkDir/platforms/android-$API_LEVEL/android.jar")
+    compileOnly files("$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar")
 
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.

@@ -14,7 +14,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5144
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5211
     static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0-alpha1")  // TODO #5180
 
     Project project
@@ -94,12 +94,16 @@ class PythonPlugin implements Plugin<Project> {
                 python.mergeFrom(flavor)
             }
             */
+            if (variant.mergedFlavor.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
+                throw new GradleException("$variant.name: Chaquopy requires minSdkVersion " +
+                                          "$Common.MIN_SDK_VERSION or higher.")
+            }
             if (python.version == null) {
-                throw new GradleException("python.version not set for variant '$variant.name'. " +
-                                          "You may want to add it to defaultConfig.")
+                throw new GradleException("$variant.name: python.version not set: you may want to " +
+                                          "add it to defaultConfig.")
             }
             if (! Common.PYTHON_VERSIONS.contains(python.version)) {
-                throw new GradleException("Invalid Python version '${python.version}'. " +
+                throw new GradleException("$variant.name: invalid Python version '${python.version}'. " +
                                           "Available versions are ${Common.PYTHON_VERSIONS}.")
             }
 
@@ -120,7 +124,7 @@ class PythonPlugin implements Plugin<Project> {
         project.configurations.create(abiConfig)
         for (abi in getAbis(variant)) {
             if (! Common.ABIS.contains(abi)) {
-                throw new GradleException("Chaquopy does not support the ABI '$abi'. " +
+                throw new GradleException("$variant.name: Chaquopy does not support the ABI '$abi'. " +
                                           "Supported ABIs are ${Common.ABIS}.")
             }
             project.dependencies.add(abiConfig, targetDependency(python.version, abi))
@@ -150,14 +154,15 @@ class PythonPlugin implements Plugin<Project> {
                 /* TODO #5202
                 // Replicate the accumulation behaviour of MergedNdkConfig.append
                 abis.addAll(flavor.ndk.abiFilters) */
-                raise GradleException("Chaquopy does not yet support per-flavor abiFilters.")
+                raise GradleException("$variant.name: Chaquopy does not yet support per-flavor " +
+                                      "abiFilters.")
             }
         }
         if (abis.isEmpty()) {
             // The Android plugin doesn't make abiFilters compulsory, but we will, because
             // adding 25 MB to the APK is not something we want to do by default.
-            throw new GradleException("ndk.abiFilters not set for variant '$variant.name'. " +
-                                      "You may want to add it to defaultConfig.")
+            throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: you may want to " +
+                                      "add it to defaultConfig.")
         }
         return abis
     }
