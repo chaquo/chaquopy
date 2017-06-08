@@ -14,7 +14,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5144
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5211
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.3")
     static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0-alpha1")  // TODO #5180
 
     Project project

@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: 'ch.raffael.pegdown-doclet'
+apply plugin: 'ch.raffael.pegdown-doclet'  // For javadoc
 
 import com.chaquo.python.Common;
 
@@ -62,6 +62,7 @@ def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def PATH_SEPARATOR = windowsHost ? ";" : ":"
 
 
+// Affected by Markdown plugin above
 javadoc {
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")

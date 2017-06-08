@@ -84,10 +84,10 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("requires Android Gradle plugin version 2.3.0", run.stderr)
 
     # This test may have to be temporarily disabled if there are no released versions it applies to.
-    def test_untested(self):
-        run = RunGradle("base", "android_plugin_untested")
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 2.3.0",
-                          run.stdout)
+    # def test_untested(self):
+    #     run = RunGradle("base", "android_plugin_untested")
+    #     self.assertInLong("not been tested with Android Gradle plugin versions beyond 2.3.0",
+    #                       run.stdout)
 
     def test_new(self):
         run = RunGradle("base", "android_plugin_new", succeed=False)
