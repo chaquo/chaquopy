@@ -95,11 +95,40 @@ def cythonTask = {Map taskArgs, String name, Closure closure ->
         assert(pyxFiles.size() == 1)
         def inFile = pyxFiles.get(0)
         def stem = inFile.name.substring(0, inFile.name.length() - ".pyx".length())
-        def outStem = "$buildDir/cython/$stem"
-        def outFile = "${outStem}.c"
+        def outFile = "$buildDir/cython/${stem}.c"
+
         outputs.file outFile
+        workingDir inFile.parent  // Reduce clutter in exception traces
         executable "cython"
-        args "-Wextra", "-Werror", inFile, "-o", outFile
+        args "-Wextra", "-Werror", inFile.name, "-o", outFile
+        doLast {
+            String[][] replacements = [
+                // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
+                // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
+                // some platforms including x86. So alter the generated C code to add it.
+                [/__PYX_EXTERN_C DL_EXPORT\((.+?)\)/,
+                 '/* cythonTask altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL'],
+
+                // Reduce clutter in exception traces
+                [/"%s \(%s:%d\)", funcname, __pyx_cfilenm, c_line/,
+                 '/* cythonTask altered */ "%s (%s:%d)", funcname, ".c", c_line'],
+            ]
+            def cFile = outputs.files.getSingleFile()
+            def tmpFile = new File("${cFile}.tmp")
+            def replacementCount = 0
+            tmpFile.withWriter { writer ->
+                for (line in cFile.readLines()) {
+                    for (r in replacements) {
+                        line = line.replaceAll(r[0], r[1])
+                    }
+                    writer.write(line + "\n")
+                }
+            }
+            if (! (cFile.delete() && tmpFile.renameTo(cFile))) {
+                throw new GradleException("Failed to replace $cFile")
+            }
+        }
+
     }
     return t
 }
@@ -112,29 +141,6 @@ cythonTask("cythonPython", group: "build") {
 cythonTask("cythonJava", group: "build") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
     inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
-    doLast {
-        // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
-        // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
-        // some platforms including x86. So alter the generated C code to add it.
-        def cFile = outputs.files.getSingleFile()
-        def tmpFile = new File("${cFile}.tmp")
-        def replacementCount = 0
-        tmpFile.withWriter { writer ->
-            for (inLine in cFile.readLines()) {
-                def outLine = inLine.replaceAll \
-                    (/__PYX_EXTERN_C DL_EXPORT\((.+?)\)/,
-                     '/* cythonJava altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL')
-                if (! outLine.equals(inLine)) replacementCount += 1
-                writer.write(outLine + "\n")
-            }
-        }
-        if (replacementCount == 0) {
-            throw new GradleException("No exports found: has Cython output format changed?")
-        }
-        if (! (cFile.delete() && tmpFile.renameTo(cFile))) {
-            throw new GradleException("Failed to replace $cFile")
-        }
-    }
 }
 task("cython", group: "build") {
     dependsOn cythonPython, cythonJava
