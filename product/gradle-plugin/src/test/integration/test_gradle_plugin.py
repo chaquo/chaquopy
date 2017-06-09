@@ -14,8 +14,8 @@ class GradleTestCase(TestCase):
     def check_up_to_date(self, run):
         run.rerun()  # TODO #5204 extra run required
         run.rerun()
-        self.assertInLong(":app:generatePythonDebugAssets UP-TO-DATE", run.stdout)
-        self.assertInLong(":app:generatePythonDebugJniLibs UP-TO-DATE", run.stdout)
+        self.assertInLong(":app:generateDebugPythonAssets UP-TO-DATE", run.stdout)
+        self.assertInLong(":app:generateDebugPythonJniLibs UP-TO-DATE", run.stdout)
 
     @kwonly_defaults
     def check_apk(self, run, variant="debug", abis=["armeabi-v7a", "x86"]):

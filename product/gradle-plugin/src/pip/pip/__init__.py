@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import locale
 import logging
@@ -169,8 +169,7 @@ def parseopts(args):
 
     # --version
     if general_options.version:
-        sys.stdout.write(parser.version)
-        sys.stdout.write(os.linesep)
+        print(parser.version)
         sys.exit()
 
     # pip || pip help -> print_help()
@@ -218,8 +217,7 @@ def main(args=None):
     try:
         cmd_name, cmd_args = parseopts(args)
     except PipError as exc:
-        sys.stderr.write("ERROR: %s" % exc)
-        sys.stderr.write(os.linesep)
+        print("ERROR: %s" % exc, file=sys.stderr)
         sys.exit(1)
 
     # Needed for locale.getpreferredencoding(False) to work

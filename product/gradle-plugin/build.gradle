@@ -30,6 +30,7 @@ sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 processResources {
     // Configurations passed directly to `from` are depended on automatically.
     dependsOn configurations.runtimeJniLibs, configurations.runtimeLibDynload
+    inputs.dir("src/pip")
     doFirst { delete destinationDir }
     into("com/chaquo/python/runtime") {
         from(configurations.runtimeJava)
@@ -45,6 +46,10 @@ processResources {
             }
         }
     }
+    doLast {
+        ant.zip(basedir: "src/pip", destfile: "$destinationDir/com/chaquo/python/gradle/pip.zip")
+    }
+
 }
 
 task("integrationTest", type: Exec, group: "verification") {

@@ -4,6 +4,7 @@ import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
+import org.gradle.api.tasks.*
 import org.gradle.util.*
 
 import java.nio.file.*
@@ -19,9 +20,11 @@ class PythonPlugin implements Plugin<Project> {
 
     Project project
     Object android
+    File genDir
 
-    public void apply(Project project) {
-        this.project = project
+    public void apply(Project p) {
+        project = p
+        genDir = new File(project.buildDir, "generated/$NAME")
 
         def depVer = null
         for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
@@ -58,7 +61,7 @@ class PythonPlugin implements Plugin<Project> {
             throw new GradleException("project.android not set. Did you apply plugin "+
                                       "com.android.application before com.chaquo.python?")
         }
-        this.android = project.android
+        android = project.android
 
         extend(android.defaultConfig)
         /* TODO 5202
@@ -77,11 +80,10 @@ class PythonPlugin implements Plugin<Project> {
     void setupDependencies() {
         project.repositories { maven { url "http://chaquo.com/maven" } }
 
-        project.delete(pythonGenDir())
         def filename = "chaquopy_java.jar"
-        extractResource("runtime/$filename", pythonGenDir())
+        extractResource("runtime/$filename", genDir)
         project.dependencies {
-            compile project.files("${pythonGenDir()}/$filename")
+            compile project.files("$genDir/$filename")
         }
     }
 
@@ -196,9 +198,27 @@ class PythonPlugin implements Plugin<Project> {
         def stdlibConfig = getConfig(variant, "targetStdlib")
         def abiConfig = getConfig(variant, "targetAbis")
 
-        def genTask = project.task(genTaskName(variant, "assets")) {
+        def depsTask = project.task(taskName("get", variant, "dependencies"), type: Exec) {
+            onlyIf { ! python.pipInstall.isEmpty() }
+
+            def outDir = variantGenDir(variant, "site-packages")
+            inputs.property("pipInstall", python.pipInstall)
+            outputs.dir(outDir)
+            doFirst {
+                extractResource("gradle/pip.zip", genDir)
+                project.delete(outDir)
+                project.mkdir(outDir)
+            }
+
+            environment "PYTHONPATH", "$genDir/pip.zip"
+            executable python.buildPython
+            args "-m", "pip", "install"
+            args python.pipInstall
+        }
+
+        def genTask = project.task(taskName("generate", variant, "assets")) {
             inputs.dir(srcDir)
-            inputs.files(stdlibConfig, abiConfig)
+            inputs.files(depsTask, stdlibConfig, abiConfig)
             outputs.files(project.fileTree(assetBaseDir))
             doLast {
                 project.delete(assetBaseDir)
@@ -235,7 +255,7 @@ class PythonPlugin implements Plugin<Project> {
     void createJniLibsTask(variant, PythonExtension python) {
         def libsDir = variantGenDir(variant, "jniLibs")
         def abiConfig = getConfig(variant, "targetAbis")
-        def genTask = project.task(genTaskName(variant, "jniLibs")) {
+        def genTask = project.task(taskName("generate", variant, "jniLibs")) {
             inputs.files(abiConfig)
             outputs.files(project.fileTree(libsDir))
             doLast {
@@ -275,24 +295,16 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    File genDir() {
-        return new File(project.buildDir, "generated")
-    }
-
-    File pythonGenDir() {
-        return new File(genDir(), NAME)
-    }
-
     File variantGenDir(variant, String type) {
-        return new File(genDir(), "$type/$NAME/$variant.dirName")
+        return new File(genDir, "$type/$variant.dirName")
     }
 
     String configName(variant, String type) {
         return "$NAME${variant.name.capitalize()}${type.capitalize()}"
     }
 
-    String genTaskName(variant, String type) {
-        return "generate${NAME.capitalize()}${variant.name.capitalize()}${type.capitalize()}"
+    String taskName(String verb, variant, String object) {
+        return "$verb${variant.name.capitalize()}${NAME.capitalize()}${object.capitalize()}"
     }
 
     void extractResource(String name, targetDir) {
@@ -314,10 +326,18 @@ class PythonPlugin implements Plugin<Project> {
 
 class PythonExtension {
     String version
+    String buildPython = "python"
+    List<String> pipInstall = new ArrayList<>();
+
+    void pipInstall(String... args) {
+        pipInstall.addAll(Arrays.asList(args))
+    }
 
     void mergeFrom(o) {
         PythonExtension overlay = o.python
-        version = chooseNotNull(overlay.version, version);
+        version = chooseNotNull(overlay.version, version)
+        buildPython = chooseNotNull(overlay.buildPython, buildPython)
+        pipInstall.addAll(overlay.pipInstall)
     }
 
     private static <T> T chooseNotNull(T overlay, T base) {
