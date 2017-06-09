@@ -1,5 +1,3 @@
--r requirements-run.txt
-
 # Use fixed version numbers so old builds can be reproduced.
 Cython==0.25.2
 Sphinx==1.6.1

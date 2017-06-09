@@ -10,7 +10,7 @@ cdef extern from "Python.h":
 
 # Imports used in multiple .pxi files
 import java
-import six
+from java._vendor import six
 cdef extern from "alloca.h":
     void *alloca(size_t size)
 

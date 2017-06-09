@@ -1,3 +1,0 @@
-# Runtime requirements are included in the source tree itself.
-
-six>=1.10.0

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import ctypes
 from functools import total_ordering
-import six
+from java._vendor import six
 
 import java
 from .chaquopy import JavaArray, JavaClass, check_range_char, check_range_float32
