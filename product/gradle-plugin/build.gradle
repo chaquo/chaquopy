@@ -27,29 +27,36 @@ sourceCompatibility = 7
 archivesBaseName = "gradle"
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 
+task("zipBuildPackages", type: Zip) {
+    destinationDir file("$buildDir/tmp/$name")
+    archiveName "build-packages.zip"
+    from "src/python"
+}
+
 processResources {
     // Configurations passed directly to `from` are depended on automatically.
     dependsOn configurations.runtimeJniLibs, configurations.runtimeLibDynload
-    inputs.dir("src/pip")
     doFirst { delete destinationDir }
-    into("com/chaquo/python/runtime") {
-        from(configurations.runtimeJava)
-        from(configurations.runtimePython)
-        into("jniLibs") {
-            for (file in configurations.runtimeJniLibs) {
-                from(file) { into "${file.parentFile.name}" }           // parent dir name is ABI
-            }
-        }
-        into("lib-dynload") {
-            for (file in configurations.runtimeLibDynload) {
-                from(file) { into "${file.parentFile.name}/java" }      // "
-            }
-        }
-    }
-    doLast {
-        ant.zip(basedir: "src/pip", destfile: "$destinationDir/com/chaquo/python/gradle/pip.zip")
-    }
+    into("com/chaquo/python") {
+        into("runtime") {
+            from(configurations.runtimeJava)
+            from(configurations.runtimePython)
+            into("jniLibs") {
+                for (file in configurations.runtimeJniLibs) {
+                    from(file) { into "${file.parentFile.name}" }       // parent dir name is ABI
 
+                }
+            }
+            into("lib-dynload") {
+                for (file in configurations.runtimeLibDynload) {
+                    from(file) { into "${file.parentFile.name}/java" }  // "
+                }
+            }
+        }
+        into("gradle") {
+            from zipBuildPackages
+        }
+    }
 }
 
 task("integrationTest", type: Exec, group: "verification") {

@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-apply plugin: 'com.chaquo.python' // Must come after com.android.application
+apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 
 android {
     compileSdkVersion 23
@@ -12,7 +12,10 @@ android {
         versionName "0.0.1"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         python {
+            // Enable and edit the following line if "python" is not on your PATH.
+            // buildPython "C:/Python36/python.exe"
             version "2.7.10"
+            pipInstall "six==1.10.0"
         }
         ndk {
             abiFilters "x86", "armeabi-v7a"
@@ -57,8 +60,6 @@ afterEvaluate {
         into "src/main/python"
         include "**/test*.py"
     }
-    generatePythonDebugAssets.dependsOn(copyPythonSrc)
+    generateDebugPythonAssets.dependsOn(copyPythonSrc)
 }
 // **********************************************************************
-
-

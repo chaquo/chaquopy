@@ -88,6 +88,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void afterEvaluate() {
+        Task buildPackagesTask = createBuildPackagesTask()
+
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
             python.mergeFrom(android.defaultConfig)
@@ -111,9 +113,9 @@ class PythonPlugin implements Plugin<Project> {
 
             createConfigs(variant, python)
             /* TODO #5193
-            createSourceTask(variant, python) */
-            createAssetsTask(variant, python)
-            createJniLibsTask(variant, python)
+            createSourceTasks(variant, python) */
+            createAssetsTasks(variant, python, buildPackagesTask)
+            createJniLibsTasks(variant, python)
         }
     }
 
@@ -170,7 +172,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     /* TODO #5193
-    void createSourceTask(variant, PythonExtension python) {
+    void createSourceTasks(variant, PythonExtension python) {
         File sourceDir = variantGenDir(variant, "source")
         Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
             outputs.dir(sourceDir)
@@ -189,32 +191,48 @@ class PythonPlugin implements Plugin<Project> {
         variant.registerJavaGeneratingTask(genTask, sourceDir)
     } */
 
-    void createAssetsTask(variant, PythonExtension python) {
-        def assetBaseDir = variantGenDir(variant, "assets")
-        def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
-
-        def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
-        project.mkdir(srcDir)
-        def stdlibConfig = getConfig(variant, "targetStdlib")
-        def abiConfig = getConfig(variant, "targetAbis")
-
-        def depsTask = project.task(taskName("get", variant, "dependencies"), type: Exec) {
-            onlyIf { ! python.pipInstall.isEmpty() }
-
-            def outDir = variantGenDir(variant, "site-packages")
-            inputs.property("pipInstall", python.pipInstall)
-            outputs.dir(outDir)
+    Task createBuildPackagesTask() {
+        return project.task("extractPythonBuildPackages", type: Copy) {
             doFirst {
-                extractResource("gradle/pip.zip", genDir)
-                project.delete(outDir)
-                project.mkdir(outDir)
+                extractResource("gradle/build-packages.zip", genDir)
             }
+            from project.zipTree("$genDir/build-packages.zip")
+            into "$genDir/build-packages"
+        }
+    }
 
-            environment "PYTHONPATH", "$genDir/pip.zip"
+    void createAssetsTasks(variant, PythonExtension python, Task buildPackagesTask) {
+        Task depsTask = createDepsTask(variant, python, buildPackagesTask)
+        createGenAssetsTask(variant, python, depsTask)
+    }
+
+    Task createDepsTask(variant, PythonExtension python, Task buildPackagesTask) {
+        return project.task(taskName("get", variant, "dependencies"), type: Exec) {
+            ext.destinationDir = variantGenDir(variant, "target-packages")
+            onlyIf { !python.pipInstall.isEmpty() }
+
+            dependsOn buildPackagesTask
+            inputs.files(project.fileTree(buildPackagesTask.destinationDir) { exclude "**/*.pyc" })
+            inputs.property("python", python)
+            outputs.dir(destinationDir)
+            doFirst {
+                project.delete(destinationDir)
+                project.mkdir(destinationDir)
+            }
+            environment "PYTHONPATH", buildPackagesTask.destinationDir
             executable python.buildPython
             args "-m", "pip", "install"
+            args "--only-binary", ":all:", "--target", destinationDir
             args python.pipInstall
         }
+    }
+
+    void createGenAssetsTask(variant, python, Task depsTask) {
+        def assetBaseDir = variantGenDir(variant, "assets")
+        def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
+        def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
+        def stdlibConfig = getConfig(variant, "targetStdlib")
+        def abiConfig = getConfig(variant, "targetAbis")
 
         def genTask = project.task(taskName("generate", variant, "assets")) {
             inputs.dir(srcDir)
@@ -224,7 +242,13 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(assetBaseDir)
                 project.mkdir(assetDir)
 
-                project.ant.zip(basedir: srcDir, destfile: "$assetDir/app.zip", whenempty: "create")
+                project.mkdir(srcDir)
+                project.ant.zip(basedir: srcDir, excludes: "**/*.pyc",
+                                destfile: "$assetDir/app.zip", whenempty: "create")
+
+                project.mkdir(depsTask.destinationDir)
+                project.ant.zip(basedir: depsTask.destinationDir, excludes: "**/*.pyc",
+                                destfile: "$assetDir/target-packages.zip", whenempty: "create")
 
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {    // Stdlib native modules
@@ -252,7 +276,7 @@ class PythonPlugin implements Plugin<Project> {
         extendMergeTask(variant.getMergeAssets(), genTask)
     }
 
-    void createJniLibsTask(variant, PythonExtension python) {
+    void createJniLibsTasks(variant, PythonExtension python) {
         def libsDir = variantGenDir(variant, "jniLibs")
         def abiConfig = getConfig(variant, "targetAbis")
         def genTask = project.task(taskName("generate", variant, "jniLibs")) {
@@ -324,7 +348,7 @@ class PythonPlugin implements Plugin<Project> {
 }
 
 
-class PythonExtension {
+class PythonExtension implements Serializable {
     String version
     String buildPython = "python"
     List<String> pipInstall = new ArrayList<>();

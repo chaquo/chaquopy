@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-from six import with_metaclass
+from java._vendor import six
 
 import java
 from .chaquopy import CQPEnv, JavaObject, JavaClass, JavaMethod, JavaField, JavaMultipleMethod
@@ -21,21 +21,21 @@ def setup_bootstrap_classes():
     # Generated with the help of runtime/make_proxy.py
     global Class, Modifier, Method, Field, Constructor
 
-    class Class(with_metaclass(JavaClass, JavaObject)):
+    class Class(six.with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.Class'
         getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
         getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
         getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
         getName = JavaMethod('()Ljava/lang/String;')
 
-    class Modifier(with_metaclass(JavaClass, JavaObject)):
+    class Modifier(six.with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Modifier'
         __javaconstructor__ = JavaMethod('()V')
         isAbstract = JavaMethod('(I)Z', static=True)
         isFinal = JavaMethod('(I)Z', static=True)
         isStatic = JavaMethod('(I)Z', static=True)
 
-    class Method(with_metaclass(JavaClass, JavaObject)):
+    class Method(six.with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Method'
         getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')
@@ -45,14 +45,14 @@ def setup_bootstrap_classes():
         isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
 
-    class Field(with_metaclass(JavaClass, JavaObject)):
+    class Field(six.with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Field'
         getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')
         getName = JavaMethod('()Ljava/lang/String;')
         getType = JavaMethod('()Ljava/lang/Class;')
 
-    class Constructor(with_metaclass(JavaClass, JavaObject)):
+    class Constructor(six.with_metaclass(JavaClass, JavaObject)):
         __javaclass__ = 'java.lang.reflect.Constructor'
         getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
         getModifiers = JavaMethod('()I')

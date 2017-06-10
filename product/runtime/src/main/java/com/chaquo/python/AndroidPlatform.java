@@ -9,10 +9,12 @@ import java.io.*;
 
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform implements Python.Platform {
+    // Earlier elements take priority over later ones.
     private static final String[] ASSETS = {
         "app.zip",
-        "stdlib.zip",
+        "target-packages.zip",
         "chaquopy.zip",
+        "stdlib.zip",
         "lib-dynload/" + Build.CPU_ABI,
     };
 
