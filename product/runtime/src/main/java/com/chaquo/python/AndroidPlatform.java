@@ -22,7 +22,7 @@ public class AndroidPlatform implements Python.Platform {
      * {@link Python#start Python.start()} is called. */
     // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
-        mContext = context;
+        mContext = context.getApplicationContext();
         extractAssets();
         loadNativeLibs();
     }
