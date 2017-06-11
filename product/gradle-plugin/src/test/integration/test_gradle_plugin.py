@@ -12,8 +12,9 @@ from zipfile import ZipFile
 
 class GradleTestCase(TestCase):
     def check_up_to_date(self, run):
-        run.rerun()  # TODO #5204 extra run required
         run.rerun()
+        self.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", run.stdout)
+        self.assertInLong(":app:getDebugPythonRequirements UP-TO-DATE", run.stdout)
         self.assertInLong(":app:generateDebugPythonAssets UP-TO-DATE", run.stdout)
         self.assertInLong(":app:generateDebugPythonJniLibs UP-TO-DATE", run.stdout)
 
@@ -54,9 +55,12 @@ class GradleTestCase(TestCase):
         self.assertTrue(os.path.isfile(filename), filename)
 
     # Prints b as a multi-line string rather than a repr().
-    def assertInLong(self, a, b):
+    def assertInLong(self, a, b, re=False):
         try:
-            TestCase.assertIn(self, a, b)
+            if re:
+                self.assertRegexpMatches(b, a)
+            else:
+                self.assertIn(a, b)
         except AssertionError:
             raise AssertionError("'{}' not found in:\n{}".format(a, b))
 
@@ -178,6 +182,23 @@ class PythonSrc(GradleTestCase):
         self.check_up_to_date(run)
 
 
+class PythonDeps(GradleTestCase):
+    pass
+    # FIXME:
+    # Add and remove, including removing all
+    # up to date: cannot accept extra run here, so fix the original problem
+    # target-packages.zip should have no .pyc files: also extend to app.zip
+    # buildPython
+    # -r with relative filename
+    # Package selection using --no-index and (--find-links or --index-url /local/path)
+    #   compatibility checks should use target environment
+    #   egg
+    #   wheel
+    #   No sdist, even from explicit local filename
+    #   No -e
+    #   Give appropriate error if package existed but no compatible version found
+
+
 data_dir  = abspath(join(dirname(__file__), "data"))
 repo_root = abspath(join(dirname(__file__), "../../../../.."))
 build_dir = abspath(join(repo_root, "product/gradle-plugin/build/integrationTest"))
@@ -207,7 +228,9 @@ class RunGradle(object):
     def rerun(self, variants=["debug"]):
         os.chdir(self.project_dir)
         # TODO #5184 Windows-specific
-        process = subprocess.Popen(["gradlew.bat"] +
+        # --info explains why tasks were not considered up to date.
+        # --console plain prevents output being truncated by a "String index out of range: -1" error.
+        process = subprocess.Popen(["gradlew.bat", "--stacktrace", "--info", "--console", "plain"] +
                                    [(":app:assemble" + variant_task_name(v)) for v in variants],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.stdout, self.stderr = process.communicate()

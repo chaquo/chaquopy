@@ -104,6 +104,7 @@ class Command(object):
 
     def main(self, args):
         options, args = self.parse_args(args)
+        assert options.chaquopy
 
         if options.quiet:
             if options.quiet == 1:

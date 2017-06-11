@@ -23,6 +23,8 @@ _osx_arch_pat = re.compile(r'(.+)_(\d+)_(\d+)_(.+)')
 
 
 def get_config_var(var):
+    raise NotImplementedError()  # Chaquopy disabled
+
     try:
         return sysconfig.get_config_var(var)
     except IOError as e:  # Issue #1074
@@ -32,6 +34,8 @@ def get_config_var(var):
 
 def get_abbr_impl():
     """Return abbreviated implementation name."""
+    raise NotImplementedError()  # Chaquopy disabled
+
     if hasattr(sys, 'pypy_version_info'):
         pyimpl = 'pp'
     elif sys.platform.startswith('java'):
@@ -45,33 +49,44 @@ def get_abbr_impl():
 
 def get_impl_ver():
     """Return implementation version."""
+    raise NotImplementedError()  # Chaquopy disabled
+
     impl_ver = get_config_var("py_version_nodot")
     if not impl_ver or get_abbr_impl() == 'pp':
         impl_ver = ''.join(map(str, get_impl_version_info()))
     return impl_ver
 
 
-def get_impl_version_info():
+def get_impl_version_info(impl_ver=None):
     """Return sys.version_info-like tuple for use in decrementing the minor
     version."""
-    if get_abbr_impl() == 'pp':
-        # as per https://github.com/pypa/pip/issues/2882
-        return (sys.version_info[0], sys.pypy_version_info.major,
-                sys.pypy_version_info.minor)
-    else:
-        return sys.version_info[0], sys.version_info[1]
+    if impl_ver is None:
+        raise NotImplementedError()  # Chaquopy disabled
 
+        if get_abbr_impl() == 'pp':
+            # as per https://github.com/pypa/pip/issues/2882
+            return (sys.version_info[0], sys.pypy_version_info.major,
+                    sys.pypy_version_info.minor)
+        else:
+            return sys.version_info[0], sys.version_info[1]
+    else:
+        assert len(impl_ver) == 2, impl_ver
+        return tuple(map(int, impl_ver))
 
 def get_impl_tag():
     """
     Returns the Tag for this specific implementation.
     """
+    raise NotImplementedError()  # Chaquopy disabled
+
     return "{0}{1}".format(get_abbr_impl(), get_impl_ver())
 
 
 def get_flag(var, fallback, expected=True, warn=True):
     """Use a fallback method for determining SOABI flags if the needed config
     var is unset or unavailable."""
+    raise NotImplementedError()  # Chaquopy disabled
+
     val = get_config_var(var)
     if val is None:
         if warn:
@@ -84,6 +99,8 @@ def get_flag(var, fallback, expected=True, warn=True):
 def get_abi_tag():
     """Return the ABI tag based on SOABI (if available) or emulate SOABI
     (CPython 2, PyPy)."""
+    raise NotImplementedError()  # Chaquopy disabled
+
     soabi = get_config_var('SOABI')
     impl = get_abbr_impl()
     if not soabi and impl in ('cp', 'pp') and hasattr(sys, 'maxunicode'):
@@ -116,11 +133,15 @@ def get_abi_tag():
 
 
 def _is_running_32bit():
+    raise NotImplementedError()  # Chaquopy disabled
+
     return sys.maxsize == 2147483647
 
 
 def get_platform():
     """Return our platform name 'win32', 'linux_x86_64'"""
+    raise NotImplementedError()  # Chaquopy disabled
+
     if sys.platform == 'darwin':
         # distutils.util.get_platform() returns the release based on the value
         # of MACOSX_DEPLOYMENT_TARGET on which Python was built, which may
@@ -146,6 +167,8 @@ def get_platform():
 
 
 def is_manylinux1_compatible():
+    raise NotImplementedError()  # Chaquopy disabled
+
     # Only Linux, and only x86-64 / i686
     if get_platform() not in ("linux_x86_64", "linux_i686"):
         return False
@@ -163,6 +186,8 @@ def is_manylinux1_compatible():
 
 
 def get_darwin_arches(major, minor, machine):
+    raise NotImplementedError()  # Chaquopy disabled
+
     """Return a list of supported arches (including group arches) for
     the given major, minor and machine architecture of an macOS machine.
     """
@@ -241,12 +266,15 @@ def get_supported(versions=None, noarch=False, platform=None,
 
     # Versions must be given with respect to the preference
     if versions is None:
-        versions = []
-        version_info = get_impl_version_info()
-        major = version_info[:-1]
-        # Support all previous minor Python versions.
-        for minor in range(version_info[-1], -1, -1):
-            versions.append(''.join(map(str, major + (minor,))))
+        versions = [get_impl_ver()]
+    else:
+        versions = list(versions)  # Don't modify argument
+    assert (len(versions) == 1 and len(versions[0]) == 2), versions
+    version_info = get_impl_version_info(versions[0])
+    major = version_info[:-1]
+    # Support all previous minor Python versions.
+    for minor in range(version_info[-1], -1, -1):
+        versions.append(''.join(map(str, major + (minor,))))
 
     impl = impl or get_abbr_impl()
 
@@ -257,12 +285,13 @@ def get_supported(versions=None, noarch=False, platform=None,
         abis[0:0] = [abi]
 
     abi3s = set()
-    import imp
-    for suffix in imp.get_suffixes():
-        if suffix[0].startswith('.abi'):
-            abi3s.add(suffix[0].split('.', 2)[1])
-
-    abis.extend(sorted(list(abi3s)))
+    # Chaquopy disabled
+    # import imp
+    # for suffix in imp.get_suffixes():
+    #     if suffix[0].startswith('.abi'):
+    #         abi3s.add(suffix[0].split('.', 2)[1])
+    #
+    # abis.extend(sorted(list(abi3s)))
 
     abis.append('none')
 
@@ -318,7 +347,11 @@ def get_supported(versions=None, noarch=False, platform=None,
 
     return supported
 
-supported_tags = get_supported()
-supported_tags_noarch = get_supported(noarch=True)
 
-implementation_tag = get_impl_tag()
+def set_supported(versions, platform, impl, abi):
+    global supported_tags, supported_tags_noarch, implementation_tag
+    supported_tags = get_supported(versions=versions, noarch=False, platform=platform,
+                                   impl=impl, abi=abi)
+    supported_tags_noarch = get_supported(versions=versions, noarch=True, platform=platform,
+                                          impl=impl, abi=abi)
+    implementation_tag = impl + versions[0]

@@ -181,6 +181,11 @@ class InstallCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.no_clean())
         cmd_opts.add_option(cmdoptions.require_hashes())
 
+        cmd_opts.add_option(cmdoptions.platform())
+        cmd_opts.add_option(cmdoptions.python_version())
+        cmd_opts.add_option(cmdoptions.implementation())
+        cmd_opts.add_option(cmdoptions.abi())
+
         index_opts = cmdoptions.make_option_group(
             cmdoptions.index_group,
             self.parser,
@@ -192,6 +197,7 @@ class InstallCommand(RequirementCommand):
     def run(self, options, args):
         cmdoptions.resolve_wheel_no_use_binary(options)
         cmdoptions.check_install_build_global(options)
+        cmdoptions.apply_dist_restrictions(options)
 
         if options.as_egg:
             warnings.warn(
@@ -270,8 +276,10 @@ class InstallCommand(RequirementCommand):
         global_options = options.global_options or []
 
         with self._build_session(options) as session:
-
-            finder = self._build_package_finder(options, session)
+            dist_restrictions = dict(
+                platform=options.platform, abi=options.abi, implementation=options.implementation,
+                python_versions=[options.python_version] if options.python_version else None)
+            finder = self._build_package_finder(options, session, **dist_restrictions)
             build_delete = (not (options.no_clean or options.build_dir))
             wheel_cache = WheelCache(options.cache_dir, options.format_control)
             if options.cache_dir and not check_path_owner(options.cache_dir):

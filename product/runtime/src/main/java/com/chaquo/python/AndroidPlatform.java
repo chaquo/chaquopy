@@ -80,11 +80,7 @@ public class AndroidPlatform implements Python.Platform {
                 }
             }
 
-            // TODO #5159 only extract if the asset has changed. Reading flash storage is faster than
-            // writing (especially if the file's already in the OS cache), so we could read
-            // inStream into a buffer and then compare it with the content of outFile before
-            // overwriting it. Or maybe make the Gradle plugin embed a timestamp so we can avoid
-            // this entirely.
+            // TODO #5159 only extract if the asset has changed
             InputStream inStream = assets.open(path);
             File outFile = new File(mContext.getFilesDir(), path);
             File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");

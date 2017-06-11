@@ -13,6 +13,8 @@ from functools import partial
 from optparse import OptionGroup, SUPPRESS_HELP, Option
 import warnings
 
+from pip import pep425tags
+from pip.exceptions import CommandError
 from pip.index import (
     FormatControl, fmt_ctl_handle_mutual_exclude, fmt_ctl_no_binary,
     fmt_ctl_no_use_wheel)
@@ -63,6 +65,11 @@ def check_install_build_global(options, check_options=None):
 ###########
 # options #
 ###########
+
+chaquopy = partial(
+    Option,
+    '--chaquopy',
+    action='store_true')
 
 help_ = partial(
     Option,
@@ -444,6 +451,76 @@ def only_binary():
              "used on them.")
 
 
+
+python_version = partial(
+    Option,
+    '--python-version',
+    dest='python_version',
+    metavar='python_version',
+    default=None,
+    help=("Only download wheels compatible with Python "
+          "interpreter version <version>. If not specified, then the "
+          "current system interpreter minor version is used. A major "
+          "version (e.g. '2') can be specified to match all "
+          "minor revs of that major version.  A minor version "
+          "(e.g. '34') can also be specified."),
+)
+
+platform = partial(
+    Option,
+    '--platform',
+    dest='platform',
+    metavar='platform',
+    default=None,
+    help=("Only download wheels compatible with <platform>. "
+          "Defaults to the platform of the running system."),
+)
+
+implementation = partial(
+    Option,
+    '--implementation',
+    dest='implementation',
+    metavar='implementation',
+    default=None,
+    help=("Only download wheels compatible with Python "
+          "implementation <implementation>, e.g. 'pp', 'jy', 'cp', "
+          " or 'ip'. If not specified, then the current "
+          "interpreter implementation is used.  Use 'py' to force "
+          "implementation-agnostic wheels."),
+)
+
+abi = partial(
+    Option,
+    '--abi',
+    dest='abi',
+    metavar='abi',
+    default=None,
+    help=("Only download wheels compatible with Python "
+          "abi <abi>, e.g. 'pypy_41'.  If not specified, then the "
+          "current interpreter abi tag is used.  Generally "
+          "you will need to specify --implementation, "
+          "--platform, and --python-version when using "
+          "this option."),
+)
+
+
+def apply_dist_restrictions(options):
+    dist_restriction_set = any([
+        options.python_version,
+        options.platform,
+        options.implementation,
+        options.abi,
+    ])
+    binary_only = FormatControl(set(), set([':all:']))
+    if dist_restriction_set and options.format_control != binary_only:
+        raise CommandError(
+            "--only-binary=:all: must be set and --no-binary must not "
+            "be set (or must be set to :none:) when restricting platform "
+            "and interpreter constraints using --python-version, "
+            "--platform, --abi, or --implementation.")
+    pep425tags.set_supported([options.python_version] if options.python_version else None,
+                             options.platform, options.implementation, options.abi)
+
 cache_dir = partial(
     Option,
     "--cache-dir",
@@ -587,6 +664,7 @@ require_hashes = partial(
 general_group = {
     'name': 'General Options',
     'options': [
+        chaquopy,
         help_,
         isolated_mode,
         require_virtualenv,

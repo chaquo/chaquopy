@@ -4,7 +4,6 @@ import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
-import org.gradle.api.tasks.*
 import org.gradle.util.*
 
 import java.nio.file.*
@@ -192,42 +191,60 @@ class PythonPlugin implements Plugin<Project> {
     } */
 
     Task createBuildPackagesTask() {
-        return project.task("extractPythonBuildPackages", type: Copy) {
-            doFirst {
+        // It's easier to run directly from the ZIP and extract the cacert file, than it is to
+        // extract the entire zip and then deal with auto-generated pyc files complicating the
+        // up-to-date checks.
+        return project.task("extractPythonBuildPackages") {
+            ext.buildPackagesZip = "$genDir/build-packages.zip"
+            def cacertRelPath = "pip/_vendor/requests/cacert.pem"
+            ext.cacertPem = "$genDir/$cacertRelPath"
+            outputs.files(buildPackagesZip, cacertPem)
+            doLast {
                 extractResource("gradle/build-packages.zip", genDir)
+                project.copy {
+                    from project.zipTree(buildPackagesZip)
+                    include cacertRelPath
+                    into genDir
+                }
             }
-            from project.zipTree("$genDir/build-packages.zip")
-            into "$genDir/build-packages"
         }
     }
 
     void createAssetsTasks(variant, PythonExtension python, Task buildPackagesTask) {
-        Task depsTask = createDepsTask(variant, python, buildPackagesTask)
-        createGenAssetsTask(variant, python, depsTask)
+        Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
+        createGenAssetsTask(variant, python, reqsTask)
     }
 
-    Task createDepsTask(variant, PythonExtension python, Task buildPackagesTask) {
-        return project.task(taskName("get", variant, "dependencies"), type: Exec) {
+    Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
+        return project.task(taskName("get", variant, "requirements")) {
             ext.destinationDir = variantGenDir(variant, "target-packages")
-            onlyIf { !python.pipInstall.isEmpty() }
-
             dependsOn buildPackagesTask
-            inputs.files(project.fileTree(buildPackagesTask.destinationDir) { exclude "**/*.pyc" })
             inputs.property("python", python)
             outputs.dir(destinationDir)
-            doFirst {
+            doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
+                if (!python.pipInstall.isEmpty()) {
+                   project.exec {
+                       environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
+                       executable python.buildPython
+                       args "-m", "pip", "install"
+                       args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
+                       args "--cert", buildPackagesTask.cacertPem
+                       args "--only-binary", ":all:"
+                       args "--python-version", Common.pyVersionNoDot(python.version)
+                       args "--platform", "android_none"  // TODO #5215: this should be "android_x86" etc, and
+                       args "--implementation", "cp"      //   may need an API level as well like macOS.
+                       args "--abi", Common.PYTHON_ABIS.get(python.version)
+                       args "--target", destinationDir
+                       args python.pipInstall
+                   }
+                }
             }
-            environment "PYTHONPATH", buildPackagesTask.destinationDir
-            executable python.buildPython
-            args "-m", "pip", "install"
-            args "--only-binary", ":all:", "--target", destinationDir
-            args python.pipInstall
         }
     }
 
-    void createGenAssetsTask(variant, python, Task depsTask) {
+    void createGenAssetsTask(variant, python, Task reqsTask) {
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
         def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
@@ -236,8 +253,9 @@ class PythonPlugin implements Plugin<Project> {
 
         def genTask = project.task(taskName("generate", variant, "assets")) {
             inputs.dir(srcDir)
-            inputs.files(depsTask, stdlibConfig, abiConfig)
-            outputs.files(project.fileTree(assetBaseDir))
+            inputs.files(reqsTask)
+            inputs.files(stdlibConfig, abiConfig)
+            outputs.dir(assetBaseDir)
             doLast {
                 project.delete(assetBaseDir)
                 project.mkdir(assetDir)
@@ -246,8 +264,8 @@ class PythonPlugin implements Plugin<Project> {
                 project.ant.zip(basedir: srcDir, excludes: "**/*.pyc",
                                 destfile: "$assetDir/app.zip", whenempty: "create")
 
-                project.mkdir(depsTask.destinationDir)
-                project.ant.zip(basedir: depsTask.destinationDir, excludes: "**/*.pyc",
+                project.mkdir(reqsTask.destinationDir)
+                project.ant.zip(basedir: reqsTask.destinationDir, excludes: "**/*.pyc",
                                 destfile: "$assetDir/target-packages.zip", whenempty: "create")
 
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
@@ -281,7 +299,7 @@ class PythonPlugin implements Plugin<Project> {
         def abiConfig = getConfig(variant, "targetAbis")
         def genTask = project.task(taskName("generate", variant, "jniLibs")) {
             inputs.files(abiConfig)
-            outputs.files(project.fileTree(libsDir))
+            outputs.dir(libsDir)
             doLast {
                 project.delete(libsDir)
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
@@ -366,5 +384,29 @@ class PythonExtension implements Serializable {
 
     private static <T> T chooseNotNull(T overlay, T base) {
         return overlay != null ? overlay : base
+    }
+
+    // equals() and hashCode() are not required in Gradle 3.5 thanks to
+    // https://github.com/gradle/gradle/pull/962, but they're still required in Gradle 3.3, which
+    // is used by Android Studio 2.3.
+    boolean equals(o) {
+        if (this.is(o)) return true
+        if (getClass() != o.class) return false
+
+        PythonExtension that = (PythonExtension) o
+
+        if (buildPython != that.buildPython) return false
+        if (pipInstall != that.pipInstall) return false
+        if (version != that.version) return false
+
+        return true
+    }
+
+    int hashCode() {
+        int result
+        result = (version != null ? version.hashCode() : 0)
+        result = 31 * result + buildPython.hashCode()
+        result = 31 * result + pipInstall.hashCode()
+        return result
     }
 }
