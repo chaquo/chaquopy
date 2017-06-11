@@ -154,11 +154,9 @@ cdef class JavaField(JavaMember):
     cdef bint is_final
 
     def __repr__(self):
-        # TODO #5155 don't expose JNI signatures to users
-        return (f"JavaField({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
+        return (f"<JavaField('{self.fqn()}', type='{java.sig_to_java(self.definition)}'"
                 f"{', static=True' if self.is_static else ''}"
-                f"{', final=True' if self.is_final else ''}"
-                f")")
+                f"{', final=True' if self.is_final else ''})>")
 
     def __init__(self, JavaObject klass, definition, *, static=False, final=False):
         super(JavaField, self).__init__(static)
@@ -344,10 +342,9 @@ cdef class JavaMethod(JavaMember):
     cdef bint is_varargs
 
     def __repr__(self):
-        # TODO #5155 don't expose JNI signatures to users
-        return (f"JavaMethod({self.definition!r}, class={self.classname()!r}, name={self.name!r}"
+        return (f"<JavaMethod('{self.fqn()}', type='{java.sig_to_java(self.definition_return)}'"
                 f"{', static=True' if self.is_static else ''}"
-                f"{', varargs=True' if self.is_varargs else ''})")
+                f"{', varargs=True' if self.is_varargs else ''})>")
 
     def fqn(self):
         """Returns the fully-qualified name of the method, plus its parameter types. Not used in any
