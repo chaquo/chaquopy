@@ -59,7 +59,7 @@ processResources {
     }
 }
 
-task("integrationTest", type: Exec, group: "verification") {
+task("testIntegration", type: Exec, group: "verification") {
     dependsOn assemble
     workingDir "$projectDir/src/test/integration"
     executable "python"

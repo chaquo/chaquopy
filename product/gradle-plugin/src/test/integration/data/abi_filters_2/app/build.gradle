@@ -14,7 +14,7 @@ android {
             version "2.7.10"
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "armeabi-v7a", "x86"
         }
     }
 

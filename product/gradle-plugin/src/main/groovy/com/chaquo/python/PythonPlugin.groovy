@@ -77,7 +77,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void setupDependencies() {
-        project.repositories { maven { url "http://chaquo.com/maven" } }
+        project.repositories { maven { url "https://chaquo.com/maven" } }
 
         def filename = "chaquopy_java.jar"
         extractResource("runtime/$filename", genDir)
@@ -157,7 +157,7 @@ class PythonPlugin implements Plugin<Project> {
                 /* TODO #5202
                 // Replicate the accumulation behaviour of MergedNdkConfig.append
                 abis.addAll(flavor.ndk.abiFilters) */
-                raise GradleException("$variant.name: Chaquopy does not yet support per-flavor " +
+                raise GradleException("$variant.name: Chaquopy does not support per-flavor " +
                                       "abiFilters.")
             }
         }
@@ -263,8 +263,6 @@ class PythonPlugin implements Plugin<Project> {
                 project.mkdir(srcDir)
                 project.ant.zip(basedir: srcDir, excludes: "**/*.pyc",
                                 destfile: "$assetDir/app.zip", whenempty: "create")
-
-                project.mkdir(reqsTask.destinationDir)
                 project.ant.zip(basedir: reqsTask.destinationDir, excludes: "**/*.pyc",
                                 destfile: "$assetDir/target-packages.zip", whenempty: "create")
 
@@ -304,11 +302,13 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(libsDir)
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
+                    // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in the build
+                    // directory. (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
                     project.copy {
                         from project.zipTree(art.file)
                         include "jniLibs/**"
                         into libsDir
-                        eachFile { FileCopyDetails fcd ->  // https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1
+                        eachFile { FileCopyDetails fcd ->
                             fcd.relativePath = new RelativePath
                                     (!fcd.file.isDirectory(),
                                      fcd.relativePath.segments[1..-1] as String[])
