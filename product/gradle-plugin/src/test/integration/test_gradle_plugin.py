@@ -36,70 +36,70 @@ class Basic(GradleTestCase):
 
     def test_variant(self):
         variants = ["red-debug", "blue-debug"]
-        self.RunGradle("base", "variant", variants=variants)
+        self.RunGradle("base", "Basic/variant", variants=variants)
 
 
 class AndroidPlugin(GradleTestCase):
     def test_misordered(self):
-        run = self.RunGradle("base", "android_plugin_misordered", succeed=False)
+        run = self.RunGradle("base", "AndroidPlugin/misordered", succeed=False)
         self.assertInLong("project.android not set", run.stderr)
 
     def test_old(self):
-        run = self.RunGradle("base", "android_plugin_old", succeed=False)
+        run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong("requires Android Gradle plugin version 2.3.0", run.stderr)
 
     @skip("no applicable versions currently exist")
     def test_untested(self):
-        run = self.RunGradle("base", "android_plugin_untested")
+        run = self.RunGradle("base", "AndroidPlugin/untested")
         self.assertInLong("not been tested with Android Gradle plugin versions beyond 2.3.3",
                           run.stdout)
 
     def test_new(self):
-        run = self.RunGradle("base", "android_plugin_new", succeed=False)
+        run = self.RunGradle("base", "AndroidPlugin/new", succeed=False)
         self.assertInLong("does not work with Android Gradle plugin version 3.0.0", run.stderr)
 
 
 class ApiLevel(GradleTestCase):
     def test_old(self):
-        run = self.RunGradle("base", "api_level_9")
-        run.apply_layers("api_level_8")
+        run = self.RunGradle("base", "ApiLevel/9")
+        run.apply_layers("ApiLevel/8")
         run.rerun(succeed=False)
         self.assertInLong("debug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
 
     def test_variant(self):
-        run = self.RunGradle("base", "api_level_variant", succeed=False)
+        run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
         self.assertInLong("redDebug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
 
 
 class PythonVersion(GradleTestCase):
     def test_missing(self):
-        run = self.RunGradle("base", "python_version_missing", succeed=False)
+        run = self.RunGradle("base", "PythonVersion/missing", succeed=False)
         self.assertInLong("debug: python.version not set", run.stderr)
 
     def test_invalid(self):
-        run = self.RunGradle("base", "python_version_invalid", succeed=False)
+        run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
         self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are [2.7.10]",
                           run.stderr)
 
     # TODO #5202
     def test_variant(self):
-        run = self.RunGradle("base", "python_version_variant", succeed=False)
+        run = self.RunGradle("base", "PythonVersion/variant", succeed=False)
         self.assertInLong("Could not find method python", run.stderr)
 
 
 class AbiFilters(GradleTestCase):
     def test_missing(self):
-        run = self.RunGradle("base", "abi_filters_missing", succeed=False)
+        run = self.RunGradle("base", "AbiFilters/missing", succeed=False)
         self.assertInLong("debug: Chaquopy requires ndk.abiFilters", run.stderr)
 
     def test_invalid(self):
-        run = self.RunGradle("base", "abi_filters_invalid", succeed=False)
+        run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
         self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
                           "Supported ABIs are [armeabi-v7a, x86].", run.stderr)
 
     # TODO #5202
     def test_variant(self):
-        run = self.RunGradle("base", "abi_filters_variant", succeed=False)
+        run = self.RunGradle("base", "AbiFilters/variant", succeed=False)
         self.assertInLong("redDebug: Chaquopy does not support per-flavor abiFilters", run.stderr)
 
     # We only test adding an ABI, because when removing one I kept getting this error: Execution
@@ -110,7 +110,7 @@ class AbiFilters(GradleTestCase):
     # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
     def test_change(self):
         run = self.RunGradle("base")
-        run.apply_layers("abi_filters_2")
+        run.apply_layers("AbiFilters/2")
         run.rerun(abis=["armeabi-v7a", "x86"])
 
 
@@ -118,11 +118,11 @@ class PythonSrc(GradleTestCase):
     # Missing python src directory is already tested by Basic.
 
     def test_change(self):
-        run = self.RunGradle("base", "python_src_empty")
+        run = self.RunGradle("base", "PythonSrc/empty")
 
-        run.apply_layers("python_src_1")                                # Add
+        run.apply_layers("PythonSrc/1")                                 # Add
         run.rerun()
-        run.apply_layers("python_src_2")                                # Modify
+        run.apply_layers("PythonSrc/2")                                 # Modify
         run.rerun()
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun()
@@ -130,35 +130,35 @@ class PythonSrc(GradleTestCase):
 
 class PythonReqs(GradleTestCase):
     def test_build_python(self):
-        run = self.RunGradle("base", "python_reqs_build_python_3", requirements=["apple"])
+        run = self.RunGradle("base", "PythonReqs/build_python_3", requirements=["apple"])
 
-        run.apply_layers("python_reqs_build_python_invalid")
+        run.apply_layers("PythonReqs/build_python_invalid")
         run.rerun(succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_change(self):
-        run = self.RunGradle("base")                                # No reqs
-        run.apply_layers("python_reqs_1a")                          # Add one req
+        run = self.RunGradle("base")                               # No reqs
+        run.apply_layers("PythonReqs/1a")                          # Add one req
         run.rerun(requirements=["apple"])
-        run.apply_layers("python_reqs_1")                           # Modify to a req with its own dependency
+        run.apply_layers("PythonReqs/1")                           # Modify to a req with its own dependency
         run.rerun(requirements=["alpha", "alpha_dep"])
-        run.apply_layers("python_reqs_2")                           # Add another req
+        run.apply_layers("PythonReqs/2")                           # Add another req
         run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
-        run.apply_layers("base")                                    # Remove all
+        run.apply_layers("base")                                   # Remove all
         run.rerun()
 
     def test_reqs_file(self):
-        self.RunGradle("base", "python_reqs_reqs_file", requirements=["apple", "bravo"])
+        self.RunGradle("base", "PythonReqs/reqs_file", requirements=["apple", "bravo"])
 
     def test_wheel_file(self):
-        self.RunGradle("base", "python_reqs_wheel_file", requirements=["alpha_dep"])
+        self.RunGradle("base", "PythonReqs/wheel_file", requirements=["alpha_dep"])
 
     def test_sdist_file(self):
-        run = self.RunGradle("base", "python_reqs_sdist_file", succeed=False)
+        run = self.RunGradle("base", "PythonReqs/sdist_file", succeed=False)
         self.assertInLong("alpha_dep-0.0.1.tar.gz: Chaquopy does not support sdist packages", run.stderr)
 
     def test_editable(self):
-        run = self.RunGradle("base", "python_reqs_editable", succeed=False)
+        run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
 
     def test_wheel_index(self):
@@ -168,21 +168,21 @@ class PythonReqs(GradleTestCase):
         # platform.
         self.assertIn(distutils.util.get_platform(), ["mingw"])
 
-        run = self.RunGradle("base", "python_reqs_wheel_index_1",   # Has Android wheel
+        run = self.RunGradle("base", "PythonReqs/wheel_index_1",   # Has Android wheel
                              requirements=["native1_android_todo"])
 
-        run.apply_layers("python_reqs_wheel_index_2")               # No Android wheel
+        run.apply_layers("PythonReqs/wheel_index_2")               # No Android wheel
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
     def test_sdist_index(self):
         # Similarly to test_wheel_index, this test has an sdist for version 0.2 and a wheel for
         # version 0.1.
-        run = self.RunGradle("base", "python_reqs_sdist_index_1",
+        run = self.RunGradle("base", "PythonReqs/sdist_index_1",
                              requirements=["sdist1_android_todo"])
 
         # While this test has only an sdist.
-        run.apply_layers("python_reqs_sdist_index_2")
+        run.apply_layers("PythonReqs/sdist_index_2")
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for sdist2 "
                           "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
@@ -198,7 +198,8 @@ class RunGradle(object):
     def __init__(self, test, *layers, **kwargs):
         self.test = test
 
-        self.run_dir = join(build_dir, test.id().partition(".")[2])
+        module, cls, func = test.id().split(".")
+        self.run_dir = join(build_dir, cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
 
