@@ -233,7 +233,7 @@ class PythonPlugin implements Plugin<Project> {
                        args "--cert", buildPackagesTask.cacertPem
                        args "--only-binary", ":all:"
                        args "--python-version", Common.pyVersionNoDot(python.version)
-                       args "--platform", "android_none"  // TODO #5215: this should be "android_x86" etc, and
+                       args "--platform", "android_todo"  // TODO #5215: this should be "android_x86" etc, and
                        args "--implementation", "cp"      //   may need an API level as well like macOS.
                        args "--abi", Common.PYTHON_ABIS.get(python.version)
                        args "--target", destinationDir

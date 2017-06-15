@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
+import distutils.util
 from kwonly_args import kwonly_defaults, KWONLY_REQUIRED
 import os
 from os.path import abspath, dirname, join
@@ -130,6 +131,7 @@ class PythonSrc(GradleTestCase):
 class PythonReqs(GradleTestCase):
     def test_build_python(self):
         run = self.RunGradle("base", "python_reqs_build_python_3", requirements=["apple"])
+
         run.apply_layers("python_reqs_build_python_invalid")
         run.rerun(succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
@@ -158,6 +160,32 @@ class PythonReqs(GradleTestCase):
     def test_editable(self):
         run = self.RunGradle("base", "python_reqs_editable", succeed=False)
         self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
+
+    def test_wheel_index(self):
+        # packages/dist should contain a wheel for each platform the tests may be run on. All
+        # the test platform wheels have version 0.2, while the Android wheels have version 0.1.
+        # This tests that pip always uses the target platform and ignores the workstation
+        # platform.
+        self.assertIn(distutils.util.get_platform(), ["mingw"])
+
+        run = self.RunGradle("base", "python_reqs_wheel_index_1",   # Has Android wheel
+                             requirements=["native1_android_todo"])
+
+        run.apply_layers("python_reqs_wheel_index_2")               # No Android wheel
+        run.rerun(succeed=False)
+        self.assertInLong("No matching distribution found for native2", run.stderr)
+
+    def test_sdist_index(self):
+        # Similarly to test_wheel_index, this test has an sdist for version 0.2 and a wheel for
+        # version 0.1.
+        run = self.RunGradle("base", "python_reqs_sdist_index_1",
+                             requirements=["sdist1_android_todo"])
+
+        # While this test has only an sdist.
+        run.apply_layers("python_reqs_sdist_index_2")
+        run.rerun(succeed=False)
+        self.assertInLong("No matching distribution found for sdist2 "
+                          "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
 
 
 data_dir  = abspath(join(dirname(__file__), "data"))

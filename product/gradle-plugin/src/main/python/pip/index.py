@@ -511,7 +511,8 @@ class PackageFinder(object):
             )
 
             raise DistributionNotFound(
-                'No matching distribution found for %s' % req
+                'No matching distribution found for %s '
+                '(NOTE: Chaquopy only supports wheels, not sdist packages)' % req
             )
 
         best_installed = False

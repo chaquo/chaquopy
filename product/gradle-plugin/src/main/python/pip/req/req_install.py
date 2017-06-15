@@ -223,8 +223,8 @@ class InstallRequirement(object):
                 wheel = Wheel(link.filename)  # can raise InvalidWheelFilename
                 req = "%s==%s" % (wheel.name, wheel.version)
             else:
-                # --only-binary prevents pip selecting sdists from indexes; this prevents it
-                # installing sdists from directly-specified filenames.
+                # --only-binary prevents pip selecting sdists from indexes, but we must also
+                # prevent it installing sdists from directly-specified filenames.
                 raise InstallationError(p + ": Chaquopy does not support sdist packages")
 
                 # set the req to the egg fragment.  when it's not there, this
