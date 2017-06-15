@@ -14,7 +14,7 @@ android {
             version "2.7.10"
             pipInstall "--no-index"
             pipInstall "--find-links", "../../../../../../src/test/integration/packages/dist"
-            pipInstall "apple"
+            pipInstall "-r", "requirements.txt"
         }
         ndk {
             abiFilters "x86"

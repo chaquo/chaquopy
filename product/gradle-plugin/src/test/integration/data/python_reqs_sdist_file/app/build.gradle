@@ -13,8 +13,7 @@ android {
         python {
             version "2.7.10"
             pipInstall "--no-index"
-            pipInstall "--find-links", "../../../../../../src/test/integration/packages/dist"
-            pipInstall "apple"
+            pipInstall "packages/alpha_dep-0.0.1.tar.gz"
         }
         ndk {
             abiFilters "x86"

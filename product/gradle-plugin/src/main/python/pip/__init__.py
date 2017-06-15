@@ -169,6 +169,7 @@ def parseopts(args):
 
     # --version
     if general_options.version:
+        # Chaquopy: replaced stdout.write because it wasn't showing up under Gradle.
         print(parser.version)
         sys.exit()
 
@@ -217,6 +218,7 @@ def main(args=None):
     try:
         cmd_name, cmd_args = parseopts(args)
     except PipError as exc:
+        # Chaquopy: replaced stdout.write because it wasn't showing up under Gradle.
         print("ERROR: %s" % exc, file=sys.stderr)
         sys.exit(1)
 

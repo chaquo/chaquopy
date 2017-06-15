@@ -269,8 +269,8 @@ def get_supported(versions=None, noarch=False, platform=None,
         versions = [get_impl_ver()]
     else:
         versions = list(versions)  # Don't modify argument
-    assert (len(versions) == 1 and len(versions[0]) == 2), versions
-    version_info = get_impl_version_info(versions[0])
+    assert (len(versions) == 1 and len(versions[0]) == 2), versions  # Chaquopy only needs to handle
+    version_info = get_impl_version_info(versions[0])                # this simple case.
     major = version_info[:-1]
     # Support all previous minor Python versions.
     for minor in range(version_info[-1], -1, -1):
@@ -348,6 +348,7 @@ def get_supported(versions=None, noarch=False, platform=None,
     return supported
 
 
+# Chaquopy addition
 def set_supported(versions, platform, impl, abi):
     global supported_tags, supported_tags_noarch, implementation_tag
     supported_tags = get_supported(versions=versions, noarch=False, platform=platform,

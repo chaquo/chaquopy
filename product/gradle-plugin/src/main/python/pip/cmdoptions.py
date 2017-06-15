@@ -451,6 +451,7 @@ def only_binary():
              "used on them.")
 
 
+# Chaquopy: moved these options here so they can be shared between download and install commands.
 
 python_version = partial(
     Option,

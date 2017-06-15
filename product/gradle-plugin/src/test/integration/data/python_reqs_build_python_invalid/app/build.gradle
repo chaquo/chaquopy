@@ -13,6 +13,7 @@ android {
         python {
             version "2.7.10"
             buildPython "pythoninvalid"
+            pipInstall "--no-index"
             pipInstall "--find-links", "../../../../../../src/test/integration/packages/dist"
             pipInstall "apple"
         }

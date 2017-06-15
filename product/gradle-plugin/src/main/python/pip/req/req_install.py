@@ -138,6 +138,8 @@ class InstallRequirement(object):
     def from_editable(cls, editable_req, comes_from=None, default_vcs=None,
                       isolated=False, options=None, wheel_cache=None,
                       constraint=False):
+        raise InstallationError(editable_req + ": Chaquopy does not support editable requirements")
+
         from pip.index import Link
 
         name, url, extras_override = parse_editable(
@@ -221,6 +223,10 @@ class InstallRequirement(object):
                 wheel = Wheel(link.filename)  # can raise InvalidWheelFilename
                 req = "%s==%s" % (wheel.name, wheel.version)
             else:
+                # --only-binary prevents pip selecting sdists from indexes; this prevents it
+                # installing sdists from directly-specified filenames.
+                raise InstallationError(p + ": Chaquopy does not support sdist packages")
+
                 # set the req to the egg fragment.  when it's not there, this
                 # will become an 'unnamed' requirement
                 req = link.egg_fragment

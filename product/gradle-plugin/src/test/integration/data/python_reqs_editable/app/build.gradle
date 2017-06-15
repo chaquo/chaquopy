@@ -12,8 +12,8 @@ android {
         versionName "0.0.1"
         python {
             version "2.7.10"
-            pipInstall "--find-links", "../../../../../../src/test/integration/packages/dist"
-            pipInstall "-r", "requirements.txt"
+            pipInstall "--no-index"
+            pipInstall "-e", "src"
         }
         ndk {
             abiFilters "x86"

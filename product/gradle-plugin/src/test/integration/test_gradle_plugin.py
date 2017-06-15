@@ -145,8 +145,19 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("base")                                    # Remove all
         run.rerun()
 
-    def test_file(self):
-        self.RunGradle("base", "python_reqs_file", requirements=["apple", "bravo"])
+    def test_reqs_file(self):
+        self.RunGradle("base", "python_reqs_reqs_file", requirements=["apple", "bravo"])
+
+    def test_wheel_file(self):
+        self.RunGradle("base", "python_reqs_wheel_file", requirements=["alpha_dep"])
+
+    def test_sdist_file(self):
+        run = self.RunGradle("base", "python_reqs_sdist_file", succeed=False)
+        self.assertInLong("alpha_dep-0.0.1.tar.gz: Chaquopy does not support sdist packages", run.stderr)
+
+    def test_editable(self):
+        run = self.RunGradle("base", "python_reqs_editable", succeed=False)
+        self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
 
 
 data_dir  = abspath(join(dirname(__file__), "data"))
