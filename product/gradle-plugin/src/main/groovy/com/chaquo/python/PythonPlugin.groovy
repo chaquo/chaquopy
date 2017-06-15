@@ -216,8 +216,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
-        return project.task(taskName("get", variant, "requirements")) {
-            ext.destinationDir = variantGenDir(variant, "target-packages")
+        return project.task(taskName("generate", variant, "requirements")) {
+            ext.destinationDir = variantGenDir(variant, "requirements")
             dependsOn buildPackagesTask
             inputs.property("python", python)
             outputs.dir(destinationDir)
@@ -262,9 +262,9 @@ class PythonPlugin implements Plugin<Project> {
 
                 project.mkdir(srcDir)
                 project.ant.zip(basedir: srcDir, excludes: "**/*.pyc",
-                                destfile: "$assetDir/app.zip", whenempty: "create")
+                                destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
                 project.ant.zip(basedir: reqsTask.destinationDir, excludes: "**/*.pyc",
-                                destfile: "$assetDir/target-packages.zip", whenempty: "create")
+                                destfile: "$assetDir/$Common.ASSET_REQUIREMENTS", whenempty: "create")
 
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {    // Stdlib native modules
@@ -277,10 +277,10 @@ class PythonPlugin implements Plugin<Project> {
                 project.copy {              // Stdlib Python modules
                     from(stdlibConfig)
                     into assetDir
-                    rename { "stdlib.zip" }
+                    rename { Common.ASSET_STDLIB }
                 }
 
-                extractResource("runtime/chaquopy.zip", assetDir)
+                extractResource("runtime/$Common.ASSET_CHAQUOPY", assetDir)
                 for (abi in getAbis(variant)) {
                     def dynloadJava = "lib-dynload/$abi/java"
                     extractResource("runtime/$dynloadJava/chaquopy.so",

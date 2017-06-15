@@ -119,33 +119,34 @@ class PythonSrc(GradleTestCase):
     def test_change(self):
         run = self.RunGradle("base", "python_src_empty")
 
-        # Add
-        run.apply_layers("python_src_1")
+        run.apply_layers("python_src_1")                                # Add
         run.rerun()
-
-        # Modify
-        run.apply_layers("python_src_2")
+        run.apply_layers("python_src_2")                                # Modify
         run.rerun()
-
-        # Remove
-        os.remove(join(run.project_dir, "app/src/main/python/one.py"))
+        os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun()
 
 
-class PythonDeps(GradleTestCase):
-    pass
-    # FIXME:
-    # Add and remove, including removing all
-    # target-packages.zip should have no .pyc files: also extend to app.zip
-    # buildPython
-    # -r with relative filename
-    # Package selection using --no-index and (--find-links or --index-url /local/path)
-    #   compatibility checks should use target environment
-    #   egg
-    #   wheel
-    #   No sdist, even from explicit local filename
-    #   No -e
-    #   Give appropriate error if package existed but no compatible version found
+class PythonReqs(GradleTestCase):
+    def test_build_python(self):
+        run = self.RunGradle("base", "python_reqs_build_python_3", requirements=["apple"])
+        run.apply_layers("python_reqs_build_python_invalid")
+        run.rerun(succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+
+    def test_change(self):
+        run = self.RunGradle("base")                                # No reqs
+        run.apply_layers("python_reqs_1a")                          # Add one req
+        run.rerun(requirements=["apple"])
+        run.apply_layers("python_reqs_1")                           # Modify to a req with its own dependency
+        run.rerun(requirements=["alpha", "alpha_dep"])
+        run.apply_layers("python_reqs_2")                           # Add another req
+        run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
+        run.apply_layers("base")                                    # Remove all
+        run.rerun()
+
+    def test_file(self):
+        self.RunGradle("base", "python_reqs_file", requirements=["apple", "bravo"])
 
 
 data_dir  = abspath(join(dirname(__file__), "data"))
@@ -170,19 +171,12 @@ class RunGradle(object):
         self.rerun(**kwargs)
 
     def apply_layers(self, *layers):
-        if hasattr(self, "stdout"):
-            # In Gradle 3.3, if the content of the build script changes immediately after a
-            # build, the daemon seems to cache the compiled old script under the new script's
-            # hash, meaning it will reuse the compiled old script incorrectly when we try and
-            # run the new script. We could work around that with --no-daemon
-            # --recompile-scripts (https://github.com/gradle/gradle/issues/1425), but that
-            # would be far slower. I've reported https://github.com/gradle/gradle/issues/2301.
-            time.sleep(0.5)
         for layer in layers:
-            copy_tree(join(data_dir, layer), self.project_dir, preserve_times=False)
+            copy_tree(join(data_dir, layer), self.project_dir,
+                      preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
     @kwonly_defaults
-    def rerun(self, succeed=True, variants=["debug"], abis=["x86"]):
+    def rerun(self, succeed=True, variants=["debug"], abis=["x86"], requirements=[]):
         status, self.stdout, self.stderr = self.run_gradle(variants)
 
         if status == 0:
@@ -192,22 +186,20 @@ class RunGradle(object):
             # TODO #5180 Android plugin version 3 adds an extra variant directory below "apk".
             for variant in variants:
                 apk_file = join(self.project_dir, "app/build/outputs/apk/app-{}.apk".format(variant))
-                self.apk = join(self.run_dir, "apk")
-                apk_subdir = join(self.apk, variant)
-                if os.path.exists(apk_subdir):
-                    rmtree(apk_subdir)
-                os.makedirs(apk_subdir)
-                ZipFile(apk_file).extractall(apk_subdir)
-                self.check_apk(variant, abis)
+                apk_dir = join(self.run_dir, "apk", variant)
+                if os.path.exists(apk_dir):
+                    rmtree(apk_dir)
+                os.makedirs(apk_dir)
+                ZipFile(apk_file).extractall(apk_dir)
+                self.check_apk(apk_dir, abis, requirements)
 
             status, self.stdout, self.stderr = self.run_gradle(variants)
             if status != 0:
                 self.dump_run("exit status {}".format(status))
             self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
             for variant in variants:
-                for prefix, suffix in [("get", "pythonRequirements"), ("generate", "pythonAssets"),
-                                       ("generate", "pythonJniLibs")]:
-                    msg = variant_task_name(":app:" + prefix, variant, suffix) + " UP-TO-DATE"
+                for suffix in ["pythonRequirements", "pythonAssets", "pythonJniLibs"]:
+                    msg = variant_task_name(":app:generate", variant, suffix) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout)
 
         else:
@@ -225,35 +217,41 @@ class RunGradle(object):
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
-    def check_apk(self, variant, abis):
-        apk_subdir = join(self.apk, variant)
-        for filename in ["app.zip", "chaquopy.zip", "stdlib.zip"]:
-            self.test.assertIsFile(join(apk_subdir, "assets/chaquopy", filename))
-
+    def check_apk(self, apk_dir, abis, requirements):
+        app_zip = ZipFile(join(apk_dir, "assets/chaquopy/app.zip"))
         app_check_base_name = join(self.run_dir, "app-check")
         # If app/src/main/python didn't already exist, the plugin should have created it.
         shutil.make_archive(app_check_base_name, "zip",
                             join(self.project_dir, "app/src/main/python"))
-        app_check = ZipFile(app_check_base_name + ".zip")
-        app = ZipFile(join(apk_subdir, "assets/chaquopy/app.zip"))
-        self.test.assertEqual(sorted(app.namelist()), sorted(app_check.namelist()))
-        for name in app.namelist():
-            self.test.assertEqual(app.getinfo(name).CRC, app_check.getinfo(name).CRC, name)
+        app_check_zip = ZipFile(app_check_base_name + ".zip")
+        self.test.assertEqual(set(app_zip.namelist()), set(app_check_zip.namelist()))
+        for name in app_zip.namelist():
+            self.test.assertEqual(app_zip.getinfo(name).CRC, app_check_zip.getinfo(name).CRC, name)
 
+        reqs_zip = ZipFile(join(apk_dir, "assets/chaquopy/requirements.zip"))
+        reqs_toplevel = set([path.partition("/")[0] for path in reqs_zip.namelist()
+                             if ".dist-info" not in path])
+        self.test.assertEqual(set(requirements), reqs_toplevel)
+
+        # Python stdlib
+        self.test.assertIsFile(join(apk_dir, "assets/chaquopy/stdlib.zip"))
         self.test.assertEqual(set(abis),
-                              set(os.listdir(join(apk_subdir, "assets/chaquopy/lib-dynload"))))
+                              set(os.listdir(join(apk_dir, "assets/chaquopy/lib-dynload"))))
         for abi in abis:
             # The native module list here is intended to be representative, not complete.
             for filename in ["_ctypes.so", "select.so", "unicodedata.so",
                              "java/__init__.py", "java/chaquopy.so"]:
-                self.test.assertIsFile(join(apk_subdir, "assets/chaquopy/lib-dynload", abi, filename))
+                self.test.assertIsFile(join(apk_dir, "assets/chaquopy/lib-dynload", abi, filename))
 
-        self.test.assertEqual(set(abis), set(os.listdir(join(apk_subdir, "lib"))))
+        # JNI libs
+        self.test.assertEqual(set(abis), set(os.listdir(join(apk_dir, "lib"))))
         for abi in abis:
             for filename in ["libchaquopy_java.so", "libcrystax.so", "libpython2.7.so"]:
-                self.test.assertIsFile(join(apk_subdir, "lib", abi, filename))
+                self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
-        dex = open(join(apk_subdir, "classes.dex"), "rb").read()
+        # Chaquopy runtime library
+        self.test.assertIsFile(join(apk_dir, "assets/chaquopy/chaquopy.zip"))
+        dex = open(join(apk_dir, "classes.dex"), "rb").read()
         for s in [b"com/chaquo/python/Python", b"Python already started"]:
             self.test.assertIn(s, dex)
 

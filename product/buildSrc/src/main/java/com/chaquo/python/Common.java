@@ -31,4 +31,8 @@ public class Common {
         );
 
     public static final String ASSET_DIR = "chaquopy";
+    public static final String ASSET_APP = "app.zip";
+    public static final String ASSET_CHAQUOPY = "chaquopy.zip";
+    public static final String ASSET_REQUIREMENTS = "requirements.zip";
+    public static final String ASSET_STDLIB = "stdlib.zip";
 }

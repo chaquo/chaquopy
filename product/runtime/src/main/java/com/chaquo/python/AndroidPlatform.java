@@ -11,10 +11,10 @@ import java.io.*;
 public class AndroidPlatform implements Python.Platform {
     // Earlier elements take priority over later ones.
     private static final String[] ASSETS = {
-        "app.zip",
-        "target-packages.zip",
-        "chaquopy.zip",
-        "stdlib.zip",
+        Common.ASSET_APP,
+        Common.ASSET_REQUIREMENTS,
+        Common.ASSET_CHAQUOPY,
+        Common.ASSET_STDLIB,
         "lib-dynload/" + Build.CPU_ABI,
     };
 

@@ -24,7 +24,7 @@ jar {
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") { include "**/*.py" }
     destinationDir buildDir
-    archiveName "chaquopy.zip"
+    archiveName Common.ASSET_CHAQUOPY
 }
 artifacts { python zipPython }
 
