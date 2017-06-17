@@ -188,6 +188,28 @@ class PythonReqs(GradleTestCase):
                           "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
 
 
+class License(GradleTestCase):
+    def test_empty_key(self):
+        run = self.RunGradle("base", key="", succeed=False)
+        self.assertInLong("Chaquopy license verification failed", run.stderr)
+
+        run.apply_layers("License/demo")
+        run.rerun(licensed=True)
+
+        run.apply_key(None)
+        run.rerun(licensed=False)
+
+    def test_key(self):
+        run = self.RunGradle("base", key="invalid", succeed=False)
+        self.assertInLong("Chaquopy license verification failed", run.stderr)
+
+        run.apply_key("AU5-6D8smj5fE6b53i9P7czOLV1L4Gf8W1L6RB_qkOQr")
+        run.rerun(licensed=True)
+
+        run.apply_key(None)
+        run.rerun(licensed=False)
+
+
 data_dir  = abspath(join(dirname(__file__), "data"))
 repo_root = abspath(join(dirname(__file__), "../../../../.."))
 build_dir = abspath(join(repo_root, "product/gradle-plugin/build/test/integration"))
@@ -195,7 +217,8 @@ demo_dir = abspath(join(repo_root, "demo"))
 
 
 class RunGradle(object):
-    def __init__(self, test, *layers, **kwargs):
+    @kwonly_defaults
+    def __init__(self, test, key=None, *layers,**kwargs):
         self.test = test
 
         module, cls, func = test.id().split(".")
@@ -205,8 +228,8 @@ class RunGradle(object):
 
         self.project_dir = join(self.run_dir, "project")
         os.makedirs(self.project_dir)
-        shutil.copy(join(demo_dir, "local.properties"), self.project_dir)
         self.apply_layers(*layers)
+        self.apply_key(key)
 
         self.rerun(**kwargs)
 
@@ -215,8 +238,15 @@ class RunGradle(object):
             copy_tree(join(data_dir, layer), self.project_dir,
                       preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
+    def apply_key(self, key):
+        LP_FILENAME = "local.properties"
+        shutil.copy(join(demo_dir, LP_FILENAME), self.project_dir)
+        if key is not None:
+            with open(join(self.project_dir, LP_FILENAME), "a") as lp_file:
+                print("chaquopy.license=" + key, file=lp_file)
+
     @kwonly_defaults
-    def rerun(self, succeed=True, variants=["debug"], abis=["x86"], requirements=[]):
+    def rerun(self, succeed=True, variants=["debug"], **kwargs):
         status, self.stdout, self.stderr = self.run_gradle(variants)
 
         if status == 0:
@@ -231,15 +261,16 @@ class RunGradle(object):
                     rmtree(apk_dir)
                 os.makedirs(apk_dir)
                 ZipFile(apk_file).extractall(apk_dir)
-                self.check_apk(apk_dir, abis, requirements)
+                self.check_apk(apk_dir, **kwargs)
 
+            # Run a second time to check all tasks are considered up to date.
             status, self.stdout, self.stderr = self.run_gradle(variants)
             if status != 0:
                 self.dump_run("exit status {}".format(status))
-            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
+            self.tedst.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
             for variant in variants:
-                for suffix in ["pythonRequirements", "pythonAssets", "pythonJniLibs"]:
-                    msg = variant_task_name(":app:generate", variant, suffix) + " UP-TO-DATE"
+                for suffix in ["Requirements", "Ticket", "Assets", "JniLibs"]:
+                    msg = task_name(":app:generate", variant, "Python" + suffix) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout)
 
         else:
@@ -252,13 +283,16 @@ class RunGradle(object):
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1" error.
         process = subprocess.Popen(["gradlew.bat", "--stacktrace", "--info", "--console", "plain"] +
-                                   [(variant_task_name(":app:assemble", v)) for v in variants],
+                                   [task_name(":app:assemble", v) for v in variants],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
-    def check_apk(self, apk_dir, abis, requirements):
-        app_zip = ZipFile(join(apk_dir, "assets/chaquopy/app.zip"))
+    @kwonly_defaults
+    def check_apk(self, apk_dir, abis=["x86"], requirements=[], licensed=False):
+        asset_dir = join(apk_dir, "assets/chaquopy")
+
+        app_zip = ZipFile(join(asset_dir, "app.zip"))
         app_check_base_name = join(self.run_dir, "app-check")
         # If app/src/main/python didn't already exist, the plugin should have created it.
         shutil.make_archive(app_check_base_name, "zip",
@@ -268,20 +302,20 @@ class RunGradle(object):
         for name in app_zip.namelist():
             self.test.assertEqual(app_zip.getinfo(name).CRC, app_check_zip.getinfo(name).CRC, name)
 
-        reqs_zip = ZipFile(join(apk_dir, "assets/chaquopy/requirements.zip"))
+        reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
         reqs_toplevel = set([path.partition("/")[0] for path in reqs_zip.namelist()
                              if ".dist-info" not in path])
         self.test.assertEqual(set(requirements), reqs_toplevel)
 
         # Python stdlib
-        self.test.assertIsFile(join(apk_dir, "assets/chaquopy/stdlib.zip"))
+        self.test.assertIsFile(join(asset_dir, "stdlib.zip"))
         self.test.assertEqual(set(abis),
-                              set(os.listdir(join(apk_dir, "assets/chaquopy/lib-dynload"))))
+                              set(os.listdir(join(asset_dir, "lib-dynload"))))
         for abi in abis:
             # The native module list here is intended to be representative, not complete.
             for filename in ["_ctypes.so", "select.so", "unicodedata.so",
                              "java/__init__.py", "java/chaquopy.so"]:
-                self.test.assertIsFile(join(apk_dir, "assets/chaquopy/lib-dynload", abi, filename))
+                self.test.assertIsFile(join(asset_dir, "lib-dynload", abi, filename))
 
         # JNI libs
         self.test.assertEqual(set(abis), set(os.listdir(join(apk_dir, "lib"))))
@@ -290,10 +324,16 @@ class RunGradle(object):
                 self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
         # Chaquopy runtime library
-        self.test.assertIsFile(join(apk_dir, "assets/chaquopy/chaquopy.zip"))
+        self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
         dex = open(join(apk_dir, "classes.dex"), "rb").read()
         for s in [b"com/chaquo/python/Python", b"Python already started"]:
             self.test.assertIn(s, dex)
+
+        ticket_file_size = os.stat(join(asset_dir, "ticket.txt")).st_size
+        if licensed:
+            self.test.assertGreater(ticket_file_size, 0)
+        else:
+            self.test.assertEqual(ticket_file_size, 0)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +
@@ -301,13 +341,14 @@ class RunGradle(object):
                        "=== STDERR ===\n" + self.stderr)
 
 
-def variant_task_name(prefix, variant, suffix=""):
-    def cap(s):
+def task_name(prefix, variant, suffix=""):
+    # Differs from str.capitalize() because it only affects the first character
+    def cap_first(s):
         return s if (s == "") else (s[0].upper() + s[1:])
 
     return (prefix +
-            "".join(cap(word) for word in variant.split("-")) +
-            cap(suffix))
+            "".join(cap_first(word) for word in variant.split("-")) +
+            cap_first(suffix))
 
 
 # shutil.rmtree is unreliable on Windows: it frequently fails with Windows error 145 (directory

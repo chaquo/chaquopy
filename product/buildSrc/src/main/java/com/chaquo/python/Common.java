@@ -35,4 +35,5 @@ public class Common {
     public static final String ASSET_CHAQUOPY = "chaquopy.zip";
     public static final String ASSET_REQUIREMENTS = "requirements.zip";
     public static final String ASSET_STDLIB = "stdlib.zip";
+    public static final String ASSET_TICKET = "ticket.txt";
 }

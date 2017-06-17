@@ -211,8 +211,9 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createAssetsTasks(variant, PythonExtension python, Task buildPackagesTask) {
-        Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
-        createGenAssetsTask(variant, python, reqsTask)
+        createGenAssetsTask(variant, python,
+                            createReqsTask(variant, python, buildPackagesTask),
+                            createTicketTask(variant))
     }
 
     Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
@@ -244,7 +245,41 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createGenAssetsTask(variant, python, Task reqsTask) {
+    Task createTicketTask(variant) {
+        def localProps = new Properties()
+        def propsStream = project.rootProject.file('local.properties').newInputStream()
+        localProps.load(propsStream)
+        propsStream.close()  // Otherwise the Gradle daemon may keep the file in use indefinitely.
+        def key = localProps.getProperty("chaquopy.license")
+
+        return project.task(taskName("generate", variant, "ticket")) {
+            ext.destinationDir = variantGenDir(variant, "license")
+            inputs.property("key", key)
+            outputs.dir(destinationDir)
+            doLast {
+                project.delete(destinationDir)
+                project.mkdir(destinationDir)
+                def ticket = "";  // See note in AndroidPlatform
+                if (key != null) {
+                    final def TIMEOUT = 10000
+                    def url = ("https://chaquo.com/license/get_ticket.py" +
+                               "?app=$variant.applicationId&key=$key")
+                    def connection = (HttpURLConnection) new URL(url).openConnection()
+                    connection.setConnectTimeout(TIMEOUT)
+                    connection.setReadTimeout(TIMEOUT)
+                    def code = connection.getResponseCode()
+                    if (code == connection.HTTP_OK) {
+                        ticket = connection.getInputStream().getText();
+                    } else {
+                        throw new GradleException(connection.getErrorStream().getText())
+                    }
+                }
+                project.file("$destinationDir/$Common.ASSET_TICKET").write(ticket);
+            }
+        }
+    }
+
+    void createGenAssetsTask(variant, python, Task reqsTask, Task ticketTask) {
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
         def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
@@ -253,7 +288,7 @@ class PythonPlugin implements Plugin<Project> {
 
         def genTask = project.task(taskName("generate", variant, "assets")) {
             inputs.dir(srcDir)
-            inputs.files(reqsTask)
+            inputs.files(ticketTask, reqsTask)
             inputs.files(stdlibConfig, abiConfig)
             outputs.dir(assetBaseDir)
             doLast {
@@ -275,7 +310,7 @@ class PythonPlugin implements Plugin<Project> {
                     }
                 }
                 project.copy {              // Stdlib Python modules
-                    from(stdlibConfig)
+                    from stdlibConfig
                     into assetDir
                     rename { Common.ASSET_STDLIB }
                 }
@@ -286,6 +321,11 @@ class PythonPlugin implements Plugin<Project> {
                     extractResource("runtime/$dynloadJava/chaquopy.so",
                                     "$assetDir/$dynloadJava")
                     new File("$assetDir/$dynloadJava/__init__.py").createNewFile();
+                }
+
+                project.copy {
+                    from ticketTask.destinationDir
+                    into assetDir
                 }
             }
         }
