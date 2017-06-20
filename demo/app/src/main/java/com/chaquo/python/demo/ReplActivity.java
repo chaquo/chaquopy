@@ -15,7 +15,7 @@ public class ReplActivity extends ConsoleActivity {
 
         public State(ReplActivity activity) {
             Python py = Python.getInstance();
-            PyObject locals = py.getBuiltins().callAttr("dict", new Kwarg("activity", activity));
+            PyObject locals = py.getBuiltins().callAttr("dict", new Kwarg("context", activity));
             interp = py.getModule("code").callAttr("InteractiveInterpreter", locals);
         }
     }
@@ -56,7 +56,10 @@ public class ReplActivity extends ConsoleActivity {
 
     private void exec(String input) {
         append(getString(R.string.repl_prompt) + input + "\n");
-        state.interp.callAttr("runsource", input);
+        boolean needMore = state.interp.callAttr("runsource", input).toJava(Boolean.class);
+        if (needMore) {
+            append("Error: incomplete input\n");  // TODO #5205
+        }
     }
 
     protected void scroll(int direction) {
