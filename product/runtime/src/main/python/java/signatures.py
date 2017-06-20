@@ -1,3 +1,4 @@
+"""Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
 from __future__ import absolute_import, division, print_function
 
 import ctypes
@@ -188,7 +189,7 @@ def jarray(element_type):
 
     Examples::
 
-        # Python code                           # Java equivalent
+        # Chaquopy code                         # Java equivalent
         jarray(jint)                            # int[]
         jarray(jarray(jint))                    # int[][]
         jarray(jclass("java.lang.String"))      # String[]

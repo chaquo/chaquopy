@@ -14,7 +14,7 @@ from java._vendor import six
 cdef extern from "alloca.h":
     void *alloca(size_t size)
 
-__all__ = ['JavaException', 'cast', 'detach']
+__all__ = ['cast', 'detach', 'JavaException', 'jklass']
 
 
 # Multi-threading is unavoidable in Java.
