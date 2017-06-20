@@ -1,3 +1,4 @@
+import itertools
 import keyword
 
 
@@ -85,30 +86,16 @@ def reflect_class(clsname):
     classDict = {"__javaclass__": clsname}
     c = Class(instance=CQPEnv().FindClass(clsname))
 
-    methods = c.getMethods() + c.getConstructors()
-    methods_name = [x.getName() for x in methods]
-    for index, method in enumerate(methods):
-        if method.isSynthetic():
-            continue
-
-        name = methods_name[index]
-        if name in classDict:
-            continue
-        if methods_name.count(name) == 1:
-            method = JavaMethod.from_method(method)
+    methods = [m for m in itertools.chain(c.getMethods(), c.getConstructors())
+               if not m.isSynthetic()]
+    name_key = lambda x: x.getName()
+    methods.sort(key=name_key)
+    for name, group in itertools.groupby(methods, key=name_key):
+        group = list(group)
+        if len(group) == 1:
+            method = JavaMethod.from_method(group[0])
         else:
-            # TODO #5212: this is quadratic. We should sort the original list by name and then
-            # use itertools.groupby.
-            jms = []
-            for index, subname in enumerate(methods_name):
-                if subname != name:
-                    continue
-                method = methods[index]
-                if method.isSynthetic():
-                    continue
-                jms.append(JavaMethod.from_method(method))
-            method = JavaMultipleMethod(jms)
-
+            method = JavaMultipleMethod(map(JavaMethod.from_method, group))
         if name == clsname:
             # The constructor's name in java.lang.reflect is the fully-qualified class name,
             # and its name in JNI is "<init>", but neither of those are valid Python
