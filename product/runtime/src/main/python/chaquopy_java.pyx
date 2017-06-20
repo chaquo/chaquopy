@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import ctypes
 from importlib import import_module
+from os.path import join
 import sys
 
 from cpython.module cimport PyImport_ImportModule
@@ -35,7 +36,8 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 # WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
 # more than once.
 cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jclass klass, jboolean should_initialize, jobject j_python_path):
+    (JNIEnv *env, jobject klass, jobject j_platform, jboolean should_initialize,
+     jobject j_python_path):
     # All code run before Py_Initialize must compile to pure C.
     if not should_initialize:
         startNativeNoInit(env)
@@ -67,6 +69,8 @@ cdef public void Java_com_chaquo_python_Python_startNative \
         if ret != 0:
              raise Exception(f"GetJavaVM failed: {ret}")
         set_jvm(jvm)
+
+        check_license(j2p(env, LocalRef.create(env, j_platform)))
 
     except Exception as e:
         wrap_exception(env, e)
@@ -329,7 +333,7 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
         wrap_exception(env, e)
         return 0
 
-# =============================================================================
+# === Exception handling ======================================================
 
 # TODO #5169:
 #   * If this is a Java exception, use the original exception object.
@@ -364,3 +368,4 @@ cdef void java_exception(JNIEnv *env, char *message, char *clsname):
     printf("Failed to throw Java exception: %s", message)
     # No need to release the reference: if we're throwing a Java exception we must be
     # imminently returning from a `native` method.
+

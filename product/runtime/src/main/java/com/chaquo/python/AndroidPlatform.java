@@ -10,15 +10,16 @@ import java.io.*;
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform implements Python.Platform {
     // Earlier elements take priority over later ones.
-    private static final String[] ASSETS = {
+    private static final String[] PYTHON_PATH = {
+        Common.ASSET_CHAQUOPY,  // Prevent rsa module from being overridden
         Common.ASSET_APP,
         Common.ASSET_REQUIREMENTS,
-        Common.ASSET_CHAQUOPY,
         Common.ASSET_STDLIB,
         "lib-dynload/" + Build.CPU_ABI,
     };
 
-    private Context mContext;
+    /** @deprecated Internal use in chaquopy_java.pyx. */
+    public Context mContext;
 
     /** The context is used only for initialization, and does not need to remain valid after
      * {@link Python#start Python.start()} is called. */
@@ -32,9 +33,9 @@ public class AndroidPlatform implements Python.Platform {
     @Override
     public String getPath() {
         String path = "";
-        for (int i = 0; i < ASSETS.length; i++) {
-            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + ASSETS[i];
-            if (i < ASSETS.length - 1) {
+        for (int i = 0; i < PYTHON_PATH.length; i++) {
+            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + PYTHON_PATH[i];
+            if (i < PYTHON_PATH.length - 1) {
                 path += ":";
             }
         }
@@ -49,9 +50,16 @@ public class AndroidPlatform implements Python.Platform {
     private void extractAssets() {
         // TODO #5158 avoid extraction
         try {
-            for (String path : ASSETS) {
-                extractAssets(mContext.getAssets(), Common.ASSET_DIR + "/" + path);
+            AssetManager assets = mContext.getAssets();
+            for (String path : PYTHON_PATH) {
+                extractAssets(assets, Common.ASSET_DIR + "/" + path);
             }
+
+            // No ticket is represented as an empty file rather than a missing one. This saves us
+            // from having to delete the extracted copy if the app is updated to remove the ticket.
+            // (We could pass the ticket to the runtime in some other way, but that would be more
+            // complicated.)
+            extractAssets(assets, Common.ASSET_DIR + "/" + Common.ASSET_TICKET);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

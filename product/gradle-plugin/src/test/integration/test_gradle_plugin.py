@@ -194,26 +194,30 @@ class License(GradleTestCase):
         self.assertInLong("Chaquopy license verification failed", run.stderr)
 
         run.apply_layers("License/demo")
-        run.rerun(licensed=True)
+        run.rerun(licensed_id="com.chaquo.python.demo")
+
+        run.apply_layers("base")
+        run.rerun(succeed=False)
 
         run.apply_key(None)
-        run.rerun(licensed=False)
+        run.rerun(licensed_id=None)
 
     def test_key(self):
-        run = self.RunGradle("base", key="invalid", succeed=False)
+        run = self.RunGradle("base")
+
+        run.apply_key("invalid")
+        run.rerun(succeed=False)
         self.assertInLong("Chaquopy license verification failed", run.stderr)
 
         run.apply_key("AU5-6D8smj5fE6b53i9P7czOLV1L4Gf8W1L6RB_qkOQr")
-        run.rerun(licensed=True)
+        run.rerun(licensed_id="com.chaquo.python.test")
 
         run.apply_key(None)
-        run.rerun(licensed=False)
+        run.rerun(licensed_id=None)
 
 
-data_dir  = abspath(join(dirname(__file__), "data"))
-repo_root = abspath(join(dirname(__file__), "../../../../.."))
-build_dir = abspath(join(repo_root, "product/gradle-plugin/build/test/integration"))
-demo_dir = abspath(join(repo_root, "demo"))
+integration_dir = abspath(dirname(__file__))
+repo_root = join(integration_dir, "../../../../..")
 
 
 class RunGradle(object):
@@ -222,7 +226,7 @@ class RunGradle(object):
         self.test = test
 
         module, cls, func = test.id().split(".")
-        self.run_dir = join(build_dir, cls, func)
+        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration", cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
 
@@ -235,15 +239,18 @@ class RunGradle(object):
 
     def apply_layers(self, *layers):
         for layer in layers:
-            copy_tree(join(data_dir, layer), self.project_dir,
+            copy_tree(join(integration_dir, "data", layer), self.project_dir,
                       preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
-        shutil.copy(join(demo_dir, LP_FILENAME), self.project_dir)
-        if key is not None:
-            with open(join(self.project_dir, LP_FILENAME), "a") as lp_file:
-                print("chaquopy.license=" + key, file=lp_file)
+        with open(join(repo_root, "demo", LP_FILENAME)) as in_file, \
+             open(join(self.project_dir, LP_FILENAME), "w") as out_file:
+            for line in in_file:
+                if "chaquopy.license" not in line:
+                    out_file.write(line)
+            if key is not None:
+                print("chaquopy.license=" + key, file=out_file)
 
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
@@ -267,7 +274,7 @@ class RunGradle(object):
             status, self.stdout, self.stderr = self.run_gradle(variants)
             if status != 0:
                 self.dump_run("exit status {}".format(status))
-            self.tedst.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
+            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
             for variant in variants:
                 for suffix in ["Requirements", "Ticket", "Assets", "JniLibs"]:
                     msg = task_name(":app:generate", variant, "Python" + suffix) + " UP-TO-DATE"
@@ -289,7 +296,7 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], requirements=[], licensed=False):
+    def check_apk(self, apk_dir, abis=["x86"], requirements=[], licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         app_zip = ZipFile(join(asset_dir, "app.zip"))
@@ -329,11 +336,12 @@ class RunGradle(object):
         for s in [b"com/chaquo/python/Python", b"Python already started"]:
             self.test.assertIn(s, dex)
 
-        ticket_file_size = os.stat(join(asset_dir, "ticket.txt")).st_size
-        if licensed:
-            self.test.assertGreater(ticket_file_size, 0)
+        ticket_filename = join(asset_dir, "ticket.txt")
+        if licensed_id:
+            subprocess.check_call(["python", join(repo_root, "server/license/check_ticket.py"),
+                                   "--quiet", "--ticket", ticket_filename, "--app", licensed_id])
         else:
-            self.test.assertEqual(ticket_file_size, 0)
+            self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

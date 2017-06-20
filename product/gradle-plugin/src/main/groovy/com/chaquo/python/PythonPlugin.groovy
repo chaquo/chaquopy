@@ -254,6 +254,7 @@ class PythonPlugin implements Plugin<Project> {
 
         return project.task(taskName("generate", variant, "ticket")) {
             ext.destinationDir = variantGenDir(variant, "license")
+            inputs.property("app", variant.applicationId)
             inputs.property("key", key)
             outputs.dir(destinationDir)
             doLast {

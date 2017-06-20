@@ -137,6 +137,7 @@ cythonTask("cythonPython", group: "build") {
 cythonTask("cythonJava", group: "build") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
     inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
+    inputs.files "$projectDir/../../server/license/check_ticket.py"
 }
 task("cython", group: "build") {
     dependsOn cythonPython, cythonJava

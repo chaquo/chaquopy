@@ -43,7 +43,7 @@ public class Python {
             throw new IllegalStateException("Python startup previously failed, and cannot be retried");
         }
         try {
-            startNative(platform.shouldInitialize(), platform.getPath());
+            startNative(platform, platform.shouldInitialize(), platform.getPath());
             started = true;
         } catch (Exception e) {
             failed = true;
@@ -57,7 +57,8 @@ public class Python {
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
      * cleanup. */
-    private static native void startNative(boolean shouldInitialize, String pythonPath);
+    private static native void startNative(Platform platform, boolean shouldInitialize,
+                                           String pythonPath);
 
     // =======================================================================
 
