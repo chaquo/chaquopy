@@ -215,6 +215,24 @@ class License(GradleTestCase):
         run.apply_key(None)
         run.rerun(licensed_id=None)
 
+    # There should be no way to produce a bad ticket via the plugin, but it could be done by
+    # deliberate tampering.
+    def test_bad_ticket(self):
+        self.check_bad_ticket("valid.txt", "com.chaquo.python.test",
+                              "Ticket is for 'com.chaquo.python.demo', but this app is "
+                              "'com.chaquo.python.test'")
+        self.check_bad_ticket("invalid.txt", "com.chaquo.python.test",
+                              "VerificationError")
+
+    def check_bad_ticket(self, ticket_filename, app_id, error):
+        ticket_path = join(integration_dir, "data/License/tickets", ticket_filename)
+        process = subprocess.Popen(["python", join(repo_root, "server/license/check_ticket.py"),
+                                    "--ticket", ticket_path, "--app", app_id],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        self.assertNotEqual(0, process.wait())
+        self.assertInLong(error, stderr)
+
 
 integration_dir = abspath(dirname(__file__))
 repo_root = join(integration_dir, "../../../../..")
