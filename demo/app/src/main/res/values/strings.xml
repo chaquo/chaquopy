@@ -9,4 +9,8 @@
     <string name="top">Top</string>
     <string name="bottom">Bottom</string>
     <string name="python_unit_test">Python unit tests</string>
+    <string name="main_caption">For more information see the
+        <a href="https://chaquo.com/chaquopy/">Chaquopy website</a>, or view this app\'s source
+        code <a href="https://github.com/chaquo/chaquopy">on GitHub</a>.
+    </string>
 </resources>

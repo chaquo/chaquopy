@@ -3,6 +3,8 @@ package com.chaquo.python.demo;
 import android.os.*;
 import android.support.v7.app.*;
 import android.support.v7.preference.*;
+import android.text.method.*;
+import android.widget.*;
 import com.chaquo.python.*;
 
 public class MainActivity extends AppCompatActivity {
@@ -13,9 +15,13 @@ public class MainActivity extends AppCompatActivity {
         if (! Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
+
+        setContentView(R.layout.activity_main);
         getSupportFragmentManager().beginTransaction()
-            .replace(android.R.id.content, new MenuFragment())
+            .replace(R.id.flMenu, new MenuFragment())
             .commit();
+
+        ((TextView)findViewById(R.id.tvCaption)).setMovementMethod(LinkMovementMethod.getInstance());
     }
 
     public static class MenuFragment extends PreferenceFragmentCompat {
