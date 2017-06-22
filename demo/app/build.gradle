@@ -8,8 +8,17 @@ android {
         applicationId "com.chaquo.python.demo"
         minSdkVersion 15
         targetSdkVersion 23
-        versionCode 1
-        versionName "0.0.1"
+
+        // *** Replace in public repository ***************************************
+        def ver = file("../../VERSION.txt").text.trim()
+        versionName ver + "-SNAPSHOT"
+
+        // Final digit is 0 for -SNAPSHOT builds in this repo, and 1 for released builds in the
+        // public repo.
+        def verParsed = ver.split(/\./).collect { Integer.parseInt(it) }
+        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
+        // **********************************************************************
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         python {
             // Enable and edit the following line if "python" is not on your PATH.

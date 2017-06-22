@@ -10,16 +10,9 @@ configurations {
     libDynload
 }
 
-
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
-
-// The Gradle plugin is already versioned, so make our filename within the plugin consistent.
 archivesBaseName = "chaquopy_java"
-jar {
-    version = null
-}
-
 
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") { include "**/*.py" }
@@ -67,7 +60,7 @@ javadoc {
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
     doFirst { delete(destinationDir) }
-    title "Chaquopy Java API"
+    title "Java API — Chaquopy"  // Consistent with Sphinx page title style
     executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
     options {
         addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
@@ -76,6 +69,7 @@ javadoc {
         addStringOption("noqualifier", "all")
         addStringOption("link", "https://developer.android.com/reference/")
         addStringOption("stylesheetfile", "docs/javadoc/javadoc-chaquo.css")
+        addStringOption("encoding", "UTF-8")  // For em dash in title above
     }
 }
 
@@ -281,10 +275,8 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
             if (pyVersion == "2.7") {
                 task("sphinx", type: Exec, group: "documentation") {
-                    def destinationDir = "$docsDir/python"
-                    doFirst { delete(destinationDir) }
                     executable "python"
-                    args "-msphinx", "-v", "-b", "html", "docs/sphinx", "build/docs/python"
+                    args "-msphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
                 }
                 sphinx.configure(testCommonConfig)
                 doc.dependsOn(sphinx)

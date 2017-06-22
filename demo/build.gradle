@@ -7,7 +7,7 @@ buildscript {
         classpath 'com.android.tools.build:gradle:2.3.3'
 
         // *** Replace in public repository ***************************************
-        classpath files('../product/gradle-plugin/build/libs/gradle-0.0.1.jar')
+        classpath files('../product/gradle-plugin/build/libs/gradle.jar')
         // **********************************************************************
 
     }

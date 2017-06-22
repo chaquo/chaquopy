@@ -8,8 +8,6 @@ buildscript {
 }
 
 allprojects {
-     group 'com.chaquo.python'
-     version '0.0.1'
      repositories {
          jcenter()
      }

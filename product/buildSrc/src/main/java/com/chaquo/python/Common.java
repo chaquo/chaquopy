@@ -3,6 +3,7 @@ package com.chaquo.python;
 import java.util.*;
 
 
+/** @deprecated internal use */
 public class Common {
     // This is currently the oldest version included in the NDK. To build the runtime module, the
     // corresponding platform JAR must have been downloaded using the SDK Manager.
