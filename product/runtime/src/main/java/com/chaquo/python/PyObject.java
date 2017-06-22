@@ -12,6 +12,7 @@ import java.util.*;
  *   PyObject (unless {@link #close} is called).
  *
  * Unless otherwise specified, methods in this class throw {@link PyException} on failure.*/
+@SuppressWarnings("deprecation")
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
@@ -35,7 +36,6 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     }
 
     /** Always called with the GIL and the cache lock */
-    @SuppressWarnings("deprecation")
     private PyObject(long addr) {
         this.addr = addr;
         openNative();
@@ -51,7 +51,6 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * After calling `close()`, the PyObject can no longer be used. If there are no other
      * references to the underlying object, it may be destroyed by Python. If it continues to exist
      * and is retrieved by Java code again, a different PyObject will be returned. */
-    @SuppressWarnings("deprecation")
     public void close() {
         if (addr == 0) return;
         synchronized (cache) {

@@ -8,6 +8,7 @@ import java.io.*;
 
 
 /** Platform for Chaquopy on Android. */
+@SuppressWarnings("deprecation")
 public class AndroidPlatform implements Python.Platform {
     // Earlier elements take priority over later ones.
     private static final String[] PYTHON_PATH = {

@@ -4,7 +4,7 @@ Android
 #######
 
 Chaquopy is distributed as a plugin for the Android Gradle build system. For a full example of
-how to use it, see the `demo app <https://github.com/chaquo/chaquopy-demo>`_.
+how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Setup
 =====
@@ -56,8 +56,8 @@ Chaquopy does not require the Android native development kit (NDK). However, the
 interpreter is a native component, so you must still specify which native ABIs you want the app
 to support.
 
-Available ABIs are `x86` (for the Android emulator) and `armeabi-v7a` (for the vast majority of
-Android hardware)::
+Currently available ABIs are `x86` (for the Android emulator) and `armeabi-v7a` (for the vast
+majority of Android hardware)::
 
     android {
         defaultConfig {
@@ -78,7 +78,12 @@ the app.
 
 Python dependencies may be added to the app by giving a `pip install
 <https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ command line. This may specify
-an exact requirement, a local wheel file, or a requirements file::
+an exact requirement, a local wheel file, or a requirements file.
+
+.. note:: Chaquopy currently only supports pure-Python wheel files: it will not accept sdist
+          packages or architecture-specific wheels.
+
+::
 
     python {
         pipInstall "six==1.10.0"
@@ -90,8 +95,7 @@ Any other `pip install` options may also be specified, except the following:
 
 * Target environment options, such as `--target` and `--user`.
 * Installation format options, such as `-e` and `--egg`.
-* Package type options, such as `--no-binary`. Chaquopy only supports pure-Python wheel
-  files: it will not accept sdist packages or architecture-specific wheels.
+* Package type options, such as `--no-binary`.
 
 `pip` is run on the build machine using your local copy of Python. If `python` is not on your
 `PATH`, or you want to use a different version, use the `buildPython` setting::

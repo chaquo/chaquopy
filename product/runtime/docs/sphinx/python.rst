@@ -2,7 +2,7 @@ Python API
 ##########
 
 The `java` module provides facilities to use Java classes and objects from Python code. For
-examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy-demo>`_.
+examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Data types
 ==========

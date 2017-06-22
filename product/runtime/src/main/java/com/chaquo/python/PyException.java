@@ -1,7 +1,7 @@
 package com.chaquo.python;
 
-/** An exception originating from Python code. {@link #getMessage} will return the Python
- * stack trace. */
+/** An exception originating from Python code. {@link #getMessage getMessage()} will return the
+ * Python stack trace. */
 // Has to be unchecked because it can be thrown by virtually all the methods in this package,
 // including those inherited from Map which we can't add "throws" declarations to.
 //
