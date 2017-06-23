@@ -263,7 +263,7 @@ class PythonPlugin implements Plugin<Project> {
                 def ticket = "";  // See note in AndroidPlatform
                 if (key != null) {
                     final def TIMEOUT = 10000
-                    def url = ("https://chaquo.com/license/get_ticket.py" +
+                    def url = ("https://chaquo.com/license/get_ticket" +
                                "?app=$variant.applicationId&key=$key")
                     def connection = (HttpURLConnection) new URL(url).openConnection()
                     connection.setConnectTimeout(TIMEOUT)
