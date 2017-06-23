@@ -3,11 +3,11 @@ set -eu
 
 start_dir=$(pwd)
 
-crystax=${1:?"Usage: build.sh path/to/crystax-ndk"}
-crystax_python=$crystax/sources/python
+crystax=~/crystax-ndk-10.3.2
+ndk=~/android-ndk-r14b
 
 short_ver=2.7
-full_ver=2.7.10-1  # See "build number" in PythonPlugin.groovy
+full_ver=2.7.10-2  # See "build number" in PythonPlugin.groovy
 target_dir="$start_dir/com/chaquo/python/target/$full_ver"
 rm -rf "$target_dir"
 mkdir -p "$target_dir"
@@ -22,13 +22,22 @@ for abi in armeabi-v7a x86; do
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp -a "$crystax_python/$short_ver/libs/$abi/libpython$short_ver.so" "$jniLibs_dir"
+    cp -a "$crystax/sources/python/$short_ver/libs/$abi/libpython$short_ver.so" "$jniLibs_dir"
     cp -a "$crystax/sources/crystax/libs/$abi/libcrystax.so" "$jniLibs_dir"
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
-    cp -a "$crystax_python/$short_ver/libs/$abi/modules" "$dynload_dir"
+    cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
     rm "$dynload_dir/_sqlite3.so"  # TODO 5160
+
+    if [[ $abi == "arm64-v8a" ]]; then
+        gcc_abi="aarch64"
+    elif [[ $abi == "armeabi"* ]]; then
+        gcc_abi="arm"
+    else
+        gcc_abi=$abi
+    fi
+    $ndk/toolchains/$gcc_abi-*/prebuilt/*/*/bin/strip $(find -name *.so)
 
     zip -q -r "$zipfile" *
     cd ..
@@ -36,7 +45,7 @@ for abi in armeabi-v7a x86; do
 done
 
 echo "stdlib"
-cp "$crystax_python/$short_ver/libs/x86/stdlib.zip" "$target_dir/target-$full_ver-stdlib.zip"
+cp "$crystax/sources/python/$short_ver/libs/x86/stdlib.zip" "$target_dir/target-$full_ver-stdlib.zip"
 
 for f in $(find -name *zip); do
     sha1sum "$f" |cut -d' ' -f1 > "$f.sha1";
