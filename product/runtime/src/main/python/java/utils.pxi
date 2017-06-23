@@ -292,3 +292,14 @@ def better_overload_arg(def1, def2, actual_type):
 
     return False
 
+
+# Trigger a simple native crash, for use when testing logging.
+def crash():
+    cdef char *s = NULL
+    print(s)
+
+# Trigger a CheckJNI crash, for use when testing logging.
+def crash_jni():
+    cdef JNIEnv *j_env = get_jnienv()
+    cdef jobject ref = j_env[0].FindClass(j_env, "java/lang/String")  # This is a local ref,
+    j_env[0].DeleteGlobalRef(j_env, ref)                              # so this is invalid.

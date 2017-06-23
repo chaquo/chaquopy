@@ -141,7 +141,7 @@ class PythonPlugin implements Plugin<Project> {
     String targetDependency(String version, String classifier) {
         /** Following the Maven version number format, this is the "build number"
          * (see maven/build.sh). */
-        final def TARGET_VERSION_SUFFIX = "-1"
+        final def TARGET_VERSION_SUFFIX = "-2"
         return "com.chaquo.python:target:$version$TARGET_VERSION_SUFFIX:$classifier@zip"
     }
 

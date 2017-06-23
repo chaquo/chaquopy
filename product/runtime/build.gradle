@@ -158,9 +158,11 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
         def javaLibSuffix = ".so"
 
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
+        def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
             dependsOn cython
             inputs.files "CMakeLists.txt"
+            inputs.property("cmakeBuildType", cmakeBuildType)
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
                           "$cmakeBuildSubdir/CMakeCache.txt"
             doFirst {
@@ -170,7 +172,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             workingDir cmakeBuildSubdir
             executable "$sdkCmakeDir/bin/cmake"
             args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=Debug",  // TODO #5152
+                 "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
                  "-DCHAQUOPY_LIBS=$pyPlusVersion"
 
             if (abi == "host") {

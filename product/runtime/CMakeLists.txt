@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.4.1)
 project(runtime LANGUAGES C)
 
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
+
 include_directories(
     src/main/c
     ${CHAQUOPY_INCLUDE_DIRS})
