@@ -1,7 +1,8 @@
 #/bin/bash
 set -eu
 
-start_dir=$(pwd)
+script_dir="$(dirname "$0")"
+start_dir="$(pwd)"
 
 crystax=~/crystax-ndk-10.3.2
 ndk=~/android-ndk-r14b
@@ -47,6 +48,4 @@ done
 echo "stdlib"
 cp "$crystax/sources/python/$short_ver/libs/x86/stdlib.zip" "$target_dir/target-$full_ver-stdlib.zip"
 
-for f in $(find -name *zip); do
-    sha1sum "$f" |cut -d' ' -f1 > "$f.sha1";
-done
+"$script_dir/update_checksums.sh" "$start_dir/com"
