@@ -1,0 +1,16 @@
+.DS_Store
+
+.idea/libraries
+.idea/misc.xml
+.idea/workspace.xml
+*.iml
+
+.externalNativeBuild
+.gradle
+build/
+local.properties
+
+*.pyc
+*.pyd
+*.so
+hs_err*.log

@@ -1,0 +1,22 @@
+buildscript {
+    ext.chaquopyVersion = "0.1.0"
+
+    repositories {
+        jcenter()
+        maven { url "https://chaquo.com/maven" }
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:2.3.3"
+        classpath "com.chaquo.python:gradle:$chaquopyVersion"
+    }
+}
+
+allprojects {
+    repositories {
+        jcenter()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

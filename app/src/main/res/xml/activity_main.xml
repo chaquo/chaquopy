@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orderingFromXml="true">
+
+    <Preference android:title="@string/repl" android:summary="@string/repl_summary">
+        <intent android:targetPackage="com.chaquo.python.demo"
+            android:targetClass="com.chaquo.python.demo.ReplActivity"/>
+    </Preference>
+
+    <Preference android:title="@string/java_unit_test">
+        <intent android:targetPackage="com.chaquo.python.demo"
+            android:targetClass="com.chaquo.python.demo.JavaTestActivity"/>
+    </Preference>
+
+    <Preference android:title="@string/python_unit_test">
+        <intent android:targetPackage="com.chaquo.python.demo"
+            android:targetClass="com.chaquo.python.demo.PythonTestActivity"/>
+    </Preference>
+
+</PreferenceScreen>
