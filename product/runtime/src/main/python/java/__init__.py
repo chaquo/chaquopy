@@ -5,11 +5,9 @@ from __future__ import absolute_import, division, print_function
 #
 # PyJNIus (https://github.com/kivy/pyjnius/)
 # Copyright (c) 2010-2017 Kivy Team and other contributors
-# MIT License
 #
 # pip (https://github.com/pypa/pip/)
 # Copyright (c) 2008-2016 The pip developers
-# MIT License
 
 
 # On Android, the native module is stored separately to the Python modules.

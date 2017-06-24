@@ -9,7 +9,7 @@ android {
         minSdkVersion 15
         targetSdkVersion 23
 
-        // *** Replace in public repository ***************************************
+        // *** Replace in public repository **********************************
         def ver = file("../../VERSION.txt").text.trim()
         versionName ver + "-SNAPSHOT"
 
@@ -30,6 +30,7 @@ android {
             abiFilters "x86", "armeabi-v7a"
         }
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -38,6 +39,19 @@ android {
     }
 
     // *** Remove in public repository ***************************************
+    signingConfigs {
+        config {
+            storeFile file('../chaquo.jks')
+            keyAlias 'key0'
+            keyPassword 'android'
+            storePassword 'android'
+        }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.config }
+        debug { signingConfig signingConfigs.config }
+    }
+
     sourceSets {
         main {
             java.srcDirs += ['../../product/runtime/src/test/java']
@@ -67,7 +81,7 @@ afterEvaluate {
     task("copyPythonSrc", type: Copy) {
         from "../../product/runtime/src/test/python"
         into "src/main/python"
-        include "**/test*.py"
+        include "**/*test*.py"
     }
     generateDebugPythonAssets.dependsOn(copyPythonSrc)
 }

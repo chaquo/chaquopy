@@ -50,9 +50,6 @@ class TestSignatures(unittest.TestCase):
         with self.assertRaisesRegexp(TypeError, "Cannot create"):
             jvoid()
 
-    # We don't test .value with any of the wrappers, because that's a non-public implementation
-    # detail.
-    #
     # Tests for passing the wrappers to fields and methods are in test_conversion.
     def test_boolean(self):
         self.assertEquals("jboolean(True)", str(jboolean(True)))
