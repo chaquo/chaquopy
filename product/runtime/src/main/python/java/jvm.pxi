@@ -19,10 +19,8 @@ cdef JavaVM *jvm = NULL
 
 cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
+        os.environ["CHAQUOPY_PYTHON_PROCESS"] = "1"  # See Python.java
         set_jvm(start_jvm())
-        platform = java.jclass("com.chaquo.python.GenericPlatform")()
-        platform.setShouldInitialize(False)
-        java.jclass("com.chaquo.python.Python").start(platform)
 
     # See comment in jni.pxd.
     cdef Attach_JNIEnv *env = NULL

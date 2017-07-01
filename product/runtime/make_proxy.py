@@ -69,8 +69,6 @@ def main():
                                 static = True
                         elif "(" in word:
                             method_name = word.split("(")[0]
-                            if method_name == class_name:
-                                method_name = "__javaconstructor__"
                             break
                     assert method_name
                 else:
@@ -82,7 +80,7 @@ def main():
     methods.update((k,v) for k,v in OBJECT_METHODS.items() if k not in methods)
 
     print("class {}(with_metaclass(JavaClass, JavaObject)):".format(class_name.split(".")[-1]))
-    print("    __javaclass__ = {!r}".format(class_name))
+    print("    _chaquopy_clsname = {!r}".format(class_name))
     for method_name in sorted(methods.keys()):
         overloads = methods[method_name]
         if len(overloads) == 1:

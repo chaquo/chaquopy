@@ -209,7 +209,7 @@ def jni_sig(c):
         return c
     elif isinstance(c, type):
         if isinstance(c, JavaClass):
-            return "L" + c.__javaclass__.replace(".", "/") + ";"
+            return "L" + c.__name__.replace(".", "/") + ";"
         elif issubclass(c, (Wrapper, JavaArray)):
             return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):

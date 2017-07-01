@@ -25,7 +25,11 @@ public class Python {
     public static synchronized Python getInstance() {
         if (instance == null) {
             if (!started) {
-                start(new GenericPlatform());
+                GenericPlatform platform = new GenericPlatform();
+                if (System.getenv("CHAQUOPY_PYTHON_PROCESS") != null) {  // See jvm.pxi
+                    platform.setShouldInitialize(false);
+                }
+                start(platform);
             }
             instance = new Python();
         }

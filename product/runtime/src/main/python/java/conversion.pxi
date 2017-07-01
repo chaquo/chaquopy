@@ -239,13 +239,14 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                         return p2j_box(j_env, box_klass, obj)
 
         elif isinstance(obj, JavaObject):
-            # Comparison to clsname prevents recursion when converting argument to isAssignableFrom
-            if clsname == obj.__javaclass__ or \
-               klass.isAssignableFrom(find_javaclass(obj.__javaclass__)):
+            obj_clsname = type(obj).__name__
+            # The equality comparison is not redundant: it prevents recursion when converting
+            # the argument of isAssignableFrom.
+            if (clsname == obj_clsname) or (klass.isAssignableFrom(find_javaclass(obj_clsname))):
                 return (<JavaObject?>obj).j_self
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
-                return <GlobalRef?>obj.j_cls
+                return <GlobalRef?>obj._chaquopy_j_cls
         elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
@@ -341,8 +342,8 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     JPyObject = java.jclass("com.chaquo.python.PyObject")
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
-         (<GlobalRef?>JPyObject.j_cls).obj,
-         (<JavaMethod?>JPyObject.__dict__["getInstance"]).id(),
+         (<GlobalRef?>JPyObject._chaquopy_j_cls).obj,
+         (<JavaMethod?>get_member(JPyObject, None, "getInstance")).j_method,
          <jlong><PyObject*>obj)
     check_exception(env)
     return j_pyobject
