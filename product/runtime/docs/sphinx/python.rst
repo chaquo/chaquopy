@@ -7,7 +7,7 @@ examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy
 Data types
 ==========
 
-Python and Java data types are converted as follows:
+Data types are converted between Python and Java as follows:
 
 * Java `null` corresponds to Python `None`.
 
@@ -23,7 +23,7 @@ Python and Java data types are converted as follows:
 * A Java array is represented as a :any:`jarray` proxy object. Java array parameters and fields
   can also be implicitly converted from any Python iterable, except a string.
 
-.. note:: A Java object or array obtained from a method or field will intially be represented
+.. note:: A Java object or array obtained from a method or field will be represented
           as a proxy for its actual run-time type, which is not necessarily the declared type
           of the method or field. It can be viewed as another compatible type using the
           :any:`cast` function.
