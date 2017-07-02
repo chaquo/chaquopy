@@ -21,3 +21,14 @@ API reference
 
    python
    java
+
+
+Release notes
+=============
+
+.. toctree::
+   :maxdepth: 1
+
+   changelog
+   FAQ <https://chaquo.com/chaquopy/faq/>`
+

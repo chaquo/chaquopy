@@ -26,9 +26,11 @@ and never looks at checksums; if everybody else is the same, we might as well re
 
 ## Documentation
 
-Build sphinx and javadoc. Upload to server, updating "current" symlink and adding link to documentation page.
+Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
 
-Update public/demo/CHANGELOG.md.
+Update public/demo/CHANGELOG.md for demo app changes, and add date.
+
+Build sphinx and javadoc. Upload to server, updating "current" symlink and adding link to documentation page.
 
 Post blog entry on website.
 
@@ -37,5 +39,5 @@ Post blog entry on website.
 
 Commit public/demo repository, and push to chaquo.com and GitHub.
 
-Commit python repository if necessary. Add version number tag, and push. Then increment
+Commit python repository, add version number tag, and push. Then increment
 python/VERSION.txt for next version number.
