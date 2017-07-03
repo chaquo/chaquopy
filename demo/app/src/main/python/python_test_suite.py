@@ -2,6 +2,7 @@
 from test_array import *
 from test_conversion import *
 from test_exception import *
+from test_import import *
 from test_java_api import *
 from test_overload import *
 from test_reflect import *

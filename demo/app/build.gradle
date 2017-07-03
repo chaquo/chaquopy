@@ -81,7 +81,7 @@ afterEvaluate {
     task("copyPythonSrc", type: Copy) {
         from "../../product/runtime/src/test/python"
         into "src/main/python"
-        include "**/*test*.py"
+        include "**/*.py"
     }
     generateDebugPythonAssets.dependsOn(copyPythonSrc)
 }

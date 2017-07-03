@@ -15,7 +15,7 @@ PyMODINIT_FUNC PyInit_chaquopy_java(void);
 
 #if __ANDROID__ && PY_MAJOR_VERSION < 3
 // Py_SetPath isn't in the standard CPython API until Python 3. But the Crystax build of Python
-// 2.7 has been modified to add it, and it _must_ be called (PYTHONPATH has no effect),
+// 2.7 has been modified to add it, and it *must* be called (PYTHONPATH has no effect),
 // otherwise Py_Initialize will call abort(). They still neglected to add it to their header
 // files, though, so we need to declare it here.
 //
@@ -25,6 +25,6 @@ PyMODINIT_FUNC PyInit_chaquopy_java(void);
 PyAPI_FUNC(void) Py_SetPath(char *path);
 #define set_path(env, python_path) (Py_SetPath((char*)(python_path)), 1)
 #else
-// Call static function defined in chaquopy_java.pyx
+// Call function defined in chaquopy_java.pyx
 #define set_path set_path_env
 #endif

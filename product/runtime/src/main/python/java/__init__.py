@@ -1,4 +1,5 @@
 """Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
+
 from __future__ import absolute_import, division, print_function
 
 # Chaquopy contains parts of the following open-source software:
@@ -19,6 +20,8 @@ jclass = jklass
 from .signatures import *  # noqa
 
 # This is the public API.
-__all__ = ["cast", "JavaException", "jclass",
+__all__ = ["set_import_enabled", "cast", "JavaException", "jclass",
            "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]
+
+chaquopy_init()

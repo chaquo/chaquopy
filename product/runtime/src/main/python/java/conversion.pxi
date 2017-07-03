@@ -18,6 +18,10 @@ BOXED_INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), 
 BOXED_FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
 BOXED_NUMERIC_TYPES = OrderedDict(list(BOXED_INT_TYPES.items()) + list(BOXED_FLOAT_TYPES.items()))
 
+UNBOX_METHODS = {f"java.lang.{boxed}": f"{unboxed}Value" for boxed, unboxed in
+                 [("Boolean", "boolean"), ("Byte", "byte"), ("Short", "short"), ("Integer", "int"),
+                  ("Long", "long"), ("Float", "float"), ("Double", "double"), ("Character", "char")]}
+
 ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
 
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
@@ -64,38 +68,21 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if not j_object:
         return None
 
-    from java import jclass
     r = lookup_java_object_name(j_env, j_object.obj)
-
     if r[0] == '[':
         return java.jarray(r[1:])(instance=j_object)
-
     if r == 'java.lang.String':
         return j2p_string(j_env, j_object.obj)
 
-    # Unboxing
-    if r == 'java.lang.Long':
-        return jclass(r)(instance=j_object).longValue()
-    if r == 'java.lang.Integer':
-        return jclass(r)(instance=j_object).intValue()
-    if r == 'java.lang.Float':
-        return jclass(r)(instance=j_object).floatValue()
-    if r == 'java.lang.Double':
-        return jclass(r)(instance=j_object).doubleValue()
-    if r == 'java.lang.Short':
-        return jclass(r)(instance=j_object).shortValue()
-    if r == 'java.lang.Boolean':
-        return jclass(r)(instance=j_object).booleanValue()
-    if r == 'java.lang.Byte':
-        return jclass(r)(instance=j_object).byteValue()
-    if r == 'java.lang.Character':
-        return jclass(r)(instance=j_object).charValue()
+    unbox_method = UNBOX_METHODS.get(r)
+    if unbox_method:
+        return getattr(java.jclass(r)(instance=j_object), unbox_method)()
 
     if r == 'com.chaquo.python.PyObject':
         return j2p_pyobject(j_env, j_object.obj)
 
     # Failed to convert it, so return a proxy object.
-    return jclass(r)(instance=j_object)
+    return java.jclass(r)(instance=j_object)
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):
@@ -147,7 +134,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     # responsibility to perform range checks: see note at is_applicable_arg for why we can't do
     # it here.
     #
-    # We don't implement auto-unboxing, because the boxed types are automatically unboxed by
+    # We don't do auto-unboxing here, because boxed types are automatically unboxed by
     # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
     # the other hand, will be done if necessary below.
     elif definition in PRIMITIVE_TYPES:

@@ -19,8 +19,7 @@ cdef JavaVM *jvm = NULL
 
 cdef JNIEnv *get_jnienv() except NULL:
     if jvm == NULL:
-        os.environ["CHAQUOPY_PYTHON_PROCESS"] = "1"  # See Python.java
-        set_jvm(start_jvm())
+        raise Exception("JVM not set")
 
     # See comment in jni.pxd.
     cdef Attach_JNIEnv *env = NULL
@@ -29,9 +28,13 @@ cdef JNIEnv *get_jnienv() except NULL:
 
 
 cdef void set_jvm(JavaVM *new_jvm):
+    if "jvm" in globals():
+        raise Exception("set_jvm cannot be called more than once")
     global jvm
     jvm = new_jvm
     config.vm_running = True
+    setup_bootstrap_classes()
+    set_import_enabled(True)
 
 
 cdef JavaVM *start_jvm() except NULL:

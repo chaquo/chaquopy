@@ -8,9 +8,6 @@ public class Python {
 
     /** Provides information needed to start Python. */
     public interface Platform {
-        /** Returns whether the Python VM needs to be intiialized. */
-        boolean shouldInitialize();
-
         /** Returns the value to assign to `PYTHONPATH`. */
         String getPath();
     }
@@ -25,11 +22,7 @@ public class Python {
     public static synchronized Python getInstance() {
         if (instance == null) {
             if (!started) {
-                GenericPlatform platform = new GenericPlatform();
-                if (System.getenv("CHAQUOPY_PYTHON_PROCESS") != null) {  // See jvm.pxi
-                    platform.setShouldInitialize(false);
-                }
-                start(platform);
+                start(new GenericPlatform());
             }
             instance = new Python();
         }
@@ -47,7 +40,7 @@ public class Python {
             throw new IllegalStateException("Python startup previously failed, and cannot be retried");
         }
         try {
-            startNative(platform, platform.shouldInitialize(), platform.getPath());
+            startNative(platform, platform.getPath());
             started = true;
         } catch (Exception e) {
             failed = true;
@@ -61,8 +54,7 @@ public class Python {
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
      * cleanup. */
-    private static native void startNative(Platform platform, boolean shouldInitialize,
-                                           String pythonPath);
+    private static native void startNative(Platform platform, String pythonPath);
 
     // =======================================================================
 

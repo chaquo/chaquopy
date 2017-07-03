@@ -15,7 +15,7 @@ cdef extern from "Python.h":
 from libc.errno cimport errno
 from libc.stdio cimport printf, snprintf
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport malloc
+from libc.stdlib cimport getenv, malloc
 from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
@@ -36,13 +36,15 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 # WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
 # more than once.
 cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jobject klass, jobject j_platform, jboolean should_initialize,
-     jobject j_python_path):
-    # All code run before Py_Initialize must compile to pure C.
-    if not should_initialize:
-        startNativeNoInit(env)
-        return
+    (JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path):
+    if getenv("CHAQUOPY_PROCESS_TYPE") == NULL:  # See jvm.pxi
+        startNativeJava(env, j_platform, j_python_path)
+    else:
+        startNativePython(env)
 
+
+# We're running in a Java process, so start the Python VM.
+cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path):
     cdef const char *python_path
     if j_python_path != NULL:
         python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
@@ -52,19 +54,22 @@ cdef public void Java_com_chaquo_python_Python_startNative \
         try:
             if not set_path(env, python_path):
                 return
+            if not set_env(env, "CHAQUOPY_PROCESS_TYPE", "java"):  # See chaquopy.pyx
+                return
         finally:  # Yes, this does compile to pure C, with the help of "goto".
             env[0].ReleaseStringUTFChars(env, j_python_path, python_path)
 
     Py_Initialize()  # Calls abort() on failure
 
-    # We can now start using some Python constructs, but many things will still cause a native
-    # crash until our module initialization function completes. In particular, global and
-    # built-in names won't be bound.
+    # All code above this point must compile to pure C. Below this point we can start using the
+    # Python VM, but most things will still cause a native crash until our module
+    # initialization function completes. In particular, global and built-in names won't be
+    # bound, and "import" won't work either.
     cdef JavaVM *jvm = NULL
     try:
         PyInit_chaquopy_java()
+        # Full Cython functionality is now available.
 
-        # Normal Cython functionality is now available.
         ret = env[0].GetJavaVM(env, &jvm)
         if ret != 0:
              raise Exception(f"GetJavaVM failed: {ret}")
@@ -83,7 +88,8 @@ cdef public void Java_com_chaquo_python_Python_startNative \
     PyEval_SaveThread();
 
 
-cdef void startNativeNoInit(JNIEnv *env) with gil:
+# We're running in a Python process, so there's nothing to do except initialize this module.
+cdef void startNativePython(JNIEnv *env) with gil:
     try:
         PyInit_chaquopy_java()
     except Exception as e:
@@ -93,11 +99,14 @@ cdef void startNativeNoInit(JNIEnv *env) with gil:
 # This runs before Py_Initialize, so it must compile to pure C.
 # "public" because its name is referenced from a preprocessor macro in chaquopy_java_extra.h.
 cdef public bint set_path_env(JNIEnv *env, const char *python_path):
-    # setenv is easier to use, but is not available on MSYS2.
-    cdef const char *putenvPrefix = "PYTHONPATH="
-    cdef int putenvArgLen = strlen(putenvPrefix) + strlen(python_path) + 1
+    return set_env(env, "PYTHONPATH", python_path)
+
+
+# The POSIX setenv function is not available on MSYS2.
+cdef bint set_env(JNIEnv *env, const char *name, const char *value):
+    cdef int putenvArgLen = strlen(name) + 1 + strlen(value) + 1
     cdef char *putenvArg = <char*>malloc(putenvArgLen)
-    if snprintf(putenvArg, putenvArgLen, "%s%s", putenvPrefix, python_path) != (putenvArgLen - 1):
+    if snprintf(putenvArg, putenvArgLen, "%s=%s", name, value) != (putenvArgLen - 1):
         pyexception(env, "snprintf failed")
         return False
 

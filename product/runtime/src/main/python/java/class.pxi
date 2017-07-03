@@ -10,48 +10,7 @@ def jklass(clsname):
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
     class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
     :any:`JavaException` is raised.
-
-    Proxy classes and objects can be used with normal Python syntax::
-
-        >>> Point = jclass("java.awt.Point")
-        >>> p = Point(3, 4)
-        >>> p.x
-        3
-        >>> p.y
-        4
-        >>> p.x = 7
-        >>> p.getX()
-        7.0
-
-    Overloaded methods are resolved according to Java rules::
-
-        >>> from java.lang import String, StringBuffer
-        >>> sb = StringBuffer(1024)
-        >>> sb.append(True)
-        >>> sb.append(123)
-        >>> sb.append(cast(String, None))
-        >>> sb.append(3.142)
-        >>> sb.toString()
-        u'true123null3.142'
-
-    If a method or field name clashes with a Python reserved word, it can be accessed by
-    appending an underscore, e.g. `print` becomes `print_`. The original name is still
-    accessible via :any:`getattr`.
-
-    Aside from attribute access, Java proxy objects also support the following Python
-    operations:
-
-    * :any:`str` calls `toString
-      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#toString()>`_.
-    * `==` and `!=` call `equals
-      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
-    * :any:`hash` calls `hashCode
-      <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#hashCode()>`_.
-
-    The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
-    Object)` and `isinstance(String("hello"), Object)` will both return `False`. This may change
-    in the future.
-    """
+    """  # Further documentation in python.rst
     clsname = clsname.replace('/', '.')
     if clsname.startswith("["):
         raise ValueError("Cannot reflect an array type")
@@ -64,15 +23,9 @@ def jklass(clsname):
         return jklass("java.lang.Object")
 
     cls = jclass_cache.get(clsname)
-    if cls: return cls
-
-    if "Constructor" not in globals():  # Last bootstrap class to be defined
-        setup_bootstrap_classes()
-        cls = jclass_cache.get(clsname)  # In case the class was one of the bootstrap classes
-        if cls: return cls
-
-    cls = JavaClass(clsname, (JavaObject,), {})
-    cache_class(cls)
+    if not cls:
+        cls = JavaClass(clsname, (JavaObject,), {})
+        cache_class(cls)
     return cls
 
 
@@ -126,8 +79,6 @@ def setup_bootstrap_classes():
         getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
         isSynthetic = JavaMethod('()Z')
         isVarArgs = JavaMethod('()Z')
-
-    # The last class defined should match the check at the point where this function is called.
 
     classes = [Class, Modifier, Method, Field, Constructor]
     for cls in classes:

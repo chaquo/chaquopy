@@ -1,4 +1,5 @@
 """Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
+
 from __future__ import absolute_import, division, print_function
 
 import ctypes
@@ -116,34 +117,6 @@ class jdouble(FloatPrimitive):
 
 
 class jchar(Primitive):
-    """These classes wrap a method parameter to specify its Java primitive type.
-
-    A Python boolean, integer, float or string can normally be used directly as a parameter of
-    a Java method. Java has more primitive types than Python, so when more than one compatible
-    integer or floating-point overload is applicable for a method call, the longest one will be
-    used. Similarly, when a Python string is passed to a method which has overloads for both
-    `String` and `char`, the `String` overload will be used. If these rules do not give the
-    desired result, the wrapper classes can be used to be more specific about the intended
-    type.
-
-    For example, if `p` is a `PrintStream
-    <https://docs.oracle.com/javase/7/docs/api/java/io/PrintStream.html>`_::
-
-        p.print(42)              # will call print(long)
-        p.print(jint(42))        # will call print(int)
-        p.print(42.0)            # will call print(double)
-        p.print(jfloat(42.0))    # will call print(float)
-        p.print("x")             # will call print(String)
-        p.print(jchar("x"))      # will call print(char)
-
-    The numeric type wrappers take an optional `truncate` parameter. If this is set, any excess
-    high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
-    passing an out-of-range value will result in an `OverflowError`.
-
-    .. note:: When these wrappers are used, Java overload resolution rules will be in effect
-              for the wrapped parameter. For example, a `jint` will only be applicable to a
-              Java `int` or larger, and the *shortest* applicable overload will be used.
-    """
     name = "char"
     sig = "C"
 
@@ -169,18 +142,7 @@ jarray_types = jarray_dict()
 
 
 def jarray(element_type):
-    """Returns a proxy class for a Java array type. Objects of this class implement the Python
-    sequence protocol, so they can be read and modified using `[]` syntax.
-
-    Any Python iterable (except a string) can normally be used directly as an array parameter
-    of a Java method. But where the method has multiple equally-specific overloads, the value
-    must be converted to a `jarray` type to disambiguate the call.
-
-    For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, calling
-    `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
-    `f(jarray(jint)([1,2,3]))`.
-
-    The element type may be specified as any of:
+    """Returns a proxy class for a Java array type. The element type may be specified as any of:
 
     * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
     * A proxy class returned by :any:`jclass`, or by `jarray` itself.
@@ -189,13 +151,13 @@ def jarray(element_type):
 
     Examples::
 
-        # Chaquopy code                         # Java equivalent
+        # Python code                           # Java equivalent
         jarray(jint)                            # int[]
         jarray(jarray(jint))                    # int[][]
         jarray(jclass("java.lang.String"))      # String[]
         jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
         jarray(jint)(None)                      # (int[])null
-    """
+    """  # Further documentation in python.rst
     return jarray_types[jni_sig(element_type)]
 
 
