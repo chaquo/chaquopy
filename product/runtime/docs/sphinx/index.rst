@@ -30,5 +30,4 @@ Release notes
    :maxdepth: 1
 
    changelog
-   FAQ <https://chaquo.com/chaquopy/faq/>`
-
+   FAQ <https://chaquo.com/chaquopy/faq/>
