@@ -1,7 +1,11 @@
 package com.chaquo.python.demo;
 
+import android.graphics.*;
 import android.os.*;
+import android.text.*;
+import android.text.style.*;
 import android.view.*;
+import android.view.inputmethod.*;
 import android.widget.*;
 import com.chaquo.python.*;
 
@@ -11,12 +15,12 @@ public class ReplActivity extends ConsoleActivity {
     private EditText etInput;
 
     protected static class State extends ConsoleActivity.State {
-        PyObject interp;
+        PyObject console;
+        boolean more = false;
 
         public State(ReplActivity activity) {
-            Python py = Python.getInstance();
-            PyObject locals = py.getBuiltins().callAttr("dict", new Kwarg("context", activity));
-            interp = py.getModule("code").callAttr("InteractiveInterpreter", locals);
+            PyObject locals = activity.py.getBuiltins().callAttr("dict", new Kwarg("context", activity));
+            console = activity.py.getModule("code").callAttr("InteractiveConsole", locals);
         }
     }
     private State state;
@@ -25,27 +29,29 @@ public class ReplActivity extends ConsoleActivity {
     protected void onCreate(Bundle savedInstanceState) {
         setContentView(R.layout.activity_repl);
         super.onCreate(savedInstanceState);
+        state = (State) ((ConsoleActivity)this).state;
 
         etInput = (EditText) findViewById(R.id.etInput);
+        etInput.setHint(getPrompt());
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                String input = etInput.getText().toString().trim();
-                if (! input.isEmpty()) {
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                    String input = etInput.getText().toString();
                     etInput.setText("");
-                    exec(input);
+                    push(input);
+                    return true;
                 }
-                return true;
+                return false;
             }
         });
 
-        state = (State) ((ConsoleActivity)this).state;
         if (savedInstanceState == null) {
-            Python py = Python.getInstance();
             PyObject sys = py.getModule("sys");
-            append("Python " + sys.get("version") + "\n" +
-                   getString(R.string.repl_banner) + "\n");
-            exec("from java import *");
+            append(String.format("Python %s on %s\n",sys.get("version"), sys.get("platform")));
+            append(getString(R.string.repl_banner) + "\n");
+            push("from java import *");
         }
     }
 
@@ -54,12 +60,23 @@ public class ReplActivity extends ConsoleActivity {
         return new State(this);
     }
 
-    private void exec(String input) {
-        append(getString(R.string.repl_prompt) + input + "\n");
-        boolean needMore = state.interp.callAttr("runsource", input).toJava(Boolean.class);
-        if (needMore) {
-            append("Error: incomplete input\n");  // TODO #5205
-        }
+    public void onBackPressed() {
+        moveTaskToBack(true);
+    }
+
+    private void push(String input) {
+        append(getPrompt());
+        SpannableString spannableInput = new SpannableString(input);
+        spannableInput.setSpan(new StyleSpan(Typeface.BOLD), 0, input.length(), 0);
+        append(spannableInput);
+        append("\n");
+
+        state.more = state.console.callAttr("push", input).toJava(Boolean.class);
+        etInput.setHint(getPrompt());
+    }
+
+    private String getPrompt() {
+        return getString(state.more ? R.string.ps2 : R.string.ps1);
     }
 
     protected void scroll(int direction) {

@@ -5,9 +5,11 @@ import android.support.v7.app.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
+import java.util.*;
 
 public class ConsoleActivity extends AppCompatActivity {
 
+    protected Python py = Python.getInstance();
     protected ScrollView svBuffer;
     protected TextView tvBuffer;
 
@@ -23,7 +25,6 @@ public class ConsoleActivity extends AppCompatActivity {
         svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
 
-        Python py = Python.getInstance();
         PyObject console_activity = py.getModule("console_activity");
         PyObject stream = console_activity.callAttr("ForwardingOutputStream", this, "append");
         PyObject sys = py.getModule("sys");
@@ -104,25 +105,27 @@ public class ConsoleActivity extends AppCompatActivity {
         return true;
     }
 
-    // Used in console_activity.py
-    @SuppressWarnings("unused")
-    public void append(String text) {
+    public void append(CharSequence text) {
         if (text.length() == 0) return;
 
+        final List<CharSequence> fragments = new ArrayList<>();
         if (state.pendingNewline) {
-            text = "\n" + text;
+            fragments.add("\n");
             state.pendingNewline = false;
         }
-        if (text.endsWith("\n")) {
-            text = text.substring(0, text.length() - 1);
+        if (text.charAt(text.length() - 1) == '\n') {
+            fragments.add(text.subSequence(0, text.length() - 1));
             state.pendingNewline = true;
+        } else {
+            fragments.add(text);
         }
         
-        final String appendText = text;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                tvBuffer.append(appendText);
+                for (CharSequence frag : fragments) {
+                    tvBuffer.append(frag);
+                }
                 svBuffer.post(new Runnable() {
                     @Override
                     public void run() {

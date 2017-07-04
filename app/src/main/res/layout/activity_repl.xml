@@ -18,7 +18,6 @@
         android:layout_marginRight="8dp"
         android:layout_marginStart="8dp"
         android:ems="10"
-        android:hint="@string/repl_prompt"
         android:imeOptions="actionDone|flagNoFullscreen"
         android:inputType="textNoSuggestions|textVisiblePassword"
         android:textSize="14sp"

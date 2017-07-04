@@ -12,7 +12,7 @@ public class TestReflect {
         }
     }
 
-    interface Interface {
+    public interface Interface {
         String iConstant = "Interface constant";
         String iMethod();
     }

@@ -799,6 +799,6 @@ public class TestBasics {
         TestBasics.fieldStaticKlassArray = fieldStaticKlassArray;
     }
 
-
+    public static class Nested {}
 
 }

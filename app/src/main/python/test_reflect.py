@@ -112,6 +112,8 @@ class TestReflect(unittest.TestCase):
                 obj.fieldStaticFinalZ = True
             with self.assertRaisesRegexp(AttributeError, "not a field"):
                 obj.setStaticZ = True
+            with self.assertRaisesRegexp(AttributeError, "not a field"):
+                obj.Nested = 99
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
             with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
@@ -194,6 +196,8 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
+        for name in ["print", "print_"]:  # Members are added to __dict__ on first use
+            getattr(PrintWriter, name)
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)
@@ -222,7 +226,6 @@ class TestReflect(unittest.TestCase):
         self.assertEqual(1, SimpleEnum.BAD.ordinal())
         self.assertEqual(SimpleEnum.values()[0], SimpleEnum.GOOD)
         self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
-
 
     def test_interface(self):
         Interface = jclass("com.chaquo.python.TestReflect$Interface")
@@ -275,3 +278,9 @@ class TestReflect(unittest.TestCase):
         Abstract = jclass("com.chaquo.python.TestReflect$Abstract")
         with self.assertRaisesRegexp(TypeError, "abstract"):
             Abstract()
+
+    def test_nested(self):
+        TestReflect = jclass("com.chaquo.python.TestReflect")
+        for cls_name in ["Interface", "Parent", "SimpleEnum", "Abstract"]:
+            self.assertIs(jclass("com.chaquo.python.TestReflect$" + cls_name),
+                          getattr(TestReflect, cls_name))

@@ -9,13 +9,11 @@ from java import *
 # interactions between the Python and Java modules.
 class TestJavaAPI(unittest.TestCase):
 
-    # Any use of the Python module should set a flag preventing the Java module from trying to
-    # start Python.
-    def test_start(self):
+    # Test that the `java` module calls Python.start() during initialization. This test must
+    # run first, or getInstance() will call start() itself.
+    def test_0_start(self):
         Python = jclass("com.chaquo.python.Python")
         self.assertTrue(Python.isStarted())
-        with self.assertRaisesRegexp(JavaException, "already started"):
-            Python.start(None)
 
     def test_pyobject(self):
         Python = jclass("com.chaquo.python.Python")

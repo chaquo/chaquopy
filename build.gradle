@@ -1,5 +1,5 @@
 buildscript {
-    ext.chaquopyVersion = "0.1.0"
+    ext.chaquopyVersion = "0.2.0"
 
     repositories {
         jcenter()

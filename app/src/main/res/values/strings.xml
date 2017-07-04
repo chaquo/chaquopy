@@ -4,7 +4,8 @@
     <string name="repl">REPL</string>
     <string name="repl_summary">Interactive read-eval-print loop</string>
     <string name="repl_banner">The current activity context is available in the variable \"context\".</string>
-    <string name="repl_prompt"><![CDATA[>>>]]>\u0020</string>
+    <string name="ps1">>>>\u00A0</string>   <!-- We can't get these from the sys module, because -->
+    <string name="ps2">...\u00A0</string>   <!-- they're put there by the blocking interact() function. -->
     <string name="java_unit_test">Java unit tests</string>
     <string name="top">Top</string>
     <string name="bottom">Bottom</string>

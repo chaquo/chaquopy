@@ -1,5 +1,6 @@
 package com.chaquo.python.demo;
 
+import android.content.pm.*;
 import android.os.*;
 import android.support.v7.app.*;
 import android.support.v7.preference.*;
@@ -12,6 +13,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try {
+            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            setTitle(getTitle() + " " + version);
+        } catch (PackageManager.NameNotFoundException ignored) {}
+
         if (! Python.isStarted()) {
             Python.start(new AndroidPlatform(this));
         }
