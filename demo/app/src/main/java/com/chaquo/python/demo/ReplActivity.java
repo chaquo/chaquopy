@@ -1,6 +1,9 @@
 package com.chaquo.python.demo;
 
+import android.graphics.*;
 import android.os.*;
+import android.text.*;
+import android.text.style.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
@@ -58,7 +61,12 @@ public class ReplActivity extends ConsoleActivity {
     }
 
     private void push(String input) {
-        append(getPrompt() + input + "\n");
+        append(getPrompt());
+        SpannableString spannableInput = new SpannableString(input);
+        spannableInput.setSpan(new StyleSpan(Typeface.BOLD), 0, input.length(), 0);
+        append(spannableInput);
+        append("\n");
+
         state.more = state.console.callAttr("push", input).toJava(Boolean.class);
         etInput.setHint(getPrompt());
     }
