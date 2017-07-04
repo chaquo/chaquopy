@@ -43,6 +43,7 @@ def setup_bootstrap_classes():
 
     class Class(six.with_metaclass(JavaClass, JavaObject)):
         _chaquopy_clsname = 'java.lang.Class'
+        getClasses = JavaMethod('()[Ljava/lang/Class;')
         getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
         getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
         getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
@@ -99,6 +100,7 @@ class JavaClass(type):
         classDict["_chaquopy_j_cls"] = CQPEnv().FindClass(classname).global_ref()
         classDict["_chaquopy_methods"] = defaultdict(list)
         classDict["_chaquopy_fields"] = {}
+        classDict["_chaquopy_classes"] = {}
 
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.
@@ -189,7 +191,9 @@ cdef class JavaObject(object):
 
 def get_attribute(cls, obj, key):
     member = get_member(cls, obj, key)
-    return member.__get__(obj, cls)
+    # Since the member is now in cls.__dict__, calling getattr here shouldn't cause infinite
+    # recursion, but it somehow still sometimes does when accessing attributes on the class.
+    return member.__get__(obj, cls) if hasattr(member, "__get__") else member
 
 
 def set_attribute(cls, obj, key, value):
@@ -211,7 +215,7 @@ def get_member(cls, obj, name):
         # TODO #5183 method hides field with same name.
         member = get_field(cls, name)
     if not member:
-        pass  # TODO #5188 nested classes
+        member = get_nested_class(cls, name)
     if not member:
         # As recommended by PEP 8, members whose names are reserved words can be accessed by
         # appending an underscore. The original name is still accessible via getattr().
@@ -245,14 +249,24 @@ def get_field(cls, name):
         klass = Class(instance=cls._chaquopy_j_cls)
         for field in klass.getFields():
             # TODO #5208 depending on the order of getFields(), we may hide the wrong field in
-            # case of a superclass anc subclass having fields with the same name.
+            # case of a superclass and subclass having fields with the same name.
             cls._chaquopy_fields.setdefault(field.getName(), field)
 
     field = cls._chaquopy_fields.get(name)
-    if field:
-        return JavaField.from_reflected(field)
-    else:
-        return None
+    return JavaField.from_reflected(field) if field else None
+
+
+def get_nested_class(cls, name):
+    if not cls._chaquopy_classes:
+        klass = Class(instance=cls._chaquopy_j_cls)
+        for nested_klass in klass.getClasses():
+            # TODO #5208 may have a similar hiding problem to fields
+            nested_name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
+            if nested_name:
+                cls._chaquopy_classes.setdefault(nested_name, nested_klass.getName())
+
+    full_name = cls._chaquopy_classes.get(name)
+    return java.jclass(full_name) if full_name else None
 
 
 # Ensure the same aliases are available on all Python versions
