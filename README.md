@@ -18,8 +18,9 @@ Copy updates in demo to public/demo.
 
 Copy updates in runtime/src/test to public/demo/app/src/main.
 
-Update version number in public/demo/build.gradle, and build release APK in Android Studio.
-Test on emulator and phone.
+Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
+
+Build release APK in Android Studio, and test on emulator and phone.
 
 Upload APK to Google Play and to Maven repository.
 
@@ -30,7 +31,8 @@ Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
 
 Update public/demo/CHANGELOG.md for demo app changes, and add date.
 
-Build sphinx and javadoc. Upload to server, updating "current" symlink and adding link to documentation page.
+If sphinx or javadoc have changed, upload to server. If major.minor version number has changed,
+update "current" symlink and add link on WordPress documentation page.
 
 Post blog entry on website.
 
