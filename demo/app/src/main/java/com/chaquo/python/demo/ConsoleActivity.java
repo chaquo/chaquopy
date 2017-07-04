@@ -8,6 +8,7 @@ import com.chaquo.python.*;
 
 public class ConsoleActivity extends AppCompatActivity {
 
+    protected Python py = Python.getInstance();
     protected ScrollView svBuffer;
     protected TextView tvBuffer;
 
@@ -23,7 +24,6 @@ public class ConsoleActivity extends AppCompatActivity {
         svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
 
-        Python py = Python.getInstance();
         PyObject console_activity = py.getModule("console_activity");
         PyObject stream = console_activity.callAttr("ForwardingOutputStream", this, "append");
         PyObject sys = py.getModule("sys");
@@ -104,8 +104,6 @@ public class ConsoleActivity extends AppCompatActivity {
         return true;
     }
 
-    // Used in console_activity.py
-    @SuppressWarnings("unused")
     public void append(String text) {
         if (text.length() == 0) return;
 
