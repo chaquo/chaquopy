@@ -60,6 +60,10 @@ public class ReplActivity extends ConsoleActivity {
         return new State(this);
     }
 
+    public void onBackPressed() {
+        moveTaskToBack(true);
+    }
+
     private void push(String input) {
         append(getPrompt());
         SpannableString spannableInput = new SpannableString(input);
