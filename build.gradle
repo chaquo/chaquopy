@@ -1,5 +1,6 @@
 buildscript {
-    ext.chaquopyVersion = "0.2.0"
+    ext.appVersion = "0.2.1"
+    ext.sdkVersion = "0.2.0"
 
     repositories {
         jcenter()
@@ -7,7 +8,7 @@ buildscript {
     }
     dependencies {
         classpath "com.android.tools.build:gradle:2.3.3"
-        classpath "com.chaquo.python:gradle:$chaquopyVersion"
+        classpath "com.chaquo.python:gradle:$sdkVersion"
     }
 }
 

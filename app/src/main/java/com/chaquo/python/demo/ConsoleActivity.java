@@ -2,6 +2,7 @@ package com.chaquo.python.demo;
 
 import android.os.*;
 import android.support.v7.app.*;
+import android.text.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -24,6 +25,9 @@ public class ConsoleActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
+        if (Build.VERSION.SDK_INT >= 23) {
+            tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+        }
 
         PyObject console_activity = py.getModule("console_activity");
         PyObject stream = console_activity.callAttr("ForwardingOutputStream", this, "append");
