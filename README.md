@@ -27,12 +27,16 @@ Upload APK to Google Play and to Maven repository.
 
 ## Documentation
 
-Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
-
 Update public/demo/CHANGELOG.md for demo app changes, and add date.
 
-If sphinx or javadoc have changed, upload to server. If major.minor version number has changed,
-update "current" symlink and add link on WordPress documentation page.
+Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
+
+If sphinx or javadoc have changed:
+
+* Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
+* Adjust VERSION.txt temporarily if that version isn't released yet.
+* Build and upload to server. If major.minor version number has changed, update "current"
+  symlink and add link on WordPress documentation page.
 
 Post blog entry on website.
 
