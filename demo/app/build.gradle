@@ -19,7 +19,6 @@ android {
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
         // **********************************************************************
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         python {
             // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python36/python.exe"
@@ -29,6 +28,8 @@ android {
         ndk {
             abiFilters "x86", "armeabi-v7a"
         }
+
+        resConfigs "en"
     }
 
     buildTypes {
