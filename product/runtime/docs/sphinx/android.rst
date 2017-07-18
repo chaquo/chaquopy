@@ -1,7 +1,7 @@
 .. highlight:: none
 
-Android
-#######
+Android instructions
+####################
 
 Chaquopy is distributed as a plugin for the Android Gradle build system. For a full example of
 how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
@@ -70,13 +70,19 @@ majority of Android hardware)::
 .. note:: Each ABI will add several MB to the size of the app.
 
 
+Development
+===========
+
 Python code
-============
+-----------
 
 Place Python source code in `src/main/python`, and Chaquopy will automatically build it into
 the app.
 
-Python dependencies may be added to the app by giving a `pip install
+Python requirements
+-------------------
+
+External dependencies may be built into the app by giving a `pip install
 <https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ command line. This may specify
 an exact requirement, a local wheel file, or a requirements file.
 

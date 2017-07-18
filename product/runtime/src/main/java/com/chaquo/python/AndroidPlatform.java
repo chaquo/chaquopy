@@ -22,8 +22,10 @@ public class AndroidPlatform implements Python.Platform {
     /** @deprecated Internal use in chaquopy_java.pyx. */
     public Context mContext;
 
-    /** The context is used only for initialization, and does not need to remain valid after
-     * {@link Python#start Python.start()} is called. */
+    /** The given context must be an {@link android.app.Activity}, {@link android.app.Service} or
+     * {@link android.app.Application} object from your app. The context is used only for
+     * initialization, and does not need to remain valid after {@link Python#start Python.start()}
+     * is called. */
     // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
         mContext = context.getApplicationContext();

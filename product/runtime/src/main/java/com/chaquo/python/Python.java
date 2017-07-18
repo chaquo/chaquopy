@@ -30,7 +30,19 @@ public class Python {
     }
 
     /** Starts the Python virtual machine. If this method is called, it can only be called once, and
-     * it must be before any call to {@link #getInstance}, */
+     * it must be before any call to {@link #getInstance}.
+     *
+     * If running on Android, It's important to structure your app so that `Python.start` is always
+     * called with an {@link AndroidPlatform} before attempting to access Python. There are two
+     * basic ways to achieve this:
+     *
+     * 1. Call it from {@link android.app.Application#onCreate() Application.onCreate()}, or another
+     *    location which is guaranteed to run exactly once per process.
+     * 1. Call it conditionally after first checking {@link #isStarted}.
+     *
+     * If running on any other platform, there's no need to call this method, unless you want to
+     * customize the Python startup process.
+     **/
     public static synchronized void start(Platform platform) {
         if (started) {
             throw new IllegalStateException("Python already started");
@@ -48,6 +60,7 @@ public class Python {
         }
     }
 
+    /** Return whether the Python virtual machine is running */
     public static synchronized boolean isStarted() {
         return started;
     }

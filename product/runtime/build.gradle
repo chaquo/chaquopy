@@ -73,7 +73,7 @@ javadoc {
     }
 }
 
-task("doc", group: "documentation")
+def doc = task("doc", group: "documentation")
 doc.dependsOn(javadoc)
 
 

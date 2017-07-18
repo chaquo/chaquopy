@@ -90,7 +90,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *
      * * If the given type is an immutable value type such as `Boolean`, `Integer` or `String`,
      *   and the Python object is of a compatible type, an equivalent object will be returned.
-     * * If the Python object is itself a proxy for a Java object of the given type, the
+     * * If the Python object is itself a proxy for a Java object of a compatible type, the
      *   original Java object will be returned.
      * * Otherwise, a `ClassCastException` will be thrown. */
     //

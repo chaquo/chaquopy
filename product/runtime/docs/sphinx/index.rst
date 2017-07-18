@@ -13,14 +13,15 @@ Chaquopy on another platform, please `contact us <https://chaquo.com/chaquopy/co
    android
 
 
-API reference
-=============
+Reference
+=========
 
 .. toctree::
    :maxdepth: 1
 
    python
    java
+   cross
 
 
 Release notes

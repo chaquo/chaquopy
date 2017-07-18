@@ -17,6 +17,7 @@ public class GenericPlatform implements Python.Platform {
         return mPath;
     }
 
+    /** Sets the value to assign to `PYTHONPATH`. */
     public GenericPlatform setPath(String path) {
         mPath = path;
         return this;
