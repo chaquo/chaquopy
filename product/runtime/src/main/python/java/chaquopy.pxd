@@ -42,7 +42,7 @@ cdef class LocalRef(JNIRef):
 
 # === jvm =====================================================================
 
-cdef void set_jvm(JavaVM *new_jvm)
+cdef set_jvm(JavaVM *new_jvm)
 
 # === utils ===================================================================
 

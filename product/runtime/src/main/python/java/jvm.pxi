@@ -27,7 +27,7 @@ cdef JNIEnv *get_jnienv() except NULL:
     return env
 
 
-cdef void set_jvm(JavaVM *new_jvm):
+cdef set_jvm(JavaVM *new_jvm):
     if "jvm" in globals():
         raise Exception("set_jvm cannot be called more than once")
     global jvm

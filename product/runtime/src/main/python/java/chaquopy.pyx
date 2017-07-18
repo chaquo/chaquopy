@@ -1,3 +1,5 @@
+#cython: nonecheck=False
+
 from __future__ import absolute_import, division, print_function
 
 cdef extern from "chaquopy_extra.h":

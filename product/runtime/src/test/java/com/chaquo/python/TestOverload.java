@@ -5,12 +5,14 @@ import java.util.*;
 public class TestOverload {
 
     public static class MixedStaticInstance {
-        public static String resolve(Object j) {
-            return "Object";
-        }
-        public String resolve(String j) {
-            return "String";
-        }
+        public static String resolve11(Object j) { return "Object"; }
+        public String resolve11(String j) { return "String"; }
+
+        public static String resolve10(String s) { return "String"; }
+        public String resolve10() { return ""; }
+
+        public static String resolve01() { return ""; }
+        public String resolve01(String s) { return "String"; }
     }
 
 
@@ -20,6 +22,10 @@ public class TestOverload {
         }
         public String resolve(Object j, String k) {
             return "Object, String";
+        }
+
+        public String resolveOverride(Object j) {
+            return "Parent Object";
         }
 
         // This signature will exist in the Child class as a synthetic method.
@@ -37,6 +43,10 @@ public class TestOverload {
         }
         public String resolve(String j, Object k) {
             return "String, Object";
+        }
+
+        public String resolveOverride(Object j) {
+            return "Child Object";
         }
 
         public String resolveCovariantOverride() {

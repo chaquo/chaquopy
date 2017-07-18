@@ -116,9 +116,9 @@ class TestReflect(unittest.TestCase):
                 obj.Nested = 99
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
-            with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
+            with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
                 obj.staticNoArgs(True)
-            with self.assertRaisesRegexp(TypeError, "takes 1 argument"):
+            with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
                 obj.setStaticZ()
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
@@ -133,17 +133,19 @@ class TestReflect(unittest.TestCase):
             self.t.setZ = True
         with self.assertRaisesRegexp(TypeError, "not callable"):
             self.t.fieldZ()
-        with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
+        with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
             self.t.noArgs(True)
-        with self.assertRaisesRegexp(TypeError, "takes 1 argument"):
+        with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
             self.t.setZ()
 
         with self.assertRaisesRegexp(AttributeError, "static context"):
             self.Test.fieldZ
         with self.assertRaisesRegexp(AttributeError, "static context"):
             self.Test.fieldZ = True
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+        with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
+                                     "as first argument \(got nothing instead\)"):
             self.Test.getZ()
+        self.assertEqual(False, self.Test.getZ(self.t))
 
     # This might seem silly, but an older version had a bug where bound methods could be
     # rebound by getting the same method from a different object, or instantiating a new object
@@ -231,11 +233,16 @@ class TestReflect(unittest.TestCase):
         Interface = jclass("com.chaquo.python.TestReflect$Interface")
         with self.assertRaisesRegexp(TypeError, "abstract"):
             Interface()
+
         self.assertEqual("Interface constant", Interface.iConstant)
         with self.assertRaisesRegexp(AttributeError, "final"):
             Interface.iConstant = "not constant"
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+
+        Child = jclass("com.chaquo.python.TestReflect$Child")
+        with self.assertRaisesRegexp(TypeError, "must be called with .*Interface instance as "
+                                     "first argument \(got nothing instead\)"):
             Interface.iMethod()
+        self.assertEqual("Implemented method", Interface.iMethod(Child()))
 
     def test_inheritance(self):
         Interface = jclass("com.chaquo.python.TestReflect$Interface")

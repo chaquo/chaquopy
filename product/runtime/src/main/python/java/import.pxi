@@ -54,7 +54,7 @@ def import_override(name, globals={}, locals={}, fromlist=None, level=0):
     return python_module
 
 
-# Exceptions raised here are the same as those raised by Python 3.
+# Exception types and wording are based on Python 3.5.
 def resolve_name(name, globals, level):
     if level > 0:   # Explicit relative import
         try:

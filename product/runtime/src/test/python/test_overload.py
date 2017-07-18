@@ -22,9 +22,47 @@ class TestOverload(unittest.TestCase):
     # considered and chosen during overload resolution.
     def test_mixed_static_and_instance(self):
         MSI = jclass("com.chaquo.python.TestOverload$MixedStaticInstance")
-        with self.assertRaisesRegexp(AttributeError, "static context"):
-            MSI.resolve("two")
-        self.assertEqual(MSI().resolve("two"), 'String')
+        m = MSI()
+
+        self.assertEqual(m.resolve11("test"), "String")
+        self.assertEqual(m.resolve11(42), "Object")
+
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got str instance instead\)"):
+            MSI.resolve11("test")
+        self.assertEqual(MSI.resolve11(42), "Object")
+
+        self.assertEqual(MSI.resolve11(m, "test"), "String")
+        with self.inapplicable:
+           MSI.resolve11(m, 42)
+
+        # ---
+
+        self.assertEqual(m.resolve10(), "")
+        self.assertEqual(m.resolve10("test"), "String")
+
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got nothing instead\)"):
+            MSI.resolve10()
+        self.assertEqual(MSI.resolve10("test"), "String")
+
+        self.assertEqual(MSI.resolve10(m), "")
+        with self.inapplicable:
+            MSI.resolve10(m, "test")
+
+        # ---
+
+        self.assertEqual(m.resolve01(), "")
+        self.assertEqual(m.resolve01("test"), "String")
+
+        self.assertEqual(MSI.resolve01(), "")
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got str instance instead\)"):
+            MSI.resolve01("test")
+
+        with self.inapplicable:
+            MSI.resolve01(m)
+        self.assertEqual(MSI.resolve01(m, "test"), "String")
 
     def test_class(self):
         Parent = jclass("com.chaquo.python.TestOverload$Parent")
@@ -37,6 +75,7 @@ class TestOverload(unittest.TestCase):
         i = Integer(42)
         f = Float(1.23)
         child = Child()
+        parent = Parent()
 
         self.assertEqual(child.resolve(s), 'String')
         self.assertEqual(child.resolve(i), 'Integer')
@@ -61,13 +100,18 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(child.resolve(cast(Object, s), s), 'Object, String')
         self.assertEqual(child.resolve(s, cast(Object, s)), 'String, Object')
 
-        # Casting of object on which method is called
+        # Casting of object on which method is called should limit visibility of overloads.
         self.assertEqual(cast(Parent, child).resolve(s), 'Object')
         self.assertEqual(cast(Parent, child).resolve(s, s), 'Object, String')
         with self.inapplicable:
             cast(Parent, child).resolve(s, i)
 
-        with self.assertRaisesRegexp(TypeError, "Java type"):
+        # But subclass implementations of visible overloads should still be called.
+        self.assertEqual(parent.resolveOverride(s), 'Parent Object')
+        self.assertEqual(child.resolveOverride(s), 'Child Object')
+        self.assertEqual(cast(Parent, child).resolveOverride(s), 'Child Object')
+
+        with self.assertRaisesRegexp(TypeError, "int object does not specify a Java type"):
             cast(42, child)
 
         self.assertEqual("Child", child.resolveCovariantOverride())

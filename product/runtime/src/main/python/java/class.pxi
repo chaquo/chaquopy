@@ -87,7 +87,7 @@ def setup_bootstrap_classes():
         klass = Class(instance=cls._chaquopy_j_cls)
         for name, member in six.iteritems(cls.__dict__):
             if isinstance(member, JavaMember):
-                member.resolve(klass, name, bootstrap=True)
+                member.resolve(klass, name)
 
 
 # cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
@@ -105,7 +105,7 @@ class JavaClass(type):
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.
         classDict["__eq__"] = lambda self, other: self.equals(other)
-        classDict["__ne__"] = lambda self, other: not self.equals(other)
+        classDict["__ne__"] = lambda self, other: not self.equals(other)  # Not automatic in Python 2
 
         # TODO #5153 disabled until tested, and should also generate a setter.
         # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
@@ -160,7 +160,7 @@ cdef class JavaObject(object):
             if Modifier.isAbstract(klass.getModifiers()):
                 raise TypeError(f"{type(self).__name__} is abstract and cannot be instantiated")
             try:
-                constructor = getattr(self, type(self).__name__)
+                constructor = getattr(type(self), "<init>")
             except AttributeError:
                 raise TypeError(f"{type(self).__name__} has no accessible constructors")
             self.j_self = constructor(*args)
@@ -191,8 +191,9 @@ cdef class JavaObject(object):
 
 def get_attribute(cls, obj, key):
     member = get_member(cls, obj, key)
-    # Since the member is now in cls.__dict__, calling getattr here shouldn't cause infinite
-    # recursion, but it somehow still sometimes does when accessing attributes on the class.
+    # Since the member is now in cls.__dict__, I thought we should be able to call getattr here
+    # rather than using __get__ manually. But that somehow still caused infinite recursion
+    # sometimes when accessing attributes on the class as opposed to the instance.
     return member.__get__(obj, cls) if hasattr(member, "__get__") else member
 
 
@@ -222,7 +223,7 @@ def get_member(cls, obj, name):
         if name.endswith("_") and is_reserved_word(name[:-1]):
             member = get_member(cls, obj, name[:-1])
     if member:
-        type.__setattr__(cls, name, member)
+        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
         return member
 
     subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
@@ -230,16 +231,17 @@ def get_member(cls, obj, name):
 
 
 def get_method(cls, name):
+    klass = Class(instance=cls._chaquopy_j_cls)
     if not cls._chaquopy_methods:
-        klass = Class(instance=cls._chaquopy_j_cls)
         for method in itertools.chain(klass.getMethods(), klass.getConstructors()):
             if method.isSynthetic(): continue  # TODO #5232 test this
-            cls._chaquopy_methods[method.getName()].append(method)
+            jni_name = "<init>" if isinstance(method, Constructor) else method.getName()
+            cls._chaquopy_methods[jni_name].append(method)
 
     overloads = cls._chaquopy_methods.get(name)
     if overloads:
         return (JavaMethod.from_reflected(overloads[0]) if (len(overloads) == 1)
-                else JavaMultipleMethod(map(JavaMethod.from_reflected, overloads)))
+                else JavaMultipleMethod.from_reflected(klass, overloads))
     else:
         return None
 
@@ -513,14 +515,16 @@ cdef class JavaMethod(JavaMember):
 
     @staticmethod
     def from_reflected(method):
-        if hasattr(method, "getReturnType"):
-            return_type = method.getReturnType()
-        else:  # Constructor
+        if isinstance(method, Constructor):
             return_type = java.jvoid
+            name = "<init>"
+        else:
+            return_type = method.getReturnType()
+            name = method.getName()
         result = JavaMethod(java.jni_method_sig(return_type, method.getParameterTypes()),
                             static=Modifier.isStatic(method.getModifiers()),
                             varargs=method.isVarArgs())
-        result.resolve(method.getDeclaringClass(), method.getName())
+        result.resolve(method.getDeclaringClass(), name)
         return result
 
     def __init__(self, definition, *, static=False, varargs=False):
@@ -529,13 +533,9 @@ cdef class JavaMethod(JavaMember):
         self.definition_return, self.definition_args = parse_definition(definition)
         self.is_varargs = varargs
 
-    def resolve(self, klass, name, bootstrap=False):
-        if (not bootstrap and          # Avoid circular dependency when resolving getName()
-            name == klass.getName()):  # (constructors aren't needed during bootstrap).
-            name = "<init>"
-            self.is_constructor = True
+    def resolve(self, klass, name):
         super(JavaMethod, self).resolve(klass, name)
-
+        self.is_constructor = (name == "<init>")
         cdef JNIEnv *j_env = get_jnienv()
         if self.is_static:
             self.j_method = j_env[0].GetStaticMethodID(
@@ -547,23 +547,26 @@ cdef class JavaMethod(JavaMember):
             expect_exception(j_env, f"Get[Static]Method failed for {self}")
 
     def __get__(self, obj, objtype):
-        if obj is None and not (self.is_static or self.is_constructor):
-            # We don't allow the user to get unbound method objects, because passing the target
-            # object as the first parameter wouldn't be compatible with the way we implement
-            # overload resolution. (It might be possible to fix this, but it's not worth the
-            # effort.)
-            raise AttributeError(f'Cannot access {self.fqn()} in static context')
+        if obj is None or self.is_static or self.is_constructor:
+            return self
         else:
             return lambda *args: self(obj, *args)
 
-    def __call__(self, obj, *args):
+    def __call__(self, *args):
         cdef jvalue *j_args = NULL
         cdef tuple d_args = self.definition_args
         cdef JNIEnv *j_env = get_jnienv()
 
+        if self.is_static or self.is_constructor:
+            obj = None
+        else:
+            obj, args = self.get_this(j_env, args)
+
+        # Exception types and wording are based on Python 2.7.
         if self.is_varargs:
             if len(args) < len(d_args) - 1:
-                raise TypeError(f'{self.fqn()} takes at least {len(d_args) - 1} arguments '
+                # FIXME need test
+                raise TypeError(f'{self.fqn()} takes at least {plural(len(d_args) - 1, "argument")} '
                                 f'({len(args)} given)')
 
             if len(args) == len(d_args) and assignable_to_array(d_args[-1], args[-1]):
@@ -572,9 +575,9 @@ cdef class JavaMethod(JavaMember):
                 pass  # Non-varargs call.
             else:
                 args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
-
         if len(args) != len(d_args):
-            raise TypeError(f'{self.fqn()} takes {len(d_args)} arguments ({len(args)} given)')
+            raise TypeError(f'{self.fqn()} takes {plural(len(d_args), "argument")} '
+                            f'({len(args)} given)')
 
         p2j_args = [p2j(j_env, argtype, arg)
                     for argtype, arg in six.moves.zip(d_args, args)]
@@ -587,10 +590,24 @@ cdef class JavaMethod(JavaMember):
         elif self.is_static:
             result = self.call_static_method(j_env, j_args)
         else:
-            result =  self.call_method(j_env, obj, j_args)
+            result = self.call_method(j_env, obj, j_args)
 
         copy_output_args(d_args, args, p2j_args)
         return result
+
+    # Exception types and wording are based on Python 2.7.
+    cdef get_this(self, JNIEnv *j_env, args):
+        if not args:
+            got = "nothing"
+        else:
+            obj = args[0]
+            if isinstance(obj, JavaObject) and \
+               j_env[0].IsInstanceOf(j_env, (<JavaObject?>obj).j_self.obj, self.klass.j_self.obj):
+                return obj, args[1:]
+            else:
+                got = f"{type(obj).__name__} instance"
+        raise TypeError(f"Unbound method {self.fqn()} must be called with {self.classname()} "
+                        f"instance as first argument (got {got} instead)")
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self = j_env[0].NewObjectA(j_env, self.klass.j_self.obj,
@@ -612,12 +629,6 @@ cdef class JavaMethod(JavaMember):
         cdef jobject j_object
 
         cdef jobject j_self = obj.j_self.obj
-        if not j_env[0].IsInstanceOf(j_env, j_self, self.klass.j_self.obj):
-            # Should be impossible, but worth keeping as an extra defense against a native crash.
-            raise TypeError(f"Unbound method {self.fqn()} must be called with "
-                            f"{self.classname()} instance as first argument (got "
-                            f"{type(obj).__name__} instance instead)")
-
         ret = None
         r = self.definition_return[0]
         if r == 'V':
@@ -729,27 +740,35 @@ cdef class JavaMethod(JavaMember):
         return ret
 
 
-class JavaMultipleMethod(JavaMember):
+cdef class JavaMultipleMethod(JavaMember):
+    cdef methods
+    cdef overload_cache
+
     def __repr__(self):
         return f"JavaMultipleMethod({self.methods})"
 
     def fqn(self):
         return f"{self.classname()}.{(<JavaMember?>self).name}"
 
+    @staticmethod
+    def from_reflected(klass, methods):
+        jms = map(JavaMethod.from_reflected, methods)
+        result = JavaMultipleMethod(jms)
+        super(JavaMultipleMethod, result).resolve(klass, (<JavaMethod?>jms[0]).name)
+        return result
+
     def __init__(self, methods):
         super(JavaMultipleMethod, self).__init__()
         self.methods = methods
         self.overload_cache = {}
 
-    def __get__(self, obj, objtype):
-        return lambda *args: self(obj, *args)
-
     def resolve(self, klass, name):
-        if name == klass.getName():
-            name = "<init>"
         super(JavaMultipleMethod, self).resolve(klass, name)
         for jm in self.methods:
             (<JavaMethod?>jm).resolve(klass, name)
+
+    def __get__(self, obj, objtype):
+        return lambda *args: self(obj, *args)
 
     def __call__(self, obj, *args):
         args_types = tuple(map(type, args))
@@ -757,17 +776,17 @@ class JavaMultipleMethod(JavaMember):
         if not best_overload:
             # JLS 15.12.2.2. "Identify Matching Arity Methods Applicable by Subtyping"
             varargs = False
-            applicable = self.find_applicable(args, autobox=False, varargs=False)
+            applicable = self.find_applicable(obj, args, autobox=False, varargs=False)
 
             # JLS 15.12.2.3. "Identify Matching Arity Methods Applicable by Method Invocation
             # Conversion"
             if not applicable:
-                applicable = self.find_applicable(args, autobox=True, varargs=False)
+                applicable = self.find_applicable(obj, args, autobox=True, varargs=False)
 
             # JLS 15.12.2.4. "Identify Applicable Variable Arity Methods"
             if not applicable:
                 varargs = True
-                applicable = self.find_applicable(args, autobox=True, varargs=True)
+                applicable = self.find_applicable(obj, args, autobox=True, varargs=True)
 
             if not applicable:
                 raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
@@ -786,12 +805,17 @@ class JavaMultipleMethod(JavaMember):
 
         return best_overload.__get__(obj, type(obj))(*args)
 
-    def find_applicable(self, args, *, autobox, varargs):
+    def find_applicable(self, obj, args, *, autobox, varargs):
         result = []
         cdef JavaMethod jm
         for jm in self.methods:
+            if obj is None and not (jm.is_static or jm.is_constructor):  # Unbound method
+                if not args: continue
+                args_except_this = args[1:]
+            else:
+                args_except_this = args
             if not (varargs and not jm.is_varargs) and \
-               is_applicable(jm.definition_args, args, autobox, varargs):
+               is_applicable(jm.definition_args, args_except_this, autobox, varargs):
                 result.append(jm)
         return result
 
