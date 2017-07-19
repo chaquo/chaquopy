@@ -1,4 +1,4 @@
-from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
+from libc.stdint cimport uint8_t, int8_t, uint16_t, int16_t, int32_t, int64_t
 
 # In Cython 0.25.2, "nogil" specified on the "cdef extern from" line had no effect on
 # the individual functions, so we need to mark them individually.
@@ -6,10 +6,10 @@ from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 # nogil in a .pyd only *allows* functions to be called without the GIL. It does not
 # release the GIL in itself: for that, use "with nogil".
 cdef extern from "jni.h":
-    ctypedef unsigned char   jboolean   # TODO #5175: try the stdint names, as Cython is generating
-    ctypedef signed char     jbyte      # redundant conversion functions only for jboolean and
-    ctypedef uint16_t        jchar      # jbyte. But only once we have the test suite running
-    ctypedef int16_t         jshort     # on Android.
+    ctypedef uint8_t         jboolean
+    ctypedef int8_t          jbyte
+    ctypedef uint16_t        jchar
+    ctypedef int16_t         jshort
     ctypedef int32_t         jint
     ctypedef int64_t         jlong
     ctypedef float           jfloat
