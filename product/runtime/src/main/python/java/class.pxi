@@ -610,8 +610,9 @@ cdef class JavaMethod(JavaMember):
                         f"instance as first argument (got {got} instead)")
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
-        cdef jobject j_self = j_env[0].NewObjectA(j_env, self.klass.j_self.obj,
-                                                  self.j_method, j_args)
+        cdef jobject j_self
+        with nogil:
+            j_self = j_env[0].NewObjectA(j_env, self.klass.j_self.obj, self.j_method, j_args)
         check_exception(j_env)
         return LocalRef.adopt(j_env, j_self).global_ref()
 

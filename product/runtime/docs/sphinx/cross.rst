@@ -9,8 +9,8 @@ Because Chaquopy is based on the CPython (the Python reference implementation), 
 CPython's global interpreter lock (GIL). This means that although Python code may be run on any
 number of threads, only one of those threads will be executing at any given moment.
 
-The GIL is automatically released by a thread whenever Python code calls a Java method,
-allowing Python code to run on other threads until the method returns.
+The GIL is automatically released whenever Python code calls a Java method or constructor,
+allowing Python code to run on other threads while the Java code executes.
 
 
 Memory management

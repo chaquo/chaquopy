@@ -1,6 +1,10 @@
 from libc.stdint cimport uint16_t, int16_t, int32_t, int64_t
 
-
+# In Cython 0.25.2, "nogil" specified on the "cdef extern from" line had no effect on
+# the individual functions, so we need to mark them individually.
+#
+# nogil in a .pyd only *allows* functions to be called without the GIL. It does not
+# release the GIL in itself: for that, use "with nogil".
 cdef extern from "jni.h":
     ctypedef unsigned char   jboolean   # TODO #5175: try the stdint names, as Cython is generating
     ctypedef signed char     jbyte      # redundant conversion functions only for jboolean and
@@ -61,8 +65,6 @@ cdef extern from "jni.h":
         JNIGlobalRefType = 2,
         JNIWeakGlobalRefType = 3
 
-
-    # some opaque definitions
     ctypedef void *jmethodID
     ctypedef void *jfieldID
 
@@ -107,19 +109,17 @@ cdef extern from "jni.h":
         jint        (*EnsureLocalCapacity)(JNIEnv*, jint)
 
         jobject     (*AllocObject)(JNIEnv*, jclass)
-        jobject     (*NewObject)(JNIEnv*, jclass, jmethodID, ...)
-        jobject     (*NewObjectV)(JNIEnv*, jclass, jmethodID, va_list)
-        jobject     (*NewObjectA)(JNIEnv*, jclass, jmethodID, jvalue*)
+
+        # See note above about "nogil"
+        jobject     (*NewObject)(JNIEnv*, jclass, jmethodID, ...) nogil
+        jobject     (*NewObjectV)(JNIEnv*, jclass, jmethodID, va_list) nogil
+        jobject     (*NewObjectA)(JNIEnv*, jclass, jmethodID, jvalue*) nogil
 
         jclass      (*GetObjectClass)(JNIEnv*, jobject)
         jboolean    (*IsInstanceOf)(JNIEnv*, jobject, jclass)
         jmethodID   (*GetMethodID)(JNIEnv*, jclass, const char*, const char*)
 
-        # In Cython 0.25.2, "nogil" specified on the "cdef extern from" line had no effect on
-        # these struct members, so we need to mark them individually.
-        #
-        # nogil in a .pyd only _allows_ functions to be called without the GIL. It does not
-        # release the GIL in itself: for that, use "with nogil".
+        # See note above about "nogil"
         jobject  (*CallObjectMethod)(JNIEnv*, jobject, jmethodID, ...) nogil
         jobject  (*CallObjectMethodV)(JNIEnv*, jobject, jmethodID, va_list) nogil
         jobject  (*CallObjectMethodA)(JNIEnv*, jobject, jmethodID, jvalue*) nogil
@@ -323,7 +323,7 @@ cdef extern from "jni.h":
 
         jint        (*RegisterNatives)(JNIEnv*, jclass, const JNINativeMethod*, jint)
         jint        (*UnregisterNatives)(JNIEnv*, jclass)
-        jint        (*MonitorEnter)(JNIEnv*, jobject)
+        jint        (*MonitorEnter)(JNIEnv*, jobject) nogil  # See note above about "nogil"
         jint        (*MonitorExit)(JNIEnv*, jobject)
         jint        (*GetJavaVM)(JNIEnv*, JavaVM**)
 
