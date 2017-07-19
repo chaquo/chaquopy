@@ -25,7 +25,7 @@ class TestThread(unittest.TestCase):
         func(int(expected_delay * 1000))
         thread.join()
         actual_delay = time() - start
-        self.assertLess(abs(actual_delay - expected_delay), expected_delay * 0.1)
+        self.assertLess(abs(actual_delay - expected_delay), expected_delay * 0.15)
 
     def split_sleep(self, delay):
         for i in range(10):
