@@ -198,8 +198,6 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
-        for name in ["print", "print_"]:  # Members are added to __dict__ on first use
-            getattr(PrintWriter, name)
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)

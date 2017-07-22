@@ -9,7 +9,8 @@ from java._vendor import six
 import java
 from .chaquopy import JavaArray, JavaClass, check_range_char, check_range_float32
 
-__all__ = ["jni_sig", "jni_method_sig", "sig_to_java", "primitives_by_name", "primitives_by_sig",
+__all__ = ["jni_sig", "jni_method_sig", "split_method_sig", "sig_to_java", "args_sig_to_java",
+           "primitives_by_name", "primitives_by_sig",
            "Wrapper", "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
            "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]
@@ -185,6 +186,31 @@ def jni_sig(c):
     raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
 
 
+def split_method_sig(definition):
+    assert definition.startswith("(")
+    argdef, ret = definition[1:].split(')')
+    args = []
+
+    while len(argdef):
+        prefix = ''
+        c = argdef[0]
+        while c == '[':
+            prefix += c
+            argdef = argdef[1:]
+            c = argdef[0]
+        if c in 'ZBCSIJFD':
+            args.append(prefix + c)
+            argdef = argdef[1:]
+            continue
+        if c == 'L':
+            c, argdef = argdef.split(';', 1)
+            args.append(prefix + c + ';')
+            continue
+        raise ValueError("Invalid type code '{}' in definition '{}'".format(c, definition))
+
+    return ret, tuple(args)
+
+
 def sig_to_java(sig):
     if sig in primitives_by_sig:
         return primitives_by_sig[sig].name
@@ -193,3 +219,14 @@ def sig_to_java(sig):
     if sig.startswith("L") and sig.endswith(";"):
         return sig[1:-1].replace("/", ".")
     raise ValueError("Invalid definition: '{}'".format(sig))
+
+
+def args_sig_to_java(split_args_sig, varargs=False):
+    formatted_args = []
+    for i, sig in enumerate(split_args_sig):
+        if varargs and i == (len(split_args_sig) - 1):
+            assert sig.startswith("[")
+            formatted_args.append(sig_to_java(sig[1:]) + "...")
+        else:
+            formatted_args.append(sig_to_java(sig))
+    return "(" + ", ".join(formatted_args) + ")"

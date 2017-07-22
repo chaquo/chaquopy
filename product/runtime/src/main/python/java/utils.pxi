@@ -31,8 +31,8 @@ def cast(cls, obj):
         return none_casts[sig]
     else:
         if isinstance(obj, JavaObject):
-            instance = (<JavaObject?>obj).j_self
-        elif isinstance(obj, JavaArray):
+            instance = obj.j_self
+        elif isinstance(obj, JavaArray):  # TODO #5260 cover with JavaObject
             instance = obj.j_self
         else:
             raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
@@ -72,47 +72,6 @@ cdef str_for_c(s):
     else:
         assert isinstance(s, bytes)
         return s
-
-
-def parse_definition(definition):
-    BAD_CHARS = ",."  # ',' should be ';' or nothing, and '.' should be '/'
-    for c in BAD_CHARS:
-        if c in definition:
-            raise ValueError(f"Invalid character '{c}' in definition '{definition}'")
-
-    # not a function, just a field
-    if definition[0] != '(':
-        return definition, None
-
-    # it's a function!
-    argdef, ret = definition[1:].split(')')
-    args = []
-
-    while len(argdef):
-        c = argdef[0]
-
-        # read the array char(s)
-        prefix = ''
-        while c == '[':
-            prefix += c
-            argdef = argdef[1:]
-            c = argdef[0]
-
-        # native type
-        if c in 'ZBCSIJFD':
-            args.append(prefix + c)
-            argdef = argdef[1:]
-            continue
-
-        # java class
-        if c == 'L':
-            c, argdef = argdef.split(';', 1)
-            args.append(prefix + c + ';')
-            continue
-
-        raise ValueError(f"Invalid type code '{c}' in definition '{definition}'")
-
-    return ret, tuple(args)
 
 
 # TODO #5169 use proxy for actual exception class

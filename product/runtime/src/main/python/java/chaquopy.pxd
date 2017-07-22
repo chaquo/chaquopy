@@ -2,11 +2,6 @@
 
 from .jni cimport *
 
-# === class ===================================================================
-
-cdef class JavaObject(object):
-    cdef GlobalRef j_self
-
 # === conversion ==============================================================
 
 cdef j2p(JNIEnv *j_env, JNIRef j_object)

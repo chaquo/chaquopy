@@ -25,85 +25,67 @@ def jklass(clsname):
     cls = jclass_cache.get(clsname)
     if not cls:
         cls = JavaClass(clsname, (JavaObject,), {})
-        cache_class(cls)
+        reflect_class(cls)
     return cls
 
 
 jclass_cache = {}
 
-def cache_class(cls):
-    jclass_cache[cls.__name__] = cls
-
 
 # This isn't done during module initialization because we don't have a JVM yet, and we don't
 # want to automatically start one because we might already be in a Java process.
 def setup_bootstrap_classes():
-    # Declare only the methods used in this file. Generated with runtime/make_proxy.py.
+    # Declare only the methods used in this file.
     global Class, Modifier, Method, Field, Constructor
+    if "Class" in globals():
+        raise Exception("setup_bootstrap_classes called more than once")
 
-    class Class(six.with_metaclass(JavaClass, JavaObject)):
-        _chaquopy_clsname = 'java.lang.Class'
-        getClasses = JavaMethod('()[Ljava/lang/Class;')
-        getConstructors = JavaMethod('()[Ljava/lang/reflect/Constructor;')
-        getFields = JavaMethod('()[Ljava/lang/reflect/Field;')
-        getMethods = JavaMethod('()[Ljava/lang/reflect/Method;')
-        getName = JavaMethod('()Ljava/lang/String;')
+    Class = JavaClass("java.lang.Class", (JavaObject,), {})
+    add_member(Class, "getClasses", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Class, "getConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
+    add_member(Class, "getFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
+    add_member(Class, "getMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
+    add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
 
-    class Modifier(six.with_metaclass(JavaClass, JavaObject)):
-        _chaquopy_clsname = 'java.lang.reflect.Modifier'
-        isAbstract = JavaMethod('(I)Z', static=True)
-        isFinal = JavaMethod('(I)Z', static=True)
-        isStatic = JavaMethod('(I)Z', static=True)
+    Modifier = JavaClass("java.lang.reflect.Modifier", (JavaObject,), {})
+    add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
 
-    class Method(six.with_metaclass(JavaClass, JavaObject)):
-        _chaquopy_clsname = 'java.lang.reflect.Method'
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getModifiers = JavaMethod('()I')
-        getName = JavaMethod('()Ljava/lang/String;')
-        getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
-        getReturnType = JavaMethod('()Ljava/lang/Class;')
-        isSynthetic = JavaMethod('()Z')
-        isVarArgs = JavaMethod('()Z')
+    Method = JavaClass("java.lang.reflect.Method", (JavaObject,), {})
+    add_member(Method, "getDeclaringClass", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Method, "getModifiers", JavaMethod('()I'))
+    add_member(Method, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Method, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Method, "getReturnType", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Method, "isSynthetic", JavaMethod('()Z'))
+    add_member(Method, "isVarArgs", JavaMethod('()Z'))
 
-    class Field(six.with_metaclass(JavaClass, JavaObject)):
-        _chaquopy_clsname = 'java.lang.reflect.Field'
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getModifiers = JavaMethod('()I')
-        getName = JavaMethod('()Ljava/lang/String;')
-        getType = JavaMethod('()Ljava/lang/Class;')
+    Field = JavaClass("java.lang.reflect.Field", (JavaObject,), {})
+    add_member(Field, "getDeclaringClass", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Field, "getModifiers", JavaMethod('()I'))
+    add_member(Field, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Field, "getType", JavaMethod('()Ljava/lang/Class;'))
 
-    class Constructor(six.with_metaclass(JavaClass, JavaObject)):
-        _chaquopy_clsname = 'java.lang.reflect.Constructor'
-        getDeclaringClass = JavaMethod('()Ljava/lang/Class;')
-        getModifiers = JavaMethod('()I')
-        getName = JavaMethod('()Ljava/lang/String;')
-        getParameterTypes = JavaMethod('()[Ljava/lang/Class;')
-        isSynthetic = JavaMethod('()Z')
-        isVarArgs = JavaMethod('()Z')
+    Constructor = JavaClass("java.lang.reflect.Constructor", (JavaObject,), {})
+    add_member(Constructor, "getDeclaringClass", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Constructor, "getModifiers", JavaMethod('()I'))
+    add_member(Constructor, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Constructor, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
+    add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
 
-    classes = [Class, Modifier, Method, Field, Constructor]
-    for cls in classes:
-        cache_class(cls)
-        klass = Class(instance=cls._chaquopy_j_cls)
-        for name, member in six.iteritems(cls.__dict__):
-            if isinstance(member, JavaMember):
-                member.resolve(klass, name)
+    for cls in [Class, Modifier, Method, Field, Constructor]:
+        reflect_class(cls)
 
 
-# cdef'ed metaclasses don't work with six's with_metaclass (https://trac.sagemath.org/ticket/18503)
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
-        # _chaquopy_clsname allows us to specify the fully-qualified name when using manual
-        # proxy definition in setup_bootstrap_classes.
-        classname = classDict.pop("_chaquopy_clsname", classname)
-
-        classDict["_chaquopy_j_cls"] = CQPEnv().FindClass(classname).global_ref()
-        classDict["_chaquopy_methods"] = defaultdict(list)
-        classDict["_chaquopy_fields"] = {}
-        classDict["_chaquopy_classes"] = {}
+        classDict["_chaquopy_j_cls"] = CQPEnv().FindClass(classname).global_ref()  # FIXME rename to _chaquopy_j_klass
 
         # These are defined here rather than in JavaObject because cdef classes are required to
         # use __richcmp__ instead.
+        # FIXME JavaObject is no longer a cdef class
         classDict["__eq__"] = lambda self, other: self.equals(other)
         classDict["__ne__"] = lambda self, other: not self.equals(other)  # Not automatic in Python 2
 
@@ -120,11 +102,11 @@ class JavaClass(type):
         #         classDict['__len__'] = lambda self: self.size()
 
         # classname must be "str" type, whatever that is on this Python version.
-        return type.__new__(metacls, str(classname), bases, classDict)
+        cls = type.__new__(metacls, str(classname), bases, classDict)
+        jclass_cache[classname] = cls
+        return cls
 
-    def __getattr__(self, key):
-        return get_attribute(self, None, key)
-
+    # Override to prevent modification of class dict.
     def __setattr__(cls, key, value):
         set_attribute(cls, None, key, value)
 
@@ -140,19 +122,15 @@ def bean_getter(s):
 #
 # To avoid conflict with Java member names, all internal-use members of this class or its
 # subclasses should have the prefix "_chaquopy_".
-cdef class JavaObject(object):
-    '''Base class for Python -> Java proxy classes'''
-
-    # Member variables declared in .pxd
-
+class JavaObject(object):
     def __init__(self, *args, JNIRef instance=None):
-        super(JavaObject, self).__init__()
+        super().__init__()
         cdef JNIEnv *env = get_jnienv()
         if instance is not None:
             if not env[0].IsInstanceOf(env, instance.obj, (<JNIRef?>self._chaquopy_j_cls).obj):
                 raise TypeError(f"cannot create {type(self).__name__} proxy from "
                                 f"{lookup_java_object_name(env, instance.obj)} instance")
-            self.j_self = instance.global_ref()
+            j_self = instance.global_ref()
         else:
             # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
             # class, but Android 6 crashes with a CheckJNI error.
@@ -163,11 +141,10 @@ cdef class JavaObject(object):
                 constructor = getattr(type(self), "<init>")
             except AttributeError:
                 raise TypeError(f"{type(self).__name__} has no accessible constructors")
-            self.j_self = constructor(*args)
+            j_self = constructor(*args)
+        object.__setattr__(self, "j_self", j_self) # FIXME rename to _chaquopy_this
 
-    def __getattr__(self, key):
-        return get_attribute(type(self), self, key)
-
+    # Override to prevent modification of instance dict.
     def __setattr__(self, key, value):
         set_attribute(type(self), self, key, value)
 
@@ -189,86 +166,66 @@ cdef class JavaObject(object):
         return self.hashCode()
 
 
-def get_attribute(cls, obj, key):
-    member = get_member(cls, obj, key)
-    # Since the member is now in cls.__dict__, I thought we should be able to call getattr here
-    # rather than using __get__ manually. But that somehow still caused infinite recursion
-    # sometimes when accessing attributes on the class as opposed to the instance.
-    return member.__get__(obj, cls) if hasattr(member, "__get__") else member
-
-
 def set_attribute(cls, obj, key, value):
-    member = get_member(cls, obj, key)
+    try:
+        member = cls.__dict__[key]
+    except KeyError:
+        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
+        raise AttributeError(f"{subject} has no attribute '{key}'")
     if not isinstance(member, JavaField):
         raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
     member.__set__(obj, value)
 
 
-def get_member(cls, obj, name):
-    if name.startswith("_chaquopy_"):
-        raise ValueError(f"Cannot reflect {cls.__name__}.{name}: reserved prefix")
-    try:
-        return cls.__dict__[name]
-    except KeyError: pass
+def reflect_class(cls):
+    klass = Class(instance=cls._chaquopy_j_cls)
 
-    member = get_method(cls, name)
-    if not member:
+    name_key = lambda m: m.getName()
+    all_methods = klass.getMethods() + klass.getConstructors()
+    all_methods.sort(key=name_key)
+    for name, methods in itertools.groupby(all_methods, name_key):
+        member = None
+        for method in methods:
+            if isinstance(method, Constructor):
+                name = "<init>"
+            if method.isSynthetic(): continue  # TODO #5232 test this
+            jm = JavaMethod(method)
+            if member is None:
+                member = jm
+            elif isinstance(member, JavaMethod):
+                member = JavaMultipleMethod([member, jm])
+            else:
+                (<JavaMultipleMethod?>member).methods.append(jm)
+        add_member(cls, name, member)
+
+    for field in klass.getFields():
         # TODO #5183 method hides field with same name.
-        member = get_field(cls, name)
-    if not member:
-        member = get_nested_class(cls, name)
-    if not member:
+        # TODO #5208 depending on the order of getFields(), we may hide the wrong field in
+        # case of a superclass and subclass having fields with the same name.
+        add_member(cls, field.getName(), JavaField(field))
+
+    for nested_klass in klass.getClasses():
+        # TODO #5208 may have a similar hiding problem to fields
+        name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
+        if name:
+            add_member(cls, name, jklass(nested_klass.getName()))  # TODO add a JavaMember subclass which delays the jklass call
+
+    aliases = {}
+    for name, member in six.iteritems(cls.__dict__):
         # As recommended by PEP 8, members whose names are reserved words can be accessed by
         # appending an underscore. The original name is still accessible via getattr().
-        if name.endswith("_") and is_reserved_word(name[:-1]):
-            member = get_member(cls, obj, name[:-1])
-    if member:
+        if is_reserved_word(name):
+            aliases[name + "_"] =  member
+    for alias, member in six.iteritems(aliases):
+        if alias not in cls.__dict__:
+            type.__setattr__(cls, alias, member)
+
+
+def add_member(cls, name, member):
+    if name not in cls.__dict__:  # TODO #5183 method hides field with same name.
         type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
-        return member
-
-    subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
-    raise AttributeError(f"{subject} has no attribute '{name}'")
-
-
-def get_method(cls, name):
-    klass = Class(instance=cls._chaquopy_j_cls)
-    if not cls._chaquopy_methods:
-        for method in itertools.chain(klass.getMethods(), klass.getConstructors()):
-            if method.isSynthetic(): continue  # TODO #5232 test this
-            jni_name = "<init>" if isinstance(method, Constructor) else method.getName()
-            cls._chaquopy_methods[jni_name].append(method)
-
-    overloads = cls._chaquopy_methods.get(name)
-    if overloads:
-        return (JavaMethod.from_reflected(overloads[0]) if (len(overloads) == 1)
-                else JavaMultipleMethod.from_reflected(klass, overloads))
-    else:
-        return None
-
-
-def get_field(cls, name):
-    if not cls._chaquopy_fields:
-        klass = Class(instance=cls._chaquopy_j_cls)
-        for field in klass.getFields():
-            # TODO #5208 depending on the order of getFields(), we may hide the wrong field in
-            # case of a superclass and subclass having fields with the same name.
-            cls._chaquopy_fields.setdefault(field.getName(), field)
-
-    field = cls._chaquopy_fields.get(name)
-    return JavaField.from_reflected(field) if field else None
-
-
-def get_nested_class(cls, name):
-    if not cls._chaquopy_classes:
-        klass = Class(instance=cls._chaquopy_j_cls)
-        for nested_klass in klass.getClasses():
-            # TODO #5208 may have a similar hiding problem to fields
-            nested_name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
-            if nested_name:
-                cls._chaquopy_classes.setdefault(nested_name, nested_klass.getName())
-
-    full_name = cls._chaquopy_classes.get(name)
-    return java.jclass(full_name) if full_name else None
+        if isinstance(member, JavaMember):
+            member.added_to_class(cls, name)
 
 
 # Ensure the same aliases are available on all Python versions
@@ -281,80 +238,78 @@ def is_reserved_word(word):
 
 
 cdef class JavaMember(object):
-    cdef JavaObject klass
-    cdef name
+    cdef cls
+    cdef basestring name
+
+    def added_to_class(self, cls, name):
+        self.cls = cls
+        self.name = name
+
+    def fqn(self):
+        return f"{self.cls.__name__}.{self.name}"
+
+
+cdef class JavaSimpleMember(JavaMember):
+    cdef reflected
+    cdef JNIRef j_klass
+    cdef basestring definition
     cdef bint is_static
 
-    def __init__(self, bint static=False):
+    def __init__(self, definition_or_reflected, *, static):
+        if isinstance(definition_or_reflected, str):
+            self.definition = definition_or_reflected
+        else:
+            self.reflected = definition_or_reflected
         self.is_static = static
 
-    def classname(self):
-        return self.klass.getName() if self.klass else "(no class)"
+    def resolve(self):
+        if self.reflected:
+            self.j_klass = self.reflected.getDeclaringClass().j_self
+            self.is_static = Modifier.isStatic(self.reflected.getModifiers())
+        else:
+            self.j_klass = self.cls._chaquopy_j_cls
 
-    def resolve(self, klass, name):
-        self.klass = klass
-        self.name = str_for_c(name)
 
-
-cdef class JavaField(JavaMember):
+cdef class JavaField(JavaSimpleMember):
     cdef jfieldID j_field
-    cdef definition
     cdef bint is_final
 
     def __repr__(self):
-        return (f"<JavaField('{self.fqn()}', type='{java.sig_to_java(self.definition)}'"
-                f"{', static=True' if self.is_static else ''}"
-                f"{', final=True' if self.is_final else ''})>")
+        self.resolve()
+        return (f"<JavaField "
+                f"{'static ' if self.is_static else ''}"
+                f"{'final ' if self.is_final else ''}"
+                f"{java.sig_to_java(self.definition)} {self.fqn()}>")
 
-    @staticmethod
-    def from_reflected(field):
-        modifiers = field.getModifiers()
-        result = JavaField(java.jni_sig(field.getType()),
-                           static=Modifier.isStatic(modifiers),
-                           final=Modifier.isFinal(modifiers))
-
-        # On Android 6.0, accessing an inherited static field or interface constant via a
-        # subclass causes a CheckJNI error like "static jfieldID 0xaa6529e8 not valid for
-        # class", even though GetStaticField had no problem with it. So we must use
-        # getDeclaringClass here. This doesn't seem to affect methods or non-static fields.
-        result.resolve(field.getDeclaringClass(), field.getName())
-        return result
-
-    def __init__(self, definition, *, static=False, final=False):
-        super(JavaField, self).__init__(static)
-        self.definition = str_for_c(definition)
+    def __init__(self, definition_or_reflected, *, static=False, final=False):
+        super().__init__(definition_or_reflected, static=static)
         self.is_final = final
 
-    def fqn(self):
-        """Returns the fully-qualified name of the field. Not used in any place where the field type
-        might also be relevant.
-        """
-        return f"{self.classname()}.{self.name}"
+    def resolve(self):
+        if self.j_field: return
 
-    def resolve(self, klass, name):
-        super(JavaField, self).resolve(klass, name)
-        cdef JNIEnv *j_env = get_jnienv()
+        super().resolve()
+        if self.reflected:
+            self.definition = java.jni_sig(self.reflected.getType())
+            self.is_final = Modifier.isFinal(self.reflected.getModifiers())
+
+        env = CQPEnv()
         if self.is_static:
-            self.j_field = j_env[0].GetStaticFieldID(
-                    j_env, self.klass.j_self.obj, self.name, self.definition)
+            self.j_field = env.GetStaticFieldID(self.j_klass, self.name, self.definition)
         else:
-            self.j_field = j_env[0].GetFieldID(
-                    j_env, self.klass.j_self.obj, self.name, self.definition)
-        if self.j_field == NULL:
-            expect_exception(j_env, f'Get[Static]Field failed for {self}')
+            self.j_field = env.GetFieldID(self.j_klass, self.name, self.definition)
 
     def __get__(self, obj, objtype):
-        cdef jobject j_self
+        self.resolve()
         if self.is_static:
             return self.read_static_field()
         else:
             if obj is None:
                 raise AttributeError(f'Cannot access {self.fqn()} in static context')
-            j_self = (<JavaObject?>obj).j_self.obj
-            return self.read_field(j_self)
+            return self.read_field(obj)
 
     def __set__(self, obj, value):
-        cdef jobject j_self
+        self.resolve()
         if self.is_final:  # 'final' is not enforced by JNI, so we need to do it ourselves.
             raise AttributeError(f"{self.fqn()} is a final field")
 
@@ -365,13 +320,12 @@ cdef class JavaField(JavaMember):
             # protocol by overriding JavaClass.__setattr__.
             if obj is None:
                 raise AttributeError(f'Cannot access {self.fqn()} in static context')
-            else:
-                j_self = (<JavaObject?>obj).j_self.obj
-                self.write_field(j_self, value)
+            self.write_field(obj, value)
 
     # Cython auto-generates range checking code for the integral types.
-    cdef write_field(self, jobject j_self, value):
+    cdef write_field(self, obj, value):
         cdef JNIEnv *j_env = get_jnienv()
+        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
         j_value = p2j(j_env, self.definition, value)
 
         r = self.definition[0]
@@ -400,8 +354,9 @@ cdef class JavaField(JavaMember):
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
-    cdef read_field(self, jobject j_self):
+    cdef read_field(self, obj):
         cdef JNIEnv *j_env = get_jnienv()
+        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
         r = self.definition[0]
         if r == 'Z':
             return bool(j_env[0].GetBooleanField(j_env, j_self, self.j_field))
@@ -427,7 +382,7 @@ cdef class JavaField(JavaMember):
 
     # Cython auto-generates range checking code for the integral types.
     cdef write_static_field(self, value):
-        cdef jclass j_class = self.klass.j_self.obj
+        cdef jclass j_class = self.j_klass.obj
         cdef JNIEnv *j_env = get_jnienv()
         j_value = p2j(j_env, self.definition, value)
 
@@ -458,7 +413,7 @@ cdef class JavaField(JavaMember):
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef read_static_field(self):
-        cdef jclass j_class = self.klass.j_self.obj
+        cdef jclass j_class = self.j_klass.obj
         cdef JNIEnv *j_env = get_jnienv()
         r = self.definition[0]
         if r == 'Z':
@@ -485,68 +440,46 @@ cdef class JavaField(JavaMember):
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
 
-cdef class JavaMethod(JavaMember):
+cdef class JavaMethod(JavaSimpleMember):
     cdef jmethodID j_method
-    cdef definition
-    cdef object definition_return
-    cdef object definition_args
+    cdef basestring definition_return
+    cdef tuple definition_args
     cdef bint is_constructor
     cdef bint is_varargs
 
     def __repr__(self):
-        return (f"<JavaMethod('{self.fqn()}', type='{java.sig_to_java(self.definition_return)}'"
-                f"{', static=True' if self.is_static else ''}"
-                f"{', varargs=True' if self.is_varargs else ''})>")
-
-    def fqn(self):
-        """Returns the fully-qualified name of the method, plus its parameter types. Not used in any
-        place where the return type might also be relevant.
-        """
-        return f"{self.classname()}.{self.name}{self.format_args()}"
+        self.resolve()
+        return (f"<JavaMethod("
+                f"{'static ' if self.is_static else ''}"
+                f"{java.sig_to_java(self.definition_return)} {self.fqn()}{self.format_args()})>")
 
     def format_args(self):
-        formatted_args = []
-        for i, arg in enumerate(self.definition_args):
-            if self.is_varargs and i == (len(self.definition_args) - 1):
-                formatted_args.append(java.sig_to_java(arg[1:]) + "...")
-            else:
-                formatted_args.append(java.sig_to_java(arg))
-        return "(" + ", ".join(formatted_args) + ")"
+        return java.args_sig_to_java(self.definition_args, self.is_varargs)
 
-    @staticmethod
-    def from_reflected(method):
-        if isinstance(method, Constructor):
-            return_type = java.jvoid
-            name = "<init>"
-        else:
-            return_type = method.getReturnType()
-            name = method.getName()
-        result = JavaMethod(java.jni_method_sig(return_type, method.getParameterTypes()),
-                            static=Modifier.isStatic(method.getModifiers()),
-                            varargs=method.isVarArgs())
-        result.resolve(method.getDeclaringClass(), name)
-        return result
-
-    def __init__(self, definition, *, static=False, varargs=False):
-        super(JavaMethod, self).__init__(static)
-        self.definition = str_for_c(definition)
-        self.definition_return, self.definition_args = parse_definition(definition)
+    def __init__(self, definition_or_reflected, *, static=False, varargs=False):
+        super().__init__(definition_or_reflected, static=static)
         self.is_varargs = varargs
 
-    def resolve(self, klass, name):
-        super(JavaMethod, self).resolve(klass, name)
-        self.is_constructor = (name == "<init>")
-        cdef JNIEnv *j_env = get_jnienv()
+    def resolve(self):
+        if self.j_method: return
+
+        super().resolve()
+        if self.reflected:
+            return_type = (java.jvoid if isinstance(self.reflected, Constructor)
+                           else self.reflected.getReturnType())
+            self.definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
+            self.is_varargs = self.reflected.isVarArgs()
+
+        env = CQPEnv()
         if self.is_static:
-            self.j_method = j_env[0].GetStaticMethodID(
-                j_env, self.klass.j_self.obj, self.name, self.definition)
+            self.j_method = env.GetStaticMethodID(self.j_klass, self.name, self.definition)
         else:
-            self.j_method = j_env[0].GetMethodID(
-                j_env, self.klass.j_self.obj, self.name, self.definition)
-        if self.j_method == NULL:
-            expect_exception(j_env, f"Get[Static]Method failed for {self}")
+            self.j_method = env.GetMethodID(self.j_klass, self.name, self.definition)
+        self.definition_return, self.definition_args = java.split_method_sig(self.definition)
+        self.is_constructor = (self.name == "<init>")
 
     def __get__(self, obj, objtype):
+        self.resolve()
         if obj is None or self.is_static or self.is_constructor:
             return self
         else:
@@ -565,7 +498,7 @@ cdef class JavaMethod(JavaMember):
         # Exception types and wording are based on Python 2.7.
         if self.is_varargs:
             if len(args) < len(d_args) - 1:
-                # FIXME need test
+                # FIXME #5259 need test
                 raise TypeError(f'{self.fqn()} takes at least {plural(len(d_args) - 1, "argument")} '
                                 f'({len(args)} given)')
 
@@ -602,21 +535,21 @@ cdef class JavaMethod(JavaMember):
         else:
             obj = args[0]
             if isinstance(obj, JavaObject) and \
-               j_env[0].IsInstanceOf(j_env, (<JavaObject?>obj).j_self.obj, self.klass.j_self.obj):
+               j_env[0].IsInstanceOf(j_env, (<JNIRef?>obj.j_self).obj, self.j_klass.obj):
                 return obj, args[1:]
             else:
                 got = f"{type(obj).__name__} instance"
-        raise TypeError(f"Unbound method {self.fqn()} must be called with {self.classname()} "
+        raise TypeError(f"Unbound method {self.fqn()} must be called with {self.cls.__name__} "
                         f"instance as first argument (got {got} instead)")
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self
         with nogil:
-            j_self = j_env[0].NewObjectA(j_env, self.klass.j_self.obj, self.j_method, j_args)
+            j_self = j_env[0].NewObjectA(j_env, self.j_klass.obj, self.j_method, j_args)
         check_exception(j_env)
         return LocalRef.adopt(j_env, j_self).global_ref()
 
-    cdef call_method(self, JNIEnv *j_env, JavaObject obj, jvalue *j_args):
+    cdef call_method(self, JNIEnv *j_env, obj, jvalue *j_args):
         # These temporary variables are required because Python objects can't be touched during
         # "with nogil".
         cdef jboolean j_boolean
@@ -629,7 +562,7 @@ cdef class JavaMethod(JavaMember):
         cdef jdouble j_double
         cdef jobject j_object
 
-        cdef jobject j_self = obj.j_self.obj
+        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
         ret = None
         r = self.definition_return[0]
         if r == 'V':
@@ -692,7 +625,7 @@ cdef class JavaMethod(JavaMember):
         cdef jobject j_object
 
         ret = None
-        cdef jclass j_class = self.klass.j_self.obj
+        cdef jclass j_class = self.j_klass.obj
         r = self.definition_return[0]
         if r == 'V':
             with nogil:
@@ -742,31 +675,20 @@ cdef class JavaMethod(JavaMember):
 
 
 cdef class JavaMultipleMethod(JavaMember):
-    cdef methods
-    cdef overload_cache
+    cdef list methods
+    cdef dict overload_cache
 
     def __repr__(self):
         return f"JavaMultipleMethod({self.methods})"
 
-    def fqn(self):
-        return f"{self.classname()}.{(<JavaMember?>self).name}"
-
-    @staticmethod
-    def from_reflected(klass, methods):
-        jms = map(JavaMethod.from_reflected, methods)
-        result = JavaMultipleMethod(jms)
-        super(JavaMultipleMethod, result).resolve(klass, (<JavaMethod?>jms[0]).name)
-        return result
-
     def __init__(self, methods):
-        super(JavaMultipleMethod, self).__init__()
         self.methods = methods
         self.overload_cache = {}
 
-    def resolve(self, klass, name):
-        super(JavaMultipleMethod, self).resolve(klass, name)
+    def added_to_class(self, cls, name):
+        super().added_to_class(cls, name)
         for jm in self.methods:
-            (<JavaMethod?>jm).resolve(klass, name)
+            (<JavaMethod?>jm).added_to_class(cls, name)
 
     def __get__(self, obj, objtype):
         return lambda *args: self(obj, *args)
@@ -775,6 +697,9 @@ cdef class JavaMultipleMethod(JavaMember):
         args_types = tuple(map(type, args))
         best_overload = self.overload_cache.get(args_types)
         if not best_overload:
+            for jm in self.methods:
+                (<JavaMethod?>jm).resolve()
+
             # JLS 15.12.2.2. "Identify Matching Arity Methods Applicable by Subtyping"
             varargs = False
             applicable = self.find_applicable(obj, args, autobox=False, varargs=False)

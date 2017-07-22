@@ -295,12 +295,11 @@ cdef public jobject Java_com_chaquo_python_PyObject_remove \
 
 cdef public jobject Java_com_chaquo_python_PyObject_dir \
     (JNIEnv *env, jobject this) with gil:
-    cdef JavaObject keys
     try:
         keys = java.jclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
-        return keys.j_self.return_ref(env)
+        return (<JNIRef?>keys.j_self).return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL

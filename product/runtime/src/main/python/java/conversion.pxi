@@ -96,7 +96,7 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
     if string == NULL:
         raise ValueError("String cannot be null")
     if not j_env[0].IsInstanceOf(j_env, string,
-                                 (<JavaObject?>find_javaclass("java.lang.String")).j_self.obj):
+                                 (<JNIRef?>find_javaclass("java.lang.String").j_self).obj):
         raise TypeError("Object is not a String")
 
     jchar_str = j_env[0].GetStringChars(j_env, string, NULL)
@@ -230,7 +230,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             # The equality comparison is not redundant: it prevents recursion when converting
             # the argument of isAssignableFrom.
             if (clsname == obj_clsname) or (klass.isAssignableFrom(find_javaclass(obj_clsname))):
-                return (<JavaObject?>obj).j_self
+                return obj.j_self
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
                 return <GlobalRef?>obj._chaquopy_j_cls
@@ -317,8 +317,7 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    cdef JavaObject boxed = java.jclass(clsname)(value)
-    return boxed.j_self
+    return java.jclass(clsname)(value).j_self
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
@@ -327,10 +326,12 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
     JPyObject = java.jclass("com.chaquo.python.PyObject")
+    cdef JavaMethod jm_getInstance = JPyObject.__dict__["getInstance"]
+    jm_getInstance.resolve()
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
          (<GlobalRef?>JPyObject._chaquopy_j_cls).obj,
-         (<JavaMethod?>get_member(JPyObject, None, "getInstance")).j_method,
+         jm_getInstance.j_method,
          <jlong><PyObject*>obj)
     check_exception(env)
     return j_pyobject

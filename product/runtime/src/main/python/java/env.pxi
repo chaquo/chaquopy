@@ -7,7 +7,7 @@
 #     CQPEnv converts it to a Python Unicode string.
 #   * Where JNIEnv accepts a char*, CQPEnv accepts a Python Unicode and byte string,
 #   * Where JNIEnv accepts a Class reference, CQPEnv also accepts anything recognized by
-#     jni_sig.
+#     jni_sig. (FIXME this is inefficient: limit it to FindClass and make everything else take a JNIRef)
 #
 # TODO #5176 expand and use more widely
 cdef class CQPEnv(object):
@@ -37,6 +37,34 @@ cdef class CQPEnv(object):
 
     cdef IsInstanceOf(self, JNIRef obj, cls):
         return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, self.FindClass(cls).obj))
+
+    cdef jmethodID GetMethodID(self, JNIRef j_klass, name, definition) except NULL:
+        cdef jmethodID result = self.j_env[0].GetMethodID \
+            (self.j_env, j_klass.obj, str_for_c(name), str_for_c(definition))
+        if result == NULL:
+            self.expect_exception(f'GetMethodID failed for {name}, {definition}')
+        return result
+
+    cdef jfieldID GetFieldID(self, JNIRef j_klass, name, definition) except NULL:
+        cdef jfieldID result = self.j_env[0].GetFieldID \
+            (self.j_env, j_klass.obj, str_for_c(name), str_for_c(definition))
+        if result == NULL:
+            self.expect_exception(f'GetFieldID failed for {name}, {definition}')
+        return result
+
+    cdef jmethodID GetStaticMethodID(self, JNIRef j_klass, name, definition) except NULL:
+        cdef jmethodID result = self.j_env[0].GetStaticMethodID \
+            (self.j_env, j_klass.obj, str_for_c(name), str_for_c(definition))
+        if result == NULL:
+            self.expect_exception(f'GetStaticMethodID failed for {name}, {definition}')
+        return result
+
+    cdef jfieldID GetStaticFieldID(self, JNIRef j_klass, name, definition) except NULL:
+        cdef jfieldID result = self.j_env[0].GetStaticFieldID \
+            (self.j_env, j_klass.obj, str_for_c(name), str_for_c(definition))
+        if result == NULL:
+            self.expect_exception(f'GetStaticFieldID failed for {name}, {definition}')
+        return result
 
     cdef GetArrayLength(self, JNIRef array):
         return self.j_env[0].GetArrayLength(self.j_env, array.obj)
