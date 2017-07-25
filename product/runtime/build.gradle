@@ -246,7 +246,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
                 } else {
-                    args "discover"
+                    args "test_suite"
                 }
             }
             testPython.configure(testCommonConfig)
