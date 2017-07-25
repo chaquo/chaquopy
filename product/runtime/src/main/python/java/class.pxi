@@ -498,7 +498,6 @@ cdef class JavaMethod(JavaSimpleMember):
         # Exception types and wording are based on Python 2.7.
         if self.is_varargs:
             if len(args) < len(d_args) - 1:
-                # FIXME #5259 need test
                 raise TypeError(f'{self.fqn()} takes at least {plural(len(d_args) - 1, "argument")} '
                                 f'({len(args)} given)')
 

@@ -118,6 +118,8 @@ class TestReflect(unittest.TestCase):
                 obj.fieldStaticZ()
             with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
                 obj.staticNoArgs(True)
+            with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+                obj.staticVarargs1()
             with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
                 obj.setStaticZ()
 
@@ -135,6 +137,10 @@ class TestReflect(unittest.TestCase):
             self.t.fieldZ()
         with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
             self.t.noArgs(True)
+        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+            self.t.varargs1()
+        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+            self.Test.varargs1(self.t)
         with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
             self.t.setZ()
 
