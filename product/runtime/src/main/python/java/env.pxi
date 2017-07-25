@@ -3,31 +3,28 @@
 #   * Uses JNIRef everywhere.
 #   * Where JNIEnv returns a jboolean, CQPEnv returns a Python bool.
 #   * Where JNIEnv accepts a jchar, CQPEnv accepts a single-character Python Unicode
-#     or byte string, checking that they are in the BMP. Where JNIEnv returns a jchar,
-#     CQPEnv converts it to a Python Unicode string.
+#     or byte string, checking that the character is in the BMP. Where JNIEnv returns a jchar,
+#     CQPEnv returns a Python Unicode string.
 #   * Where JNIEnv accepts a char*, CQPEnv accepts a Python Unicode and byte string,
-#   * Where JNIEnv accepts a Class reference, CQPEnv also accepts anything recognized by
-#     jni_sig. (FIXME this is inefficient: limit it to FindClass and make everything else take a JNIRef)
 #
-# TODO #5176 expand and use more widely
 cdef class CQPEnv(object):
     cdef JNIEnv *j_env
 
     def __init__(self):
         self.j_env = get_jnienv()
 
+    # All common notations may be used, including '.' or '/' to separate package names, and
+    # optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
+    # exceptions as Class.forName.
     cpdef LocalRef FindClass(self, cls):
-        if isinstance(cls, JNIRef):
-            return cls
-        else:
-            name = cls if isinstance(cls, six.string_types) else java.jni_sig(cls)
-            name = name.replace(".", "/")
-            if name.startswith("L") and name.endswith(";"):
-                name = name[1:-1]
-            result = self.adopt(self.j_env[0].FindClass(self.j_env, str_for_c(name)))
-            if not result:
-                self.expect_exception(f"FindClass failed for {name}")
-            return result
+        name = cls if isinstance(cls, six.string_types) else java.jni_sig(cls)
+        name = name.replace(".", "/")
+        if name.startswith("L") and name.endswith(";"):
+            name = name[1:-1]
+        result = self.adopt(self.j_env[0].FindClass(self.j_env, str_for_c(name)))
+        if not result:
+            self.expect_exception(f"FindClass failed for {name}")
+        return result
 
     cdef LocalRef ExceptionOccurred(self):
         return self.adopt(self.j_env[0].ExceptionOccurred(self.j_env))
@@ -35,8 +32,8 @@ cdef class CQPEnv(object):
     cdef ExceptionClear(self):
         self.j_env[0].ExceptionClear(self.j_env)
 
-    cdef IsInstanceOf(self, JNIRef obj, cls):
-        return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, self.FindClass(cls).obj))
+    cdef IsInstanceOf(self, JNIRef obj, JNIRef j_klass):
+        return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, j_klass.obj))
 
     cdef jmethodID GetMethodID(self, JNIRef j_klass, name, definition) except NULL:
         cdef jmethodID result = self.j_env[0].GetMethodID \
@@ -85,9 +82,8 @@ cdef class CQPEnv(object):
         return self.adopt_notnull(self.j_env[0].NewDoubleArray(self.j_env, length))
     cdef LocalRef NewCharArray(self, length):
         return self.adopt_notnull(self.j_env[0].NewCharArray(self.j_env, length))
-    cdef LocalRef NewObjectArray(self, length, cls):
-        return self.adopt_notnull(self.j_env[0].NewObjectArray(self.j_env, length,
-                                                               self.FindClass(cls).obj, NULL))
+    cdef LocalRef NewObjectArray(self, length, JNIRef j_klass):
+        return self.adopt_notnull(self.j_env[0].NewObjectArray(self.j_env, length, j_klass.obj, NULL))
 
     cdef GetBooleanArrayElement(self, JNIRef array, index):
         cdef jboolean j_value = 0

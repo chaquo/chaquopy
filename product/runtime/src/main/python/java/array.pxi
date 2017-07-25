@@ -13,7 +13,7 @@ class JavaArray(collections.Sequence):
         env = CQPEnv()
         if instance:
             assert value is None
-            if not env.IsInstanceOf(instance, self.sig):
+            if not env.IsInstanceOf(instance, env.FindClass(self.sig)):
                 instance_sig = lookup_java_object_name(env.j_env, instance.obj)
                 raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
                                 f"{java.sig_to_java(instance_sig)} instance")
@@ -40,7 +40,7 @@ class JavaArray(collections.Sequence):
             elif r == "C":
                 array = env.NewCharArray(length)
             elif r in "L[":
-                array = env.NewObjectArray(length, self.sig[1:])
+                array = env.NewObjectArray(length, env.FindClass(self.sig[1:]))
             else:
                 raise ValueError(f"Invalid signature '{self.sig}'")
             self.j_self = (<JNIRef?>array).global_ref()

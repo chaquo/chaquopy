@@ -59,9 +59,6 @@ none_casts = none_cast_dict()
 # wrong ClassLoader.
 def find_javaclass(name):
     """Returns the java.lang.Class proxy object corresponding to the given fully-qualified name.
-    All common notations may be used, including '.' or '/' to separate package names, and
-    optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
-    exceptions as Class.forName.
     """
     return java.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
