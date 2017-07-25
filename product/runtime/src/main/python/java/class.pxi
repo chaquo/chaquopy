@@ -83,12 +83,6 @@ class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
         classDict["_chaquopy_j_cls"] = CQPEnv().FindClass(classname).global_ref()  # FIXME rename to _chaquopy_j_klass
 
-        # These are defined here rather than in JavaObject because cdef classes are required to
-        # use __richcmp__ instead.
-        # FIXME JavaObject is no longer a cdef class
-        classDict["__eq__"] = lambda self, other: self.equals(other)
-        classDict["__ne__"] = lambda self, other: not self.equals(other)  # Not automatic in Python 2
-
         # TODO #5153 disabled until tested, and should also generate a setter.
         # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
         #     classDict[lower_name(name[3:])] = \
@@ -164,6 +158,12 @@ class JavaObject(object):
 
     def __hash__(self):
         return self.hashCode()
+
+    def __eq__(self, other):
+        return self.equals(other)
+
+    def __ne__(self, other):  # Not automatic in Python 2
+        return not (self == other)
 
 
 def set_attribute(cls, obj, key, value):
