@@ -96,7 +96,7 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
     if string == NULL:
         raise ValueError("String cannot be null")
     if not j_env[0].IsInstanceOf(j_env, string,
-                                 (<JNIRef?>find_javaclass("java.lang.String").j_self).obj):
+                                 (<JNIRef?>find_javaclass("java.lang.String")._chaquopy_this).obj):
         raise TypeError("Object is not a String")
 
     jchar_str = j_env[0].GetStringChars(j_env, string, NULL)
@@ -230,10 +230,10 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             # The equality comparison is not redundant: it prevents recursion when converting
             # the argument of isAssignableFrom.
             if (clsname == obj_clsname) or (klass.isAssignableFrom(find_javaclass(obj_clsname))):
-                return obj.j_self
+                return obj._chaquopy_this
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
-                return <GlobalRef?>obj._chaquopy_j_cls
+                return <GlobalRef?>obj._chaquopy_j_klass
         elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
@@ -279,7 +279,7 @@ cdef JNIRef p2j_array(element_type, obj):
         java_array = obj
     else:
         java_array = java.jarray(element_type)(obj)
-    return java_array.j_self
+    return java_array._chaquopy_this
 
 
 # https://github.com/cython/cython/issues/1709
@@ -317,7 +317,7 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    return java.jclass(clsname)(value).j_self
+    return java.jclass(clsname)(value)._chaquopy_this
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
@@ -330,7 +330,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     jm_getInstance.resolve()
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
-         (<GlobalRef?>JPyObject._chaquopy_j_cls).obj,
+         (<GlobalRef?>JPyObject._chaquopy_j_klass).obj,
          jm_getInstance.j_method,
          <jlong><PyObject*>obj)
     check_exception(env)

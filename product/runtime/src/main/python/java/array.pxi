@@ -17,8 +17,7 @@ class JavaArray(collections.Sequence):
                 instance_sig = lookup_java_object_name(env.j_env, instance.obj)
                 raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
                                 f"{java.sig_to_java(instance_sig)} instance")
-
-            self.j_self = instance.global_ref()
+            self._chaquopy_this = instance.global_ref()
         else:
             assert instance is None
             length = len(value)
@@ -43,7 +42,7 @@ class JavaArray(collections.Sequence):
                 array = env.NewObjectArray(length, env.FindClass(self.sig[1:]))
             else:
                 raise ValueError(f"Invalid signature '{self.sig}'")
-            self.j_self = (<JNIRef?>array).global_ref()
+            self._chaquopy_this = (<JNIRef?>array).global_ref()
 
             for i, v in enumerate(value):
                 self[i] = v
@@ -60,13 +59,13 @@ class JavaArray(collections.Sequence):
                  "]")
 
     def __len__(self):
-        return CQPEnv().GetArrayLength(self.j_self)
+        return CQPEnv().GetArrayLength(self._chaquopy_this)
 
     def __getitem__(self, key):
         if isinstance(key, six.integer_types):
             if not (0 <= key < len(self)):
                 raise IndexError(str(key))
-            return self._get_one(key)
+            return self._chaquopy_get(key)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -78,7 +77,7 @@ class JavaArray(collections.Sequence):
         if isinstance(key, six.integer_types):
             if not (0 <= key < len(self)):
                 raise IndexError(str(key))
-            return self._set_one(key, value)
+            return self._chaquopy_set(key, value)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -110,53 +109,55 @@ class JavaArray(collections.Sequence):
     def __radd__(self, other):
         return list(itertools.chain(other, self))
 
-    def _get_one(self, index):
+    def _chaquopy_get(self, index):
         env = CQPEnv()
+        cdef JNIRef this = self._chaquopy_this
         r = self.sig[1]
         if r == "Z":
-            return env.GetBooleanArrayElement(self.j_self, index)
+            return env.GetBooleanArrayElement(this, index)
         elif r == "B":
-            return env.GetByteArrayElement(self.j_self, index)
+            return env.GetByteArrayElement(this, index)
         elif r == "S":
-            return env.GetShortArrayElement(self.j_self, index)
+            return env.GetShortArrayElement(this, index)
         elif r == "I":
-            return env.GetIntArrayElement(self.j_self, index)
+            return env.GetIntArrayElement(this, index)
         elif r == "J":
-            return env.GetLongArrayElement(self.j_self, index)
+            return env.GetLongArrayElement(this, index)
         elif r == "F":
-            return env.GetFloatArrayElement(self.j_self, index)
+            return env.GetFloatArrayElement(this, index)
         elif r == "D":
-            return env.GetDoubleArrayElement(self.j_self, index)
+            return env.GetDoubleArrayElement(this, index)
         elif r == "C":
-            return env.GetCharArrayElement(self.j_self, index)
+            return env.GetCharArrayElement(this, index)
         elif r in "L[":
-            return j2p(env.j_env, env.GetObjectArrayElement(self.j_self, index))
+            return j2p(env.j_env, env.GetObjectArrayElement(this, index))
         else:
             raise ValueError(f"Invalid signature '{self.sig}'")
 
-    def _set_one(self, index, value):
+    def _chaquopy_set(self, index, value):
         env = CQPEnv()
+        cdef JNIRef this = self._chaquopy_this
         # TODO #5209 use actual rather than declared signature: old Android versions don't
         # type-check correctly.
         value_p2j = p2j(env.j_env, self.sig[1:], value)
         r = self.sig[1]
         if r == "Z":
-            env.SetBooleanArrayElement(self.j_self, index, value_p2j)
+            env.SetBooleanArrayElement(this, index, value_p2j)
         elif r == "B":
-            env.SetByteArrayElement(self.j_self, index, value_p2j)
+            env.SetByteArrayElement(this, index, value_p2j)
         elif r == "S":
-            env.SetShortArrayElement(self.j_self, index, value_p2j)
+            env.SetShortArrayElement(this, index, value_p2j)
         elif r == "I":
-            env.SetIntArrayElement(self.j_self, index, value_p2j)
+            env.SetIntArrayElement(this, index, value_p2j)
         elif r == "J":
-            env.SetLongArrayElement(self.j_self, index, value_p2j)
+            env.SetLongArrayElement(this, index, value_p2j)
         elif r == "F":
-            env.SetFloatArrayElement(self.j_self, index, value_p2j)
+            env.SetFloatArrayElement(this, index, value_p2j)
         elif r == "D":
-            env.SetDoubleArrayElement(self.j_self, index, value_p2j)
+            env.SetDoubleArrayElement(this, index, value_p2j)
         elif r == "C":
-            env.SetCharArrayElement(self.j_self, index, value_p2j)
+            env.SetCharArrayElement(this, index, value_p2j)
         elif r in "L[":
-            env.SetObjectArrayElement(self.j_self, index, value_p2j)
+            env.SetObjectArrayElement(this, index, value_p2j)
         else:
             raise ValueError(f"Invalid signature '{self.sig}'")

@@ -81,7 +81,7 @@ def setup_bootstrap_classes():
 
 class JavaClass(type):
     def __new__(metacls, classname, bases, classDict):
-        classDict["_chaquopy_j_cls"] = CQPEnv().FindClass(classname).global_ref()  # FIXME rename to _chaquopy_j_klass
+        classDict["_chaquopy_j_klass"] = CQPEnv().FindClass(classname).global_ref()
 
         # TODO #5153 disabled until tested, and should also generate a setter.
         # if name != 'getClass' and bean_getter(name) and len(method.getParameterTypes()) == 0:
@@ -121,29 +121,29 @@ class JavaObject(object):
         super().__init__()
         cdef JNIEnv *env = get_jnienv()
         if instance is not None:
-            if not env[0].IsInstanceOf(env, instance.obj, (<JNIRef?>self._chaquopy_j_cls).obj):
+            if not env[0].IsInstanceOf(env, instance.obj, (<JNIRef?>self._chaquopy_j_klass).obj):
                 raise TypeError(f"cannot create {type(self).__name__} proxy from "
                                 f"{lookup_java_object_name(env, instance.obj)} instance")
-            j_self = instance.global_ref()
+            this = instance.global_ref()
         else:
             # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
             # class, but Android 6 crashes with a CheckJNI error.
-            klass = Class(instance=self._chaquopy_j_cls)
+            klass = Class(instance=self._chaquopy_j_klass)
             if Modifier.isAbstract(klass.getModifiers()):
                 raise TypeError(f"{type(self).__name__} is abstract and cannot be instantiated")
             try:
                 constructor = getattr(type(self), "<init>")
             except AttributeError:
                 raise TypeError(f"{type(self).__name__} has no accessible constructors")
-            j_self = constructor(*args)
-        object.__setattr__(self, "j_self", j_self) # FIXME rename to _chaquopy_this
+            this = constructor(*args)
+        object.__setattr__(self, "_chaquopy_this", this)
 
     # Override to prevent modification of instance dict.
     def __setattr__(self, key, value):
         set_attribute(type(self), self, key, value)
 
     def __repr__(self):
-        if self.j_self:
+        if self._chaquopy_this:
             ts = str(self)
             if ts is not None and \
                ts.startswith(type(self).__name__):  # e.g. "java.lang.Object@28d93b30"
@@ -178,7 +178,7 @@ def set_attribute(cls, obj, key, value):
 
 
 def reflect_class(cls):
-    klass = Class(instance=cls._chaquopy_j_cls)
+    klass = Class(instance=cls._chaquopy_j_klass)
 
     name_key = lambda m: m.getName()
     all_methods = klass.getMethods() + klass.getConstructors()
@@ -264,10 +264,10 @@ cdef class JavaSimpleMember(JavaMember):
 
     def resolve(self):
         if self.reflected:
-            self.j_klass = self.reflected.getDeclaringClass().j_self
+            self.j_klass = self.reflected.getDeclaringClass()._chaquopy_this
             self.is_static = Modifier.isStatic(self.reflected.getModifiers())
         else:
-            self.j_klass = self.cls._chaquopy_j_cls
+            self.j_klass = self.cls._chaquopy_j_klass
 
 
 cdef class JavaField(JavaSimpleMember):
@@ -325,7 +325,7 @@ cdef class JavaField(JavaSimpleMember):
     # Cython auto-generates range checking code for the integral types.
     cdef write_field(self, obj, value):
         cdef JNIEnv *j_env = get_jnienv()
-        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
+        cdef jobject j_self = (<JNIRef?>obj._chaquopy_this).obj
         j_value = p2j(j_env, self.definition, value)
 
         r = self.definition[0]
@@ -356,7 +356,7 @@ cdef class JavaField(JavaSimpleMember):
 
     cdef read_field(self, obj):
         cdef JNIEnv *j_env = get_jnienv()
-        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
+        cdef jobject j_self = (<JNIRef?>obj._chaquopy_this).obj
         r = self.definition[0]
         if r == 'Z':
             return bool(j_env[0].GetBooleanField(j_env, j_self, self.j_field))
@@ -535,7 +535,7 @@ cdef class JavaMethod(JavaSimpleMember):
         else:
             obj = args[0]
             if isinstance(obj, JavaObject) and \
-               j_env[0].IsInstanceOf(j_env, (<JNIRef?>obj.j_self).obj, self.j_klass.obj):
+               j_env[0].IsInstanceOf(j_env, (<JNIRef?>obj._chaquopy_this).obj, self.j_klass.obj):
                 return obj, args[1:]
             else:
                 got = f"{type(obj).__name__} instance"
@@ -562,7 +562,7 @@ cdef class JavaMethod(JavaSimpleMember):
         cdef jdouble j_double
         cdef jobject j_object
 
-        cdef jobject j_self = (<JNIRef?>obj.j_self).obj
+        cdef jobject j_self = (<JNIRef?>obj._chaquopy_this).obj
         ret = None
         r = self.definition_return[0]
         if r == 'V':

@@ -299,7 +299,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
         keys = java.jclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
-        return (<JNIRef?>keys.j_self).return_ref(env)
+        return (<JNIRef?>keys._chaquopy_this).return_ref(env)
     except Exception as e:
         wrap_exception(env, e)
         return NULL

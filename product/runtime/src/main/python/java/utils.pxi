@@ -31,9 +31,9 @@ def cast(cls, obj):
         return none_casts[sig]
     else:
         if isinstance(obj, JavaObject):
-            instance = obj.j_self
+            instance = obj._chaquopy_this
         elif isinstance(obj, JavaArray):  # TODO #5260 cover with JavaObject
-            instance = obj.j_self
+            instance = obj._chaquopy_this
         else:
             raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
         return proxy_type(instance=instance)
