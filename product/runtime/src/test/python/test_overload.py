@@ -77,44 +77,45 @@ class TestOverload(unittest.TestCase):
         child = Child()
         parent = Parent()
 
-        self.assertEqual(child.resolve(s), 'String')
-        self.assertEqual(child.resolve(i), 'Integer')
-        self.assertEqual(child.resolve(f), 'Object')
-        self.assertEqual(child.resolve(cast(Object, s)), 'Object')
-        self.assertEqual(child.resolve(cast(String, cast(Object, s))), 'String')
+        self.assertEqual(parent.resolve(s), 'Parent Object')
+        self.assertEqual(parent.resolve(i), 'Parent Integer')
+        self.assertEqual(parent.resolve(f), 'Parent Object')
+        self.assertEqual(parent.resolve(f, s), 'Parent Object, String')
 
+        self.assertEqual(child.resolve(s), 'Child String')
+        self.assertEqual(child.resolve(i), 'Child Integer')
+        self.assertEqual(child.resolve(f), 'Child Object')
+        self.assertEqual(child.resolve(cast(Object, s)), 'Child Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, s))), 'Child String')
+
+        # Casting of None
         with self.ambiguous:
             child.resolve(None)
-        self.assertEqual(child.resolve(cast(String, None)), 'String')
-        self.assertEqual(child.resolve(cast(Object, None)), 'Object')
-        self.assertEqual(child.resolve(cast(String, cast(Object, None))), 'String')
+        self.assertEqual(child.resolve(cast(String, None)), 'Child String')
+        self.assertEqual(child.resolve(cast(Object, None)), 'Child Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, None))), 'Child String')
 
-        self.assertEqual(child.resolve(s, i), 'String, Object')
-        self.assertEqual(child.resolve(i, s), 'Object, String')
+        self.assertEqual(child.resolve(s, i), 'Child String, Object')
+        self.assertEqual(child.resolve(i, s), 'Parent Object, String')
         with self.inapplicable:
             child.resolve(i, i)
 
         # Casting of method parameters
         with self.ambiguous:
             child.resolve(s, s)
-        self.assertEqual(child.resolve(cast(Object, s), s), 'Object, String')
-        self.assertEqual(child.resolve(s, cast(Object, s)), 'String, Object')
+        self.assertEqual(child.resolve(cast(Object, s), s), 'Parent Object, String')
+        self.assertEqual(child.resolve(s, cast(Object, s)), 'Child String, Object')
 
-        # Casting of object on which method is called should limit visibility of overloads.
-        self.assertEqual(cast(Parent, child).resolve(s), 'Object')
-        self.assertEqual(cast(Parent, child).resolve(s, s), 'Object, String')
+        # Casting of object on which method is called should limit visibility of overloads, but
+        # subclass overrides of visible overloads should still be called.
+        child_Parent = cast(Parent, child)
+        self.assertEqual(child_Parent.resolve(s), 'Child Object')
+        self.assertEqual(child_Parent.resolve(s, s), 'Parent Object, String')
         with self.inapplicable:
-            cast(Parent, child).resolve(s, i)
-
-        # But subclass implementations of visible overloads should still be called.
-        self.assertEqual(parent.resolveOverride(s), 'Parent Object')
-        self.assertEqual(child.resolveOverride(s), 'Child Object')
-        self.assertEqual(cast(Parent, child).resolveOverride(s), 'Child Object')
+            child_Parent.resolve(s, i)
 
         with self.assertRaisesRegexp(TypeError, "int object does not specify a Java type"):
             cast(42, child)
-
-        self.assertEqual("Child", child.resolveCovariantOverride())
 
     def test_primitive(self):
         obj = jclass("com.chaquo.python.TestOverload$Primitive")()

@@ -7,17 +7,16 @@
 # TODO #5181 provide way to check whether two proxy objects are the same Java object, even if
 # one of them has been casted.
 def cast(cls, obj):
-    """Returns a view of the given object as the given class. The class must a class created by
+    """Returns a view of the given object as the given class. The class must be one created by
     :any:`jclass` or :any:`jarray`, or a JNI type signature for a class or array. The object
-    must be of a `jclass` or `jarray` type which is assignable to the given class, otherwise
-    `TypeError` will be raised. `None` (representing Java `null`) is also accepted.
+    must either be assignable to the given class, or `None` (representing Java `null`),
+    otherwise `TypeError` will be raised.
 
-    Situations where this could be useful:
+    Situations where this could be useful are the same as those where you might use the Java
+    cast syntax `(ClassName)obj`. By changing the apparent type of the object:
 
-    * By changing the apparent type of an object:
+       * Different members may be visible on the object.
        * A different overload may be chosen when passing the object to a method.
-       * A different overload may be chosen when calling a method on the object itself.
-    * By selecting a type for `None`, an ambiguous overload can be resolved.
     """
     sig = java.jni_sig(cls)
     if sig.startswith("L"):

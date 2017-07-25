@@ -17,40 +17,29 @@ public class TestOverload {
 
 
     public static class Parent {
-        public String resolve(Object j) {
-            return "Object";
-        }
-        public String resolve(Object j, String k) {
-            return "Object, String";
-        }
-
-        public String resolveOverride(Object j) {
+        public Object resolve(Object j) {               // Overridden normally
             return "Parent Object";
         }
-
-        // This signature will exist in the Child class as a synthetic method.
-        public Object resolveCovariantOverride() {
-            return "Parent";
+        public Object resolve(Integer j) {              // Overridden covariantly
+            return "Parent Integer";
+        }
+        public Object resolve(Object j, String k) {     // Not overridden
+            return "Parent Object, String";
         }
     }
 
     public static class Child extends Parent {
-        public String resolve(String j) {
-            return "String";
-        }
-        public String resolve(Integer j) {
-            return "Integer";
-        }
-        public String resolve(String j, Object k) {
-            return "String, Object";
-        }
-
-        public String resolveOverride(Object j) {
+        @Override public Object resolve(Object j) {
             return "Child Object";
         }
-
-        public String resolveCovariantOverride() {
-            return "Child";
+        @Override public String resolve(Integer j) {
+            return "Child Integer";
+        }
+        public Object resolve(String j) {
+            return "Child String";
+        }
+        public Object resolve(String j, Object k) {
+            return "Child String, Object";
         }
     }
 

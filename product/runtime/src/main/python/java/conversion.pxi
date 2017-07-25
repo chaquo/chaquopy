@@ -22,6 +22,7 @@ UNBOX_METHODS = {f"java.lang.{boxed}": f"{unboxed}Value" for boxed, unboxed in
                  [("Boolean", "boolean"), ("Byte", "byte"), ("Short", "short"), ("Integer", "int"),
                   ("Long", "long"), ("Float", "float"), ("Double", "double"), ("Character", "char")]}
 
+# TODO #5260 make this automatic
 ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
 
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
@@ -232,8 +233,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             if (clsname == obj_clsname) or (klass.isAssignableFrom(find_javaclass(obj_clsname))):
                 return obj._chaquopy_this
         elif isinstance(obj, JavaClass):
-            if klass.isAssignableFrom(find_javaclass("java.lang.Class")):
-                return <GlobalRef?>obj._chaquopy_j_klass
+            if klass.isAssignableFrom(Class.getClass()):
+                return <JNIRef?>obj._chaquopy_j_klass
         elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
@@ -330,7 +331,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
     jm_getInstance.resolve()
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
-         (<GlobalRef?>JPyObject._chaquopy_j_klass).obj,
+         (<JNIRef?>JPyObject._chaquopy_j_klass).obj,
          jm_getInstance.j_method,
          <jlong><PyObject*>obj)
     check_exception(env)

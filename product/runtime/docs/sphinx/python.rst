@@ -151,9 +151,9 @@ operations:
 * :any:`hash` calls `hashCode
   <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#hashCode()>`_.
 
-The Java class hierarchy is not currently reflected in Python, e.g. `issubclass(String,
-Object)` and `isinstance(String("hello"), Object)` will both return `False`. This may change
-in the future.
+The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
+`isinstance(s, Object)` and `isinstance(s, CharSequence)` will both return `True`. All array
+and interface types are also considered subclasses of `Object`.
 
 Arrays
 ------
