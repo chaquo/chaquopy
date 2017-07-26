@@ -173,21 +173,7 @@ def reflect_class(cls):
                    if Modifier.isPublic(m.getModifiers())]
     all_methods.sort(key=name_key)
     for name, methods in groupby(all_methods, name_key):
-        # To speed up reflection, we avoid checking signatures here. This means we'll create
-        # JavaMultipleMethods for all methods which are overridden in this class, even if
-        # they're not overloaded. JavaMultipleMethod.__get__ will tidy up the situation the
-        # first time the method is used.
-        member = None
-        for ancestor in cls.__mro__[1:]:
-            member = ancestor.__dict__.get(name)
-            if isinstance(member, JavaMethod):
-                break
-            if isinstance(member, JavaMultipleMethod):
-                member = JavaMultipleMethod(list((<JavaMultipleMethod?>member).methods))
-                break
-            else:
-                member = None
-
+        jms = []
         for method in methods:
             if isinstance(method, Constructor):
                 name = "<init>"
@@ -198,16 +184,23 @@ def reflect_class(cls):
                 #    So the compiler also generates a forwarding "bridge" method with the
                 #    original return type.
                 continue
+            jms.append(JavaMethod(method))
 
-            jm = JavaMethod(method)
-            if member is None:
-                member = jm
-            elif isinstance(member, JavaMethod):
-                member = JavaMultipleMethod([member, jm])
-            else:
-                (<JavaMultipleMethod?>member).methods.append(jm)
+        # To speed up reflection, we avoid checking signatures here. This means we'll create
+        # JavaMultipleMethods for all methods which are overridden in this class, even if
+        # they're not overloaded. JavaMultipleMethod.__get__ will tidy up the situation the
+        # first time the method is used.
+        for ancestor in cls.__mro__[1:]:
+            try:
+                inherited = ancestor.__dict__.get(name)
+            except KeyError: continue
+            if isinstance(inherited, JavaMethod):
+                jms.append(inherited)
+            elif isinstance(inherited, JavaMultipleMethod):
+                jms += (<JavaMultipleMethod?>inherited).methods
+            break
 
-        add_member(cls, name, member)
+        add_member(cls, name, jms[0] if (len(jms) == 1) else JavaMultipleMethod(jms))
 
     for field in klass.getDeclaredFields():
         # TODO #5183 method hides field with same name.
@@ -723,7 +716,6 @@ cdef class JavaMultipleMethod(JavaMember):
     def resolve(self):
         if self.resolved: return
 
-        self.methods.reverse()  # Process declared overloads before inherited ones.
         sigs_seen = set()
         overridden = []
         cdef JavaMethod jm
