@@ -3,6 +3,9 @@ from itertools import chain, groupby
 import keyword
 
 
+jclass_cache = {}
+
+
 # The public name is `jclass`, but that would conflict with the JNI typedef of the same name.
 # __init__.py performs the renaming.
 def jklass(clsname):
@@ -32,69 +35,13 @@ def jklass(clsname):
     return cls
 
 
-jclass_cache = {}
-
-
-# This isn't done during module initialization because we don't have a JVM yet, and we don't
-# want to automatically start one because we might already be in a Java process.
-def setup_bootstrap_classes():
-    # Declare only the methods needed to complete the bootstrap process.
-    global Class, Modifier, Method, Field, Constructor
-    if "Class" in globals():
-        raise Exception("setup_bootstrap_classes called more than once")
-
-    setup_object_class()
-
-    AnnotatedElement = JavaClass("java.lang.reflect.AnnotatedElement", (JavaObject,), {})
-    AccessibleObject = JavaClass("java.lang.reflect.AccessibleObject", (AnnotatedElement, JavaObject,), {})
-    Member = JavaClass("java.lang.reflect.Member", (JavaObject,), {})
-    GenericDeclaration = JavaClass("java.lang.reflect.GenericDeclaration", (JavaObject,), {})
-
-    Class = JavaClass("java.lang.Class", (AnnotatedElement, GenericDeclaration, JavaObject), {})
-    add_member(Class, "getDeclaredClasses", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Class, "getDeclaredConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
-    add_member(Class, "getDeclaredFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
-    add_member(Class, "getDeclaredMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
-    add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
-
-    Modifier = JavaClass("java.lang.reflect.Modifier", (JavaObject,), {})
-    add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isPublic", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
-
-    Method = JavaClass("java.lang.reflect.Method", (AccessibleObject, GenericDeclaration, Member), {})
-    add_member(Method, "getModifiers", JavaMethod('()I'))
-    add_member(Method, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Method, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Method, "getReturnType", JavaMethod('()Ljava/lang/Class;'))
-    add_member(Method, "isSynthetic", JavaMethod('()Z'))
-    add_member(Method, "isVarArgs", JavaMethod('()Z'))
-
-    Field = JavaClass("java.lang.reflect.Field", (AccessibleObject, Member), {})
-    add_member(Field, "getModifiers", JavaMethod('()I'))
-    add_member(Field, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Field, "getType", JavaMethod('()Ljava/lang/Class;'))
-
-    Constructor = JavaClass("java.lang.reflect.Constructor", (AccessibleObject, GenericDeclaration, Member), {})
-    add_member(Constructor, "getModifiers", JavaMethod('()I'))
-    add_member(Constructor, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Constructor, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
-    add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
-
-    for cls in [JavaObject, AnnotatedElement, AccessibleObject, Member, GenericDeclaration,
-                Class, Modifier, Method, Field, Constructor]:
-        reflect_class(cls)
-
-
 class JavaClass(type):
     def __new__(metacls, cls_name, bases, cls_dict):
         cls_name = cls_dict.pop("_chaquopy_name", cls_name)
         j_klass = CQPEnv().FindClass(cls_name).global_ref()
         cls_dict["_chaquopy_j_klass"] = j_klass
 
-        if bases is None:  # When called from jklass() above
+        if bases is None:  # When called from jklass()
             klass = Class(instance=j_klass)
             superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
             if not (superclass or interfaces):  # Class is a top-level interface
@@ -165,24 +112,57 @@ def setup_object_class():
             return Class(instance=cls._chaquopy_j_klass)
 
 
-def set_attribute(cls, obj, key, value):
-    try:
-        member = getattr_no_desc(cls, key)
-    except AttributeError:
-        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
-        raise AttributeError(f"{subject} has no attribute '{key}'")
-    if not isinstance(member, JavaField):
-        raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
-    member.__set__(obj, value)
+# This isn't done during module initialization because we don't have a JVM yet, and we don't
+# want to automatically start one because we might already be in a Java process.
+def setup_bootstrap_classes():
+    # Declare only the methods needed to complete the bootstrap process.
+    global Class, Modifier, Method, Field, Constructor
+    if "Class" in globals():
+        raise Exception("setup_bootstrap_classes called more than once")
 
+    setup_object_class()
 
-# Looks up an attribute in a class hierarchy without calling descriptors.
-def getattr_no_desc(cls, name):
-    for c in cls.__mro__:
-        try:
-            return c.__dict__[name]
-        except KeyError: pass
-    raise AttributeError()
+    AnnotatedElement = JavaClass("java.lang.reflect.AnnotatedElement", (JavaObject,), {})
+    AccessibleObject = JavaClass("java.lang.reflect.AccessibleObject", (AnnotatedElement, JavaObject,), {})
+    Member = JavaClass("java.lang.reflect.Member", (JavaObject,), {})
+    GenericDeclaration = JavaClass("java.lang.reflect.GenericDeclaration", (JavaObject,), {})
+
+    Class = JavaClass("java.lang.Class", (AnnotatedElement, GenericDeclaration, JavaObject), {})
+    add_member(Class, "getDeclaredClasses", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Class, "getDeclaredConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
+    add_member(Class, "getDeclaredFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
+    add_member(Class, "getDeclaredMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
+    add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
+
+    Modifier = JavaClass("java.lang.reflect.Modifier", (JavaObject,), {})
+    add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isPublic", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
+
+    Method = JavaClass("java.lang.reflect.Method", (AccessibleObject, GenericDeclaration, Member), {})
+    add_member(Method, "getModifiers", JavaMethod('()I'))
+    add_member(Method, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Method, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Method, "getReturnType", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Method, "isSynthetic", JavaMethod('()Z'))
+    add_member(Method, "isVarArgs", JavaMethod('()Z'))
+
+    Field = JavaClass("java.lang.reflect.Field", (AccessibleObject, Member), {})
+    add_member(Field, "getModifiers", JavaMethod('()I'))
+    add_member(Field, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Field, "getType", JavaMethod('()Ljava/lang/Class;'))
+
+    Constructor = JavaClass("java.lang.reflect.Constructor", (AccessibleObject, GenericDeclaration, Member), {})
+    add_member(Constructor, "getModifiers", JavaMethod('()I'))
+    add_member(Constructor, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Constructor, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
+    add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
+    add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
+
+    for cls in [JavaObject, AnnotatedElement, AccessibleObject, Member, GenericDeclaration,
+                Class, Modifier, Method, Field, Constructor]:
+        reflect_class(cls)
 
 
 def reflect_class(cls):
@@ -250,13 +230,6 @@ def reflect_class(cls):
             type.__setattr__(cls, alias, member)
 
 
-def add_member(cls, name, member):
-    if name not in cls.__dict__:  # TODO #5183 method hides field with same name.
-        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
-        if isinstance(member, JavaMember):
-            member.added_to_class(cls, name)
-
-
 # Ensure the same aliases are available on all Python versions
 EXTRA_RESERVED_WORDS = {'exec', 'print',                      # Removed in Python 3.0
                         'nonlocal', 'True', 'False', 'None',  # Added in Python 3.0
@@ -264,6 +237,33 @@ EXTRA_RESERVED_WORDS = {'exec', 'print',                      # Removed in Pytho
 
 def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
+
+
+def set_attribute(cls, obj, key, value):
+    try:
+        member = getattr_no_desc(cls, key)
+    except AttributeError:
+        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
+        raise AttributeError(f"{subject} has no attribute '{key}'")
+    if not isinstance(member, JavaField):
+        raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
+    member.__set__(obj, value)
+
+
+# Looks up an attribute in a class hierarchy without calling descriptors.
+def getattr_no_desc(cls, name):
+    for c in cls.__mro__:
+        try:
+            return c.__dict__[name]
+        except KeyError: pass
+    raise AttributeError()
+
+
+def add_member(cls, name, member):
+    if name not in cls.__dict__:  # TODO #5183 method hides field with same name.
+        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
+        if isinstance(member, JavaMember):
+            member.added_to_class(cls, name)
 
 
 cdef class JavaMember(object):
