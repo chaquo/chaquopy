@@ -6,9 +6,7 @@ import keyword
 jclass_cache = {}
 
 
-# The public name is `jclass`, but that would conflict with the JNI typedef of the same name.
-# __init__.py performs the renaming.
-def jklass(clsname):
+def jclass(clsname):
     """Returns a proxy class for the given fully-qualified Java class name. The name may use either
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
     class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
@@ -24,7 +22,7 @@ def jklass(clsname):
         clsname = clsname[1:-1]
     if clsname.startswith('$Proxy'):
         # The Dalvik VM is not able to give us introspection on these (FindClass returns NULL).
-        return jklass("java.lang.Object")
+        return jclass("java.lang.Object")
 
     if not isinstance(clsname, str):
         clsname = str(clsname)
@@ -41,12 +39,12 @@ class JavaClass(type):
         j_klass = CQPEnv().FindClass(cls_name).global_ref()
         cls_dict["_chaquopy_j_klass"] = j_klass
 
-        if bases is None:  # When called from jklass()
+        if bases is None:  # When called from jclass()
             klass = Class(instance=j_klass)
             superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
             if not (superclass or interfaces):  # Class is a top-level interface
                 superclass = JavaObject.getClass()
-            bases = [jklass(k.getName()) for k in
+            bases = [jclass(k.getName()) for k in
                      ([superclass] if superclass else []) + interfaces]
             bases.sort(cmp=lambda a, b: -1 if issubclass(a, b) else 1 if issubclass(b, a) else 0)
 
@@ -209,8 +207,8 @@ def reflect_class(cls):
     for nested_klass in klass.getDeclaredClasses():
         name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
         if name:
-            # TODO #5261 add a JavaMember subclass which delays the jklass call
-            add_member(cls, name, jklass(nested_klass.getName()))
+            # TODO #5261 add a JavaMember subclass which delays the jclass call
+            add_member(cls, name, jclass(nested_klass.getName()))
 
     aliases = {}
     for name, member in six.iteritems(cls.__dict__):
@@ -401,7 +399,7 @@ cdef class JavaField(JavaSimpleMember):
 
     # Cython auto-generates range checking code for the integral types.
     cdef write_static_field(self, value):
-        cdef jclass j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
+        cdef jobject j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
         cdef JNIEnv *j_env = get_jnienv()
         j_value = p2j(j_env, self.definition, value)
 
@@ -432,7 +430,7 @@ cdef class JavaField(JavaSimpleMember):
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition}'")
 
     cdef read_static_field(self):
-        cdef jclass j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
+        cdef jobject j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
         cdef JNIEnv *j_env = get_jnienv()
         r = self.definition[0]
         if r == 'Z':
@@ -644,7 +642,7 @@ cdef class JavaMethod(JavaSimpleMember):
         cdef jobject j_object
 
         ret = None
-        cdef jclass j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
+        cdef jobject j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
         r = self.definition_return[0]
         if r == 'V':
             with nogil:

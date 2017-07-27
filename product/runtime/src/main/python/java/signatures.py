@@ -11,26 +11,8 @@ from .chaquopy import JavaArray, JavaClass, check_range_char, check_range_float3
 
 __all__ = ["jni_sig", "jni_method_sig", "split_method_sig", "sig_to_java", "args_sig_to_java",
            "primitives_by_name", "primitives_by_sig",
-           "Wrapper", "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
-           "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
-           "jarray"]
-
-
-class Wrapper(object):
-    def __eq__(self, other):
-        if isinstance(other, Primitive):
-            return self.value == other.value
-        else:
-            return self.value == other
-
-    def __lt__(self, other):
-        if isinstance(other, Primitive):
-            return self.value < other.value
-        else:
-            return self.value < other
-
-    def __hash__(self):
-        return hash(self.value)
+           "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
+           "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar"]
 
 
 primitives_by_name = {}
@@ -43,9 +25,25 @@ class PrimitiveMeta(type):
             primitives_by_sig[cls.sig] = cls
 
 @total_ordering
-class Primitive(six.with_metaclass(PrimitiveMeta, Wrapper)):
+class Primitive(six.with_metaclass(PrimitiveMeta, object)):
     def __repr__(self):
         return "{}({})".format(type(self).__name__, self.value)
+
+    def __eq__(self, other):
+        if isinstance(other, Primitive):
+            return self.value == other.value
+        else:
+            return self.value == other
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __lt__(self, other):
+        if isinstance(other, Primitive):
+            return self.value < other.value
+        else:
+            return self.value < other
+
 
 class jvoid(Primitive):
     name = "void"
@@ -130,38 +128,6 @@ class jchar(Primitive):
         return "{}('{}')".format(type(self).__name__, self.value)
 
 
-class jarray_dict(dict):
-    # Use a different subclass for each element type, so overload resolution can be cached.
-    def __missing__(self, element_sig):
-        subclass = type(str("jarray_" + element_sig),
-                        (JavaArray,),
-                        {"sig": "[" + element_sig})
-        self[element_sig] = subclass
-        return subclass
-
-jarray_types = jarray_dict()
-
-
-def jarray(element_type):
-    """Returns a proxy class for a Java array type. The element type may be specified as any of:
-
-    * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
-    * A proxy class returned by :any:`jclass`, or by `jarray` itself.
-    * A `java.lang.Class` instance
-    * A JNI type signature
-
-    Examples::
-
-        # Python code                           # Java equivalent
-        jarray(jint)                            # int[]
-        jarray(jarray(jint))                    # int[][]
-        jarray(jclass("java.lang.String"))      # String[]
-        jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
-        jarray(jint)(None)                      # (int[])null
-    """  # Further documentation in python.rst
-    return jarray_types[jni_sig(element_type)]
-
-
 def jni_method_sig(returns, takes):
     return "(" + "".join(map(jni_sig, takes)) + ")" + jni_sig(returns)
 
@@ -173,7 +139,7 @@ def jni_sig(c):
     elif isinstance(c, type):
         if isinstance(c, JavaClass):
             return "L" + c.__name__.replace(".", "/") + ";"
-        elif issubclass(c, (Wrapper, JavaArray)):
+        elif issubclass(c, (Primitive, JavaArray)):
             return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):
         name = c.getName()

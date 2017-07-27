@@ -2,6 +2,38 @@ import collections
 import itertools
 
 
+class jarray_dict(dict):
+    # Use a different subclass for each element type, so overload resolution can be cached.
+    def __missing__(self, element_sig):
+        subclass = type(str("jarray_" + element_sig),
+                        (JavaArray,),
+                        {"sig": "[" + element_sig})
+        self[element_sig] = subclass
+        return subclass
+
+jarray_types = jarray_dict()
+
+
+def jarray(element_type):
+    """Returns a proxy class for a Java array type. The element type may be specified as any of:
+
+    * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
+    * A proxy class returned by :any:`jclass`, or by `jarray` itself.
+    * A `java.lang.Class` instance
+    * A JNI type signature
+
+    Examples::
+
+        # Python code                           # Java equivalent
+        jarray(jint)                            # int[]
+        jarray(jarray(jint))                    # int[][]
+        jarray(jclass("java.lang.String"))      # String[]
+        jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
+        jarray(jint)(None)                      # (int[])null
+    """  # Further documentation in python.rst
+    return jarray_types[java.jni_sig(element_type)]
+
+
 class JavaArray(collections.Sequence):
     def __new__(cls, value=None, *, instance=None):
         if value is None and not instance:  # instance may also be a null JNIRef.

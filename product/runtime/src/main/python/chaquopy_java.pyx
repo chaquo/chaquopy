@@ -202,7 +202,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_type \
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_call \
-    (JNIEnv *env, jobject this, jarray jargs) with gil:
+    (JNIEnv *env, jobject this, jobject jargs) with gil:
     try:
         if jargs == NULL:
             # User typed ".call(null)", which Java interprets as a null array, rather than the
@@ -369,7 +369,7 @@ cdef void pyexception(JNIEnv *env, char *message):
 
 # This may run before Py_Initialize, so it must compile to pure C.
 cdef void java_exception(JNIEnv *env, char *message, char *clsname):
-    cdef jclass re = env[0].FindClass(env, clsname)
+    cdef jobject re = env[0].FindClass(env, clsname)
     if re != NULL:
         if env[0].ThrowNew(env, re, message) == 0:
             return

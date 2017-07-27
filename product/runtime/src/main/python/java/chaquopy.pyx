@@ -19,8 +19,10 @@ cdef extern from "alloca.h":
 __all__ = [
     "chaquopy_init",
     "detach",                           # jvm.pxi
-    "cast", "JavaException",            # utils.pxi
-    "jklass",                           # class.pxi
+    "cast",                             # utils.pxi
+    "JavaException",                    # exception.pxi
+    "jclass",                           # class.pxi
+    "jarray",                           # array.pxi
     "set_import_enabled",               # import.pxi
 ]
 
@@ -37,6 +39,7 @@ from .jni cimport *
 include "env.pxi"
 include "jvm.pxi"
 include "utils.pxi"
+include "exception.pxi"
 include "conversion.pxi"
 include "class.pxi"
 include "array.pxi"
