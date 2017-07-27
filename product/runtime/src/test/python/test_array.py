@@ -14,6 +14,27 @@ class TestArray(unittest.TestCase):
         self.assertEqual(repr(array_C).replace("u'", "'"),
                          "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
 
+        self.assertTrue(isinstance(array_C, jclass("java.lang.Object")))
+        self.assertTrue(isinstance(array_C, jclass("java.lang.Cloneable")))
+        self.assertTrue(isinstance(array_C, jclass("java.io.Serializable")))
+        self.assertFalse(isinstance(array_C, jclass("java.io.Closeable")))
+        self.assertRegexpMatches(array_C.toString(), r"^\[C")
+
+    # More conversion tests in test_conversion.py
+    def test_conversion(self):
+        Object = jclass("java.lang.Object")
+        Integer = jclass("java.lang.Integer")
+        TestArray = jclass('com.chaquo.python.TestArray')
+        # All object arrays, primitive arrays, and Python iterables are assignable to Object,
+        # Cloneable and Serializable
+        for array in [jarray(Object)(["hello", 42]), jarray(Integer)([11, 22]),
+                      jarray(jboolean)([False, True]), [False, True]]:
+            for field in ["object", "cloneable", "serializable"]:
+                setattr(TestArray, field, array)
+                self.assertEqual(array, getattr(TestArray, field))
+                with self.assertRaisesRegexp(TypeError, "Cannot convert"):
+                    setattr(TestArray, "closeable", array)
+
     def test_cast(self):
         Object = jclass("java.lang.Object")
         Boolean = jclass("java.lang.Boolean")

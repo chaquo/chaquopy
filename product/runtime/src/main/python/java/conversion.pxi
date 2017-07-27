@@ -22,7 +22,6 @@ UNBOX_METHODS = {f"java.lang.{boxed}": f"{unboxed}Value" for boxed, unboxed in
                  [("Boolean", "boolean"), ("Byte", "byte"), ("Short", "short"), ("Integer", "int"),
                   ("Long", "long"), ("Float", "float"), ("Double", "double"), ("Character", "char")]}
 
-# TODO #5260 make this automatic
 ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
 
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
@@ -181,7 +180,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         if obj is None:
             return LocalRef()
         elif isinstance(obj, NoneCast):
-            if find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig)):
+            if klass.isAssignableFrom(find_javaclass(obj.sig)):
                 return LocalRef()
 
         elif isinstance(obj, (six.string_types, java.jchar)):
@@ -227,10 +226,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                         return p2j_box(j_env, box_klass, obj)
 
         elif isinstance(obj, JavaObject):
-            obj_clsname = type(obj).__name__
-            # The equality comparison is not redundant: it prevents recursion when converting
-            # the argument of isAssignableFrom.
-            if (clsname == obj_clsname) or (klass.isAssignableFrom(find_javaclass(obj_clsname))):
+            if j_env[0].IsAssignableFrom(j_env, (<JNIRef?>type(obj)._chaquopy_j_klass).obj,
+                                         (<JNIRef?>klass._chaquopy_this).obj):
                 return obj._chaquopy_this
         elif isinstance(obj, JavaClass):
             if klass.isAssignableFrom(Class.getClass()):
@@ -256,7 +253,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the object type, not its value.
 def assignable_to_array(definition, obj):
-    if not (definition.startswith("[") or definition in ARRAY_CONVERSIONS):
+    if not (definition.startswith("[") or (definition in ARRAY_CONVERSIONS)):
         return False
     if obj is None:
         return True

@@ -1,5 +1,7 @@
 package com.chaquo.python;
 
+import java.io.*;
+
 public class TestArray {
 
 	public static boolean methodParamsMatrixI(int[][] x) {
@@ -12,5 +14,10 @@ public class TestArray {
                           {4,5,6},
                           {7,8,9}};
 	}
+
+	public static Object object;
+    public static Serializable serializable;
+    public static Cloneable cloneable;
+    public static Closeable closeable;
 
 }

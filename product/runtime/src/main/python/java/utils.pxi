@@ -31,8 +31,6 @@ def cast(cls, obj):
     else:
         if isinstance(obj, JavaObject):
             instance = obj._chaquopy_this
-        elif isinstance(obj, JavaArray):  # TODO #5260 cover with JavaObject
-            instance = obj._chaquopy_this
         else:
             raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
         return proxy_type(instance=instance)
@@ -97,6 +95,8 @@ def is_applicable(sign_args, args, autobox, varargs):
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the actual parameter type, not its value.
 cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
+    # All Python iterables are considered applicable to all arrays, irrespective of the values
+    # they contain. (p2j would type-check the values.)
     if assignable_to_array(r, arg):
         return True
     try:

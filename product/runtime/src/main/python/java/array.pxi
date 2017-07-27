@@ -5,9 +5,11 @@ import itertools
 class jarray_dict(dict):
     # Use a different subclass for each element type, so overload resolution can be cached.
     def __missing__(self, element_sig):
+        sig = "[" + element_sig
         subclass = type(str("jarray_" + element_sig),
                         (JavaArray,),
-                        {"sig": "[" + element_sig})
+                        dict(sig=sig,
+                             _chaquopy_j_klass=CQPEnv().FindClass(sig).global_ref()))
         self[element_sig] = subclass
         return subclass
 
@@ -34,7 +36,7 @@ def jarray(element_type):
     return jarray_types[java.jni_sig(element_type)]
 
 
-class JavaArray(collections.Sequence):
+class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_bootstrap_classes.
     def __new__(cls, value=None, *, instance=None):
         if value is None and not instance:  # instance may also be a null JNIRef.
             return cast(cls, None)
@@ -49,7 +51,7 @@ class JavaArray(collections.Sequence):
                 instance_sig = lookup_java_object_name(env.j_env, instance.obj)
                 raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
                                 f"{java.sig_to_java(instance_sig)} instance")
-            self._chaquopy_this = instance.global_ref()
+            this = instance.global_ref()
         else:
             assert instance is None
             length = len(value)
@@ -74,21 +76,19 @@ class JavaArray(collections.Sequence):
                 array = env.NewObjectArray(length, env.FindClass(self.sig[1:]))
             else:
                 raise ValueError(f"Invalid signature '{self.sig}'")
-            self._chaquopy_this = (<JNIRef?>array).global_ref()
+            this = (<JNIRef?>array).global_ref()
 
+        object.__setattr__(self, "_chaquopy_this", this)
+        if value:
             for i, v in enumerate(value):
                 self[i] = v
 
     def __repr__(self):
-        return f"jarray('{self.sig[1:]}')({self.array_repr()})"
+        return f"jarray('{self.sig[1:]}')({format_array(self)})"
 
-    def array_repr(self):
-        return  ("[" +
-                 ", ".join([value.array_repr() if isinstance(value, JavaArray)
-                            else f"'{value}'" if isinstance(value, six.text_type)  # Remove 'u' prefix in Python 2 so tests are consistent.
-                            else repr(value)
-                            for value in self]) +
-                 "]")
+    # Override JavaObject.__str__, which calls toString()
+    def __str__(self):
+        return repr(self)
 
     def __len__(self):
         return CQPEnv().GetArrayLength(self._chaquopy_this)
@@ -193,3 +193,13 @@ class JavaArray(collections.Sequence):
             env.SetObjectArrayElement(this, index, value_p2j)
         else:
             raise ValueError(f"Invalid signature '{self.sig}'")
+
+
+# Formats a possibly-multidimensional array using nested "[]" syntax.
+def format_array(array):
+    return  ("[" +
+             ", ".join([format_array(value) if isinstance(value, JavaArray)
+                        else f"'{value}'" if isinstance(value, six.text_type)  # Remove 'u' prefix in Python 2 so tests are consistent.
+                        else repr(value)
+                        for value in array]) +
+             "]")

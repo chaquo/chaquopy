@@ -1,3 +1,4 @@
+import collections
 from collections import defaultdict
 from itertools import chain, groupby
 import keyword
@@ -162,6 +163,8 @@ def setup_bootstrap_classes():
                 Class, Modifier, Method, Field, Constructor]:
         reflect_class(cls)
 
+    JavaArray.__bases__ = (jclass("java.lang.Cloneable"), jclass("java.io.Serializable"), JavaObject,
+                           collections.Sequence)
 
 def reflect_class(cls):
     klass = cls.getClass()
