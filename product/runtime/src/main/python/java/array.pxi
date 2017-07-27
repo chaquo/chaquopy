@@ -47,10 +47,9 @@ class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_
         env = CQPEnv()
         if instance:
             assert value is None
-            if not env.IsInstanceOf(instance, env.FindClass(self.sig)):
-                instance_sig = lookup_java_object_name(env.j_env, instance.obj)
+            if not env.IsInstanceOf(instance, self._chaquopy_j_klass):
                 raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
-                                f"{java.sig_to_java(instance_sig)} instance")
+                                f"{java.sig_to_java(object_sig(env.j_env, instance))} instance")
             this = instance.global_ref()
         else:
             assert instance is None

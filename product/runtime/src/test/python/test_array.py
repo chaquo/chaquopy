@@ -39,20 +39,30 @@ class TestArray(unittest.TestCase):
         Object = jclass("java.lang.Object")
         Boolean = jclass("java.lang.Boolean")
 
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
+                                     "java.lang.Object instance"):
+            cast(jarray(Object), Object())
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
+                                     "java.lang.Object\[\] instance"):
+            cast(Boolean, jarray(Object)([]))
+
         Boolean_array = jarray(Boolean)([True, False])
         self.assertEqual(Boolean_array, cast(jarray(Object), Boolean_array))
         self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(jarray(Object), Boolean_array)))
         self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(Object, Boolean_array)))
-        with self.assertRaisesRegexp(TypeError, "cannot create boolean[] proxy from java.lang.Boolean[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create boolean\[\] proxy from "
+                                     "java.lang.Boolean\[\] instance"):
             cast(jarray(jboolean), Boolean_array)
 
         Object_array = jarray(Object)([True, False])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean[] proxy from java.lang.Object[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean\[\] proxy from "
+                                     "java.lang.Object\[\] instance"):
             cast(jarray(Boolean), Object_array)
         self.assertEqual(Object_array, cast(jarray(Object), cast(Object, Object_array)))
 
         Z_array = jarray(jboolean)([True, False])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object[] proxy from boolean[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
+                                     "boolean\[\] instance"):
             cast(jarray(Object), Z_array)
         self.assertEqual(Z_array, cast(jarray(jboolean), cast(Object, Z_array)))
 

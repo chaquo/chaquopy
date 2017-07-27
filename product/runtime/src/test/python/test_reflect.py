@@ -34,7 +34,8 @@ class TestReflect(unittest.TestCase):
         b = Boolean(True)
 
         cast(Object, b)
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from java.lang.Object"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
+                                     "java.lang.Object instance"):
             cast(Boolean, o)
 
     def test_identity(self):

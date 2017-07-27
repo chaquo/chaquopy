@@ -69,7 +69,7 @@ def setup_object_class():
             if instance is not None:
                 if not env.IsInstanceOf(instance, self._chaquopy_j_klass):
                     raise TypeError(f"cannot create {type(self).__name__} proxy from "
-                                    f"{lookup_java_object_name(env.j_env, instance.obj)} instance")
+                                    f"{java.sig_to_java(object_sig(env.j_env, instance))} instance")
                 this = instance.global_ref()
             else:
                 # Java SE 8 raises an InstantiationException when calling NewObject on an abstract

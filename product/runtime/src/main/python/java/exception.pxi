@@ -40,30 +40,3 @@ cdef check_exception(JNIEnv *j_env):
 
     finally:
         processing_exception = False
-
-
-cdef jmethodID mid_getName = NULL
-
-# To avoid infinite recursion, this function must not use anything which could call
-# lookup_java_object_name itself, including any jclass proxy methods.
-cdef lookup_java_object_name(JNIEnv *j_env, jobject j_obj):
-    """Returns the fully-qualified class name of the given object, in the same format as
-    Class.getName().
-    * Array types are returned in JNI format (e.g. "[Ljava/lang/Object;" or "[I".
-    * Other types are returned in Java format (e.g. "java.lang.Object"
-    """
-    j_cls = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj))
-
-    global mid_getName
-    if not mid_getName:
-        j_Class = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_cls.obj))
-        mid_getName = j_env[0].GetMethodID(j_env, j_Class.obj, 'getName', '()Ljava/lang/String;')
-        if not mid_getName:
-            j_env[0].ExceptionClear(j_env)
-            raise Exception("GetMethodID failed")
-
-    j_name = LocalRef.adopt(j_env, j_env[0].CallObjectMethod(j_env, j_cls.obj, mid_getName))
-    if not j_name:
-        j_env[0].ExceptionClear(j_env)
-        raise Exception("getName failed")
-    return j2p_string(j_env, j_name.obj)

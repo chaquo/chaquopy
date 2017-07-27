@@ -68,6 +68,32 @@ cdef str_for_c(s):
         return s
 
 
+cdef jmethodID mid_getName = NULL
+
+# To avoid infinite recursion, this function must not use anything which could call
+# object_sig itself, including any jclass proxy methods.
+cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
+    j_cls = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj.obj))
+
+    global mid_getName
+    if not mid_getName:
+        j_Class = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_cls.obj))
+        mid_getName = j_env[0].GetMethodID(j_env, j_Class.obj, 'getName', '()Ljava/lang/String;')
+        if not mid_getName:
+            j_env[0].ExceptionClear(j_env)
+            raise Exception("GetMethodID failed")
+
+    j_name = LocalRef.adopt(j_env, j_env[0].CallObjectMethod(j_env, j_cls.obj, mid_getName))
+    if not j_name:
+        j_env[0].ExceptionClear(j_env)
+        raise Exception("getName failed")
+
+    sig = j2p_string(j_env, j_name.obj)
+    if not sig.startswith("["):
+        sig = "L" + sig.replace(".", "/") + ";"
+    return sig
+
+
 def is_applicable(sign_args, args, autobox, varargs):
     if len(args) == len(sign_args):
         pass
