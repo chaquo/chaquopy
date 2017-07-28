@@ -13,7 +13,7 @@ def cast(cls, obj):
     otherwise `TypeError` will be raised.
 
     Situations where this could be useful are the same as those where you might use the Java
-    cast syntax `(ClassName)obj`. By changing the apparent type of the object:
+    cast syntax `(ClassName)obj`. By changing the apparent type of an object:
 
        * Different members may be visible on the object.
        * A different overload may be chosen when passing the object to a method.
@@ -50,6 +50,10 @@ class none_cast_dict(dict):
         return obj
 
 none_casts = none_cast_dict()
+
+
+def cls_fullname(cls):
+    return f"{cls.__module__ or '<unknown>'}.{cls.__name__}"
 
 
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the

@@ -193,7 +193,7 @@ cdef class JNIRef(object):
         telem[self.__class__.__name__] -= 1
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} obj=0x{<uintptr_t>self.obj:x}>'
+        return f'<{type(self).__name__} obj=0x{<uintptr_t>self.obj:x}>'
 
     def __nonzero__(self):      # Python 2 name
         return self.obj != NULL

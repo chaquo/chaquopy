@@ -3,13 +3,16 @@ class JavaException(Exception):
     def __init__(*args, **kwargs):
         JavaObject.__init__(*args, **kwargs)
 
+    def __repr__(self):
+        return JavaObject.__repr__(self)
+
     def __str__(self):
         sw = jclass("java.io.StringWriter")()
         pw = jclass("java.io.PrintWriter")(sw)
         self.printStackTrace(pw)
         pw.close()
         result = sw.toString().strip()
-        prefix = type(self).__name__ + ": "
+        prefix = f"{cls_fullname(type(self))}: "
         if result.startswith(prefix):
             result = result[len(prefix):]
         return result

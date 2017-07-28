@@ -157,7 +157,7 @@ class TestReflect(unittest.TestCase):
                                      "as first argument \(got nothing instead\)"):
             self.Test.getZ()
         with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
-                                     "as first argument \(got java.lang.Object instance instead\)"):
+                                     "as first argument \(got Object instance instead\)"):
             self.Test.getZ(Object())
         self.assertEqual(False, self.Test.getZ(self.t))
 

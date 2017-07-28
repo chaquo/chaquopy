@@ -6,9 +6,9 @@ from types import ModuleType
 import_original = builtins.__import__
 
 def set_import_enabled(enable):
-    """Sets whether Java classes can be imported using the Python `import` statement. This is
-    enabled automatically when the `java` module is first loaded. To disable it, pass `False`
-    to this function.
+    """Sets whether the import hook is enabled. The import hook is enabled automatically when the
+    `java` module is first loaded, so you only need to call this function if you want to
+    disable it.
     """  # Further documentation in python.rst
     builtins.__import__ = import_override if enable else import_original
 

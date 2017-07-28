@@ -7,41 +7,41 @@ examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy
 Import hook
 ===========
 
-.. autofunction:: java.set_import_enabled(enable)
-
-When the import hook is enabled, you can write code like `from java.lang import String`,
-which is equivalent to `String = jclass("java.lang.String")`.
-
-Notes:
+The import hook allows you to write code like `from java.lang import String`, which is
+equivalent to `String = jclass("java.lang.String")`.
 
 * **Only the "from ... import ..." form is supported**, e.g. `import java.lang.String` will not
   work.
 * Wildcard import is not supported, e.g. `from java.lang import *` will not work.
-* Only classes can be imported, not Java packages, e.g. `import java.lang` and `from java
-  import lang` will not work.
+* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang` and
+  `from java import lang` will not work.
 * Nested and inner classes cannot be imported directly. Instead, import the outer class,
   and access the nested class as an attribute, e.g. `Outer.Nested`.
 
-Explicit relative imports are supported. For example, within a module called
+Explicit relative imports are supported. For example, within a Python module called
 `com.example.module`::
 
     from . import Class                # Same as "from com.example import Class"
     from ..other.package import Class  # Same as "from com.other.package import Class"
 
 If a Python package and a Java package have the same name, then imports from them may be
-intermixed, even within a single `from ... import` statement. However, the Java names will not
-automatically be added as attributes of the Python package.
+intermixed, even within a single `from ... import` statement. However, you should be aware of
+the following points:
 
-If you attempt to import a name which exists in both languages, an `ImportError` will be
-raised. This can be worked around by accessing the names indirectly. For example, if both Java
-and Python have a class named `com.example.Class`, then instead of `from com.example import
-Class`, you can access them like this::
+* Names imported from the Java package will not automatically be added as attributes of the Python
+  package.
+* If you attempt to import a name which exists in both languages, an `ImportError` will be
+  raised. This can be worked around by accessing the names indirectly. For example, if both
+  Java and Python have a class named `com.example.Class`, then instead of `from com.example
+  import Class`, you can access them like this::
 
     # By using "import" without "from", the Java import hook is bypassed.
     import com.example
     PythonClass = com.example.Class
 
     JavaClass = jclass("com.example.Class")
+
+.. autofunction:: java.set_import_enabled(enable)
 
 Data types
 ==========
@@ -114,6 +114,9 @@ Classes
 
 .. autofunction:: java.jclass
 
+.. note:: Rather than calling this function directly, it's usually more convenient to use the
+          `import hook`_.
+
 Proxy classes and objects can be used with normal Python syntax::
 
     >>> Point = jclass("java.awt.Point")
@@ -179,4 +182,31 @@ Casting
 Exceptions
 ==========
 
-.. autoclass:: java.JavaException
+Java exceptions are represented using a :any:`jclass` proxy object. The Java stack trace is
+added to the exception message::
+
+    >>> from java.lang import Integer
+    >>> Integer.parseInt("abc")
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+      ...
+    java.lang.NumberFormatException: For input string: "abc"
+            at java.lang.NumberFormatException.forInputString(NumberFormatException.java:65)
+            at java.lang.Integer.parseInt(Integer.java:580)
+            at java.lang.Integer.parseInt(Integer.java:615)
+
+Java exceptions can be handled with standard Python syntax, including catching a subclass
+exception via the base class:
+
+    >>> from java.lang import IllegalArgumentException
+    >>> try:
+    ...     Integer.parseInt("abc")
+    ... except IllegalArgumentException as e:
+    ...     print type(e)
+    ...     print e
+    ...
+    <class 'java.lang.NumberFormatException'>
+    For input string: "abc"
+            at java.lang.NumberFormatException.forInputString(NumberFormatException.java:65)
+            at java.lang.Integer.parseInt(Integer.java:580)
+            at java.lang.Integer.parseInt(Integer.java:615)

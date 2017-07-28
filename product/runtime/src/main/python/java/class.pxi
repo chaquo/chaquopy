@@ -49,6 +49,12 @@ class JavaClass(type):
         j_klass = CQPEnv().FindClass(cls_name).global_ref()
         cls_dict["_chaquopy_j_klass"] = j_klass
 
+        if "." in cls_name:
+            module, _, simple_name = cls_name.rpartition(".")
+        else:
+            module, simple_name = "", cls_name
+        cls_dict["__module__"] = module
+
         if bases is None:  # When called from jclass()
             klass = Class(instance=j_klass)
             superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
@@ -58,7 +64,7 @@ class JavaClass(type):
                      ([superclass] if superclass else []) + interfaces]
             bases.sort(cmp=lambda a, b: -1 if issubclass(a, b) else 1 if issubclass(b, a) else 0)
 
-        cls = type.__new__(metacls, cls_name, tuple(bases), cls_dict)
+        cls = type.__new__(metacls, simple_name, tuple(bases), cls_dict)
         jclass_cache[cls_name] = cls
         return cls
 
@@ -77,20 +83,20 @@ def setup_object_class():
             env = CQPEnv()
             if instance is not None:
                 if not env.IsInstanceOf(instance, self._chaquopy_j_klass):
-                    raise TypeError(f"cannot create {type(self).__name__} proxy from "
+                    raise TypeError(f"cannot create {cls_fullname(type(self))} proxy from "
                                     f"{java.sig_to_java(object_sig(env.j_env, instance))} instance")
                 this = instance.global_ref()
             else:
                 # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
                 # class, but Android 6 crashes with a CheckJNI error.
                 if Modifier.isAbstract(self.getClass().getModifiers()):
-                    raise TypeError(f"{type(self).__name__} is abstract and cannot be instantiated")
+                    raise TypeError(f"{cls_fullname(type(self))} is abstract and cannot be instantiated")
 
                 # Can't use getattr(): Java constructors are not inherited.
                 try:
                     constructor = type(self).__dict__["<init>"]
                 except KeyError:
-                    raise TypeError(f"{type(self).__name__} has no accessible constructors")
+                    raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
                 this = constructor.__get__(self, type(self))(*args)
 
             object.__setattr__(self, "_chaquopy_this", this)
@@ -100,15 +106,16 @@ def setup_object_class():
             set_attribute(type(self), self, key, value)
 
         def __repr__(self):
+            full_name = cls_fullname(type(self))
             if self._chaquopy_this:
-                ts = str(self)
+                ts = self.toString()
                 if ts is not None and \
-                   ts.startswith(type(self).__name__):  # e.g. "java.lang.Object@28d93b30"
+                   ts.startswith(full_name):  # e.g. "java.lang.Object@28d93b30"
                     return f"<{ts}>"
                 else:
-                    return f"<{type(self).__name__} '{ts}'>"
+                    return f"<{full_name} '{ts}'>"
             else:
-                return f"<{type(self).__name__} (no instance)>"
+                return f"<{full_name} (no instance)>"
 
         def __str__(self):       return self.toString()
         def __hash__(self):      return self.hashCode()
@@ -248,13 +255,14 @@ def is_reserved_word(word):
 
 
 def set_attribute(cls, obj, key, value):
+    full_name = cls_fullname(cls)
     try:
         member = getattr_no_desc(cls, key)
     except AttributeError:
-        subject = f"'{cls.__name__}' object" if obj else f"type object '{cls.__name__}'"
+        subject = f"'{full_name}' object" if obj else f"type object '{full_name}'"
         raise AttributeError(f"{subject} has no attribute '{key}'")
     if not isinstance(member, JavaField):
-        raise AttributeError(f"'{cls.__name__}.{key}' is not a field")
+        raise AttributeError(f"'{full_name}.{key}' is not a field")
     member.__set__(obj, value)
 
 
@@ -283,7 +291,7 @@ cdef class JavaMember(object):
         self.name = name
 
     def fqn(self):
-        return f"{self.cls.__name__}.{self.name}"
+        return f"{cls_fullname(self.cls)}.{self.name}"
 
 
 cdef class JavaSimpleMember(JavaMember):
@@ -572,7 +580,7 @@ cdef class JavaMethod(JavaSimpleMember):
                 return obj, args[1:]
             else:
                 got = f"{type(obj).__name__} instance"
-        raise TypeError(f"Unbound method {self.fqn()} must be called with {self.cls.__name__} "
+        raise TypeError(f"Unbound method {self.fqn()} must be called with {cls_fullname(self.cls)} "
                         f"instance as first argument (got {got} instead)")
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
