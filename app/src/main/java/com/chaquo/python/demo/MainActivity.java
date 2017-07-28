@@ -6,7 +6,6 @@ import android.support.v7.app.*;
 import android.support.v7.preference.*;
 import android.text.method.*;
 import android.widget.*;
-import com.chaquo.python.*;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -17,10 +16,6 @@ public class MainActivity extends AppCompatActivity {
             String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             setTitle(getTitle() + " " + version);
         } catch (PackageManager.NameNotFoundException ignored) {}
-
-        if (! Python.isStarted()) {
-            Python.start(new AndroidPlatform(this));
-        }
 
         setContentView(R.layout.activity_main);
         getSupportFragmentManager().beginTransaction()

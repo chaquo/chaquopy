@@ -14,24 +14,55 @@ class TestArray(unittest.TestCase):
         self.assertEqual(repr(array_C).replace("u'", "'"),
                          "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
 
+        self.assertTrue(isinstance(array_C, jclass("java.lang.Object")))
+        self.assertTrue(isinstance(array_C, jclass("java.lang.Cloneable")))
+        self.assertTrue(isinstance(array_C, jclass("java.io.Serializable")))
+        self.assertFalse(isinstance(array_C, jclass("java.io.Closeable")))
+        self.assertRegexpMatches(array_C.toString(), r"^\[C")
+
+    # More conversion tests in test_conversion.py
+    def test_conversion(self):
+        Object = jclass("java.lang.Object")
+        Integer = jclass("java.lang.Integer")
+        TestArray = jclass('com.chaquo.python.TestArray')
+        # All object arrays, primitive arrays, and Python iterables are assignable to Object,
+        # Cloneable and Serializable
+        for array in [jarray(Object)(["hello", 42]), jarray(Integer)([11, 22]),
+                      jarray(jboolean)([False, True]), [False, True]]:
+            for field in ["object", "cloneable", "serializable"]:
+                setattr(TestArray, field, array)
+                self.assertEqual(array, getattr(TestArray, field))
+                with self.assertRaisesRegexp(TypeError, "Cannot convert"):
+                    setattr(TestArray, "closeable", array)
+
     def test_cast(self):
         Object = jclass("java.lang.Object")
         Boolean = jclass("java.lang.Boolean")
+
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
+                                     "java.lang.Object instance"):
+            cast(jarray(Object), Object())
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
+                                     "java.lang.Object\[\] instance"):
+            cast(Boolean, jarray(Object)([]))
 
         Boolean_array = jarray(Boolean)([True, False])
         self.assertEqual(Boolean_array, cast(jarray(Object), Boolean_array))
         self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(jarray(Object), Boolean_array)))
         self.assertEqual(Boolean_array, cast(jarray(Boolean), cast(Object, Boolean_array)))
-        with self.assertRaisesRegexp(TypeError, "cannot create boolean[] proxy from java.lang.Boolean[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create boolean\[\] proxy from "
+                                     "java.lang.Boolean\[\] instance"):
             cast(jarray(jboolean), Boolean_array)
 
         Object_array = jarray(Object)([True, False])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean[] proxy from java.lang.Object[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean\[\] proxy from "
+                                     "java.lang.Object\[\] instance"):
             cast(jarray(Boolean), Object_array)
         self.assertEqual(Object_array, cast(jarray(Object), cast(Object, Object_array)))
 
         Z_array = jarray(jboolean)([True, False])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object[] proxy from boolean[]"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
+                                     "boolean\[\] instance"):
             cast(jarray(Object), Z_array)
         self.assertEqual(Z_array, cast(jarray(jboolean), cast(Object, Z_array)))
 
@@ -65,7 +96,7 @@ class TestArray(unittest.TestCase):
         array_Boolean = jarray(Boolean)([True, False])
         with self.assertRaisesRegexp(TypeError, "Cannot convert"):
             array_Boolean[0] = 1
-        with self.assertRaisesRegexp(JavaException, "ArrayStoreException"):
+        with self.assertRaises(jclass("java.lang.ArrayStoreException")):
             cast(jarray(Object), array_Boolean)[0] = 1
 
         array_Object = jarray(Object)([True, False])

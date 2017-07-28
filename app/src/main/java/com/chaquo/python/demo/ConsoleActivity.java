@@ -62,6 +62,15 @@ public class ConsoleActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        // Don't restore the REPL UI scrollback if the Python InteractiveConsole object can't be
+        // restored as well (saw this happen once).
+        if (getLastCustomNonConfigurationInstance() != null) {
+            super.onRestoreInstanceState(savedInstanceState);
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         adjustScroll();  // Necessary after a screen rotation

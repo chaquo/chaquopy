@@ -69,6 +69,7 @@ public class TestBasics {
 
 
     public void noArgs() {}
+    public void varargs1(Object arg0, Object... args) {}
 
     public boolean getZ() {
         return fieldZ;
@@ -461,6 +462,7 @@ public class TestBasics {
 
 
     public static void staticNoArgs() {}
+    public static void staticVarargs1(Object arg0, Object... args) {}
 
     public static boolean getStaticZ() {
         return fieldStaticZ;

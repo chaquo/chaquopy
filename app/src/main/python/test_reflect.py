@@ -19,13 +19,16 @@ class TestReflect(unittest.TestCase):
         Stack = jclass('java.util.Stack')
         StackSlash = jclass('java/util/Stack')
         self.assertIs(Stack, StackSlash)
+        StackL = jclass('Ljava/util/Stack;')
+        self.assertIs(Stack, StackL)
+
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
         # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
         # ClassNotFoundException.
-        with self.assertRaisesRegexp(JavaException, "(NoClassDefFoundError|ClassNotFoundException)"):
-            jclass("java.lang.Stakk")
+        with self.assertRaises(jclass("java.lang.NoClassDefFoundError")):
+            jclass("java.lang.Nonexistent")
 
     def test_cast(self):
         Object = jclass("java.lang.Object")
@@ -34,7 +37,8 @@ class TestReflect(unittest.TestCase):
         b = Boolean(True)
 
         cast(Object, b)
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from java.lang.Object"):
+        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
+                                     "java.lang.Object instance"):
             cast(Boolean, o)
 
     def test_identity(self):
@@ -116,9 +120,11 @@ class TestReflect(unittest.TestCase):
                 obj.Nested = 99
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
-            with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
+            with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
                 obj.staticNoArgs(True)
-            with self.assertRaisesRegexp(TypeError, "takes 1 argument"):
+            with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+                obj.staticVarargs1()
+            with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
                 obj.setStaticZ()
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
@@ -133,17 +139,27 @@ class TestReflect(unittest.TestCase):
             self.t.setZ = True
         with self.assertRaisesRegexp(TypeError, "not callable"):
             self.t.fieldZ()
-        with self.assertRaisesRegexp(TypeError, "takes 0 arguments"):
+        with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
             self.t.noArgs(True)
-        with self.assertRaisesRegexp(TypeError, "takes 1 argument"):
+        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+            self.t.varargs1()
+        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+            self.Test.varargs1(self.t)
+        with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
             self.t.setZ()
 
+        Object = jclass("java.lang.Object")
         with self.assertRaisesRegexp(AttributeError, "static context"):
             self.Test.fieldZ
         with self.assertRaisesRegexp(AttributeError, "static context"):
             self.Test.fieldZ = True
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+        with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
+                                     "as first argument \(got nothing instead\)"):
             self.Test.getZ()
+        with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
+                                     "as first argument \(got Object instance instead\)"):
+            self.Test.getZ(Object())
+        self.assertEqual(False, self.Test.getZ(self.t))
 
     # This might seem silly, but an older version had a bug where bound methods could be
     # rebound by getting the same method from a different object, or instantiating a new object
@@ -196,8 +212,6 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
-        for name in ["print", "print_"]:  # Members are added to __dict__ on first use
-            getattr(PrintWriter, name)
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)
@@ -231,48 +245,83 @@ class TestReflect(unittest.TestCase):
         Interface = jclass("com.chaquo.python.TestReflect$Interface")
         with self.assertRaisesRegexp(TypeError, "abstract"):
             Interface()
+
         self.assertEqual("Interface constant", Interface.iConstant)
         with self.assertRaisesRegexp(AttributeError, "final"):
             Interface.iConstant = "not constant"
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+
+        Child = jclass("com.chaquo.python.TestReflect$Child")
+        with self.assertRaisesRegexp(TypeError, "must be called with .*Interface instance as "
+                                     "first argument \(got nothing instead\)"):
             Interface.iMethod()
+        self.assertEqual("Implemented method", Interface.iMethod(Child()))
+
+        # Interfaces should expose all Object class methods.
+        self.assertEqual("Child object", Interface.toString(Child()))
 
     def test_inheritance(self):
+        Object = jclass("java.lang.Object")
         Interface = jclass("com.chaquo.python.TestReflect$Interface")
+        SubInterface = jclass("com.chaquo.python.TestReflect$SubInterface")
         Parent = jclass("com.chaquo.python.TestReflect$Parent")
         Child = jclass("com.chaquo.python.TestReflect$Child")
 
+        self.assertEqual((object,), Object.__bases__)
+        self.assertEqual((Object,), Interface.__bases__)
+        self.assertEqual((Interface,), SubInterface.__bases__)
+        self.assertEqual((Object,), Parent.__bases__)
+        self.assertEqual((Parent, Interface), Child.__bases__)
+
         self.assertEqual("Interface constant", Child.iConstant)
-        self.assertEqual("Parent static field", Child.pStaticField)
+        self.verify_field(Child, "pStaticField", "Parent static field")
         self.assertEqual("Parent static method", Child.pStaticMethod())
-        self.assertEqual("Overridden static field", Child.oStaticField)
+        self.verify_field(Child, "oStaticField", "Overridden static field")
         self.assertEqual("Overridden static method", Child.oStaticMethod())
 
         c = Child()
+        self.assertTrue(isinstance(c, Child))
+        self.assertTrue(isinstance(c, Parent))
+        self.assertTrue(isinstance(c, Interface))
+        self.assertTrue(isinstance(c, Object))
         self.assertEqual("Interface constant", c.iConstant)
         self.assertEqual("Implemented method", c.iMethod())
-        self.assertEqual("Parent static field", c.pStaticField)
-        self.assertEqual("Parent field", c.pField)
+        self.verify_field(c, "pStaticField", "Parent static field")
+        self.verify_field(c, "pField", "Parent field")
         self.assertEqual("Parent static method", c.pStaticMethod())
         self.assertEqual("Parent method", c.pMethod())
-        self.assertEqual("Overridden static field", c.oStaticField)
-        self.assertEqual("Overridden field", c.oField)
+        self.verify_field(c, "oStaticField", "Overridden static field")
+        self.verify_field(c, "oField", "Overridden field")
         self.assertEqual("Overridden static method", c.oStaticMethod())
         self.assertEqual("Overridden method", c.oMethod())
 
         c_Interface = cast(Interface, c)
+        self.assertFalse(isinstance(c_Interface, Child))
+        self.assertFalse(isinstance(c_Interface, Parent))
+        self.assertTrue(isinstance(c_Interface, Interface))
+        self.assertTrue(isinstance(c_Interface, Object))
         self.assertEqual("Interface constant", c_Interface.iConstant)
         self.assertEqual("Implemented method", c_Interface.iMethod())
 
         c_Parent = cast(Parent, c)
-        self.assertEqual("Parent static field", c_Parent.pStaticField)
-        self.assertEqual("Parent field", c_Parent.pField)
+        self.assertFalse(isinstance(c_Parent, Child))
+        self.assertTrue(isinstance(c_Parent, Parent))
+        self.assertFalse(isinstance(c_Parent, Interface))
+        self.assertTrue(isinstance(c_Parent, Object))
+        self.verify_field(c_Parent, "pStaticField", "Parent static field")
+        self.verify_field(c_Parent, "pField", "Parent field")
         self.assertEqual("Parent static method", c_Parent.pStaticMethod())
         self.assertEqual("Parent method", c_Parent.pMethod())
-        self.assertEqual("Non-overridden static field", c_Parent.oStaticField)
-        self.assertEqual("Non-overridden field", c_Parent.oField)
+        self.verify_field(c_Parent, "oStaticField", "Non-overridden static field")
+        self.verify_field(c_Parent, "oField", "Non-overridden field")
         self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
         self.assertEqual("Overridden method", c_Parent.oMethod())
+
+    def verify_field(self, obj, name, value):
+        self.assertEqual(value, getattr(obj, name))
+        setattr(obj, name, "Modified")
+        self.assertEqual("Modified", getattr(obj, name))
+        setattr(obj, name, value)
+        self.assertEqual(value, getattr(obj, name))
 
     def test_abstract(self):
         Abstract = jclass("com.chaquo.python.TestReflect$Abstract")
@@ -284,3 +333,5 @@ class TestReflect(unittest.TestCase):
         for cls_name in ["Interface", "Parent", "SimpleEnum", "Abstract"]:
             self.assertIs(jclass("com.chaquo.python.TestReflect$" + cls_name),
                           getattr(TestReflect, cls_name))
+
+        self.assertTrue(issubclass(TestReflect.ParentOuter.ChildNested, TestReflect.ParentOuter))

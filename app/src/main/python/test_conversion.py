@@ -174,19 +174,20 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, Class)
         self.verify_array(obj, name, System, Class)
 
+    # More conversion tests in test_array.py
     def test_array(self):
-        Object = jclass("java.lang.Number")
-        Number = jclass("java.lang.Object")
-        self.verify_value(self.obj, "ObjectArray", jarray(Number)([False, True]))
+        Object = jclass("java.lang.Object")
+        Number = jclass("java.lang.Number")
+        self.verify_value(self.obj, "ObjectArray", jarray(Number)([11, 22]))
         with self.conv_error:  # Can't use `context`: exception is raised by `jarray` constructor.
             self.verify_value(self.obj, "NumberArray", jarray(Object)([False, True]))
 
         # Arrays of primitives are not assignable to arrays of Object.
-        with self.conv_error:
-            self.verify_value(self.obj, "ObjectArray", jarray(jboolean)([False, True]))
+        self.verify_value(self.obj, "ObjectArray", jarray(jboolean)([False, True]),
+                          context=self.conv_error)
 
     def test_mixed_array(self):
-        mixed =  [False, "hello"]
+        mixed = [False, "hello"]
         self.verify_array(self.obj, "Object", *mixed)
         for name in ["ZArray", "BooleanArray", "StringArray"]:
             self.verify_value(self.obj, name, mixed, context=self.conv_error)
@@ -199,12 +200,12 @@ class TestConversion(unittest.TestCase):
         self.verify_value(self.obj, "ZArray", [False, None], context=self.conv_error)
 
     def verify_array(self, obj, name, val1, val2):
-        for field in [name + "Array", "Object"]:  # All arrays are assignable to Object.
-            self.verify_value(obj, field, None)
-            self.verify_value(obj, field, [])
-            # Single-element arrays are tested by verify_value.
-            self.verify_value(obj, field, [val1, val2])
-            self.verify_value(obj, field, [val2, val1])
+        field = name + "Array"
+        self.verify_value(obj, field, None)
+        self.verify_value(obj, field, [])
+        # Single-element arrays are tested by verify_value.
+        self.verify_value(obj, field, [val1, val2])
+        self.verify_value(obj, field, [val2, val1])
 
         # Test modification of array obtained from a field, and from a method.
         fieldArray, getArray, setArray = [prefix + name + "Array"

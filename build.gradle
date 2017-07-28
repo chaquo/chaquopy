@@ -1,6 +1,6 @@
 buildscript {
-    ext.appVersion = "0.2.1"
-    ext.sdkVersion = "0.2.0"
+    ext.appVersion = "0.3.0"
+    ext.sdkVersion = ext.appVersion
 
     repositories {
         jcenter()

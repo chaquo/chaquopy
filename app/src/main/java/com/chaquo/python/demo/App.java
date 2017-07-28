@@ -3,6 +3,7 @@ package com.chaquo.python.demo;
 import android.app.*;
 import android.content.*;
 import android.preference.*;
+import com.chaquo.python.*;
 
 
 public class App extends Application {
@@ -15,6 +16,8 @@ public class App extends Application {
         super.onCreate();
         context = this;
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        Python.start(new AndroidPlatform(this));
     }
 
 }

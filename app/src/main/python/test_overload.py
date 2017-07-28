@@ -22,9 +22,47 @@ class TestOverload(unittest.TestCase):
     # considered and chosen during overload resolution.
     def test_mixed_static_and_instance(self):
         MSI = jclass("com.chaquo.python.TestOverload$MixedStaticInstance")
-        with self.assertRaisesRegexp(AttributeError, "static context"):
-            MSI.resolve("two")
-        self.assertEqual(MSI().resolve("two"), 'String')
+        m = MSI()
+
+        self.assertEqual(m.resolve11("test"), "String")
+        self.assertEqual(m.resolve11(42), "Object")
+
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got str instance instead\)"):
+            MSI.resolve11("test")
+        self.assertEqual(MSI.resolve11(42), "Object")
+
+        self.assertEqual(MSI.resolve11(m, "test"), "String")
+        with self.inapplicable:
+           MSI.resolve11(m, 42)
+
+        # ---
+
+        self.assertEqual(m.resolve10(), "")
+        self.assertEqual(m.resolve10("test"), "String")
+
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got nothing instead\)"):
+            MSI.resolve10()
+        self.assertEqual(MSI.resolve10("test"), "String")
+
+        self.assertEqual(MSI.resolve10(m), "")
+        with self.inapplicable:
+            MSI.resolve10(m, "test")
+
+        # ---
+
+        self.assertEqual(m.resolve01(), "")
+        self.assertEqual(m.resolve01("test"), "String")
+
+        self.assertEqual(MSI.resolve01(), "")
+        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
+                                     "instance as first argument \(got str instance instead\)"):
+            MSI.resolve01("test")
+
+        with self.inapplicable:
+            MSI.resolve01(m)
+        self.assertEqual(MSI.resolve01(m, "test"), "String")
 
     def test_class(self):
         Parent = jclass("com.chaquo.python.TestOverload$Parent")
@@ -37,40 +75,47 @@ class TestOverload(unittest.TestCase):
         i = Integer(42)
         f = Float(1.23)
         child = Child()
+        parent = Parent()
 
-        self.assertEqual(child.resolve(s), 'String')
-        self.assertEqual(child.resolve(i), 'Integer')
-        self.assertEqual(child.resolve(f), 'Object')
-        self.assertEqual(child.resolve(cast(Object, s)), 'Object')
-        self.assertEqual(child.resolve(cast(String, cast(Object, s))), 'String')
+        self.assertEqual(parent.resolve(s), 'Parent Object')
+        self.assertEqual(parent.resolve(i), 'Parent Integer')
+        self.assertEqual(parent.resolve(f), 'Parent Object')
+        self.assertEqual(parent.resolve(f, s), 'Parent Object, String')
 
+        self.assertEqual(child.resolve(s), 'Child String')
+        self.assertEqual(child.resolve(i), 'Child Integer')
+        self.assertEqual(child.resolve(f), 'Child Object')
+        self.assertEqual(child.resolve(cast(Object, s)), 'Child Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, s))), 'Child String')
+
+        # Casting of None
         with self.ambiguous:
             child.resolve(None)
-        self.assertEqual(child.resolve(cast(String, None)), 'String')
-        self.assertEqual(child.resolve(cast(Object, None)), 'Object')
-        self.assertEqual(child.resolve(cast(String, cast(Object, None))), 'String')
+        self.assertEqual(child.resolve(cast(String, None)), 'Child String')
+        self.assertEqual(child.resolve(cast(Object, None)), 'Child Object')
+        self.assertEqual(child.resolve(cast(String, cast(Object, None))), 'Child String')
 
-        self.assertEqual(child.resolve(s, i), 'String, Object')
-        self.assertEqual(child.resolve(i, s), 'Object, String')
+        self.assertEqual(child.resolve(s, i), 'Child String, Object')
+        self.assertEqual(child.resolve(i, s), 'Parent Object, String')
         with self.inapplicable:
             child.resolve(i, i)
 
         # Casting of method parameters
         with self.ambiguous:
             child.resolve(s, s)
-        self.assertEqual(child.resolve(cast(Object, s), s), 'Object, String')
-        self.assertEqual(child.resolve(s, cast(Object, s)), 'String, Object')
+        self.assertEqual(child.resolve(cast(Object, s), s), 'Parent Object, String')
+        self.assertEqual(child.resolve(s, cast(Object, s)), 'Child String, Object')
 
-        # Casting of object on which method is called
-        self.assertEqual(cast(Parent, child).resolve(s), 'Object')
-        self.assertEqual(cast(Parent, child).resolve(s, s), 'Object, String')
+        # Casting of object on which method is called should limit visibility of overloads, but
+        # subclass overrides of visible overloads should still be called.
+        child_Parent = cast(Parent, child)
+        self.assertEqual(child_Parent.resolve(s), 'Child Object')
+        self.assertEqual(child_Parent.resolve(s, s), 'Parent Object, String')
         with self.inapplicable:
-            cast(Parent, child).resolve(s, i)
+            child_Parent.resolve(s, i)
 
-        with self.assertRaisesRegexp(TypeError, "Java type"):
+        with self.assertRaisesRegexp(TypeError, "int object does not specify a Java type"):
             cast(42, child)
-
-        self.assertEqual("Child", child.resolveCovariantOverride())
 
     def test_primitive(self):
         obj = jclass("com.chaquo.python.TestOverload$Primitive")()

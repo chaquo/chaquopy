@@ -17,6 +17,8 @@ public class TestReflect {
         String iMethod();
     }
 
+    public interface SubInterface extends Interface { }
+
     public static class Parent {
         public static String pStaticField = "Parent static field";
         public String pField = "Parent field";
@@ -36,6 +38,8 @@ public class TestReflect {
         public String oField = "Overridden field";
         public static String oStaticMethod() { return "Overridden static method"; }
         @Override public String oMethod() { return "Overridden method"; }
+
+        @Override public String toString() { return "Child object"; }
     }
 
     public enum SimpleEnum {
@@ -49,6 +53,10 @@ public class TestReflect {
         public static String member() {
             return "method";
         }
+    }
+
+    public static class ParentOuter {
+        public static class ChildNested extends ParentOuter {}
     }
 
 }

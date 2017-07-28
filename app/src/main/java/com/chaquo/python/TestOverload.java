@@ -5,42 +5,41 @@ import java.util.*;
 public class TestOverload {
 
     public static class MixedStaticInstance {
-        public static String resolve(Object j) {
-            return "Object";
-        }
-        public String resolve(String j) {
-            return "String";
-        }
+        public static String resolve11(Object j) { return "Object"; }
+        public String resolve11(String j) { return "String"; }
+
+        public static String resolve10(String s) { return "String"; }
+        public String resolve10() { return ""; }
+
+        public static String resolve01() { return ""; }
+        public String resolve01(String s) { return "String"; }
     }
 
 
     public static class Parent {
-        public String resolve(Object j) {
-            return "Object";
+        public Object resolve(Object j) {               // Overridden normally
+            return "Parent Object";
         }
-        public String resolve(Object j, String k) {
-            return "Object, String";
+        public Object resolve(Integer j) {              // Overridden covariantly
+            return "Parent Integer";
         }
-
-        // This signature will exist in the Child class as a synthetic method.
-        public Object resolveCovariantOverride() {
-            return "Parent";
+        public Object resolve(Object j, String k) {     // Not overridden
+            return "Parent Object, String";
         }
     }
 
     public static class Child extends Parent {
-        public String resolve(String j) {
-            return "String";
+        @Override public Object resolve(Object j) {
+            return "Child Object";
         }
-        public String resolve(Integer j) {
-            return "Integer";
+        @Override public String resolve(Integer j) {
+            return "Child Integer";
         }
-        public String resolve(String j, Object k) {
-            return "String, Object";
+        public Object resolve(String j) {
+            return "Child String";
         }
-
-        public String resolveCovariantOverride() {
-            return "Child";
+        public Object resolve(String j, Object k) {
+            return "Child String, Object";
         }
     }
 
