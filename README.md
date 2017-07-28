@@ -20,7 +20,7 @@ Copy updates in runtime/src/test to public/demo/app/src/main.
 
 Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
 
-Build release APK in Android Studio, and test on emulator and phone.
+"Generate Signed APK" in Android Studio, and test on emulator and phone.
 
 Upload APK to Google Play and to Maven repository.
 

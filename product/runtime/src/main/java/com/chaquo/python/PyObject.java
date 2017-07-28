@@ -11,7 +11,7 @@ import java.util.*;
  * * If the same object is retrieved from Python multiple times, it will be represented by the same
  *   PyObject (unless {@link #close} is called).
  *
- * Unless otherwise specified, methods in this class throw {@link PyException} on failure.*/
+ * Unless otherwise specified, all methods in this class throw {@link PyException} on failure.*/
 @SuppressWarnings("deprecation")
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();

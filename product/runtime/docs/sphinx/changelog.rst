@@ -1,6 +1,14 @@
 Change log
 ##########
 
+0.3.0 (2017-07-28)
+==================
+
+* Reflect Java class hierarchy in Python.
+* Represent Java exceptions with their actual classes.
+* Support Python unbound method syntax when calling Java methods, i.e. `ClassName.method(instance, args)`.
+* Release GIL when calling Java constructors.
+
 0.2.0 (2017-07-04)
 ==================
 

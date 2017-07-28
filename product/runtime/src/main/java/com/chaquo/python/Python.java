@@ -3,7 +3,7 @@ package com.chaquo.python;
 
 /** Interface to Python.
  *
- * Unless otherwise specified, methods in this class throw {@link PyException} on failure. */
+ * Unless otherwise specified, all methods in this class throw {@link PyException} on failure. */
 public class Python {
 
     /** Provides information needed to start Python. */

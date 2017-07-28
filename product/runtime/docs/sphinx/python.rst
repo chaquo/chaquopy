@@ -24,7 +24,7 @@ Explicit relative imports are supported. For example, within a Python module cal
     from . import Class                # Same as "from com.example import Class"
     from ..other.package import Class  # Same as "from com.other.package import Class"
 
-If a Python package and a Java package have the same name, then imports from them may be
+If a Python package and a Java package have the same name, imports from both of them may be
 intermixed, even within a single `from ... import` statement. However, you should be aware of
 the following points:
 
