@@ -38,8 +38,3 @@ cdef class LocalRef(JNIRef):
 # === jvm =====================================================================
 
 cdef set_jvm(JavaVM *new_jvm)
-
-# === utils ===================================================================
-
-cdef expect_exception(JNIEnv *j_env, msg)
-cdef check_exception(JNIEnv *j_env)

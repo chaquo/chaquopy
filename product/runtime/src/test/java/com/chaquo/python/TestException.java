@@ -4,12 +4,12 @@ public class TestException {
 
     public TestException(boolean doThrow) {
         if (doThrow) {
-            throw new RuntimeException("hello world");
+            throw new RuntimeException("hello constructor");
         }
     }
 
     public static void simple(int depth) {
-        if (depth == 0) throw new RuntimeException("hello world");
+        if (depth == 0) throw new RuntimeException("hello method");
         else simple(depth -1);
     }
 

@@ -19,13 +19,16 @@ class TestReflect(unittest.TestCase):
         Stack = jclass('java.util.Stack')
         StackSlash = jclass('java/util/Stack')
         self.assertIs(Stack, StackSlash)
+        StackL = jclass('Ljava/util/Stack;')
+        self.assertIs(Stack, StackL)
+
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
         # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
         # ClassNotFoundException.
-        with self.assertRaisesRegexp(JavaException, "(NoClassDefFoundError|ClassNotFoundException)"):
-            jclass("java.lang.Stakk")
+        with self.assertRaises(jclass("java.lang.NoClassDefFoundError")):
+            jclass("java.lang.Nonexistent")
 
     def test_cast(self):
         Object = jclass("java.lang.Object")

@@ -19,7 +19,7 @@ from .chaquopy import *  # noqa
 from .signatures import *  # noqa
 
 # This is the public API.
-__all__ = ["set_import_enabled", "cast", "JavaException", "jclass",
+__all__ = ["set_import_enabled", "cast", "jclass",
            "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
            "jarray"]
 

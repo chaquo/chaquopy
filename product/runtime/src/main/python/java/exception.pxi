@@ -1,8 +1,18 @@
-# TODO #5169 use proxy for actual exception class
+# setup_bootstrap_classes will add this as a base class of java.lang.Throwable.
 class JavaException(Exception):
-    """Raised when an exception arises from Java code. The message contains the Java exception
-    class and stack trace.
-    """
+    def __init__(*args, **kwargs):
+        JavaObject.__init__(*args, **kwargs)
+
+    def __str__(self):
+        sw = jclass("java.io.StringWriter")()
+        pw = jclass("java.io.PrintWriter")(sw)
+        self.printStackTrace(pw)
+        pw.close()
+        result = sw.toString().strip()
+        prefix = type(self).__name__ + ": "
+        if result.startswith(prefix):
+            result = result[len(prefix):]
+        return result
 
 
 cdef expect_exception(JNIEnv *j_env, msg):
@@ -13,30 +23,10 @@ cdef expect_exception(JNIEnv *j_env, msg):
     raise Exception(msg)
 
 
-# TODO #5167 is this thread-safe?
-processing_exception = False
-
 cdef check_exception(JNIEnv *j_env):
     env = CQPEnv()
     j_exc = env.ExceptionOccurred()
     if not j_exc:
         return
     env.ExceptionClear()
-
-    try:
-        global processing_exception
-        if processing_exception:
-            raise JavaException("Another exception occurred while getting exception details")
-        processing_exception = True
-
-        exc = j2p(env.j_env, j_exc)
-        PrintWriter = java.jclass("java.io.PrintWriter")
-        StringWriter = java.jclass("java.io.StringWriter")
-        sw = StringWriter()
-        pw = PrintWriter(sw)
-        exc.printStackTrace(pw)
-        pw.close()
-        raise JavaException(sw.toString())
-
-    finally:
-        processing_exception = False
+    raise j2p(env.j_env, j_exc)

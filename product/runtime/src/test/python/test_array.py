@@ -96,7 +96,7 @@ class TestArray(unittest.TestCase):
         array_Boolean = jarray(Boolean)([True, False])
         with self.assertRaisesRegexp(TypeError, "Cannot convert"):
             array_Boolean[0] = 1
-        with self.assertRaisesRegexp(JavaException, "ArrayStoreException"):
+        with self.assertRaises(jclass("java.lang.ArrayStoreException")):
             cast(jarray(Object), array_Boolean)[0] = 1
 
         array_Object = jarray(Object)([True, False])

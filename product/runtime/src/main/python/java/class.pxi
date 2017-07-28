@@ -1,4 +1,3 @@
-import collections
 from collections import defaultdict
 from itertools import chain, groupby
 import keyword
@@ -11,7 +10,7 @@ def jclass(clsname):
     """Returns a proxy class for the given fully-qualified Java class name. The name may use either
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
     class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
-    :any:`JavaException` is raised.
+    `NoClassDefFoundError` is raised.
     """  # Further documentation in python.rst
 
     clsname = clsname.replace('/', '.')
@@ -29,7 +28,17 @@ def jclass(clsname):
         clsname = str(clsname)
     cls = jclass_cache.get(clsname)
     if not cls:
-        cls = JavaClass(clsname, None, {})
+        try:
+            cls = JavaClass(clsname, None, {})
+        except JavaException as e:
+            # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
+            # throws ClassNotFoundException. Hide this from our users.
+            if isinstance(e, jclass("java.lang.ClassNotFoundException")):
+                ncdfe = jclass("java.lang.NoClassDefFoundError")(e.getMessage())
+                ncdfe.setStackTrace(e.getStackTrace())
+                raise ncdfe
+            else:
+                raise
         reflect_class(cls)
     return cls
 
@@ -163,8 +172,13 @@ def setup_bootstrap_classes():
                 Class, Modifier, Method, Field, Constructor]:
         reflect_class(cls)
 
-    JavaArray.__bases__ = (jclass("java.lang.Cloneable"), jclass("java.io.Serializable"), JavaObject,
-                           collections.Sequence)
+    Cloneable = jclass("java.lang.Cloneable")
+    Serializable = jclass("java.io.Serializable")
+    JavaArray.__bases__ = (Cloneable, Serializable, JavaObject) + JavaArray.__bases__
+
+    Throwable = JavaClass("java.lang.Throwable", (JavaException, Serializable, JavaObject), {})
+    reflect_class(Throwable)
+
 
 def reflect_class(cls):
     klass = cls.getClass()

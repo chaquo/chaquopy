@@ -20,7 +20,6 @@ __all__ = [
     "chaquopy_init",
     "detach",                           # jvm.pxi
     "cast",                             # utils.pxi
-    "JavaException",                    # exception.pxi
     "jclass",                           # class.pxi
     "jarray",                           # array.pxi
     "set_import_enabled",               # import.pxi
