@@ -31,7 +31,7 @@ JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 def copy_output_args(definition_args, args, p2j_args):
     for argtype, arg, p2j_arg in six.moves.zip(definition_args, args, p2j_args):
         if (argtype[0] == "[") and arg and (not isinstance(arg, JavaArray)):
-            ret = java.jarray(argtype[1:])(instance=p2j_arg)
+            ret = jarray(argtype[1:])(instance=p2j_arg)
             try:
                 arg[:] = ret
             except TypeError:
@@ -70,19 +70,19 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
 
     sig = object_sig(j_env, j_object)
     if sig[0] == '[':
-        return java.jarray(sig[1:])(instance=j_object)
+        return jarray(sig[1:])(instance=j_object)
     if sig == 'Ljava/lang/String;':
         return j2p_string(j_env, j_object.obj)
 
     unbox_method = UNBOX_METHODS.get(sig)
     if unbox_method:
-        return getattr(java.jclass(sig)(instance=j_object), unbox_method)()
+        return getattr(jclass(sig)(instance=j_object), unbox_method)()
 
     if sig == 'Lcom/chaquo/python/PyObject;':
         return j2p_pyobject(j_env, j_object.obj)
 
     # Failed to convert it, so return a proxy object.
-    return java.jclass(sig)(instance=j_object)
+    return jclass(sig)(instance=j_object)
 
 
 cdef j2p_string(JNIEnv *j_env, jobject string):
@@ -111,7 +111,7 @@ cdef j2p_string(JNIEnv *j_env, jobject string):
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
     if jpyobject == NULL:
         return None
-    JPyObject = java.jclass("com.chaquo.python.PyObject")
+    JPyObject = jclass("com.chaquo.python.PyObject")
     jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
     cdef PyObject *po = <PyObject*><jlong> jpo.addr
     if po == NULL:
@@ -276,7 +276,7 @@ cdef JNIRef p2j_array(element_type, obj):
     if isinstance(obj, JavaArray):
         java_array = obj
     else:
-        java_array = java.jarray(element_type)(obj)
+        java_array = jarray(element_type)(obj)
     return java_array._chaquopy_this
 
 
@@ -315,7 +315,7 @@ cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    return java.jclass(clsname)(value)._chaquopy_this
+    return jclass(clsname)(value)._chaquopy_this
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
@@ -323,7 +323,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
         return NULL
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
-    JPyObject = java.jclass("com.chaquo.python.PyObject")
+    JPyObject = jclass("com.chaquo.python.PyObject")
     cdef JavaMethod jm_getInstance = JPyObject.__dict__["getInstance"]
     jm_getInstance.resolve()
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \

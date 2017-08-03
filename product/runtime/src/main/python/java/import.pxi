@@ -27,7 +27,7 @@ def import_override(name, globals={}, locals={}, fromlist=None, level=0):
         java_imports = {}
         for from_name in fromlist:
             try:
-                cls = java.jclass(f"{from_pkg}.{from_name}")
+                cls = jclass(f"{from_pkg}.{from_name}")
                 java_imports[from_name] = cls
             except JavaException:
                 pass  # The caller is responsible for raising ImportError if some names aren't found.

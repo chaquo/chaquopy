@@ -20,9 +20,9 @@ def cast(cls, obj):
     """
     sig = java.jni_sig(cls)
     if sig.startswith("L"):
-        proxy_type = java.jclass(sig)
+        proxy_type = jclass(sig)
     elif sig.startswith("["):
-        proxy_type = java.jarray(sig[1:])
+        proxy_type = jarray(sig[1:])
     else:
         raise TypeError(f"{type(cls).__name__} object does not specify a Java class or array type")
 
@@ -68,7 +68,7 @@ def cls_fullname(cls):
 def find_javaclass(name):
     """Returns the java.lang.Class proxy object corresponding to the given fully-qualified name.
     """
-    return java.jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
+    return jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
 
 
 cdef str_for_c(s):
