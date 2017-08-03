@@ -11,11 +11,10 @@ def jclass(clsname):
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
     class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
     `NoClassDefFoundError` is raised.
-    """  # Further documentation in python.rst
-
+    """
     clsname = clsname.replace('/', '.')
     if clsname.startswith("["):
-        raise ValueError("Cannot reflect an array type")
+        raise ValueError("Cannot reflect an array type")  # But note that `jarray` shares jclass_cache
     if clsname in java.primitives_by_name:
         raise ValueError("Cannot reflect a primitive type")
     if clsname.startswith("L") and clsname.endswith(";"):
@@ -29,7 +28,7 @@ def jclass(clsname):
     cls = jclass_cache.get(clsname)
     if not cls:
         try:
-            cls = JavaClass(clsname, None, {})
+            cls = jclass_proxy(clsname)
         except JavaException as e:
             # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
             # throws ClassNotFoundException. Hide this from our users.
@@ -43,13 +42,20 @@ def jclass(clsname):
     return cls
 
 
+def jclass_proxy(cls_name, bases=None):
+    return JavaClass(None, bases, dict(_chaquopy_name=cls_name))
+
+
 class JavaClass(type):
-    def __new__(metacls, cls_name, bases, cls_dict):
-        cls_name = cls_dict.pop("_chaquopy_name", cls_name)
+    def __new__(metacls, name_ignored, bases, cls_dict):
+        cls_name = cls_dict.pop("_chaquopy_name", None)
+        if not cls_name:
+            raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
         j_klass = CQPEnv().FindClass(cls_name).global_ref()
         cls_dict["_chaquopy_j_klass"] = j_klass
 
-        if "." in cls_name:
+
+        if ("." in cls_name) and ("[" not in cls_name):
             module, _, simple_name = cls_name.rpartition(".")
         else:
             module, simple_name = "", cls_name
@@ -68,6 +74,20 @@ class JavaClass(type):
         jclass_cache[cls_name] = cls
         return cls
 
+    def __call__(cls, *args, JNIRef instance=None, **kwargs):
+        self = cls.__new__(cls, *args, **kwargs)
+        if instance:
+            assert not (args or kwargs)
+            env = CQPEnv()
+            if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
+                expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
+                actual = java.sig_to_java(object_sig(env.j_env, instance))
+                raise TypeError(f"cannot create {expected} proxy from {actual} instance")
+            object.__setattr__(self, "_chaquopy_this", instance.global_ref())
+        else:
+            self.__init__(*args, **kwargs)
+        return self
+
     # Override to prevent modification of class dict.
     def __setattr__(cls, key, value):
         set_attribute(cls, None, key, value)
@@ -75,31 +95,22 @@ class JavaClass(type):
 
 def setup_object_class():
     global JavaObject
-
     class JavaObject(six.with_metaclass(JavaClass, object)):
         _chaquopy_name = "java.lang.Object"
 
-        def __init__(self, *args, JNIRef instance=None):
-            env = CQPEnv()
-            if instance is not None:
-                if not env.IsInstanceOf(instance, self._chaquopy_j_klass):
-                    raise TypeError(f"cannot create {cls_fullname(type(self))} proxy from "
-                                    f"{java.sig_to_java(object_sig(env.j_env, instance))} instance")
-                this = instance.global_ref()
-            else:
-                # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
-                # class, but Android 6 crashes with a CheckJNI error.
-                if Modifier.isAbstract(self.getClass().getModifiers()):
-                    raise TypeError(f"{cls_fullname(type(self))} is abstract and cannot be instantiated")
+        def __init__(self, *args):
+            # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
+            # class, but Android 6 crashes with a CheckJNI error.
+            if Modifier.isAbstract(self.getClass().getModifiers()):
+                raise TypeError(f"{cls_fullname(type(self))} is abstract and cannot be instantiated")
 
-                # Can't use getattr(): Java constructors are not inherited.
-                try:
-                    constructor = type(self).__dict__["<init>"]
-                except KeyError:
-                    raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
-                this = constructor.__get__(self, type(self))(*args)
-
-            object.__setattr__(self, "_chaquopy_this", this)
+            # Can't use getattr(): Java constructors are not inherited.
+            try:
+                constructor = type(self).__dict__["<init>"]
+            except KeyError:
+                raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
+            object.__setattr__(self, "_chaquopy_this",
+                               constructor.__get__(self, type(self))(*args))
 
         # Override to prevent modification of instance dict.
         def __setattr__(self, key, value):
@@ -137,25 +148,26 @@ def setup_bootstrap_classes():
 
     setup_object_class()
 
-    AnnotatedElement = JavaClass("java.lang.reflect.AnnotatedElement", (JavaObject,), {})
-    AccessibleObject = JavaClass("java.lang.reflect.AccessibleObject", (AnnotatedElement, JavaObject,), {})
-    Member = JavaClass("java.lang.reflect.Member", (JavaObject,), {})
-    GenericDeclaration = JavaClass("java.lang.reflect.GenericDeclaration", (JavaObject,), {})
+    AnnotatedElement = jclass_proxy("java.lang.reflect.AnnotatedElement", [JavaObject])
+    AccessibleObject = jclass_proxy("java.lang.reflect.AccessibleObject",
+                                    [AnnotatedElement, JavaObject])
+    Member = jclass_proxy("java.lang.reflect.Member", [JavaObject])
+    GenericDeclaration = jclass_proxy("java.lang.reflect.GenericDeclaration", [JavaObject])
 
-    Class = JavaClass("java.lang.Class", (AnnotatedElement, GenericDeclaration, JavaObject), {})
+    Class = jclass_proxy("java.lang.Class", [AnnotatedElement, GenericDeclaration, JavaObject])
     add_member(Class, "getDeclaredClasses", JavaMethod('()[Ljava/lang/Class;'))
     add_member(Class, "getDeclaredConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
     add_member(Class, "getDeclaredFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
     add_member(Class, "getDeclaredMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
     add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
 
-    Modifier = JavaClass("java.lang.reflect.Modifier", (JavaObject,), {})
+    Modifier = jclass_proxy("java.lang.reflect.Modifier", [JavaObject])
     add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isPublic", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
 
-    Method = JavaClass("java.lang.reflect.Method", (AccessibleObject, GenericDeclaration, Member), {})
+    Method = jclass_proxy("java.lang.reflect.Method", [AccessibleObject, GenericDeclaration, Member])
     add_member(Method, "getModifiers", JavaMethod('()I'))
     add_member(Method, "getName", JavaMethod('()Ljava/lang/String;'))
     add_member(Method, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
@@ -163,27 +175,28 @@ def setup_bootstrap_classes():
     add_member(Method, "isSynthetic", JavaMethod('()Z'))
     add_member(Method, "isVarArgs", JavaMethod('()Z'))
 
-    Field = JavaClass("java.lang.reflect.Field", (AccessibleObject, Member), {})
+    Field = jclass_proxy("java.lang.reflect.Field", [AccessibleObject, Member])
     add_member(Field, "getModifiers", JavaMethod('()I'))
     add_member(Field, "getName", JavaMethod('()Ljava/lang/String;'))
     add_member(Field, "getType", JavaMethod('()Ljava/lang/Class;'))
 
-    Constructor = JavaClass("java.lang.reflect.Constructor", (AccessibleObject, GenericDeclaration, Member), {})
+    Constructor = jclass_proxy("java.lang.reflect.Constructor",
+                               [AccessibleObject, GenericDeclaration, Member])
     add_member(Constructor, "getModifiers", JavaMethod('()I'))
     add_member(Constructor, "getName", JavaMethod('()Ljava/lang/String;'))
     add_member(Constructor, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
     add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
     add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
 
+    global Cloneable, Serializable  # See array.pxi
+    Cloneable = jclass_proxy("java.lang.Cloneable", [JavaObject])
+    Serializable = jclass_proxy("java.io.Serializable", [JavaObject])
+
     for cls in [JavaObject, AnnotatedElement, AccessibleObject, Member, GenericDeclaration,
-                Class, Modifier, Method, Field, Constructor]:
+                Class, Modifier, Method, Field, Constructor, Cloneable, Serializable]:
         reflect_class(cls)
 
-    Cloneable = jclass("java.lang.Cloneable")
-    Serializable = jclass("java.io.Serializable")
-    JavaArray.__bases__ = (Cloneable, Serializable, JavaObject) + JavaArray.__bases__
-
-    Throwable = JavaClass("java.lang.Throwable", (JavaException, Serializable, JavaObject), {})
+    Throwable = jclass_proxy("java.lang.Throwable", [JavaException, Serializable, JavaObject])
     reflect_class(Throwable)
 
 

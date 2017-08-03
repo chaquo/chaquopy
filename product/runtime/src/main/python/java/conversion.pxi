@@ -29,11 +29,11 @@ JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 # Copy back any modifications the Java method may have made to mutable parameters.
 def copy_output_args(definition_args, args, p2j_args):
-    for index, argtype in enumerate(definition_args):
-        if argtype[0] == "[" and not isinstance(args[index], JavaArray):
-            ret = java.jarray(argtype[1:])(instance=p2j_args[index])
+    for argtype, arg, p2j_arg in six.moves.zip(definition_args, args, p2j_args):
+        if (argtype[0] == "[") and arg and (not isinstance(arg, JavaArray)):
+            ret = java.jarray(argtype[1:])(instance=p2j_arg)
             try:
-                args[index][:] = ret
+                arg[:] = ret
             except TypeError:
                 pass    # The arg was a tuple or other read-only sequence.
 
@@ -258,7 +258,7 @@ def assignable_to_array(definition, obj):
     if obj is None:
         return True
     if isinstance(obj, (JavaArray, NoneCast)):
-        return find_javaclass(definition).isAssignableFrom(find_javaclass(obj.sig))
+        return find_javaclass(definition).isAssignableFrom(find_javaclass(java.jni_sig(type(obj))))
 
     # All other iterable types are assignable to all array types, except strings, which would
     # introduce too many complications in overload resolution.

@@ -163,7 +163,7 @@ Arrays
 
 Any Python iterable (except a string) can normally passed directly to a Java method or field
 which takes an array type. But where a method has multiple equally-specific overloads, the
-value must be converted to a `jarray` type to disambiguate the call.
+value must be converted to a Java array object to disambiguate the call.
 
 For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, calling
 `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
@@ -171,8 +171,24 @@ For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, call
 
 .. autofunction:: java.jarray
 
-Array proxy objects implement the Python sequence protocol, so they can be read and
-modified using `[]` syntax.
+A `jarray` class can be instantiated with any Python iterable to create an equivalent Java
+array. For example:
+
+    # Python code                           # Java equivalent
+    jarray(jint)([1, 2, 3])                 # new int[]{1, 2, 3}
+    jarray(jarray(jint))([[1, 2], [3, 4]])  # new int[][]{{1, 2}, {3, 4}}
+    jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
+    jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
+
+`jarray` objects support the Python sequence protocol, including the following operations:
+
+* Reading and writing using `[]` syntax.
+* Searching using `in`.
+* Iteration using `for`.
+
+Since Java arrays are fixed-length, they do not support `del`, or any other way of adding or
+removing elements.
+
 
 Casting
 -------

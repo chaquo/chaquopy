@@ -40,6 +40,12 @@ class NoneCast(object):
     def __repr__(self):
         return f"cast('{self.sig}', None)"
 
+    def __nonzero__(self):      # Python 2 name
+        return False
+    def __bool__(self):         # Python 3 name
+        return False
+
+
 class none_cast_dict(dict):
     # Use a different subclass for each type, so overload resolution can be cached.
     def __missing__(self, sig):
@@ -53,7 +59,8 @@ none_casts = none_cast_dict()
 
 
 def cls_fullname(cls):
-    return f"{cls.__module__ or '<unknown>'}.{cls.__name__}"
+    module = cls.__module__
+    return f"{(module + '.') if module else ''}{cls.__name__}"
 
 
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
@@ -75,10 +82,8 @@ cdef str_for_c(s):
 cdef jmethodID mid_getName = NULL
 
 # To avoid infinite recursion, this function must not use anything which could call
-# object_sig itself, including any jclass proxy methods.
-cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
-    j_cls = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj.obj))
-
+# klass_sig itself, including any jclass proxy methods.
+cdef klass_sig(JNIEnv *j_env, JNIRef j_cls):
     global mid_getName
     if not mid_getName:
         j_Class = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_cls.obj))
@@ -96,6 +101,9 @@ cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
     if not sig.startswith("["):
         sig = "L" + sig.replace(".", "/") + ";"
     return sig
+
+cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
+    return klass_sig(j_env, LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj.obj)))
 
 
 def is_applicable(sign_args, args, autobox, varargs):

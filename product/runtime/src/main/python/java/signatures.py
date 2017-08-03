@@ -7,7 +7,8 @@ from functools import total_ordering
 from java._vendor import six
 
 import java
-from .chaquopy import JavaArray, JavaClass, check_range_char, check_range_float32, cls_fullname
+from .chaquopy import (JavaArray, JavaClass, NoneCast, check_range_char, check_range_float32,
+                       cls_fullname)
 
 __all__ = ["jni_sig", "jni_method_sig", "split_method_sig", "sig_to_java", "args_sig_to_java",
            "primitives_by_name", "primitives_by_sig",
@@ -135,11 +136,14 @@ def jni_method_sig(returns, takes):
 def jni_sig(c):
     if isinstance(c, six.string_types):
         sig_to_java(c)  # Check syntax
-        return c
+        return c.replace(".", "/")
     elif isinstance(c, type):
         if isinstance(c, JavaClass):
-            return "L" + cls_fullname(c).replace(".", "/") + ";"
-        elif issubclass(c, (Primitive, JavaArray)):
+            if issubclass(c, JavaArray):
+                return c.__name__
+            else:
+                return "L" + cls_fullname(c).replace(".", "/") + ";"
+        elif issubclass(c, (NoneCast, Primitive)):
             return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):
         name = c.getName()

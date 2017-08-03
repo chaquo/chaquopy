@@ -2,20 +2,6 @@ import collections
 import itertools
 
 
-class jarray_dict(dict):
-    # Use a different subclass for each element type, so overload resolution can be cached.
-    def __missing__(self, element_sig):
-        sig = "[" + element_sig
-        subclass = type(str("jarray_" + element_sig),
-                        (JavaArray,),
-                        dict(sig=sig,
-                             _chaquopy_j_klass=CQPEnv().FindClass(sig).global_ref()))
-        self[element_sig] = subclass
-        return subclass
-
-jarray_types = jarray_dict()
-
-
 def jarray(element_type):
     """Returns a proxy class for a Java array type. The element type may be specified as any of:
 
@@ -23,67 +9,51 @@ def jarray(element_type):
     * A proxy class returned by :any:`jclass`, or by `jarray` itself.
     * A `java.lang.Class` instance
     * A JNI type signature
+    """
+    element_sig = java.jni_sig(element_type)
+    if not isinstance(element_sig, str):
+        element_sig = str(element_sig)
+    name = "[" + element_sig
 
-    Examples::
-
-        # Python code                           # Java equivalent
-        jarray(jint)                            # int[]
-        jarray(jarray(jint))                    # int[][]
-        jarray(jclass("java.lang.String"))      # String[]
-        jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
-        jarray(jint)(None)                      # (int[])null
-    """  # Further documentation in python.rst
-    return jarray_types[java.jni_sig(element_type)]
+    cls = jclass_cache.get(name)
+    if not cls:
+        cls = jclass_proxy(name, [JavaArray, Cloneable, Serializable, JavaObject])
+    return cls
 
 
-class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_bootstrap_classes.
-    def __new__(cls, value=None, *, instance=None):
-        if value is None and not instance:  # instance may also be a null JNIRef.
-            return cast(cls, None)
-        else:
-            return super(JavaArray, cls).__new__(cls, value, instance=instance)
-
-    def __init__(self, value=None, *, JNIRef instance=None):
+class JavaArray(object):
+    def __init__(self, value):
         env = CQPEnv()
-        if instance:
-            assert value is None
-            if not env.IsInstanceOf(instance, self._chaquopy_j_klass):
-                raise TypeError(f"cannot create {java.sig_to_java(self.sig)} proxy from "
-                                f"{java.sig_to_java(object_sig(env.j_env, instance))} instance")
-            this = instance.global_ref()
+        cdef JNIRef this
+        length = len(value)
+        element_sig = type(self).__name__[1:]
+        r = element_sig[0]
+        if r == "Z":
+            this = env.NewBooleanArray(length)
+        elif r == "B":
+            this = env.NewByteArray(length)
+        elif r == "S":
+            this = env.NewShortArray(length)
+        elif r == "I":
+            this = env.NewIntArray(length)
+        elif r == "J":
+            this = env.NewLongArray(length)
+        elif r == "F":
+            this = env.NewFloatArray(length)
+        elif r == "D":
+            this = env.NewDoubleArray(length)
+        elif r == "C":
+            this = env.NewCharArray(length)
+        elif r in "L[":
+            this = env.NewObjectArray(length, env.FindClass(element_sig))
         else:
-            assert instance is None
-            length = len(value)
-            r = self.sig[1]
-            if r == "Z":
-                array = env.NewBooleanArray(length)
-            elif r == "B":
-                array = env.NewByteArray(length)
-            elif r == "S":
-                array = env.NewShortArray(length)
-            elif r == "I":
-                array = env.NewIntArray(length)
-            elif r == "J":
-                array = env.NewLongArray(length)
-            elif r == "F":
-                array = env.NewFloatArray(length)
-            elif r == "D":
-                array = env.NewDoubleArray(length)
-            elif r == "C":
-                array = env.NewCharArray(length)
-            elif r in "L[":
-                array = env.NewObjectArray(length, env.FindClass(self.sig[1:]))
-            else:
-                raise ValueError(f"Invalid signature '{self.sig}'")
-            this = (<JNIRef?>array).global_ref()
-
-        object.__setattr__(self, "_chaquopy_this", this)
-        if value:
-            for i, v in enumerate(value):
-                self[i] = v
+            raise ValueError(f"Invalid signature '{element_sig}'")
+        object.__setattr__(self, "_chaquopy_this", this.global_ref())
+        for i, v in enumerate(value):
+            self[i] = v
 
     def __repr__(self):
-        return f"jarray('{self.sig[1:]}')({format_array(self)})"
+        return f"jarray('{type(self).__name__[1:]}')({format_array(self)})"
 
     # Override JavaObject.__str__, which calls toString()
     def __str__(self):
@@ -143,7 +113,8 @@ class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_
     def _chaquopy_get(self, index):
         env = CQPEnv()
         cdef JNIRef this = self._chaquopy_this
-        r = self.sig[1]
+        element_sig = type(self).__name__[1:]
+        r = element_sig[0]
         if r == "Z":
             return env.GetBooleanArrayElement(this, index)
         elif r == "B":
@@ -163,15 +134,16 @@ class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_
         elif r in "L[":
             return j2p(env.j_env, env.GetObjectArrayElement(this, index))
         else:
-            raise ValueError(f"Invalid signature '{self.sig}'")
+            raise ValueError(f"Invalid signature '{element_sig}'")
 
     def _chaquopy_set(self, index, value):
         env = CQPEnv()
         cdef JNIRef this = self._chaquopy_this
         # TODO #5209 use actual rather than declared signature: old Android versions don't
         # type-check correctly.
-        value_p2j = p2j(env.j_env, self.sig[1:], value)
-        r = self.sig[1]
+        element_sig = type(self).__name__[1:]
+        value_p2j = p2j(env.j_env, element_sig, value)
+        r = element_sig[0]
         if r == "Z":
             env.SetBooleanArrayElement(this, index, value_p2j)
         elif r == "B":
@@ -191,7 +163,7 @@ class JavaArray(collections.Sequence):  # Java __bases__ will be added in setup_
         elif r in "L[":
             env.SetObjectArrayElement(this, index, value_p2j)
         else:
-            raise ValueError(f"Invalid signature '{self.sig}'")
+            raise ValueError(f"Invalid signature '{element_sig}'")
 
 
 # Formats a possibly-multidimensional array using nested "[]" syntax.

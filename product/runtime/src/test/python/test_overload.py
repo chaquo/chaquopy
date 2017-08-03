@@ -233,8 +233,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("byte[] [1, 2]", obj.resolve_ZB(jarray(jbyte)([1, 2])))
         self.assertEqual("boolean[] []", obj.resolve_ZB(jarray(jboolean)([])))
         self.assertEqual("byte[] []", obj.resolve_ZB(jarray(jbyte)([])))
-        self.assertEqual("boolean[] null", obj.resolve_ZB(jarray(jboolean)(None)))
-        self.assertEqual("byte[] null", obj.resolve_ZB(jarray(jbyte)(None)))
+        self.assertEqual("boolean[] null", obj.resolve_ZB(cast(jarray(jboolean), None)))
+        self.assertEqual("byte[] null", obj.resolve_ZB(cast(jarray(jbyte), None)))
 
         # Arrays of parent/child classes: prefer the most derived class.
         Object = jclass("java.lang.Object")
@@ -274,8 +274,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double.
         with self.ambiguous:
             obj.resolve_ID(None)                         # But int[] is not more specific than double[].
-        self.assertEqual("int... null", obj.resolve_ID(jarray(jint)(None)))
-        self.assertEqual("double... null", obj.resolve_ID(jarray(jdouble)(None)))
+        self.assertEqual("int... null", obj.resolve_ID(cast(jarray(jint), None)))
+        self.assertEqual("double... null", obj.resolve_ID(cast(jarray(jdouble), None)))
         with self.inapplicable:
             obj.resolve_ID(None, None)
         self.assertEqual("int 42", obj.resolve_ID(42))
@@ -306,7 +306,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
         self.assertEqual("Long... [null, null]", obj.resolve_Number_Long(None, None))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(cast(Number, Long(42))))
-        self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number)(None)))
+        self.assertEqual("Number... null", obj.resolve_Number_Long(cast(jarray(Number), None)))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(cast(Number, None)))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(jarray(Number)([42])))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(jarray(Number)([None])))

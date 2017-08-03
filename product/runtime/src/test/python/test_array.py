@@ -104,9 +104,18 @@ class TestArray(unittest.TestCase):
         self.assertEqual([1, False], array_Object)
 
     def test_str_repr(self):
+        Object = jclass("java.lang.Object")
         for func in [str, repr]:
-            self.assertEqual("cast('[Z', None)", func(jarray(jboolean)(None)))
+            self.assertEqual("cast('[Z', None)", func(cast(jarray(jboolean), None)))
+            self.assertEqual("cast('[[Z', None)", func(cast(jarray(jarray(jboolean)), None)))
+            self.assertEqual("cast('[Ljava/lang/Object;', None)",
+                             func(cast(jarray(Object), None)))
+            self.assertEqual("cast('[[Ljava/lang/Object;', None)",
+                             func(cast(jarray(jarray(Object)), None)))
+
             self.assertEqual("jarray('Z')([])", func(jarray(jboolean)([])))
+            self.assertEqual("jarray('Ljava/lang/Object;')([])", func(jarray(Object)([])))
+
             self.assertEqual("jarray('Z')([True])", func(jarray(jboolean)([True])))
             self.assertEqual("jarray('Z')([True])", func(jarray(jboolean)((True,))))
             self.assertEqual("jarray('Z')([True, False])", func(jarray(jboolean)([True, False])))
@@ -162,3 +171,13 @@ class TestArray(unittest.TestCase):
         String = jclass("java.lang.String")
         hw = jarray(String)(["hello", "world"])
         self.assertEqual([True, False, "hello", "world"], tf + hw)
+
+    def test_iter(self):
+        a = jarray(jint)([1,2,3])
+        self.assertEqual([1,2,3], [x for x in a])
+
+    def test_in(self):
+        a = jarray(jint)([1,2])
+        self.assertTrue(1 in a)
+        self.assertTrue(2 in a)
+        self.assertFalse(3 in a)
