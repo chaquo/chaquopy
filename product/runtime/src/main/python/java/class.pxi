@@ -1,9 +1,13 @@
 from collections import defaultdict
 from itertools import chain, groupby
 import keyword
+from threading import RLock
+from weakref import WeakValueDictionary
 
 
+class_lock = RLock()
 jclass_cache = {}
+instance_cache = WeakValueDictionary()
 
 
 def jclass(clsname):
@@ -25,21 +29,23 @@ def jclass(clsname):
 
     if not isinstance(clsname, str):
         clsname = str(clsname)
-    cls = jclass_cache.get(clsname)
-    if not cls:
-        try:
-            cls = jclass_proxy(clsname)
-        except JavaException as e:
-            # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
-            # throws ClassNotFoundException. Hide this from our users.
-            if isinstance(e, jclass("java.lang.ClassNotFoundException")):
-                ncdfe = jclass("java.lang.NoClassDefFoundError")(e.getMessage())
-                ncdfe.setStackTrace(e.getStackTrace())
-                raise ncdfe
-            else:
-                raise
-        reflect_class(cls)
-    return cls
+
+    with class_lock:
+        cls = jclass_cache.get(clsname)
+        if not cls:
+            try:
+                cls = jclass_proxy(clsname)
+            except JavaException as e:
+                # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
+                # throws ClassNotFoundException. Hide this from our users.
+                if isinstance(e, jclass("java.lang.ClassNotFoundException")):
+                    ncdfe = jclass("java.lang.NoClassDefFoundError")(e.getMessage())
+                    ncdfe.setStackTrace(e.getStackTrace())
+                    raise ncdfe
+                else:
+                    raise
+            reflect_class(cls)
+        return cls
 
 
 def jclass_proxy(cls_name, bases=None):
@@ -53,7 +59,6 @@ class JavaClass(type):
             raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
         j_klass = CQPEnv().FindClass(cls_name).global_ref()
         cls_dict["_chaquopy_j_klass"] = j_klass
-
 
         if ("." in cls_name) and ("[" not in cls_name):
             module, _, simple_name = cls_name.rpartition(".")
@@ -75,18 +80,26 @@ class JavaClass(type):
         return cls
 
     def __call__(cls, *args, JNIRef instance=None, **kwargs):
-        self = cls.__new__(cls, *args, **kwargs)
-        if instance:
-            assert not (args or kwargs)
-            env = CQPEnv()
-            if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
-                expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
-                actual = java.sig_to_java(object_sig(env.j_env, instance))
-                raise TypeError(f"cannot create {expected} proxy from {actual} instance")
-            object.__setattr__(self, "_chaquopy_this", instance.global_ref())
-        else:
-            self.__init__(*args, **kwargs)
-        return self
+        with class_lock:
+            if instance:
+                assert not (args or kwargs)
+                self = instance_cache.get((cls, instance))  # Include cls in key because of cast()
+                if self:
+                    return self
+
+                env = CQPEnv()
+                if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
+                    expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
+                    actual = java.sig_to_java(object_sig(env.j_env, instance))
+                    raise TypeError(f"cannot create {expected} proxy from {actual} instance")
+                self = cls.__new__(cls, *args, **kwargs)
+                object.__setattr__(self, "_chaquopy_this", instance.global_ref())
+
+            else:
+                self = type.__call__(cls, *args, **kwargs)
+
+            instance_cache[(cls, self._chaquopy_this)] = self
+            return self
 
     # Override to prevent modification of class dict.
     def __setattr__(cls, key, value):

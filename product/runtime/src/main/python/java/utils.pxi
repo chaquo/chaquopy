@@ -27,7 +27,8 @@ def cast(cls, obj):
         raise TypeError(f"{type(cls).__name__} object does not specify a Java class or array type")
 
     if obj is None or isinstance(obj, NoneCast):
-        return none_casts[sig]
+        with class_lock:
+            return none_casts[sig]
     else:
         if isinstance(obj, JavaObject):
             instance = obj._chaquopy_this

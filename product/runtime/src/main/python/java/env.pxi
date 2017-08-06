@@ -32,6 +32,9 @@ cdef class CQPEnv(object):
     cdef ExceptionClear(self):
         self.j_env[0].ExceptionClear(self.j_env)
 
+    cdef IsSameObject(self, JNIRef ref1, JNIRef ref2):
+        return bool(self.j_env[0].IsSameObject(self.j_env, ref1.obj, ref2.obj))
+
     cdef IsInstanceOf(self, JNIRef obj, JNIRef j_klass):
         return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, j_klass.obj))
 
@@ -183,6 +186,9 @@ cdef class CQPEnv(object):
         return LocalRef.adopt(self.j_env, j_obj)
 
 
+cdef GlobalRef j_System
+cdef jmethodID mid_identityHashCode = NULL
+
 cdef class JNIRef(object):
     # Member variables declared in .pxd
 
@@ -194,6 +200,24 @@ cdef class JNIRef(object):
 
     def __repr__(self):
         return f'<{type(self).__name__} obj=0x{<uintptr_t>self.obj:x}>'
+
+    def __richcmp__(self, JNIRef other, op):
+        if op == 2:  # __eq__
+            return CQPEnv().IsSameObject(self, other)
+        elif op == 3:  # __ne__
+            return not self.__richcmp__(other, 2)
+        else:
+            raise NotImplementedError()
+
+    def __hash__(self):
+        global j_System, mid_identityHashCode
+        env = CQPEnv()
+        if not j_System:
+            j_System = env.FindClass("Ljava/lang/System;").global_ref()
+            mid_identityHashCode = env.GetStaticMethodID \
+                (j_System, "identityHashCode", "(Ljava/lang/Object;)I")
+        return env.j_env[0].CallStaticIntMethod \
+            (env.j_env, j_System.obj, mid_identityHashCode, self.obj)
 
     def __nonzero__(self):      # Python 2 name
         return self.obj != NULL

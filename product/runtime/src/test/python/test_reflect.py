@@ -31,20 +31,35 @@ class TestReflect(unittest.TestCase):
             jclass("java.lang.Nonexistent")
 
     def test_cast(self):
-        Object = jclass("java.lang.Object")
-        Boolean = jclass("java.lang.Boolean")
-        o = Object()
+        from java.lang import Boolean, Object
         b = Boolean(True)
+        b_Object = cast(Object, b)
+        self.assertIsNot(b, b_Object)
+        self.assertEqual(b, b_Object)
+        self.assertIs(b_Object, cast(Object, b))
+        self.assertIs(b, cast(Boolean, b_Object))
 
-        cast(Object, b)
         with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
                                      "java.lang.Object instance"):
-            cast(Boolean, o)
+            cast(Boolean, Object())
 
+    # Interaction of identity and casts is tested in TestReflect.test_cast and
+    # TestArray.test_cast.
     def test_identity(self):
-        # TODO #5181
-        # self.assertIs(System.out, System.out)
-        pass
+        from java.lang import Class, Object, String
+        Object_klass, String_klass = Object.getClass(), String.getClass()
+        self.assertIsNot(Object_klass, String_klass)
+        self.t.fieldKlass = Object_klass
+        self.assertIs(Object_klass, self.t.fieldKlass)
+        self.t.setKlass(String_klass)
+        self.assertIs(String_klass, self.t.getKlass())
+
+        a1, a2 = [jarray(String)(x) for x in [["one", "two"], ["three", "four"]]]
+        self.assertIsNot(a1, a2)
+        self.t.fieldStringArray = a1
+        self.assertIs(a1, self.t.fieldStringArray)
+        self.t.setStringArray(a2)
+        self.assertIs(a2, self.t.getStringArray())
 
     # See notes in PyObjectTest.finalize_
     def test_gc(self):

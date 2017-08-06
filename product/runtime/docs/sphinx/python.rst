@@ -147,16 +147,17 @@ accessible via :any:`getattr`.
 Aside from attribute access, Java proxy objects also support the following Python
 operations:
 
-* :any:`str` calls `toString
-  <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#toString()>`_.
+* `is` is equivalent to Java `==` (i.e. it tests object identity).
 * `==` and `!=` call `equals
   <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
 * :any:`hash` calls `hashCode
   <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#hashCode()>`_.
+* :any:`str` calls `toString
+  <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#toString()>`_.
 
 The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
 `isinstance(s, Object)` and `isinstance(s, CharSequence)` will both return `True`. All array
-and interface types are also considered subclasses of `Object`.
+and interface types are also considered subclasses of `java.lang.Object`.
 
 Arrays
 ------
@@ -172,7 +173,7 @@ For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, call
 .. autofunction:: java.jarray
 
 A `jarray` class can be instantiated with any Python iterable to create an equivalent Java
-array. For example:
+array. For example::
 
     # Python code                           # Java equivalent
     jarray(jint)([1, 2, 3])                 # new int[]{1, 2, 3}
@@ -180,15 +181,20 @@ array. For example:
     jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
     jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
 
-`jarray` objects support the Python sequence protocol, including the following operations:
+Array proxy objects support the following Python operations:
 
-* Reading and writing using `[]` syntax.
-* Searching using `in`.
-* Iteration using `for`.
-
-Since Java arrays are fixed-length, they do not support `del`, or any other way of adding or
-removing elements.
-
+* The basic Python sequence protocol:
+   * Reading and writing using `[]` syntax.
+   * Searching using `in`.
+   * Iteration using `for`.
+   * Since Java arrays are fixed-length, they do not support `del` or any other way of adding or
+     removing elements.
+* `is` is equivalent to Java `==` (i.e. it tests object identity).
+* `==` and `!=` can compare the contents of the array with any Python iterable (including
+  another Java array).
+* Like Python lists, Java array objects are not hashable in Python because they're mutable.
+* `str` returns a representation of the array contents. Because all arrays are instances of of
+  `java.lang.Object`, `toString` may also be called if desired.
 
 Casting
 -------

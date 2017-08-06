@@ -15,10 +15,11 @@ def jarray(element_type):
         element_sig = str(element_sig)
     name = "[" + element_sig
 
-    cls = jclass_cache.get(name)
-    if not cls:
-        cls = jclass_proxy(name, [JavaArray, Cloneable, Serializable, JavaObject])
-    return cls
+    with class_lock:
+        cls = jclass_cache.get(name)
+        if not cls:
+            cls = jclass_proxy(name, [JavaArray, Cloneable, Serializable, JavaObject])
+        return cls
 
 
 class JavaArray(object):
@@ -94,13 +95,15 @@ class JavaArray(object):
     def __eq__(self, other):
         try:
             return ((len(self) == len(other)) and
-                    all([value == other[i] for i, value in enumerate(self)]))
+                    all([s == o for s, o in six.moves.zip(self, other)]))
         except TypeError:
+            # `other` may be an array cast to Object, in which case returning NotImplemented
+            # allows JavaObject.__eq__(other, self) to be tried.
             return NotImplemented
 
-    def __ne__(self, other):
-        eq = self == other
-        return eq if (eq == NotImplemented) else (not eq)
+    def __ne__(self, other):  # Not automatic in Python 2
+        eq = (self == other)
+        return eq if (eq is NotImplemented) else (not eq)
 
     # Like Python lists, jarray objects should be unhashable because they're mutable.
     __hash__ = None

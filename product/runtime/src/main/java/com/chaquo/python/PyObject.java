@@ -8,8 +8,8 @@ import java.util.*;
  *
  * * Python `None` is represented by Java `null`. Other `PyObject`s can be converted to their Java
  *   equivalents using {@link #toJava toJava()}.
- * * If the same object is retrieved from Python multiple times, it will be represented by the same
- *   PyObject (unless {@link #close} is called).
+ * * If a Python object is retrieved for which a PyObject already exists, the same PyObject will be
+ *   returned.
  *
  * Unless otherwise specified, all methods in this class throw {@link PyException} on failure.*/
 @SuppressWarnings("deprecation")
@@ -50,7 +50,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *
      * After calling `close()`, the PyObject can no longer be used. If there are no other
      * references to the underlying object, it may be destroyed by Python. If it continues to exist
-     * and is retrieved by Java code again, a different PyObject will be returned. */
+     * and is retrieved by Java code again, a new PyObject will be returned. */
     public void close() {
         if (addr == 0) return;
         synchronized (cache) {
