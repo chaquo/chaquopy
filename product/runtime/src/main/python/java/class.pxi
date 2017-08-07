@@ -80,26 +80,25 @@ class JavaClass(type):
         return cls
 
     def __call__(cls, *args, JNIRef instance=None, **kwargs):
-        with class_lock:
-            if instance:
-                assert not (args or kwargs)
+        self = None
+        if instance:
+            assert not (args or kwargs)
+            with class_lock:
                 self = instance_cache.get((cls, instance))  # Include cls in key because of cast()
-                if self:
-                    return self
-
-                env = CQPEnv()
-                if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
-                    expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
-                    actual = java.sig_to_java(object_sig(env.j_env, instance))
-                    raise TypeError(f"cannot create {expected} proxy from {actual} instance")
-                self = cls.__new__(cls, *args, **kwargs)
-                object.__setattr__(self, "_chaquopy_this", instance.global_ref())
-
-            else:
-                self = type.__call__(cls, *args, **kwargs)
-
-            instance_cache[(cls, self._chaquopy_this)] = self
-            return self
+                if not self:
+                    env = CQPEnv()
+                    if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
+                        expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
+                        actual = java.sig_to_java(object_sig(env.j_env, instance))
+                        raise TypeError(f"cannot create {expected} proxy from {actual} instance")
+                    self = cls.__new__(cls, *args, **kwargs)
+                    object.__setattr__(self, "_chaquopy_this", instance.global_ref())
+                    instance_cache[(cls, self._chaquopy_this)] = self
+        else:
+            self = type.__call__(cls, *args, **kwargs)  # May block
+            with class_lock:
+                instance_cache[(cls, self._chaquopy_this)] = self
+        return self
 
     # Override to prevent modification of class dict.
     def __setattr__(cls, key, value):
@@ -280,6 +279,9 @@ def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
+class ReadOnlyAttributeError(AttributeError):
+    pass
+
 def set_attribute(cls, obj, key, value):
     full_name = cls_fullname(cls)
     try:
@@ -298,7 +300,7 @@ def getattr_no_desc(cls, name):
         try:
             return c.__dict__[name]
         except KeyError: pass
-    raise AttributeError()
+    raise AttributeError(name)
 
 
 def add_member(cls, name, member):

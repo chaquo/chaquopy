@@ -64,17 +64,29 @@ public class PyObjectTest {
 
     @Test
     public void toJava() {
-        assertEquals(true, pyobjecttest.get("bool_var").toJava(Boolean.class));
+        PyObject z = pyobjecttest.get("bool_var");
+        assertEquals(true, z.toJava(Boolean.class));
+        assertEquals(true, z.toJava(boolean.class));
 
-        assertEquals(42, (int)pyobjecttest.get("int_var").toJava(Integer.class));
-        assertEquals(42.0, pyobjecttest.get("int_var").toJava(Double.class), 0.0001);
-        assertEquals(42L, pyobjecttest.get("int_var").toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
-        assertEquals(42L, pyobjecttest.get("int_var").toJava(Object.class));    //
+        PyObject i = pyobjecttest.get("int_var");
+        assertEquals(42, (int) i.toJava(Integer.class));
+        assertEquals(42, (int) i.toJava(int.class));
+        assertEquals(42.0, i.toJava(Double.class), 0.0001);  // FIXME replace third argument with cast
+        assertEquals(42.0, i.toJava(double.class), 0.0001);
+        assertEquals(42L, i.toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
+        assertEquals(42L, i.toJava(Object.class));    //
 
-        assertEquals(43.5, pyobjecttest.get("float_var").toJava(Double.class), 0.0001);
-        assertEquals(43.5, pyobjecttest.get("float_var").toJava(Number.class));
+        PyObject f = pyobjecttest.get("float_var");
+        assertEquals(43.5, f.toJava(Double.class), 0.0001);
+        assertEquals(43.5, f.toJava(double.class), 0.0001);
+        assertEquals(43.5, f.toJava(Float.class), 0.0001);
+        assertEquals(43.5, f.toJava(float.class), 0.0001);
+        assertEquals(43.5, f.toJava(Number.class));
 
         assertEquals("hello", pyobjecttest.get("str_var").toJava(String.class));
+        assertEquals("x", pyobjecttest.get("char_var").toJava(String.class));
+        assertEquals('x', (char) pyobjecttest.get("char_var").toJava(Character.class));
+        assertEquals('x', (char) pyobjecttest.get("char_var").toJava(char.class));
 
         assertSame(pyobjecttest, pyobjecttest.toJava(PyObject.class));
         assertSame(pyobjecttest, pyobjecttest.toJava(Object.class));
@@ -102,13 +114,6 @@ public class PyObjectTest {
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("Cannot convert int");
         pyobjecttest.get("int_var").toJava(String.class);
-    }
-
-    @Test
-    public void toJava_fail_primitive() {
-        thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert to primitive");
-        pyobjecttest.get("int_var").toJava(int.class);
     }
 
     @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")

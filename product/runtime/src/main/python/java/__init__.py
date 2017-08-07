@@ -19,8 +19,9 @@ from .chaquopy import *  # noqa
 from .signatures import *  # noqa
 
 # This is the public API.
-__all__ = ["set_import_enabled", "cast", "jclass",
-           "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar",
-           "jarray"]
+__all__ = [
+    "cast", "jclass", "dynamic_proxy", "jarray", "set_import_enabled",              # .chaquopy
+    "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar"    # .signatures
+]
 
 chaquopy_init()

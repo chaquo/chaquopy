@@ -38,3 +38,7 @@ cdef class LocalRef(JNIRef):
 # === jvm =====================================================================
 
 cdef set_jvm(JavaVM *new_jvm)
+
+# === utils ===================================================================
+
+cdef klass_sig(JNIEnv *j_env, JNIRef j_cls)

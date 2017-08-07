@@ -38,6 +38,7 @@ bool_var = True
 int_var = 42
 float_var = 43.5
 str_var = "hello"
+char_var = "x"
 
 
 class HashObject(object):

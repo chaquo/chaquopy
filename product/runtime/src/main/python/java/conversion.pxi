@@ -1,22 +1,18 @@
 from cpython.version cimport PY_MAJOR_VERSION
 
 from collections import OrderedDict
+from itertools import chain
 import re
 import sys
 
 from cpython.object cimport PyObject
 from libc.float cimport FLT_MAX
 
-
-INT_TYPES = "BSIJ"                          # Order matters: see is_assignable_from.
-FLOAT_TYPES = "FD"                          #   "      "
-NUMERIC_TYPES = INT_TYPES + FLOAT_TYPES     #   "      "
-PRIMITIVE_TYPES = NUMERIC_TYPES + "CZ"      # Order doesn't matter here.
-
-# In order of preference when assigning to a Number or Object.
-BOXED_INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), ("B", "Byte")])
-BOXED_FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
-BOXED_NUMERIC_TYPES = OrderedDict(list(BOXED_INT_TYPES.items()) + list(BOXED_FLOAT_TYPES.items()))
+# In order of size.
+INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), ("B", "Byte")])
+FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
+NUMERIC_TYPES = OrderedDict(list(FLOAT_TYPES.items()) + list(INT_TYPES.items()))
+PRIMITIVE_TYPES = dict([("C", "Character"), ("Z", "Boolean")] + list(NUMERIC_TYPES.items()))
 
 UNBOX_METHODS = {f"Ljava/lang/{boxed};": f"{unboxed}Value" for boxed, unboxed in
                  [("Boolean", "boolean"), ("Byte", "byte"), ("Short", "short"), ("Integer", "int"),
@@ -134,44 +130,37 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     # responsibility to perform range checks: see note at is_applicable_arg for why we can't do
     # it here.
     #
-    # We don't do auto-unboxing here, because boxed types are automatically unboxed by
-    # j2p and should therefore never normally be touched by Python user code. Auto-boxing, on
-    # the other hand, will be done if necessary below.
-    elif definition in PRIMITIVE_TYPES:
-        if definition == 'Z':
-            if isinstance(obj, bool):
-                return obj
-            if isinstance(obj, java.jboolean):
-                return obj.value
-
-        elif definition in INT_TYPES:
-            # Java allows a char to be implicitly converted to an int or larger, but this would
-            # be surprising in Python. Require the user to be explicit and use the function `ord`.
-            #
-            # For backwards compatibility with old versions of Python, bool is a subclass of
-            # int, but we should be stricter.
-            if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
-                return obj
-            if isinstance(obj, java.IntPrimitive) and \
-               INT_TYPES.find(obj.sig) <= INT_TYPES.find(definition):
-                return obj.value
-
-        elif definition in FLOAT_TYPES:
-            if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
-                return obj
-            if isinstance(obj, java.NumericPrimitive) and \
-               NUMERIC_TYPES.find(obj.sig) <= NUMERIC_TYPES.find(definition):
-                return obj.value
-
-        elif definition == "C":
-            # We don't check that len(obj) == 1; see note above about range checks.
-            if isinstance(obj, six.string_types):
-                return obj
-            if isinstance(obj, java.jchar):
-                return obj.value
-
-        else:
-            raise Exception(f"Unknown primitive type {definition}")
+    # We don't do auto-unboxing here, because boxed types are automatically unboxed by j2p and
+    # will therefore never be touched by Python user code unless created explicitly.
+    # Auto-boxing, on the other hand, will be done if necessary below.
+    if definition == 'Z':
+        if isinstance(obj, bool):
+            return obj
+        if isinstance(obj, java.jboolean):
+            return obj.value
+    elif definition in INT_TYPES:
+        # Java allows a char to be implicitly converted to an int or larger, but this would
+        # be surprising in Python. Require the user to be explicit and use the function `ord`.
+        #
+        # For backwards compatibility with old versions of Python, bool is a subclass of
+        # int, but we should be stricter.
+        if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
+            return obj
+        if isinstance(obj, java.IntPrimitive) and \
+           INT_TYPES.keys().index(obj.sig) >= INT_TYPES.keys().index(definition):
+            return obj.value
+    elif definition in FLOAT_TYPES:
+        if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
+            return obj
+        if isinstance(obj, java.NumericPrimitive) and \
+           NUMERIC_TYPES.keys().index(obj.sig) >= NUMERIC_TYPES.keys().index(definition):
+            return obj.value
+    elif definition == "C":
+        # We don't check that len(obj) == 1; see note above about range checks.
+        if isinstance(obj, six.string_types):
+            return obj
+        if isinstance(obj, java.jchar):
+            return obj.value
 
     elif definition[0] == 'L':
         clsname = definition[1:-1].replace("/", ".")
@@ -209,8 +198,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                 # Number or Object, and Long isn't big enough.
                 #
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([BOXED_NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
-                                else BOXED_NUMERIC_TYPES.values())
+                box_clsnames = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
+                                else chain(INT_TYPES.values(), FLOAT_TYPES.values()))
                 for box_clsname in box_clsnames:
                     box_klass = find_javaclass("java.lang." + box_clsname)
                     if klass.isAssignableFrom(box_klass):
@@ -218,8 +207,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         elif isinstance(obj, (float, java.FloatPrimitive)):
             if autobox:
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([BOXED_FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
-                                else BOXED_FLOAT_TYPES.values())
+                box_clsnames = ([FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
+                                else FLOAT_TYPES.values())
                 for box_clsname in box_clsnames:
                     box_klass = find_javaclass("java.lang." + box_clsname)
                     if klass.isAssignableFrom(box_klass):

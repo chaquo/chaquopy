@@ -21,12 +21,13 @@ __all__ = [
     "detach",                           # jvm.pxi
     "cast",                             # utils.pxi
     "jclass",                           # class.pxi
+    "dynamic_proxy",                    # proxy.pxi
     "jarray",                           # array.pxi
     "set_import_enabled",               # import.pxi
 ]
 
 
-# Multi-threading is unavoidable in Java.
+# Multi-threading is always enabled in Java.
 PyEval_InitThreads()
 
 telem = defaultdict(int)
@@ -41,6 +42,7 @@ include "utils.pxi"
 include "exception.pxi"
 include "conversion.pxi"
 include "class.pxi"
+include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
 

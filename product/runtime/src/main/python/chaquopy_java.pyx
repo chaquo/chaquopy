@@ -166,15 +166,13 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
         self = j2p_pyobject(env, this)
-        Class = java.jclass("java.lang.Class")
-        to_sig = java.jni_sig(Class(instance=GlobalRef.create(env, to_klass)))
+        to_sig = klass_sig(env, LocalRef.create(env, to_klass))
+        box_cls_name = java.chaquopy.PRIMITIVE_TYPES.get(to_sig)
+        if box_cls_name:
+            to_sig = f"Ljava/lang/{box_cls_name};"
+
         try:
-            result = p2j(env, to_sig, self)
-            if isinstance(result, JNIRef):
-                return (<JNIRef?>result).return_ref(env)
-            else:
-                raise TypeError("Cannot convert to primitive type (e.g. 'int'); use the boxed type "
-                                "(e.g. 'Integer') instead")
+            return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
         except TypeError as e:
             wrap_exception(env, e, "java.lang.ClassCastException")
             return NULL

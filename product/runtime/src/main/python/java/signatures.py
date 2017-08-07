@@ -10,7 +10,8 @@ import java
 from .chaquopy import (JavaArray, JavaClass, NoneCast, check_range_char, check_range_float32,
                        cls_fullname)
 
-__all__ = ["jni_sig", "jni_method_sig", "split_method_sig", "sig_to_java", "args_sig_to_java",
+__all__ = ["jni_sig", "name_to_sig", "jni_method_sig", "split_method_sig",
+           "sig_to_java", "args_sig_to_java",
            "primitives_by_name", "primitives_by_sig",
            "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
            "jvoid", "jboolean", "jbyte", "jshort", "jint", "jlong", "jfloat", "jdouble", "jchar"]
@@ -146,14 +147,19 @@ def jni_sig(c):
         elif issubclass(c, (NoneCast, Primitive)):
             return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):
-        name = c.getName()
-        if name in primitives_by_name:
-            return primitives_by_name[name].sig
-        elif name.startswith("["):
-            return name.replace(".", "/")
-        else:
-            return "L" + name.replace(".", "/") + ";"
-    raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
+        return name_to_sig(c.getName())
+    else:
+        raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
+
+
+# `name` is in the format returned by Class.getName()
+def name_to_sig(name):
+    if name in primitives_by_name:
+        return primitives_by_name[name].sig
+    elif name.startswith("["):
+        return name.replace(".", "/")
+    else:
+        return "L" + name.replace(".", "/") + ";"
 
 
 def split_method_sig(definition):
@@ -191,6 +197,7 @@ def sig_to_java(sig):
     raise ValueError("Invalid definition: '{}'".format(sig))
 
 
+# `split_args_sig` is in the format of the args tuple returned by split_method_sig.
 def args_sig_to_java(split_args_sig, varargs=False):
     formatted_args = []
     for i, sig in enumerate(split_args_sig):
