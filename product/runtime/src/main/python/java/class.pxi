@@ -519,12 +519,12 @@ cdef class JavaMethod(JavaSimpleMember):
 
     def __repr__(self):
         self.resolve()
-        return (f"<JavaMethod "
-                f"{'static ' if self.is_static else ''}"
-                f"{java.sig_to_java(self.definition_return)} {self.fqn()}{self.format_args()}>")
+        return f"<JavaMethod {self.java_declaration()}>"
 
-    def format_args(self):
-        return java.args_sig_to_java(self.definition_args, self.is_varargs)
+    def java_declaration(self):
+        return (f"{'static ' if self.is_static else ''}"
+                f"{java.sig_to_java(self.definition_return)} {self.fqn()}"
+                f"{java.args_sig_to_java(self.definition_args, self.is_varargs)}")
 
     def __init__(self, definition_or_reflected, *, static=False, varargs=False):
         super().__init__(definition_or_reflected, static=static)
@@ -791,7 +791,8 @@ cdef class JavaMultipleMethod(JavaMember):
 
     def __call__(self, obj, *args):
         args_types = tuple(map(type, args))
-        best_overload = self.overload_cache.get(args_types)
+        obj_args_types = (type(obj), args_types)
+        best_overload = self.overload_cache.get(obj_args_types)
         if not best_overload:
             # JLS 15.12.2.2. "Identify Matching Arity Methods Applicable by Subtyping"
             varargs = False
@@ -820,7 +821,7 @@ cdef class JavaMultipleMethod(JavaMember):
                 raise TypeError(self.overload_err(f"is ambiguous for arguments", args,
                                                   maximal if maximal else applicable))
             best_overload = maximal[0]
-            self.overload_cache[args_types] = best_overload
+            self.overload_cache[obj_args_types] = best_overload
 
         return best_overload.__get__(obj, type(obj))(*args)
 
@@ -829,7 +830,10 @@ cdef class JavaMultipleMethod(JavaMember):
         cdef JavaMethod jm
         for jm in self.methods:
             if obj is None and not (jm.is_static or jm.is_constructor):  # Unbound method
-                if not args: continue
+                # TODO #5265 ambiguity still possible if isinstance() returns True but args[0]
+                # was intended as the first parameter of a static overload.
+                if not (args and isinstance(args[0], self.cls)):
+                    continue
                 args_except_this = args[1:]
             else:
                 args_except_this = args
@@ -841,4 +845,4 @@ cdef class JavaMultipleMethod(JavaMember):
     def overload_err(self, msg, args, methods):
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.fqn()} {msg} {args_type_names}: options are " +
-                ", ".join([jm.format_args() for jm in methods]))
+                ", ".join([jm.java_declaration() for jm in methods]))

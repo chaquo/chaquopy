@@ -1,6 +1,9 @@
 from __future__ import absolute_import, division, print_function
+
 import unittest
+
 from java import *
+from com.chaquo.python import TestOverload as TO
 
 
 class TestOverload(unittest.TestCase):
@@ -21,15 +24,13 @@ class TestOverload(unittest.TestCase):
     # Whether a call's in static or instance context should make no difference to the methods
     # considered and chosen during overload resolution.
     def test_mixed_static_and_instance(self):
-        MSI = jclass("com.chaquo.python.TestOverload$MixedStaticInstance")
+        MSI = TO.MixedStaticInstance
         m = MSI()
 
         self.assertEqual(m.resolve11("test"), "String")
         self.assertEqual(m.resolve11(42), "Object")
 
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got str instance instead\)"):
-            MSI.resolve11("test")
+        self.assertEqual(MSI.resolve11("test"), "Object")
         self.assertEqual(MSI.resolve11(42), "Object")
 
         self.assertEqual(MSI.resolve11(m, "test"), "String")
@@ -41,8 +42,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(m.resolve10(), "")
         self.assertEqual(m.resolve10("test"), "String")
 
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got nothing instead\)"):
+        with self.inapplicable:
             MSI.resolve10()
         self.assertEqual(MSI.resolve10("test"), "String")
 
@@ -56,13 +56,29 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(m.resolve01("test"), "String")
 
         self.assertEqual(MSI.resolve01(), "")
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got str instance instead\)"):
+        with self.inapplicable:
             MSI.resolve01("test")
 
         with self.inapplicable:
             MSI.resolve01(m)
         self.assertEqual(MSI.resolve01(m, "test"), "String")
+
+        # ---
+
+        from java.lang import Integer
+        i = Integer(42)
+        ts = r"^com.chaquo.python.TestOverload\$MixedStaticInstance@"
+
+        self.assertRegexpMatches(m.toString(), ts)
+        self.assertEqual(m.toString(i), "Integer")
+
+        with self.inapplicable:
+            MSI.toString()
+        self.assertEqual(MSI.toString(i), "Integer")
+
+        self.assertRegexpMatches(MSI.toString(m), ts)
+        with self.inapplicable:
+            MSI.toString(m, i)
 
     def test_class(self):
         Parent = jclass("com.chaquo.python.TestOverload$Parent")
