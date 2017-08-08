@@ -10,6 +10,8 @@ jclass_cache = {}
 instance_cache = WeakValueDictionary()
 
 
+# TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
+# wrong ClassLoader.
 def jclass(clsname):
     """Returns a proxy class for the given fully-qualified Java class name. The name may use either
     `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
@@ -812,9 +814,10 @@ cdef class JavaMultipleMethod(JavaMember):
                 raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
 
             # JLS 15.12.2.5. "Choosing the Most Specific Method"
+            env = CQPEnv()
             maximal = []
             for jm1 in applicable:
-                if not any([better_overload(jm2, jm1, args_types, varargs=varargs)
+                if not any([better_overload(env, jm2, jm1, args_types, varargs=varargs)
                             for jm2 in applicable if jm2 is not jm1]):
                     maximal.append(jm1)
             if len(maximal) != 1:

@@ -71,7 +71,7 @@ public class PyObjectTest {
         PyObject i = pyobjecttest.get("int_var");
         assertEquals(42, (int) i.toJava(Integer.class));
         assertEquals(42, (int) i.toJava(int.class));
-        assertEquals(42.0, i.toJava(Double.class), 0.0001);  // FIXME replace third argument with cast
+        assertEquals(42.0, i.toJava(Double.class), 0.0001);
         assertEquals(42.0, i.toJava(double.class), 0.0001);
         assertEquals(42L, i.toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
         assertEquals(42L, i.toJava(Object.class));    //
@@ -96,23 +96,37 @@ public class PyObjectTest {
     }
 
     @Test
+    public void toJava_fail_void() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to void");
+        pyobjecttest.get("float_var").toJava(void.class);
+    }
+
+    @Test
+    public void toJava_fail_Void() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to java.lang.Void");
+        pyobjecttest.get("float_var").toJava(Void.class);
+    }
+
+    @Test
     public void toJava_fail_float_to_int() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert float");
-        pyobjecttest.get("float_var").toJava(Integer.class);
+        thrown.expectMessage("Cannot convert float object to java.lang.Integer");
+        pyobjecttest.get("float_var").toJava(int.class);
     }
 
     @Test
     public void toJava_fail_string_to_int() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert str");
+        thrown.expectMessage("Cannot convert str object to java.lang.Integer");
         pyobjecttest.get("str_var").toJava(Integer.class);
     }
 
     @Test
     public void toJava_fail_int_to_string() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert int");
+        thrown.expectMessage("Cannot convert int object to java.lang.String");
         pyobjecttest.get("int_var").toJava(String.class);
     }
 

@@ -5,7 +5,7 @@ from .jni cimport *
 # === conversion ==============================================================
 
 cdef j2p(JNIEnv *j_env, JNIRef j_object)
-cdef j2p_string(JNIEnv *env, jobject j_object)
+cdef j2p_string(JNIEnv *env, JNIRef j_string)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
 
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)

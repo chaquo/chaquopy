@@ -22,7 +22,8 @@ public class PyInvocationHandler implements InvocationHandler, PyProxy {
         if (args == null) {
             args = new Object[0];
         }
-        return self.callAttr(method.getName(), args).toJava(method.getReturnType());
+        PyObject result = self.callAttr(method.getName(), args);
+        return (result == null) ? result : result.toJava(method.getReturnType());
     }
 
 }

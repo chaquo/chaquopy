@@ -26,6 +26,9 @@ cdef class CQPEnv(object):
             self.expect_exception(f"FindClass failed for {name}")
         return result
 
+    cdef IsAssignableFrom(self, JNIRef j_klass1, JNIRef j_klass2):
+        return bool(self.j_env[0].IsAssignableFrom(self.j_env, j_klass1.obj, j_klass2.obj))
+
     cdef LocalRef ExceptionOccurred(self):
         return self.adopt(self.j_env[0].ExceptionOccurred(self.j_env))
 

@@ -68,7 +68,7 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if sig[0] == '[':
         return jarray(sig[1:])(instance=j_object)
     if sig == 'Ljava/lang/String;':
-        return j2p_string(j_env, j_object.obj)
+        return j2p_string(j_env, j_object)
 
     unbox_method = UNBOX_METHODS.get(sig)
     if unbox_method:
@@ -81,26 +81,24 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     return jclass(sig)(instance=j_object)
 
 
-cdef j2p_string(JNIEnv *j_env, jobject string):
-    cdef const jchar *jchar_str
+cdef j2p_string(JNIEnv *j_env, JNIRef j_string):
+    # GetStringChars will crash if either of these prerequisites are violated.
+    if not j_string:
+        raise ValueError("String cannot be null or None")
+    env = CQPEnv()
+    if not env.IsInstanceOf(j_string, env.FindClass("java.lang.String")):
+        raise TypeError("Object is not a String")
+
+    cdef const jchar *jchar_str = j_env[0].GetStringChars(j_env, j_string.obj, NULL)
+    if jchar_str == NULL:
+        raise Exception("GetStringChars failed")
+    str_len = j_env[0].GetStringLength(j_env, j_string.obj)
+
     # We can't decode directly from a jchar array because of
     # https://github.com/cython/cython/issues/1696 . This cdef is necessary to prevent Cython
     # inferring the type of bytes_str and calling the decode function directly.
-    cdef object bytes_str
-
-    # GetStringChars will crash if either of these are violated
-    if string == NULL:
-        raise ValueError("String cannot be null")
-    if not j_env[0].IsInstanceOf(j_env, string,
-                                 (<JNIRef?>find_javaclass("java.lang.String")._chaquopy_this).obj):
-        raise TypeError("Object is not a String")
-
-    jchar_str = j_env[0].GetStringChars(j_env, string, NULL)
-    if jchar_str == NULL:
-        raise Exception("GetStringChars failed")
-    str_len = j_env[0].GetStringLength(j_env, string)
-    bytes_str = (<char*>jchar_str)[:str_len * 2]  # See note at bytes_str cdef above
-    j_env[0].ReleaseStringChars(j_env, string, jchar_str)
+    cdef object bytes_str = (<char*>jchar_str)[:str_len * 2]  # See note at bytes_str cdef above
+    j_env[0].ReleaseStringChars(j_env, j_string.obj, jchar_str)
     return bytes_str.decode(JCHAR_ENCODING)
 
 
@@ -119,11 +117,8 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
 # If the definition is for a Java primitive, returns a Python int/float/bool/str.
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     if definition == 'V':
-        # Used to be a possibility when using java.lang.reflect.Proxy; keeping in case we do
-        # something similar in the future.
-        if obj is not None:
-            raise TypeError("Void method cannot return a value")
-        return LocalRef()
+        if obj is None:
+            return LocalRef()
 
     # For primitive types we simply check type check and then return the Python value: it's
     # the caller's responsibility to convert it to the C type. It's also the caller's
@@ -133,7 +128,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     # We don't do auto-unboxing here, because boxed types are automatically unboxed by j2p and
     # will therefore never be touched by Python user code unless created explicitly.
     # Auto-boxing, on the other hand, will be done if necessary below.
-    if definition == 'Z':
+    elif definition == 'Z':
         if isinstance(obj, bool):
             return obj
         if isinstance(obj, java.jboolean):
@@ -163,19 +158,18 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             return obj.value
 
     elif definition[0] == 'L':
-        clsname = definition[1:-1].replace("/", ".")
-        klass = find_javaclass(clsname)
+        env = CQPEnv()
+        j_klass = env.FindClass(definition)
 
         if obj is None:
             return LocalRef()
         elif isinstance(obj, NoneCast):
-            if klass.isAssignableFrom(find_javaclass(obj.sig)):
+            if env.IsAssignableFrom(env.FindClass(obj.sig), j_klass):
                 return LocalRef()
 
         elif isinstance(obj, (six.string_types, java.jchar)):
             if isinstance(obj, six.string_types):
-                String = find_javaclass("java.lang.String")
-                if klass.isAssignableFrom(String):
+                if env.IsAssignableFrom(env.FindClass("java.lang.String"), j_klass):
                     u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
                     utf16 = u.encode(JCHAR_ENCODING)
                       # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python build.
@@ -183,50 +177,45 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                                                                     <jchar*><char*>utf16,
                                                                     len(utf16)//2))
             if autobox:
-                Character = find_javaclass("java.lang.Character")
-                if klass.isAssignableFrom(Character):
-                    return p2j_box(j_env, Character, obj)
+                boxed = p2j_box(env, j_klass, "Character", obj)
+                if boxed: return boxed
 
         elif isinstance(obj, (bool, java.jboolean)):
             if autobox:
-                Boolean = find_javaclass("java.lang.Boolean")
-                if klass.isAssignableFrom(Boolean):
-                    return p2j_box(j_env, Boolean, obj)
+                boxed = p2j_box(env, j_klass, "Boolean", obj)
+                if boxed: return boxed
         elif isinstance(obj, (six.integer_types, java.IntPrimitive)):
             if autobox:
                 # TODO #5174 support BigInteger, and make that a final fallback if clsname is
                 # Number or Object, and Long isn't big enough.
                 #
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
-                                else chain(INT_TYPES.values(), FLOAT_TYPES.values()))
-                for box_clsname in box_clsnames:
-                    box_klass = find_javaclass("java.lang." + box_clsname)
-                    if klass.isAssignableFrom(box_klass):
-                        return p2j_box(j_env, box_klass, obj)
+                box_cls_names = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
+                                 else chain(INT_TYPES.values(), FLOAT_TYPES.values()))
+                for box_cls_name in box_cls_names:
+                    boxed = p2j_box(env, j_klass, box_cls_name, obj)
+                    if boxed: return boxed
         elif isinstance(obj, (float, java.FloatPrimitive)):
             if autobox:
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_clsnames = ([FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
-                                else FLOAT_TYPES.values())
-                for box_clsname in box_clsnames:
-                    box_klass = find_javaclass("java.lang." + box_clsname)
-                    if klass.isAssignableFrom(box_klass):
-                        return p2j_box(j_env, box_klass, obj)
+                box_cls_names = ([FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
+                                 else FLOAT_TYPES.values())
+                for box_cls_name in box_cls_names:
+                    boxed = p2j_box(env, j_klass, box_cls_name, obj)
+                    if boxed: return boxed
 
         elif isinstance(obj, JavaObject):
-            if j_env[0].IsAssignableFrom(j_env, (<JNIRef?>type(obj)._chaquopy_j_klass).obj,
-                                         (<JNIRef?>klass._chaquopy_this).obj):
+            if env.IsAssignableFrom(<JNIRef?>type(obj)._chaquopy_j_klass, j_klass):
                 return obj._chaquopy_this
         elif isinstance(obj, JavaClass):
-            if klass.isAssignableFrom(Class.getClass()):
+            if env.IsAssignableFrom(env.FindClass("java.lang.Class"), j_klass):
                 return <JNIRef?>obj._chaquopy_j_klass
         elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
         # Anything, including the above types, can be converted to a PyObject if the signature
         # will accept it.
-        elif klass.isAssignableFrom(find_javaclass("com.chaquo.python.PyObject")):
+        elif env.IsAssignableFrom(env.FindClass("com.chaquo.python.PyObject"), j_klass):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
@@ -247,7 +236,9 @@ def assignable_to_array(definition, obj):
     if obj is None:
         return True
     if isinstance(obj, (JavaArray, NoneCast)):
-        return find_javaclass(definition).isAssignableFrom(find_javaclass(java.jni_sig(type(obj))))
+        env = CQPEnv()
+        return env.IsAssignableFrom(env.FindClass(java.jni_sig(type(obj))),
+                                    env.FindClass(definition))
 
     # All other iterable types are assignable to all array types, except strings, which would
     # introduce too many complications in overload resolution.
@@ -292,19 +283,23 @@ cdef JNIRef p2j_string(JNIEnv *env, s):
     return p2j(env, "Ljava/lang/String;", s)
 
 
-cdef JNIRef p2j_box(JNIEnv *env, box_klass, value):
+cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
+    full_box_cls_name = "java.lang." + box_cls_name
+    j_box_klass = env.FindClass(full_box_cls_name)
+    if not env.IsAssignableFrom(j_box_klass, j_klass):
+        return None
+
     if isinstance(value, java.Primitive):
         value = value.value
 
     # Uniquely among the boxed types, the Float class has two primitive-typed constructors, one
     # of which takes a double, which our overload resolution will prefer.
-    clsname = box_klass.getName()
-    if clsname == "java.lang.Float":
+    if box_cls_name == "Float":
         check_range_float32(value)
 
     # This will result in a recursive call to p2j, this time requesting the primitive type of
     # the constructor parameter. Range checks will be performed by populate_args.
-    return jclass(clsname)(value)._chaquopy_this
+    return jclass(full_box_cls_name)(value)._chaquopy_this
 
 
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:

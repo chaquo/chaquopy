@@ -121,7 +121,7 @@ cdef bint set_env(JNIEnv *env, const char *name, const char *value):
 cdef public jobject Java_com_chaquo_python_Python_getModule \
     (JNIEnv *env, jobject this, jobject j_name) with gil:
     try:
-        return p2j_pyobject(env, import_module(j2p_string(env, j_name)))
+        return p2j_pyobject(env, import_module(j2p_string(env, LocalRef.create(env, j_name))))
     except Exception as e:
         wrap_exception(env, e)
         return NULL

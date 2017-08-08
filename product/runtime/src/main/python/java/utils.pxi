@@ -64,14 +64,6 @@ def cls_fullname(cls):
     return f"{(module + '.') if module else ''}{cls.__name__}"
 
 
-# TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
-# wrong ClassLoader.
-def find_javaclass(name):
-    """Returns the java.lang.Class proxy object corresponding to the given fully-qualified name.
-    """
-    return jclass("java.lang.Class")(instance=CQPEnv().FindClass(name))
-
-
 cdef str_for_c(s):
     if isinstance(s, unicode):
         return s.encode('utf-8')
@@ -97,7 +89,7 @@ cdef klass_sig(JNIEnv *j_env, JNIRef j_cls):
     if not j_name:
         j_env[0].ExceptionClear(j_env)
         raise Exception("getName failed")
-    return java.name_to_sig(j2p_string(j_env, j_name.obj))
+    return java.name_to_sig(j2p_string(j_env, j_name))
 
 
 cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
@@ -142,7 +134,7 @@ cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
         return False
 
 
-def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
+def better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
     """Returns whether jm1 is an equal or better match than jm2 for the given actual parameter
     types. This is based on JLS 15.12.2.5. "Choosing the Most Specific Method" and JLS 4.10.
     "Subtyping".
@@ -158,7 +150,7 @@ def better_overload(JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
         defs2 = extend_varargs(defs2, len(actual_types))
 
     return (len(defs1) == len(defs2) and
-            all([better_overload_arg(d1, d2, at)
+            all([better_overload_arg(env, d1, d2, at)
                  for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
 
 
@@ -176,7 +168,7 @@ def extend_varargs(defs, length):
 # actual parameter type which is applicable to one will not be applicable to the others.
 #
 # In this context, boxed and unboxed types are NOT treated as related.
-def better_overload_arg(def1, def2, actual_type):
+def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     if def2 == def1:
         return True
 
@@ -201,13 +193,13 @@ def better_overload_arg(def1, def2, actual_type):
 
     elif def2.startswith("L"):
         if def1.startswith("L"):
-            return find_javaclass(def2[1:-1]).isAssignableFrom(find_javaclass(def1[1:-1]))
+            return env.IsAssignableFrom(env.FindClass(def1), env.FindClass(def2))
         elif def1.startswith("["):
             return def2 in ARRAY_CONVERSIONS
     elif def2.startswith("["):
             return (def2[1] not in PRIMITIVE_TYPES and
                     def1.startswith("[") and
-                    better_overload_arg(def1[1:], def2[1:], type(None)))
+                    better_overload_arg(env, def1[1:], def2[1:], type(None)))
 
     return False
 
