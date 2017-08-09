@@ -2,26 +2,35 @@ package com.chaquo.python;
 
 public class TestProxy {
 
-    public static String runResult;
-    public static String run(Runnable r) {
-        runResult = null;
-        r.run();
-        return runResult;
-    }
-
-
     public interface Adder {
+        int constant = 123;
         int add(int x);
     }
 
-    public static Adder adder;
+    public static Adder a;
 
-    public static int add(Adder adder, int x) {
-        return adder.add(x);
-    }
 
     public static String toString(Adder adder) {
         return adder.toString();
+    }
+
+
+    public interface Args {
+        void tooMany(int a);
+        void tooFew();
+
+        int addDuck(int a, int b);
+        float addDuck(float a, float b);
+        String addDuck(String a, String b);
+
+        String optional();
+        String optional(String a);
+
+        String star();
+        String star(String a);
+        String star(String a, String b);
+
+        String varargs(String delim, String... args);
     }
 
 }

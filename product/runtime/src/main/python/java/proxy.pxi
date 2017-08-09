@@ -43,17 +43,17 @@ class DynamicProxy(object):
         JavaObject.__init__(self, PyInvocationHandler(dict()))
 
     def __getattr__(self, name):
-        try:
-            return JavaObject.__getattr__(self, name)
-        except AttributeError as e:
-            if name == "_chaquopy_dict":
-                self.__dict__[name] = Proxy.getInvocationHandler(self)._chaquopyGetDict()
-                return self.__dict__[name]
-            else:
-                try:
-                    return self._chaquopy_dict[name]
-                except KeyError:
-                    raise e
+        if name == "_chaquopy_this":
+            raise AttributeError("dynamic_proxy superclass __init__ must be called before "
+                                 "accessing attributes")
+        elif name == "_chaquopy_dict":
+            self.__dict__[name] = Proxy.getInvocationHandler(self)._chaquopyGetDict()
+            return self.__dict__[name]
+        else:
+            try:
+                return self._chaquopy_dict[name]
+            except KeyError:
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __setattr__(self, name, value):
         try:

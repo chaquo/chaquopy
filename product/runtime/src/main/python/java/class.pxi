@@ -292,7 +292,7 @@ def set_attribute(cls, obj, key, value):
         subject = f"'{full_name}' object" if obj else f"type object '{full_name}'"
         raise AttributeError(f"{subject} has no attribute '{key}'")
     if not isinstance(member, JavaField):
-        raise AttributeError(f"'{full_name}.{key}' is not a field")
+        raise ReadOnlyAttributeError(f"'{full_name}.{key}' is not a field")
     member.__set__(obj, value)
 
 
@@ -383,7 +383,7 @@ cdef class JavaField(JavaSimpleMember):
     def __set__(self, obj, value):
         self.resolve()
         if self.is_final:  # 'final' is not enforced by JNI, so we need to do it ourselves.
-            raise AttributeError(f"{self.fqn()} is a final field")
+            raise ReadOnlyAttributeError(f"{self.fqn()} is a final field")
 
         if self.is_static:
             self.write_static_field(value)
