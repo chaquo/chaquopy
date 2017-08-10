@@ -49,7 +49,7 @@ class JavaArray(object):
             this = env.NewObjectArray(length, env.FindClass(element_sig))
         else:
             raise ValueError(f"Invalid signature '{element_sig}'")
-        object.__setattr__(self, "_chaquopy_this", this.global_ref())
+        self._chaquopy_this = this.global_ref()
         for i, v in enumerate(value):
             self[i] = v
 

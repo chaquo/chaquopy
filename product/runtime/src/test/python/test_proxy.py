@@ -1,11 +1,19 @@
 # FIXME:
 #
-# Can call Object methods and read instance constants via `self`, but cannot overwrite or hide them
+# User-generated class attributes
+# User-generated descriptors (data and non-data have slightly different rules)
 #
-# Unimplemented method (may require nonvirtual change: if so, commit first)
-# toString, hashCode and equals called from Java should delegate to Python methods of same name
-#   if present, otherwise Object. Python special methods continue to invoke Java method name,
-#   which will go directly to the Python implementation if present.
+# BEFORE TOUCHING THIS, READ AND ORGANIZE RELEVANT NOTES IN GOOGLE DOC AND foo.*
+#
+#     Can call Object methods and read instance constants via `self`, but cannot overwrite or
+#     hide them.
+#
+#     toString, hashCode and equals called from Java should delegate to Python methods of same
+#     name if present, otherwise Object. Python special methods continue to invoke Java method
+#     name, which will go directly to the Python implementation if present, or else Object.
+#     Overriding Python special methods will only affect Python.
+#
+#     Unimplemented method (may require nonvirtual change: if so, commit first)
 #
 # Thrown exceptions
 
@@ -96,6 +104,24 @@ class TestProxy(TestCase):
         self.assertEqual(125, a.add(2))
         with self.assertRaisesRegexp(AttributeError, "constant is a final field"):
             a.constant = 321
+
+    def test_class_attribute(self):
+        class AddCounter(dynamic_proxy(TP.Adder)):
+            count = 0
+            def add(self, x):
+                result = x + AddCounter.count
+                AddCounter.count += 1
+                return result
+
+        a = AddCounter()
+        self.assertEqual(10, a.add(10))
+        self.assertEqual(21, a.add(20))
+        self.assertEqual(32, a.add(30))
+        self.assertEqual(3, AddCounter.count)
+
+        a.count = 9
+        self.assertEqual(3, a.count)
+        self.assertEqual(43, a.add(40))
 
     def test_object_methods(self):
         class AnAdder(dynamic_proxy(TP.Adder)):

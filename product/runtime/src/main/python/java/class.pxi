@@ -81,6 +81,8 @@ class JavaClass(type):
         jclass_cache[cls_name] = cls
         return cls
 
+    # We do this in JavaClass.__call__ rather than JavaObject.__new__ because there's no way
+    # for __new__ to prevent __init__ from being called.
     def __call__(cls, *args, JNIRef instance=None, **kwargs):
         self = None
         if instance:
@@ -94,7 +96,7 @@ class JavaClass(type):
                         actual = java.sig_to_java(object_sig(env.j_env, instance))
                         raise TypeError(f"cannot create {expected} proxy from {actual} instance")
                     self = cls.__new__(cls, *args, **kwargs)
-                    object.__setattr__(self, "_chaquopy_this", instance.global_ref())
+                    self._chaquopy_this = instance.global_ref()
                     instance_cache[(cls, self._chaquopy_this)] = self
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
@@ -102,9 +104,13 @@ class JavaClass(type):
                 instance_cache[(cls, self._chaquopy_this)] = self
         return self
 
-    # Override to prevent modification of class dict.
-    def __setattr__(cls, key, value):
-        set_attribute(cls, None, key, value)
+    # Override to allow static field set (type.__setattr__ would simply overwrite the class dict)
+    def __setattr__(cls, name, value):
+        member = type_lookup(cls, name)
+        if isinstance(member, JavaMember):
+            member.__set__(None, value)
+        else:
+            type.__setattr__(cls, name, value)
 
 
 def setup_object_class():
@@ -123,12 +129,17 @@ def setup_object_class():
                 constructor = type(self).__dict__["<init>"]
             except KeyError:
                 raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
-            object.__setattr__(self, "_chaquopy_this",
-                               constructor.__get__(self, type(self))(*args))
+            self._chaquopy_this = constructor.__get__(self, type(self))(*args)
 
-        # Override to prevent modification of instance dict.
-        def __setattr__(self, key, value):
-            set_attribute(type(self), self, key, value)
+        def __setattr__(self, name, value):
+            # Using __slots__ to prevent adding attributes is unreliable, as it's defeated by
+            # any base class which provides a __dict__. For example, Python Exception objects
+            # have a __dict__, so that would cause all Java Throwables to have one too.
+            object.__setattr__(self, name, value)
+            if (name in self.__dict__) and (name not in ["_chaquopy_this"]):
+                del self.__dict__[name]
+                # Exception type and wording are based on Python 2.7.
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         def __repr__(self):
             full_name = cls_fullname(type(self))
@@ -213,6 +224,12 @@ def setup_bootstrap_classes():
     Throwable = jclass_proxy("java.lang.Throwable", [JavaException, Serializable, JavaObject])
     reflect_class(Throwable)
 
+    global ClassLoader, Proxy, PyInvocationHandler, PyProxy
+    ClassLoader = jclass("java.lang.ClassLoader")
+    Proxy = jclass("java.lang.reflect.Proxy")
+    PyInvocationHandler = jclass("com.chaquo.python.PyInvocationHandler")
+    PyProxy = jclass("com.chaquo.python.PyProxy")
+
 
 def reflect_class(cls):
     klass = cls.getClass()
@@ -269,7 +286,7 @@ def reflect_class(cls):
             aliases[name + "_"] =  member
     for alias, member in six.iteritems(aliases):
         if alias not in cls.__dict__:
-            type.__setattr__(cls, alias, member)
+            add_member(cls, alias, member)
 
 
 # Ensure the same aliases are available on all Python versions
@@ -281,28 +298,13 @@ def is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
-class ReadOnlyAttributeError(AttributeError):
-    pass
-
-def set_attribute(cls, obj, key, value):
-    full_name = cls_fullname(cls)
-    try:
-        member = getattr_no_desc(cls, key)
-    except AttributeError:
-        subject = f"'{full_name}' object" if obj else f"type object '{full_name}'"
-        raise AttributeError(f"{subject} has no attribute '{key}'")
-    if not isinstance(member, JavaField):
-        raise ReadOnlyAttributeError(f"'{full_name}.{key}' is not a field")
-    member.__set__(obj, value)
-
-
 # Looks up an attribute in a class hierarchy without calling descriptors.
-def getattr_no_desc(cls, name):
+def type_lookup(cls, name):
     for c in cls.__mro__:
         try:
             return c.__dict__[name]
         except KeyError: pass
-    raise AttributeError(name)
+    return None
 
 
 def add_member(cls, name, member):
@@ -312,13 +314,21 @@ def add_member(cls, name, member):
             member.added_to_class(cls, name)
 
 
+class ReadOnlyAttributeError(AttributeError):
+    pass
+
+
 cdef class JavaMember(object):
     cdef cls
     cdef basestring name
 
+    def __set__(self, obj, value):
+        raise ReadOnlyAttributeError(f"{self.fqn()} is not a field")
+
     def added_to_class(self, cls, name):
-        self.cls = cls
-        self.name = name
+        if not self.cls:  # May be called a second time for a reserved word alias.
+            self.cls = cls
+            self.name = name
 
     def fqn(self):
         return f"{cls_fullname(self.cls)}.{self.name}"
@@ -763,8 +773,7 @@ cdef class JavaMultipleMethod(JavaMember):
         super().added_to_class(cls, name)
         cdef JavaMethod jm
         for jm in self.methods:
-            if not jm.name:
-                jm.added_to_class(cls, name)
+            jm.added_to_class(cls, name)
 
     def resolve(self):
         if self.resolved: return
@@ -786,8 +795,9 @@ cdef class JavaMultipleMethod(JavaMember):
     def __get__(self, obj, objtype):
         self.resolve()
         if len(self.methods) == 1:  # See comment in reflect_class
-            type.__setattr__(self.cls, self.name, self.methods[0])
-            return self.methods[0].__get__(obj, objtype)
+            method = self.methods[0]
+            add_member(self.cls, self.name, method)
+            return method.__get__(obj, objtype)
         else:
             return lambda *args: self(obj, *args)
 

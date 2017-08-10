@@ -120,19 +120,21 @@ class TestReflect(unittest.TestCase):
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
+        # Unlike Java instance objects, Java class objects are persistent, so there's no reason
+        # to prevent setting new attributes on them. This also makes them consistent with
+        # static and dynamic proxy class object.
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            self.Test.staticNonexistent
+        self.Test.staticNonexistent = "hello"
+        self.assertEqual("hello", self.Test.staticNonexistent)
+        del self.Test.staticNonexistent
+        self.assertFalse(hasattr(self.Test, "staticNonexistent"))
+
         for obj in [self.Test, self.t]:
-            no_attr_msg = ("' object has no attribute" if obj is self.t
-                           else "type object '.+' has no attribute")
-            with self.assertRaisesRegexp(AttributeError, no_attr_msg):
-                obj.staticNonexistent
-            with self.assertRaisesRegexp(AttributeError, no_attr_msg):
-                obj.staticNonexistent = True
             with self.assertRaisesRegexp(AttributeError, "final"):
                 obj.fieldStaticFinalZ = True
             with self.assertRaisesRegexp(AttributeError, "not a field"):
                 obj.setStaticZ = True
-            with self.assertRaisesRegexp(AttributeError, "not a field"):
-                obj.Nested = 99
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
             with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
@@ -144,9 +146,9 @@ class TestReflect(unittest.TestCase):
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_instance(self):
-        with self.assertRaisesRegexp(AttributeError, "object has no attribute"):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             self.t.nonexistent
-        with self.assertRaisesRegexp(AttributeError, "object has no attribute"):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             self.t.nonexistent = True
         with self.assertRaisesRegexp(AttributeError, "final"):
             self.t.fieldFinalZ = True
