@@ -37,11 +37,12 @@ public class PyObjectTest {
 
     @Test
     public void close() {
-        pyobjecttest.remove("del_triggered");
-        PyObject dt = pyobjecttest.callAttr("DelTrigger");
-        assertFalse(pyobjecttest.containsKey("del_triggered"));
+        PyObject DT = pyobjecttest.get("DelTrigger");
+        DT.put("triggered", false);
+        PyObject dt = DT.call();
+        assertFalse(DT.get("triggered").toJava(Boolean.class));
         dt.close();
-        assertTrue(pyobjecttest.containsKey("del_triggered"));
+        assertTrue(DT.get("triggered").toJava(Boolean.class));
 
         thrown.expect(PyException.class);
         thrown.expectMessage("ValueError");
@@ -479,19 +480,19 @@ public class PyObjectTest {
         assertEquals("'hello'", pyobjecttest.get("str_var").repr());
     }
 
+    // It's hard to make a totally deterministic test of finalization. This test and its Python
+    // counterpart still fail sometimes, especially on the emulator for API level 17.
     @SuppressWarnings({"UnusedAssignment", "unused"})
     @Test
     public void finalize_() {
-        pyobjecttest.remove("del_triggered");
-        PyObject dt = pyobjecttest.callAttr("DelTrigger");
-        assertFalse(pyobjecttest.containsKey("del_triggered"));
+        PyObject DT = pyobjecttest.get("DelTrigger");
+        DT.put("triggered", false);
+        PyObject dt = DT.call();
+        assertFalse(DT.get("triggered").toJava(Boolean.class));
         dt = null;
-
-        // It's hard to make a totally deterministic test of finalization. This test and its Python
-        // counterpart still fail sometimes, especially on the emulator for API level 17.
         System.gc();
         System.runFinalization();
-        assertTrue(pyobjecttest.containsKey("del_triggered"));
+        assertTrue(DT.get("triggered").toJava(Boolean.class));
     }
 
 }

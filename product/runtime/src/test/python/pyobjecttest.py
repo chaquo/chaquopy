@@ -3,10 +3,11 @@
 from __future__ import absolute_import, division, print_function
 
 
+# Also used in test_proxy
 class DelTrigger(object):
+    triggered = False
     def __del__(self):
-        global del_triggered
-        del_triggered = True
+        DelTrigger.triggered = True
 
 
 class EmptyObject(object):

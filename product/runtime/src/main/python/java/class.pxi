@@ -82,7 +82,8 @@ class JavaClass(type):
         return cls
 
     # We do this in JavaClass.__call__ rather than JavaObject.__new__ because there's no way
-    # for __new__ to prevent __init__ from being called.
+    # for __new__ to prevent __init__ from being called or to modify its arguments, and
+    # __init__ may be overridden by user-defined proxy classes.
     def __call__(cls, *args, JNIRef instance=None, **kwargs):
         self = None
         if instance:
@@ -96,12 +97,10 @@ class JavaClass(type):
                         actual = java.sig_to_java(object_sig(env.j_env, instance))
                         raise TypeError(f"cannot create {expected} proxy from {actual} instance")
                     self = cls.__new__(cls, *args, **kwargs)
-                    self._chaquopy_this = instance.global_ref()
-                    instance_cache[(cls, self._chaquopy_this)] = self
+                    set_this(self, instance.global_ref())
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
-            with class_lock:
-                instance_cache[(cls, self._chaquopy_this)] = self
+
         return self
 
     # Override to allow static field set (type.__setattr__ would simply overwrite the class dict)
@@ -129,7 +128,7 @@ def setup_object_class():
                 constructor = type(self).__dict__["<init>"]
             except KeyError:
                 raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
-            self._chaquopy_this = constructor.__get__(self, type(self))(*args)
+            set_this(self, constructor.__get__(self, type(self))(*args))
 
         def __setattr__(self, name, value):
             # Using __slots__ to prevent adding attributes is unreliable, as it's defeated by
@@ -161,6 +160,33 @@ def setup_object_class():
         @classmethod    # To provide the equivalent of Java ".class" syntax
         def getClass(cls):
             return Class(instance=cls._chaquopy_j_klass)
+
+
+# Associates a Python object with its Java counterpart.
+#
+# Making _chaquopy_this a WeakRef avoids a cross-language reference cycle for static and
+# dynamic proxies. The destruction sequence for Java objects is as follows:
+#
+#     * The Python object dies.
+#     * (PROXY ONLY) The object __dict__ is kept alive by a PyObject reference from the Java
+#       object. If the Java object is ever accessed by Python again, this allows the object's
+#       Python state to be recovered and attached to a new Python object.
+#     * The GlobalRef for the Java object is removed from instance_cache.
+#     * The Java object dies once there are no Java references to it.
+#     * (PROXY ONLY) The WeakRef is now invalid, but that's not a problem because it's
+#       unreachable from both languages. With the Java object gone, the __dict__ and WeakRef
+#       now die, in that order.
+def set_this(self, GlobalRef this):
+    with class_lock:
+        self._chaquopy_this = this.weak_ref()
+        instance_cache[(type(self), this)] = self
+
+        if "PyProxy" in globals() and isinstance(self, PyProxy):
+            java_dict = self._chaquopyGetDict()
+            if java_dict is None:
+                self._chaquopySetDict(self.__dict__)
+            else:
+                self.__dict__ = java_dict
 
 
 # This isn't done during module initialization because we don't have a JVM yet, and we don't
@@ -314,16 +340,12 @@ def add_member(cls, name, member):
             member.added_to_class(cls, name)
 
 
-class ReadOnlyAttributeError(AttributeError):
-    pass
-
-
 cdef class JavaMember(object):
     cdef cls
     cdef basestring name
 
     def __set__(self, obj, value):
-        raise ReadOnlyAttributeError(f"{self.fqn()} is not a field")
+        raise AttributeError(f"Java member {self.fqn()} is not a field")
 
     def added_to_class(self, cls, name):
         if not self.cls:  # May be called a second time for a reserved word alias.
@@ -393,7 +415,7 @@ cdef class JavaField(JavaSimpleMember):
     def __set__(self, obj, value):
         self.resolve()
         if self.is_final:  # 'final' is not enforced by JNI, so we need to do it ourselves.
-            raise ReadOnlyAttributeError(f"{self.fqn()} is a final field")
+            raise AttributeError(f"{self.fqn()} is a final field")
 
         if self.is_static:
             self.write_static_field(value)

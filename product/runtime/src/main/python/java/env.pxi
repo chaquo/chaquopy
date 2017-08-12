@@ -1,3 +1,6 @@
+from cpython.object cimport Py_EQ, Py_NE
+
+
 # Friendlier interface to JNIEnv:
 #   * Checks for and raises Java exceptions.
 #   * Uses JNIRef everywhere.
@@ -195,19 +198,16 @@ cdef jmethodID mid_identityHashCode = NULL
 cdef class JNIRef(object):
     # Member variables declared in .pxd
 
-    def __init__(self):
-        telem[self.__class__.__name__] += 1
-
     def __dealloc__(self):
-        telem[self.__class__.__name__] -= 1
+        self.obj = NULL
 
     def __repr__(self):
         return f'<{type(self).__name__} obj=0x{<uintptr_t>self.obj:x}>'
 
-    def __richcmp__(self, JNIRef other, op):
-        if op == 2:  # __eq__
+    def __richcmp__(self, JNIRef other, int op):
+        if op == Py_EQ:
             return CQPEnv().IsSameObject(self, other)
-        elif op == 3:  # __ne__
+        elif op == Py_NE:
             return not self.__richcmp__(other, 2)
         else:
             raise NotImplementedError()
@@ -228,7 +228,10 @@ cdef class JNIRef(object):
         return self.obj != NULL
 
     cdef GlobalRef global_ref(self):
-        raise NotImplementedError()
+        return GlobalRef.create(get_jnienv(), self.obj)
+
+    cdef WeakRef weak_ref(self):
+        return WeakRef.create(get_jnienv(), self.obj)
 
     cdef jobject return_ref(self, JNIEnv *env):
         """Returns a new local reference suitable for returning from a `native` method or otherwise
@@ -242,7 +245,7 @@ cdef class JNIRef(object):
 cdef class GlobalRef(object):
     @staticmethod
     cdef GlobalRef create(JNIEnv *env, jobject obj):
-        cdef GlobalRef gr = GlobalRef()
+        gr = GlobalRef()
         if obj:
             gr.obj = env[0].NewGlobalRef(env, obj)
         return gr
@@ -252,7 +255,6 @@ cdef class GlobalRef(object):
         if self.obj:
             j_env = get_jnienv()
             j_env[0].DeleteGlobalRef(j_env, self.obj)
-        self.obj = NULL
         # The __dealloc__() method of the superclass will be called automatically.
 
     cdef GlobalRef global_ref(self):
@@ -271,7 +273,7 @@ cdef class LocalRef(JNIRef):
     # warning "Attempt to remove non-JNI local reference". Use `LocalRef.create` instead.
     @staticmethod
     cdef LocalRef adopt(JNIEnv *env, jobject obj):
-        cdef LocalRef lr = LocalRef()
+        lr = LocalRef()
         lr.env = env
         lr.obj = obj
         return lr
@@ -279,8 +281,23 @@ cdef class LocalRef(JNIRef):
     def __dealloc__(self):
         if self.obj:
             self.env[0].DeleteLocalRef(self.env, self.obj)
-        self.obj = NULL
         # The __dealloc__() method of the superclass will be called automatically.
 
-    cdef GlobalRef global_ref(self):
-        return GlobalRef.create(self.env, self.obj)
+
+cdef class WeakRef(JNIRef):
+    @staticmethod
+    cdef WeakRef create(JNIEnv *env, jobject obj):
+        wr = WeakRef()
+        if obj:
+            wr.obj = env[0].NewWeakGlobalRef(env, obj)
+        return wr
+
+    def __dealloc__(self):
+        cdef JNIEnv *j_env
+        if self.obj:
+            j_env = get_jnienv()
+            j_env[0].DeleteWeakGlobalRef(j_env, self.obj)
+        # The __dealloc__() method of the superclass will be called automatically.
+
+    cdef WeakRef weak_ref(self):
+        return self

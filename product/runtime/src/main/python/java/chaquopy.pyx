@@ -30,8 +30,6 @@ __all__ = [
 # Multi-threading is always enabled in Java.
 PyEval_InitThreads()
 
-telem = defaultdict(int)
-
 # TODO #5148
 DEF JNIUS_PYTHON3 = False
 

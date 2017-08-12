@@ -17,6 +17,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
 cdef class JNIRef(object):
     cdef jobject obj
     cdef GlobalRef global_ref(self)
+    cdef WeakRef weak_ref(self)
     cdef jobject return_ref(self, JNIEnv *env)
 
 cdef class GlobalRef(JNIRef):
@@ -34,6 +35,11 @@ cdef class LocalRef(JNIRef):
     @staticmethod
     cdef LocalRef adopt(JNIEnv *env, jobject obj)
     cdef GlobalRef global_ref(self)
+
+cdef class WeakRef(JNIRef):
+    @staticmethod
+    cdef WeakRef create(JNIEnv *env, jobject obj)
+    cdef WeakRef weak_ref(self)
 
 # === jvm =====================================================================
 

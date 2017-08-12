@@ -1,8 +1,5 @@
 # FIXME:
 #
-# User-generated class attributes
-# User-generated descriptors (data and non-data have slightly different rules)
-#
 # BEFORE TOUCHING THIS, READ AND ORGANIZE RELEVANT NOTES IN GOOGLE DOC AND foo.*
 #
 #     Can call Object methods and read instance constants via `self`, but cannot overwrite or
@@ -61,35 +58,70 @@ class TestProxy(TestCase):
                 return self.n + x
 
         a2, a3 = AddN(2), AddN(3)
+        self.assertEqual(2, a2.n)
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
+        self.assertEqual(5, cast(TP.Adder, a2).add(3))
 
-        TP.a = a2
-        del a2
-        a = TP.a
-        self.assertIsInstance(a, AddN)
-        self.assertEqual(5, cast(TP.Adder, a).add(3))
+    # See notes in PyObjectTest.finalize_
+    def test_gc(self):
+        from java.lang import System
+        from pyobjecttest import DelTrigger as DT
 
-    def test_attribute_errors(self):
-        class GetBeforeInit(dynamic_proxy(TP.Adder)):
-            def __init__(self):
-                self.n
-        with self.assertRaisesRegexp(AttributeError, "dynamic_proxy superclass __init__ must be "
-                                     "called before accessing attributes"):
-            GetBeforeInit()
-
-        class SetBeforeInit(dynamic_proxy(TP.Adder)):
-            def __init__(self):
-                self.n = 99
-        with self.assertRaisesRegexp(AttributeError, "dynamic_proxy superclass __init__ must be "
-                                     "called before accessing attributes"):
-            SetBeforeInit()
-
-        class GetNonexistent(dynamic_proxy(TP.Adder)):
+        test = self
+        class A(dynamic_proxy(TP.Adder)):
+            def __init__(self, n):
+                self.before_init_n = n
+                test.assertEqual(n, self.before_init_n)
+                super(A, self).__init__()
+                self.after_init_n = -n
+                self.dt = DT()
             def add(self, x):
-                self.n
-        with self.assertRaisesRegexp(PyException, "'GetNonexistent' object has no attribute 'n'"):
-            cast(TP.Adder, GetNonexistent()).add(5)
+                return self.before_init_n + x
+
+        def assertTriggered(triggered):
+            System.gc()
+            System.runFinalization()
+            self.assertEqual(triggered, DT.triggered)
+
+        DT.triggered = False
+        a = A(5)
+        assertTriggered(False)
+        TP.a = a
+        a = None
+        assertTriggered(False)
+        a = TP.a
+        self.assertIsInstance(a, A)
+        self.assertEqual(5, a.before_init_n)
+        self.assertEqual(-5, a.after_init_n)
+        self.assertEqual(7, cast(TP.Adder, a).add(2))
+
+        TP.a = None
+        assertTriggered(False)
+        a = None
+        assertTriggered(True)
+
+    # Using Python attributes before calling __init__ is covered by test_gc; this test covers
+    # use as a Java object.
+    def test_use_before_init(self):
+        class A(dynamic_proxy(TP.Adder)):
+            def __init__(self):
+                pass
+
+        a = A()
+        error = self.assertRaisesRegexp(AttributeError, "'A' object's superclass __init__ must be "
+                                        "called before using it as a Java object")
+        with error:
+            TP.a = a
+        with error:
+            a.toString()
+        with error:
+            cast(TP.Adder, a)
+
+        super(A, a).__init__()
+        TP.a = a
+        # FIXME a.toString()
+        cast(TP.Adder, a)
 
     def test_interface_constant(self):
         class AddConstant(dynamic_proxy(TP.Adder)):
@@ -105,7 +137,8 @@ class TestProxy(TestCase):
         with self.assertRaisesRegexp(AttributeError, "constant is a final field"):
             a.constant = 321
 
-    def test_class_attribute(self):
+    # We need a complete test of attribute behaviour because of our unusual __dict__ handling.
+    def test_attribute(self):
         class AddCounter(dynamic_proxy(TP.Adder)):
             count = 0
             def add(self, x):
@@ -114,14 +147,47 @@ class TestProxy(TestCase):
                 return result
 
         a = AddCounter()
+        self.assertEqual(0, AddCounter.count)
+        self.assertEqual(0, a.count)
+
+        with self.assertRaisesRegexp(AttributeError, "'AddCounter' object has no attribute 'n'"):
+            a.n
+
         self.assertEqual(10, a.add(10))
         self.assertEqual(21, a.add(20))
         self.assertEqual(32, a.add(30))
         self.assertEqual(3, AddCounter.count)
 
         a.count = 9
-        self.assertEqual(3, a.count)
+        self.assertEqual(9, a.count)
         self.assertEqual(43, a.add(40))
+        self.assertEqual(4, AddCounter.count)
+        self.assertEqual(9, a.count)
+
+    # We need a complete test of attribute behaviour because of our unusual __dict__ handling.
+    def test_descriptor(self):
+        test = self
+        class Add(dynamic_proxy(TP.Adder)):
+            @classmethod
+            def non_data(cls):
+                return "classmethod"
+
+            @property
+            def data(self):
+                return 42
+
+        a = Add()
+        self.assertEquals("classmethod", a.non_data())
+        a.non_data = lambda: "instance override"
+        self.assertEqual("instance override", a.non_data())
+        del a.non_data
+        self.assertEquals("classmethod", a.non_data())
+
+        self.assertEqual(42, a.data)
+        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+            a.data = 99
+        with self.assertRaisesRegexp(AttributeError, "can't delete attribute"):
+            del a.data
 
     def test_object_methods(self):
         class AnAdder(dynamic_proxy(TP.Adder)):

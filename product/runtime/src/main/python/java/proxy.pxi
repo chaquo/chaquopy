@@ -37,22 +37,12 @@ class DynamicProxy(object):
 
     def __getattr__(self, name):
         if name == "_chaquopy_this":
-            raise AttributeError("dynamic_proxy superclass __init__ must be called before "
-                                 "accessing attributes")
-        elif name == "_chaquopy_dict":
-            self.__dict__[name] = self._chaquopyGetDict()
-            return self.__dict__[name]
+            error = "object's superclass __init__ must be called before using it as a Java object"
         else:
-            try:
-                return self._chaquopy_dict[name]
-            except KeyError:
-                # Exception type and wording are based on Python 2.7.
-                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            # Exception type and wording are based on Python 2.7.
+            error = f"object has no attribute '{name}'"
+        raise AttributeError(f"'{type(self).__name__}' {error}")
 
-    def __setattr__(self, name, value):
-        try:
-            JavaObject.__setattr__(self, name, value)
-        except ReadOnlyAttributeError:
-            raise
-        except AttributeError:
-            self._chaquopy_dict[name] = value
+    # Proxy objects can have user-defined Python attributes, so remove the restrictions imposed
+    # by JavaObject.__setattr__.
+    __setattr__ = object.__setattr__
