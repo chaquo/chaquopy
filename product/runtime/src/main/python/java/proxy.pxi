@@ -25,18 +25,21 @@ class DynamicProxyClass(JavaClass):
                                (DynamicProxy,) + interfaces + bases[1:],
                                cls_dict)
             add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
+            add_member(cls, "_chaquopyGetDict", JavaMethod("()Lcom/chaquo/python/PyObject;"))
+            add_member(cls, "_chaquopySetDict", JavaMethod("(Lcom/chaquo/python/PyObject;)V"))
             jclass_cache[klass.getName()] = cls
             return cls
 
 
-# TODO: Python proxy objects should also be isinstance(java.lang.reflect.Proxy), maybe by
-# linking this class to Proxy in the same way we link JavaException to Throwable.
+# TODO: Python proxy objects should also be isinstance(java.lang.reflect.Proxy). But we can't
+# simply link this class to Proxy in the same way we link JavaException to Throwable, because
+# we don't want to provide any special behaviour for Proxy subclasses not created by us.
 class DynamicProxy(object):
     def __init__(self):
         JavaObject.__init__(self, PyInvocationHandler())
 
     def __getattr__(self, name):
-        if name == "_chaquopy_this":
+        if name.startswith("_chaquopy"):
             error = "object's superclass __init__ must be called before using it as a Java object"
         else:
             # Exception type and wording are based on Python 2.7.

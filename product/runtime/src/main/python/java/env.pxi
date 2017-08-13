@@ -13,8 +13,15 @@ from cpython.object cimport Py_EQ, Py_NE
 cdef class CQPEnv(object):
     cdef JNIEnv *j_env
 
-    def __init__(self):
-        self.j_env = get_jnienv()
+    def __init__(self, get=True):
+        if get:
+            self.j_env = get_jnienv()
+
+    @staticmethod
+    cdef CQPEnv wrap(JNIEnv *j_env):
+        env = CQPEnv(get=False)
+        env.j_env = j_env
+        return env
 
     # All common notations may be used, including '.' or '/' to separate package names, and
     # optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
@@ -41,6 +48,9 @@ cdef class CQPEnv(object):
     cdef IsSameObject(self, JNIRef ref1, JNIRef ref2):
         return bool(self.j_env[0].IsSameObject(self.j_env, ref1.obj, ref2.obj))
 
+    cdef LocalRef GetObjectClass(self, JNIRef obj):
+        return self.adopt(self.j_env[0].GetObjectClass(self.j_env, obj.obj))
+
     cdef IsInstanceOf(self, JNIRef obj, JNIRef j_klass):
         return bool(self.j_env[0].IsInstanceOf(self.j_env, obj.obj, j_klass.obj))
 
@@ -50,6 +60,124 @@ cdef class CQPEnv(object):
         if result == NULL:
             self.expect_exception(f'GetMethodID failed for {name}, {definition}')
         return result
+
+    cdef LocalRef CallObjectMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jobject result
+        with nogil:
+            result = self.j_env[0].CallObjectMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return self.adopt(result)
+    cdef CallBooleanMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jboolean result
+        with nogil:
+            result = self.j_env[0].CallBooleanMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return bool(result)
+    cdef CallByteMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jbyte result
+        with nogil:
+            result = self.j_env[0].CallByteMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallCharMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jchar result
+        with nogil:
+            result = self.j_env[0].CallCharMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return six.unichr(result)
+    cdef CallShortMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jshort result
+        with nogil:
+            result = self.j_env[0].CallShortMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallIntMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jint result
+        with nogil:
+            result = self.j_env[0].CallIntMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallLongMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jlong result
+        with nogil:
+            result = self.j_env[0].CallLongMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallFloatMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jfloat result
+        with nogil:
+            result = self.j_env[0].CallFloatMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallDoubleMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        cdef jdouble result
+        with nogil:
+            result = self.j_env[0].CallDoubleMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallVoidMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
+        with nogil:
+            self.j_env[0].CallVoidMethodA(self.j_env, this.obj, mid, args)
+        self.check_exception()
+
+    cdef LocalRef CallNonvirtualObjectMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jobject result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualObjectMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return self.adopt(result)
+    cdef CallNonvirtualBooleanMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jboolean result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualBooleanMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return bool(result)
+    cdef CallNonvirtualByteMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jbyte result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualByteMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualCharMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jchar result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualCharMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return six.unichr(result)
+    cdef CallNonvirtualShortMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jshort result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualShortMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualIntMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jint result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualIntMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualLongMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jlong result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualLongMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualFloatMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jfloat result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualFloatMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualDoubleMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jdouble result
+        with nogil:
+            result = self.j_env[0].CallNonvirtualDoubleMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallNonvirtualVoidMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
+        with nogil:
+            self.j_env[0].CallNonvirtualVoidMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
+        self.check_exception()
 
     cdef jfieldID GetFieldID(self, JNIRef j_klass, name, definition) except NULL:
         cdef jfieldID result = self.j_env[0].GetFieldID \
@@ -64,6 +192,65 @@ cdef class CQPEnv(object):
         if result == NULL:
             self.expect_exception(f'GetStaticMethodID failed for {name}, {definition}')
         return result
+
+    cdef LocalRef CallStaticObjectMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jobject result
+        with nogil:
+            result = self.j_env[0].CallStaticObjectMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return self.adopt(result)
+    cdef CallStaticBooleanMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jboolean result
+        with nogil:
+            result = self.j_env[0].CallStaticBooleanMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return bool(result)
+    cdef CallStaticByteMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jbyte result
+        with nogil:
+            result = self.j_env[0].CallStaticByteMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticCharMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jchar result
+        with nogil:
+            result = self.j_env[0].CallStaticCharMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return six.unichr(result)
+    cdef CallStaticShortMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jshort result
+        with nogil:
+            result = self.j_env[0].CallStaticShortMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticIntMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jint result
+        with nogil:
+            result = self.j_env[0].CallStaticIntMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticLongMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jlong result
+        with nogil:
+            result = self.j_env[0].CallStaticLongMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticFloatMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jfloat result
+        with nogil:
+            result = self.j_env[0].CallStaticFloatMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticDoubleMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jdouble result
+        with nogil:
+            result = self.j_env[0].CallStaticDoubleMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return result
+    cdef CallStaticVoidMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        with nogil:
+            self.j_env[0].CallStaticVoidMethodA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
 
     cdef jfieldID GetStaticFieldID(self, JNIRef j_klass, name, definition) except NULL:
         cdef jfieldID result = self.j_env[0].GetStaticFieldID \
@@ -94,6 +281,8 @@ cdef class CQPEnv(object):
     cdef LocalRef NewObjectArray(self, length, JNIRef j_klass):
         return self.adopt_notnull(self.j_env[0].NewObjectArray(self.j_env, length, j_klass.obj, NULL))
 
+    # The primitive type Get...ArrayElement functions are not in the JNI, but are provided for
+    # convenience.
     cdef GetBooleanArrayElement(self, JNIRef array, index):
         cdef jboolean j_value = 0
         self.j_env[0].GetBooleanArrayRegion(self.j_env, array.obj, index, 1, &j_value)
@@ -139,6 +328,8 @@ cdef class CQPEnv(object):
         self.check_exception()
         return result
 
+    # The primitive type Set...ArrayElement functions are not in the JNI, but are provided for
+    # convenience.
     cdef SetBooleanArrayElement(self, JNIRef array, index, value):
         cdef jboolean j_value = value
         self.j_env[0].SetBooleanArrayRegion(self.j_env, array.obj, index, 1, &j_value)
@@ -182,14 +373,14 @@ cdef class CQPEnv(object):
             self.expect_exception("NULL object")
         return self.adopt(j_obj)
 
+    cdef LocalRef adopt(self, jobject j_obj):
+        return LocalRef.adopt(self.j_env, j_obj)
+
     cdef expect_exception(self, msg):
         expect_exception(self.j_env, msg)
 
     cdef check_exception(self):
         check_exception(self.j_env)
-
-    cdef LocalRef adopt(self, jobject j_obj):
-        return LocalRef.adopt(self.j_env, j_obj)
 
 
 cdef GlobalRef j_System
@@ -205,10 +396,13 @@ cdef class JNIRef(object):
         return f'<{type(self).__name__} obj=0x{<uintptr_t>self.obj:x}>'
 
     def __richcmp__(self, JNIRef other, int op):
+        # Can't call __richcmp__ recursively for !=: Cython generates a Python-level call, but
+        # it isn't exposed at the Python level.
+        is_same = CQPEnv().IsSameObject(self, other)
         if op == Py_EQ:
-            return CQPEnv().IsSameObject(self, other)
+            return is_same
         elif op == Py_NE:
-            return not self.__richcmp__(other, 2)
+            return not is_same
         else:
             raise NotImplementedError()
 

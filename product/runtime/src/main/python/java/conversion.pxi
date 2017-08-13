@@ -64,7 +64,7 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if not j_object:
         return None
 
-    sig = object_sig(j_env, j_object)
+    sig = object_sig(CQPEnv.wrap(j_env), j_object)
     if sig[0] == '[':
         return jarray(sig[1:])(instance=j_object)
     if sig == 'Ljava/lang/String;':
@@ -205,6 +205,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                     if boxed: return boxed
 
         elif isinstance(obj, JavaObject):
+            # See note at is_applicable_arg for why we don't use IsInstanceOf with _chaquopy_this.
             if env.IsAssignableFrom(<JNIRef?>type(obj)._chaquopy_j_klass, j_klass):
                 return obj._chaquopy_this
         elif isinstance(obj, JavaClass):
@@ -283,6 +284,13 @@ cdef JNIRef p2j_string(JNIEnv *env, s):
     return p2j(env, "Ljava/lang/String;", s)
 
 
+cdef box_sig(JNIEnv *j_env, JNIRef j_klass):
+    original_sig = klass_sig(CQPEnv.wrap(j_env), j_klass)
+    box_cls_name = PRIMITIVE_TYPES.get(original_sig)
+    return f"Ljava/lang/{box_cls_name};" if box_cls_name else original_sig
+
+
+# TODO #5170: range checking may lead to incorrect overload caching.
 cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     full_box_cls_name = "java.lang." + box_cls_name
     j_box_klass = env.FindClass(full_box_cls_name)

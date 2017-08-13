@@ -1,17 +1,5 @@
 # FIXME:
 #
-# BEFORE TOUCHING THIS, READ AND ORGANIZE RELEVANT NOTES IN GOOGLE DOC AND foo.*
-#
-#     Can call Object methods and read instance constants via `self`, but cannot overwrite or
-#     hide them.
-#
-#     toString, hashCode and equals called from Java should delegate to Python methods of same
-#     name if present, otherwise Object. Python special methods continue to invoke Java method
-#     name, which will go directly to the Python implementation if present, or else Object.
-#     Overriding Python special methods will only affect Python.
-#
-#     Unimplemented method (may require nonvirtual change: if so, commit first)
-#
 # Thrown exceptions
 
 
@@ -20,7 +8,6 @@ from __future__ import absolute_import, division, print_function
 from unittest import TestCase
 
 from java import *
-from java.lang import ClassCastException, NullPointerException
 from com.chaquo.python import PyException, TestProxy as TP
 
 
@@ -59,7 +46,7 @@ class TestProxy(TestCase):
 
         a2, a3 = AddN(2), AddN(3)
         self.assertEqual(2, a2.n)
-        self.assertEqual(5, cast(TP.Adder, a2).add(3))
+        self.assertEqual(5, cast(TP.Adder, a2).add(3))  # cast() ensures the call goes through Java.
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
 
@@ -96,6 +83,16 @@ class TestProxy(TestCase):
         self.assertEqual(-5, a.after_init_n)
         self.assertEqual(7, cast(TP.Adder, a).add(2))
 
+        a_Adder = cast(TP.Adder, a)
+        self.assertNotIsInstance(a_Adder, A)
+        self.assertFalse(hasattr(a_Adder, "before_init_n"))
+        a = None
+        assertTriggered(False)
+        a = cast(A, a_Adder)
+        self.assertIsInstance(a, A)
+        self.assertEqual(5, a.before_init_n)
+        a_Adder = None
+
         TP.a = None
         assertTriggered(False)
         a = None
@@ -120,7 +117,7 @@ class TestProxy(TestCase):
 
         super(A, a).__init__()
         TP.a = a
-        # FIXME a.toString()
+        a.toString()
         cast(TP.Adder, a)
 
     def test_interface_constant(self):
@@ -128,14 +125,15 @@ class TestProxy(TestCase):
             def add(self, x):
                 return x + self.constant
 
-        self.assertEqual(123, AddConstant.constant)
-        with self.assertRaisesRegexp(AttributeError, "constant is a final field"):
-            AddConstant.constant = 321
-
         a = AddConstant()
+        self.assertEqual(123, a.constant)
+        self.assertEqual(123, AddConstant.constant)
         self.assertEqual(125, a.add(2))
-        with self.assertRaisesRegexp(AttributeError, "constant is a final field"):
+        final = self.assertRaisesRegexp(AttributeError, "constant is a final field")
+        with final:
             a.constant = 321
+        with final:
+            AddConstant.constant = 321
 
     # We need a complete test of attribute behaviour because of our unusual __dict__ handling.
     def test_attribute(self):
@@ -189,15 +187,53 @@ class TestProxy(TestCase):
         with self.assertRaisesRegexp(AttributeError, "can't delete attribute"):
             del a.data
 
-    def test_object_methods(self):
-        class AnAdder(dynamic_proxy(TP.Adder)):
-            def toString(self):
-                return "anadder"
+    def test_unimplemented(self):
+        class A(dynamic_proxy(TP.Adder)):
+            pass
+        with self.assertRaisesRegexp(PyException, "TestProxy\$Adder.add is abstract"):
+            cast(TP.Adder, A()).add(5)
 
-        a1 = AnAdder()
-        self.assertEqual("anadder", TP.toString(a1))
-        # FIXME test equals and hashCode, and test unimplemented
-        # FIXME test cannot assign to Object methods
+    def test_object_methods_unimplemented(self):
+        class Unimplemented(dynamic_proxy(TP.Adder)):
+            pass
+        a1, a2 = Unimplemented(), Unimplemented()
+
+        ts = cast(TP.Adder, a1).toString()
+        self.assertRegexpMatches(ts, r"\$Proxy.*@")
+        self.assertEqual(ts, str(a1))
+        self.assertNotEqual(str(a1), str(a2))
+
+        self.assertTrue(a1.equals(a1))
+        self.assertFalse(a1.equals(a2))
+        self.assertTrue(a1 == a1)
+        self.assertFalse(a1 == a2)
+        self.assertNotEqual(a1.hashCode(), a2.hashCode())
+        self.assertNotEqual(hash(a1), hash(a2))
+
+        a1.foo = 99
+        for name in ["toString", "equals", "hashCode"]:
+            with self.assertRaisesRegexp(AttributeError, name + " is not a field"):
+                setattr(a1, name, 99)
+
+    def test_object_methods_implemented(self):
+        from java.lang import Object
+        class Implemented(dynamic_proxy(TP.Adder)):
+            def toString(self):
+                return "Override " + super(Implemented, self).toString()
+            def hashCode(self):
+                return super(Implemented, self).hashCode() + 1
+            def equals(self, other):
+                return True
+        a1, a2 = Implemented(), Implemented()
+
+        ts = cast(TP.Adder, a1).toString()
+        self.assertRegexpMatches(ts, r"^Override .*\$Proxy.*@")
+        self.assertEqual(ts, str(a1))
+        self.assertNotEqual(str(a1), str(a2))
+
+        self.assertTrue(a1.equals(a1))
+        self.assertTrue(a1.equals(a2))
+        self.assertEqual(Object.hashCode(a1) + 1, a1.hashCode())
 
     def test_python_base(self):
         class B(object):
@@ -210,7 +246,7 @@ class TestProxy(TestCase):
         self.assertEqual(47, cast(TP.Adder, C()).add(5))
 
     def test_return(self):
-        from java.lang import Runnable
+        from java.lang import Runnable, ClassCastException, NullPointerException
         class C(dynamic_proxy(Runnable, TP.Adder)):
             def add(self, x):
                 return self.result

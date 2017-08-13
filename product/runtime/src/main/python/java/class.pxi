@@ -93,11 +93,12 @@ class JavaClass(type):
                 if not self:
                     env = CQPEnv()
                     if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
-                        expected = java.sig_to_java(klass_sig(env.j_env, cls._chaquopy_j_klass))
-                        actual = java.sig_to_java(object_sig(env.j_env, instance))
+                        expected = java.sig_to_java(klass_sig(env, cls._chaquopy_j_klass))
+                        actual = java.sig_to_java(object_sig(env, instance))
                         raise TypeError(f"cannot create {expected} proxy from {actual} instance")
                     self = cls.__new__(cls, *args, **kwargs)
-                    set_this(self, instance.global_ref())
+                    set_this(self, instance.global_ref(),
+                             cast=(env.GetObjectClass(instance) != cls._chaquopy_j_klass))
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
 
@@ -135,7 +136,7 @@ def setup_object_class():
             # any base class which provides a __dict__. For example, Python Exception objects
             # have a __dict__, so that would cause all Java Throwables to have one too.
             object.__setattr__(self, name, value)
-            if (name in self.__dict__) and (name not in ["_chaquopy_this"]):
+            if (name in self.__dict__) and not name.startswith("_chaquopy"):
                 del self.__dict__[name]
                 # Exception type and wording are based on Python 2.7.
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
@@ -176,9 +177,10 @@ def setup_object_class():
 #     * (PROXY ONLY) The WeakRef is now invalid, but that's not a problem because it's
 #       unreachable from both languages. With the Java object gone, the __dict__ and WeakRef
 #       now die, in that order.
-def set_this(self, GlobalRef this):
+def set_this(self, GlobalRef this, *, cast=False):
     with class_lock:
         self._chaquopy_this = this.weak_ref()
+        self._chaquopy_cast = cast
         instance_cache[(type(self), this)] = self
 
         if "PyProxy" in globals() and isinstance(self, PyProxy):
@@ -280,7 +282,7 @@ def reflect_class(cls):
 
         # To speed up reflection, we avoid checking signatures here. This means we'll create
         # JavaMultipleMethods for all methods which are overridden in this class, even if
-        # they're not overloaded. JavaMultipleMethod.__get__ will tidy up the situation the
+        # they're not overloaded. JavaMultipleMethod.resolve will tidy up the situation the
         # first time the method is used.
         for ancestor in cls.__mro__[1:]:
             try:
@@ -549,6 +551,7 @@ cdef class JavaMethod(JavaSimpleMember):
     cdef basestring definition_return
     cdef tuple definition_args
     cdef bint is_constructor
+    cdef bint is_abstract
     cdef bint is_varargs
 
     def __repr__(self):
@@ -560,9 +563,10 @@ cdef class JavaMethod(JavaSimpleMember):
                 f"{java.sig_to_java(self.definition_return)} {self.fqn()}"
                 f"{java.args_sig_to_java(self.definition_args, self.is_varargs)}")
 
-    def __init__(self, definition_or_reflected, *, static=False, varargs=False):
+    def __init__(self, definition_or_reflected, *, static=False, varargs=False, abstract=False):
         super().__init__(definition_or_reflected, static=static)
         self.is_varargs = varargs
+        self.is_abstract = abstract
 
     def resolve(self):
         if self.j_method: return
@@ -573,6 +577,7 @@ cdef class JavaMethod(JavaSimpleMember):
                            else self.reflected.getReturnType())
             self.definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
             self.is_varargs = self.reflected.isVarArgs()
+            self.is_abstract = Modifier.isAbstract(self.reflected.getModifiers())
 
         env = CQPEnv()
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
@@ -583,17 +588,35 @@ cdef class JavaMethod(JavaSimpleMember):
         self.definition_return, self.definition_args = java.split_method_sig(self.definition)
         self.is_constructor = (self.name == "<init>")
 
+    # To be consistent with Python syntax, we want instance methods to be called non-virtually
+    # in the following cases:
+    #
+    #   * When the method is got from a class rather than an instance. This is easy to detect:
+    #     obj is None.
+    #   * When the method is got via a super() object. Unfortunately I don't think there's any
+    #     way to detect this: objtype is set to the first parameter of super(), which in the
+    #     common case is just type(obj).
+    #
+    # So we have to take the opposite approach and consider when methods *must* be called
+    # virtually. The only case I can think of is when we're using cast() to hide overloads
+    # added in a subclass, but we still want to call the subclass overrides of visible
+    # overloads. So we'll call virtually whenever the method is got from a cast object.
+    # Otherwise we'll call non-virtually, and rely on the Python method resolution rules to
+    # pick the correct override.
     def __get__(self, obj, objtype):
         self.resolve()
         if obj is None or self.is_static or self.is_constructor:
             return self
         else:
-            return lambda *args: self(obj, *args)
+            return lambda *args: self(obj, *args, virtual=obj._chaquopy_cast)
 
-    def __call__(self, *args):
+    def __call__(self, *args, virtual=False):
         cdef jvalue *j_args = NULL
         cdef tuple d_args = self.definition_args
-        cdef JNIEnv *j_env = get_jnienv()
+        env = CQPEnv()
+
+        if self.is_abstract and virtual is False:
+            raise NotImplementedError(f"{self.fqn()} is abstract and cannot be called directly")
 
         if self.is_static or self.is_constructor:
             obj = None
@@ -616,18 +639,20 @@ cdef class JavaMethod(JavaSimpleMember):
             raise TypeError(f'{self.fqn()} takes {plural(len(d_args), "argument")} '
                             f'({len(args)} given)')
 
-        p2j_args = [p2j(j_env, argtype, arg)
+        p2j_args = [p2j(env.j_env, argtype, arg)
                     for argtype, arg in six.moves.zip(d_args, args)]
         if len(args):
             j_args = <jvalue*>alloca(sizeof(jvalue) * len(d_args))
-            populate_args(j_env, d_args, j_args, p2j_args)
+            populate_args(env.j_env, d_args, j_args, p2j_args)
 
         if self.is_constructor:
-            result = self.call_constructor(j_env, j_args)
+            result = self.call_constructor(env.j_env, j_args)
         elif self.is_static:
-            result = self.call_static_method(j_env, j_args)
+            result = self.call_static_method(env, j_args)
+        elif virtual:
+            result = self.call_virtual_method(env, obj._chaquopy_this, j_args)
         else:
-            result = self.call_method(j_env, obj, j_args)
+            result = self.call_nonvirtual_method(env, obj._chaquopy_this, j_args)
 
         copy_output_args(d_args, args, p2j_args)
         return result
@@ -653,129 +678,83 @@ cdef class JavaMethod(JavaSimpleMember):
         check_exception(j_env)
         return LocalRef.adopt(j_env, j_self).global_ref()
 
-    cdef call_method(self, JNIEnv *j_env, obj, jvalue *j_args):
-        # These temporary variables are required because Python objects can't be touched during
-        # "with nogil".
-        cdef jboolean j_boolean
-        cdef jbyte j_byte
-        cdef jchar j_char
-        cdef jshort j_short
-        cdef jint j_int
-        cdef jlong j_long
-        cdef jfloat j_float
-        cdef jdouble j_double
-        cdef jobject j_object
-
-        cdef jobject j_self = (<JNIRef?>obj._chaquopy_this).obj
-        ret = None
+    cdef call_virtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
         r = self.definition_return[0]
         if r == 'V':
-            with nogil:
-                j_env[0].CallVoidMethodA(j_env, j_self, self.j_method, j_args)
+            env.CallVoidMethodA(this, self.j_method, j_args)
         elif r == 'Z':
-            with nogil:
-                j_boolean = j_env[0].CallBooleanMethodA(j_env, j_self, self.j_method, j_args)
-            ret = bool(j_boolean)
+            return env.CallBooleanMethodA(this, self.j_method, j_args)
         elif r == 'B':
-            with nogil:
-                j_byte = j_env[0].CallByteMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_byte
+            return env.CallByteMethodA(this, self.j_method, j_args)
         elif r == 'C':
-            with nogil:
-                j_char = j_env[0].CallCharMethodA(j_env, j_self, self.j_method, j_args)
-            ret = six.unichr(j_char)
+            return env.CallCharMethodA(this, self.j_method, j_args)
         elif r == 'S':
-            with nogil:
-                j_short = j_env[0].CallShortMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_short
+            return env.CallShortMethodA(this, self.j_method, j_args)
         elif r == 'I':
-            with nogil:
-                j_int = j_env[0].CallIntMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_int
+            return env.CallIntMethodA(this, self.j_method, j_args)
         elif r == 'J':
-            with nogil:
-                j_long = j_env[0].CallLongMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_long
+            return env.CallLongMethodA(this, self.j_method, j_args)
         elif r == 'F':
-            with nogil:
-                j_float = j_env[0].CallFloatMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_float
+            return env.CallFloatMethodA(this, self.j_method, j_args)
         elif r == 'D':
-            with nogil:
-                j_double = j_env[0].CallDoubleMethodA(j_env, j_self, self.j_method, j_args)
-            ret = j_double
+            return env.CallDoubleMethodA(this, self.j_method, j_args)
         elif r in 'L[':
-            with nogil:
-                j_object = j_env[0].CallObjectMethodA(j_env, j_self, self.j_method, j_args)
-            check_exception(j_env)
-            ret = j2p(j_env, LocalRef.adopt(j_env, j_object))
+            return j2p(env.j_env, env.CallObjectMethodA(this, self.j_method, j_args))
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
 
-        check_exception(j_env)
-        return ret
-
-    cdef call_static_method(self, JNIEnv *j_env, jvalue *j_args):
-        # These temporary variables are required because Python objects can't be touched during
-        # "with nogil".
-        cdef jboolean j_boolean
-        cdef jbyte j_byte
-        cdef jchar j_char
-        cdef jshort j_short
-        cdef jint j_int
-        cdef jlong j_long
-        cdef jfloat j_float
-        cdef jdouble j_double
-        cdef jobject j_object
-
-        ret = None
-        cdef jobject j_class = (<JNIRef?>self.cls._chaquopy_j_klass).obj
+    cdef call_nonvirtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
+        cdef JNIRef j_klass = self.cls._chaquopy_j_klass
         r = self.definition_return[0]
         if r == 'V':
-            with nogil:
-                j_env[0].CallStaticVoidMethodA(j_env, j_class, self.j_method, j_args)
+            env.CallNonvirtualVoidMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'Z':
-            with nogil:
-                j_boolean = j_env[0].CallStaticBooleanMethodA(j_env, j_class, self.j_method, j_args)
-            ret = bool(j_boolean)
+            return env.CallNonvirtualBooleanMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'B':
-            with nogil:
-                j_byte = j_env[0].CallStaticByteMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_byte
+            return env.CallNonvirtualByteMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'C':
-            with nogil:
-                j_char = j_env[0].CallStaticCharMethodA(j_env, j_class, self.j_method, j_args)
-            ret = six.unichr(j_char)
+            return env.CallNonvirtualCharMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'S':
-            with nogil:
-                j_short = j_env[0].CallStaticShortMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_short
+            return env.CallNonvirtualShortMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'I':
-            with nogil:
-                j_int = j_env[0].CallStaticIntMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_int
+            return env.CallNonvirtualIntMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'J':
-            with nogil:
-                j_long = j_env[0].CallStaticLongMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_long
+            return env.CallNonvirtualLongMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'F':
-            with nogil:
-                j_float = j_env[0].CallStaticFloatMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_float
+            return env.CallNonvirtualFloatMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'D':
-            with nogil:
-                j_double = j_env[0].CallStaticDoubleMethodA(j_env, j_class, self.j_method, j_args)
-            ret = j_double
+            return env.CallNonvirtualDoubleMethodA(this, j_klass, self.j_method, j_args)
         elif r in 'L[':
-            with nogil:
-                j_object = j_env[0].CallStaticObjectMethodA(j_env, j_class, self.j_method, j_args)
-            check_exception(j_env)
-            ret = j2p(j_env, LocalRef.adopt(j_env, j_object))
+            return j2p(env.j_env, env.CallNonvirtualObjectMethodA(this, j_klass, self.j_method,
+                                                                  j_args))
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
 
-        check_exception(j_env)
-        return ret
+    cdef call_static_method(self, CQPEnv env, jvalue *j_args):
+        cdef JNIRef j_klass = self.cls._chaquopy_j_klass
+        r = self.definition_return[0]
+        if r == 'V':
+            env.CallStaticVoidMethodA(j_klass, self.j_method, j_args)
+        elif r == 'Z':
+            return env.CallStaticBooleanMethodA(j_klass, self.j_method, j_args)
+        elif r == 'B':
+            return env.CallStaticByteMethodA(j_klass, self.j_method, j_args)
+        elif r == 'C':
+            return env.CallStaticCharMethodA(j_klass, self.j_method, j_args)
+        elif r == 'S':
+            return env.CallStaticShortMethodA(j_klass, self.j_method, j_args)
+        elif r == 'I':
+            return env.CallStaticIntMethodA(j_klass, self.j_method, j_args)
+        elif r == 'J':
+            return env.CallStaticLongMethodA(j_klass, self.j_method, j_args)
+        elif r == 'F':
+            return env.CallStaticFloatMethodA(j_klass, self.j_method, j_args)
+        elif r == 'D':
+            return env.CallStaticDoubleMethodA(j_klass, self.j_method, j_args)
+        elif r in 'L[':
+            return j2p(env.j_env, env.CallStaticObjectMethodA(j_klass, self.j_method, j_args))
+        else:
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
 
 
 cdef class JavaMultipleMethod(JavaMember):
@@ -809,21 +788,20 @@ cdef class JavaMultipleMethod(JavaMember):
                 overridden.append(jm)
             else:
                 sigs_seen.add(jm.definition_args)
+
+        # See comment in reflect_class
         for jm in overridden:
             self.methods.remove(jm)
+        if len(self.methods) == 1:
+            type.__setattr__(self.cls, self.name, self.methods[0])
 
         self.resolved = True
 
     def __get__(self, obj, objtype):
         self.resolve()
-        if len(self.methods) == 1:  # See comment in reflect_class
-            method = self.methods[0]
-            add_member(self.cls, self.name, method)
-            return method.__get__(obj, objtype)
-        else:
-            return lambda *args: self(obj, *args)
+        return lambda *args: self(obj, objtype, *args)
 
-    def __call__(self, obj, *args):
+    def __call__(self, obj, objtype, *args):
         args_types = tuple(map(type, args))
         obj_args_types = (type(obj), args_types)
         best_overload = self.overload_cache.get(obj_args_types)
@@ -858,7 +836,7 @@ cdef class JavaMultipleMethod(JavaMember):
             best_overload = maximal[0]
             self.overload_cache[obj_args_types] = best_overload
 
-        return best_overload.__get__(obj, type(obj))(*args)
+        return best_overload.__get__(obj, objtype)(*args)
 
     def find_applicable(self, obj, args, *, autobox, varargs):
         result = []

@@ -8,7 +8,7 @@ from java._vendor import six
 
 import java
 from .chaquopy import (JavaArray, JavaClass, NoneCast, check_range_char, check_range_float32,
-                       cls_fullname)
+                       CQPEnv, klass_sig)
 
 __all__ = ["jni_sig", "name_to_sig", "jni_method_sig", "split_method_sig",
            "sig_to_java", "args_sig_to_java",
@@ -143,7 +143,7 @@ def jni_sig(c):
             if issubclass(c, JavaArray):
                 return c.__name__
             else:
-                return "L" + cls_fullname(c).replace(".", "/") + ";"
+                return klass_sig(CQPEnv(), c._chaquopy_j_klass)
         elif issubclass(c, (NoneCast, Primitive)):
             return c.sig
     elif isinstance(c, java.jclass("java.lang.Class")):

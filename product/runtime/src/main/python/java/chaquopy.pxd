@@ -12,6 +12,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)
 cdef JNIRef p2j_string(JNIEnv *env, s)
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
 
+cdef box_sig(JNIEnv *j_env, JNIRef j_klass)
+
 # === env =====================================================================
 
 cdef class JNIRef(object):
@@ -45,6 +47,3 @@ cdef class WeakRef(JNIRef):
 
 cdef set_jvm(JavaVM *new_jvm)
 
-# === utils ===================================================================
-
-cdef klass_sig(JNIEnv *j_env, JNIRef j_cls)

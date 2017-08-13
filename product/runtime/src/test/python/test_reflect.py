@@ -1,6 +1,9 @@
 from __future__ import absolute_import, division, print_function
+
 import unittest
+
 from java import *
+from com.chaquo.python import TestReflect as TR
 
 
 class TestReflect(unittest.TestCase):
@@ -259,22 +262,27 @@ class TestReflect(unittest.TestCase):
         self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
 
     def test_interface(self):
-        Interface = jclass("com.chaquo.python.TestReflect$Interface")
-        with self.assertRaisesRegexp(TypeError, "abstract"):
-            Interface()
+        with self.assertRaisesRegexp(TypeError, "Interface is abstract and cannot be instantiated"):
+            TR.Interface()
 
-        self.assertEqual("Interface constant", Interface.iConstant)
+        self.assertEqual("Interface constant", TR.Interface.iConstant)
         with self.assertRaisesRegexp(AttributeError, "final"):
-            Interface.iConstant = "not constant"
+            TR.Interface.iConstant = "not constant"
 
-        Child = jclass("com.chaquo.python.TestReflect$Child")
-        with self.assertRaisesRegexp(TypeError, "must be called with .*Interface instance as "
-                                     "first argument \(got nothing instead\)"):
-            Interface.iMethod()
-        self.assertEqual("Implemented method", Interface.iMethod(Child()))
+        c = TR.Child()
+        abstract = self.assertRaisesRegexp(NotImplementedError, "Interface.iMethod is abstract "
+                                           "and cannot be called directly")
+        with abstract:
+            TR.Interface.iMethod()
+        with abstract:
+            TR.Interface.iMethod(c)
 
-        # Interfaces should expose all Object class methods.
-        self.assertEqual("Child object", Interface.toString(Child()))
+        # Getting an Object method directly from an interface class should return the Object
+        # implementation.
+        self.assertRegexpMatches(TR.Interface.toString(c), r"^com.chaquo.python.TestReflect\$Child@")
+
+        # But calling an Object method through an interface cast should be done virtually.
+        self.assertEqual("Child object", cast(TR.Interface, c).toString())
 
     def test_inheritance(self):
         Object = jclass("java.lang.Object")
@@ -333,12 +341,29 @@ class TestReflect(unittest.TestCase):
         self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
         self.assertEqual("Overridden method", c_Parent.oMethod())
 
-    def verify_field(self, obj, name, value):
+    def test_super(self):
+        c = TR.Child()
+        c_super = super(TR.Child, c)
+        self.assertEqual("Interface constant", c_super.iConstant)
+        with self.assertRaisesRegexp(NotImplementedError, "abstract"):    # Different to cast()
+            c_super.iMethod()
+        # super objects don't support setattr (http://bugs.python.org/issue14965)
+        self.verify_field(c_super, "pStaticField", "Parent static field", modify=False)
+        self.verify_field(c_super, "pField", "Parent field", modify=False)
+        self.assertEqual("Parent static method", c_super.pStaticMethod())
+        self.assertEqual("Parent method", c_super.pMethod())
+        self.verify_field(c_super, "oStaticField", "Non-overridden static field", modify=False)
+        self.verify_field(c_super, "oField", "Non-overridden field", modify=False)
+        self.assertEqual("Non-overridden static method", c_super.oStaticMethod())
+        self.assertEqual("Non-overridden method", c_super.oMethod()) # Different to cast()
+
+    def verify_field(self, obj, name, value, modify=True):
         self.assertEqual(value, getattr(obj, name))
-        setattr(obj, name, "Modified")
-        self.assertEqual("Modified", getattr(obj, name))
-        setattr(obj, name, value)
-        self.assertEqual(value, getattr(obj, name))
+        if modify:
+            setattr(obj, name, "Modified")
+            self.assertEqual("Modified", getattr(obj, name))
+            setattr(obj, name, value)
+            self.assertEqual(value, getattr(obj, name))
 
     def test_abstract(self):
         Abstract = jclass("com.chaquo.python.TestReflect$Abstract")

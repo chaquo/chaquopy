@@ -166,11 +166,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
         self = j2p_pyobject(env, this)
-        to_sig = klass_sig(env, LocalRef.create(env, to_klass))
-        box_cls_name = java.chaquopy.PRIMITIVE_TYPES.get(to_sig)
-        if box_cls_name:
-            to_sig = f"Ljava/lang/{box_cls_name};"
-
+        to_sig = box_sig(env, LocalRef.create(env, to_klass))
         try:
             return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
         except TypeError as e:

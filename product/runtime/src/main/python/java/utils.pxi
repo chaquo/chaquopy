@@ -1,11 +1,6 @@
 # I considered whether to make `cast` aliases clearly distinguishable from plain objects, by
 # generalizing `NoneCast` to `Cast`, and giving it a `repr` of `cast('<jni-signature>',
-# repr(<underlying-object>))`. However, this would require the `Cast` type to support all the
-# same `__special__` methods as Java objects, and to be kept in sync as those methods are
-# expanded in the future, and I don't see any benefit to justify that work.
-#
-# TODO #5181 provide way to check whether two proxy objects are the same Java object, even if
-# one of them has been casted.
+# repr(<underlying-object>))`. However, this would be a major change for no clear benefit.
 def cast(cls, obj):
     """Returns a view of the given object as the given class. The class must be one created by
     :any:`jclass` or :any:`jarray`, or a JNI type signature for a class or array. The object
@@ -76,24 +71,21 @@ cdef jmethodID mid_getName = NULL
 
 # To avoid infinite recursion, this function must not use anything which could call
 # klass_sig itself, including any jclass proxy methods.
-cdef klass_sig(JNIEnv *j_env, JNIRef j_cls):
+def klass_sig(CQPEnv env, JNIRef j_cls):
     global mid_getName
     if not mid_getName:
-        j_Class = LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_cls.obj))
-        mid_getName = j_env[0].GetMethodID(j_env, j_Class.obj, 'getName', '()Ljava/lang/String;')
-        if not mid_getName:
-            j_env[0].ExceptionClear(j_env)
-            raise Exception("GetMethodID failed")
+        j_Class = env.FindClass("java.lang.Class")
+        mid_getName = env.GetMethodID(j_Class, 'getName', '()Ljava/lang/String;')
 
-    j_name = LocalRef.adopt(j_env, j_env[0].CallObjectMethod(j_env, j_cls.obj, mid_getName))
+    j_name = env.adopt(env.j_env[0].CallObjectMethod(env.j_env, j_cls.obj, mid_getName))
     if not j_name:
-        j_env[0].ExceptionClear(j_env)
+        env.ExceptionClear()
         raise Exception("getName failed")
-    return java.name_to_sig(j2p_string(j_env, j_name))
+    return java.name_to_sig(j2p_string(env.j_env, j_name))
 
 
-cdef object_sig(JNIEnv *j_env, JNIRef j_obj):
-    return klass_sig(j_env, LocalRef.adopt(j_env, j_env[0].GetObjectClass(j_env, j_obj.obj)))
+def object_sig(CQPEnv env, JNIRef j_obj):
+    return klass_sig(env, env.GetObjectClass(j_obj))
 
 
 def is_applicable(sign_args, args, autobox, varargs):
@@ -123,8 +115,8 @@ def is_applicable(sign_args, args, autobox, varargs):
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the actual parameter type, not its value.
 cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
-    # All Python iterables are considered applicable to all arrays, irrespective of the values
-    # they contain. (p2j would type-check the values.)
+    # All Python iterable types are considered applicable to all array types. (p2j would
+    # type-check the values, possibly leading to incorrect overload caching.)
     if assignable_to_array(r, arg):
         return True
     try:
