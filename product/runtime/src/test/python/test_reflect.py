@@ -332,6 +332,10 @@ class TestReflect(unittest.TestCase):
         self.assertTrue(isinstance(c_Parent, Parent))
         self.assertFalse(isinstance(c_Parent, Interface))
         self.assertTrue(isinstance(c_Parent, Object))
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            c_Parent.iConstant
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            c_Parent.iMethod()
         self.verify_field(c_Parent, "pStaticField", "Parent static field")
         self.verify_field(c_Parent, "pField", "Parent field")
         self.assertEqual("Parent static method", c_Parent.pStaticMethod())

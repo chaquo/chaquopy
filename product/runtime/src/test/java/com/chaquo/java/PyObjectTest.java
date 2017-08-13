@@ -174,7 +174,7 @@ public class PyObjectTest {
         assertEquals(24, (int)pyobjecttest.callAttr("sum_mul", 6, new Kwarg("mul", 4)).toJava(Integer.class));
 
         thrown.expect(PyException.class);
-        thrown.expectMessage("AttributeError: object has no attribute 'nonexistent'");
+        thrown.expectMessage("AttributeError: 'module' object has no attribute 'nonexistent'");
         pyobjecttest.callAttr("nonexistent");
     }
 

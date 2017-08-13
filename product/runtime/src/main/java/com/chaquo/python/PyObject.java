@@ -116,13 +116,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Equivalent to `{@link #get get}(key).{@link #call call}(args)`, except it throws a
      * PyException if the attribute does not exist. */
-    public PyObject callAttr(String key, Object... args) {
-        PyObject value = get(key);
-        if (value == null) {
-            throw new PyException("AttributeError: object has no attribute '" + key + "'");
-        }
-        return value.call(args);
-    }
+    public native PyObject callAttr(String key, Object... args);
 
     // ==== Map ==============================================================
 
@@ -154,7 +148,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
         return false;
     }
 
-    /** Equivalent to Python `getattr()`. */
+    /** Equivalent to Python `getattr()`. In accordance with the `Map` interface, when the attribute
+     * does not exist, this method returns `null` rather than throwing an exception. To distinguish
+     * this from an attribute with a value of `None`, use {@link #containsKey containsKey()}. */
     @Override public native PyObject get(Object key);
 
     /** Equivalent to Python `setattr()`. */

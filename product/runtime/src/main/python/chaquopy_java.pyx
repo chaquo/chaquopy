@@ -77,7 +77,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
 
         check_license(j2p(env, LocalRef.create(env, j_platform)))
 
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return
 
@@ -92,7 +92,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
 cdef void startNativePython(JNIEnv *env) with gil:
     try:
         PyInit_chaquopy_java()
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
 
 
@@ -122,7 +122,7 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
     (JNIEnv *env, jobject this, jobject j_name) with gil:
     try:
         return p2j_pyobject(env, import_module(j2p_string(env, LocalRef.create(env, j_name))))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -131,7 +131,7 @@ cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
     (JNIEnv *env, jobject this) with gil:
     try:
         return p2j_pyobject(env, import_module("six.moves.builtins"))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -141,7 +141,7 @@ cdef public void Java_com_chaquo_python_PyObject_openNative \
     (JNIEnv *env, jobject this) with gil:
     try:
         Py_INCREF(j2p_pyobject(env, this))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
 
 
@@ -149,7 +149,7 @@ cdef public void Java_com_chaquo_python_PyObject_closeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
         Py_DECREF(j2p_pyobject(env, this))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
 
 
@@ -157,7 +157,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
     (JNIEnv *env, jobject klass, jobject o) with gil:
     try:
         return p2j_pyobject(env, j2p(env, LocalRef.create(env, o)))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -172,7 +172,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
         except TypeError as e:
             wrap_exception(env, e, "java.lang.ClassCastException")
             return NULL
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -181,7 +181,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_id \
     (JNIEnv *env, jobject this) with gil:
     try:
         return id(j2p_pyobject(env, this))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return 0
 
@@ -190,7 +190,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_type \
     (JNIEnv *env, jobject this) with gil:
     try:
         return p2j_pyobject(env, type(j2p_pyobject(env, this)))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -198,32 +198,45 @@ cdef public jobject Java_com_chaquo_python_PyObject_type \
 cdef public jobject Java_com_chaquo_python_PyObject_call \
     (JNIEnv *env, jobject this, jobject jargs) with gil:
     try:
-        if jargs == NULL:
-            # User typed ".call(null)", which Java interprets as a null array, rather than the
-            # array of one null which they intended.
-            all_args = [None]
-        else:
-            all_args = java.jarray("Ljava/lang/Object;")(instance=LocalRef.create(env, jargs))
-
-        Kwarg = java.jclass("com.chaquo.python.Kwarg")
-        args = []
-        kwargs = {}
-        for a in all_args:
-            if isinstance(a, Kwarg):
-                if a.key in kwargs:
-                    raise SyntaxError(f"keyword argument repeated: '{a.key}'")
-                kwargs[a.key] = a.value
-            else:
-                if kwargs:
-                    raise SyntaxError("positional argument follows keyword argument")
-                args.append(a)
-
-        result = j2p_pyobject(env, this)(*args, **kwargs)
-        return p2j_pyobject(env, result)
-
-    except Exception as e:
+        return call(env, j2p_pyobject(env, this), jargs)
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
+
+
+cdef public jobject Java_com_chaquo_python_PyObject_callAttr \
+    (JNIEnv *env, jobject this, jobject j_key, jobject jargs) with gil:
+    try:
+        attr = getattr(j2p_pyobject(env, this),
+                       j2p_string(env, LocalRef.create(env, j_key)))
+        return call(env, attr, jargs)
+    except BaseException as e:
+        wrap_exception(env, e)
+        return NULL
+
+
+cdef jobject call(JNIEnv *j_env, obj, jobject jargs) except? NULL:
+    if jargs == NULL:
+        # User typed ".call(null)", which Java interprets as a null array, rather than the
+        # array of one null which they intended.
+        all_args = [None]
+    else:
+        all_args = java.jarray("Ljava/lang/Object;")(instance=LocalRef.create(j_env, jargs))
+
+    Kwarg = java.jclass("com.chaquo.python.Kwarg")
+    args = []
+    kwargs = {}
+    for a in all_args:
+        if isinstance(a, Kwarg):
+            if a.key in kwargs:
+                raise SyntaxError(f"keyword argument repeated: '{a.key}'")
+            kwargs[a.key] = a.value
+        else:
+            if kwargs:
+                raise SyntaxError("positional argument follows keyword argument")
+            args.append(a)
+
+    return p2j_pyobject(j_env, obj(*args, **kwargs))
 
 
 # === com.chaquo.python.PyObject (Map) ========================================
@@ -235,7 +248,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
         key = j2p(env, LocalRef.create(env, j_key))
         # https://github.com/cython/cython/issues/1702
         return __builtins__.hasattr(self, key)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return False
 
@@ -250,7 +263,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_get \
         except AttributeError:
             return NULL
         return p2j_pyobject(env, value)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -266,7 +279,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
             old_value = None
         setattr(self, key, j2p(env, LocalRef.create(env, j_value)))
         return p2j_pyobject(env, old_value)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -282,7 +295,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_remove \
             return NULL
         delattr(self, key)
         return p2j_pyobject(env, old_value)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -294,7 +307,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
         for key in dir(j2p_pyobject(env, this)):
             keys.add(key)
         return (<JNIRef?>keys._chaquopy_this).return_ref(env)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -304,7 +317,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_equals \
     (JNIEnv *env, jobject this, jobject that) with gil:
     try:
         return j2p_pyobject(env, this) == j2p(env, LocalRef.create(env, that))
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return False
 
@@ -321,7 +334,7 @@ cdef jobject to_string(JNIEnv *env, jobject this, func):
     try:
         self = j2p_pyobject(env, this)
         return p2j_string(env, func(self)).return_ref(env)
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return NULL
 
@@ -331,7 +344,7 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
     try:
         self = j2p_pyobject(env, this)
         return ctypes.c_int32(hash(self)).value
-    except Exception as e:
+    except BaseException as e:
         wrap_exception(env, e)
         return 0
 
@@ -351,7 +364,7 @@ cdef wrap_exception(JNIEnv *env, Exception e, clsname="com.chaquo.python.PyExcep
     try:
         traceback = PyImport_ImportModule("traceback")
         result = traceback.format_exc().strip()
-    except Exception as e2:
+    except BaseException as e2:
         result = (f"{type(e).__name__}: {e} "
                   f"[Failed to get traceback: {type(e2).__name__}: {e2}]")
     java_exception(env, result.encode("UTF-8"), clsname.replace(".", "/"))
@@ -368,6 +381,6 @@ cdef void java_exception(JNIEnv *env, char *message, char *clsname):
         if env[0].ThrowNew(env, re, message) == 0:
             return
     printf("Failed to throw Java exception: %s", message)
-    # No need to release the reference: if we're throwing a Java exception we must be
-    # imminently returning from a `native` method.
+    # No need to release the local reference `re`: if we're throwing a Java exception we must
+    # be imminently returning from a `native` method.
 

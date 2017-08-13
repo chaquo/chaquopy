@@ -310,7 +310,7 @@ cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     return jclass(full_box_cls_name)(value)._chaquopy_this
 
 
-cdef jobject p2j_pyobject(JNIEnv *env, obj) except *:
+cdef jobject p2j_pyobject(JNIEnv *env, obj) except? NULL:
     if obj is None:
         return NULL
     # Can't call getInstance() using jclass because that'll immediately unwrap the

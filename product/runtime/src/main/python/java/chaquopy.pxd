@@ -10,7 +10,7 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
 
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)
 cdef JNIRef p2j_string(JNIEnv *env, s)
-cdef jobject p2j_pyobject(JNIEnv *env, obj) except *
+cdef jobject p2j_pyobject(JNIEnv *env, obj) except? NULL
 
 cdef box_sig(JNIEnv *j_env, JNIRef j_klass)
 
