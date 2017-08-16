@@ -60,13 +60,13 @@ Data types are converted between Python and Java as follows:
 * Java `String` and `char` both correspond to a Python Unicode string. (In Python 2, a byte
   string is also accepted.)
 
-* A Java object is represented as a :any:`jclass` proxy object.
+* A Java object is represented as a :any:`jclass` object.
 
-* A Java array is represented as a :any:`jarray` proxy object. Java array parameters and fields
+* A Java array is represented as a :any:`jarray` object. Java array parameters and fields
   can also be implicitly converted from any Python iterable, except a string.
 
 .. note:: A Java object or array obtained from a method or field will be represented
-          as a proxy for its actual run-time type, which is not necessarily the declared type
+          in Python as its actual run-time type, which is not necessarily the declared type
           of the method or field. It can be viewed as another compatible type using the
           :any:`cast` function.
 
@@ -92,7 +92,7 @@ more specific about the intended type.
 .. autoclass:: java.jchar
 
 For example, if `p` is a `PrintStream
-<https://docs.oracle.com/javase/7/docs/api/java/io/PrintStream.html>`_::
+<https://docs.oracle.com/javase/8/docs/api/java/io/PrintStream.html>`_::
 
     p.print(42)              # will call print(long)
     p.print(jint(42))        # will call print(int)
@@ -112,12 +112,12 @@ passing an out-of-range value will result in an `OverflowError`.
 Classes
 -------
 
-.. autofunction:: java.jclass
+.. autofunction:: java.jclass(cls_name)
 
 .. note:: Rather than calling this function directly, it's usually more convenient to use the
           `import hook`_.
 
-Proxy classes and objects can be used with normal Python syntax::
+Java classes and objects can be used with normal Python syntax::
 
     >>> Point = jclass("java.awt.Point")
     >>> p = Point(3, 4)
@@ -149,11 +149,11 @@ operations:
 
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 * `==` and `!=` call `equals
-  <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
+  <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
 * :any:`hash` calls `hashCode
-  <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#hashCode()>`_.
+  <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
 * :any:`str` calls `toString
-  <https://docs.oracle.com/javase/7/docs/api/java/lang/Object.html#toString()>`_.
+  <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#toString()>`_.
 
 The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
 `isinstance(s, Object)` and `isinstance(s, CharSequence)` will both return `True`. All array
@@ -200,6 +200,104 @@ Casting
 -------
 
 .. autofunction:: java.cast(cls, obj)
+
+Inheriting Java classes
+=======================
+
+FIXME
+Make sure word "proxy" is not used outside this section.
+
+To allow Python code to be called from Java without using the Chaquopy `Java API`_, you can
+inherit from Java classes in Python. To make your inherited class visible to the Java virtual
+machine, a corresponding Java proxy class must be generated, and there are two ways of doing
+this:
+
+* A *dynamic proxy* uses the `java.lang.reflect.Proxy
+  <https://docs.oracle.com/javase/7/docs/api/java/lang/reflect/Proxy.html>`_ mechanism.
+* A *static proxy* uses a compile-time tool to generate Java source code.
+
+The following notes apply to both types of proxy:
+
+* Proxy class objects behave just like :any:`jclass` objects. For example, `isinstance` will
+  show that they are instances of the specified Java bases, and of `java.lang.Object`. They can
+  be passed directly to any compatible Java method or field, and they can be passed to
+  :any:`cast`.
+
+* Proxy classes may have any number of Python base classes, as long as the :any:`dynamic_proxy`
+  or :any:`static_proxy` expression comes first.
+
+* Proxy classes may have any number of attributes, Those with the same names as Java members
+  will override or hide them as appropriate.
+
+* Proxy objects may also have any number of attributes, but attempting to assign to a Java
+  member other than a non-final field will raise an `AttributeError`.
+
+* When methods are called from Python, the call always takes place directly. When methods are
+  called from Java, the parameters are converted as described in `data types`_ above. In
+  particular, if the method is passed an array, including via varargs syntax ("..."), the
+  Python method will receive it as a :any:`jarray` object.
+
+* If an overridden method name has multiple overloads in the base classes, the Python signature
+  should be able to accept them all. This can usually be achieved by some combination of `duck
+  typing <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and "`*args`".
+
+  If there are any overloads you don't want to override, you can call through to the base class
+  implementation using one of the following forms:
+
+   * `SuperClass.method(self, args)`
+   * `super(ThisClass, self).method(args)`
+   * `super().method(args)` (Python 3 only)
+
+* If you override the special methods `__str__`, `__eq__` and `__hash__`, they will only be
+  called when an object is accessed from Python. It's usually better to override the equivalent
+  Java methods `toString`, `equals` and `hashCode`, which will take effect in both Python and
+  Java. If any of these methods are not overridden, the default `java.lang.Object`
+  implementation will be used.
+
+
+Dynamic proxy
+-------------
+
+.. autofunction:: java.dynamic_proxy
+
+Dynamic proxy classes are implemented just like regular Python classes, but any method names
+which appear in the base interfaces will be visible to Java. For example::
+
+    >>> from java.lang import Runnable, Thread
+    >>> class R(dynamic_proxy(Runnable)):
+    ...     def __init__(self, name):
+                super(R, self).__init__()
+                self.name = name
+    ...     def run(self):
+    ...         print("Running " + self.name)
+    ...
+    >>> r = R("hello")
+    >>> t = Thread(r)
+    >>> t.getState()
+    <java.lang.Thread$State 'NEW'>
+    >>> t.start()
+    Running hello
+    >>> t.getState()
+    <java.lang.Thread$State 'TERMINATED'>
+
+If you override `__init__`, you must call through to the superclass `__init__` with zero
+arguments. Until this is done, the object cannot be used as a Java object.
+
+If an interface method is not implemented by the Python class, a `PyException` will be thrown
+if Java code attempts to call it.
+
+Dynamic proxy classes have the following restrictions:
+
+* They cannot inherit concrete Java classes, only Java interfaces.
+* They cannot be referenced by name in Java source code.
+* They cannot be instantiated in Java, only in Python.
+
+If you need to do any of these things, you'll need to use a `static proxy`_ instead.
+
+
+Static proxy
+------------
+
 
 Exceptions
 ==========
