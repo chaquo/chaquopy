@@ -1,3 +1,18 @@
+global_classes = {}
+
+# Schedules the the given class to be added to the module dictionary, under its simple name,
+# once bootstrap is complete.
+def global_class(cls_name, **kwargs):
+    global_classes[cls_name] = kwargs
+    if "Class" in globals():
+        load_global_classes()
+
+def load_global_classes():
+    for cls_name, kwargs in six.iteritems(global_classes):
+        globals()[cls_name.rpartition(".")[2]] = jclass(cls_name, **kwargs)
+    global_classes.clear()
+
+
 # I considered whether to make `cast` aliases clearly distinguishable from plain objects, by
 # generalizing `NoneCast` to `Cast`, and giving it a `repr` of `cast('<jni-signature>',
 # repr(<underlying-object>))`. However, this would be a major change for no clear benefit.

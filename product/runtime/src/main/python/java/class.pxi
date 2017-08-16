@@ -4,6 +4,9 @@ import keyword
 from threading import RLock
 from weakref import WeakValueDictionary
 
+global_class("java.lang.ClassNotFoundException")
+global_class("java.lang.NoClassDefFoundError")
+
 
 class_lock = RLock()
 jclass_cache = {}
@@ -12,11 +15,13 @@ instance_cache = WeakValueDictionary()
 
 # TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
 # wrong ClassLoader.
-def jclass(clsname):
-    """Returns a proxy class for the given fully-qualified Java class name. The name may use either
-    `.` or `/` notation. To refer to a nested or inner class, separate it from the containing
-    class with `$`, e.g. `java.lang.Map$Entry`. If the name cannot be resolved, a
-    `NoClassDefFoundError` is raised.
+def jclass(clsname, **kwargs):
+    """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
+    using either Java notation (e.g. `java.lang.Object`) or JNI notation (e.g.
+    `Ljava/lang/Object;`). To refer to a nested or inner class, separate it from the containing
+    class with `$`, e.g. `java.lang.Map$Entry`.
+
+    If the class cannot be found, a `NoClassDefFoundError` is raised.
     """
     clsname = clsname.replace('/', '.')
     if clsname.startswith("["):
@@ -33,25 +38,26 @@ def jclass(clsname):
         clsname = str(clsname)
 
     with class_lock:
+        global ClassNotFoundException, NoClassDefFoundError
         cls = jclass_cache.get(clsname)
         if not cls:
             try:
-                cls = jclass_proxy(clsname)
-            except JavaException as e:
+                cls = jclass_proxy(clsname, **kwargs)
+            except ClassNotFoundException as e:
                 # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
                 # throws ClassNotFoundException. Hide this from our users.
-                if isinstance(e, jclass("java.lang.ClassNotFoundException")):
-                    ncdfe = jclass("java.lang.NoClassDefFoundError")(e.getMessage())
-                    ncdfe.setStackTrace(e.getStackTrace())
-                    raise ncdfe
-                else:
-                    raise
+                ncdfe = NoClassDefFoundError(e.getMessage())
+                ncdfe.setStackTrace(e.getStackTrace())
+                raise ncdfe
             reflect_class(cls)
         return cls
 
 
-def jclass_proxy(cls_name, bases=None):
-    return JavaClass(None, bases, dict(_chaquopy_name=cls_name))
+def jclass_proxy(cls_name, bases=None, *, cls_dict=None):
+    if cls_dict is None:
+        cls_dict = {}
+    cls_dict["_chaquopy_name"] = cls_name
+    return JavaClass(None, bases, cls_dict)
 
 
 class JavaClass(type):
@@ -75,7 +81,13 @@ class JavaClass(type):
                 superclass = JavaObject.getClass()
             bases = [jclass(k.getName()) for k in
                      ([superclass] if superclass else []) + interfaces]
-            bases.sort(cmp=lambda a, b: -1 if issubclass(a, b) else 1 if issubclass(b, a) else 0)
+
+            # Produce a valid order for the C3 MRO algorithm, if one exists.
+            bases.sort(cmp=lambda a, b: (-1 if issubclass(a, b)
+                                         else 1 if issubclass(b, a)
+                                         else 0))
+
+            bases += cls_dict.pop("_chaquopy_post_bases", [])
 
         cls = type.__new__(metacls, simple_name, tuple(bases), cls_dict)
         jclass_cache[cls_name] = cls
@@ -178,6 +190,7 @@ def setup_object_class():
 #       unreachable from both languages. With the Java object gone, the __dict__ and WeakRef
 #       now die, in that order.
 def set_this(self, GlobalRef this, *, cast=False):
+    global PyProxy
     with class_lock:
         self._chaquopy_this = this.weak_ref()
         self._chaquopy_cast = cast
@@ -241,7 +254,8 @@ def setup_bootstrap_classes():
     add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
     add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
 
-    global Cloneable, Serializable  # See array.pxi
+    # Arrays will be required for reflect_class, and `jarray` gives arrays these interfaces.
+    global Cloneable, Serializable
     Cloneable = jclass_proxy("java.lang.Cloneable", [JavaObject])
     Serializable = jclass_proxy("java.io.Serializable", [JavaObject])
 
@@ -249,14 +263,7 @@ def setup_bootstrap_classes():
                 Class, Modifier, Method, Field, Constructor, Cloneable, Serializable]:
         reflect_class(cls)
 
-    Throwable = jclass_proxy("java.lang.Throwable", [JavaException, Serializable, JavaObject])
-    reflect_class(Throwable)
-
-    global ClassLoader, Proxy, PyInvocationHandler, PyProxy
-    ClassLoader = jclass("java.lang.ClassLoader")
-    Proxy = jclass("java.lang.reflect.Proxy")
-    PyInvocationHandler = jclass("com.chaquo.python.PyInvocationHandler")
-    PyProxy = jclass("com.chaquo.python.PyProxy")
+    load_global_classes()
 
 
 def reflect_class(cls):

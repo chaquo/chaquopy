@@ -28,8 +28,6 @@ class TestReflect(unittest.TestCase):
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
-        # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
-        # ClassNotFoundException.
         with self.assertRaises(jclass("java.lang.NoClassDefFoundError")):
             jclass("java.lang.Nonexistent")
 

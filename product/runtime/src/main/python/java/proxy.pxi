@@ -1,7 +1,16 @@
+global_class("java.lang.ClassLoader")
+global_class("java.lang.reflect.Proxy")
+global_class("com.chaquo.python.PyInvocationHandler")
+global_class("com.chaquo.python.PyProxy")
+
+
 PROXY_BASE_NAME = "_chaquopy_proxy"
 
 
 def dynamic_proxy(*interfaces):
+    """Use this function in the bases of a class declaration, and that class will become a dynamic
+    proxy. All parameters must be Java interface classes.
+    """
     return DynamicProxyClass(PROXY_BASE_NAME, tuple(interfaces), {})
 
 class DynamicProxyClass(JavaClass):
@@ -14,6 +23,7 @@ class DynamicProxyClass(JavaClass):
             return type.__new__(metacls, cls_name, bases, cls_dict)
 
         else:
+            global ClassLoader, Proxy, PyInvocationHandler, PyProxy
             if not (bases and bases[0].__name__ == PROXY_BASE_NAME):
                 raise TypeError("dynamic_proxy must be used first in class bases")
             if any([b.__name__ == PROXY_BASE_NAME for b in bases[1:]]):
@@ -21,6 +31,7 @@ class DynamicProxyClass(JavaClass):
             interfaces = (PyProxy,) + bases[0].__bases__
             klass = Proxy.getProxyClass(ClassLoader.getSystemClassLoader(), interfaces)
             cls_dict["_chaquopy_j_klass"] = klass._chaquopy_this
+            # TODO: Python proxy objects should also be isinstance(java.lang.reflect.Proxy).
             cls = type.__new__(metacls, cls_name,
                                (DynamicProxy,) + interfaces + bases[1:],
                                cls_dict)
@@ -31,9 +42,6 @@ class DynamicProxyClass(JavaClass):
             return cls
 
 
-# TODO: Python proxy objects should also be isinstance(java.lang.reflect.Proxy). But we can't
-# simply link this class to Proxy in the same way we link JavaException to Throwable, because
-# we don't want to provide any special behaviour for Proxy subclasses not created by us.
 class DynamicProxy(object):
     def __init__(self):
         JavaObject.__init__(self, PyInvocationHandler())

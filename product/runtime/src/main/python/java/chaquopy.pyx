@@ -1,4 +1,4 @@
-#cython: nonecheck=False
+#cython: binding=True, nonecheck=False
 
 from __future__ import absolute_import, division, print_function
 
