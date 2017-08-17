@@ -1,10 +1,6 @@
-# FIXME:
-#
-# Thrown exceptions
-
-
 from __future__ import absolute_import, division, print_function
 
+import traceback
 from unittest import TestCase
 
 from java import *
@@ -314,3 +310,81 @@ class TestProxy(TestCase):
         self.assertEqual("", c_Args.varargs(":"))
         self.assertEqual("hello", c_Args.varargs("|", "hello"))
         self.assertEqual("hello|world", c_Args.varargs("|", "hello", "world"))
+
+    def test_exception(self):
+        from java.io import FileNotFoundException, EOFException
+        from java.lang import RuntimeException
+        from java.lang.reflect import UndeclaredThrowableException
+        from com.chaquo.python import PyException
+
+        ref_line_no = traceback.extract_stack()[-1][1]
+        class E(dynamic_proxy(TP.Exceptions)):
+            def fnf(self):
+                raise E.exc_cls("fnf")
+        e_cast = cast(TP.Exceptions, E())
+
+        fnf_frames = [("<python>", "fnf", "test_proxy.py", ref_line_no + 3),
+                      ("com.chaquo.python.PyObject", "callAttrThrows", None, None),
+                      ("com.chaquo.python.PyInvocationHandler", "invoke",
+                       "PyInvocationHandler.java", None)]
+
+        def assertFnfThrows(message, throw_cls, catch_cls=None):
+            if catch_cls is None:
+                catch_cls = throw_cls
+            E.exc_cls = throw_cls
+            try:
+                e_cast.fnf()
+            except catch_cls as e:
+                self.assertEqual(message, e.getMessage())
+                self.assertHasFrames(e, fnf_frames)
+            else:
+                self.fail()
+
+        assertFnfThrows("fnf", FileNotFoundException)   # Declared checked exception
+        assertFnfThrows("fnf", RuntimeException)        # Undeclared unchecked exception (Java)
+        assertFnfThrows("TypeError: fnf",               # Undeclared unchecked exception (Python)
+                        TypeError, PyException)
+
+        E.exc_cls = EOFException                        # Undeclared checked exception
+        try:
+            e_cast.fnf()
+        except UndeclaredThrowableException as e:
+            self.assertHasFrames(e.getCause(), fnf_frames)
+        else:
+            self.fail()
+
+    def test_exception_indirect(self):
+        from java.lang import Integer, NumberFormatException
+
+        ref_line_no = traceback.extract_stack()[-1][1]
+        class E(dynamic_proxy(TP.Exceptions)):
+            def parse(self, s):
+                return self.indirect_parse(s)
+            def indirect_parse(self, s):
+                return Integer.parseInt(s)
+        e_cast = cast(TP.Exceptions, E())
+
+        self.assertEqual(42, e_cast.parse("42"))
+        try:
+            e_cast.parse("abc")
+        except NumberFormatException as e:
+            self.assertHasFrames(e, [("java.lang.Integer", "parseInt", None, None),
+                                     ("<python>", "indirect_parse", "test_proxy.py", ref_line_no + 5),
+                                     ("<python>", "parse", "test_proxy.py", ref_line_no + 3),
+                                     ("com.chaquo.python.PyObject", "callAttrThrows", None, None)])
+        else:
+            self.fail()
+
+    def assertHasFrames(self, e, frames):
+        i_frame = 0
+        for ste in e.getStackTrace():
+            cls_name, method_name, file_name, line_no = frames[i_frame]
+            if ste.getClassName() == cls_name and \
+               ste.getMethodName() == method_name and \
+               (file_name is None or ste.getFileName() == file_name) and \
+               (line_no is None or ste.getLineNumber() == line_no):
+                i_frame += 1
+                if i_frame == len(frames):
+                    return
+        raise AssertionError("{} element {} not found in {}".format(frames, i_frame,
+                                                                    e.getStackTrace()))

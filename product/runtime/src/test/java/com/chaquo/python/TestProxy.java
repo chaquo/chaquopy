@@ -1,5 +1,7 @@
 package com.chaquo.python;
 
+import java.io.*;
+
 public class TestProxy {
 
     public interface Adder {
@@ -8,12 +10,10 @@ public class TestProxy {
     }
 
     public static Adder a;
-
-
+    
     public static String toString(Adder adder) {
         return adder.toString();
     }
-
 
     public interface Args {
         void tooMany(int a);
@@ -31,6 +31,11 @@ public class TestProxy {
         String star(String a, String b);
 
         String varargs(String delim, String... args);
+    }
+
+    public interface Exceptions {
+        void fnf() throws FileNotFoundException;
+        int parse(String s);
     }
 
 }

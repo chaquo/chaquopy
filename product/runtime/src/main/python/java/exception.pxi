@@ -9,20 +9,12 @@ def Throwable_str(self):
         if result.startswith(prefix):
             result = result[len(prefix):]
     except Exception as e:
-        return f"[failed to get traceback: {type(e).__name__}: {e}]"
+        return f"[failed to format Java stack trace: {type(e).__name__}: {e}]"
     else:
         return result
 
 global_class("java.lang.Throwable", cls_dict={"_chaquopy_post_bases": [Exception],
                                               "__str__": Throwable_str})
-
-
-cdef expect_exception(JNIEnv *j_env, msg):
-    """Raises a Java exception if one is pending, otherwise raises a Python Exception with the
-    given message.
-    """
-    check_exception(j_env)
-    raise Exception(msg)
 
 
 cdef jmethodID mid_getMessage = NULL

@@ -54,7 +54,7 @@ public class Python {
         try {
             startNative(platform, platform.getPath());
             started = true;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             failed = true;
             throw e;
         }

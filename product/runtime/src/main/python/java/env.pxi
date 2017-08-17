@@ -377,7 +377,8 @@ cdef class CQPEnv(object):
         return LocalRef.adopt(self.j_env, j_obj)
 
     cdef expect_exception(self, msg):
-        expect_exception(self.j_env, msg)
+        self.check_exception()
+        raise Exception(msg)
 
     cdef check_exception(self):
         check_exception(self.j_env)

@@ -6,7 +6,7 @@ def jarray(element_type):
     """Returns a Python class for a Java array type. The element type may be specified as any of:
 
     * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
-    * A proxy class returned by :any:`jclass`, or by `jarray` itself.
+    * A Java class returned by :any:`jclass`, or by `jarray` itself.
     * A `java.lang.Class` instance
     * A JNI type signature
     """

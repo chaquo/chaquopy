@@ -21,7 +21,7 @@ public class PyInvocationHandler implements InvocationHandler {
                 if (args == null) {
                     args = new Object[0];
                 }
-                PyObject result = self.callAttr(methodName, args);
+                PyObject result = self.callAttrThrows(methodName, args);
                 return (result == null) ? null : result.toJava(method.getReturnType());
         }
     }

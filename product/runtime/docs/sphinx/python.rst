@@ -144,8 +144,7 @@ If a method or field name clashes with a Python reserved word, it can be accesse
 appending an underscore, e.g. `print` becomes `print_`. The original name is still
 accessible via :any:`getattr`.
 
-Aside from attribute access, Java proxy objects also support the following Python
-operations:
+Aside from attribute access, Java objects also support the following Python operations:
 
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 * `==` and `!=` call `equals
@@ -181,7 +180,7 @@ array. For example::
     jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
     jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
 
-Array proxy objects support the following Python operations:
+Array objects support the following Python operations:
 
 * The basic Python sequence protocol:
    * Reading and writing using `[]` syntax.
@@ -193,8 +192,9 @@ Array proxy objects support the following Python operations:
 * `==` and `!=` can compare the contents of the array with any Python iterable (including
   another Java array).
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
-* `str` returns a representation of the array contents. Because all arrays are instances of of
-  `java.lang.Object`, `toString` may also be called if desired.
+* `str` returns a representation of the array contents. Because all arrays are instances of
+  `java.lang.Object`, `toString` may also be called to retrieve Java's default (but less
+  useful) representation.
 
 Casting
 -------
@@ -204,44 +204,42 @@ Casting
 Inheriting Java classes
 =======================
 
-FIXME
-Make sure word "proxy" is not used outside this section.
-
-To allow Python code to be called from Java without using the Chaquopy `Java API`_, you can
-inherit from Java classes in Python. To make your inherited class visible to the Java virtual
-machine, a corresponding Java proxy class must be generated, and there are two ways of doing
-this:
+To allow Python code to be called from Java without using the Chaquopy :doc:`Java API <java>`,
+you can inherit from Java classes in Python. To make your inherited class visible to the Java
+virtual machine, a corresponding Java proxy class must be generated, and there are two ways of
+doing this:
 
 * A *dynamic proxy* uses the `java.lang.reflect.Proxy
   <https://docs.oracle.com/javase/7/docs/api/java/lang/reflect/Proxy.html>`_ mechanism.
 * A *static proxy* uses a compile-time tool to generate Java source code.
 
-The following notes apply to both types of proxy:
+The following notes apply to both types of class:
 
-* Proxy class objects behave just like :any:`jclass` objects. For example, `isinstance` will
-  show that they are instances of the specified Java bases, and of `java.lang.Object`. They can
-  be passed directly to any compatible Java method or field, and they can be passed to
-  :any:`cast`.
+* Classes may have any number of Python base classes, as long as the :any:`dynamic_proxy` or
+  :any:`static_proxy` expression comes first.
 
-* Proxy classes may have any number of Python base classes, as long as the :any:`dynamic_proxy`
-  or :any:`static_proxy` expression comes first.
-
-* Proxy classes may have any number of attributes, Those with the same names as Java members
+* Classes may have any number of attributes, Those with the same names as inherited Java members
   will override or hide them as appropriate.
 
-* Proxy objects may also have any number of attributes, but attempting to assign to a Java
-  member other than a non-final field will raise an `AttributeError`.
+* Object instances may also have any number of attributes, but attempting to assign to an
+  inherited Java member other than a non-final field will raise an `AttributeError`.
 
-* When methods are called from Python, the call always takes place directly. When methods are
-  called from Java, the parameters are converted as described in `data types`_ above. In
-  particular, if the method is passed an array, including via varargs syntax ("..."), the
-  Python method will receive it as a :any:`jarray` object.
+* Python objects inheriting from Java classes can be used just like Java objects. For example,
+  they can be passed directly to any compatible Java method or field. `isinstance` will show
+  that they are instances of the specified Java bases, and of `java.lang.Object`. They can also
+  be passed to :any:`cast`.
 
-* If an overridden method name has multiple overloads in the base classes, the Python signature
+* When Python methods are called from Python, the call always takes place directly. When Python
+  methods are called from Java, the parameters and return value are converted as described in
+  `data types`_ above. In particular, if the method is passed an array, including via varargs
+  syntax ("..."), the Python method will receive it as a :any:`jarray` object.
+
+* If an overridden Java method has multiple overloads in the base classes, the Python signature
   should be able to accept them all. This can usually be achieved by some combination of `duck
-  typing <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and "`*args`".
+  typing <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax.
 
-  If there are any overloads you don't want to override, you can call through to the base class
+  However, this doesn't mean the Python method has to *implement* all the overloads. If there
+  are any cases you don't want to override, you can call through to the base class
   implementation using one of the following forms:
 
    * `SuperClass.method(self, args)`
@@ -252,13 +250,13 @@ The following notes apply to both types of proxy:
   called when an object is accessed from Python. It's usually better to override the equivalent
   Java methods `toString`, `equals` and `hashCode`, which will take effect in both Python and
   Java. If any of these methods are not overridden, the default `java.lang.Object`
-  implementation will be used.
+  implementation will be inherited.
 
 
 Dynamic proxy
 -------------
 
-.. autofunction:: java.dynamic_proxy
+.. autofunction:: java.dynamic_proxy(*interfaces)
 
 Dynamic proxy classes are implemented just like regular Python classes, but any method names
 which appear in the base interfaces will be visible to Java. For example::
@@ -280,11 +278,14 @@ which appear in the base interfaces will be visible to Java. For example::
     >>> t.getState()
     <java.lang.Thread$State 'TERMINATED'>
 
-If you override `__init__`, you must call through to the superclass `__init__` with zero
-arguments. Until this is done, the object cannot be used as a Java object.
 
-If an interface method is not implemented by the Python class, a `PyException` will be thrown
-if Java code attempts to call it.
+Notes:
+
+* If you override `__init__`, you must call through to the superclass `__init__` with zero
+  arguments. Until this is done, the object cannot be used as a Java object.
+
+* If an interface method is not implemented by the Python class, a `PyException
+  <java/com/chaquo/python/PyException.html>`_ will be thrown if Java code attempts to call it.
 
 Dynamic proxy classes have the following restrictions:
 
@@ -298,12 +299,29 @@ If you need to do any of these things, you'll need to use a `static proxy`_ inst
 Static proxy
 ------------
 
+TODO
 
 Exceptions
 ==========
 
-Java exceptions are represented using a :any:`jclass` proxy object. The Java stack trace is
-added to the exception message::
+Throwing
+--------
+
+`java.lang.Throwable` is represented as inheriting from the standard Python :any:`Exception`
+class, so all Java exceptions can be thrown in Python.
+
+When `inheriting Java classes`_, exceptions may propagate from Python to Java code:
+
+* The Python and Java stack traces will be merged together in the exception, with Python frames
+  having a class name of `<python>`.
+* If the exception is of a Java type, the original exception object will be used. Otherwise, it
+  will be represented as a `PyException <java/com/chaquo/python/PyException.html>`_.
+
+Catching
+--------
+
+Exceptions thrown by Java methods will propagate into the calling Python code. The Java stack
+trace is added to the exception message::
 
     >>> from java.lang import Integer
     >>> Integer.parseInt("abc")
@@ -315,7 +333,7 @@ added to the exception message::
             at java.lang.Integer.parseInt(Integer.java:580)
             at java.lang.Integer.parseInt(Integer.java:615)
 
-Java exceptions can be handled with standard Python syntax, including catching a subclass
+Java exceptions can be caught with standard Python syntax, including catching a subclass
 exception via the base class:
 
     >>> from java.lang import IllegalArgumentException

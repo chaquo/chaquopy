@@ -112,11 +112,36 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     /** Equivalent to Python `()` syntax. Keyword arguments may be passed using instances of {@link
      * Kwarg} at the end of the parameter list. Parameters will be converted as described at
      * {@link #fromJava fromJava()}. */
-    public native PyObject call(Object... args);
+    public PyObject call(Object... args) {
+        try {
+            return callThrows(args);
+        } catch (PyException e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new PyException(e);
+        }
+    }
+
+    /** Same as {@link #call call()}, except that it directly passes any Java exception thrown by
+     * the Python code rather than wrapping it in a PyException */
+    public native PyObject callThrows(Object... args) throws Throwable;
+
 
     /** Equivalent to `{@link #get get}(key).{@link #call call}(args)`, except it throws a
      * PyException if the attribute does not exist. */
-    public native PyObject callAttr(String key, Object... args);
+    public PyObject callAttr(String key, Object... args) {
+        try {
+            return callAttrThrows(key, args);
+        } catch (PyException e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new PyException(e);
+        }
+    }
+
+    /** Same as {@link #callAttr callAttr()}, except that it directly passes any Java exception
+     * thrown by the Python code rather than wrapping it in a PyException */
+    public native PyObject callAttrThrows(String key, Object... args) throws Throwable;
 
     // ==== Map ==============================================================
 
