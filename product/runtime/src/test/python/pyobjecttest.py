@@ -30,6 +30,11 @@ def sum_mul(*args, **kwargs):
     return sum(args) * mul // div
 
 
+def throws():
+    from java.io import IOException
+    raise IOException("abc")
+
+
 def is_none(x):
     return x is None
 

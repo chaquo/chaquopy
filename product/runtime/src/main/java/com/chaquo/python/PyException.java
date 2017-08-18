@@ -1,11 +1,11 @@
 package com.chaquo.python;
 
-/** An exception originating from Python code. {@link #getMessage getMessage()} will return the
- * Python stack trace. */
+/** An exception propagating from Python to Java. If the exception was of a Java exception type,
+ * the original exception is stored as the cause of the PyException. */
 // Has to be unchecked because it can be thrown by virtually all the methods in this package,
 // including those inherited from Map which we can't add "throws" declarations to.
 //
-// TODO #5169 make exception PyObject accessible from PyException.
+// TODO #5273 make exception PyObject accessible from PyException.
 public class PyException extends RuntimeException {
     public PyException() {
     }

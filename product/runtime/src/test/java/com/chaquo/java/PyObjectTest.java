@@ -2,6 +2,7 @@ package com.chaquo.java;
 
 import com.chaquo.python.*;
 
+import java.io.*;
 import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
@@ -164,6 +165,27 @@ public class PyObjectTest {
 
         PyObject two = sm.call(2), three = sm.call(3), four = sm.call(4);
         assertEquals(14, (int)sm.call(three, four, new Kwarg("mul", two)).toJava(Integer.class));
+
+        try {
+            pyobjecttest.get("throws").call();
+            fail("No exception thrown");
+        } catch (PyException e) {
+            assertEquals("java.io.IOException: abc", e.getMessage());
+            assertTrue(e.getCause() instanceof IOException);
+        }
+    }
+
+    @Test
+    public void callThrows() {
+        try {
+            pyobjecttest.get("throws").callThrows();
+            fail("No exception thrown");
+        } catch (IOException e) {
+            assertEquals("abc", e.getMessage());
+            assertNull(e.getCause());
+        } catch (Throwable e) {
+            throw new AssertionError(e);
+        }
     }
 
     @Test
@@ -173,6 +195,30 @@ public class PyObjectTest {
         assertEquals(6,  (int)pyobjecttest.callAttr("sum_mul", 1, 2, 3).toJava(Integer.class));
         assertEquals(24, (int)pyobjecttest.callAttr("sum_mul", 6, new Kwarg("mul", 4)).toJava(Integer.class));
 
+        try {
+            pyobjecttest.callAttr("throws");
+            fail("No exception thrown");
+        } catch (PyException e) {
+            assertEquals("java.io.IOException: abc", e.getMessage());
+            assertTrue(e.getCause() instanceof IOException);
+        }
+    }
+
+    @Test
+    public void callAttrThrows() {
+        try {
+            pyobjecttest.callAttrThrows("throws");
+            fail("No exception thrown");
+        } catch (IOException e) {
+            assertEquals("abc", e.getMessage());
+            assertNull(e.getCause());
+        } catch (Throwable e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
+    public void callAttr_fail_nonexistent() {
         thrown.expect(PyException.class);
         thrown.expectMessage("AttributeError: 'module' object has no attribute 'nonexistent'");
         pyobjecttest.callAttr("nonexistent");
