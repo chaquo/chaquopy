@@ -361,30 +361,38 @@ DEF fqn_PyException = "com/chaquo/python/PyException"
 cdef throw_exception(JNIEnv *env, java_cls_name=fqn_PyException):
     exc_info = sys.exc_info()
     try:
-        StackTraceElement = java.jclass("java.lang.StackTraceElement")
-        _, exc_value, exc_traceback = exc_info
-        python_trace = [StackTraceElement("<python>", func_name, file_name, line_no)
-                        for file_name, line_no, func_name, _ in
-                        reversed(traceback.extract_tb(exc_traceback))]
-
-        Throwable = java.jclass("java.lang.Throwable")
-        if isinstance(exc_value, Throwable) and not java_cls_name:
-            java_exc = exc_value
-            pre_trace = Throwable().getStackTrace()
-            post_trace = list(java_exc.getStackTrace())[:len(pre_trace)]
-            java_exc.setStackTrace(post_trace + python_trace + pre_trace)
-        else:
-            java_cls = java.jclass(java_cls_name or fqn_PyException)
-            java_exc = java_cls(format_exception_only(exc_value))
-            java_exc.setStackTrace(python_trace + java_exc.getStackTrace())
-
-        ret = env[0].Throw(env, (<JNIRef?>java_exc._chaquopy_this).obj)
+        j_java_exc = get_exception(env, java_cls_name, exc_info)
+        ret = env[0].Throw(env, j_java_exc.obj)
         if ret != 0:
             raise Exception(f"Throw failed: {ret}")
-
     except BaseException:
         throw_simple_exception(env, f"{format_exception(exc_info)}\n"
                                f"[failed to merge stack traces: {format_exception()}]")
+
+
+# This is broken out into a separate method to make sure all `jclass` and `jarray` instances
+# are removed from the instance_cache before JNIEnv.Throw is called. Removal calls
+# __hash__, which calls Object.identityHashCode, which Android's CheckJNI will not allow
+# with an exception pending.
+cdef JNIRef get_exception(JNIEnv *env, java_cls_name, exc_info):
+    StackTraceElement = java.jclass("java.lang.StackTraceElement")
+    _, exc_value, exc_traceback = exc_info
+    python_trace = [StackTraceElement("<python>", func_name, file_name, line_no)
+                    for file_name, line_no, func_name, _ in
+                    reversed(traceback.extract_tb(exc_traceback))]
+
+    Throwable = java.jclass("java.lang.Throwable")
+    if isinstance(exc_value, Throwable) and not java_cls_name:
+        java_exc = exc_value
+        pre_trace = Throwable().getStackTrace()
+        post_trace = list(java_exc.getStackTrace())[:len(pre_trace)]
+        java_exc.setStackTrace(post_trace + python_trace + pre_trace)
+    else:
+        java_cls = java.jclass(java_cls_name or fqn_PyException)
+        java_exc = java_cls(format_exception_only(exc_value))
+        java_exc.setStackTrace(python_trace + java_exc.getStackTrace())
+    return java_exc._chaquopy_this
+
 
 # Unlike the `traceback` function of the same name, this function returns a single string.
 # May be called after module initialization failure (see note after call to Py_Initialize).
