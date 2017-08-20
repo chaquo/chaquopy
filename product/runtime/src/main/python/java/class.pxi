@@ -6,6 +6,7 @@ from weakref import WeakValueDictionary
 
 global_class("java.lang.ClassNotFoundException")
 global_class("java.lang.NoClassDefFoundError")
+global_class("java.lang.reflect.UndeclaredThrowableException")
 
 
 class_lock = RLock()
@@ -23,16 +24,13 @@ def jclass(clsname, **kwargs):
 
     If the class cannot be found, a `NoClassDefFoundError` is raised.
     """
-    clsname = clsname.replace('/', '.')
     if clsname.startswith("["):
-        raise ValueError("Cannot reflect an array type")  # But note that `jarray` shares jclass_cache
+        return jarray(clsname[1:])
     if clsname in java.primitives_by_name:
         raise ValueError("Cannot reflect a primitive type")
     if clsname.startswith("L") and clsname.endswith(";"):
         clsname = clsname[1:-1]
-    if clsname.startswith('$Proxy'):
-        # The Dalvik VM is not able to give us introspection on these (FindClass returns NULL).
-        return jclass("java.lang.Object")
+    clsname = clsname.replace('/', '.')
 
     if not isinstance(clsname, str):
         clsname = str(clsname)
@@ -109,8 +107,14 @@ class JavaClass(type):
                         actual = java.sig_to_java(object_sig(env, instance))
                         raise TypeError(f"cannot create {expected} proxy from {actual} instance")
                     self = cls.__new__(cls, *args, **kwargs)
-                    set_this(self, instance.global_ref(),
-                             cast=(env.GetObjectClass(instance) != cls._chaquopy_j_klass))
+
+                    actual_j_klass = env.GetObjectClass(instance)
+                    if actual_j_klass == cls._chaquopy_j_klass:
+                        real_obj = None  # Setting to `self` would cause a reference cycle with self.__dict__.
+                    else:
+                        real_sig = klass_sig(env, actual_j_klass)
+                        real_obj = jclass(real_sig)(instance=instance)
+                    set_this(self, instance.global_ref(), real_obj)
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
 
@@ -144,9 +148,11 @@ def setup_object_class():
             set_this(self, constructor.__get__(self, type(self))(*args))
 
         def __setattr__(self, name, value):
-            # Using __slots__ to prevent adding attributes is unreliable, as it's defeated by
-            # any base class which provides a __dict__. For example, Python Exception objects
-            # have a __dict__, so that would cause all Java Throwables to have one too.
+            # We can't use __slots__ to prevent adding attributes, because Throwable inherits
+            # from the (Python) Exception class, which causes two problems:
+            #   * Exception is a native class, so multiple inheritance with anything which has
+            #     __slots__ is impossible ("multiple bases have instance lay-out conflict").
+            #   * Exception has a __dict__, which would cause all Java Throwables to have one too.
             object.__setattr__(self, name, value)
             if (name in self.__dict__) and not name.startswith("_chaquopy"):
                 del self.__dict__[name]
@@ -189,11 +195,11 @@ def setup_object_class():
 #     * (PROXY ONLY) The WeakRef is now invalid, but that's not a problem because it's
 #       unreachable from both languages. With the Java object gone, the __dict__ and WeakRef
 #       now die, in that order.
-def set_this(self, GlobalRef this, *, cast=False):
+def set_this(self, GlobalRef this, real_obj=None):
     global PyProxy
     with class_lock:
-        self._chaquopy_this = this.weak_ref()
-        self._chaquopy_cast = cast
+        self._chaquopy_this = this.weak_ref()  # TODO for non-proxy objects we can just use `this`.
+        self._chaquopy_real_obj = real_obj
         instance_cache[(type(self), this)] = self
 
         if "PyProxy" in globals() and isinstance(self, PyProxy):
@@ -555,8 +561,8 @@ cdef class JavaField(JavaSimpleMember):
 
 cdef class JavaMethod(JavaSimpleMember):
     cdef jmethodID j_method
-    cdef basestring definition_return
-    cdef tuple definition_args
+    cdef basestring return_sig
+    cdef tuple args_sig
     cdef bint is_constructor
     cdef bint is_abstract
     cdef bint is_varargs
@@ -567,8 +573,8 @@ cdef class JavaMethod(JavaSimpleMember):
 
     def java_declaration(self):
         return (f"{'static ' if self.is_static else ''}"
-                f"{java.sig_to_java(self.definition_return)} {self.fqn()}"
-                f"{java.args_sig_to_java(self.definition_args, self.is_varargs)}")
+                f"{java.sig_to_java(self.return_sig)} {self.fqn()}"
+                f"{java.args_sig_to_java(self.args_sig, self.is_varargs)}")
 
     def __init__(self, definition_or_reflected, *, static=False, varargs=False, abstract=False):
         super().__init__(definition_or_reflected, static=static)
@@ -592,7 +598,7 @@ cdef class JavaMethod(JavaSimpleMember):
             self.j_method = env.GetStaticMethodID(j_klass, self.name, self.definition)
         else:
             self.j_method = env.GetMethodID(j_klass, self.name, self.definition)
-        self.definition_return, self.definition_args = java.split_method_sig(self.definition)
+        self.return_sig, self.args_sig = java.split_method_sig(self.definition)
         self.is_constructor = (self.name == "<init>")
 
     # To be consistent with Python syntax, we want instance methods to be called non-virtually
@@ -615,67 +621,70 @@ cdef class JavaMethod(JavaSimpleMember):
         if obj is None or self.is_static or self.is_constructor:
             return self
         else:
-            return lambda *args: self(obj, *args, virtual=obj._chaquopy_cast)
+            return lambda *args: self(obj, *args, virtual=(obj._chaquopy_real_obj is not None))
 
     def __call__(self, *args, virtual=False):
-        cdef jvalue *j_args = NULL
-        cdef tuple d_args = self.definition_args
+        # Check this up front, because the "unbound method" error that check_args would give
+        # would be misleading for an abstract method.
+        if self.is_abstract and not virtual:
+            raise NotImplementedError(f"{self.fqn()} is abstract and cannot be called")
+
         env = CQPEnv()
-
-        if self.is_abstract and virtual is False:
-            raise NotImplementedError(f"{self.fqn()} is abstract and cannot be called directly")
-
-        if self.is_static or self.is_constructor:
-            obj = None
-        else:
-            obj, args = self.get_this(args)
-
-        # Exception types and wording are based on Python 2.7.
-        if self.is_varargs:
-            if len(args) < len(d_args) - 1:
-                raise TypeError(f'{self.fqn()} takes at least {plural(len(d_args) - 1, "argument")} '
-                                f'({len(args)} given)')
-
-            if len(args) == len(d_args) and assignable_to_array(d_args[-1], args[-1]):
-                # As in Java, passing a single None as the varargs parameter will be
-                # interpreted as a null array. To pass an an array of one null, use [None].
-                pass  # Non-varargs call.
-            else:
-                args = args[:len(d_args) - 1] + (args[len(d_args) - 1:],)
-        if len(args) != len(d_args):
-            raise TypeError(f'{self.fqn()} takes {plural(len(d_args), "argument")} '
-                            f'({len(args)} given)')
-
+        obj, args = self.check_args(args)
         p2j_args = [p2j(env.j_env, argtype, arg)
-                    for argtype, arg in six.moves.zip(d_args, args)]
+                    for argtype, arg in six.moves.zip(self.args_sig, args)]
+
+        cdef jvalue *j_args = NULL
         if len(args):
-            j_args = <jvalue*>alloca(sizeof(jvalue) * len(d_args))
-            populate_args(env.j_env, d_args, j_args, p2j_args)
+            j_args = <jvalue*>alloca(sizeof(jvalue) * len(self.args_sig))
+            populate_args(env.j_env, self.args_sig, j_args, p2j_args)
 
         if self.is_constructor:
             result = self.call_constructor(env.j_env, j_args)
         elif self.is_static:
             result = self.call_static_method(env, j_args)
-        elif virtual:
-            result = self.call_virtual_method(env, obj._chaquopy_this, j_args)
         else:
-            result = self.call_nonvirtual_method(env, obj._chaquopy_this, j_args)
+            if virtual:
+                result = self.call_virtual_method(env, obj._chaquopy_this, j_args)
+            else:
+                result = self.call_nonvirtual_method(env, obj._chaquopy_this, j_args)
 
-        copy_output_args(d_args, args, p2j_args)
+        copy_output_args(self.args_sig, args, p2j_args)
         return result
 
     # Exception types and wording are based on Python 2.7.
-    cdef get_this(self, args):
-        if not args:
-            got = "nothing"
-        else:
-            obj = args[0]
-            if isinstance(obj, self.cls):
-                return obj, args[1:]
+    def check_args(self, args):
+        obj = None
+        if not (self.is_static or self.is_constructor):
+            if not args:
+                got_wrong = "nothing"
             else:
-                got = f"{type(obj).__name__} instance"
-        raise TypeError(f"Unbound method {self.fqn()} must be called with {cls_fullname(self.cls)} "
-                        f"instance as first argument (got {got} instead)")
+                obj = args[0]
+                if isinstance(obj, self.cls):
+                    got_wrong = None
+                    args = args[1:]
+                else:
+                    got_wrong = f"{type(obj).__name__} instance"
+            if got_wrong:
+                raise TypeError(f"Unbound method {self.fqn()} must be called with "
+                                f"{cls_fullname(self.cls)} instance as first argument "
+                                f"(got {got_wrong} instead)")
+
+        if self.is_varargs:
+            if len(args) < len(self.args_sig) - 1:
+                raise TypeError(f'{self.fqn()} takes at least '
+                                f'{plural(len(self.args_sig) - 1, "argument")} ({len(args)} given)')
+
+            if len(args) == len(self.args_sig) and assignable_to_array(self.args_sig[-1], args[-1]):
+                # As in Java, passing a single None as the varargs parameter will be
+                # interpreted as a null array. To pass an an array of one null, use [None].
+                pass  # Non-varargs call.
+            else:
+                args = args[:len(self.args_sig) - 1] + (args[len(self.args_sig) - 1:],)
+        if len(args) != len(self.args_sig):
+            raise TypeError(f'{self.fqn()} takes {plural(len(self.args_sig), "argument")} '
+                            f'({len(args)} given)')
+        return obj, args
 
     cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
         cdef jobject j_self
@@ -686,7 +695,7 @@ cdef class JavaMethod(JavaSimpleMember):
         return LocalRef.adopt(j_env, j_self).global_ref()
 
     cdef call_virtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
-        r = self.definition_return[0]
+        r = self.return_sig[0]
         if r == 'V':
             env.CallVoidMethodA(this, self.j_method, j_args)
         elif r == 'Z':
@@ -708,11 +717,11 @@ cdef class JavaMethod(JavaSimpleMember):
         elif r in 'L[':
             return j2p(env.j_env, env.CallObjectMethodA(this, self.j_method, j_args))
         else:
-            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
     cdef call_nonvirtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
-        r = self.definition_return[0]
+        r = self.return_sig[0]
         if r == 'V':
             env.CallNonvirtualVoidMethodA(this, j_klass, self.j_method, j_args)
         elif r == 'Z':
@@ -735,11 +744,11 @@ cdef class JavaMethod(JavaSimpleMember):
             return j2p(env.j_env, env.CallNonvirtualObjectMethodA(this, j_klass, self.j_method,
                                                                   j_args))
         else:
-            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
     cdef call_static_method(self, CQPEnv env, jvalue *j_args):
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
-        r = self.definition_return[0]
+        r = self.return_sig[0]
         if r == 'V':
             env.CallStaticVoidMethodA(j_klass, self.j_method, j_args)
         elif r == 'Z':
@@ -761,7 +770,7 @@ cdef class JavaMethod(JavaSimpleMember):
         elif r in 'L[':
             return j2p(env.j_env, env.CallStaticObjectMethodA(j_klass, self.j_method, j_args))
         else:
-            raise Exception(f"Invalid definition for {self.fqn()}: '{self.definition_return}'")
+            raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
 
 cdef class JavaMultipleMethod(JavaMember):
@@ -791,10 +800,10 @@ cdef class JavaMultipleMethod(JavaMember):
         cdef JavaMethod jm
         for jm in self.methods:
             jm.resolve()
-            if jm.definition_args in sigs_seen:
+            if jm.args_sig in sigs_seen:
                 overridden.append(jm)
             else:
-                sigs_seen.add(jm.definition_args)
+                sigs_seen.add(jm.args_sig)
 
         # See comment in reflect_class
         for jm in overridden:
@@ -858,7 +867,7 @@ cdef class JavaMultipleMethod(JavaMember):
             else:
                 args_except_this = args
             if not (varargs and not jm.is_varargs) and \
-               is_applicable(jm.definition_args, args_except_this, autobox, varargs):
+               is_applicable(jm.args_sig, args_except_this, autobox, varargs):
                 result.append(jm)
         return result
 

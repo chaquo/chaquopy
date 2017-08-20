@@ -370,8 +370,8 @@ cdef throw_exception(JNIEnv *env, java_cls_name=fqn_PyException):
                                f"[failed to merge stack traces: {format_exception()}]")
 
 
-# This is broken out into a separate method to make sure all `jclass` and `jarray` instances
-# are removed from the instance_cache before JNIEnv.Throw is called. Removal calls
+# This is broken out into a separate method to make sure all of its local `jclass` and `jarray`
+# instances are destroyed before JNIEnv.Throw is called. Removal from instance_cache calls
 # __hash__, which calls Object.identityHashCode, which Android's CheckJNI will not allow
 # with an exception pending.
 cdef JNIRef get_exception(JNIEnv *env, java_cls_name, exc_info):
@@ -396,7 +396,7 @@ cdef JNIRef get_exception(JNIEnv *env, java_cls_name, exc_info):
 
 # Unlike the `traceback` function of the same name, this function returns a single string.
 # May be called after module initialization failure (see note after call to Py_Initialize).
-def format_exception(exc_info=None):
+cdef format_exception(exc_info=None):
     if exc_info is None:
         sys = PyImport_ImportModule("sys")
         exc_info = sys.exc_info()
@@ -411,7 +411,7 @@ def format_exception(exc_info=None):
 
 # Unlike the `traceback` function of the same name, this function returns a single string.
 # May be called after module initialization failure (see note after call to Py_Initialize).
-def format_exception_only(e):
+cdef format_exception_only(e):
     return f"{type(e).__name__}: {e}"
 
 

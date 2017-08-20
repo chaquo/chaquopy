@@ -1,4 +1,7 @@
-global_classes = {}
+from collections import OrderedDict
+
+
+global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
@@ -29,11 +32,7 @@ def cast(cls, obj):
        * A different overload may be chosen when passing the object to a method.
     """
     sig = java.jni_sig(cls)
-    if sig.startswith("L"):
-        proxy_type = jclass(sig)
-    elif sig.startswith("["):
-        proxy_type = jarray(sig[1:])
-    else:
+    if sig[0] not in "L[":
         raise TypeError(f"{type(cls).__name__} object does not specify a Java class or array type")
 
     if obj is None or isinstance(obj, NoneCast):
@@ -44,7 +43,7 @@ def cast(cls, obj):
             instance = obj._chaquopy_this
         else:
             raise TypeError(f"{type(obj).__name__} object is not a Java object or array")
-        return proxy_type(instance=instance)
+        return jclass(sig)(instance=instance)
 
 
 class NoneCast(object):
@@ -146,7 +145,7 @@ def better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, *,
     types. This is based on JLS 15.12.2.5. "Choosing the Most Specific Method" and JLS 4.10.
     "Subtyping".
     """
-    defs1, defs2 = jm1.definition_args, jm2.definition_args
+    defs1, defs2 = jm1.args_sig, jm2.args_sig
 
     if varargs:
         if not actual_types:

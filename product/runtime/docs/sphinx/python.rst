@@ -144,7 +144,7 @@ If a method or field name clashes with a Python reserved word, it can be accesse
 appending an underscore, e.g. `print` becomes `print_`. The original name is still
 accessible via :any:`getattr`.
 
-Aside from attribute access, Java objects also support the following Python operations:
+Aside from attribute access, Java objects also support the following operations:
 
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 * `==` and `!=` call `equals
@@ -153,6 +153,8 @@ Aside from attribute access, Java objects also support the following Python oper
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
 * :any:`str` calls `toString
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#toString()>`_.
+* The equivalent of the Java syntax `ClassName.class` is `ClassName.getClass()`; i.e. the
+  `getClass()` method can be called on a class as well as an instance.
 
 The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
 `isinstance(s, Object)` and `isinstance(s, CharSequence)` will both return `True`. All array
@@ -180,7 +182,7 @@ array. For example::
     jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
     jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
 
-Array objects support the following Python operations:
+Array objects support the following operations:
 
 * The basic Python sequence protocol:
    * Reading and writing using `[]` syntax.
@@ -192,9 +194,10 @@ Array objects support the following Python operations:
 * `==` and `!=` can compare the contents of the array with any Python iterable (including
   another Java array).
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
-* `str` returns a representation of the array contents. Because all arrays are instances of
-  `java.lang.Object`, `toString` may also be called to retrieve Java's default (but less
-  useful) representation.
+* `str` returns a representation of the array contents.
+* All arrays are instances of `java.lang.Object`, so the methods `toString`, `equals` and
+  `hashCode` may also be called, though their implementations for arrays are unlikely to be
+  useful.
 
 Casting
 -------

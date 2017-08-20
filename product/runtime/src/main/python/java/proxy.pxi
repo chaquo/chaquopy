@@ -1,4 +1,3 @@
-global_class("java.lang.ClassLoader")
 global_class("java.lang.reflect.Proxy")
 global_class("com.chaquo.python.PyInvocationHandler")
 global_class("com.chaquo.python.PyProxy")
@@ -23,21 +22,25 @@ class DynamicProxyClass(JavaClass):
             return type.__new__(metacls, cls_name, bases, cls_dict)
 
         else:
-            global ClassLoader, Proxy, PyInvocationHandler, PyProxy
+            global Proxy, PyInvocationHandler, PyProxy
             if not (bases and bases[0].__name__ == PROXY_BASE_NAME):
                 raise TypeError("dynamic_proxy must be used first in class bases")
             if any([b.__name__ == PROXY_BASE_NAME for b in bases[1:]]):
                 raise TypeError("dynamic_proxy can only be used once in class bases")
             interfaces = (PyProxy,) + bases[0].__bases__
-            klass = Proxy.getProxyClass(ClassLoader.getSystemClassLoader(), interfaces)
+            klass = Proxy.getProxyClass(PyProxy.getClass().getClassLoader(), interfaces)
             cls_dict["_chaquopy_j_klass"] = klass._chaquopy_this
-            # TODO: Python proxy objects should also be isinstance(java.lang.reflect.Proxy).
             cls = type.__new__(metacls, cls_name,
-                               (DynamicProxy,) + interfaces + bases[1:],
+                               (DynamicProxy, Proxy) + interfaces + bases[1:],
                                cls_dict)
+
+            # We can't use reflect_class, because to avoid infinite recursion, we need
+            # unimplemented methods (including those from java.lang.Object) to fall through in
+            # Python to the inherited members.
             add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
             add_member(cls, "_chaquopyGetDict", JavaMethod("()Lcom/chaquo/python/PyObject;"))
             add_member(cls, "_chaquopySetDict", JavaMethod("(Lcom/chaquo/python/PyObject;)V"))
+
             jclass_cache[klass.getName()] = cls
             return cls
 

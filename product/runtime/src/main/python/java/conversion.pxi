@@ -65,19 +65,15 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
         return None
 
     sig = object_sig(CQPEnv.wrap(j_env), j_object)
-    if sig[0] == '[':
-        return jarray(sig[1:])(instance=j_object)
     if sig == 'Ljava/lang/String;':
         return j2p_string(j_env, j_object)
+    if sig == 'Lcom/chaquo/python/PyObject;':
+        return j2p_pyobject(j_env, j_object.obj)
 
     unbox_method = UNBOX_METHODS.get(sig)
     if unbox_method:
         return getattr(jclass(sig)(instance=j_object), unbox_method)()
 
-    if sig == 'Lcom/chaquo/python/PyObject;':
-        return j2p_pyobject(j_env, j_object.obj)
-
-    # Failed to convert it, so return a proxy object.
     return jclass(sig)(instance=j_object)
 
 

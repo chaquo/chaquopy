@@ -269,7 +269,7 @@ class TestReflect(unittest.TestCase):
 
         c = TR.Child()
         abstract = self.assertRaisesRegexp(NotImplementedError, "Interface.iMethod is abstract "
-                                           "and cannot be called directly")
+                                           "and cannot be called")
         with abstract:
             TR.Interface.iMethod()
         with abstract:

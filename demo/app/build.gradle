@@ -1,6 +1,22 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 
+
+// *** Remove in public repository ********************************************
+import com.chaquo.python.Common;
+
+// TODO #5203 use sourceSets, and remove .gitignore entries
+afterEvaluate {
+    task("copyPythonSrc", type: Copy) {
+        from "../../product/runtime/src/test/python"
+        into "src/main/python"
+        include "**/*.py"
+    }
+    generateDebugPythonAssets.dependsOn(copyPythonSrc)
+}
+// **********************************************************************
+
+
 android {
     compileSdkVersion 23
     buildToolsVersion "25.0.2"
@@ -17,6 +33,10 @@ android {
         // public repo.
         def verParsed = ver.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
+
+        ndk {
+            abiFilters Common.ABIS.toArray()
+        }
         // **********************************************************************
 
         python {
@@ -25,10 +45,6 @@ android {
             version "2.7.10"
             pipInstall "six==1.10.0"
         }
-        ndk {
-            abiFilters "x86", "armeabi-v7a"
-        }
-
         resConfigs "en"
     }
 
@@ -61,6 +77,7 @@ android {
     // **********************************************************************
 }
 
+
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.android.support:appcompat-v7:23.4.0'
@@ -74,16 +91,3 @@ dependencies {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
 }
-
-
-// *** Remove in public repository ********************************************
-// TODO #5203 use sourceSets, and remove .gitignore entries
-afterEvaluate {
-    task("copyPythonSrc", type: Copy) {
-        from "../../product/runtime/src/test/python"
-        into "src/main/python"
-        include "**/*.py"
-    }
-    generateDebugPythonAssets.dependsOn(copyPythonSrc)
-}
-// **********************************************************************
