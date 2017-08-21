@@ -35,9 +35,9 @@ def copy_output_args(definition_args, args, p2j_args):
 
 
 # Cython auto-generates range checking code for the integral types.
-cdef populate_args(JNIEnv *j_env, tuple definition_args, jvalue *j_args, args):
-    for index, argtype in enumerate(definition_args):
-        py_arg = args[index]
+cdef populate_args(JavaMethod jm, p2j_args, jvalue *j_args):
+    for index, argtype in enumerate(jm.args_sig):
+        py_arg = p2j_args[index]
         if argtype == 'Z':
             j_args[index].z = py_arg
         elif argtype == 'B':

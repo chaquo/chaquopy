@@ -48,6 +48,13 @@ cdef class CQPEnv(object):
     cdef IsSameObject(self, JNIRef ref1, JNIRef ref2):
         return bool(self.j_env[0].IsSameObject(self.j_env, ref1.obj, ref2.obj))
 
+    cdef LocalRef NewObjectA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
+        cdef jobject result
+        with nogil:
+            result = self.j_env[0].NewObjectA(self.j_env, j_klass.obj, mid, args)
+        self.check_exception()
+        return self.adopt(result)
+
     cdef LocalRef GetObjectClass(self, JNIRef obj):
         return self.adopt(self.j_env[0].GetObjectClass(self.j_env, obj.obj))
 
