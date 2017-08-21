@@ -381,7 +381,7 @@ class TestProxy(TestCase):
             cls_name, method_name, file_name, line_no = frames[i_frame]
             if ste.getClassName() == cls_name and \
                ste.getMethodName() == method_name and \
-               (file_name is None or ste.getFileName() == file_name) and \
+               (file_name is None or ste.getFileName().endswith(file_name)) and \
                (line_no is None or ste.getLineNumber() == line_no):
                 i_frame += 1
                 if i_frame == len(frames):

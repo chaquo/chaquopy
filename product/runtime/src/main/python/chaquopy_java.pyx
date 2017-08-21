@@ -385,7 +385,7 @@ cdef JNIRef get_exception(JNIEnv *env, java_cls_name, exc_info):
     if isinstance(exc_value, Throwable) and not java_cls_name:
         java_exc = exc_value
         pre_trace = Throwable().getStackTrace()
-        post_trace = list(java_exc.getStackTrace())[:len(pre_trace)]
+        post_trace = list(java_exc.getStackTrace())[:-len(pre_trace)]
         java_exc.setStackTrace(post_trace + python_trace + pre_trace)
     else:
         java_cls = java.jclass(java_cls_name or fqn_PyException)
