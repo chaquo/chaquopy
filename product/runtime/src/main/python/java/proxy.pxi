@@ -7,8 +7,8 @@ PROXY_BASE_NAME = "_chaquopy_proxy"
 
 
 def dynamic_proxy(*interfaces):
-    """Use this function in the bases of a class declaration, and that class will become a dynamic
-    proxy. All parameters must be Java interface classes.
+    """Use the return value of this function in the bases of a class declaration, and that class
+    will become a dynamic proxy. All parameters must be Java interface classes.
     """
     return DynamicProxyClass(PROXY_BASE_NAME, tuple(interfaces), {})
 
@@ -38,8 +38,10 @@ class DynamicProxyClass(JavaClass):
             # unimplemented methods (including those from java.lang.Object) to fall through in
             # Python to the inherited members.
             add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
-            add_member(cls, "_chaquopyGetDict", JavaMethod("()Lcom/chaquo/python/PyObject;"))
-            add_member(cls, "_chaquopySetDict", JavaMethod("(Lcom/chaquo/python/PyObject;)V"))
+            for method in cls.getClass().getDeclaredMethods():
+                name = method.getName()
+                if name.startswith("_chaquopy"):  # See set_this in class.pxi, and PyInvocationHandler
+                    add_member(cls, name, JavaMethod(method))
 
             jclass_cache[klass.getName()] = cls
             return cls

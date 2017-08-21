@@ -6,12 +6,14 @@ global_classes = OrderedDict()
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
 def global_class(cls_name, **kwargs):
-    global_classes[cls_name] = kwargs
+    assert cls_name not in global_classes, cls_name  # Because kwargs may vary, global_class
+    global_classes[cls_name] = kwargs                # can only be used once per class.
     if "Class" in globals():
         load_global_classes()
 
 def load_global_classes():
     for cls_name, kwargs in six.iteritems(global_classes):
+        assert cls_name not in jclass_cache, cls_name  # See comment at Throwable in exception.pxi
         globals()[cls_name.rpartition(".")[2]] = jclass(cls_name, **kwargs)
     global_classes.clear()
 

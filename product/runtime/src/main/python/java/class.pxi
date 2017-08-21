@@ -4,9 +4,12 @@ import keyword
 from threading import RLock
 from weakref import WeakValueDictionary
 
+global_class("java.lang.Error")
+global_class("java.lang.RuntimeException")
+global_class("java.lang.reflect.UndeclaredThrowableException")
+
 global_class("java.lang.ClassNotFoundException")
 global_class("java.lang.NoClassDefFoundError")
-global_class("java.lang.reflect.UndeclaredThrowableException")
 
 
 class_lock = RLock()
@@ -375,33 +378,36 @@ cdef class JavaSimpleMember(JavaMember):
     cdef reflected
     cdef basestring definition
     cdef bint is_static
+    cdef bint is_final
 
-    def __init__(self, definition_or_reflected, *, static):
+    def __init__(self, definition_or_reflected, static, final):
         if isinstance(definition_or_reflected, str):
             self.definition = definition_or_reflected
         else:
             self.reflected = definition_or_reflected
         self.is_static = static
+        self.is_final = final
 
     def resolve(self):
         if self.reflected:
             self.is_static = Modifier.isStatic(self.reflected.getModifiers())
+            self.is_final = Modifier.isFinal(self.reflected.getModifiers())
+
+    def format_modifiers(self):
+        return (f"{'static ' if self.is_static else ''}"
+                f"{'final ' if self.is_final else ''}")
 
 
 cdef class JavaField(JavaSimpleMember):
     cdef jfieldID j_field
-    cdef bint is_final
 
     def __repr__(self):
         self.resolve()
-        return (f"<JavaField "
-                f"{'static ' if self.is_static else ''}"
-                f"{'final ' if self.is_final else ''}"
+        return (f"<JavaField {self.format_modifiers()}"
                 f"{java.sig_to_java(self.definition)} {self.fqn()}>")
 
     def __init__(self, definition_or_reflected, *, static=False, final=False):
-        super().__init__(definition_or_reflected, static=static)
-        self.is_final = final
+        super().__init__(definition_or_reflected, static, final)
 
     def resolve(self):
         if self.j_field: return
@@ -409,7 +415,6 @@ cdef class JavaField(JavaSimpleMember):
         super().resolve()
         if self.reflected:
             self.definition = java.jni_sig(self.reflected.getType())
-            self.is_final = Modifier.isFinal(self.reflected.getModifiers())
 
         env = CQPEnv()
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
@@ -569,15 +574,16 @@ cdef class JavaMethod(JavaSimpleMember):
 
     def __repr__(self):
         self.resolve()
-        return f"<JavaMethod {self.java_declaration()}>"
+        return f"<JavaMethod {self.format_declaration()}>"
 
-    def java_declaration(self):
-        return (f"{'static ' if self.is_static else ''}"
+    def format_declaration(self):
+        return (f"{self.format_modifiers()}"
                 f"{java.sig_to_java(self.return_sig)} {self.fqn()}"
                 f"{java.args_sig_to_java(self.args_sig, self.is_varargs)}")
 
-    def __init__(self, definition_or_reflected, *, static=False, varargs=False, abstract=False):
-        super().__init__(definition_or_reflected, static=static)
+    def __init__(self, definition_or_reflected, *, static=False, varargs=False, abstract=False,
+                 final=False):
+        super().__init__(definition_or_reflected, static, final)
         self.is_varargs = varargs
         self.is_abstract = abstract
 
@@ -590,7 +596,8 @@ cdef class JavaMethod(JavaSimpleMember):
                            else self.reflected.getReturnType())
             self.definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
             self.is_varargs = self.reflected.isVarArgs()
-            self.is_abstract = Modifier.isAbstract(self.reflected.getModifiers())
+            modifiers = self.reflected.getModifiers()
+            self.is_abstract = Modifier.isAbstract(modifiers)
 
         env = CQPEnv()
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
@@ -603,7 +610,6 @@ cdef class JavaMethod(JavaSimpleMember):
 
     # To be consistent with Python syntax, we want instance methods to be called non-virtually
     # in the following cases:
-    #
     #   * When the method is got from a class rather than an instance. This is easy to detect:
     #     obj is None.
     #   * When the method is got via a super() object. Unfortunately I don't think there's any
@@ -634,20 +640,14 @@ cdef class JavaMethod(JavaSimpleMember):
         p2j_args = [p2j(env.j_env, argtype, arg)
                     for argtype, arg in six.moves.zip(self.args_sig, args)]
 
-        cdef jvalue *j_args = NULL
-        if len(args):
-            j_args = <jvalue*>alloca(sizeof(jvalue) * len(self.args_sig))
-            populate_args(env.j_env, self.args_sig, j_args, p2j_args)
-
         if self.is_constructor:
-            result = self.call_constructor(env.j_env, j_args)
+            result = self.call_constructor(env, p2j_args)
         elif self.is_static:
-            result = self.call_static_method(env, j_args)
+            result = self.call_static_method(env, p2j_args)
+        elif virtual:
+            result = self.call_virtual_method(env, obj, p2j_args)
         else:
-            if virtual:
-                result = self.call_virtual_method(env, obj._chaquopy_this, j_args)
-            else:
-                result = self.call_nonvirtual_method(env, obj._chaquopy_this, j_args)
+            result = self.call_nonvirtual_method(env, obj, p2j_args)
 
         copy_output_args(self.args_sig, args, p2j_args)
         return result
@@ -686,15 +686,21 @@ cdef class JavaMethod(JavaSimpleMember):
                             f'({len(args)} given)')
         return obj, args
 
-    cdef GlobalRef call_constructor(self, JNIEnv *j_env, jvalue *j_args):
-        cdef jobject j_self
-        cdef JNIRef j_klass = self.cls._chaquopy_j_klass
-        with nogil:
-            j_self = j_env[0].NewObjectA(j_env, j_klass.obj, self.j_method, j_args)
-        check_exception(j_env)
-        return LocalRef.adopt(j_env, j_self).global_ref()
+    cdef GlobalRef call_constructor(self, CQPEnv env, p2j_args):
+        cdef jvalue *j_args = <jvalue*>alloca(sizeof(jvalue) * len(p2j_args))
+        populate_args(self, p2j_args, j_args)
+        return env.NewObjectA(self.cls._chaquopy_j_klass, self.j_method, j_args).global_ref()
 
-    cdef call_virtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
+    cdef call_virtual_method(self, CQPEnv env, obj, p2j_args):
+        if "Proxy" in globals() and \
+           isinstance(obj._chaquopy_real_obj or obj, Proxy) and \
+           not (self.cls is JavaObject and self.is_final):
+            return self.call_proxy_method(env, obj, p2j_args)
+
+        cdef JNIRef this = obj._chaquopy_this
+        cdef jvalue *j_args = <jvalue*>alloca(sizeof(jvalue) * len(p2j_args))
+        populate_args(self, p2j_args, j_args)
+
         r = self.return_sig[0]
         if r == 'V':
             env.CallVoidMethodA(this, self.j_method, j_args)
@@ -719,8 +725,15 @@ cdef class JavaMethod(JavaSimpleMember):
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
-    cdef call_nonvirtual_method(self, CQPEnv env, JNIRef this, jvalue *j_args):
+    cdef call_nonvirtual_method(self, CQPEnv env, obj, p2j_args):
+        if "Proxy" in globals() and issubclass(self.cls, Proxy):
+            return self.call_proxy_method(env, obj, p2j_args)
+
+        cdef JNIRef this = obj._chaquopy_this
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
+        cdef jvalue *j_args = <jvalue*>alloca(sizeof(jvalue) * len(p2j_args))
+        populate_args(self, p2j_args, j_args)
+
         r = self.return_sig[0]
         if r == 'V':
             env.CallNonvirtualVoidMethodA(this, j_klass, self.j_method, j_args)
@@ -746,8 +759,42 @@ cdef class JavaMethod(JavaSimpleMember):
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
-    cdef call_static_method(self, CQPEnv env, jvalue *j_args):
+    # Android API levels 23 and higher have at least two bugs causing native crashes when
+    # calling proxy methods through JNI. This affects all the methods of the interfaces passed
+    # to Proxy.getProxyClass, and all the non-final methods of Object. Full details are in
+    # #5274, but the outcome is:
+    #   * We cannot use CallNonvirtual...Method on a proxy method.
+    #   * We cannot use Call...Method if it will resolve to a proxy method, and I suspect
+    #     this would also apply to a reflective call through Method.invoke().
+    #
+    # Since we cannot call any proxy methods, we'll have to reimplement what they would do.
+    # This currently deviates from the java.lang.reflect.Proxy spec section "Methods Duplicated
+    # in Multiple Proxy Interfaces", in that the method object passed to the invocation
+    # handler, and the exceptions the invocation handler can throw, will both be based on the
+    # interface the method was actually called through.
+    cdef call_proxy_method(self, CQPEnv env, obj, p2j_args):
+        for i, (arg_sig, p2j_arg) in enumerate(six.moves.zip(self.args_sig, p2j_args)):
+            box_cls_name = PRIMITIVE_TYPES.get(arg_sig)
+            if box_cls_name:
+                p2j_args[i] = jclass(f"java.lang.{box_cls_name}")(p2j_arg)._chaquopy_this
+
+        global Throwable, Error, RuntimeException, UndeclaredThrowableException
+        ih = Proxy.getInvocationHandler(obj)
+        try:
+            return ih.invoke(obj, self.reflected, [JavaObject(instance=r) for r in p2j_args])
+        except (Error, RuntimeException):
+            raise
+        except Throwable as e:
+            if any([c.isInstance(e) for c in self.reflected.getExceptionTypes()]):
+                raise
+            else:
+                raise UndeclaredThrowableException(e)
+
+    cdef call_static_method(self, CQPEnv env, p2j_args):
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
+        cdef jvalue *j_args = <jvalue*>alloca(sizeof(jvalue) * len(p2j_args))
+        populate_args(self, p2j_args, j_args)
+
         r = self.return_sig[0]
         if r == 'V':
             env.CallStaticVoidMethodA(j_klass, self.j_method, j_args)
@@ -874,4 +921,4 @@ cdef class JavaMultipleMethod(JavaMember):
     def overload_err(self, msg, args, methods):
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.fqn()} {msg} {args_type_names}: options are " +
-                ", ".join([jm.java_declaration() for jm in methods]))
+                ", ".join([jm.format_declaration() for jm in methods]))
