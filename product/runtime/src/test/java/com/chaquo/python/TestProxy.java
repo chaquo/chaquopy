@@ -1,6 +1,7 @@
 package com.chaquo.python;
 
 import java.io.*;
+import java.lang.reflect.*;
 
 public class TestProxy {
 
@@ -16,8 +17,8 @@ public class TestProxy {
     }
 
     public interface Args {
-        void tooMany(int a);
-        void tooFew();
+        String tooMany(int a);
+        String tooFew();
 
         int addDuck(int a, int b);
         float addDuck(float a, float b);
@@ -32,6 +33,39 @@ public class TestProxy {
 
         String varargs(String delim, String... args);
     }
+
+
+    public static Object newProxy() {
+        return Proxy.newProxyInstance(TestProxy.class.getClassLoader(),
+                                      new Class[] {Runnable.class, Args.class},
+                                      new JavaInvocationHandler());
+    }
+
+    public static class JavaInvocationHandler implements InvocationHandler {
+        @Override
+        public Object invoke(Object o, Method method, Object[] objects) throws Throwable {
+            switch (method.getName()) {
+                case "run":
+                    javaRun = true;
+                    return null;
+                case "tooFew":
+                    return "tf";
+                case "addDuck":
+                    Class type = method.getParameterTypes()[0];
+                    if (type == int.class) {
+                        return (int) objects[0] + (int) objects[1] + 1;
+                    } else if (type == float.class) {
+                        return (float) objects[0] + (float) objects[1] + 1;
+                    } else if (type == String.class) {
+                        return (String) objects[0] + objects[1] + "X";
+                    }
+            }
+            throw new RuntimeException("Not implemented: " + method.getName());
+        }
+    }
+
+    public static boolean javaRun = false;
+    
 
     public interface Exceptions {
         void fnf() throws FileNotFoundException;

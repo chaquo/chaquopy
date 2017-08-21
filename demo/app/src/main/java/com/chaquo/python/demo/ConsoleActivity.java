@@ -3,6 +3,7 @@ package com.chaquo.python.demo;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
+import android.util.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -120,6 +121,9 @@ public class ConsoleActivity extends AppCompatActivity {
 
     public void append(CharSequence text) {
         if (text.length() == 0) return;
+        for (String line : text.toString().split("\n")) {
+            Log.d("append", line);
+        }
 
         final List<CharSequence> fragments = new ArrayList<>();
         if (state.pendingNewline) {

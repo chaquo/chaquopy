@@ -8,7 +8,7 @@ import com.chaquo.python.*;
 
 public class App extends Application {
 
-    static Context context;
+    static App context;
     static SharedPreferences prefs;
 
     @Override

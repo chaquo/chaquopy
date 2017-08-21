@@ -388,3 +388,20 @@ class TestProxy(TestCase):
                     return
         raise AssertionError("{} element {} not found in {}".format(frames, i_frame,
                                                                     e.getStackTrace()))
+
+    # Test a non-Chaquopy proxy class, implemented in Java in the conventional way.
+    def test_java_implemented(self):
+        p = TP.newProxy()
+
+        TP.javaRun = False
+        p.run()
+        self.assertEqual(True, TP.javaRun)
+
+        self.assertEqual("tf", p.tooFew())
+        self.assertEqual(5, p.addDuck(2, 2))
+        self.assertEqual(4.5, p.addDuck(2, 1.5))
+        self.assertEqual("helloworldX", p.addDuck("hello", "world"))
+
+        from java.lang import RuntimeException
+        with self.assertRaisesRegexp(RuntimeException, "Not implemented: tooMany"):
+            p.tooMany(42)
