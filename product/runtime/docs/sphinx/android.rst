@@ -103,9 +103,9 @@ Any other `pip install` options may also be specified, except the following:
 * Installation format options, such as `-e` and `--egg`.
 * Package type options, such as `--no-binary`.
 
-Chaquopy comes with its own copy of `pip`, but it requires Python to be available on the build
-machine to run it. If `python` is not on your `PATH`, or you want to use a different version,
-use the `buildPython` setting::
+Chaquopy comes with its own copy of `pip`, but it requires Python 2.7 or higher to be available
+on the build machine to run it. If `python` is not on your `PATH`, or you want to use a
+different version, use the `buildPython` setting::
 
     python {
         buildPython "python3"  // Assuming "python3" is on your PATH

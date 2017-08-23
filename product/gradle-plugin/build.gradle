@@ -59,14 +59,25 @@ processResources {
     }
 }
 
-task("testIntegration", type: Exec, group: "verification") {
+Task testPythonTask(String name, Closure closure) {
+    def t = task(name, closure, "type": Exec, "group": "verification")
+    t.configure {
+        executable "python"
+        args "-m", "unittest"
+        if (project.hasProperty("testPythonArgs")) {
+            args project.testPythonArgs.split(" ")
+        } else {
+            args "discover", "-v", "--failfast"
+        }
+    }
+    return t
+}
+
+testPythonTask("testPython") {
+    workingDir "$projectDir/src/test/python"
+}
+
+testPythonTask("testIntegration") {
     dependsOn assemble
     workingDir "$projectDir/src/test/integration"
-    executable "python"
-    args "-m", "unittest"
-    if (project.hasProperty("testPythonArgs")) {
-        args project.testPythonArgs.split(" ")
-    } else {
-        args "discover", "-v", "--failfast"
-    }
 }
