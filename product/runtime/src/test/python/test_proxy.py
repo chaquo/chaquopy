@@ -231,6 +231,18 @@ class TestProxy(TestCase):
         self.assertTrue(a1.equals(a2))
         self.assertEqual(Object.hashCode(a1) + 1, a1.hashCode())
 
+
+    def test_object_methods_final(self):
+        from java.lang import IllegalMonitorStateException
+        class C(dynamic_proxy(TP.Adder)):
+            def wait(self):
+                return "Python override"
+
+        c = C()
+        self.assertEqual("Python override", c.wait())
+        with self.assertRaises(IllegalMonitorStateException):
+            cast(TP.Adder, c).wait()
+
     def test_python_base(self):
         class B(object):
             def forty_two(self):

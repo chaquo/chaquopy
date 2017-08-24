@@ -65,7 +65,7 @@ public class TestProxy {
     }
 
     public static boolean javaRun = false;
-    
+
 
     public interface Exceptions {
         void fnf() throws FileNotFoundException;
