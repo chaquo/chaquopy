@@ -1,7 +1,7 @@
 [
     {
-        "name": "Primitive", "package": "args", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "Primitive", "package": "args", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "zero", "return_type": "void", "arg_types": [],
@@ -25,7 +25,7 @@
         ]
     },
     {
-        "name": "Class", "package": "args", "extends": null,
+        "name": "Class", "package": "args", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [],
         "methods": [
             {
@@ -51,7 +51,7 @@
         ]
     },
     {
-        "name": "Array", "package": "args", "extends": null,
+        "name": "Array", "package": "args", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [],
         "methods": [
             {
@@ -77,7 +77,7 @@
         ]
     },
     {
-        "name": "Mixed", "package": "args", "extends": null,
+        "name": "Mixed", "package": "args", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [],
         "methods": [
             {

@@ -1,35 +1,36 @@
 [
     {
-        "name": "NoBases", "package": "bases", "extends": null,
-        "implements": [], "constructors": [], "methods": []
+        "name": "NoBases", "package": "bases", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Ca", "package": "bases", "extends": "com.example.ClassA",
-        "implements": [], "constructors": [], "methods": []
+        "name": "Ca", "package": "bases", "modifiers": "public",
+        "extends": "com.example.ClassA", "implements": [],
+        "constructors": [], "methods": []
     },
     {
-        "name": "Ia", "package": "bases", "extends": null,
+        "name": "Ia", "package": "bases", "modifiers": "public","extends": null,
         "implements": ["com.example.IntA"], "constructors": [],
         "methods": []
     },
     {
-        "name": "IaIb", "package": "bases", "extends": null,
+        "name": "IaIb", "package": "bases", "modifiers": "public", "extends": null,
         "implements": ["com.example.IntA", "com.example.IntB"],
         "constructors": [], "methods": []
     },
     {
-        "name": "IbIa", "package": "bases", "extends": null,
+        "name": "IbIa", "package": "bases", "modifiers": "public", "extends": null,
         "implements": ["com.example.IntB", "com.example.IntA"],
         "constructors": [], "methods": []
     },
     {
-        "name": "CaIa", "package": "bases",
+        "name": "CaIa", "package": "bases", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": ["com.example.IntA"], "constructors": [],
         "methods": []
     },
     {
-        "name": "CaIaIb", "package": "bases",
+        "name": "CaIaIb", "package": "bases", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": ["com.example.IntA", "com.example.IntB"],
         "constructors": [], "methods": []

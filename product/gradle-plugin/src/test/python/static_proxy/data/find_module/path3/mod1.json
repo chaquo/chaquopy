@@ -1,6 +1,6 @@
 [
     {
-        "name": "Mod1Init", "package": "mod1", "extends": null,
+        "name": "Mod1Init", "package": "mod1", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [], "methods": []
     }
 ]

@@ -1,0 +1,18 @@
+[
+    {
+        "name": "Default", "package": "modifiers", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "Empty", "package": "modifiers", "modifiers": "",
+        "extends": null, "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "Protected", "package": "modifiers", "modifiers": "protected",
+        "extends": null, "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "PublicFinal", "package": "modifiers", "modifiers": "public final",
+        "extends": null, "implements": [], "constructrs": [], "methods": []
+    }
+]

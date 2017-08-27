@@ -1,6 +1,6 @@
 [
     {
-        "name": "Mod1a", "package": "mod1.mod1a", "extends": null,
-        "implements": [], "constructors": [], "methods": []
+        "name": "Mod1a", "package": "mod1.mod1a", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [], "methods": []
     }
 ]

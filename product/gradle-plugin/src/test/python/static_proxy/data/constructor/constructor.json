@@ -1,15 +1,15 @@
 [
     {
-        "name": "Simple", "package": "constructor", "extends": null,
-        "implements": [], "methods": [], "constructors": [
+        "name": "Simple", "package": "constructor", "modifiers": "public",
+        "extends": null, "implements": [], "methods": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []
             }
         ]
     },
     {
-        "name": "Overload", "package": "constructor", "extends": null,
-        "implements": [], "methods": [], "constructors": [
+        "name": "Overload", "package": "constructor", "modifiers": "public",
+        "extends": null, "implements": [], "methods": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []
             },

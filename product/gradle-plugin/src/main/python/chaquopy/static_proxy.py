@@ -102,7 +102,7 @@ def Override(return_type, arg_types, modifiers="public", throws=None):
                   throws=throws)
 
 
-Class = attr.make_class("Class", ["name", "package", "extends", "implements",
+Class = attr.make_class("Class", ["name", "extends", "implements", "package", "modifiers",
                                   "constructors", "methods"])
 Constructor = attr.make_class("Constructor", ["arg_types", "modifiers", "throws"])
 Method = attr.make_class("Method", ["name", "return_type", "arg_types", "modifiers", "throws"])
@@ -179,11 +179,11 @@ class Module(object):
 
     def process_static_proxy(self, cls, sp_call):
         @kwonly_defaults
-        def static_proxy(extends, package=None, *implements):
+        def static_proxy(extends, package=None, modifiers="public", *implements):
             if package is None:
                 package = self.name
-            return extends, implements, package
-        extends, implements, package = self.call(static_proxy, sp_call)
+            return extends, implements, package, modifiers
+        extends, implements, package, modifiers = self.call(static_proxy, sp_call)
 
         constructors = []
         methods = []
@@ -204,7 +204,7 @@ class Module(object):
                             methods.append(Method(stmt.name,
                                                   *self.call(globals()[func_simple], decor)))
 
-        return Class(cls.name, package, extends, implements, constructors, methods)
+        return Class(cls.name, extends, implements, package, modifiers, constructors, methods)
 
     # Calls the given function with the given Call node's arguments, which must all be either
     # literals, or expressions which can be turned into strings by resolve().

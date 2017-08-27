@@ -48,6 +48,7 @@ class TestStaticProxy(TestCase):
         self.run_json("header", "bases_zero_args", False,
                       "bases_zero_args.py:4:8: static_proxy() takes at least 1 argument (0 given)")
         self.run_json("header", "package")
+        self.run_json("header", "modifiers")
 
     def test_constructor(self):
         self.run_json("constructor", "constructor")

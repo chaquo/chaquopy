@@ -1,6 +1,6 @@
 [
     {
-        "name": "C", "package": "modifiers", "extends": null,
+        "name": "C", "package": "modifiers", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [],
         "methods": [
             {

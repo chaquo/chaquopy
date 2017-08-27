@@ -1,21 +1,21 @@
 [
     {
-        "name": "Default", "package": "package",
+        "name": "Default", "package": "package", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Empty", "package": "",
+        "name": "Empty", "package": "", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Level1", "package": "one",
+        "name": "Level1", "package": "one", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Level2", "package": "one.two",
+        "name": "Level2", "package": "one.two", "modifiers": "public",
         "extends": "com.example.ClassA",
         "implements": [], "constructors": [], "methods": []
     }
