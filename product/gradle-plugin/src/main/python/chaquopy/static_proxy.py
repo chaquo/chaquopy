@@ -99,10 +99,15 @@ class Module(object):
     def process(self):
         classes = []
 
+        try:
+            root = ast.parse(open(self.filename).read(), self.filename)
+        except SyntaxError as e:
+            raise CommandError("{}:{}:{}: {}".format(e.filename, e.lineno, e.offset, e.msg))
+
         # These are all the node types which can bind names. We map the bound name to its
         # fully-qualified name if it's a usable import, or otherwise to the node which bound
         # it so we can give a useful error if the name is passed to one of our functions.
-        for node in ast.parse(open(self.filename).read(), self.filename).body:
+        for node in root.body:
             if isinstance(node, ast.FunctionDef):
                 self.bindings[node.name] = node
             elif isinstance(node, ast.ClassDef):
@@ -196,7 +201,11 @@ class Module(object):
             self.error(call, "*args and **kwargs are not supported here")
         args = [self.evaluate(a) for a in call.args]
         kwargs = {kw.arg: self.evaluate(kw.value) for kw in call.keywords}
-        return function(*args, **kwargs)
+        try:
+            result = function(*args, **kwargs)
+        except TypeError as e:
+            self.error(call, str(e))
+        return result
 
     def evaluate(self, expr):
         if isinstance(expr, ast.Num):

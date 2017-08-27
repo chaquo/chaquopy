@@ -1,0 +1,14 @@
+[
+    {
+        "name": "A1", "package": "a", "extends": null,
+        "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "B1", "package": "b", "extends": null,
+        "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "C2", "package": "c", "extends": null,
+        "implements": [], "constructors": [], "methods": []
+    }
+]

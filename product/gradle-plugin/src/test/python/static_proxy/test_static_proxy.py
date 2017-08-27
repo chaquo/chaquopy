@@ -7,25 +7,39 @@ import subprocess
 from unittest import TestCase
 
 
-test_python_dir = abspath(dirname(__file__))
-data_dir = join(test_python_dir, "data/static_proxy")
-main_python_dir = abspath(join(test_python_dir, "../../main/python"))
+static_proxy_dir = abspath(dirname(__file__))
+data_dir = join(static_proxy_dir, "data")
+main_python_dir = abspath(join(static_proxy_dir, "../../../main/python"))
 os.environ["PYTHONPATH"] = main_python_dir
 
 
 class TestStaticProxy(TestCase):
 
-    def test_errors(self):
+    def test_find_module(self):
         self.run_json("nonexistent", "file", False, "nonexistent' does not exist")
         self.run_json("errors/empty.py", "file", False, "errors/empty.py' is not a directory")
-        self.run_json("errors", "empty", False, "No static_proxy classes found in .*errors/empty.py'")
+        self.run_json(["find_module/path1", "find_module/path2"], ["a", "b", "c"],
+                      True, "find_module/12.json")
+        self.run_json(["find_module/path2", "find_module/path1"], ["a", "b", "c"],
+                      True, "find_module/21.json")
+        self.run_json("find_module/path3", "mod1")          # Exists as both module and package
+        self.run_json("find_module/path3", "mod1.mod1a")
+        self.run_json("find_module/path3", "mod99", False, "Module not found: mod99")
+
+    def test_errors(self):
+        self.run_json("errors", "empty", False,
+                      "No static_proxy classes found in .*errors/empty.py'", re=True)
         self.run_json("errors", "no_proxies", False,
-                      "No static_proxy classes found in .*errors/no_proxies.py'")
+                      "No static_proxy classes found in .*errors/no_proxies.py'", re=True)
+        self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
 
-    def test_simple(self):
-        self.run_json("simple", "bases")
+    def test_header(self):
+        self.run_json("header", "bases")
+        self.run_json("header", "bases_zero_args", False,
+                      "bases_zero_args.py:4:8: static_proxy() takes at least 1 argument")
+        self.run_json("header", "package")
 
-    def run_json(self, path, modules, succeed=True, expected=None):
+    def run_json(self, path, modules, succeed=True, expected=None, **kwargs):
         if isinstance(path, str): path = [path]
         if isinstance(modules, str): modules = [modules]
         if succeed and (expected is None):
@@ -52,7 +66,7 @@ class TestStaticProxy(TestCase):
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status), stdout, stderr)
-            self.assertInLong(expected, stderr, re=True)
+            self.assertInLong(expected, stderr, **kwargs)
 
     def dump_run(self, msg, stdout, stderr):
         self.fail(msg + "\n" +
@@ -67,4 +81,5 @@ class TestStaticProxy(TestCase):
             else:
                 self.assertIn(a, b)
         except AssertionError:
-            raise AssertionError("'{}' not found in:\n{}".format(a, b))
+            raise AssertionError("{} '{}' not found in:\n{}"
+                                 .format(("regexp" if re else "string"), a, b))

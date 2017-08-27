@@ -1,0 +1,22 @@
+[
+    {
+        "name": "Default", "package": "package",
+        "extends": "com.example.ClassA",
+        "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "Empty", "package": "",
+        "extends": "com.example.ClassA",
+        "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "Level1", "package": "one",
+        "extends": "com.example.ClassA",
+        "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "Level2", "package": "one.two",
+        "extends": "com.example.ClassA",
+        "implements": [], "constructors": [], "methods": []
+    }
+]

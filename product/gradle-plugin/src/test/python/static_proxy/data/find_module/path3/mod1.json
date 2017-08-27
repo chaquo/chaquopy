@@ -1,0 +1,6 @@
+[
+    {
+        "name": "Mod1Init", "package": "mod1", "extends": null,
+        "implements": [], "constructors": [], "methods": []
+    }
+]

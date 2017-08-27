@@ -2,6 +2,9 @@ from java import *
 from com.example import ClassA, IntA, IntB
 
 
+class NoBases(static_proxy(None)):
+    pass
+
 class Ca(static_proxy(ClassA)):
     pass
 
