@@ -1,0 +1,22 @@
+[
+    {
+        "name": "Simple", "package": "constructor", "extends": null,
+        "implements": [], "methods": [], "constructors": [
+            {
+                "arg_types": [], "modifiers": "public", "throws": []
+            }
+        ]
+    },
+    {
+        "name": "Overload", "package": "constructor", "extends": null,
+        "implements": [], "methods": [], "constructors": [
+            {
+                "arg_types": [], "modifiers": "public", "throws": []
+            },
+            {
+                "arg_types": ["com.example.Class1"], "modifiers": "protected",
+                "throws": ["com.example.Class2"]
+            }
+        ]
+    }
+]

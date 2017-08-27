@@ -1,0 +1,90 @@
+[
+    {
+        "name": "Primitive", "package": "args", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "zero", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "integral", "return_type": "void",
+                "arg_types": ["byte", "short", "int", "long"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "floating", "return_type": "void",
+                "arg_types": ["float", "double"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "other", "return_type": "void",
+                "arg_types": ["boolean", "char"],
+                "modifiers": "public", "throws": []
+            }
+        ]
+    },
+    {
+        "name": "Class", "package": "args", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "simple1", "return_type": "void",
+                "arg_types": ["com.example.Class1"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "simple2", "return_type": "void",
+                "arg_types": ["com.example.Class1", "com.example.Class2"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "nested1", "return_type": "void",
+                "arg_types": ["com.example.Class1.Class11"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "nested2", "return_type": "void",
+                "arg_types": ["com.example.Class1.Class11.Class111"],
+                "modifiers": "public", "throws": []
+            }
+        ]
+    },
+    {
+        "name": "Array", "package": "args", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "primitive1d", "return_type": "void",
+                "arg_types": ["int[]"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "primitive2d", "return_type": "void",
+                "arg_types": ["int[][]"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "class1d", "return_type": "void",
+                "arg_types": ["com.example.Class1[]"],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "class2d", "return_type": "void",
+                "arg_types": ["com.example.Class1[][]"],
+                "modifiers": "public", "throws": []
+            }
+        ]
+    },
+    {
+        "name": "Mixed", "package": "args", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "mixed1", "return_type": "void",
+                "arg_types": ["int", "com.example.Class1", "int[]"],
+                "modifiers": "public", "throws": []
+            }
+        ]
+    }
+]

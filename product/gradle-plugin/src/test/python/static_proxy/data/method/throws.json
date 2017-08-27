@@ -1,0 +1,29 @@
+[
+    {
+        "name": "C", "package": "throws", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "default", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "nothing", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "c1", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": ["com.example.Class1"]
+            },
+            {
+                "name": "c2", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": ["com.example.Class2"]
+            },
+            {
+                "name": "c1c2", "return_type": "void", "arg_types": [],
+                "modifiers": "public",
+                "throws": ["com.example.Class1", "com.example.Class2"]
+            }
+        ]
+    }
+]

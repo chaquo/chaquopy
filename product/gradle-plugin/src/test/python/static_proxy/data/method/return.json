@@ -1,0 +1,36 @@
+[
+    {
+        "name": "C", "package": "return", "extends": null,
+        "implements": [], "constructors": [],
+        "methods": [
+            {
+                "name": "void_", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "integral", "return_type": "int", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "floating", "return_type": "float", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "boolean_", "return_type": "boolean", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "char_", "return_type": "char", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "class_", "return_type": "com.example.Class1",
+                "arg_types": [], "modifiers": "public", "throws": []
+            },
+            {
+                "name": "array", "return_type": "int[]", "arg_types": [],
+                "modifiers": "public", "throws": []
+            }
+        ]
+    }
+]

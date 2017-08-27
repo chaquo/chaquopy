@@ -21,8 +21,8 @@ def join(*paths):
 
 
 PRIMITIVES = ["void", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
-JAVA_ALL = (["static_proxy", "jarray"] +    # No point including names not used by this script.
-            [("j" + p) for p in PRIMITIVES])
+JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only include names
+            [("j" + p) for p in PRIMITIVES])                                   # used by this script.
 PRIMITIVE_PREFIX = "java.j"
 
 
@@ -84,10 +84,28 @@ def find_module(mod_name, path):
     raise CommandError("Module not found: " + mod_name)
 
 
+@kwonly_defaults
+def constructor(arg_types, modifiers="public", throws=None):
+    if throws is None:
+        throws = []
+    return arg_types, modifiers, throws
+
+@kwonly_defaults
+def method(return_type, arg_types, modifiers="public", throws=None):
+    if throws is None:
+        throws = []
+    return return_type, arg_types, modifiers, throws
+
+@kwonly_defaults
+def Override(return_type, arg_types, modifiers="public", throws=None):
+    return method(return_type, arg_types, modifiers=("@Override " + modifiers),
+                  throws=throws)
+
+
 Class = attr.make_class("Class", ["name", "package", "extends", "implements",
                                   "constructors", "methods"])
-Method = attr.make_class("Method", ["name", "return_type", "arg_types", "modifiers", "throws"])
 Constructor = attr.make_class("Constructor", ["arg_types", "modifiers", "throws"])
+Method = attr.make_class("Method", ["name", "return_type", "arg_types", "modifiers", "throws"])
 
 
 class Module(object):
@@ -165,15 +183,6 @@ class Module(object):
             if package is None:
                 package = self.name
             return extends, implements, package
-
-        @kwonly_defaults
-        def constructor(arg_types, modifiers="public", throws=None):
-            return arg_types, modifiers, throws
-
-        @kwonly_defaults
-        def Override(return_type, arg_types, modifiers="public", throws=None):
-            return return_type, arg_types, "@Override " + modifiers, throws
-
         extends, implements, package = self.call(static_proxy, sp_call)
 
         constructors = []
@@ -185,12 +194,15 @@ class Module(object):
                         func = self.lookup(decor.func)
                         if func == "java.constructor":
                             if stmt.name != "__init__":
-                                self.error(stmt, "@constructor can only be used on __init__")
+                                self.error(decor, "@constructor can only be used on __init__")
                             constructors.append(Constructor(*self.call(constructor, decor)))
-                        elif func == "java.Override":
+                        elif func in ["java.method", "java.Override"]:
+                            func_simple = func[len("java."):]
                             if stmt.name == "__init__":
-                                self.error(stmt, "@Override cannot be used on __init__")
-                            methods.append(Method(stmt.name, *self.call(Override, decor)))
+                                self.error(decor, "@{} cannot be used on __init__"
+                                           .format(func_simple))
+                            methods.append(Method(stmt.name,
+                                                  *self.call(globals()[func_simple], decor)))
 
         return Class(cls.name, package, extends, implements, constructors, methods)
 
@@ -212,16 +224,17 @@ class Module(object):
             return expr.n
         elif isinstance(expr, ast.Str):
             return expr.s
-        elif isinstance(expr, ast.Attribute):
-            return self.resolve(expr)
         elif isinstance(expr, ast.Name):
             if expr.id in ["True", "False", "None"]:
                 return getattr(six.moves.builtins, expr.id)
             else:
                 return self.resolve(expr)
+        elif isinstance(expr, (ast.Attribute, ast.Call)):
+            return self.resolve(expr)
         elif isinstance(expr, (ast.List, ast.Tuple)):
             return [self.evaluate(e) for e in expr.elts]
-        # The only other literal nodes are Dict and Set, which are not currently required.
+        # The only other literal nodes are Dict and Set, which are not currently accepted by
+        # any of our functions.
         else:
             self.error(expr, type(expr).__name__ + " expression is not supported here")
 
@@ -233,9 +246,9 @@ class Module(object):
 
     # Converts an expression node to a fully-qualified name or Java type string.
     def resolve(self, expr):
-        error = ""
+        what = "expression"
         if isinstance(expr, ast.Attribute):
-            return self.resolve(expr.value) + "." + expr.attr.id
+            return self.resolve(expr.value) + "." + expr.attr
         elif isinstance(expr, ast.Name):
             result = self.bindings.get(expr.id)
             if isinstance(result, str):
@@ -245,18 +258,18 @@ class Module(object):
                         result = primitive
                 return result
             else:
-                error = " '{}'".format(expr.id)
+                what = " '{}'".format(expr.id)
                 if isinstance(result, ast.stmt):
-                    error += " (bound at {})".format(self.where(result))
+                    what += " (bound at {})".format(self.where(result))
                 else:
-                    error += " (binding not found)"
+                    what += " (binding not found)"
         elif isinstance(expr, ast.Call) and self.lookup(expr.func) == "java.jarray":
             def jarray(element_type):
                 return element_type
             return self.call(jarray, expr) + "[]"
 
-        self.error(expr, "cannot resolve{}. Types must be imported unconditionally "
-                   "at the module top-level.".format(error))
+        self.error(expr, "cannot resolve {}. Types must be imported unconditionally "
+                   "at the module top-level.".format(what))
 
     def error(self, node, message):
         if node:
@@ -277,8 +290,3 @@ class CommandError(Exception):
 
 if __name__ == "__main__":
     main()
-
-# FIXME test:
-# jarray type, including multi-dimensional
-# jvoid type
-# nested class expression
