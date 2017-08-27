@@ -12,7 +12,8 @@ from os.path import exists, isdir, isfile
 import sys
 
 import attr
-from kwonly_args import kwonly_defaults
+from attr.validators import instance_of, optional
+from kwonly_args import kwonly_defaults, KWONLY_REQUIRED
 import six
 
 # Consistent output for tests
@@ -23,7 +24,14 @@ def join(*paths):
 PRIMITIVES = ["void", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
 JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only include names
             [("j" + p) for p in PRIMITIVES])                                   # used by this script.
-PRIMITIVE_PREFIX = "java.j"
+
+def unwrap_if_primitive(name):
+    PRIMITIVE_PREFIX = "java.j"
+    if name.startswith(PRIMITIVE_PREFIX):
+        primitive = name[len(PRIMITIVE_PREFIX):]
+        if primitive in PRIMITIVES:
+            return primitive
+    return name
 
 
 def main():
@@ -84,28 +92,50 @@ def find_module(mod_name, path):
     raise CommandError("Module not found: " + mod_name)
 
 
+# Only user-supplied fields are validated.
+@attr.s
+class Class(object):
+    name = attr.ib()
+    extends = attr.ib(validator=optional(instance_of(str)))
+    implements = attr.ib(validator=instance_of((list, tuple)))
+    package = attr.ib(validator=instance_of(str))
+    modifiers = attr.ib(validator=instance_of(str))
+    constructors = attr.ib()
+    methods = attr.ib()
+
+
+# Attrs constructors can't enforce keyword-only arguments, so we use wrapper functions.
 @kwonly_defaults
 def constructor(arg_types, modifiers="public", throws=None):
     if throws is None:
         throws = []
-    return arg_types, modifiers, throws
+    return Constructor(arg_types, modifiers, throws)
+
+@attr.s
+class Constructor(object):
+    arg_types = attr.ib(validator=instance_of((list, tuple)))
+    modifiers = attr.ib(validator=instance_of(str))
+    throws = attr.ib(validator=instance_of((list, tuple)))
+
 
 @kwonly_defaults
-def method(return_type, arg_types, modifiers="public", throws=None):
+def Override(return_type, arg_types, modifiers="public", throws=None, name=KWONLY_REQUIRED):
+    return method(return_type, arg_types, modifiers=("@Override " + modifiers),
+                  throws=throws, name=name)
+
+@kwonly_defaults
+def method(return_type, arg_types, modifiers="public", throws=None, name=KWONLY_REQUIRED):
     if throws is None:
         throws = []
-    return return_type, arg_types, modifiers, throws
+    return Method(name, return_type, arg_types, modifiers, throws)
 
-@kwonly_defaults
-def Override(return_type, arg_types, modifiers="public", throws=None):
-    return method(return_type, arg_types, modifiers=("@Override " + modifiers),
-                  throws=throws)
-
-
-Class = attr.make_class("Class", ["name", "extends", "implements", "package", "modifiers",
-                                  "constructors", "methods"])
-Constructor = attr.make_class("Constructor", ["arg_types", "modifiers", "throws"])
-Method = attr.make_class("Method", ["name", "return_type", "arg_types", "modifiers", "throws"])
+@attr.s
+class Method(object):
+    name = attr.ib()
+    return_type = attr.ib(validator=instance_of(str))
+    arg_types = attr.ib(validator=instance_of((list, tuple)))
+    modifiers = attr.ib(validator=instance_of(str))
+    throws = attr.ib(validator=instance_of((list, tuple)))
 
 
 class Module(object):
@@ -150,8 +180,9 @@ class Module(object):
                     self.process_import(names, lambda name: node)
 
         if not classes:
-            self.error(None, "No static_proxy classes found in '{}'. Classes must be defined "
-                       "unconditionally at the module top-level.".format(self.filename))
+            self.error(None, "No static_proxy classes found in '{}'. Class definitions and 'java' "
+                       "module imports must appear unconditionally at the module top-level."
+                       .format(self.filename))
         return classes
 
     def process_assign(self, target):
@@ -165,7 +196,8 @@ class Module(object):
     def process_import(self, names, get_binding):
         for alias in names:
             if alias.name != "*":
-                self.bindings[alias.asname or alias.name] = get_binding(alias.name)
+                simple_name = alias.name.partition(".")[0]
+                self.bindings[alias.asname or simple_name] = get_binding(simple_name)
 
     def process_class(self, node):
         # TODO allow static proxy classes as bases (#5283) and return, argument and throws
@@ -195,28 +227,31 @@ class Module(object):
                         if func == "java.constructor":
                             if stmt.name != "__init__":
                                 self.error(decor, "@constructor can only be used on __init__")
-                            constructors.append(Constructor(*self.call(constructor, decor)))
+                            constructors.append(self.call(constructor, decor))
                         elif func in ["java.method", "java.Override"]:
                             func_simple = func[len("java."):]
                             if stmt.name == "__init__":
                                 self.error(decor, "@{} cannot be used on __init__"
                                            .format(func_simple))
-                            methods.append(Method(stmt.name,
-                                                  *self.call(globals()[func_simple], decor)))
+                            methods.append(self.call(globals()[func_simple], decor, name=stmt.name))
 
-        return Class(cls.name, extends, implements, package, modifiers, constructors, methods)
+        try:
+            return Class(cls.name, extends, implements, package, modifiers, constructors, methods)
+        except TypeError as e:
+            self.error(cls, type_error_msg(e))
 
-    # Calls the given function with the given Call node's arguments, which must all be either
-    # literals, or expressions which can be turned into strings by resolve().
-    def call(self, function, call):
+    # Calls the given function with the Call node's arguments, which must all be either
+    # literals, or expressions which can be turned into strings by resolve(). Additional
+    # keyword arguments may also be passed through.
+    def call(self, function, call, **kwargs):
         if call.starargs or call.kwargs:
             self.error(call, "*args and **kwargs are not supported here")
         args = [self.evaluate(a) for a in call.args]
-        kwargs = {kw.arg: self.evaluate(kw.value) for kw in call.keywords}
+        kwargs.update((kw.arg, self.evaluate(kw.value)) for kw in call.keywords)
         try:
             result = function(*args, **kwargs)
         except TypeError as e:
-            self.error(call, str(e))
+            self.error(call, type_error_msg(e))
         return result
 
     def evaluate(self, expr):
@@ -248,15 +283,11 @@ class Module(object):
     def resolve(self, expr):
         what = "expression"
         if isinstance(expr, ast.Attribute):
-            return self.resolve(expr.value) + "." + expr.attr
+            return unwrap_if_primitive(self.resolve(expr.value) + "." + expr.attr)
         elif isinstance(expr, ast.Name):
             result = self.bindings.get(expr.id)
             if isinstance(result, str):
-                if result.startswith(PRIMITIVE_PREFIX):
-                    primitive = result[len(PRIMITIVE_PREFIX):]
-                    if primitive in PRIMITIVES:
-                        result = primitive
-                return result
+                return unwrap_if_primitive(result)
             else:
                 what = " '{}'".format(expr.id)
                 if isinstance(result, ast.stmt):
@@ -282,6 +313,13 @@ class Module(object):
 
 def write_java(classes, out_dir):
     FIXME
+
+
+def type_error_msg(e):
+    if (len(e.args) == 4) and isinstance(e.args[1], attr.Attribute):
+        return e.args[0]
+    else:
+        return str(e)
 
 
 class CommandError(Exception):

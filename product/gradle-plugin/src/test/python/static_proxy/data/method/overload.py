@@ -9,7 +9,7 @@ class C(static_proxy(None)):
     def method1(*args):
         pass
 
-    @method(jvoid, [])
+    @Override(jvoid, [])
     @method(jboolean, [jfloat], modifiers="protected")
     @method(jchar, [jarray(Class2.Class21)], throws=[Class1])
     def method2(*args):

@@ -14,7 +14,7 @@
             },
             {
                 "name": "method2", "return_type": "void", "arg_types": [],
-                "modifiers": "public", "throws": []
+                "modifiers": "@Override public", "throws": []
             },
             {
                 "name": "method2", "return_type": "boolean", "arg_types": ["float"],

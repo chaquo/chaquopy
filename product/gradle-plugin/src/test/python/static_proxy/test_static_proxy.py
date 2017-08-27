@@ -1,9 +1,6 @@
 # FIXME:
+# java types given as strings
 # bindings and related errors
-# "import java"
-# "from java import explicit, list"
-# "import ... as"
-# overloaded constructors
 
 
 from __future__ import absolute_import, division, print_function
@@ -42,6 +39,11 @@ class TestStaticProxy(TestCase):
         self.run_json("errors", "no_proxies", False,
                       "No static_proxy classes found in .*errors/no_proxies.py'", re=True)
         self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
+
+    def test_bindings(self):
+        self.run_json("bindings", "import_module")
+        self.run_json("bindings", "import_as")
+        # self.run_json("bindings", "import_list")
 
     def test_header(self):
         self.run_json("header", "bases")
@@ -91,7 +93,7 @@ class TestStaticProxy(TestCase):
             except ValueError:
                 print("Invalid output\n" + stdout)
                 raise
-            self.assertEqual(result, json.load(open(join(data_dir, expected))))
+            self.assertEqual(json.load(open(join(data_dir, expected))), result)
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status), stdout, stderr)

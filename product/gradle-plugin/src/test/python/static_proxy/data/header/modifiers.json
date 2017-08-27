@@ -13,6 +13,6 @@
     },
     {
         "name": "PublicFinal", "package": "modifiers", "modifiers": "public final",
-        "extends": null, "implements": [], "constructrs": [], "methods": []
+        "extends": null, "implements": [], "constructors": [], "methods": []
     }
 ]
