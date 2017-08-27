@@ -6,6 +6,8 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 import ast
+from contextlib import contextmanager
+from datetime import datetime
 import json
 import os
 from os.path import exists, isdir, isfile
@@ -22,8 +24,8 @@ def join(*paths):
 
 
 PRIMITIVES = ["void", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
-JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only include names
-            [("j" + p) for p in PRIMITIVES])                                   # used by this script.
+JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only the names used
+            [("j" + p) for p in PRIMITIVES])                                   # by this script.
 
 def unwrap_if_primitive(name):
     PRIMITIVE_PREFIX = "java.j"
@@ -50,7 +52,9 @@ def main():
             mod_filename = find_module(mod_name, path)
             classes += Module(mod_name, mod_filename).process()
         if args.java:
-            write_java(classes, args.out)
+            jw = JavaWriter(args.java)
+            for cls in classes:
+                jw.write(cls)
         elif args.json:
             print(json.dumps(classes, default=lambda c: attr.asdict(c), indent=4))
     except CommandError as e:
@@ -311,8 +315,75 @@ class Module(object):
         return "{}:{}:{}".format(self.filename, node.lineno, node.col_offset)
 
 
-def write_java(classes, out_dir):
-    FIXME
+class JavaWriter(object):
+    def __init__(self, root_dirname):
+        self.root_dirname = root_dirname
+
+    def write(self, cls):
+        pkg_dirname = join(self.root_dirname, cls.package.replace(".", "/"))
+        if not isdir(pkg_dirname):
+            os.makedirs(pkg_dirname)
+
+        self.indent = 0
+        with open(join(pkg_dirname, cls.name + ".java"), "w") as self.out_file:
+            self.line("// Generated at {} with the command:",
+                      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+            self.line("// {}", " ".join(sys.argv))
+            self.line()
+            self.line("package {};", cls.package)
+            self.line()
+            with self.block("{} class {} {} {}", cls.modifiers, cls.name,
+                            self.format_optional("extends", cls.extends),
+                            self.format_list("implements", cls.implements)):
+                self.line()
+                for ctor in cls.constructors:
+                    self.constructor(cls, ctor)
+                for method in cls.methods:
+                    self.method(method)
+
+    def constructor(self, cls, ctor):
+        with self.block("{} {}{}", ctor.modifiers, cls.name,
+                        self.format_args_throws(ctor)):
+            pass
+        self.line()
+
+    def method(self, method):
+        with self.block("{} {} {}{}", method.modifiers, method.return_type,
+                        method.name, self.format_args_throws(method)):
+            pass
+        self.line()
+
+    def format_args_throws(self, method):
+        args = self.format_list("{} arg{}".format(t, i)
+                                for i, t in enumerate(method.arg_types))
+        throws = self.format_list("throws", method.throws)
+        return "({}) {}".format(args, throws)
+        self.line()
+
+    def format_list(self, *args):
+        if len(args) == 1:
+            prefix, l = "", args[0]
+        else:
+            prefix, l = args
+        return self.format_optional(prefix, ", ".join(l))
+
+    def format_optional(self, prefix, s):
+        return (prefix + " " + s).strip() if s else ""
+
+    @contextmanager
+    def block(self, template="", *args):
+        self.line(template.format(*args) + " {")
+        self.indent += 4
+        yield
+        self.indent -= 4
+        self.line("}")
+
+    def line(self, template="", *args):
+        s = template
+        if args:
+            s = s.format(*args)
+        s = " ".join(s.split())  # Collapse consecutive spaces
+        print((" " * self.indent) + s, file=self.out_file)
 
 
 def type_error_msg(e):
