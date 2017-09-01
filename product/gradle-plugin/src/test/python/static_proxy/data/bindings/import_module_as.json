@@ -1,6 +1,6 @@
 [
     {
-        "name": "C", "package": "import_as", "modifiers": "public",
+        "name": "C", "package": "import_module_as", "modifiers": "public",
         "extends": null, "implements": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []
@@ -9,7 +9,7 @@
         "methods": [
             {
                 "name": "method1", "return_type": "void", "arg_types": [],
-                "modifiers": "public", "throws": ["com.example.Class1"]
+                "modifiers": "public",  "throws": ["com.example.Class1"]
             },
             {
                 "name": "method2", "return_type": "float", "arg_types": ["boolean"],

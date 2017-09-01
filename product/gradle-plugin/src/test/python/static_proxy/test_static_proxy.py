@@ -1,8 +1,3 @@
-# FIXME:
-# java types given as strings
-# bindings and related errors
-
-
 from __future__ import absolute_import, division, print_function
 
 import json
@@ -34,29 +29,44 @@ class TestStaticProxy(TestCase):
         self.run_json("find_module/path3", "mod99", False, "Module not found: mod99")
 
     def test_errors(self):
-        self.run_json("errors", "empty", False,
-                      "No static_proxy classes found in .*errors/empty.py'", re=True)
-        self.run_json("errors", "no_proxies", False,
-                      "No static_proxy classes found in .*errors/no_proxies.py'", re=True)
+        self.run_json("errors", "empty", False, "empty.py: no static_proxy classes found")
+        self.run_json("errors", "no_proxies", False, "no_proxies.py: no static_proxy classes found")
+        self.run_json("errors", "conditional", False, "conditional.py: no static_proxy classes found")
         self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
 
     def test_bindings(self):
+        self.run_json("bindings", "import_from")
         self.run_json("bindings", "import_module")
-        self.run_json("bindings", "import_as")
-        # self.run_json("bindings", "import_list")
+        self.run_json("bindings", "import_module_as")
+        self.run_json("bindings", "late", False,
+                      "late.py:4:22: cannot resolve 'C' (binding not found)")
+        self.run_json("bindings", "del", False,
+                      "del.py:7:22: cannot resolve 'Class1' (binding not found)")
+        self.run_json("bindings", "class", False,
+                      "class.py:7:22: cannot resolve 'C' \(bound at .*class.py:4:1\)", re=True)
+        self.run_json("bindings", "def", False,
+                      "def.py:7:22: cannot resolve 'f' \(bound at .*def.py:4:1\)", re=True)
+        self.run_json("bindings", "assign", False,
+                      "assign.py:6:22: cannot resolve 'C' \(bound at .*assign.py:4:1\)", re=True)
+        self.run_json("bindings", "assign_list", False, "assign_list.py:6:22: cannot resolve 'C' "
+                      "\(bound at .*assign_list.py:4:4\)", re=True)
+        self.run_json("bindings", "assign_list_recursive", False, "assign_list_recursive.py:6:22: "
+                      "cannot resolve 'C' \(bound at .*assign_list_recursive.py:4:8\)", re=True)
+        self.run_json("bindings", "assign_aug", False, "assign_aug.py:7:22: cannot resolve 'C' "
+                      "\(bound at .*assign_aug.py:5:1\)", re=True)
 
     def test_header(self):
         self.run_json("header", "bases")
         self.run_json("header", "bases_zero_args", False,
-                      "bases_zero_args.py:4:8: static_proxy() takes at least 1 argument (0 given)")
+                      "bases_zero_args.py:4:9: static_proxy() takes at least 1 argument (0 given)")
         self.run_json("header", "package")
         self.run_json("header", "modifiers")
 
     def test_constructor(self):
         self.run_json("constructor", "constructor")
         self.run_json("constructor", "name", False,
-                      "name.py:5:5: @constructor can only be used on __init__")
-        self.run_json("constructor", "return", False, "return.py:5:5: constructor\(\) takes "
+                      "name.py:5:6: @constructor can only be used on __init__")
+        self.run_json("constructor", "return", False, "return.py:5:6: constructor\(\) takes "
                       "exactly 1 arguments? \(2 given\)", re=True)
 
     def test_method(self):
@@ -66,9 +76,13 @@ class TestStaticProxy(TestCase):
         self.run_json("method", "modifiers")
         self.run_json("method", "overload")
         self.run_json("method", "init_method", False,
-                      "init_method.py:5:5: @method cannot be used on __init__")
+                      "init_method.py:5:6: @method cannot be used on __init__")
         self.run_json("method", "init_override", False,
-                      "init_override.py:5:5: @Override cannot be used on __init__")
+                      "init_override.py:5:6: @Override cannot be used on __init__")
+        self.run_json("method", "missing_brackets", False,
+                      "missing_brackets.py:5:6: 'arg_types' must be (<type 'list'>, <type 'tuple'>)")
+        self.run_json("method", "missing_args", False,
+                      "missing_args.py:5:6: method() takes at least 2 arguments")
 
     def run_json(self, path, modules, succeed=True, expected=None, **kwargs):
         if isinstance(path, str): path = [path]

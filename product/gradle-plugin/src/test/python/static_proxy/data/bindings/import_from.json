@@ -1,0 +1,25 @@
+[
+    {
+        "name": "C", "package": "import_from", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [
+            {
+                "arg_types": [], "modifiers": "public", "throws": []
+            }
+        ],
+        "methods": [
+            {
+                "name": "method1", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": ["com.example.Class1"]
+            },
+            {
+                "name": "method2", "return_type": "float", "arg_types": ["boolean"],
+                "modifiers": "@Override public", "throws": []
+            },
+            {
+                "name": "method2", "return_type": "char",
+                "arg_types": ["com.example.Class2[][]"],
+                "modifiers": "@Override public", "throws": []
+            }
+        ]
+    }
+]

@@ -156,9 +156,9 @@ class Module(object):
         except SyntaxError as e:
             raise CommandError("{}:{}:{}: {}".format(e.filename, e.lineno, e.offset, e.msg))
 
-        # These are all the node types which can bind names. We map the bound name to its
-        # fully-qualified name if it's a usable import, or otherwise to the node which bound
-        # it so we can give a useful error if the name is passed to one of our functions.
+        # These are all the node types which can change global bindings. We map the bound name
+        # to its fully-qualified name if it's a usable import, or otherwise to the node which
+        # bound it so we can give a useful error if the name is passed to one of our functions.
         for node in root.body:
             if isinstance(node, ast.FunctionDef):
                 self.bindings[node.name] = node
@@ -166,6 +166,10 @@ class Module(object):
                 c = self.process_class(node)
                 if c:
                     classes.append(c)
+            elif isinstance(node, ast.Delete):
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        del self.bindings[t.id]
             elif isinstance(node, ast.Assign):
                 for t in node.targets:
                     self.process_assign(t)
@@ -175,8 +179,11 @@ class Module(object):
                 self.process_import(node.names, lambda name: name)
             elif isinstance(node, ast.ImportFrom):
                 names = node.names
-                if node.module == "java" and names[0].name == "*":
-                    names = [ast.alias(name, None) for name in JAVA_ALL]
+                if names[0].name == "*":
+                    if node.module == "java":
+                        names = [ast.alias(name, None) for name in JAVA_ALL]
+                    else:
+                        names = []
 
                 if node.module and not node.level:  # Absolute import
                     self.process_import(names, lambda name: node.module + "." + name)
@@ -184,7 +191,7 @@ class Module(object):
                     self.process_import(names, lambda name: node)
 
         if not classes:
-            self.error(None, "No static_proxy classes found in '{}'. Class definitions and 'java' "
+            self.error(None, "{}: no static_proxy classes found. Class definitions and 'java' "
                        "module imports must appear unconditionally at the module top-level."
                        .format(self.filename))
         return classes
@@ -199,9 +206,11 @@ class Module(object):
 
     def process_import(self, names, get_binding):
         for alias in names:
-            if alias.name != "*":
-                simple_name = alias.name.partition(".")[0]
-                self.bindings[alias.asname or simple_name] = get_binding(simple_name)
+            if alias.asname:
+                key, value = alias.asname, alias.name
+            else:
+                key = value = alias.name.partition(".")[0]
+            self.bindings[key] = get_binding(value)
 
     def process_class(self, node):
         # TODO allow static proxy classes as bases (#5283) and return, argument and throws
@@ -272,8 +281,8 @@ class Module(object):
             return self.resolve(expr)
         elif isinstance(expr, (ast.List, ast.Tuple)):
             return [self.evaluate(e) for e in expr.elts]
-        # The only other literal nodes are Dict and Set, which are not currently accepted by
-        # any of our functions.
+        # The only other literal node types are Dict and Set, which are not currently accepted
+        # by any of our functions.
         else:
             self.error(expr, type(expr).__name__ + " expression is not supported here")
 
@@ -293,17 +302,17 @@ class Module(object):
             if isinstance(result, str):
                 return unwrap_if_primitive(result)
             else:
-                what = " '{}'".format(expr.id)
-                if isinstance(result, ast.stmt):
-                    what += " (bound at {})".format(self.where(result))
-                else:
+                what = "'{}'".format(expr.id)
+                if result is None:
                     what += " (binding not found)"
+                else:
+                    what += " (bound at {})".format(self.where(result))
         elif isinstance(expr, ast.Call) and self.lookup(expr.func) == "java.jarray":
             def jarray(element_type):
                 return element_type
             return self.call(jarray, expr) + "[]"
 
-        self.error(expr, "cannot resolve {}. Types must be imported unconditionally "
+        self.error(expr, "cannot resolve {}. Java types must be imported unconditionally "
                    "at the module top-level.".format(what))
 
     def error(self, node, message):
@@ -312,7 +321,7 @@ class Module(object):
         raise CommandError(message)
 
     def where(self, node):
-        return "{}:{}:{}".format(self.filename, node.lineno, node.col_offset)
+        return "{}:{}:{}".format(self.filename, node.lineno, node.col_offset + 1)
 
 
 class JavaWriter(object):
@@ -326,9 +335,9 @@ class JavaWriter(object):
 
         self.indent = 0
         with open(join(pkg_dirname, cls.name + ".java"), "w") as self.out_file:
-            self.line("// Generated at {} with the command:",
+            self.line("// Generated at {} with the command line:",
                       datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
-            self.line("// {}", " ".join(sys.argv))
+            self.line("// {}", " ".join(sys.argv[1:]))
             self.line()
             self.line("package {};", cls.package)
             self.line()
