@@ -1,64 +1,143 @@
-global_class("java.lang.reflect.Proxy")
-global_class("com.chaquo.python.PyInvocationHandler")
-global_class("com.chaquo.python.PyProxy")
+# Proxy objects can have user-defined Python attributes, so remove the restrictions imposed
+# by JavaObject.__setattr__.
+global_class("com.chaquo.python.PyProxy", cls_dict={"__setattr__": object.__setattr__})
 
 
 PROXY_BASE_NAME = "_chaquopy_proxy"
 
 
-def dynamic_proxy(*interfaces):
-    """Use the return value of this function in the bases of a class declaration, and that class
-    will become a dynamic proxy. All arguments must be Java interface types.
-    """
-    return DynamicProxyClass(PROXY_BASE_NAME, tuple(interfaces), {})
+# FIXME defend against the static proxy class being reflected under its Java name before being
+# created in Python. Or is that really a problem?
+#
+# Removed from JavaClass.__new__:
+# if java_name in jclass_cache:
+#     raise TypeError(f"Java class '{java_name}' has already been reflected")
 
-class DynamicProxyClass(JavaClass):
+
+class ProxyClass(JavaClass):
     def __new__(metacls, cls_name, bases, cls_dict):
         if cls_name == PROXY_BASE_NAME:
-            for b in bases:
-                if not (isinstance(b, type) and issubclass(b, JavaObject) and
-                        b.getClass().isInterface()):
-                    raise TypeError(f"{b!r} is not a Java interface")
             return type.__new__(metacls, cls_name, bases, cls_dict)
-
         else:
-            global Proxy, PyInvocationHandler, PyProxy
             if not (bases and bases[0].__name__ == PROXY_BASE_NAME):
-                raise TypeError("dynamic_proxy must be used first in class bases")
+                raise TypeError(f"{metacls.proxy_func} must be used first in class bases")
             if any([b.__name__ == PROXY_BASE_NAME for b in bases[1:]]):
-                raise TypeError("dynamic_proxy can only be used once in class bases")
-            interfaces = (PyProxy,) + bases[0].__bases__
-            klass = Proxy.getProxyClass(PyProxy.getClass().getClassLoader(), interfaces)
+                raise TypeError(f"{metacls.proxy_func} can only be used once in class bases")
+
+            klass = metacls.get_klass(cls_name, bases[0])
             cls_dict["_chaquopy_j_klass"] = klass._chaquopy_this
-            cls = type.__new__(metacls, cls_name,
-                               (DynamicProxy, Proxy) + interfaces + bases[1:],
-                               cls_dict)
+            cls_dict["_chaquopy_name"] = klass.getName()
+            cls = JavaClass.__new__(metacls, cls_name,
+                                    get_bases(klass) + bases[1:],
+                                    cls_dict)
 
             # We can't use reflect_class, because to avoid infinite recursion, we need
             # unimplemented methods (including those from java.lang.Object) to fall through in
             # Python to the inherited members.
-            add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
+            metacls.add_constructors(cls)
             for method in cls.getClass().getDeclaredMethods():
                 name = method.getName()
                 if name.startswith("_chaquopy"):  # See set_this in class.pxi, and PyInvocationHandler
                     add_member(cls, name, JavaMethod(method))
 
-            jclass_cache[klass.getName()] = cls
             return cls
 
 
-class DynamicProxy(object):
-    def __init__(self):
-        JavaObject.__init__(self, PyInvocationHandler())
+# -------------------------------------------------------------------------------------------------
 
-    def __getattr__(self, name):
-        if name.startswith("_chaquopy"):
-            error = "object's superclass __init__ must be called before using it as a Java object"
-        else:
-            # Exception type and wording are based on Python 2.7.
-            error = f"object has no attribute '{name}'"
-        raise AttributeError(f"'{type(self).__name__}' {error}")
 
-    # Proxy objects can have user-defined Python attributes, so remove the restrictions imposed
-    # by JavaObject.__setattr__.
-    __setattr__ = object.__setattr__
+global_class("java.lang.reflect.Proxy")
+global_class("com.chaquo.python.PyInvocationHandler")
+
+
+def dynamic_proxy(*implements):
+    """Use the return value of this function in the bases of a class declaration, and that class
+    will become a dynamic proxy. All arguments must be Java interface types.
+    """
+    for i in implements:
+        if not (isinstance(i, type) and issubclass(i, JavaObject) and
+                i.getClass().isInterface()):
+            raise TypeError(f"{i!r} is not a Java interface")
+    return DynamicProxyClass(PROXY_BASE_NAME, (), dict(implements=implements))
+
+
+class DynamicProxyClass(ProxyClass):
+    proxy_func = "dynamic_proxy"
+
+    def __call__(cls, *args, JNIRef instance=None, **kwargs):
+        self = JavaClass.__call__(cls, *args, instance=instance, **kwargs)
+        if instance:
+            # jclass_cache will contain the most recently-created Python class for the given
+            # sequence of interfaces, but the Python-Java class mapping may be many-to-one.
+            actual_cls = self._chaquopyGetType()
+            if actual_cls is not cls:
+                self = actual_cls(instance=instance)
+        return self
+
+    @classmethod
+    def get_klass(metacls, cls_name, proxy_base):
+        global DynamicProxy
+        return Proxy.getProxyClass(DynamicProxy.getClass().getClassLoader(),
+                                   (DynamicProxy,) + proxy_base.implements)
+
+    @classmethod
+    def add_constructors(metacls, cls):
+        add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
+
+
+def DynamicProxy_init(self):
+    global PyInvocationHandler
+    JavaObject.__init__(self, PyInvocationHandler(type(self)))
+
+global_class("com.chaquo.python.DynamicProxy", cls_dict={"__init__": DynamicProxy_init})
+
+
+# -------------------------------------------------------------------------------------------------
+
+
+global_class("com.chaquo.python.PyCtorMarker")
+
+def static_proxy(extends, *implements, package=None, modifiers="public"):
+    if extends is None:
+        extends = JavaObject
+    if package is None:
+        package = sys._getframe(1).f_globals["__name__"]    # Caller's module name
+    return StaticProxyClass(PROXY_BASE_NAME, (), dict(extends=extends, implements=implements,
+                                                      package=package))
+
+class StaticProxyClass(ProxyClass):
+    proxy_func = "static_proxy"
+
+    @classmethod
+    def get_klass(metacls, cls_name, proxy_base):
+        global StaticProxy
+        java_name = proxy_base.package + "." + cls_name
+        klass = Class(instance=CQPEnv().FindClass(java_name))
+
+        def verify(what, declared, actual):
+            if declared != actual:
+                raise TypeError(f"static_proxy '{what}': declared {declared} but found {actual}")
+        verify("extends", proxy_base.extends.getClass(), klass.getSuperclass())
+        verify("implements",
+               set([i.getClass() for i in proxy_base.implements]),
+               set(klass.getInterfaces()))
+
+    @classmethod
+    def add_constructors(metacls, cls):
+        add_member(cls, "<init>", JavaMethod("(Lcom/chaquo/python/PyCtorMarker;)V"))
+
+
+def StaticProxy_init(self):
+    global PyCtorMarker
+    if hasattr(self, "_chaquopy_this"):     # Java-initiated construction
+        pass
+    else:                                   # Python-initiated construction
+        JavaObject.__init__(self, PyCtorMarker())
+
+global_class("com.chaquo.python.StaticProxy", cls_dict={"__init__": StaticProxy_init})
+
+
+# Member decorators currently have no effect at runtime.
+def constructor(arg_types, *, modifiers="public", throws=None):         return lambda f: f
+def method(return_type, arg_types, *, modifiers="public", throws=None): return lambda f: f
+Override = method

@@ -5,16 +5,23 @@ import java.lang.reflect.*;
 
 /** @deprecated Internal use in proxy.pxi */
 public class PyInvocationHandler implements InvocationHandler {
-    private PyObject _chaquopyDict;
+    private PyObject type;
+    private PyObject dict;
+
+    public PyInvocationHandler(PyObject type) {
+        this.type = type;
+    }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
         switch (methodName) {
+            case "_chaquopyGetType":
+                return type;
             case "_chaquopyGetDict":
-                return _chaquopyDict;
+                return dict;
             case "_chaquopySetDict":
-                _chaquopyDict = (PyObject) args[0];
+                dict = (PyObject) args[0];
                 return null;
             default:
                 PyObject self = PyObject.fromJava(proxy);

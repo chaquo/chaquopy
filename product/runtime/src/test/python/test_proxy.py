@@ -46,6 +46,22 @@ class TestProxy(TestCase):
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
 
+    def test_multiple(self):
+        # These both implement the same interfaces, and will therefore be represented by the
+        # same Java class. Make sure they retain their Python types after a round trip through
+        # Java.
+        class Add1(dynamic_proxy(TP.Adder)):
+            def add(self, x):
+                return x + 1
+        class Add2(dynamic_proxy(TP.Adder)):
+            def add(self, x):
+                return x + 2
+
+        TP.a1 = Add1()
+        TP.a2 = Add2()
+        self.assertEqual(11, TP.a1.add(10))
+        self.assertEqual(12, TP.a2.add(10))
+
     # See notes in PyObjectTest.finalize_
     def test_gc(self):
         from java.lang import System
@@ -70,10 +86,10 @@ class TestProxy(TestCase):
         DT.triggered = False
         a = A(5)
         assertTriggered(False)
-        TP.a = a
+        TP.a1 = a
         a = None
         assertTriggered(False)
-        a = TP.a
+        a = TP.a1
         self.assertIsInstance(a, A)
         self.assertEqual(5, a.before_init_n)
         self.assertEqual(-5, a.after_init_n)
@@ -89,7 +105,7 @@ class TestProxy(TestCase):
         self.assertEqual(5, a.before_init_n)
         a_Adder = None
 
-        TP.a = None
+        TP.a1 = None
         assertTriggered(False)
         a = None
         assertTriggered(True)
@@ -105,14 +121,14 @@ class TestProxy(TestCase):
         error = self.assertRaisesRegexp(AttributeError, "'A' object's superclass __init__ must be "
                                         "called before using it as a Java object")
         with error:
-            TP.a = a
+            TP.a1 = a
         with error:
             a.toString()
         with error:
             cast(TP.Adder, a)
 
         super(A, a).__init__()
-        TP.a = a
+        TP.a1 = a
         a.toString()
         cast(TP.Adder, a)
 
@@ -255,32 +271,34 @@ class TestProxy(TestCase):
 
     def test_return(self):
         from java.lang import Runnable, ClassCastException, NullPointerException
-        class C(dynamic_proxy(Runnable, TP.Adder)):
-            def add(self, x):
-                return self.result
-            def run(self):
-                return self.result
+        class C(dynamic_proxy(Runnable, TP.Adder, TP.GetString)):
+            def run(self):       return self.result  # returns void
+            def add(self, x):    return self.result  # returns int
+            def getString(self): return self.result  # returns String
 
         c = C()
-        c_Runnable, c_Adder = cast(Runnable, c), cast(TP.Adder, c)
+        c_Runnable, c_Adder, c_GS = [cast(cls, c) for cls in [Runnable, TP.Adder, TP.GetString]]
         c.result = None
-        c_Runnable.run()
+        self.assertIsNone(c_Runnable.run())
         with self.assertRaises(NullPointerException):
             c_Adder.add(42)
+        self.assertIsNone(c_GS.getString())
 
         c.result = 42
         with self.assertRaisesRegexp(ClassCastException, "Cannot convert int object to void"):
             c_Runnable.run()
         self.assertEqual(42, c_Adder.add(99))
+        with self.assertRaisesRegexp(ClassCastException, "Cannot convert int object to "
+                                     "java.lang.String"):
+            c_GS.getString()
 
         c.result = "hello"
-        with self.assertRaisesRegexp(ClassCastException,
-                                     "Cannot convert str object to java.lang.Integer"):
+        with self.assertRaisesRegexp(ClassCastException, "Cannot convert str object to void"):
+            c_Runnable.run()
+        with self.assertRaisesRegexp(ClassCastException, "Cannot convert str object to "
+                                     "java.lang.Integer"):
             c_Adder.add(99)
-        c.result = c
-        with self.assertRaisesRegexp(ClassCastException,
-                                     "Cannot convert C object to java.lang.Integer"):
-            c_Adder.add(99)
+        self.assertEqual("hello", c_GS.getString())
 
     def test_args(self):
         from java.lang import String
@@ -340,30 +358,25 @@ class TestProxy(TestCase):
                       ("com.chaquo.python.PyInvocationHandler", "invoke",
                        "PyInvocationHandler.java", None)]
 
-        def assertFnfThrows(message, throw_cls, catch_cls=None):
+        def assertFnfThrows(message, throw_cls, catch_cls=None, check_cause=False):
             if catch_cls is None:
                 catch_cls = throw_cls
             E.exc_cls = throw_cls
             try:
                 e_cast.fnf()
             except catch_cls as e:
-                self.assertEqual(message, e.getMessage())
-                self.assertHasFrames(e, fnf_frames)
+                check_e = e.getCause() if check_cause else e
+                self.assertEqual(message, check_e.getMessage())
+                self.assertHasFrames(check_e, fnf_frames)
             else:
                 self.fail()
 
-        assertFnfThrows("fnf", FileNotFoundException)   # Declared checked exception
-        assertFnfThrows("fnf", RuntimeException)        # Undeclared unchecked exception (Java)
-        assertFnfThrows("TypeError: fnf",               # Undeclared unchecked exception (Python)
-                        TypeError, PyException)
-
-        E.exc_cls = EOFException                        # Undeclared checked exception
-        try:
-            e_cast.fnf()
-        except UndeclaredThrowableException as e:
-            self.assertHasFrames(e.getCause(), fnf_frames)
-        else:
-            self.fail()
+        assertFnfThrows("fnf", FileNotFoundException)               # Declared checked exception
+        assertFnfThrows("fnf", EOFException,                        # Undeclared checked exception
+                        UndeclaredThrowableException,
+                        check_cause=True)
+        assertFnfThrows("fnf", RuntimeException)                    # Unchecked exception
+        assertFnfThrows("TypeError: fnf", TypeError, PyException)   # Python exception
 
     def test_exception_indirect(self):
         from java.lang import Integer, NumberFormatException

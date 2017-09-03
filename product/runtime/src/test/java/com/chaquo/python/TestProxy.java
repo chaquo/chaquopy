@@ -10,11 +10,19 @@ public class TestProxy {
         int add(int x);
     }
 
-    public static Adder a;
-    
+    public static Adder a1;
+    public static Adder a2;
+
+
     public static String toString(Adder adder) {
         return adder.toString();
     }
+
+
+    public interface GetString {
+        String getString();
+    }
+
 
     public interface Args {
         String tooMany(int a);

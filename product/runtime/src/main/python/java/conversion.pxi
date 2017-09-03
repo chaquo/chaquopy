@@ -112,6 +112,8 @@ cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
 # If the definition is for a Java object or array, returns a JNIRef.
 # If the definition is for a Java primitive, returns a Python int/float/bool/str.
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
+    # Can happen when calling a proxy method. If the Python implementation returns anything but
+    # None, the error at the bottom of this function will be raised.
     if definition == 'V':
         if obj is None:
             return LocalRef()
@@ -210,9 +212,10 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
-        # Anything, including the above types, can be converted to a PyObject if the signature
-        # will accept it.
-        elif env.IsAssignableFrom(env.FindClass("com.chaquo.python.PyObject"), j_klass):
+        # Anything, including the above types, can be converted to a PyObject. (We don't use
+        # IsAssignableFrom here, because allowing conversion to Object could cause excessive
+        # ambiguity in overload resolution.)
+        if definition == "Lcom/chaquo/python/PyObject;":
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':

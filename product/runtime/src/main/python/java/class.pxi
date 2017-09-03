@@ -53,6 +53,8 @@ def jclass(clsname, **kwargs):
 
 
 def jclass_proxy(cls_name, bases=None, *, cls_dict=None):
+    if not isinstance(bases, (tuple, type(None))):
+        bases = tuple(bases)
     if cls_dict is None:
         cls_dict = {}
     cls_dict["_chaquopy_name"] = cls_name
@@ -60,36 +62,25 @@ def jclass_proxy(cls_name, bases=None, *, cls_dict=None):
 
 
 class JavaClass(type):
-    def __new__(metacls, name_ignored, bases, cls_dict):
-        cls_name = cls_dict.pop("_chaquopy_name", None)
-        if not cls_name:
+    def __new__(metacls, cls_name, bases, cls_dict):
+        java_name = cls_dict.pop("_chaquopy_name", None)
+        if not java_name:
             raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
-        j_klass = CQPEnv().FindClass(cls_name).global_ref()
-        cls_dict["_chaquopy_j_klass"] = j_klass
 
-        if ("." in cls_name) and ("[" not in cls_name):
-            module, _, simple_name = cls_name.rpartition(".")
-        else:
-            module, simple_name = "", cls_name
-        cls_dict["__module__"] = module
+        if "_chaquopy_j_klass" not in cls_dict:
+            cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name).global_ref()
+            if ("." in java_name) and ("[" not in java_name):
+                module, _, cls_name = java_name.rpartition(".")
+            else:
+                module, cls_name = "", java_name
+            cls_dict["__module__"] = module
 
         if bases is None:  # When called from jclass()
-            klass = Class(instance=j_klass)
-            superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
-            if not (superclass or interfaces):  # Class is a top-level interface
-                superclass = JavaObject.getClass()
-            bases = [jclass(k.getName()) for k in
-                     ([superclass] if superclass else []) + interfaces]
+            klass = Class(instance=cls_dict["_chaquopy_j_klass"])
+            bases = get_bases(klass) + cls_dict.pop("_chaquopy_post_bases", ())
 
-            # Produce a valid order for the C3 MRO algorithm, if one exists.
-            bases.sort(cmp=lambda a, b: (-1 if issubclass(a, b)
-                                         else 1 if issubclass(b, a)
-                                         else 0))
-
-            bases += cls_dict.pop("_chaquopy_post_bases", [])
-
-        cls = type.__new__(metacls, simple_name, tuple(bases), cls_dict)
-        jclass_cache[cls_name] = cls
+        cls = type.__new__(metacls, cls_name, bases, cls_dict)
+        jclass_cache[java_name] = cls
         return cls
 
     # We do this in JavaClass.__call__ rather than JavaObject.__new__ because there's no way
@@ -130,6 +121,20 @@ class JavaClass(type):
             type.__setattr__(cls, name, value)
 
 
+def get_bases(klass):
+    superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
+    if not (superclass or interfaces):  # Class is a top-level interface
+        superclass = JavaObject.getClass()
+    bases = [jclass(k.getName()) for k in
+             ([superclass] if superclass else []) + interfaces]
+
+    # Produce a valid order for the C3 MRO algorithm, if one exists.
+    bases.sort(cmp=lambda a, b: (-1 if issubclass(a, b)
+                                 else 1 if issubclass(b, a)
+                                 else 0))
+    return tuple(bases)
+
+
 def setup_object_class():
     global JavaObject
     class JavaObject(six.with_metaclass(JavaClass, object)):
@@ -147,6 +152,14 @@ def setup_object_class():
             except KeyError:
                 raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
             set_this(self, constructor.__get__(self, type(self))(*args))
+
+        def __getattr__(self, name):
+            if name.startswith("_chaquopy"):
+                raise AttributeError(f"'{type(self).__name__}' object's superclass __init__ must "
+                                     "be called before using it as a Java object")
+            else:
+                object.__getattribute__(self, name)  # Should raise AttributeError
+                raise AttributeError(f"__getattribute__({name!r}) unexpectedly succeeded")
 
         def __setattr__(self, name, value):
             # We can't use __slots__ to prevent adding attributes, because Throwable inherits
@@ -184,7 +197,7 @@ def setup_object_class():
 
 # Associates a Python object with its Java counterpart.
 #
-# Making _chaquopy_this a WeakRef avoids a cross-language reference cycle for static and
+# Making _chaquopy_this a weak reference avoids a cross-language reference cycle for static and
 # dynamic proxies. The destruction sequence for Java objects is as follows:
 #
 #     * The Python object dies.
@@ -689,6 +702,7 @@ cdef class JavaMethod(JavaSimpleMember):
         return env.NewObjectA(self.cls._chaquopy_j_klass, self.j_method, j_args).global_ref()
 
     cdef call_virtual_method(self, CQPEnv env, obj, p2j_args):
+        global Proxy
         if "Proxy" in globals() and \
            isinstance(obj._chaquopy_real_obj or obj, Proxy) and \
            not (self.cls is JavaObject and self.is_final):  # See comment at call_proxy_method

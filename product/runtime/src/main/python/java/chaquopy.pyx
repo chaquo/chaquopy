@@ -18,12 +18,12 @@ cdef extern from "alloca.h":
 
 __all__ = [
     "chaquopy_init",
-    "detach",                           # jvm.pxi
-    "cast",                             # utils.pxi
-    "jclass",                           # class.pxi
-    "dynamic_proxy",                    # proxy.pxi
-    "jarray",                           # array.pxi
-    "set_import_enabled",               # import.pxi
+    "detach",                                                              # jvm.pxi
+    "cast",                                                                # utils.pxi
+    "jclass",                                                              # class.pxi
+    "dynamic_proxy", "static_proxy", "constructor", "method", "Override",  # proxy.pxi
+    "jarray",                                                              # array.pxi
+    "set_import_enabled",                                                  # import.pxi
 ]
 
 
