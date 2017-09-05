@@ -250,6 +250,7 @@ def setup_bootstrap_classes():
     Modifier = jclass_proxy("java.lang.reflect.Modifier", [JavaObject])
     add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isProtected", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isPublic", JavaMethod('(I)Z', static=True))
     add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
 
@@ -288,10 +289,11 @@ def setup_bootstrap_classes():
 
 def reflect_class(cls):
     klass = cls.getClass()
+    is_accessible = lambda m: Modifier.isPublic(m) or Modifier.isProtected(m)
+    all_methods = [m for m in chain(klass.getDeclaredMethods(), klass.getDeclaredConstructors())
+                   if is_accessible(m.getModifiers())]
 
     name_key = lambda m: m.getName()
-    all_methods = [m for m in chain(klass.getDeclaredMethods(), klass.getDeclaredConstructors())
-                   if Modifier.isPublic(m.getModifiers())]
     all_methods.sort(key=name_key)
     for name, methods in groupby(all_methods, name_key):
         jms = []
