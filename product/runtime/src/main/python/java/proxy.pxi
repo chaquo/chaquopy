@@ -111,11 +111,10 @@ class StaticProxyClass(ProxyClass):
             if expected != actual:
                 raise TypeError(f"expected {what} {expected}, but Java class actually "
                                 f"{what} {actual}")
-        verify("extends", proxy_base.extends.getClass(), klass.getSuperclass())
-        by_name = lambda x: x.getName()
+        verify("extends", proxy_base.extends.getClass().getName(), klass.getSuperclass().getName())
         verify("implements",
-               sorted([i.getClass() for i in proxy_base.implements + (StaticProxy,)], key=by_name),
-               sorted(klass.getInterfaces(), key=by_name))
+               [str(i.getClass().getName()) for i in proxy_base.implements + (StaticProxy,)],
+               [str(i.getName()) for i in klass.getInterfaces()])
         return klass
 
     @classmethod

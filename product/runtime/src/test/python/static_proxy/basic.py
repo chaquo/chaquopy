@@ -1,8 +1,5 @@
 # FIXME:
 #
-# Exceptions
-# Modifiers??
-#
 # Construction from both languages
 # Conversion in both directions
 # Garbage collection
@@ -10,11 +7,7 @@
 # toJava: "If the Python object is itself a proxy for a Java object of a compatible type, the
 #   original Java object will be returned."
 #
-# Use manually-generated Java to test:
-# * mismatched extends or implements
-# * if class implements StaticProxy then the base JavaClass metaclass should refuse to reflect
-#   it: means things have been loaded in the wrong order.
-
+# Fix swallowed exception when referencing StaticProxy from JavaClass.__new__
 
 from __future__ import absolute_import, division, print_function
 
@@ -116,3 +109,44 @@ class Return(static_proxy()):
 
     @method(jarray(String), [])
     def array_bad_value(self):      return "hello"
+
+
+from java.io import FileNotFoundException, EOFException
+from java.lang import Error, RuntimeException
+
+class Exceptions(static_proxy()):
+    @method(jvoid, [])
+    def undeclared_0(self):
+        raise FileNotFoundException("fnf")
+
+    @method(jvoid, [], throws=[EOFException])
+    def undeclared_1(self):
+        raise FileNotFoundException("fnf")
+
+    @method(jvoid, [], throws=[EOFException])
+    def declared(self):
+        raise EOFException("eof")
+
+    @method(jvoid, [])
+    def python(self):
+        raise TypeError("te")
+
+    @method(jvoid, [])
+    def error(self):
+        raise Error("e")
+
+    @method(jvoid, [])
+    def runtime_exception(self):
+        raise RuntimeException("re")
+
+
+from java.lang import Thread
+
+class Modifiers(static_proxy()):
+    @method(jboolean, [], modifiers="public synchronized")
+    def synced(self):
+        return Thread.holdsLock(self)
+
+    @method(jboolean, [], modifiers="public")
+    def unsynced(self):
+        return Thread.holdsLock(self)

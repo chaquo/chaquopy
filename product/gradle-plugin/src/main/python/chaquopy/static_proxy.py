@@ -357,7 +357,7 @@ class write_java(object):
                     self.method(cls, method)
                     self.line()
 
-                self.line("public {} (PyCtorMarker pcm) {{}}".format(cls.name))
+                self.line("public {}(PyCtorMarker pcm) {{}}".format(cls.name))
                 self.line("private PyObject _chaquopyDict;")
                 self.line("public PyObject _chaquopyGetDict() { return _chaquopyDict; }")
                 self.line("public void _chaquopySetDict(PyObject dict) { _chaquopyDict = dict; }")

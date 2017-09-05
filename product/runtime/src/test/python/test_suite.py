@@ -7,4 +7,5 @@ from test_overload import *
 from test_proxy import *
 from test_reflect import *
 from test_signatures import *
+from test_static_proxy import *
 from test_thread import *

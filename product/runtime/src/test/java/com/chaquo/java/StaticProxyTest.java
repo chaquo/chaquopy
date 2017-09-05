@@ -1,11 +1,16 @@
 package com.chaquo.java;
 
+import com.chaquo.python.*;
+import java.io.*;
+import java.lang.reflect.*;
 import org.junit.*;
 import org.junit.rules.*;
 import static_proxy.basic.*;
 
 import static org.junit.Assert.*;
-
+import static org.hamcrest.CoreMatchers.isA;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.internal.matchers.ThrowableMessageMatcher.hasMessage;
 
 public class StaticProxyTest {
     @Rule
@@ -79,6 +84,8 @@ public class StaticProxyTest {
         assertEquals("hello", new OverloadedCtor("hello").get());
     }
 
+    // -------------------------------------------------------------------------------------------
+
     @Test
     public void returnGood() {
         Return r = new Return();
@@ -131,4 +138,59 @@ public class StaticProxyTest {
         new Return().array_bad_value();
     }
 
+    // -------------------------------------------------------------------------------------------
+
+    @Test
+    public void throwUndeclared0() {
+        thrown.expect(UndeclaredThrowableException.class);
+        thrown.expectCause(isA(FileNotFoundException.class));
+        thrown.expectCause(hasMessage(equalTo("fnf")));
+        new Exceptions().undeclared_0();
+    }
+
+    @Test
+    public void throwUndeclared1() throws EOFException {
+        thrown.expect(UndeclaredThrowableException.class);
+        thrown.expectCause(isA(FileNotFoundException.class));
+        thrown.expectCause(hasMessage(equalTo("fnf")));
+        new Exceptions().undeclared_1();
+    }
+
+    @Test
+    public void throwDeclared() throws EOFException {
+        thrown.expect(EOFException.class);
+        thrown.expectMessage(equalTo("eof"));
+        new Exceptions().declared();
+    }
+
+    @Test
+    public void throwPython() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage(equalTo("TypeError: te"));
+        new Exceptions().python();
+    }
+
+    @Test
+    public void throwError() {
+        thrown.expect(Error.class);
+        thrown.expectMessage(equalTo("e"));
+        new Exceptions().error();
+    }
+
+    @Test
+    public void throwRuntimeException() {
+        thrown.expect(RuntimeException.class);
+        thrown.expectMessage(equalTo("re"));
+        new Exceptions().runtime_exception();
+    }
+
+    // -------------------------------------------------------------------------------------------
+
+
+    @Test
+    public void modifiers() {
+        Modifiers m = new Modifiers();
+        assertTrue(m.synced());
+        assertFalse(m.unsynced());
+    }
 }

@@ -78,6 +78,9 @@ class JavaClass(type):
         if bases is None:  # When called from jclass()
             klass = Class(instance=cls_dict["_chaquopy_j_klass"])
             bases = get_bases(klass) + cls_dict.pop("_chaquopy_post_bases", ())
+            if ("StaticProxy" in globals()) and (StaticProxy in bases):
+                raise TypeError(f"static_proxy class {java_name} loaded before its Python "
+                                f"counterpart")
 
         cls = type.__new__(metacls, cls_name, bases, cls_dict)
         jclass_cache[java_name] = cls
