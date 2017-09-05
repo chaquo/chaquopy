@@ -8,6 +8,7 @@ import argparse
 import ast
 from contextlib import contextmanager
 from datetime import datetime
+from itertools import chain
 import json
 import os
 from os.path import exists, isdir, isfile
@@ -51,12 +52,13 @@ def main():
         for mod_name in args.modules:
             mod_filename = find_module(mod_name, path)
             classes += Module(mod_name, mod_filename).process()
-        if args.java:
-            jw = JavaWriter(args.java)
-            for cls in classes:
-                jw.write(cls)
-        elif args.json:
+
+        if args.json:
             print(json.dumps(classes, default=lambda c: attr.asdict(c), indent=4))
+        if args.java:
+            for cls in classes:
+                write_java(args.java, cls)
+
     except CommandError as e:
         print(e, file=sys.stderr)
         sys.exit(1)
@@ -100,8 +102,9 @@ def find_module(mod_name, path):
 @attr.s
 class Class(object):
     name = attr.ib()
+    module = attr.ib()
     extends = attr.ib(validator=optional(instance_of(str)))
-    implements = attr.ib(validator=instance_of((list, tuple)))
+    implements = attr.ib(validator=instance_of(tuple))
     package = attr.ib(validator=instance_of(str))
     modifiers = attr.ib(validator=instance_of(str))
     constructors = attr.ib()
@@ -249,7 +252,8 @@ class Module(object):
                             methods.append(self.call(globals()[func_simple], decor, name=stmt.name))
 
         try:
-            return Class(cls.name, extends, implements, package, modifiers, constructors, methods)
+            return Class(cls.name, self.name, extends, implements, package, modifiers,
+                         constructors, methods)
         except TypeError as e:
             self.error(cls, type_error_msg(e))
 
@@ -324,12 +328,9 @@ class Module(object):
         return "{}:{}:{}".format(self.filename, node.lineno, node.col_offset + 1)
 
 
-class JavaWriter(object):
-    def __init__(self, root_dirname):
-        self.root_dirname = root_dirname
-
-    def write(self, cls):
-        pkg_dirname = join(self.root_dirname, cls.package.replace(".", "/"))
+class write_java(object):
+    def __init__(self, root_dirname, cls):
+        pkg_dirname = join(root_dirname, cls.package.replace(".", "/"))
         if not isdir(pkg_dirname):
             os.makedirs(pkg_dirname)
 
@@ -341,33 +342,65 @@ class JavaWriter(object):
             self.line()
             self.line("package {};", cls.package)
             self.line()
+            self.line("import com.chaquo.python.*;")
+            self.line("import java.lang.reflect.*;")
+            self.line("import static com.chaquo.python.PyObject._chaquopyCall;")
+            self.line()
             with self.block("{} class {} {} {}", cls.modifiers, cls.name,
                             self.format_optional("extends", cls.extends),
-                            self.format_list("implements", cls.implements)):
+                            self.format_list("implements", cls.implements + ("StaticProxy",))):
+                with self.block("static"):
+                    self.line('Python.getInstance().getModule("{}").get("{}");'
+                              .format(cls.module, cls.name))
                 self.line()
-                for ctor in cls.constructors:
-                    self.constructor(cls, ctor)
-                for method in cls.methods:
-                    self.method(method)
+                for method in chain(cls.constructors, cls.methods):
+                    self.method(cls, method)
+                    self.line()
 
-    def constructor(self, cls, ctor):
-        with self.block("{} {}{}", ctor.modifiers, cls.name,
-                        self.format_args_throws(ctor)):
-            pass
-        self.line()
+                self.line("public {} (PyCtorMarker pcm) {{}}".format(cls.name))
+                self.line("private PyObject _chaquopyDict;")
+                self.line("public PyObject _chaquopyGetDict() { return _chaquopyDict; }")
+                self.line("public void _chaquopySetDict(PyObject dict) { _chaquopyDict = dict; }")
 
-    def method(self, method):
-        with self.block("{} {} {}{}", method.modifiers, method.return_type,
-                        method.name, self.format_args_throws(method)):
-            pass
-        self.line()
+    def method(self, cls, method):
+        is_ctor = isinstance(method, Constructor)
+        header = "{} {} {}({}) {}".format(
+            method.modifiers,
+            "" if is_ctor else method.return_type,
+            cls.name if is_ctor else method.name,
+            self.format_list("{} arg{}".format(t, i) for i, t in enumerate(method.arg_types)),
+            self.format_list("throws", method.throws))
+        with self.block(header):
+            self.line("PyObject result;")
+            with self.handle_exceptions(method):
+                args = (["this",
+                        '"{}"'.format("__init__" if is_ctor else method.name)] +
+                        ["arg{}".format(i) for i in range(len(method.arg_types))])
+                self.line("result = _chaquopyCall({});".format(", ".join(args)))
 
-    def format_args_throws(self, method):
-        args = self.format_list("{} arg{}".format(t, i)
-                                for i, t in enumerate(method.arg_types))
-        throws = self.format_list("throws", method.throws)
-        return "({}) {}".format(args, throws)
-        self.line()
+            return_type = "void" if is_ctor else method.return_type
+            toJava = "result.toJava({}.class)".format(return_type)
+            if return_type == "void":
+                self.line("if (result != null) {};".format(toJava))
+            elif return_type in PRIMITIVES:
+                self.line("return {};".format(toJava))
+            else:
+                self.line("return (result == null) ? null : {};".format(toJava))
+
+    @contextmanager
+    def handle_exceptions(self, method):
+        if method.throws:
+            with self.block("try"):
+                yield
+            with self.block("catch (UndeclaredThrowableException ute)"):
+                with self.block("try"):
+                    self.line("throw ute.getCause();")
+                with self.block("catch ({} e)".format(" | ".join(method.throws))):
+                    self.line("throw e;")
+                with self.block("catch (Throwable e)"):
+                    self.line("throw ute;")
+        else:
+            yield
 
     def format_list(self, *args):
         if len(args) == 1:

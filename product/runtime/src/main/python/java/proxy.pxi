@@ -6,14 +6,6 @@ global_class("com.chaquo.python.PyProxy", cls_dict={"__setattr__": object.__seta
 PROXY_BASE_NAME = "_chaquopy_proxy"
 
 
-# FIXME defend against the static proxy class being reflected under its Java name before being
-# created in Python. Or is that really a problem?
-#
-# Removed from JavaClass.__new__:
-# if java_name in jclass_cache:
-#     raise TypeError(f"Java class '{java_name}' has already been reflected")
-
-
 class ProxyClass(JavaClass):
     def __new__(metacls, cls_name, bases, cls_dict):
         if cls_name == PROXY_BASE_NAME:
@@ -101,7 +93,8 @@ def static_proxy(extends, *implements, package=None, modifiers="public"):
     if extends is None:
         extends = JavaObject
     if package is None:
-        package = sys._getframe(1).f_globals["__name__"]    # Caller's module name
+        # _getframe(0) returns the closest Python frame, ignoring Cython frames.
+        package = sys._getframe(0).f_globals["__name__"]
     return StaticProxyClass(PROXY_BASE_NAME, (), dict(extends=extends, implements=implements,
                                                       package=package))
 
@@ -114,13 +107,16 @@ class StaticProxyClass(ProxyClass):
         java_name = proxy_base.package + "." + cls_name
         klass = Class(instance=CQPEnv().FindClass(java_name))
 
-        def verify(what, declared, actual):
-            if declared != actual:
-                raise TypeError(f"static_proxy '{what}': declared {declared} but found {actual}")
+        def verify(what, expected, actual):
+            if expected != actual:
+                raise TypeError(f"expected {what} {expected}, but Java class actually "
+                                f"{what} {actual}")
         verify("extends", proxy_base.extends.getClass(), klass.getSuperclass())
+        by_name = lambda x: x.getName()
         verify("implements",
-               set([i.getClass() for i in proxy_base.implements]),
-               set(klass.getInterfaces()))
+               sorted([i.getClass() for i in proxy_base.implements + (StaticProxy,)], key=by_name),
+               sorted(klass.getInterfaces(), key=by_name))
+        return klass
 
     @classmethod
     def add_constructors(metacls, cls):

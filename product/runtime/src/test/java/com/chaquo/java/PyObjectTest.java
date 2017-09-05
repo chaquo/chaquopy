@@ -91,7 +91,6 @@ public class PyObjectTest {
         assertEquals('x', (char) pyobjecttest.get("char_var").toJava(char.class));
 
         assertSame(pyobjecttest, pyobjecttest.toJava(PyObject.class));
-        assertSame(pyobjecttest, pyobjecttest.toJava(Object.class));
 
         Thread t = Thread.currentThread();
         assertSame(t, PyObject.fromJava(t).toJava(Thread.class));

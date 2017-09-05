@@ -229,8 +229,23 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 }
             }
 
+            def generateStaticProxy = task("generateStaticProxy-$pyVersion",
+                                           type: Exec, group: "verification") {
+                def outputDir = "$buildDir/static_proxy"
+                outputs.dir(outputDir)
+                outputs.upToDateWhen { false }
+                doFirst { delete outputDir }
+                environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
+                executable pyPlusVersionExe
+                args "-m", "chaquopy.static_proxy"
+                args "--path", "$projectDir/src/test/python"
+                args "--java", outputDir
+                args "static_proxy.basic"
+            }
+            sourceSets.test.java.srcDirs += generateStaticProxy.outputs
+
             def testCommonConfig = {
-                dependsOn setupPythonPath, "compileTestJava"
+                dependsOn setupPythonPath, compileTestJava
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 // TODO #5184: PATH would be LD_LIBRARY_PATH on Linux. Can't use -Djava.library.path
                 // because we need something which also works for Python processes.
