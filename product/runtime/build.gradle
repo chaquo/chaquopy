@@ -240,7 +240,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 args "-m", "chaquopy.static_proxy"
                 args "--path", "$projectDir/src/test/python"
                 args "--java", outputDir
-                args "static_proxy.basic"
+                args "static_proxy.basic", "static_proxy.header", "static_proxy.method"
             }
             sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 

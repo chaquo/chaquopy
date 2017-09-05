@@ -6,6 +6,8 @@ import java.lang.reflect.*;
 import org.junit.*;
 import org.junit.rules.*;
 import static_proxy.basic.*;
+import static_proxy.header.*;
+import static_proxy.method.*;
 
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.isA;

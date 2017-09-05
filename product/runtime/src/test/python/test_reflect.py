@@ -379,3 +379,15 @@ class TestReflect(unittest.TestCase):
                           getattr(TestReflect, cls_name))
 
         self.assertTrue(issubclass(TestReflect.ParentOuter.ChildNested, TestReflect.ParentOuter))
+
+    def test_access(self):
+        a = TR.Access()
+        self.assertFalse(hasattr(a, "priv"))
+        self.assertFalse(hasattr(a, "pack"))
+        self.assertEqual("protected", a.prot)
+        self.assertEqual("public", a.publ)
+
+        self.assertFalse(hasattr(a, "getPriv"))
+        self.assertFalse(hasattr(a, "getPack"))
+        self.assertEqual("protected", a.getProt())
+        self.assertEqual("public", a.getPubl())

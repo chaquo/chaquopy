@@ -248,6 +248,7 @@ def setup_bootstrap_classes():
     add_member(Class, "getDeclaredConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
     add_member(Class, "getDeclaredFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
     add_member(Class, "getDeclaredMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
+    add_member(Class, "getModifiers", JavaMethod('()I'))
     add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
 
     Modifier = jclass_proxy("java.lang.reflect.Modifier", [JavaObject])
@@ -292,10 +293,8 @@ def setup_bootstrap_classes():
 
 def reflect_class(cls):
     klass = cls.getClass()
-    is_accessible = lambda m: Modifier.isPublic(m) or Modifier.isProtected(m)
-    all_methods = [m for m in chain(klass.getDeclaredMethods(), klass.getDeclaredConstructors())
-                   if is_accessible(m.getModifiers())]
-
+    all_methods = filter(is_accessible, chain(klass.getDeclaredMethods(),
+                                              klass.getDeclaredConstructors()))
     name_key = lambda m: m.getName()
     all_methods.sort(key=name_key)
     for name, methods in groupby(all_methods, name_key):
@@ -328,11 +327,11 @@ def reflect_class(cls):
 
         add_member(cls, name, jms[0] if (len(jms) == 1) else JavaMultipleMethod(jms))
 
-    for field in klass.getDeclaredFields():
+    for field in filter(is_accessible, klass.getDeclaredFields()):
         # TODO #5183 method hides field with same name.
         add_member(cls, field.getName(), JavaField(field))
 
-    for nested_klass in klass.getDeclaredClasses():
+    for nested_klass in filter(is_accessible, klass.getDeclaredClasses()):
         name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
         if name:
             # TODO #5261 add a JavaMember subclass which delays the jclass call
@@ -347,6 +346,15 @@ def reflect_class(cls):
     for alias, member in six.iteritems(aliases):
         if alias not in cls.__dict__:
             add_member(cls, alias, member)
+
+
+# Protected members need to be accessible to static proxy classes, but we can't practically do
+# that without making them accessible everywhere. Technically package members should be
+# accessible as well if the static proxy is generated in the same package, but we'll leave that
+# for now.
+def is_accessible(member):
+    mods = member.getModifiers()
+    return Modifier.isPublic(mods) or Modifier.isProtected(mods)
 
 
 # Ensure the same aliases are available on all Python versions

@@ -59,4 +59,16 @@ public class TestReflect {
         public static class ChildNested extends ParentOuter {}
     }
 
+    public static class Access {
+        private String priv = "private";
+        String pack = "package";
+        protected String prot = "protected";
+        public String publ = "public";
+
+        private String getPriv() { return priv; }
+        String getPack() { return pack; }
+        protected String getProt() { return prot; }
+        public String getPubl() { return publ; }
+    }
+
 }
