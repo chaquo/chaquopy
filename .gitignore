@@ -7,7 +7,6 @@
 
 .externalNativeBuild
 .gradle
-build/
 local.properties
 
 *.pyc
