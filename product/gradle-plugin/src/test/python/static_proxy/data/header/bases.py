@@ -2,7 +2,10 @@ from java import *
 from com.example import ClassA, IntA, IntB
 
 
-class NoBases(static_proxy(None)):
+class Empty(static_proxy()):
+    pass
+
+class ExtendsNone(static_proxy(None)):
     pass
 
 class Ca(static_proxy(ClassA)):

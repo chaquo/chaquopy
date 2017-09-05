@@ -1,22 +1,32 @@
 # FIXME:
 #
-# Overloads
+# Bases
+# Overloaded methods
+# Overloaded constructors
 # Return conversions
 # Exceptions
-# See Google doc for more
 #
-# Defend against the static proxy class being reflected under its Java name before being
-# created in Python. Or is that really a problem?
+# Construction from both languages
+# Conversion in both directions
+# Garbage collection
+# Call base class methods and read/write fields
+# Access protected members
+# Any other things which work differently to dynamic proxies
+# toJava:“If the Python object is itself a proxy for a Java object of a compatible type, the
+#   original Java object will be returned.”
 #
-# Removed from JavaClass.__new__ because of dynamic_proxy many-to-one issue:
-# if java_name in jclass_cache:
-#     raise TypeError(f"Java class '{java_name}' has already been reflected")
+# Use manually-generated Java to test:
+# * mismatched extends or implements
+# * if class implements StaticProxy then the base JavaClass metaclass should refuse to reflect
+#   it: means things have been loaded in the wrong order.
+
 
 from __future__ import absolute_import, division, print_function
 
 from java import *
+from java.lang import String
 
-class Adder(static_proxy(None)):
+class BasicAdder(static_proxy()):
     @constructor([jint])
     def __init__(self, n):
         self.n = n
@@ -26,19 +36,23 @@ class Adder(static_proxy(None)):
         return self.n + x
 
 
-# class Foo(static_proxy(Class1, Int1, Int2, package="test")):
+class OverloadedAdder(static_proxy()):
+    @method(jint, [jint, jint])
+    @method(jdouble, [jdouble, jdouble])
+    @method(String, [String, String])
+    def add(self, a, b):
+        return a + b
 
-#     @constructor([jint, Class1], modifiers="protected", throws=[Class1, Class2])
-#     @constructor([])
-#     @constructor([jarray(jboolean)])
-#     def __init__(*args):
-#         pass
 
-#     @method(jvoid, [jint])
-#     def f(): pass
+class OverloadedCtor(static_proxy()):
+    @constructor([])
+    @constructor([jint])
+    @constructor([String])
+    def __init__(self, value=None):
+        self.value = str(value)
 
-#     @method(Class2, [jint, Int2], throws=[Int1])
-#     def g(): pass
+    @method(String, [])
+    def get(self):
+        return self.value
 
-#     @method(jint, [])
-#     def h(): pass
+

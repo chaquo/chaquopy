@@ -89,7 +89,7 @@ global_class("com.chaquo.python.DynamicProxy", cls_dict={"__init__": DynamicProx
 
 global_class("com.chaquo.python.PyCtorMarker")
 
-def static_proxy(extends, *implements, package=None, modifiers="public"):
+def static_proxy(extends=None, *implements, package=None, modifiers="public"):
     if extends is None:
         extends = JavaObject
     if package is None:

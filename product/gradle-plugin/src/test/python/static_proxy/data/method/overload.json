@@ -1,7 +1,7 @@
 [
     {
-        "name": "C", "package": "overload", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "C", "package": "overload", "module": "overload", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "method1", "return_type": "int", "arg_types": [],

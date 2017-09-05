@@ -1,6 +1,6 @@
 [
     {
-        "name": "C", "package": "import_from", "modifiers": "public",
+        "name": "C", "package": "import_from", "module": "import_from", "modifiers": "public",
         "extends": null, "implements": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []

@@ -1,14 +1,14 @@
 [
     {
-        "name": "A1", "package": "a", "modifiers": "public","extends": null,
+        "name": "A1", "package": "a", "module": "a", "modifiers": "public","extends": null,
         "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "B1", "package": "b", "modifiers": "public", "extends": null,
+        "name": "B1", "package": "b", "module": "b", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "C2", "package": "c", "modifiers": "public", "extends": null,
+        "name": "C2", "package": "c", "module": "c", "modifiers": "public", "extends": null,
         "implements": [], "constructors": [], "methods": []
     }
 ]

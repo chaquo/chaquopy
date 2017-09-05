@@ -1,7 +1,7 @@
 [
     {
-        "name": "C", "package": "throws", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "C", "package": "throws", "module": "throws", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "default", "return_type": "void", "arg_types": [],

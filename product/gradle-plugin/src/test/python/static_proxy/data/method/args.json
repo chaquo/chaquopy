@@ -1,6 +1,6 @@
 [
     {
-        "name": "Primitive", "package": "args", "modifiers": "public",
+        "name": "Primitive", "package": "args", "module": "args", "modifiers": "public",
         "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
@@ -25,8 +25,8 @@
         ]
     },
     {
-        "name": "Class", "package": "args", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "Class", "package": "args", "module": "args", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "simple1", "return_type": "void",
@@ -51,8 +51,8 @@
         ]
     },
     {
-        "name": "Array", "package": "args", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "Array", "package": "args", "module": "args", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "primitive1d", "return_type": "void",
@@ -77,8 +77,8 @@
         ]
     },
     {
-        "name": "Mixed", "package": "args", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "Mixed", "package": "args", "module": "args", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "mixed1", "return_type": "void",

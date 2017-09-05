@@ -1,7 +1,7 @@
 [
     {
-        "name": "C", "package": "import_module_as", "modifiers": "public",
-        "extends": null, "implements": [], "constructors": [
+        "name": "C", "package": "import_module_as", "module": "import_module_as",
+        "modifiers": "public", "extends": null, "implements": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []
             }

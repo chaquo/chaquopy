@@ -1,18 +1,19 @@
 [
     {
-        "name": "Default", "package": "modifiers", "modifiers": "public",
+        "name": "Default", "package": "modifiers", "module": "modifiers", "modifiers": "public",
         "extends": null, "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Empty", "package": "modifiers", "modifiers": "",
+        "name": "Empty", "package": "modifiers", "module": "modifiers", "modifiers": "",
         "extends": null, "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "Protected", "package": "modifiers", "modifiers": "protected",
+        "name": "Protected", "package": "modifiers", "module": "modifiers", "modifiers": "protected",
         "extends": null, "implements": [], "constructors": [], "methods": []
     },
     {
-        "name": "PublicFinal", "package": "modifiers", "modifiers": "public final",
+        "name": "PublicFinal", "package": "modifiers", "module": "modifiers",
+        "modifiers": "public final",
         "extends": null, "implements": [], "constructors": [], "methods": []
     }
 ]

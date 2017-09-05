@@ -57,8 +57,6 @@ class TestStaticProxy(TestCase):
 
     def test_header(self):
         self.run_json("header", "bases")
-        self.run_json("header", "bases_zero_args", False,
-                      "bases_zero_args.py:4:9: static_proxy() takes at least 1 argument (0 given)")
         self.run_json("header", "package")
         self.run_json("header", "modifiers")
 

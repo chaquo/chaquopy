@@ -1,6 +1,6 @@
 [
     {
-        "name": "Simple", "package": "constructor", "modifiers": "public",
+        "name": "Simple", "package": "constructor", "module": "constructor", "modifiers": "public",
         "extends": null, "implements": [], "methods": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []
@@ -8,7 +8,7 @@
         ]
     },
     {
-        "name": "Overload", "package": "constructor", "modifiers": "public",
+        "name": "Overload", "package": "constructor", "module": "constructor", "modifiers": "public",
         "extends": null, "implements": [], "methods": [], "constructors": [
             {
                 "arg_types": [], "modifiers": "public", "throws": []

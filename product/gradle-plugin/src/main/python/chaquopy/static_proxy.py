@@ -16,7 +16,7 @@ import sys
 
 import attr
 from attr.validators import instance_of, optional
-from kwonly_args import kwonly_defaults, KWONLY_REQUIRED
+from kwonly_args import first_kwonly_arg, kwonly_defaults, KWONLY_REQUIRED
 import six
 
 # Consistent output for tests
@@ -226,8 +226,8 @@ class Module(object):
         return None
 
     def process_static_proxy(self, cls, sp_call):
-        @kwonly_defaults
-        def static_proxy(extends, package=None, modifiers="public", *implements):
+        @first_kwonly_arg("package")
+        def static_proxy(extends=None, package=None, modifiers="public", *implements):
             if package is None:
                 package = self.name
             return extends, implements, package, modifiers
@@ -353,7 +353,7 @@ class write_java(object):
                     self.line('Python.getInstance().getModule("{}").get("{}");'
                               .format(cls.module, cls.name))
                 self.line()
-                for method in chain(cls.constructors, cls.methods):
+                for method in chain(cls.constructors or [constructor([])], cls.methods):
                     self.method(cls, method)
                     self.line()
 

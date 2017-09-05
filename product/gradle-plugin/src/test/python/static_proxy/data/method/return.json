@@ -1,7 +1,7 @@
 [
     {
-        "name": "C", "package": "return", "modifiers": "public", "extends": null,
-        "implements": [], "constructors": [],
+        "name": "C", "package": "return", "module": "return", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [],
         "methods": [
             {
                 "name": "void_", "return_type": "void", "arg_types": [],
