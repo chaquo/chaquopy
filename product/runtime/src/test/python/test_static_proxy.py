@@ -5,11 +5,12 @@ from unittest import TestCase
 from java import *
 
 from com.chaquo.python import TestStaticProxy as TSP
+import static_proxy.basic as basic
+
 
 class TestStaticProxy(TestCase):
 
     def test_basic(self):
-        import static_proxy.basic as basic
         BA = basic.BasicAdder
         TSP.ba1, TSP.ba2 = BA(1), BA(2)
         self.assertEqual(5, TSP.ba1.add(4))
@@ -36,3 +37,24 @@ class TestStaticProxy(TestCase):
             class WrongImplements(static_proxy(None, Runnable,
                                                package="com.chaquo.python.static_proxy")):
                 pass
+
+    def test_gc(self):
+        from pyobjecttest import DelTrigger as DT
+
+        DT.triggered = False
+        gc = basic.GC()
+        DT.assertTriggered(self, False)
+        TSP.o1 = gc
+        del gc
+        DT.assertTriggered(self, False)
+        TSP.o1 = None
+        DT.assertTriggered(self, True)
+
+        DT.triggered = False
+        TSP.o1 = basic.GC()
+        DT.assertTriggered(self, False)
+        gc = TSP.o1
+        TSP.o1 = None
+        DT.assertTriggered(self, False)
+        del gc
+        DT.assertTriggered(self, True)

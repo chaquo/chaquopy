@@ -78,17 +78,12 @@ class TestProxy(TestCase):
             def add(self, x):
                 return self.before_init_n + x
 
-        def assertTriggered(triggered):
-            System.gc()
-            System.runFinalization()
-            self.assertEqual(triggered, DT.triggered)
-
         DT.triggered = False
         a = A(5)
-        assertTriggered(False)
+        DT.assertTriggered(self, False)
         TP.a1 = a
         a = None
-        assertTriggered(False)
+        DT.assertTriggered(self, False)
         a = TP.a1
         self.assertIsInstance(a, A)
         self.assertEqual(5, a.before_init_n)
@@ -99,16 +94,16 @@ class TestProxy(TestCase):
         self.assertNotIsInstance(a_Adder, A)
         self.assertFalse(hasattr(a_Adder, "before_init_n"))
         a = None
-        assertTriggered(False)
+        DT.assertTriggered(self, False)
         a = cast(A, a_Adder)
         self.assertIsInstance(a, A)
         self.assertEqual(5, a.before_init_n)
         a_Adder = None
 
         TP.a1 = None
-        assertTriggered(False)
+        DT.assertTriggered(self, False)
         a = None
-        assertTriggered(True)
+        DT.assertTriggered(self, True)
 
     # Using Python attributes before calling __init__ is covered by test_gc; this test covers
     # use as a Java object.

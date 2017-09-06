@@ -27,6 +27,13 @@ public class StaticProxyTest {
     }
 
     @Test
+    public void toJava() {
+        PyObject BA = Python.getInstance().getModule("static_proxy.basic").get("BasicAdder");
+        PyObject ba = BA.call(42);
+        assertEquals(45, ba.toJava(BasicAdder.class).add(3));
+    }
+
+    @Test
     public void otherPackage() {
         other.pkg.OtherPackage op = new other.pkg.OtherPackage();
         assertEquals("world", op.hello());
@@ -57,7 +64,7 @@ public class StaticProxyTest {
     }
 
     @Test
-    public void protectedChild() {
+    public void protectedMembers() {
         ProtectedChild pc = new ProtectedChild();      // Calls protected constructor
         assertEquals("ctor", pc.getViaParent());
         assertEquals("ctor", pc.getViaChildField());   // Reads protected field
@@ -69,6 +76,15 @@ public class StaticProxyTest {
         pc.setViaChildField("field");                  // Writes protected field
         assertEquals("field", pc.getViaParent());
         assertEquals("field", pc.getViaChildField());
+    }
+
+    public static class OverrideParent {
+        public String get() { return "parent"; }
+    }
+
+    @Test
+    public void overriddenMethod() {
+        assertEquals("parent child", new OverrideChild().get());
     }
 
     @Test
@@ -187,8 +203,7 @@ public class StaticProxyTest {
     }
 
     // -------------------------------------------------------------------------------------------
-
-
+    
     @Test
     public void modifiers() {
         Modifiers m = new Modifiers();

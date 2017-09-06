@@ -39,6 +39,12 @@ class OverloadedCtor(static_proxy()):
         return self.value
 
 
+class OverrideChild(static_proxy(SPT.OverrideParent)):
+    @Override(String, [])
+    def get(self):
+        return super(OverrideChild, self).get() + " child"
+
+
 class Return(static_proxy()):
     @method(jvoid, [])
     def void_good(self):            pass

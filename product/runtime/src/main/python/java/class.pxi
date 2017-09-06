@@ -42,12 +42,17 @@ def jclass(clsname, **kwargs):
         if not cls:
             try:
                 cls = jclass_proxy(clsname, **kwargs)
-            except ClassNotFoundException as e:
-                # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
-                # throws ClassNotFoundException. Hide this from our users.
-                ncdfe = NoClassDefFoundError(e.getMessage())
-                ncdfe.setStackTrace(e.getStackTrace())
-                raise ncdfe
+            except Exception as e:
+                # Putting this directly in an `except` clause would cause any other exception
+                # to be hidden by a NameError if ClassNotFoundException isn't defined yet.
+                if "ClassNotFoundException" in globals() and isinstance(e, ClassNotFoundException):
+                    # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
+                    # throws ClassNotFoundException. Hide this from our users.
+                    ncdfe = NoClassDefFoundError(e.getMessage())
+                    ncdfe.setStackTrace(e.getStackTrace())
+                    raise ncdfe
+                else:
+                    raise
             reflect_class(cls)
         return cls
 

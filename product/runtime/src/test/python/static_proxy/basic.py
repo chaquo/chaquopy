@@ -1,15 +1,7 @@
-# FIXME:
-#
-# Garbage collection
-# Any other things which work differently to dynamic proxies
-# toJava: "If the Python object is itself a proxy for a Java object of a compatible type, the
-#   original Java object will be returned."
-#
-# Fix swallowed exception when referencing StaticProxy from JavaClass.__new__
-
 from __future__ import absolute_import, division, print_function
 
 from java import *
+from pyobjecttest import DelTrigger
 
 
 class BasicAdder(static_proxy()):
@@ -21,3 +13,10 @@ class BasicAdder(static_proxy()):
     @method(jint, [jint])
     def add(self, x):
         return self.n + x
+
+
+class GC(static_proxy()):
+    @constructor([])
+    def __init__(self):
+        super(GC, self).__init__()
+        self.dt = DelTrigger()
