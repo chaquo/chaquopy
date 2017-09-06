@@ -111,9 +111,10 @@ class PythonPlugin implements Plugin<Project> {
             }
 
             createConfigs(variant, python)
-            /* TODO #5193
-            createSourceTasks(variant, python) */
-            createAssetsTasks(variant, python, buildPackagesTask)
+            Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
+            createSourceTasks(variant, python, buildPackagesTask, reqsTask)
+            Task ticketTask = createTicketTask(variant)
+            createAssetsTasks(variant, python, reqsTask, ticketTask)
             createJniLibsTasks(variant, python)
         }
     }
@@ -170,26 +171,6 @@ class PythonPlugin implements Plugin<Project> {
         return abis
     }
 
-    /* TODO #5193
-    void createSourceTasks(variant, PythonExtension python) {
-        File sourceDir = variantGenDir(variant, "source")
-        Task genTask = project.task("generatePython${variant.name.capitalize()}Sources") {
-            outputs.dir(sourceDir)
-            doLast {
-                project.delete(sourceDir)
-                def pkgDir = "$sourceDir/com/chaquo/python"
-                project.mkdir(pkgDir)
-                PrintWriter writer = new PrintWriter("$pkgDir/Generated.java")
-                writer.println("package com.chaquo.python;")
-                writer.println("public class Generated {")
-                writer.println("    public void hello() {}")
-                writer.println("}")
-                writer.close()
-            }
-        }
-        variant.registerJavaGeneratingTask(genTask, sourceDir)
-    } */
-
     Task createBuildPackagesTask() {
         // It's easier to run directly from the ZIP and extract the cacert file, than it is to
         // extract the entire zip and then deal with auto-generated pyc files complicating the
@@ -210,12 +191,6 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createAssetsTasks(variant, PythonExtension python, Task buildPackagesTask) {
-        createGenAssetsTask(variant, python,
-                            createReqsTask(variant, python, buildPackagesTask),
-                            createTicketTask(variant))
-    }
-
     Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
         return project.task(taskName("generate", variant, "requirements")) {
             ext.destinationDir = variantGenDir(variant, "requirements")
@@ -226,9 +201,7 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (!python.pipInstall.isEmpty()) {
-                   project.exec {
-                       environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
-                       executable python.buildPython
+                   execBuildPython(python, buildPackagesTask) {
                        args "-m", "pip", "install"
                        args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
                        args "--cert", buildPackagesTask.cacertPem
@@ -242,6 +215,38 @@ class PythonPlugin implements Plugin<Project> {
                    }
                 }
             }
+        }
+    }
+
+    void createSourceTasks(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask) {
+        File destinationDir = variantGenDir(variant, "source")
+        Task genTask = project.task(taskName("generate", variant, "sources")) {
+            dependsOn buildPackagesTask, reqsTask
+            inputs.property("python", python)
+            outputs.dir(destinationDir)
+            doLast {
+                project.delete(destinationDir)
+                project.mkdir(destinationDir)
+                if (!python.staticProxy.isEmpty()) {
+                    execBuildPython(python, buildPackagesTask) {
+                        args "-m", "chaquopy.static_proxy"
+                        args "--path", (variantSrcDir(variant).toString() + File.pathSeparator +
+                                reqsTask.destinationDir)
+                        args "--java", destinationDir
+                        args python.staticProxy
+                    }
+                }
+            }
+        }
+        variant.registerJavaGeneratingTask(genTask, destinationDir)
+    }
+
+    void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
+        buildPackagesTask.project.exec {
+            environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
+            executable python.buildPython
+            closure.delegate = delegate
+            closure()
         }
     }
 
@@ -280,10 +285,10 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createGenAssetsTask(variant, python, Task reqsTask, Task ticketTask) {
+    void createAssetsTasks(variant, python, Task reqsTask, Task ticketTask) {
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
-        def srcDir = project.file("src/main/python")  // TODO #5203 make configurable
+        def srcDir = variantSrcDir(variant)
         def stdlibConfig = getConfig(variant, "targetStdlib")
         def abiConfig = getConfig(variant, "targetAbis")
 
@@ -378,6 +383,11 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
+    File variantSrcDir(variant) {
+        // TODO #5203 make configurable
+        return project.file("src/main/python")
+    }
+
     File variantGenDir(variant, String type) {
         return new File(genDir, "$type/$variant.dirName")
     }
@@ -411,9 +421,14 @@ class PythonExtension implements Serializable {
     String version
     String buildPython = "python"
     List<String> pipInstall = new ArrayList<>();
+    List<String> staticProxy = new ArrayList<>();
 
     void pipInstall(String... args) {
         pipInstall.addAll(Arrays.asList(args))
+    }
+
+    void staticProxy(String... args) {
+        staticProxy.addAll(Arrays.asList(args))
     }
 
     void mergeFrom(o) {
@@ -421,6 +436,7 @@ class PythonExtension implements Serializable {
         version = chooseNotNull(overlay.version, version)
         buildPython = chooseNotNull(overlay.buildPython, buildPython)
         pipInstall.addAll(overlay.pipInstall)
+        staticProxy.addAll(overlay.staticProxy)
     }
 
     private static <T> T chooseNotNull(T overlay, T base) {
@@ -431,15 +447,12 @@ class PythonExtension implements Serializable {
     // https://github.com/gradle/gradle/pull/962, but they're still required in Gradle 3.3, which
     // is used by Android Studio 2.3.
     boolean equals(o) {
-        if (this.is(o)) return true
         if (getClass() != o.class) return false
-
         PythonExtension that = (PythonExtension) o
-
+        if (version != that.version) return false
         if (buildPython != that.buildPython) return false
         if (pipInstall != that.pipInstall) return false
-        if (version != that.version) return false
-
+        if (staticProxy != that.staticProxy) return false
         return true
     }
 
@@ -448,6 +461,7 @@ class PythonExtension implements Serializable {
         result = (version != null ? version.hashCode() : 0)
         result = 31 * result + buildPython.hashCode()
         result = 31 * result + pipInstall.hashCode()
+        result = 31 * result + staticProxy.hashCode()
         return result
     }
 }

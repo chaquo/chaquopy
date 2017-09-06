@@ -52,7 +52,6 @@ def mingwDir = localProps.getProperty('mingw.dir')  // Windows only
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 def EXE_SUFFIX = windowsHost ? ".exe" : ""
-def PATH_SEPARATOR = windowsHost ? ";" : ":"
 
 
 // Affected by Markdown plugin above
@@ -249,9 +248,9 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
                 // TODO #5184: PATH would be LD_LIBRARY_PATH on Linux. Can't use -Djava.library.path
                 // because we need something which also works for Python processes.
-                environment "PATH", "$cmakeBuildSubdir$PATH_SEPARATOR${System.getenv("PATH")}"
+                environment "PATH", "$cmakeBuildSubdir${File.pathSeparator}${System.getenv("PATH")}"
                 environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
-                environment "PYTHONPATH", "$mainPythonDir$PATH_SEPARATOR$testPythonDir"
+                environment "PYTHONPATH", "$mainPythonDir${File.pathSeparator}$testPythonDir"
             }
 
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
@@ -286,7 +285,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     for (String key : ["CLASSPATH", "PYTHONPATH"]) {
                         writer.println "export $key='${env.get(key)}'"
                     }
-                    writer.println "export PATH=\"$cmakeBuildSubdir$PATH_SEPARATOR" + '$PATH"'
+                    writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
                     writer.println "winpty $pyPlusVersionExe"
                     writer.close()
                 }

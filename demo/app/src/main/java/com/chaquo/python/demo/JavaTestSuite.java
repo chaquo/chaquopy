@@ -9,7 +9,8 @@ import org.junit.runners.*;
 @Suite.SuiteClasses({
     // GenericPlatformTest won't work on Android.
     PyObjectTest.class,
-    PythonTest.class
+    PythonTest.class,
+    StaticProxyTest.class
 })
 
 public class JavaTestSuite {}

@@ -15,7 +15,4 @@ local.properties
 hs_err*.log
 
 # Not in a local .gitignore file because we don't want to copy it to the public repository.
-demo/app/src/main/python/package1/
-demo/app/src/main/python/__init__.py
-demo/app/src/main/python/test*.py
-demo/app/src/main/python/pyobjecttest.py
+demo/app/src/main/python/**/*.py
