@@ -18,6 +18,7 @@ cdef box_sig(JNIEnv *j_env, JNIRef j_klass)
 
 cdef class JNIRef(object):
     cdef jobject obj
+    cdef jint hash_code
     cdef GlobalRef global_ref(self)
     cdef WeakRef weak_ref(self)
     cdef jobject return_ref(self, JNIEnv *env)

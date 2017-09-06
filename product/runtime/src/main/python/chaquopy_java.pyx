@@ -359,24 +359,26 @@ DEF fqn_PyException = "com/chaquo/python/PyException"
 
 
 cdef throw_exception(JNIEnv *env, java_cls_name=fqn_PyException):
-    exc_info = sys.exc_info()
+    formatted_exc = format_exception(sys.exc_info())
     try:
-        j_java_exc = get_exception(env, java_cls_name, exc_info)
+        j_java_exc = get_exception(env, java_cls_name)
+        sys.exc_clear()     # See note at get_exception
         ret = env[0].Throw(env, j_java_exc.obj)
         if ret != 0:
             raise Exception(f"Throw failed: {ret}")
     except BaseException:
-        throw_simple_exception(env, f"{format_exception(exc_info)}\n"
+        throw_simple_exception(env, f"{formatted_exc}\n"
                                f"[failed to merge stack traces: {format_exception()}]")
 
 
 # This is broken out into a separate method to make sure all of its local `jclass` and `jarray`
 # instances are destroyed before JNIEnv.Throw is called. Removal from instance_cache calls
-# __hash__, which calls Object.identityHashCode, which Android's CheckJNI will not allow
-# with an exception pending.
-cdef JNIRef get_exception(JNIEnv *env, java_cls_name, exc_info):
+# JNIRef.__hash__, which may call Object.identityHashCode, which Android's CheckJNI will not
+# allow with an exception pending. Caching the hash code should reduce the risk of this, but
+# I'm not totally confident that it covers all cases.
+cdef JNIRef get_exception(JNIEnv *env, java_cls_name):
     StackTraceElement = java.jclass("java.lang.StackTraceElement")
-    _, exc_value, exc_traceback = exc_info
+    _, exc_value, exc_traceback = sys.exc_info()
     python_trace = [StackTraceElement("<python>", func_name, file_name, line_no)
                     for file_name, line_no, func_name, _ in
                     reversed(traceback.extract_tb(exc_traceback))]

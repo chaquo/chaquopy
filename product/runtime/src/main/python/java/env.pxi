@@ -414,15 +414,20 @@ cdef class JNIRef(object):
         else:
             raise NotImplementedError()
 
+    # I've not seen any evidence that caching the hash code really helps performance, but it
+    # reduces the risk of calling JNI functions in fragile situations such as when we have a
+    # Java exception pending (see note at chaquopy_java.get_exception).
     def __hash__(self):
-        global j_System, mid_identityHashCode
-        env = CQPEnv()
-        if not j_System:
-            j_System = env.FindClass("Ljava/lang/System;").global_ref()
-            mid_identityHashCode = env.GetStaticMethodID \
-                (j_System, "identityHashCode", "(Ljava/lang/Object;)I")
-        return env.j_env[0].CallStaticIntMethod \
-            (env.j_env, j_System.obj, mid_identityHashCode, self.obj)
+        if not self.hash_code:
+            global j_System, mid_identityHashCode
+            env = CQPEnv()
+            if not j_System:
+                j_System = env.FindClass("Ljava/lang/System;").global_ref()
+                mid_identityHashCode = env.GetStaticMethodID \
+                    (j_System, "identityHashCode", "(Ljava/lang/Object;)I")
+            self.hash_code = env.j_env[0].CallStaticIntMethod \
+                (env.j_env, j_System.obj, mid_identityHashCode, self.obj)
+        return self.hash_code
 
     def __nonzero__(self):      # Python 2 name
         return self.obj != NULL
