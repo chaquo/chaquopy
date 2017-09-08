@@ -41,7 +41,8 @@ In both cases, interactive use of Python requires either using a Windows console
 winpty program in mintty. And for the Python and Cython executables to be found by their Gradle
 tasks, their directories must be on the PATH. */
 
-// The following properties file should be created manually.
+// The following properties file should be created manually. It's also used in
+// test_gradle_plugin.py.
 def localProps = new Properties()
 localProps.load(project.rootProject.file('local.properties').newDataInputStream())
 def sdkDir = localProps.getProperty('sdk.dir')
@@ -260,7 +261,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
                 } else {
-                    args "test_suite"
+                    args "test_suite", "-v"
                 }
             }
             testPython.configure(testCommonConfig)

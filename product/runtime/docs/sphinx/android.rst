@@ -82,14 +82,11 @@ the app.
 Python requirements
 -------------------
 
+.. note:: This feature requires :ref:`Python to be available on the build machine <build-python>`.
+
 External dependencies may be built into the app by giving a `pip install
 <https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ command line. This may specify
-an exact requirement, a local wheel file, or a requirements file.
-
-.. note:: Chaquopy currently only supports pure-Python wheel files: it will not accept sdist
-          packages or architecture-specific wheels.
-
-::
+an exact requirement, a local wheel file, or a requirements file::
 
     python {
         pipInstall "six==1.10.0"
@@ -103,19 +100,15 @@ Any other `pip install` options may also be specified, except the following:
 * Installation format options, such as `-e` and `--egg`.
 * Package type options, such as `--no-binary`.
 
-Chaquopy comes with its own copy of `pip`, but it requires Python 2.7 or higher to be available
-on the build machine to run it. If `python` is not on your `PATH`, or you want to use a
-different version, use the `buildPython` setting. For example, a typical Windows installation
-of Python would need something like this::
-
-    python {
-        buildPython "C:/Python27/python.exe"
-    }
+Chaquopy currently only supports pure-Python wheel files: it will not accept sdist packages or
+architecture-specific wheels.
 
 .. _static-proxy-generator:
 
 Static proxy generator
 ----------------------
+
+.. note:: This feature requires :ref:`Python to be available on the build machine <build-python>`.
 
 In order for a Python class to extend a Java class, or to be referenced by name in Java code or
 in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
@@ -132,6 +125,21 @@ for the specified modules. Either simple modules (e.g. `module/one.py`) or packa
 Within the modules, static proxy classes must be declared in the format described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
+
+.. _build-python:
+
+Build Python
+------------
+
+If a feature requires Python to be available on the build machine, Python 2.7 must be
+installed. Chaquopy will by default look for `python2` on your `PATH`, but this can be
+configured with the `buildPython` setting. For example, a typical Windows installation of
+Python would look like this::
+
+    python {
+        buildPython "C:/Python27/python.exe"
+    }
+
 
 Licensing
 =========

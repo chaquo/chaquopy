@@ -2,12 +2,13 @@ from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
 import distutils.util
-from kwonly_args import kwonly_defaults, KWONLY_REQUIRED
+from jproperties import Properties
+from kwonly_args import kwonly_defaults
 import os
 from os.path import abspath, dirname, join
+import re
 import shutil
 import subprocess
-import time
 from unittest import skip, TestCase
 from zipfile import ZipFile
 
@@ -162,10 +163,12 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
 
     def test_wheel_index(self):
-        # packages/dist should contain a wheel for each platform the tests may be run on. All
-        # the test platform wheels have version 0.2, while the Android wheels have version 0.1.
-        # This tests that pip always uses the target platform and ignores the workstation
+        # All the test platform wheels have version 0.2, while the Android wheels have version
+        # 0.1. This tests that pip always uses the target platform and ignores the workstation
         # platform.
+        #
+        # If testing on another platform, add it to the list below, and add a corresponding
+        # wheel to packages/dist.
         self.assertIn(distutils.util.get_platform(), ["mingw"])
 
         run = self.RunGradle("base", "PythonReqs/wheel_index_1",   # Has Android wheel
@@ -186,6 +189,24 @@ class PythonReqs(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for sdist2 "
                           "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
+
+
+class StaticProxy(GradleTestCase):
+    def test_change(self):
+        run = self.RunGradle("base", "StaticProxy/reqs", requirements=["static_proxy"],
+                             static_proxies=["a.ReqsA1", "b.ReqsB1"])
+        run.apply_layers("StaticProxy/src_1")       # Src should take priority over reqs.
+        run.rerun(requirements=["static_proxy"], static_proxies=["a.SrcA1", "b.ReqsB1"])
+        run.apply_layers("StaticProxy/src_only")    # Remove reqs
+        run.rerun(static_proxies=["a.SrcA1"])
+        run.apply_layers("StaticProxy/src_2")       # Change source code
+        run.rerun(static_proxies=["a.SrcA2"])
+        run.apply_layers("base")                    # Remove all
+        run.rerun()
+
+    @skip("#5293")
+    def test_build_python_3(self):
+        self.RunGradle("base", "StaticProxy/build_python_3", static_proxies=["a.ReqsA1"])
 
 
 class License(GradleTestCase):
@@ -240,7 +261,7 @@ repo_root = join(integration_dir, "../../../../..")
 
 class RunGradle(object):
     @kwonly_defaults
-    def __init__(self, test, key=None, *layers,**kwargs):
+    def __init__(self, test, key=None, *layers, **kwargs):
         self.test = test
 
         module, cls, func = test.id().split(".")
@@ -294,7 +315,7 @@ class RunGradle(object):
                 self.dump_run("exit status {}".format(status))
             self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
             for variant in variants:
-                for suffix in ["Requirements", "Ticket", "Assets", "JniLibs"]:
+                for suffix in ["Requirements", "Sources", "Ticket", "Assets", "JniLibs"]:
                     msg = task_name(":app:generate", variant, "Python" + suffix) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout)
 
@@ -314,9 +335,11 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], requirements=[], licensed_id=None):
+    def check_apk(self, apk_dir, abis=["x86"], requirements=[], static_proxies=[],
+                  licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
+        # Python source
         app_zip = ZipFile(join(asset_dir, "app.zip"))
         app_check_base_name = join(self.run_dir, "app-check")
         # If app/src/main/python didn't already exist, the plugin should have created it.
@@ -327,6 +350,7 @@ class RunGradle(object):
         for name in app_zip.namelist():
             self.test.assertEqual(app_zip.getinfo(name).CRC, app_check_zip.getinfo(name).CRC, name)
 
+        # Python requirements
         reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
         reqs_toplevel = set([path.partition("/")[0] for path in reqs_zip.namelist()
                              if ".dist-info" not in path])
@@ -350,10 +374,14 @@ class RunGradle(object):
 
         # Chaquopy runtime library
         self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
-        dex = open(join(apk_dir, "classes.dex"), "rb").read()
-        for s in [b"com/chaquo/python/Python", b"Python already started"]:
-            self.test.assertIn(s, dex)
+        classes = dex_classes(join(apk_dir, "classes.dex"))
+        self.test.assertIn("com.chaquo.python.Python", classes)
 
+        # Static proxies
+        self.test.assertEqual(set(("static_proxy." + c) for c in static_proxies),
+                              set(filter(lambda x: x.startswith("static_proxy"), classes)))
+
+        # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
         if licensed_id:
             subprocess.check_call(["python", join(repo_root, "server/license/check_ticket.py"),
@@ -365,6 +393,23 @@ class RunGradle(object):
         self.test.fail(msg + "\n" +
                        "=== STDOUT ===\n" + self.stdout +
                        "=== STDERR ===\n" + self.stderr)
+
+
+def dex_classes(dex_filename):
+    # The following properties file should be created manually. It's also used in
+    # runtime/build.gradle.
+    props = Properties()
+    props.load(open(join(repo_root, "product/local.properties")))
+    build_tools_dir = join(props["sdk.dir"].data, "build-tools")
+    newest_ver = sorted(os.listdir(build_tools_dir))[-1]
+    dexdump = subprocess.check_output([join(build_tools_dir, newest_ver, "dexdump"),
+                                       dex_filename])
+    classes = []
+    for line in dexdump.splitlines():
+        match = re.search(r"Class descriptor *: *'L(.*);'", line)
+        if match:
+            classes.append(match.group(1).replace("/", "."))
+    return classes
 
 
 def task_name(prefix, variant, suffix=""):

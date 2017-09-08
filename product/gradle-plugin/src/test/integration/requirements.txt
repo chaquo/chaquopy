@@ -1,2 +1,3 @@
 -r ../../../../../server/license/requirements.txt
 kwonly-args==1.0.10
+jproperties==1.0.1

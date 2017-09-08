@@ -67,7 +67,7 @@ Task testPythonTask(String name, Closure closure) {
         if (project.hasProperty("testPythonArgs")) {
             args project.testPythonArgs.split(" ")
         } else {
-            args "discover", "-v", "--failfast"
+            args "discover", "-v"
         }
     }
     return t

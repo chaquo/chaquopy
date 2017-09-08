@@ -219,19 +219,22 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createSourceTasks(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask) {
+        File srcDir = variantSrcDir(variant)
         File destinationDir = variantGenDir(variant, "source")
         Task genTask = project.task(taskName("generate", variant, "sources")) {
             dependsOn buildPackagesTask, reqsTask
+            inputs.dir(srcDir)
             inputs.property("python", python)
             outputs.dir(destinationDir)
             doLast {
+                project.mkdir(srcDir)
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (!python.staticProxy.isEmpty()) {
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.static_proxy"
-                        args "--path", (variantSrcDir(variant).toString() + File.pathSeparator +
-                                reqsTask.destinationDir)
+                        args "--path", (srcDir.toString() + File.pathSeparator +
+                                        reqsTask.destinationDir)
                         args "--java", destinationDir
                         args python.staticProxy
                     }
@@ -419,7 +422,7 @@ class PythonPlugin implements Plugin<Project> {
 
 class PythonExtension implements Serializable {
     String version
-    String buildPython = "python"
+    String buildPython = "python2"
     List<String> pipInstall = new ArrayList<>();
     List<String> staticProxy = new ArrayList<>();
 
