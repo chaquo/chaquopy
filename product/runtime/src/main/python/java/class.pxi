@@ -189,7 +189,7 @@ def setup_object_class():
                    ts.startswith(full_name):  # e.g. "java.lang.Object@28d93b30"
                     return f"<{ts}>"
                 else:
-                    return f"<{full_name} '{ts}'>"
+                    return f"<{full_name} {str_repr(ts)}>"
             else:
                 return f"<{full_name} (no instance)>"
 

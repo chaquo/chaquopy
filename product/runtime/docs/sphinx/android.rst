@@ -1,7 +1,7 @@
 .. highlight:: none
 
-Android instructions
-####################
+Android
+#######
 
 Chaquopy is distributed as a plugin for the Android Gradle build system. For a full example of
 how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
@@ -56,8 +56,8 @@ Chaquopy does not require the Android native development kit (NDK). However, the
 interpreter is a native component, so you must still specify which native ABIs you want the app
 to support.
 
-Currently available ABIs are `x86` (for the Android emulator) and `armeabi-v7a` (for the vast
-majority of Android hardware)::
+The currently available ABIs are `x86` (for the Android emulator) and `armeabi-v7a` (for the
+vast majority of Android hardware)::
 
     android {
         defaultConfig {
@@ -73,8 +73,8 @@ majority of Android hardware)::
 Development
 ===========
 
-Python code
------------
+Python source
+-------------
 
 Place Python source code in `src/main/python`, and Chaquopy will automatically build it into
 the app.
@@ -105,12 +105,33 @@ Any other `pip install` options may also be specified, except the following:
 
 Chaquopy comes with its own copy of `pip`, but it requires Python 2.7 or higher to be available
 on the build machine to run it. If `python` is not on your `PATH`, or you want to use a
-different version, use the `buildPython` setting::
+different version, use the `buildPython` setting. For example, a typical Windows installation
+of Python would need something like this::
 
     python {
-        buildPython "python3"  // Assuming "python3" is on your PATH
-        buildPython "C:/Python27/python.exe"  // Typical Windows installation
+        buildPython "C:/Python27/python.exe"
     }
+
+.. _static-proxy-generator:
+
+Static proxy generator
+----------------------
+
+In order for a Python class to extend a Java class, or to be referenced by name in Java code or
+in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
+directive specifies which Python modules to search for these classes::
+
+    python {
+        staticProxy "module.one", "module.two"
+    }
+
+The app's `Python source`_ tree and its `Python requirements`_ will be searched, in that order,
+for the specified modules. Either simple modules (e.g. `module/one.py`) or packages (e.g.
+`module/one/__init__.py`) may be used.
+
+Within the modules, static proxy classes must be declared in the format described in the
+:ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
+generated and built into the app.
 
 Licensing
 =========

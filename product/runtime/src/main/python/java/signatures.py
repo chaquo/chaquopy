@@ -8,7 +8,7 @@ from java._vendor import six
 
 import java
 from .chaquopy import (JavaArray, JavaClass, NoneCast, check_range_char, check_range_float32,
-                       CQPEnv, klass_sig)
+                       CQPEnv, klass_sig, str_repr)
 
 __all__ = ["jni_sig", "name_to_sig", "jni_method_sig", "split_method_sig",
            "sig_to_java", "args_sig_to_java",
@@ -48,6 +48,9 @@ class Primitive(six.with_metaclass(PrimitiveMeta, object)):
 
 
 class jvoid(Primitive):
+    """`jvoid` cannot be instantiated, but may be used as a return type when defining a
+    :ref:`static proxy <static-proxy>`.
+    """
     name = "void"
     sig = "V"
 
@@ -126,8 +129,7 @@ class jchar(Primitive):
         self.value = six.text_type(value)
 
     def __repr__(self):
-        # Remove 'u' prefix in Python 2 so tests are consistent.
-        return "{}('{}')".format(type(self).__name__, self.value)
+        return "{}({})".format(type(self).__name__, str_repr(self.value))
 
 
 def jni_method_sig(returns, takes):
