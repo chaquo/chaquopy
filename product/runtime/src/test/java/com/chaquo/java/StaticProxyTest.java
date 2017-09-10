@@ -5,6 +5,7 @@ import java.io.*;
 import java.lang.reflect.*;
 import org.junit.*;
 import org.junit.rules.*;
+import org.junit.runners.*;
 import static_proxy.basic.*;
 import static_proxy.header.*;
 import static_proxy.method.*;
@@ -14,6 +15,8 @@ import static org.hamcrest.CoreMatchers.isA;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.internal.matchers.ThrowableMessageMatcher.hasMessage;
 
+
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class StaticProxyTest {
     @Rule
     public ExpectedException thrown = ExpectedException.none();
@@ -27,10 +30,12 @@ public class StaticProxyTest {
     }
 
     @Test
-    public void toJava() {
+    public void toFromJava() {
         PyObject BA = Python.getInstance().getModule("static_proxy.basic").get("BasicAdder");
-        PyObject ba = BA.call(42);
-        assertEquals(45, ba.toJava(BasicAdder.class).add(3));
+        PyObject ba_po = BA.call(42);
+        BasicAdder ba = ba_po.toJava(BasicAdder.class);
+        assertEquals(45, ba.add(3));
+        assertSame(ba_po, PyObject.fromJava(ba));
     }
 
     @Test

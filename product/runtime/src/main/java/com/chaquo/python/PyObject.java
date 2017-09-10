@@ -5,7 +5,7 @@ import java.lang.reflect.*;
 import java.util.*;
 
 
-/** Proxy for a Python object.
+/** Interface to a Python object.
  *
  * * Python `None` is represented by Java `null`. Other `PyObject`s can be converted to their Java
  *   equivalents using {@link #toJava toJava()}.
@@ -79,8 +79,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *   an equivalent Python object will be created.
      * * If the given object is itself a proxy for a Python object, the original Python object
      *   will be returned.
-     * * Otherwise, a proxy object will be created, exposing all the methods and fields of the
-     *   Java object to Python code. */
+     * * Otherwise, a Python <a href="../../../../python.html#java.jclass">jclass</a> or
+     *   <a href="../../../../python.html#java.jarray">jarray</a> object will be created. */
     //
     // TODO #5154... If the given object implements `List`, `Map` or `Set`, the proxy object will
     // implement the corresponding Python methods (`__len__`, `__getitem__`, etc.).

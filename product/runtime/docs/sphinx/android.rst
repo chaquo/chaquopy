@@ -1,4 +1,4 @@
-.. highlight:: none
+.. highlight:: groovy
 
 Android
 #######
@@ -6,18 +6,15 @@ Android
 Chaquopy is distributed as a plugin for the Android Gradle build system. For a full example of
 how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
-Setup
-=====
-
-Installation
-------------
-
 Prerequisites:
 
 * Android Gradle plugin version 2.3.x (this is usually the same as the Android Studio version)
 * `minSdkVersion` 9 or higher
 
-In the project's top-level `build.gradle` file, add the following lines to the existing
+Basic setup
+===========
+
+In the project's *top-level* `build.gradle` file, add the following lines to the existing
 `repositories` and `dependencies` blocks:
 
 .. parsed-literal::
@@ -30,16 +27,13 @@ In the project's top-level `build.gradle` file, add the following lines to the e
         }
     }
 
-In the app's module-level `build.gradle` file, apply the Chaquopy plugin at the top of the
+In the app's *module-level* `build.gradle` file, apply the Chaquopy plugin at the top of the
 file, but after the Android plugin::
 
    apply plugin: "com.chaquo.python"  // Must come after com.android.application
 
-
-Python version
---------------
-
-The Python version must be specified. Currently the only available version is 2.7.10::
+Chaquopy is configured in the `python` block within `defaultConfig`. The only required setting
+is the Python version, and currently the only available version is 2.7.10::
 
     android {
         defaultConfig {
@@ -49,15 +43,9 @@ The Python version must be specified. Currently the only available version is 2.
         }
     }
 
-ABI filters
------------
-
-Chaquopy does not require the Android native development kit (NDK). However, the Python
-interpreter is a native component, so you must still specify which native ABIs you want the app
-to support.
-
-The currently available ABIs are `x86` (for the Android emulator) and `armeabi-v7a` (for the
-vast majority of Android hardware)::
+The Python interpreter is a native component, so you must specify which native ABIs you want
+the app to support. The currently available ABIs are `x86` (for the Android emulator) and
+`armeabi-v7a` (for the vast majority of Android hardware)::
 
     android {
         defaultConfig {
@@ -67,22 +55,59 @@ vast majority of Android hardware)::
         }
     }
 
-.. note:: Each ABI will add several MB to the size of the app.
+There's no need to actually install the Android native development kit (NDK), as Chaquopy will
+download pre-compiled CPython binaries for the specified ABIs. (Each ABI will add several MB to
+the size of the app.)
 
+.. _android-development:
 
 Development
 ===========
 
-Python source
--------------
-
 Place Python source code in `src/main/python`, and Chaquopy will automatically build it into
 the app.
 
+It's important to structure the app so that `Python.start()
+<java/com/chaquo/python/Python.html#start-com.chaquo.python.Python.Platform->`_ is always
+called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
+attempting to run Python code. There are two basic ways to achieve this:
+
+If the app always uses Python, then call Python.start() from a location which is guaranteed to
+run exactly once per process. The recommended location is `Application.onCreate()
+<https://developer.android.com/reference/android/app/Application.html#onCreate()>`_, and a
+`PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to
+make this easy. To use it, simply add the following attribute to the `<application>` element in
+`AndroidManifest.xml`:
+
+.. code-block:: xml
+
+    android:name="com.chaquo.python.PyApplication"
+
+Alternatively, if the app only sometimes uses Python, then call Python.start() after first
+checking whether it's already been started:
+
+.. code-block:: java
+
+    // "context" must be an Activity, Service or Application object from your app.
+    if (! Python.isStarted()) {
+        Python.start(new AndroidPlatform(context));
+    }
+
+Other build features
+====================
+
+These features require Python 2.7 to be available on the build machine. Chaquopy will by
+default look for `python2` on your `PATH`, but this can be configured with the `buildPython`
+setting. For example, a typical Windows installation of Python would look like this::
+
+    python {
+        buildPython "C:/Python27/python.exe"
+    }
+
+.. _android-requirements:
+
 Python requirements
 -------------------
-
-.. note:: This feature requires :ref:`Python to be available on the build machine <build-python>`.
 
 External dependencies may be built into the app by giving a `pip install
 <https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ command line. This may specify
@@ -108,38 +133,21 @@ architecture-specific wheels.
 Static proxy generator
 ----------------------
 
-.. note:: This feature requires :ref:`Python to be available on the build machine <build-python>`.
-
 In order for a Python class to extend a Java class, or to be referenced by name in Java code or
 in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
-directive specifies which Python modules to search for these classes::
+setting specifies which Python modules to search for these classes::
 
     python {
         staticProxy "module.one", "module.two"
     }
 
-The app's `Python source`_ tree and its `Python requirements`_ will be searched, in that order,
-for the specified modules. Either simple modules (e.g. `module/one.py`) or packages (e.g.
-`module/one/__init__.py`) may be used.
+The app's :ref:`source tree <android-development>` and its :ref:`requirements
+<android-requirements>` will be searched, in that order, for the specified modules. Either
+simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be used.
 
 Within the modules, static proxy classes must be declared in the format described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
-
-.. _build-python:
-
-Build Python
-------------
-
-If a feature requires Python to be available on the build machine, Python 2.7 must be
-installed. Chaquopy will by default look for `python2` on your `PATH`, but this can be
-configured with the `buildPython` setting. For example, a typical Windows installation of
-Python would look like this::
-
-    python {
-        buildPython "C:/Python27/python.exe"
-    }
-
 
 Licensing
 =========

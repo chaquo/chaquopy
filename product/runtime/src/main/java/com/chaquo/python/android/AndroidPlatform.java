@@ -1,9 +1,10 @@
-package com.chaquo.python;
+package com.chaquo.python.android;
 
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
 
+import com.chaquo.python.*;
 import java.io.*;
 
 

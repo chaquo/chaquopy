@@ -254,6 +254,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 environment "PYTHONPATH", "$mainPythonDir${File.pathSeparator}$testPythonDir"
             }
 
+            // Run via test suite for consistency with Android demo app.
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
                 workingDir "$projectDir/src/test/python"
                 executable pyPlusVersionExe
@@ -267,8 +268,11 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             testPython.configure(testCommonConfig)
             check.dependsOn(testPython)
 
+            // Run via test suite for consistency with Android demo app.
             test {
                 outputs.upToDateWhen { false }
+                scanForTestClasses = false
+                include "**/TestSuite.class"
                 testLogging {
                     exceptionFormat = 'full'
                     showStandardStreams = true

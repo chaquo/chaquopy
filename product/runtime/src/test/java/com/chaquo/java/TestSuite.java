@@ -1,16 +1,13 @@
-package com.chaquo.python.demo;
-
-import com.chaquo.java.*;
+package com.chaquo.java;
 
 import org.junit.runner.*;
 import org.junit.runners.*;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-    // GenericPlatformTest won't work on Android.
+    GenericPlatformTest.class,
     PyObjectTest.class,
     PythonTest.class,
     StaticProxyTest.class
 })
-
-public class JavaTestSuite {}
+public class TestSuite {}
