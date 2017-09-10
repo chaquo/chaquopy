@@ -84,16 +84,22 @@ def parse_args():
 
 
 def find_module(mod_name, path):
-    for dirname in path:
-        mod_filename_prefix = join(dirname, mod_name.replace(".", "/"))
-        # Packages take priority over modules (https://stackoverflow.com/questions/4092395/)
-        package_filename = join(mod_filename_prefix, "__init__.py")
-        if isfile(package_filename):
-            return package_filename
-
-        mod_filename = mod_filename_prefix + ".py"
-        if isfile(mod_filename):
-            return mod_filename
+    words = mod_name.split(".")
+    for root_dir in path:
+        cur_dir = root_dir
+        for i, word in enumerate(words):
+            if i < (len(words) - 1):
+                cur_dir = join(cur_dir, word)
+                if not isfile(join(cur_dir, "__init__.py")):
+                    break
+            else:
+                # Packages take priority over modules (https://stackoverflow.com/questions/4092395/)
+                package_filename = join(cur_dir, word, "__init__.py")
+                if isfile(package_filename):
+                    return package_filename
+                mod_filename = join(cur_dir, word + ".py")
+                if isfile(mod_filename):
+                    return mod_filename
 
     raise CommandError("Module not found: " + mod_name)
 

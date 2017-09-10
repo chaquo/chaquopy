@@ -20,13 +20,18 @@ class TestStaticProxy(TestCase):
     def test_find_module(self):
         self.run_json("nonexistent", "file", False, "nonexistent' does not exist")
         self.run_json("errors/empty.py", "file", False, "errors/empty.py' is not a directory")
+
         self.run_json(["find_module/path1", "find_module/path2"], ["a", "b", "c"],
                       expected="find_module/12.json")
         self.run_json(["find_module/path2", "find_module/path1"], ["a", "b", "c"],
                       expected="find_module/21.json")
+
         self.run_json("find_module/path3", "mod1")          # Exists as both module and package
         self.run_json("find_module/path3", "mod1.mod1a")
         self.run_json("find_module/path3", "mod99", False, "Module not found: mod99")
+        self.run_json("find_module/path3", "empty", False, "Module not found: empty")
+        self.run_json("find_module/path3", "no_init_py.mod", False,
+                      "Module not found: no_init_py.mod")
 
     def test_errors(self):
         self.run_json("errors", "empty", False, "empty.py: no static_proxy classes found")
