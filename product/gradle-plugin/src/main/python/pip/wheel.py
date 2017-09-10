@@ -210,6 +210,8 @@ def root_is_purelib(name, wheeldir):
 
 
 def get_entrypoints(filename):
+    return {}, {}   # Chaquopy disabled
+
     if not os.path.exists(filename):
         return {}, {}
 
