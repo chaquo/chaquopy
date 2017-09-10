@@ -7,6 +7,11 @@
             android:targetClass="com.chaquo.python.demo.ReplActivity"/>
     </Preference>
 
+    <Preference android:title="@string/ui_demo">
+    <intent android:targetPackage="com.chaquo.python.demo"
+        android:targetClass="com.chaquo.python.demo.UIDemoActivity"/>
+    </Preference>
+
     <Preference android:title="@string/java_unit_test">
         <intent android:targetPackage="com.chaquo.python.demo"
             android:targetClass="com.chaquo.python.demo.JavaTestActivity"/>

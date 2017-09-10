@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orderingFromXml="true">
+
+    <Preference android:title="@string/demo_dialog"/>
+    <Preference android:title="@string/demo_notify"/>
+    <Preference android:title="@string/demo_toast"/>
+    <Preference android:title="@string/demo_sound"/>
+    <Preference android:title="@string/demo_vibrate"/>
+
+</PreferenceScreen>

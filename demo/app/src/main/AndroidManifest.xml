@@ -3,6 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -23,6 +25,10 @@
             android:label="@string/repl"
             android:launchMode="singleInstance"
             android:windowSoftInputMode="adjustResize">
+        </activity>
+        <activity
+            android:name=".UIDemoActivity"
+            android:label="@string/ui_demo">
         </activity>
         <activity
             android:name=".JavaTestActivity"

@@ -1,17 +1,36 @@
 <resources>
+
     <string name="app_name">Chaquopy demo</string>
-    <string name="action_settings">Settings</string>
-    <string name="repl">REPL</string>
-    <string name="repl_summary">Interactive read-eval-print loop</string>
-    <string name="repl_banner">The current activity context is available in the variable \"context\".</string>
-    <string name="ps1">>>>\u00A0</string>   <!-- We can't get these from the sys module, because -->
-    <string name="ps2">...\u00A0</string>   <!-- they're put there by the blocking interact() function. -->
-    <string name="java_unit_test">Java unit tests</string>
-    <string name="top">Top</string>
-    <string name="bottom">Bottom</string>
-    <string name="python_unit_test">Python unit tests</string>
     <string name="main_caption">For more information see the
         <a href="https://chaquo.com/chaquopy/">Chaquopy website</a>, or view this app\'s source
         code <a href="https://github.com/chaquo/chaquopy">on GitHub</a>.
     </string>
+
+    <string name="repl">Python console</string>
+    <string name="repl_summary">Interactive read-eval-print loop</string>
+    <string name="ui_demo">Android UI demo</string>
+    <string name="java_unit_test">Java unit tests</string>
+    <string name="python_unit_test">Python unit tests</string>
+
+    <string name="top">Top</string>
+    <string name="bottom">Bottom</string>
+
+    <string name="repl_banner">The current activity context is available in the variable \"context\".</string>
+    <string name="ps1">>>>\u00A0</string>   <!-- We can't get these from the sys module, because -->
+    <string name="ps2">...\u00A0</string>   <!-- they're put there by the blocking interact() function. -->
+
+    <string name="demo_dialog">Dialog box</string>
+    <string name="demo_dialog_title">Dialog from Python</string>
+    <string name="demo_dialog_text">Select title color</string>
+    <string name="red">Red</string>
+    <string name="green">Green</string>
+    <string name="blue">Blue</string>
+    <string name="demo_notify">Notification</string>
+    <string name="demo_notify_title">Notification from Python</string>
+    <string name="demo_notify_text">Lorem ipsum dolor sit amet</string>
+    <string name="demo_toast">Toast</string>
+    <string name="demo_toast_text">Toast from Python</string>
+    <string name="demo_sound">Sound</string>
+    <string name="demo_vibrate">Vibration</string>
+
 </resources>

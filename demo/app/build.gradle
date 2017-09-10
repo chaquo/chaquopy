@@ -45,6 +45,7 @@ android {
             // buildPython "C:/Python36/python.exe"
             version "2.7.10"
             pipInstall "six==1.10.0"
+            staticProxy "com.chaquo.python.demo"
             staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }
         resConfigs "en"
