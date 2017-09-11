@@ -3,7 +3,7 @@
 
 ## Gradle plugin
 
-Run gradlew -P testPythonArgs="discover -v" -P cmakeBuildType=Release :gradle-plugin:testIntegration
+Run gradlew -P cmakeBuildType=Release :gradle-plugin:check
 
 Copy gradle-plugin/build/libs/gradle.jar to the Maven repository under the name
 com/chaquo/python/gradle/<version>/gradle-<version>.jar.
@@ -14,13 +14,17 @@ and never looks at checksums; if everybody else is the same, we might as well re
 
 ## Demo app
 
-Copy updates in demo to public/demo.
+Delete public/demo/app/src/main and replace with copy from demo/app/src/main.
+copied from runtime/src/test).
 
-Copy updates in runtime/src/test to public/demo/app/src/main.
+Merge product/runtime/src/test/{java,python} into the corresponding directories under
+public/demo/app/src/main.
+
+Copy updates in all other files under python/demo (some will have to be manually merged).
 
 Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
 
-"Generate Signed APK" in Android Studio, and test on emulator and phone.
+"Generate Signed APK" in Android Studio, and test all features on emulator and phone.
 
 Upload APK to Google Play and to Maven repository.
 
@@ -33,10 +37,10 @@ Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
 
 If sphinx or javadoc have changed:
 
-* Update runtime/docs/sphinx/changelog.rst for product changes, and add date.
 * Adjust VERSION.txt temporarily if that version isn't released yet.
-* Build and upload to server. If major.minor version number has changed, update "current"
-  symlink and add link on WordPress documentation page.
+* Build and upload to server.
+* If major.minor version number has changed, update "current" symlink and add link on WordPress
+  documentation page.
 
 Post blog entry on website.
 

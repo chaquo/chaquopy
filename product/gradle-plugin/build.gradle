@@ -31,6 +31,7 @@ task("zipBuildPackages", type: Zip) {
     destinationDir file("$buildDir/tmp/$name")
     archiveName "build-packages.zip"
     from "src/main/python"
+    exclude "**/*.pyc"
 }
 
 processResources {
@@ -76,8 +77,10 @@ Task testPythonTask(String name, Closure closure) {
 testPythonTask("testPython") {
     workingDir "$projectDir/src/test/python"
 }
+check.dependsOn(testPython)
 
 testPythonTask("testIntegration") {
     dependsOn assemble
     workingDir "$projectDir/src/test/integration"
 }
+check.dependsOn(testIntegration)

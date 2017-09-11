@@ -60,6 +60,10 @@ android {
             staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }
         resConfigs "en"
+        lintOptions {
+            // Chaquopy generates extra internal-use constructors on static proxy classes.
+            disable "ValidFragment"
+        }
     }
 
     buildTypes {

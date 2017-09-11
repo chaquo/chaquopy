@@ -30,8 +30,8 @@ public class ConsoleActivity extends AppCompatActivity {
             tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
 
-        PyObject console_activity = py.getModule("console_activity");
-        PyObject stream = console_activity.callAttr("ForwardingOutputStream", this, "append");
+        PyObject demo_app = py.getModule("demo_app");
+        PyObject stream = demo_app.callAttr("ForwardingOutputStream", this, "append");
         PyObject sys = py.getModule("sys");
         sys.put("stdout", stream);
         sys.put("stderr", stream);
