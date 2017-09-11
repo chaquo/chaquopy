@@ -27,7 +27,7 @@
             android:windowSoftInputMode="adjustResize">
         </activity>
         <activity
-            android:name=".UIDemoActivity"
+            android:name=".ui_demo.UIDemoActivity"
             android:label="@string/ui_demo">
         </activity>
         <activity

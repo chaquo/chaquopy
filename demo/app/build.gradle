@@ -17,6 +17,17 @@ afterEvaluate {
 }
 // **********************************************************************
 
+afterEvaluate {
+    def assetsSrcDir = "src/main/assets/source"
+    delete assetsSrcDir
+    mkdir assetsSrcDir
+    for (filename in ["src/main/python/com/chaquo/python/demo/ui_demo.py"]) {
+        copy {
+            from filename
+            into assetsSrcDir
+        }
+    }
+}
 
 android {
     compileSdkVersion 23
@@ -44,8 +55,8 @@ android {
             // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python36/python.exe"
             version "2.7.10"
-            pipInstall "six==1.10.0"
-            staticProxy "com.chaquo.python.demo"
+            pipInstall "six==1.10.0", "Pygments==2.2.0"
+            staticProxy "com.chaquo.python.demo.ui_demo"
             staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }
         resConfigs "en"

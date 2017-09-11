@@ -18,28 +18,29 @@ equivalent to `String = jclass("java.lang.String")`.
 * Nested and inner classes cannot be imported directly. Instead, import the outer class,
   and access the nested class as an attribute, e.g. `Outer.Nested`.
 
-Relative import syntax is supported. For example, within a Python module called
-`com.example.module`::
+To avoid confusion, it's recommended to avoid having a Java package and a Python module with
+the same name. However, this is still possible, subject to the following points:
 
-    from . import Class                # Same as "from com.example import Class"
-    from ..other.package import Class  # Same as "from com.other.package import Class"
+* Names imported from the Java package will not automatically be added as attributes of the
+  Python module.
 
-If a Python package and a Java package have the same name, imports from both of them may be
-intermixed, even within a single `from ... import` statement. However, you should be aware of
-the following points:
-
-* Names imported from the Java package will not automatically be added as attributes of the Python
-  package.
-* If you attempt to import a name which exists in both languages, an `ImportError` will be
-  raised. This can be worked around by accessing the names indirectly. For example, if both
-  Java and Python have a class named `com.example.Class`, then instead of `from com.example
-  import Class`, you can access them like this::
+* Imports from both languages may be intermixed, even within a single `from ... import`
+  statement. However, if you attempt to import a name which exists in both languages, an
+  `ImportError` will be raised. This can be worked around by accessing the names indirectly.
+  For example, if both Java and Python have a class named `com.example.Class`, then instead of
+  `from com.example import Class`, you can access them like this::
 
     # By using "import" without "from", the Java import hook is bypassed.
     import com.example
     PythonClass = com.example.Class
 
     JavaClass = jclass("com.example.Class")
+
+* Relative import syntax is supported. For example, within a Python module called
+  `com.example.module`::
+
+    from . import Class                # Same as "from com.example import Class"
+    from ..other.package import Class  # Same as "from com.other.package import Class"
 
 .. autofunction:: java.set_import_enabled(enable)
 

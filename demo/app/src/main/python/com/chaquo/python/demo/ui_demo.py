@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 from java import *
 
 from android.app import AlertDialog
@@ -6,8 +8,11 @@ from android.os import Bundle
 from android.support.v4.app import DialogFragment
 from android.support.v7.app import AppCompatActivity
 from android.support.v7.preference import Preference, PreferenceFragmentCompat
-from com.chaquo.python.demo import R
+from android.view import Menu, MenuItem
 from java.lang import String
+
+from com.chaquo.python.demo import R
+from demo_app import load_source
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
@@ -15,8 +20,29 @@ class UIDemoActivity(static_proxy(AppCompatActivity)):
     def onCreate(self, savedInstanceState):
         super(UIDemoActivity, self).onCreate(savedInstanceState)
         self.setContentView(R.layout.activity_menu)
-        t = self.getSupportFragmentManager().beginTransaction()
-        t.replace(R.id.flMenu, MenuFragment()).commit()
+        self.findViewById(R.id.tvCaption).setText(R.string.demo_caption)
+        self.wvSource = self.findViewById(R.id.wvSource)
+        load_source(self, self.wvSource, "ui_demo.py")
+
+        self.getSupportFragmentManager().beginTransaction()\
+            .replace(R.id.flMenu, MenuFragment()).commit()
+
+    @Override(jboolean, [Menu])
+    def onCreateOptionsMenu(self, menu):
+        self.getMenuInflater().inflate(R.menu.view_source, menu)
+        return True
+
+    @Override(jboolean, [MenuItem])
+    def onOptionsItemSelected(self, item):
+        from android.view import View
+        id = item.getItemId()
+        if id == R.id.menu_source:
+            vis = self.wvSource.getVisibility()
+            new_vis = View.VISIBLE if (vis == View.GONE) else View.GONE
+            self.wvSource.setVisibility(new_vis)
+            return True
+        else:
+            return False
 
 
 class MenuFragment(static_proxy(PreferenceFragmentCompat)):
@@ -26,12 +52,14 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
 
     @Override(jboolean, [Preference])
     def onPreferenceTreeClick(self, pref):
-        dispatch = {self.getContext().getString(getattr(R.string, key)): getattr(self, key)
-                    for key in ["demo_dialog", "demo_notify", "demo_toast", "demo_sound",
-                                "demo_vibrate"]}
+        context = self.getContext()
+        keys = ["demo_dialog", "demo_notify", "demo_toast", "demo_sound",
+                "demo_vibrate"]
+        dispatch = {context.getString(getattr(R.string, key)): getattr(self, key)
+                    for key in keys}
         method = dispatch.get(str(pref.getTitle()))
         if method:
-            method(self.getContext())
+            method(context)
             return True
         else:
             return False
@@ -43,21 +71,27 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
         from android.app import Notification
         builder = Notification.Builder(context)
         builder.setSmallIcon(R.drawable.ic_launcher)
-        builder.setContentTitle(context.getString(R.string.demo_notify_title))
-        builder.setContentText(context.getString(R.string.demo_notify_text))
-        context.getSystemService(Context.NOTIFICATION_SERVICE).notify(0, builder.build())
+        builder.setContentTitle(
+            context.getString(R.string.demo_notify_title))
+        builder.setContentText(
+            context.getString(R.string.demo_notify_text))
+        context.getSystemService(Context.NOTIFICATION_SERVICE)\
+            .notify(0, builder.build())
 
     def demo_toast(self, context):
         from android.widget import Toast
-        Toast.makeText(context, R.string.demo_toast_text, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.demo_toast_text,
+                       Toast.LENGTH_SHORT).show()
 
     def demo_sound(self, context):
         from android.media import MediaPlayer
         from android.provider import Settings
-        MediaPlayer.create(context, Settings.System.DEFAULT_NOTIFICATION_URI).start()
+        MediaPlayer.create(
+            context, Settings.System.DEFAULT_NOTIFICATION_URI).start()
 
     def demo_vibrate(self, context):
-        context.getSystemService(Context.VIBRATOR_SERVICE).vibrate(200)
+        context.getSystemService(Context.VIBRATOR_SERVICE)\
+            .vibrate(200)
 
 
 class ColorDialog(static_proxy(DialogFragment)):
@@ -75,7 +109,8 @@ class ColorDialog(static_proxy(DialogFragment)):
 
             def onClick(self, dialog, which):
                 from android.graphics.drawable import ColorDrawable
-                activity.getSupportActionBar().setBackgroundDrawable(ColorDrawable(self.color))
+                ab = activity.getSupportActionBar()
+                ab.setBackgroundDrawable(ColorDrawable(self.color))
 
         builder.setNegativeButton(R.string.red, Listener(R.color.red))
         builder.setNeutralButton(R.string.green, Listener(R.color.green))

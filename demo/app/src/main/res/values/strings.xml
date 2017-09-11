@@ -19,6 +19,9 @@
     <string name="ps1">>>>\u00A0</string>   <!-- We can't get these from the sys module, because -->
     <string name="ps2">...\u00A0</string>   <!-- they're put there by the blocking interact() function. -->
 
+    <string name="demo_caption">This activity was written entirely in Python using the Chaquopy
+        Python API. To view its source code, press the button above.</string>
+    <string name="view_source">View source</string>
     <string name="demo_dialog">Dialog box</string>
     <string name="demo_dialog_title">Dialog from Python</string>
     <string name="demo_dialog_text">Select title color</string>
