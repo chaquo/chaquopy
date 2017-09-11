@@ -15,9 +15,10 @@ class ForwardingOutputStream(StringIO):
 
 
 ASSET_SOURCE_DIR = "source"
-DEFAULT_CSS = "body { background-color: #eeeeee; font-size: 85%; }"
+EXTRA_CSS = "body { background-color: #eeeeee; font-size: 85%; }"
 
-def load_source(context, web_view, filename, extra_css=""):
+# Compare with the equivalent Java code in JavaDemoActivity.java
+def view_source(context, web_view, filename):
     from base64 import b64encode
     from java.io import BufferedReader, InputStreamReader
     from pygments import highlight
@@ -30,6 +31,6 @@ def load_source(context, web_view, filename, extra_css=""):
 
     formatter = HtmlFormatter()
     body = highlight(text, get_lexer_for_filename(filename), formatter)
-    html = ('<html><head><style>{}\n{}\n{}</style></head><body>{}</body></html>"'
-            .format(formatter.get_style_defs(), DEFAULT_CSS, extra_css, body))
+    html = ('<html><head><style>{}\n{}</style></head><body>{}</body></html>"'
+            .format(formatter.get_style_defs(), EXTRA_CSS, body))
     web_view.loadData(b64encode(html), "text/html", "base64")

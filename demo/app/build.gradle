@@ -1,7 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 
-
 // *** Remove in public repository ********************************************
 import com.chaquo.python.Common;
 
@@ -21,7 +20,8 @@ afterEvaluate {
     def assetsSrcDir = "src/main/assets/source"
     delete assetsSrcDir
     mkdir assetsSrcDir
-    for (filename in ["src/main/python/com/chaquo/python/demo/ui_demo.py"]) {
+    for (filename in ["src/main/python/com/chaquo/python/demo/ui_demo.py",
+                      "src/main/java/com/chaquo/python/demo/JavaDemoActivity.java"]) {
         copy {
             from filename
             into assetsSrcDir
@@ -98,10 +98,5 @@ dependencies {
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.android.support:preference-v14:23.4.0'
     compile 'junit:junit:4.12'
-
     testCompile 'junit:junit:4.12'
-
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    })
 }

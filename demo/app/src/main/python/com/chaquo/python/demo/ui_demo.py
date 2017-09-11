@@ -12,7 +12,7 @@ from android.view import Menu, MenuItem
 from java.lang import String
 
 from com.chaquo.python.demo import R
-from demo_app import load_source
+from demo_app import view_source
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
@@ -22,7 +22,7 @@ class UIDemoActivity(static_proxy(AppCompatActivity)):
         self.setContentView(R.layout.activity_menu)
         self.findViewById(R.id.tvCaption).setText(R.string.demo_caption)
         self.wvSource = self.findViewById(R.id.wvSource)
-        load_source(self, self.wvSource, "ui_demo.py")
+        view_source(self, self.wvSource, "ui_demo.py")
 
         self.getSupportFragmentManager().beginTransaction()\
             .replace(R.id.flMenu, MenuFragment()).commit()
