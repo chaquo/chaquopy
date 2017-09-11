@@ -1,5 +1,6 @@
 package com.chaquo.python.demo;
 
+import com.chaquo.java.*;
 import org.junit.runner.*;
 import org.junit.runner.notification.*;
 
@@ -9,7 +10,7 @@ public class JavaTestActivity extends UnitTestActivity {
     protected void runTests() {
         JUnitCore juc = new JUnitCore();
         juc.addListener(new Listener());
-        juc.run(JavaTestSuite.class);
+        juc.run(TestSuite.class);
     }
 
     private class Listener extends RunListener {

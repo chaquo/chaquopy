@@ -17,7 +17,8 @@ public class MainActivity extends AppCompatActivity {
             setTitle(getTitle() + " " + version);
         } catch (PackageManager.NameNotFoundException ignored) {}
 
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_menu);
+        ((TextView)findViewById(R.id.tvCaption)).setText(R.string.main_caption);
         getSupportFragmentManager().beginTransaction()
             .replace(R.id.flMenu, new MenuFragment())
             .commit();

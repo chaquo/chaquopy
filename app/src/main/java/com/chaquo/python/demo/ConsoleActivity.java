@@ -3,6 +3,7 @@ package com.chaquo.python.demo;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
+import android.util.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -29,8 +30,8 @@ public class ConsoleActivity extends AppCompatActivity {
             tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
 
-        PyObject console_activity = py.getModule("console_activity");
-        PyObject stream = console_activity.callAttr("ForwardingOutputStream", this, "append");
+        PyObject demo_app = py.getModule("demo_app");
+        PyObject stream = demo_app.callAttr("ForwardingOutputStream", this, "append");
         PyObject sys = py.getModule("sys");
         sys.put("stdout", stream);
         sys.put("stderr", stream);
@@ -120,6 +121,9 @@ public class ConsoleActivity extends AppCompatActivity {
 
     public void append(CharSequence text) {
         if (text.length() == 0) return;
+        for (String line : text.toString().split("\n")) {
+            Log.d("append", line);
+        }
 
         final List<CharSequence> fragments = new ArrayList<>();
         if (state.pendingNewline) {

@@ -3,6 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -18,18 +20,21 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ReplActivity"
+        <activity android:name=".ReplActivity"
             android:label="@string/repl"
             android:launchMode="singleInstance"
             android:windowSoftInputMode="adjustResize">
         </activity>
-        <activity
-            android:name=".JavaTestActivity"
+        <activity android:name=".ui_demo.UIDemoActivity"
+            android:label="@string/ui_demo">
+        </activity>
+        <activity android:name=".JavaDemoActivity"
+            android:label="@string/java_demo">
+        </activity>
+        <activity android:name=".JavaTestActivity"
             android:label="@string/java_unit_test">
         </activity>
-        <activity
-            android:name=".PythonTestActivity"
+        <activity android:name=".PythonTestActivity"
             android:label="@string/python_unit_test">
         </activity>
     </application>

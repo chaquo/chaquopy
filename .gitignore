@@ -14,3 +14,5 @@ local.properties
 *.pyd
 *.so
 hs_err*.log
+
+app/src/main/assets/source

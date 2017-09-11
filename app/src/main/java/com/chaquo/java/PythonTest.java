@@ -3,10 +3,12 @@ package com.chaquo.java;
 import com.chaquo.python.*;
 import org.junit.*;
 import org.junit.rules.*;
+import org.junit.runners.*;
 
 import static org.junit.Assert.*;
 
 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class PythonTest {
     private Python python;
 

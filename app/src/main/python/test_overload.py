@@ -1,6 +1,9 @@
 from __future__ import absolute_import, division, print_function
+
 import unittest
+
 from java import *
+from com.chaquo.python import TestOverload as TO
 
 
 class TestOverload(unittest.TestCase):
@@ -21,15 +24,13 @@ class TestOverload(unittest.TestCase):
     # Whether a call's in static or instance context should make no difference to the methods
     # considered and chosen during overload resolution.
     def test_mixed_static_and_instance(self):
-        MSI = jclass("com.chaquo.python.TestOverload$MixedStaticInstance")
+        MSI = TO.MixedStaticInstance
         m = MSI()
 
         self.assertEqual(m.resolve11("test"), "String")
         self.assertEqual(m.resolve11(42), "Object")
 
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got str instance instead\)"):
-            MSI.resolve11("test")
+        self.assertEqual(MSI.resolve11("test"), "Object")
         self.assertEqual(MSI.resolve11(42), "Object")
 
         self.assertEqual(MSI.resolve11(m, "test"), "String")
@@ -41,8 +42,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(m.resolve10(), "")
         self.assertEqual(m.resolve10("test"), "String")
 
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got nothing instead\)"):
+        with self.inapplicable:
             MSI.resolve10()
         self.assertEqual(MSI.resolve10("test"), "String")
 
@@ -56,13 +56,29 @@ class TestOverload(unittest.TestCase):
         self.assertEqual(m.resolve01("test"), "String")
 
         self.assertEqual(MSI.resolve01(), "")
-        with self.assertRaisesRegexp(TypeError, "must be called with .*MixedStaticInstance "
-                                     "instance as first argument \(got str instance instead\)"):
+        with self.inapplicable:
             MSI.resolve01("test")
 
         with self.inapplicable:
             MSI.resolve01(m)
         self.assertEqual(MSI.resolve01(m, "test"), "String")
+
+        # ---
+
+        from java.lang import Integer
+        i = Integer(42)
+        ts = r"^com.chaquo.python.TestOverload\$MixedStaticInstance@"
+
+        self.assertRegexpMatches(m.toString(), ts)
+        self.assertEqual(m.toString(i), "Integer")
+
+        with self.inapplicable:
+            MSI.toString()
+        self.assertEqual(MSI.toString(i), "Integer")
+
+        self.assertRegexpMatches(MSI.toString(m), ts)
+        with self.inapplicable:
+            MSI.toString(m, i)
 
     def test_class(self):
         Parent = jclass("com.chaquo.python.TestOverload$Parent")
@@ -233,8 +249,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("byte[] [1, 2]", obj.resolve_ZB(jarray(jbyte)([1, 2])))
         self.assertEqual("boolean[] []", obj.resolve_ZB(jarray(jboolean)([])))
         self.assertEqual("byte[] []", obj.resolve_ZB(jarray(jbyte)([])))
-        self.assertEqual("boolean[] null", obj.resolve_ZB(jarray(jboolean)(None)))
-        self.assertEqual("byte[] null", obj.resolve_ZB(jarray(jbyte)(None)))
+        self.assertEqual("boolean[] null", obj.resolve_ZB(cast(jarray(jboolean), None)))
+        self.assertEqual("byte[] null", obj.resolve_ZB(cast(jarray(jbyte), None)))
 
         # Arrays of parent/child classes: prefer the most derived class.
         Object = jclass("java.lang.Object")
@@ -274,8 +290,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double.
         with self.ambiguous:
             obj.resolve_ID(None)                         # But int[] is not more specific than double[].
-        self.assertEqual("int... null", obj.resolve_ID(jarray(jint)(None)))
-        self.assertEqual("double... null", obj.resolve_ID(jarray(jdouble)(None)))
+        self.assertEqual("int... null", obj.resolve_ID(cast(jarray(jint), None)))
+        self.assertEqual("double... null", obj.resolve_ID(cast(jarray(jdouble), None)))
         with self.inapplicable:
             obj.resolve_ID(None, None)
         self.assertEqual("int 42", obj.resolve_ID(42))
@@ -306,7 +322,7 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
         self.assertEqual("Long... [null, null]", obj.resolve_Number_Long(None, None))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(cast(Number, Long(42))))
-        self.assertEqual("Number... null", obj.resolve_Number_Long(jarray(Number)(None)))
+        self.assertEqual("Number... null", obj.resolve_Number_Long(cast(jarray(Number), None)))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(cast(Number, None)))
         self.assertEqual("Number... [42]", obj.resolve_Number_Long(jarray(Number)([42])))
         self.assertEqual("Number... [null]", obj.resolve_Number_Long(jarray(Number)([None])))

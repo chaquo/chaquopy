@@ -2,6 +2,7 @@ package com.chaquo.java;
 
 import com.chaquo.python.*;
 
+import java.io.*;
 import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
@@ -37,11 +38,12 @@ public class PyObjectTest {
 
     @Test
     public void close() {
-        pyobjecttest.remove("del_triggered");
-        PyObject dt = pyobjecttest.callAttr("DelTrigger");
-        assertFalse(pyobjecttest.containsKey("del_triggered"));
+        PyObject DT = pyobjecttest.get("DelTrigger");
+        DT.put("triggered", false);
+        PyObject dt = DT.call();
+        assertFalse(DT.get("triggered").toJava(Boolean.class));
         dt.close();
-        assertTrue(pyobjecttest.containsKey("del_triggered"));
+        assertTrue(DT.get("triggered").toJava(Boolean.class));
 
         thrown.expect(PyException.class);
         thrown.expectMessage("ValueError");
@@ -64,51 +66,69 @@ public class PyObjectTest {
 
     @Test
     public void toJava() {
-        assertEquals(true, pyobjecttest.get("bool_var").toJava(Boolean.class));
+        PyObject z = pyobjecttest.get("bool_var");
+        assertEquals(true, z.toJava(Boolean.class));
+        assertEquals(true, z.toJava(boolean.class));
 
-        assertEquals(42, (int)pyobjecttest.get("int_var").toJava(Integer.class));
-        assertEquals(42.0, pyobjecttest.get("int_var").toJava(Double.class), 0.0001);
-        assertEquals(42L, pyobjecttest.get("int_var").toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
-        assertEquals(42L, pyobjecttest.get("int_var").toJava(Object.class));    //
+        PyObject i = pyobjecttest.get("int_var");
+        assertEquals(42, (int) i.toJava(Integer.class));
+        assertEquals(42, (int) i.toJava(int.class));
+        assertEquals(42.0, i.toJava(Double.class), 0.0001);
+        assertEquals(42.0, i.toJava(double.class), 0.0001);
+        assertEquals(42L, i.toJava(Number.class));    // new Long(42).equals(new Integer(42)) == false!
+        assertEquals(42L, i.toJava(Object.class));    //
 
-        assertEquals(43.5, pyobjecttest.get("float_var").toJava(Double.class), 0.0001);
-        assertEquals(43.5, pyobjecttest.get("float_var").toJava(Number.class));
+        PyObject f = pyobjecttest.get("float_var");
+        assertEquals(43.5, f.toJava(Double.class), 0.0001);
+        assertEquals(43.5, f.toJava(double.class), 0.0001);
+        assertEquals(43.5, f.toJava(Float.class), 0.0001);
+        assertEquals(43.5, f.toJava(float.class), 0.0001);
+        assertEquals(43.5, f.toJava(Number.class));
 
         assertEquals("hello", pyobjecttest.get("str_var").toJava(String.class));
+        assertEquals("x", pyobjecttest.get("char_var").toJava(String.class));
+        assertEquals('x', (char) pyobjecttest.get("char_var").toJava(Character.class));
+        assertEquals('x', (char) pyobjecttest.get("char_var").toJava(char.class));
 
         assertSame(pyobjecttest, pyobjecttest.toJava(PyObject.class));
-        assertSame(pyobjecttest, pyobjecttest.toJava(Object.class));
 
         Thread t = Thread.currentThread();
         assertSame(t, PyObject.fromJava(t).toJava(Thread.class));
     }
 
     @Test
+    public void toJava_fail_void() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to void");
+        pyobjecttest.get("float_var").toJava(void.class);
+    }
+
+    @Test
+    public void toJava_fail_Void() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to java.lang.Void");
+        pyobjecttest.get("float_var").toJava(Void.class);
+    }
+
+    @Test
     public void toJava_fail_float_to_int() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert float");
-        pyobjecttest.get("float_var").toJava(Integer.class);
+        thrown.expectMessage("Cannot convert float object to java.lang.Integer");
+        pyobjecttest.get("float_var").toJava(int.class);
     }
 
     @Test
     public void toJava_fail_string_to_int() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert str");
+        thrown.expectMessage("Cannot convert str object to java.lang.Integer");
         pyobjecttest.get("str_var").toJava(Integer.class);
     }
 
     @Test
     public void toJava_fail_int_to_string() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert int");
+        thrown.expectMessage("Cannot convert int object to java.lang.String");
         pyobjecttest.get("int_var").toJava(String.class);
-    }
-
-    @Test
-    public void toJava_fail_primitive() {
-        thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert to primitive");
-        pyobjecttest.get("int_var").toJava(int.class);
     }
 
     @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")
@@ -144,6 +164,27 @@ public class PyObjectTest {
 
         PyObject two = sm.call(2), three = sm.call(3), four = sm.call(4);
         assertEquals(14, (int)sm.call(three, four, new Kwarg("mul", two)).toJava(Integer.class));
+
+        try {
+            pyobjecttest.get("throws").call();
+            fail("No exception thrown");
+        } catch (PyException e) {
+            assertEquals("java.io.IOException: abc", e.getMessage());
+            assertTrue(e.getCause() instanceof IOException);
+        }
+    }
+
+    @Test
+    public void callThrows() {
+        try {
+            pyobjecttest.get("throws").callThrows();
+            fail("No exception thrown");
+        } catch (IOException e) {
+            assertEquals("abc", e.getMessage());
+            assertNull(e.getCause());
+        } catch (Throwable e) {
+            throw new AssertionError(e);
+        }
     }
 
     @Test
@@ -153,8 +194,32 @@ public class PyObjectTest {
         assertEquals(6,  (int)pyobjecttest.callAttr("sum_mul", 1, 2, 3).toJava(Integer.class));
         assertEquals(24, (int)pyobjecttest.callAttr("sum_mul", 6, new Kwarg("mul", 4)).toJava(Integer.class));
 
+        try {
+            pyobjecttest.callAttr("throws");
+            fail("No exception thrown");
+        } catch (PyException e) {
+            assertEquals("java.io.IOException: abc", e.getMessage());
+            assertTrue(e.getCause() instanceof IOException);
+        }
+    }
+
+    @Test
+    public void callAttrThrows() {
+        try {
+            pyobjecttest.callAttrThrows("throws");
+            fail("No exception thrown");
+        } catch (IOException e) {
+            assertEquals("abc", e.getMessage());
+            assertNull(e.getCause());
+        } catch (Throwable e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test
+    public void callAttr_fail_nonexistent() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("AttributeError: object has no attribute 'nonexistent'");
+        thrown.expectMessage("AttributeError: 'module' object has no attribute 'nonexistent'");
         pyobjecttest.callAttr("nonexistent");
     }
 
@@ -460,19 +525,19 @@ public class PyObjectTest {
         assertEquals("'hello'", pyobjecttest.get("str_var").repr());
     }
 
+    // It's hard to make a totally deterministic test of finalization. This test and its Python
+    // counterpart still fail sometimes, especially on the emulator for API level 17.
     @SuppressWarnings({"UnusedAssignment", "unused"})
     @Test
     public void finalize_() {
-        pyobjecttest.remove("del_triggered");
-        PyObject dt = pyobjecttest.callAttr("DelTrigger");
-        assertFalse(pyobjecttest.containsKey("del_triggered"));
+        PyObject DT = pyobjecttest.get("DelTrigger");
+        DT.put("triggered", false);
+        PyObject dt = DT.call();
+        assertFalse(DT.get("triggered").toJava(Boolean.class));
         dt = null;
-
-        // It's hard to make a totally deterministic test of finalization. This test and its Python
-        // counterpart still fail sometimes, especially on the emulator for API level 17.
         System.gc();
         System.runFinalization();
-        assertTrue(pyobjecttest.containsKey("del_triggered"));
+        assertTrue(DT.get("triggered").toJava(Boolean.class));
     }
 
 }

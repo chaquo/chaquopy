@@ -1,6 +1,9 @@
 from __future__ import absolute_import, division, print_function
+
 import unittest
+
 from java import *
+from com.chaquo.python import TestReflect as TR
 
 
 class TestReflect(unittest.TestCase):
@@ -25,26 +28,39 @@ class TestReflect(unittest.TestCase):
         stack = Stack()
         self.assertIsInstance(stack, Stack)
 
-        # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
-        # ClassNotFoundException.
         with self.assertRaises(jclass("java.lang.NoClassDefFoundError")):
             jclass("java.lang.Nonexistent")
 
     def test_cast(self):
-        Object = jclass("java.lang.Object")
-        Boolean = jclass("java.lang.Boolean")
-        o = Object()
+        from java.lang import Boolean, Object
         b = Boolean(True)
+        b_Object = cast(Object, b)
+        self.assertIsNot(b, b_Object)
+        self.assertEqual(b, b_Object)
+        self.assertIs(b_Object, cast(Object, b))
+        self.assertIs(b, cast(Boolean, b_Object))
 
-        cast(Object, b)
         with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
                                      "java.lang.Object instance"):
-            cast(Boolean, o)
+            cast(Boolean, Object())
 
+    # Interaction of identity and casts is tested in TestReflect.test_cast and
+    # TestArray.test_cast.
     def test_identity(self):
-        # TODO #5181
-        # self.assertIs(System.out, System.out)
-        pass
+        from java.lang import Class, Object, String
+        Object_klass, String_klass = Object.getClass(), String.getClass()
+        self.assertIsNot(Object_klass, String_klass)
+        self.t.fieldKlass = Object_klass
+        self.assertIs(Object_klass, self.t.fieldKlass)
+        self.t.setKlass(String_klass)
+        self.assertIs(String_klass, self.t.getKlass())
+
+        a1, a2 = [jarray(String)(x) for x in [["one", "two"], ["three", "four"]]]
+        self.assertIsNot(a1, a2)
+        self.t.fieldStringArray = a1
+        self.assertIs(a1, self.t.fieldStringArray)
+        self.t.setStringArray(a2)
+        self.assertIs(a2, self.t.getStringArray())
 
     # See notes in PyObjectTest.finalize_
     def test_gc(self):
@@ -105,19 +121,21 @@ class TestReflect(unittest.TestCase):
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
+        # Unlike Java instance objects, Java class objects are persistent, so there's no reason
+        # to prevent setting new attributes on them. This also makes them consistent with
+        # static and dynamic proxy class object.
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            self.Test.staticNonexistent
+        self.Test.staticNonexistent = "hello"
+        self.assertEqual("hello", self.Test.staticNonexistent)
+        del self.Test.staticNonexistent
+        self.assertFalse(hasattr(self.Test, "staticNonexistent"))
+
         for obj in [self.Test, self.t]:
-            no_attr_msg = ("' object has no attribute" if obj is self.t
-                           else "type object '.+' has no attribute")
-            with self.assertRaisesRegexp(AttributeError, no_attr_msg):
-                obj.staticNonexistent
-            with self.assertRaisesRegexp(AttributeError, no_attr_msg):
-                obj.staticNonexistent = True
             with self.assertRaisesRegexp(AttributeError, "final"):
                 obj.fieldStaticFinalZ = True
             with self.assertRaisesRegexp(AttributeError, "not a field"):
                 obj.setStaticZ = True
-            with self.assertRaisesRegexp(AttributeError, "not a field"):
-                obj.Nested = 99
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
             with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
@@ -129,9 +147,9 @@ class TestReflect(unittest.TestCase):
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_instance(self):
-        with self.assertRaisesRegexp(AttributeError, "object has no attribute"):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             self.t.nonexistent
-        with self.assertRaisesRegexp(AttributeError, "object has no attribute"):
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             self.t.nonexistent = True
         with self.assertRaisesRegexp(AttributeError, "final"):
             self.t.fieldFinalZ = True
@@ -242,22 +260,27 @@ class TestReflect(unittest.TestCase):
         self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
 
     def test_interface(self):
-        Interface = jclass("com.chaquo.python.TestReflect$Interface")
-        with self.assertRaisesRegexp(TypeError, "abstract"):
-            Interface()
+        with self.assertRaisesRegexp(TypeError, "Interface is abstract and cannot be instantiated"):
+            TR.Interface()
 
-        self.assertEqual("Interface constant", Interface.iConstant)
+        self.assertEqual("Interface constant", TR.Interface.iConstant)
         with self.assertRaisesRegexp(AttributeError, "final"):
-            Interface.iConstant = "not constant"
+            TR.Interface.iConstant = "not constant"
 
-        Child = jclass("com.chaquo.python.TestReflect$Child")
-        with self.assertRaisesRegexp(TypeError, "must be called with .*Interface instance as "
-                                     "first argument \(got nothing instead\)"):
-            Interface.iMethod()
-        self.assertEqual("Implemented method", Interface.iMethod(Child()))
+        c = TR.Child()
+        abstract = self.assertRaisesRegexp(NotImplementedError, "Interface.iMethod is abstract "
+                                           "and cannot be called")
+        with abstract:
+            TR.Interface.iMethod()
+        with abstract:
+            TR.Interface.iMethod(c)
 
-        # Interfaces should expose all Object class methods.
-        self.assertEqual("Child object", Interface.toString(Child()))
+        # Getting an Object method directly from an interface class should return the Object
+        # implementation.
+        self.assertRegexpMatches(TR.Interface.toString(c), r"^com.chaquo.python.TestReflect\$Child@")
+
+        # But calling an Object method through an interface cast should be done virtually.
+        self.assertEqual("Child object", cast(TR.Interface, c).toString())
 
     def test_inheritance(self):
         Object = jclass("java.lang.Object")
@@ -307,6 +330,10 @@ class TestReflect(unittest.TestCase):
         self.assertTrue(isinstance(c_Parent, Parent))
         self.assertFalse(isinstance(c_Parent, Interface))
         self.assertTrue(isinstance(c_Parent, Object))
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            c_Parent.iConstant
+        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+            c_Parent.iMethod()
         self.verify_field(c_Parent, "pStaticField", "Parent static field")
         self.verify_field(c_Parent, "pField", "Parent field")
         self.assertEqual("Parent static method", c_Parent.pStaticMethod())
@@ -316,12 +343,29 @@ class TestReflect(unittest.TestCase):
         self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
         self.assertEqual("Overridden method", c_Parent.oMethod())
 
-    def verify_field(self, obj, name, value):
+    def test_super(self):
+        c = TR.Child()
+        c_super = super(TR.Child, c)
+        self.assertEqual("Interface constant", c_super.iConstant)
+        with self.assertRaisesRegexp(NotImplementedError, "abstract"):    # Different to cast()
+            c_super.iMethod()
+        # super objects don't support setattr (http://bugs.python.org/issue14965)
+        self.verify_field(c_super, "pStaticField", "Parent static field", modify=False)
+        self.verify_field(c_super, "pField", "Parent field", modify=False)
+        self.assertEqual("Parent static method", c_super.pStaticMethod())
+        self.assertEqual("Parent method", c_super.pMethod())
+        self.verify_field(c_super, "oStaticField", "Non-overridden static field", modify=False)
+        self.verify_field(c_super, "oField", "Non-overridden field", modify=False)
+        self.assertEqual("Non-overridden static method", c_super.oStaticMethod())
+        self.assertEqual("Non-overridden method", c_super.oMethod()) # Different to cast()
+
+    def verify_field(self, obj, name, value, modify=True):
         self.assertEqual(value, getattr(obj, name))
-        setattr(obj, name, "Modified")
-        self.assertEqual("Modified", getattr(obj, name))
-        setattr(obj, name, value)
-        self.assertEqual(value, getattr(obj, name))
+        if modify:
+            setattr(obj, name, "Modified")
+            self.assertEqual("Modified", getattr(obj, name))
+            setattr(obj, name, value)
+            self.assertEqual(value, getattr(obj, name))
 
     def test_abstract(self):
         Abstract = jclass("com.chaquo.python.TestReflect$Abstract")
@@ -335,3 +379,15 @@ class TestReflect(unittest.TestCase):
                           getattr(TestReflect, cls_name))
 
         self.assertTrue(issubclass(TestReflect.ParentOuter.ChildNested, TestReflect.ParentOuter))
+
+    def test_access(self):
+        a = TR.Access()
+        self.assertFalse(hasattr(a, "priv"))
+        # self.assertFalse(hasattr(a, "pack"))      # Appears public on Android API 23
+        self.assertEqual("protected", a.prot)
+        self.assertEqual("public", a.publ)
+
+        self.assertFalse(hasattr(a, "getPriv"))
+        # self.assertFalse(hasattr(a, "getPack"))   # Appears public on Android API 23
+        self.assertEqual("protected", a.getProt())
+        self.assertEqual("public", a.getPubl())

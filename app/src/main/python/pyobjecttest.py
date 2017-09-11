@@ -3,10 +3,18 @@
 from __future__ import absolute_import, division, print_function
 
 
+# Also used in test_proxy and test_static_proxy
 class DelTrigger(object):
+    triggered = False
     def __del__(self):
-        global del_triggered
-        del_triggered = True
+        DelTrigger.triggered = True
+
+    @staticmethod
+    def assertTriggered(test, triggered):
+        from java.lang import System
+        System.gc()
+        System.runFinalization()
+        test.assertEqual(triggered, DelTrigger.triggered)
 
 
 class EmptyObject(object):
@@ -29,6 +37,11 @@ def sum_mul(*args, **kwargs):
     return sum(args) * mul // div
 
 
+def throws():
+    from java.io import IOException
+    raise IOException("abc")
+
+
 def is_none(x):
     return x is None
 
@@ -38,6 +51,7 @@ bool_var = True
 int_var = 42
 float_var = 43.5
 str_var = "hello"
+char_var = "x"
 
 
 class HashObject(object):

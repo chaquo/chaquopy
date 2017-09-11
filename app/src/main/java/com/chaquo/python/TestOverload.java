@@ -13,6 +13,8 @@ public class TestOverload {
 
         public static String resolve01() { return ""; }
         public String resolve01(String s) { return "String"; }
+
+        public static String toString(Integer x) { return "Integer"; }
     }
 
 

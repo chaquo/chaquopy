@@ -1,6 +1,19 @@
 apply plugin: 'com.android.application'
 apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 
+afterEvaluate {
+    def assetsSrcDir = "src/main/assets/source"
+    delete assetsSrcDir
+    mkdir assetsSrcDir
+    for (filename in ["src/main/python/com/chaquo/python/demo/ui_demo.py",
+                      "src/main/java/com/chaquo/python/demo/JavaDemoActivity.java"]) {
+        copy {
+            from filename
+            into assetsSrcDir
+        }
+    }
+}
+
 android {
     compileSdkVersion 23
     buildToolsVersion "25.0.2"
@@ -17,13 +30,18 @@ android {
             // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python36/python.exe"
             version "2.7.10"
-            pipInstall "six==1.10.0"
+            pipInstall "six==1.10.0", "Pygments==2.2.0"
+            staticProxy "com.chaquo.python.demo.ui_demo"
+            staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }
         ndk {
             abiFilters "x86", "armeabi-v7a"
         }
-
         resConfigs "en"
+        lintOptions {
+            // Chaquopy generates extra internal-use constructors on static proxy classes.
+            disable "ValidFragment"
+        }
     }
 
     buildTypes {
@@ -40,10 +58,5 @@ dependencies {
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.android.support:preference-v14:23.4.0'
     compile 'junit:junit:4.12'
-
     testCompile 'junit:junit:4.12'
-
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    })
 }
