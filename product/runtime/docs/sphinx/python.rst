@@ -265,8 +265,7 @@ If you need to do any of these things, you'll need to use a `static proxy`_ inst
 Static proxy
 ------------
 
-.. note:: For futher examples of how static proxies can be used, see the static_proxy `class
-          declarations
+.. note:: For futher examples of how static proxies can be used, see the `class declarations
           <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/static_proxy>`_
           in the unit tests, and the corresponding `Java code
           <https://github.com/chaquo/chaquopy/tree/master/app/src/main/java/com/chaquo/java/StaticProxyTest.java>`_
@@ -305,6 +304,7 @@ Python source code, there are some restrictions on the code's structure:
   java.lang import IllegalArgumentException as IAE`, you may use `IAE` in a `throws`
   declaration. However, if you assign `IAE` to another variable, you cannot use that variable in
   a `throws` declaration, as the static proxy generator will be unable to resolve it.
+* Similarly, string parameters must be given as literals.
 * `import` statements using relative import syntax or `import *` will be ignored, except for
   `from java import *`, which will import all names documented on this page.
 
