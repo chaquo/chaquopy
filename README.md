@@ -14,19 +14,18 @@ and never looks at checksums; if everybody else is the same, we might as well re
 
 ## Demo app
 
-Delete public/demo/app/src/main and replace with copy from demo/app/src/main.
-copied from runtime/src/test).
-
-Merge product/runtime/src/test/{java,python} into the corresponding directories under
-public/demo/app/src/main.
-
-Copy updates in all other files under python/demo (some will have to be manually merged).
+Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit (in this
+repository) from which the public repository was last updated. If the script reports any files
+which require manual merging (e.g. build.gradle), examine them and update the public repository
+as necessary.
 
 Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
 
 "Generate Signed APK" in Android Studio, and test all features on emulator and phone.
 
-Upload APK to Google Play and to Maven repository.
+Upload APK to Google Play. Update description and screenshots if necessary.
+
+Upload APK to Maven repository.
 
 
 ## Documentation

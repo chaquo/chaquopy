@@ -1,2 +1,7 @@
 app/src/main/assets/source
 build
+
+# Test files copied from product/runtime/src/test
+app/src/main/python/*test*.py
+app/src/main/python/package1/
+app/src/main/python/static_proxy/
