@@ -49,48 +49,48 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
     @Override(jvoid, [Bundle, String])
     def onCreatePreferences(self, savedInstanceState, rootKey):
         self.addPreferencesFromResource(R.xml.activity_ui_demo)
+        from android.media import AudioManager, SoundPool
+        self.sound_pool = SoundPool(1, AudioManager.STREAM_MUSIC, 0)
+        self.sound_id = self.sound_pool.load(self.getActivity(), R.raw.sound, 1)
 
     @Override(jboolean, [Preference])
     def onPreferenceTreeClick(self, pref):
-        context = self.getContext()
+        activity = self.getActivity()
         keys = ["demo_dialog", "demo_notify", "demo_toast", "demo_sound",
                 "demo_vibrate"]
-        dispatch = {context.getString(getattr(R.string, key)): getattr(self, key)
+        dispatch = {activity.getString(getattr(R.string, key)): getattr(self, key)
                     for key in keys}
         method = dispatch.get(str(pref.getTitle()))
         if method:
-            method(context)
+            method(activity)
             return True
         else:
             return False
 
-    def demo_dialog(self, context):
+    def demo_dialog(self, activity):
         ColorDialog().show(self.getFragmentManager(), "color")
 
-    def demo_notify(self, context):
+    def demo_notify(self, activity):
         from android.app import Notification
-        builder = Notification.Builder(context)
+        builder = Notification.Builder(activity)
         builder.setSmallIcon(R.drawable.ic_launcher)
         builder.setContentTitle(
-            context.getString(R.string.demo_notify_title))
+            activity.getString(R.string.demo_notify_title))
         builder.setContentText(
-            context.getString(R.string.demo_notify_text))
-        context.getSystemService(Context.NOTIFICATION_SERVICE)\
+            activity.getString(R.string.demo_notify_text))
+        activity.getSystemService(Context.NOTIFICATION_SERVICE)\
             .notify(0, builder.build())
 
-    def demo_toast(self, context):
+    def demo_toast(self, activity):
         from android.widget import Toast
-        Toast.makeText(context, R.string.demo_toast_text,
+        Toast.makeText(activity, R.string.demo_toast_text,
                        Toast.LENGTH_SHORT).show()
 
-    def demo_sound(self, context):
-        from android.media import MediaPlayer
-        from android.provider import Settings
-        MediaPlayer.create(
-            context, Settings.System.DEFAULT_NOTIFICATION_URI).start()
+    def demo_sound(self, activity):
+        self.sound_pool.play(self.sound_id, 1, 1, 0, 0, 1)
 
-    def demo_vibrate(self, context):
-        context.getSystemService(Context.VIBRATOR_SERVICE)\
+    def demo_vibrate(self, activity):
+        activity.getSystemService(Context.VIBRATOR_SERVICE)\
             .vibrate(200)
 
 
