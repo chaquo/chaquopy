@@ -213,8 +213,8 @@ def setup_object_class():
 
 # Associates a Python object with its Java counterpart.
 #
-# Making _chaquopy_this a weak reference avoids a cross-language reference cycle for static and
-# dynamic proxies. The destruction sequence for Java objects is as follows:
+# Making _chaquopy_this a WeakRef for proxy objects avoids a cross-language reference
+# cycle. The destruction sequence for Java objects is as follows:
 #
 #     * The Python object dies.
 #     * (PROXY ONLY) The object __dict__ is kept alive by a PyObject reference from the Java
@@ -222,17 +222,18 @@ def setup_object_class():
 #       Python state to be recovered and attached to a new Python object.
 #     * The GlobalRef for the Java object is removed from instance_cache.
 #     * The Java object dies once there are no Java references to it.
-#     * (PROXY ONLY) The WeakRef is now invalid, but that's not a problem because it's
-#       unreachable from both languages. With the Java object gone, the __dict__ and WeakRef
-#       now die, in that order.
+#     * (PROXY ONLY) The WeakRef in the __dict__ is now invalid, but that's not a
+#       problem because the __dict__ is unreachable from both languages. With the Java object
+#       gone, the __dict__ and WeakRef now die, in that order.
 def set_this(self, GlobalRef this, real_obj=None):
     global PyProxy
     with class_lock:
-        self._chaquopy_this = this.weak_ref()  # FIXME (separate commit) #5297: for non-proxy objects we can just use `this`.
+        is_proxy = isinstance(type(self), ProxyClass)
+        self._chaquopy_this = this.weak_ref() if is_proxy else this
         self._chaquopy_real_obj = real_obj
         instance_cache[(type(self), this)] = self
 
-        if isinstance(type(self), ProxyClass):
+        if is_proxy:
             java_dict = self._chaquopyGetDict()
             if java_dict is None:
                 self._chaquopySetDict(self.__dict__)
