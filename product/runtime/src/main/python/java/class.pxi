@@ -41,7 +41,7 @@ def jclass(clsname, **kwargs):
         cls = jclass_cache.get(clsname)
         if not cls:
             try:
-                cls = jclass_proxy(clsname, **kwargs)
+                cls = JavaClass.create(clsname, **kwargs)
             except Exception as e:
                 # Putting this directly in an `except` clause would cause any other exception
                 # to be hidden by a NameError if ClassNotFoundException isn't defined yet.
@@ -56,17 +56,16 @@ def jclass(clsname, **kwargs):
         return cls
 
 
-# FIXME (separate commit) rename to JavaClass.create
-def jclass_proxy(cls_name, bases=None, *, cls_dict=None):
-    if not isinstance(bases, (tuple, type(None))):
-        bases = tuple(bases)
-    if cls_dict is None:
-        cls_dict = {}
-    cls_dict["_chaquopy_name"] = cls_name
-    return JavaClass(None, bases, cls_dict)
-
-
 class JavaClass(type):
+    @staticmethod
+    def create(cls_name, bases=None, *, cls_dict=None):
+        if not isinstance(bases, (tuple, type(None))):
+            bases = tuple(bases)
+        if cls_dict is None:
+            cls_dict = {}
+        cls_dict["_chaquopy_name"] = cls_name
+        return JavaClass(None, bases, cls_dict)
+
     def __new__(metacls, cls_name, bases, cls_dict):
         java_name = cls_dict.pop("_chaquopy_name", None)
         if not java_name:
@@ -251,41 +250,43 @@ def setup_bootstrap_classes():
 
     setup_object_class()
 
-    Reflector = jclass_proxy("com.chaquo.python.Reflector", [JavaObject])
+    Reflector = JavaClass.create("com.chaquo.python.Reflector", [JavaObject])
     add_member(Reflector, "newInstance", JavaMethod,
                "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
-    add_member(Reflector, "getMethods", JavaMethod, "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
+    add_member(Reflector, "getMethods", JavaMethod,
+               "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
     add_member(Reflector, "getField", JavaMethod, "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
     add_member(Reflector, "getNestedClass", JavaMethod, "(Ljava/lang/String;)Ljava/lang/Class;")
 
-    AnnotatedElement = jclass_proxy("java.lang.reflect.AnnotatedElement", [JavaObject])
-    AccessibleObject = jclass_proxy("java.lang.reflect.AccessibleObject",
+    AnnotatedElement = JavaClass.create("java.lang.reflect.AnnotatedElement", [JavaObject])
+    AccessibleObject = JavaClass.create("java.lang.reflect.AccessibleObject",
                                     [AnnotatedElement, JavaObject])
-    Member = jclass_proxy("java.lang.reflect.Member", [JavaObject])
-    GenericDeclaration = jclass_proxy("java.lang.reflect.GenericDeclaration", [JavaObject])
+    Member = JavaClass.create("java.lang.reflect.Member", [JavaObject])
+    GenericDeclaration = JavaClass.create("java.lang.reflect.GenericDeclaration", [JavaObject])
 
-    Class = jclass_proxy("java.lang.Class", [AnnotatedElement, GenericDeclaration, JavaObject])
+    Class = JavaClass.create("java.lang.Class", [AnnotatedElement, GenericDeclaration, JavaObject])
     add_member(Class, "getModifiers", JavaMethod, '()I')
     add_member(Class, "getName", JavaMethod, '()Ljava/lang/String;')
 
-    Modifier = jclass_proxy("java.lang.reflect.Modifier", [JavaObject])
+    Modifier = JavaClass.create("java.lang.reflect.Modifier", [JavaObject])
     add_member(Modifier, "isAbstract", JavaMethod, '(I)Z', static=True)
     add_member(Modifier, "isFinal", JavaMethod, '(I)Z', static=True)
     add_member(Modifier, "isStatic", JavaMethod, '(I)Z', static=True)
 
-    Method = jclass_proxy("java.lang.reflect.Method", [AccessibleObject, GenericDeclaration, Member])
+    Method = JavaClass.create("java.lang.reflect.Method",
+                              [AccessibleObject, GenericDeclaration, Member])
     add_member(Method, "getModifiers", JavaMethod, '()I')
     add_member(Method, "getName", JavaMethod, '()Ljava/lang/String;')
     add_member(Method, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
     add_member(Method, "getReturnType", JavaMethod, '()Ljava/lang/Class;')
     add_member(Method, "isVarArgs", JavaMethod, '()Z')
 
-    Field = jclass_proxy("java.lang.reflect.Field", [AccessibleObject, Member])
+    Field = JavaClass.create("java.lang.reflect.Field", [AccessibleObject, Member])
     add_member(Field, "getModifiers", JavaMethod, '()I')
     add_member(Field, "getName", JavaMethod, '()Ljava/lang/String;')
     add_member(Field, "getType", JavaMethod, '()Ljava/lang/Class;')
 
-    Constructor = jclass_proxy("java.lang.reflect.Constructor",
+    Constructor = JavaClass.create("java.lang.reflect.Constructor",
                                [AccessibleObject, GenericDeclaration, Member])
     add_member(Constructor, "getModifiers", JavaMethod, '()I')
     add_member(Constructor, "getName", JavaMethod, '()Ljava/lang/String;')
@@ -294,10 +295,15 @@ def setup_bootstrap_classes():
 
     # Arrays will be required for class reflection, and `jarray` gives arrays these interfaces.
     global Cloneable, Serializable
-    Cloneable = jclass_proxy("java.lang.Cloneable", [JavaObject])
-    Serializable = jclass_proxy("java.io.Serializable", [JavaObject])
+    Cloneable = JavaClass.create("java.lang.Cloneable", [JavaObject])
+    Serializable = JavaClass.create("java.io.Serializable", [JavaObject])
 
     load_global_classes()
+
+
+def add_member(cls, name, member_cls, *args, **kwargs):
+    member = member_cls(cls, name, *args, **kwargs)
+    type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
 
 
 def reflect_member(cls, name, inherit=True):
@@ -392,12 +398,6 @@ def type_lookup(cls, name):
             return c.__dict__[name]
         except KeyError: pass
     return None
-
-
-# FIXME (separate commit) move up
-def add_member(cls, name, member_cls, *args, **kwargs):
-    member = member_cls(cls, name, *args, **kwargs)
-    type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
 
 
 cdef class JavaMember(object):

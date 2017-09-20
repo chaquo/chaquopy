@@ -18,7 +18,7 @@ def jarray(element_type):
     with class_lock:
         cls = jclass_cache.get(name)
         if not cls:
-            cls = jclass_proxy(name, [JavaArray, Cloneable, Serializable, JavaObject])
+            cls = JavaClass.create(name, [JavaArray, Cloneable, Serializable, JavaObject])
         return cls
 
 
