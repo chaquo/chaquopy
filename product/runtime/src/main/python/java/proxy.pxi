@@ -1,6 +1,4 @@
-# Proxy objects can have user-defined Python attributes, so remove the restrictions imposed
-# by JavaObject.__setattr__.
-global_class("com.chaquo.python.PyProxy", cls_dict={"__setattr__": object.__setattr__})
+global_class("com.chaquo.python.PyProxy")
 
 
 PROXY_BASE_NAME = "_chaquopy_proxy"
@@ -23,16 +21,13 @@ class ProxyClass(JavaClass):
                                     get_bases(klass) + bases[1:],
                                     cls_dict)
 
-            # We can't use reflect_class, because to avoid infinite recursion, we need
-            # unimplemented methods (including those from java.lang.Object) to fall through in
-            # Python to the inherited members.
-            metacls.add_constructors(cls)
-            for method in cls.getClass().getDeclaredMethods():
-                name = method.getName()
-                if name.startswith("_chaquopy"):  # See set_this in class.pxi, and PyInvocationHandler
-                    add_member(cls, name, JavaMethod(method))
-
+            metacls.add_members(cls)
             return cls
+
+    @classmethod
+    def add_members(metacls, cls):
+        for name in ["<init>", "_chaquopyGetDict", "_chaquopySetDict"]:
+            type.__setattr__(cls, name, find_member(cls, name))
 
 
 # -------------------------------------------------------------------------------------------------
@@ -76,8 +71,10 @@ class DynamicProxyClass(ProxyClass):
                                    (DynamicProxy,) + proxy_base.implements)
 
     @classmethod
-    def add_constructors(metacls, cls):
-        add_member(cls, "<init>", JavaMethod("(Ljava/lang/reflect/InvocationHandler;)V"))
+    def add_members(metacls, cls):
+        ProxyClass.add_members(cls)
+        for name in ["_chaquopyGetType"]:
+            type.__setattr__(cls, name, find_member(cls, name))
 
 
 def DynamicProxy_init(self):
@@ -130,10 +127,6 @@ class StaticProxyClass(ProxyClass):
                [str(i.getClass().getName()) for i in proxy_base.implements + (StaticProxy,)],
                [str(i.getName()) for i in klass.getInterfaces()])
         return klass
-
-    @classmethod
-    def add_constructors(metacls, cls):
-        add_member(cls, "<init>", JavaMethod("(Lcom/chaquo/python/PyCtorMarker;)V"))
 
 
 def StaticProxy_init(self):

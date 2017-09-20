@@ -337,11 +337,8 @@ The following notes apply to both types of proxy:
 
   However, this doesn't mean the Python method has to *implement* all the overloads. If there
   are any cases you don't want to override, you can call through to the base class
-  implementation using one of the following forms:
-
-   * `SuperClass.method(self, args)`
-   * `super(ThisClass, self).method(args)`
-   * `super().method(args)` (Python 3 only)
+  implementation using the form `SuperClass.method(self, *args)`. (Using :any:`super` is
+  not currently supported for Java methods, though it may be used in `__init__`.)
 
 * Special methods:
 

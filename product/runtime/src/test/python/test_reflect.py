@@ -119,6 +119,9 @@ class TestReflect(unittest.TestCase):
         self.assertFalse(b == a)
         self.assertNotEqual(hash(a), hash(b))
 
+    def test_dir(self):
+        pass  # FIXME: both instance and class
+
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
         # Unlike Java instance objects, Java class objects are persistent, so there's no reason
@@ -230,6 +233,7 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
+        PrintWriter.print; PrintWriter.print_   # Ensure __dict__ is populated
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)

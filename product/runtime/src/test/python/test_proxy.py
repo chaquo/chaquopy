@@ -226,9 +226,9 @@ class TestProxy(TestCase):
         from java.lang import Object
         class Implemented(dynamic_proxy(TP.Adder)):
             def toString(self):
-                return "Override " + super(Implemented, self).toString()
+                return "Override " + Object.toString(self)
             def hashCode(self):
-                return super(Implemented, self).hashCode() + 1
+                return Object.hashCode(self) + 1
             def equals(self, other):
                 return True
         a1, a2 = Implemented(), Implemented()

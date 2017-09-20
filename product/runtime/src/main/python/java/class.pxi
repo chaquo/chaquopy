@@ -53,10 +53,10 @@ def jclass(clsname, **kwargs):
                     raise ncdfe
                 else:
                     raise
-            reflect_class(cls)
         return cls
 
 
+# FIXME (separate commit) rename to JavaClass.create
 def jclass_proxy(cls_name, bases=None, *, cls_dict=None):
     if not isinstance(bases, (tuple, type(None))):
         bases = tuple(bases)
@@ -120,8 +120,13 @@ class JavaClass(type):
 
         return self
 
+    def __getattribute__(cls, name):
+        reflect_member(cls, name)
+        return type.__getattribute__(cls, name)
+
     # Override to allow static field set (type.__setattr__ would simply overwrite the class dict)
     def __setattr__(cls, name, value):
+        reflect_member(cls, name)
         member = type_lookup(cls, name)
         if isinstance(member, JavaMember):
             member.__set__(None, value)
@@ -155,28 +160,32 @@ def setup_object_class():
                 raise TypeError(f"{cls_fullname(type(self))} is abstract and cannot be instantiated")
 
             # Can't use getattr(): Java constructors are not inherited.
-            try:
-                constructor = type(self).__dict__["<init>"]
-            except KeyError:
+            constructor = reflect_member(type(self), "<init>", inherit=False)
+            if not constructor:
                 raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
             set_this(self, constructor.__get__(self, type(self))(*args))
 
-        def __getattr__(self, name):
-            if name.startswith("_chaquopy"):
-                raise AttributeError(f"'{type(self).__name__}' object's superclass __init__ must "
-                                     "be called before using it as a Java object")
-            else:
-                object.__getattribute__(self, name)  # Should raise AttributeError
-                raise AttributeError(f"__getattribute__({name!r}) unexpectedly succeeded")
+        def __getattribute__(self, name):
+            reflect_member(type(self), name)
+            try:
+                return object.__getattribute__(self, name)
+            except AttributeError:
+                if name.startswith("_chaquopy"):
+                    raise AttributeError(f"'{type(self).__name__}' object's superclass __init__ must "
+                                         "be called before using it as a Java object")
+                else:
+                    raise
 
         def __setattr__(self, name, value):
+            reflect_member(type(self), name)
             # We can't use __slots__ to prevent adding attributes, because Throwable inherits
             # from the (Python) Exception class, which causes two problems:
             #   * Exception is a native class, so multiple inheritance with anything which has
             #     __slots__ is impossible ("multiple bases have instance lay-out conflict").
             #   * Exception has a __dict__, which would cause all Java Throwables to have one too.
             object.__setattr__(self, name, value)
-            if (name in self.__dict__) and not name.startswith("_chaquopy"):
+            if (name in self.__dict__) and not name.startswith("_chaquopy") and \
+               not isinstance(type(self), ProxyClass):
                 del self.__dict__[name]
                 # Exception type and wording are based on Python 2.7.
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
@@ -220,11 +229,11 @@ def setup_object_class():
 def set_this(self, GlobalRef this, real_obj=None):
     global PyProxy
     with class_lock:
-        self._chaquopy_this = this.weak_ref()  # TODO for non-proxy objects we can just use `this`.
+        self._chaquopy_this = this.weak_ref()  # FIXME (separate commit) #5297: for non-proxy objects we can just use `this`.
         self._chaquopy_real_obj = real_obj
         instance_cache[(type(self), this)] = self
 
-        if "PyProxy" in globals() and isinstance(self, PyProxy):
+        if isinstance(type(self), ProxyClass):
             java_dict = self._chaquopyGetDict()
             if java_dict is None:
                 self._chaquopySetDict(self.__dict__)
@@ -236,11 +245,18 @@ def set_this(self, GlobalRef this, real_obj=None):
 # want to automatically start one because we might already be in a Java process.
 def setup_bootstrap_classes():
     # Declare only the methods needed to complete the bootstrap process.
-    global Class, Modifier, Method, Field, Constructor
+    global Reflector, Class, Modifier, Method, Field, Constructor
     if "Class" in globals():
         raise Exception("setup_bootstrap_classes called more than once")
 
     setup_object_class()
+
+    Reflector = jclass_proxy("com.chaquo.python.Reflector", [JavaObject])
+    add_member(Reflector, "newInstance", JavaMethod,
+               "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
+    add_member(Reflector, "getMethods", JavaMethod, "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
+    add_member(Reflector, "getField", JavaMethod, "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+    add_member(Reflector, "getNestedClass", JavaMethod, "(Ljava/lang/String;)Ljava/lang/Class;")
 
     AnnotatedElement = jclass_proxy("java.lang.reflect.AnnotatedElement", [JavaObject])
     AccessibleObject = jclass_proxy("java.lang.reflect.AccessibleObject",
@@ -249,117 +265,115 @@ def setup_bootstrap_classes():
     GenericDeclaration = jclass_proxy("java.lang.reflect.GenericDeclaration", [JavaObject])
 
     Class = jclass_proxy("java.lang.Class", [AnnotatedElement, GenericDeclaration, JavaObject])
-    add_member(Class, "getDeclaredClasses", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Class, "getDeclaredConstructors", JavaMethod('()[Ljava/lang/reflect/Constructor;'))
-    add_member(Class, "getDeclaredFields", JavaMethod('()[Ljava/lang/reflect/Field;'))
-    add_member(Class, "getDeclaredMethods", JavaMethod('()[Ljava/lang/reflect/Method;'))
-    add_member(Class, "getModifiers", JavaMethod('()I'))
-    add_member(Class, "getName", JavaMethod('()Ljava/lang/String;'))
+    add_member(Class, "getModifiers", JavaMethod, '()I')
+    add_member(Class, "getName", JavaMethod, '()Ljava/lang/String;')
 
     Modifier = jclass_proxy("java.lang.reflect.Modifier", [JavaObject])
-    add_member(Modifier, "isAbstract", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isFinal", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isProtected", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isPublic", JavaMethod('(I)Z', static=True))
-    add_member(Modifier, "isStatic", JavaMethod('(I)Z', static=True))
+    add_member(Modifier, "isAbstract", JavaMethod, '(I)Z', static=True)
+    add_member(Modifier, "isFinal", JavaMethod, '(I)Z', static=True)
+    add_member(Modifier, "isStatic", JavaMethod, '(I)Z', static=True)
 
     Method = jclass_proxy("java.lang.reflect.Method", [AccessibleObject, GenericDeclaration, Member])
-    add_member(Method, "getModifiers", JavaMethod('()I'))
-    add_member(Method, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Method, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Method, "getReturnType", JavaMethod('()Ljava/lang/Class;'))
-    add_member(Method, "isSynthetic", JavaMethod('()Z'))
-    add_member(Method, "isVarArgs", JavaMethod('()Z'))
+    add_member(Method, "getModifiers", JavaMethod, '()I')
+    add_member(Method, "getName", JavaMethod, '()Ljava/lang/String;')
+    add_member(Method, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
+    add_member(Method, "getReturnType", JavaMethod, '()Ljava/lang/Class;')
+    add_member(Method, "isVarArgs", JavaMethod, '()Z')
 
     Field = jclass_proxy("java.lang.reflect.Field", [AccessibleObject, Member])
-    add_member(Field, "getModifiers", JavaMethod('()I'))
-    add_member(Field, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Field, "getType", JavaMethod('()Ljava/lang/Class;'))
+    add_member(Field, "getModifiers", JavaMethod, '()I')
+    add_member(Field, "getName", JavaMethod, '()Ljava/lang/String;')
+    add_member(Field, "getType", JavaMethod, '()Ljava/lang/Class;')
 
     Constructor = jclass_proxy("java.lang.reflect.Constructor",
                                [AccessibleObject, GenericDeclaration, Member])
-    add_member(Constructor, "getModifiers", JavaMethod('()I'))
-    add_member(Constructor, "getName", JavaMethod('()Ljava/lang/String;'))
-    add_member(Constructor, "getParameterTypes", JavaMethod('()[Ljava/lang/Class;'))
-    add_member(Constructor, "isSynthetic", JavaMethod('()Z'))
-    add_member(Constructor, "isVarArgs", JavaMethod('()Z'))
+    add_member(Constructor, "getModifiers", JavaMethod, '()I')
+    add_member(Constructor, "getName", JavaMethod, '()Ljava/lang/String;')
+    add_member(Constructor, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
+    add_member(Constructor, "isVarArgs", JavaMethod, '()Z')
 
-    # Arrays will be required for reflect_class, and `jarray` gives arrays these interfaces.
+    # Arrays will be required for class reflection, and `jarray` gives arrays these interfaces.
     global Cloneable, Serializable
     Cloneable = jclass_proxy("java.lang.Cloneable", [JavaObject])
     Serializable = jclass_proxy("java.io.Serializable", [JavaObject])
 
-    for cls in [JavaObject, AnnotatedElement, AccessibleObject, Member, GenericDeclaration,
-                Class, Modifier, Method, Field, Constructor, Cloneable, Serializable]:
-        reflect_class(cls)
-
     load_global_classes()
 
 
-def reflect_class(cls):
-    klass = cls.getClass()
-    all_methods = filter(is_accessible, chain(klass.getDeclaredMethods(),
-                                              klass.getDeclaredConstructors()))
-    name_key = lambda m: m.getName()
-    all_methods.sort(key=name_key)
-    for name, methods in groupby(all_methods, name_key):
-        jms = []
-        for method in methods:
-            if isinstance(method, Constructor):
-                name = "<init>"
-            if method.isSynthetic():
-                # isSynthetic returns true in the following relevant cases:
-                #  * Where a method override has identical parameter types but a covariant (i.e.
-                #    subclassed) return type, the JVM will not consider it to be an override.
-                #    So the compiler also generates a forwarding "bridge" method with the
-                #    original return type.
-                continue
-            jms.append(JavaMethod(method))
+def reflect_member(cls, name, inherit=True):
+    if name.startswith("_chaquopy") or (name.startswith("__") and name.endswith("__")):
+        return None
 
-        # To speed up reflection, we avoid checking signatures here. This means we'll create
-        # JavaMultipleMethods for all methods which are overridden in this class, even if
-        # they're not overloaded. JavaMultipleMethod.resolve will tidy up the situation the
-        # first time the method is used.
-        for ancestor in cls.__mro__[1:]:
-            try:
-                inherited = ancestor.__dict__.get(name)
-            except KeyError: continue
-            if isinstance(inherited, JavaMethod):
-                jms.append(inherited)
-            elif isinstance(inherited, JavaMultipleMethod):
-                jms += (<JavaMultipleMethod?>inherited).methods
-            break
+    try:
+        return cls.__dict__[name]
+    except KeyError: pass
 
-        add_member(cls, name, jms[0] if (len(jms) == 1) else JavaMultipleMethod(jms))
+    inherited = None
+    if inherit:
+        for base in cls.__bases__:
+            if issubclass(base, JavaObject):
+                inherited = reflect_member(base, name)
+                if isinstance(inherited, JavaMember):
+                    # TODO #5262: do interface default methods require us to handle multiple inheritance?
+                    break
 
-    for field in filter(is_accessible, klass.getDeclaredFields()):
-        # TODO #5183 method hides field with same name.
-        add_member(cls, field.getName(), JavaField(field))
+    # To avoid infinite recursion, we need unimplemented methods in proxy classes (including
+    # those from java.lang.Object) to fall through in Python to the inherited members.
+    if isinstance(cls, ProxyClass):
+        member = inherited
+    else:
+        member = find_member(cls, name, inherited)
+    if member:
+        type.__setattr__(cls, name, member)
+        return member
 
-    for nested_klass in filter(is_accessible, klass.getDeclaredClasses()):
-        name = nested_klass.getSimpleName()  # Returns empty string for anonymous classes.
-        if name:
-            # TODO #5261 add a JavaMember subclass which delays the jclass call
-            add_member(cls, name, jclass(nested_klass.getName()))
-
-    aliases = {}
-    for name, member in six.iteritems(cls.__dict__):
-        # As recommended by PEP 8, members whose names are reserved words can be accessed by
-        # appending an underscore. The original name is still accessible via getattr().
-        if is_reserved_word(name):
-            aliases[name + "_"] =  member
-    for alias, member in six.iteritems(aliases):
-        if alias not in cls.__dict__:
-            add_member(cls, alias, member)
+    # As recommended by PEP 8, members whose names are reserved words are available through dot
+    # notation by appending an underscore. The original name is still accessible via getattr().
+    if name.endswith("_") and is_reserved_word(name[:-1]):
+        member = reflect_member(cls, name[:-1], inherit=inherit)
+        if member:
+            type.__setattr__(cls, name, member)
+            return member
 
 
-# Protected members need to be accessible to static proxy classes, but we can't practically do
-# that without making them accessible everywhere. Technically package members should be
-# accessible as well if the static proxy is generated in the same package, but we'll leave that
-# for now.
-def is_accessible(member):
-    mods = member.getModifiers()
-    return Modifier.isPublic(mods) or Modifier.isProtected(mods)
+def find_member(cls, name, inherited=None):
+    reflector = cls.__dict__.get("_chaquopy_reflector")
+    if not reflector:
+        # Can't call constructor directly, because JavaObject.__init__ calls some inherited
+        # methods which would themselves require a Reflector to resolve.
+        reflector = Reflector.newInstance(Class(instance=cls.__dict__["_chaquopy_j_klass"]))
+        type.__setattr__(cls, "_chaquopy_reflector", reflector)
+
+    jms = [JavaMethod(cls, name, m) for m in (reflector.getMethods(name) or [])]
+    if isinstance(inherited, JavaMethod):
+        jms.append(inherited)
+    elif isinstance(inherited, JavaMultipleMethod):
+        jms += (<JavaMultipleMethod?>inherited).methods
+    if jms:
+        jms = apply_overrides(jms)
+        return jms[0] if (len(jms) == 1) else JavaMultipleMethod(cls, name, jms)
+
+    field = reflector.getField(name)
+    if field:
+        return JavaField(cls, name, field)
+
+    nested = reflector.getNestedClass(name)
+    if nested:
+        return jclass(nested.getName())
+
+    return inherited
+
+
+# Methods earlier in the list will override later ones with the same argument signature.
+def apply_overrides(jms_in):
+    jms_out = []
+    sigs_seen = set()
+    cdef JavaMethod jm
+    for jm in jms_in:
+        if jm.args_sig not in sigs_seen:
+            jms_out.append(jm)
+            sigs_seen.add(jm.args_sig)
+    return jms_out
 
 
 # Ensure the same aliases are available on all Python versions
@@ -380,47 +394,35 @@ def type_lookup(cls, name):
     return None
 
 
-def add_member(cls, name, member):
-    if name not in cls.__dict__:  # TODO #5183 method hides field with same name.
-        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
-        if isinstance(member, JavaMember):
-            member.added_to_class(cls, name)
+# FIXME (separate commit) move up
+def add_member(cls, name, member_cls, *args, **kwargs):
+    member = member_cls(cls, name, *args, **kwargs)
+    type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
 
 
 cdef class JavaMember(object):
     cdef cls
     cdef basestring name
 
+    def __init__(self, cls, name):
+        self.cls = cls
+        self.name = name
+
     def __set__(self, obj, value):
         raise AttributeError(f"Java member {self.fqn()} is not a field")
-
-    def added_to_class(self, cls, name):
-        if not self.cls:  # May be called a second time for a reserved word alias.
-            self.cls = cls
-            self.name = name
 
     def fqn(self):
         return f"{cls_fullname(self.cls)}.{self.name}"
 
 
 cdef class JavaSimpleMember(JavaMember):
-    cdef reflected
-    cdef basestring definition
     cdef bint is_static
     cdef bint is_final
 
-    def __init__(self, definition_or_reflected, static, final):
-        if isinstance(definition_or_reflected, str):
-            self.definition = definition_or_reflected
-        else:
-            self.reflected = definition_or_reflected
+    def __init__(self, cls, name, static, final):
+        super().__init__(cls, name)
         self.is_static = static
         self.is_final = final
-
-    def resolve(self):
-        if self.reflected:
-            self.is_static = Modifier.isStatic(self.reflected.getModifiers())
-            self.is_final = Modifier.isFinal(self.reflected.getModifiers())
 
     def format_modifiers(self):
         return (f"{'static ' if self.is_static else ''}"
@@ -428,22 +430,23 @@ cdef class JavaSimpleMember(JavaMember):
 
 
 cdef class JavaField(JavaSimpleMember):
+    cdef basestring definition
     cdef jfieldID j_field
 
     def __repr__(self):
-        self.resolve()
         return (f"<JavaField {self.format_modifiers()}"
                 f"{java.sig_to_java(self.definition)} {self.fqn()}>")
 
-    def __init__(self, definition_or_reflected, *, static=False, final=False):
-        super().__init__(definition_or_reflected, static, final)
-
-    def resolve(self):
-        if self.j_field: return
-
-        super().resolve()
-        if self.reflected:
-            self.definition = java.jni_sig(self.reflected.getType())
+    def __init__(self, cls, name, definition_or_reflected, *, static=False, final=False):
+        if isinstance(definition_or_reflected, str):
+            self.definition = definition_or_reflected
+        else:
+            reflected = definition_or_reflected
+            self.definition = java.jni_sig(reflected.getType())
+            modifiers = reflected.getModifiers()
+            static = Modifier.isStatic(modifiers)
+            final = Modifier.isFinal(modifiers)
+        super().__init__(cls, name, static, final)
 
         env = CQPEnv()
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
@@ -453,7 +456,6 @@ cdef class JavaField(JavaSimpleMember):
             self.j_field = env.GetFieldID(j_klass, self.name, self.definition)
 
     def __get__(self, obj, objtype):
-        self.resolve()
         if self.is_static:
             return self.read_static_field()
         else:
@@ -462,7 +464,6 @@ cdef class JavaField(JavaSimpleMember):
             return self.read_field(obj)
 
     def __set__(self, obj, value):
-        self.resolve()
         if self.is_final:  # 'final' is not enforced by JNI, so we need to do it ourselves.
             raise AttributeError(f"{self.fqn()} is a final field")
 
@@ -594,6 +595,7 @@ cdef class JavaField(JavaSimpleMember):
 
 
 cdef class JavaMethod(JavaSimpleMember):
+    cdef reflected  # See call_proxy_method
     cdef jmethodID j_method
     cdef basestring return_sig
     cdef tuple args_sig
@@ -602,7 +604,6 @@ cdef class JavaMethod(JavaSimpleMember):
     cdef bint is_varargs
 
     def __repr__(self):
-        self.resolve()
         return f"<JavaMethod {self.format_declaration()}>"
 
     def format_declaration(self):
@@ -610,30 +611,32 @@ cdef class JavaMethod(JavaSimpleMember):
                 f"{java.sig_to_java(self.return_sig)} {self.fqn()}"
                 f"{java.args_sig_to_java(self.args_sig, self.is_varargs)}")
 
-    def __init__(self, definition_or_reflected, *, static=False, varargs=False, abstract=False,
-                 final=False):
-        super().__init__(definition_or_reflected, static, final)
-        self.is_varargs = varargs
-        self.is_abstract = abstract
-
-    def resolve(self):
-        if self.j_method: return
-
-        super().resolve()
-        if self.reflected:
+    def __init__(self, cls, name, definition_or_reflected, *, static=False, final=False,
+                 abstract=False, varargs=False):
+        if isinstance(definition_or_reflected, str):
+            definition = definition_or_reflected
+        else:
+            self.reflected = definition_or_reflected
             return_type = (java.jvoid if isinstance(self.reflected, Constructor)
                            else self.reflected.getReturnType())
-            self.definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
-            self.is_varargs = self.reflected.isVarArgs()
-            self.is_abstract = Modifier.isAbstract(self.reflected.getModifiers())
+            definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
+            modifiers = self.reflected.getModifiers()
+            static = Modifier.isStatic(modifiers)
+            final = Modifier.isFinal(modifiers)
+            abstract = Modifier.isAbstract(modifiers)
+            varargs = self.reflected.isVarArgs()
+
+        super().__init__(cls, name, static, final)
+        self.return_sig, self.args_sig = java.split_method_sig(definition)
+        self.is_abstract = abstract
+        self.is_varargs = varargs
 
         env = CQPEnv()
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
         if self.is_static:
-            self.j_method = env.GetStaticMethodID(j_klass, self.name, self.definition)
+            self.j_method = env.GetStaticMethodID(j_klass, self.name, definition)
         else:
-            self.j_method = env.GetMethodID(j_klass, self.name, self.definition)
-        self.return_sig, self.args_sig = java.split_method_sig(self.definition)
+            self.j_method = env.GetMethodID(j_klass, self.name, definition)
         self.is_constructor = (self.name == "<init>")
 
     # To be consistent with Python syntax, we want instance methods to be called non-virtually
@@ -651,7 +654,6 @@ cdef class JavaMethod(JavaSimpleMember):
     # Otherwise we'll call non-virtually, and rely on the Python method resolution rules to
     # pick the correct override.
     def __get__(self, obj, objtype):
-        self.resolve()
         if obj is None or self.is_static or self.is_constructor:
             return self
         else:
@@ -841,45 +843,16 @@ cdef class JavaMethod(JavaSimpleMember):
 cdef class JavaMultipleMethod(JavaMember):
     cdef list methods
     cdef dict overload_cache
-    cdef bint resolved
 
     def __repr__(self):
-        self.resolve()
         return f"<JavaMultipleMethod {self.methods}>"
 
-    def __init__(self, methods):
+    def __init__(self, cls, name, methods):
+        super().__init__(cls, name)
         self.methods = methods
         self.overload_cache = {}
 
-    def added_to_class(self, cls, name):
-        super().added_to_class(cls, name)
-        cdef JavaMethod jm
-        for jm in self.methods:
-            jm.added_to_class(cls, name)
-
-    def resolve(self):
-        if self.resolved: return
-
-        sigs_seen = set()
-        overridden = []
-        cdef JavaMethod jm
-        for jm in self.methods:
-            jm.resolve()
-            if jm.args_sig in sigs_seen:
-                overridden.append(jm)
-            else:
-                sigs_seen.add(jm.args_sig)
-
-        # See comment in reflect_class
-        for jm in overridden:
-            self.methods.remove(jm)
-        if len(self.methods) == 1:
-            type.__setattr__(self.cls, self.name, self.methods[0])
-
-        self.resolved = True
-
     def __get__(self, obj, objtype):
-        self.resolve()
         return lambda *args: self(obj, objtype, *args)
 
     def __call__(self, obj, objtype, *args):

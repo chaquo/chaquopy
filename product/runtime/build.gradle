@@ -144,6 +144,8 @@ def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 def cmakeBuildAnchor = task("cmakeBuild", group: "build")
 assemble.dependsOn(cmakeBuildAnchor)
 
+def androidJar = "$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar"
+
 for (pyFullVersion in Common.PYTHON_VERSIONS) {
     def pyVersion = pyFullVersion.substring(0, pyFullVersion.lastIndexOf("."))
     for (abi in ["host"] + Common.ABIS) {
@@ -246,7 +248,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
             def testCommonConfig = {
                 dependsOn setupPythonPath, compileTestJava
-                environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir"
+                environment "CLASSPATH", "$compileJava.destinationDir;$compileTestJava.destinationDir;$androidJar"
                 // TODO #5184: PATH would be LD_LIBRARY_PATH on Linux. Can't use -Djava.library.path
                 // because we need something which also works for Python processes.
                 environment "PATH", "$cmakeBuildSubdir${File.pathSeparator}${System.getenv("PATH")}"
@@ -262,7 +264,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
                 } else {
-                    args "test_suite", "-v"
+                    args "-v", "test_suite"
                 }
             }
             testPython.configure(testCommonConfig)
@@ -310,7 +312,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
 
 dependencies {
-    compileOnly files("$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar")
+    compileOnly files(androidJar)
 
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.

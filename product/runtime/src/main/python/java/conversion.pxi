@@ -315,8 +315,7 @@ cdef jobject p2j_pyobject(JNIEnv *env, obj) except? NULL:
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
     JPyObject = jclass("com.chaquo.python.PyObject")
-    cdef JavaMethod jm_getInstance = JPyObject.__dict__["getInstance"]
-    jm_getInstance.resolve()
+    cdef JavaMethod jm_getInstance = JPyObject.getInstance
     cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
         (env,
          (<JNIRef?>JPyObject._chaquopy_j_klass).obj,
