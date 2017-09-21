@@ -7,6 +7,7 @@ from com.chaquo.python import TestReflect as TR
 
 
 class TestReflect(unittest.TestCase):
+    from test_utils import assertDir
 
     def setUp(self):
         self.Test = jclass('com.chaquo.python.TestBasics')
@@ -118,9 +119,6 @@ class TestReflect(unittest.TestCase):
         self.assertFalse(a == b)
         self.assertFalse(b == a)
         self.assertNotEqual(hash(a), hash(b))
-
-    def test_dir(self):
-        pass  # FIXME: both instance and class
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_static(self):
@@ -299,6 +297,17 @@ class TestReflect(unittest.TestCase):
         self.assertEqual((Object,), Parent.__bases__)
         self.assertEqual((Parent, Interface), Child.__bases__)
 
+        from test_utils import Object_names
+        Interface_names = Object_names | {"iConstant", "iMethod"}
+        Parent_names = Object_names | {"pStaticField", "pField", "pStaticMethod", "pMethod",
+                                       "oStaticField", "oField", "oStaticMethod", "oMethod"}
+        Child_names = Parent_names | Interface_names
+
+        self.assertDir(Object, Object_names)
+        self.assertDir(Interface, Interface_names)
+        self.assertDir(Parent, Parent_names)
+        self.assertDir(Child, Child_names)
+
         self.assertEqual("Interface constant", Child.iConstant)
         self.verify_field(Child, "pStaticField", "Parent static field")
         self.assertEqual("Parent static method", Child.pStaticMethod())
@@ -310,6 +319,7 @@ class TestReflect(unittest.TestCase):
         self.assertTrue(isinstance(c, Parent))
         self.assertTrue(isinstance(c, Interface))
         self.assertTrue(isinstance(c, Object))
+        self.assertDir(c, Child_names)
         self.assertEqual("Interface constant", c.iConstant)
         self.assertEqual("Implemented method", c.iMethod())
         self.verify_field(c, "pStaticField", "Parent static field")
@@ -326,6 +336,7 @@ class TestReflect(unittest.TestCase):
         self.assertFalse(isinstance(c_Interface, Parent))
         self.assertTrue(isinstance(c_Interface, Interface))
         self.assertTrue(isinstance(c_Interface, Object))
+        self.assertDir(c_Interface, Interface_names)
         self.assertEqual("Interface constant", c_Interface.iConstant)
         self.assertEqual("Implemented method", c_Interface.iMethod())
 
@@ -334,6 +345,7 @@ class TestReflect(unittest.TestCase):
         self.assertTrue(isinstance(c_Parent, Parent))
         self.assertFalse(isinstance(c_Parent, Interface))
         self.assertTrue(isinstance(c_Parent, Object))
+        self.assertDir(c_Parent, Parent_names)
         with self.assertRaisesRegexp(AttributeError, "has no attribute"):
             c_Parent.iConstant
         with self.assertRaisesRegexp(AttributeError, "has no attribute"):
@@ -346,22 +358,6 @@ class TestReflect(unittest.TestCase):
         self.verify_field(c_Parent, "oField", "Non-overridden field")
         self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
         self.assertEqual("Overridden method", c_Parent.oMethod())
-
-    def test_super(self):
-        c = TR.Child()
-        c_super = super(TR.Child, c)
-        self.assertEqual("Interface constant", c_super.iConstant)
-        with self.assertRaisesRegexp(NotImplementedError, "abstract"):    # Different to cast()
-            c_super.iMethod()
-        # super objects don't support setattr (http://bugs.python.org/issue14965)
-        self.verify_field(c_super, "pStaticField", "Parent static field", modify=False)
-        self.verify_field(c_super, "pField", "Parent field", modify=False)
-        self.assertEqual("Parent static method", c_super.pStaticMethod())
-        self.assertEqual("Parent method", c_super.pMethod())
-        self.verify_field(c_super, "oStaticField", "Non-overridden static field", modify=False)
-        self.verify_field(c_super, "oField", "Non-overridden field", modify=False)
-        self.assertEqual("Non-overridden static method", c_super.oStaticMethod())
-        self.assertEqual("Non-overridden method", c_super.oMethod()) # Different to cast()
 
     def verify_field(self, obj, name, value, modify=True):
         self.assertEqual(value, getattr(obj, name))

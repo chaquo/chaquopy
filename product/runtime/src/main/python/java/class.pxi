@@ -132,6 +132,15 @@ class JavaClass(type):
         else:
             type.__setattr__(cls, name, value)
 
+    # In Python 2, object.__dir__ doesn't exist (https://bugs.python.org/issue12166).
+    def __dir__(cls):
+        result = set()
+        for c in cls.__mro__:
+            result.update(c.__dict__)
+            if isinstance(c, JavaClass):
+                result.update([str(s) for s in get_reflector(c).dir()])
+        return list(result)
+
 
 def get_bases(klass):
     superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
@@ -188,6 +197,11 @@ def setup_object_class():
                 del self.__dict__[name]
                 # Exception type and wording are based on Python 2.7.
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+        def __dir__(self):
+            result = set(dir(type(self)))
+            result.update(self.__dict__)
+            return list(result)
 
         def __repr__(self):
             full_name = cls_fullname(type(self))
@@ -344,13 +358,7 @@ def reflect_member(cls, name, inherit=True):
 
 
 def find_member(cls, name, inherited=None):
-    reflector = cls.__dict__.get("_chaquopy_reflector")
-    if not reflector:
-        # Can't call constructor directly, because JavaObject.__init__ calls some inherited
-        # methods which would themselves require a Reflector to resolve.
-        reflector = Reflector.newInstance(Class(instance=cls.__dict__["_chaquopy_j_klass"]))
-        type.__setattr__(cls, "_chaquopy_reflector", reflector)
-
+    reflector = get_reflector(cls)
     jms = [JavaMethod(cls, name, m) for m in (reflector.getMethods(name) or [])]
     if isinstance(inherited, JavaMethod):
         jms.append(inherited)
@@ -369,6 +377,16 @@ def find_member(cls, name, inherited=None):
         return jclass(nested.getName())
 
     return inherited
+
+
+def get_reflector(cls):
+    reflector = cls.__dict__.get("_chaquopy_reflector")
+    if not reflector:
+        # Can't call constructor directly, because JavaObject.__init__ calls some inherited
+        # methods which would themselves require a Reflector to resolve.
+        reflector = Reflector.newInstance(Class(instance=cls.__dict__["_chaquopy_j_klass"]))
+        type.__setattr__(cls, "_chaquopy_reflector", reflector)
+    return reflector
 
 
 # Methods earlier in the list will override later ones with the same argument signature.

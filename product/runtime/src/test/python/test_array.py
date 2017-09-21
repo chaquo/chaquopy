@@ -192,3 +192,10 @@ class TestArray(unittest.TestCase):
         self.assertTrue(1 in a)
         self.assertTrue(2 in a)
         self.assertFalse(3 in a)
+
+    def test_attributes(self):
+        a = jarray(jint)([1,2,3])
+        with self.assertRaises(AttributeError):
+            a.length
+        with self.assertRaises(AttributeError):
+            a.foo = 99
