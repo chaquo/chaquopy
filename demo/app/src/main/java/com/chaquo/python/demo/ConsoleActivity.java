@@ -21,6 +21,8 @@ public class ConsoleActivity extends AppCompatActivity {
     }
     protected State state;
 
+    private PyObject prevStdout, prevStderr;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -29,12 +31,6 @@ public class ConsoleActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= 23) {
             tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
-
-        PyObject demo_app = py.getModule("demo_app");
-        PyObject stream = demo_app.callAttr("ForwardingOutputStream", this, "append");
-        PyObject sys = py.getModule("sys");
-        sys.put("stdout", stream);
-        sys.put("stderr", stream);
 
         state = (State) getLastCustomNonConfigurationInstance();
         if (state == null) {
@@ -72,9 +68,23 @@ public class ConsoleActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
         adjustScroll();  // Necessary after a screen rotation
+
+        PyObject demo_app = py.getModule("demo_app");
+        PyObject stream = demo_app.callAttr("ForwardingOutputStream", this, "append");
+        PyObject sys = py.getModule("sys");
+        prevStdout = sys.put("stdout", stream);
+        prevStderr = sys.put("stderr", stream);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        PyObject sys = py.getModule("sys");
+        sys.put("stdout", prevStdout);
+        sys.put("stderr", prevStderr);
     }
 
     private void adjustScroll() {
