@@ -19,7 +19,7 @@ from demo_app import view_source
 class UIDemoActivity(static_proxy(AppCompatActivity)):
     @Override(jvoid, [Bundle])
     def onCreate(self, state):
-        super(UIDemoActivity, self).onCreate(state)
+        AppCompatActivity.onCreate(self, state)
         if state is None:
             state = Bundle()
         self.setContentView(R.layout.activity_menu)

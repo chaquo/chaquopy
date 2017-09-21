@@ -32,6 +32,7 @@ class OverloadedCtor(static_proxy()):
     @constructor([jint])
     @constructor([String])
     def __init__(self, value=None):
+        super(OverloadedCtor, self).__init__()
         self.value = str(value)
 
     @method(String, [])
@@ -42,7 +43,7 @@ class OverloadedCtor(static_proxy()):
 class OverrideChild(static_proxy(SPT.OverrideParent)):
     @Override(String, [])
     def get(self):
-        return super(OverrideChild, self).get() + " child"
+        return SPT.OverrideParent.get(self) + " child"
 
 
 class Return(static_proxy()):

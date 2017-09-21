@@ -8,6 +8,7 @@ from com.chaquo.python import PyException, TestProxy as TP
 
 
 class TestProxy(TestCase):
+    from test_utils import assertDir
 
     def test_direct_inherit(self):
         from java.lang import Object, Runnable
@@ -45,6 +46,20 @@ class TestProxy(TestCase):
         self.assertEqual(5, cast(TP.Adder, a2).add(3))  # cast() ensures the call goes through Java.
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
+
+        from test_utils import Object_names
+        Proxy_names = Object_names | {"getInvocationHandler", "getProxyClass", "isProxyClass",
+                                      "newProxyInstance",
+                                      "h"}              # reflect.Proxy instance field
+        Adder_names = Object_names | {"constant", "add"}
+        AddN_names = Proxy_names | Adder_names
+        self.assertDir(TP.Adder, Adder_names)
+        self.assertDir(AddN, AddN_names)
+
+        AddN_instance_names = AddN_names | {"n"}        # Python instance field
+        self.assertDir(a2, AddN_instance_names)
+        a2.foo = 42
+        self.assertDir(a2, AddN_instance_names | {"foo"})
 
     def test_multiple(self):
         # These both implement the same interfaces, and will therefore be represented by the
@@ -226,9 +241,9 @@ class TestProxy(TestCase):
         from java.lang import Object
         class Implemented(dynamic_proxy(TP.Adder)):
             def toString(self):
-                return "Override " + super(Implemented, self).toString()
+                return "Override " + Object.toString(self)
             def hashCode(self):
-                return super(Implemented, self).hashCode() + 1
+                return Object.hashCode(self) + 1
             def equals(self, other):
                 return True
         a1, a2 = Implemented(), Implemented()
