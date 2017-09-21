@@ -7,4 +7,6 @@ Object_names = {"clone", "equals", "finalize", "getClass", "hashCode", "notify",
 def assertDir(self, obj, expected):
     self.assertEqual(sorted(expected),
                      [s for s in dir(obj) if
-                      not (s.startswith("__") or s.startswith("_chaquopy") or s == "<init>")])
+                      not (s.startswith("__") or s.startswith("_chaquopy") or
+                           s in ["<init>",               # Java constructor
+                                 "serialVersionUID"])])  # Android adds this to some classes

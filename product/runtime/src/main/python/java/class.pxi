@@ -137,7 +137,7 @@ class JavaClass(type):
         result = set()
         for c in cls.__mro__:
             result.update(c.__dict__)
-            if isinstance(c, JavaClass):
+            if isinstance(c, JavaClass) and not isinstance(c, ProxyClass):
                 result.update([str(s) for s in get_reflector(c).dir()])
         return list(result)
 

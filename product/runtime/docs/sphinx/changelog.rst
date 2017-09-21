@@ -1,6 +1,11 @@
 Change log
 ##########
 
+0.4.3 (2017-09-21)
+==================
+
+* Improve startup performance.
+
 0.4.0 (2017-09-11)
 ==================
 
@@ -11,17 +16,18 @@ Change log
 
 * Reflect Java class hierarchy in Python.
 * Represent Java exceptions with their actual classes.
-* Support Python unbound method syntax when calling Java methods, i.e. `ClassName.method(instance, args)`.
+* Support Python unbound method syntax when calling Java methods, i.e.
+  `ClassName.method(instance, args)`.
 * Release GIL when calling Java constructors.
 
 0.2.0 (2017-07-04)
 ==================
 
-* Add import hook
-* Allow nested classes to be accessed as attributes
-* Improve performance
+* Add import hook.
+* Allow nested classes to be accessed as attributes.
+* Improve performance.
 
 0.1.0 (2017-06-24)
 ==================
 
-* First public release
+* First public release.
