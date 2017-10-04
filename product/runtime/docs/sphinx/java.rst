@@ -14,8 +14,8 @@ Quick start
    interface to Python.
 
 #. Call `getModule() <java/com/chaquo/python/Python.html#getModule-java.lang.String->`_ or
-   `getBuiltins() <java/com/chaquo/python/Python.html#getBuiltins-->`_ to get a
-   PyObject representing a Python module.
+   `getBuiltins() <java/com/chaquo/python/Python.html#getBuiltins-->`_ to get a `PyObject
+   <java/com/chaquo/python/PyObject.html>`_ representing a Python module.
 
 #. Use the `PyObject <java/com/chaquo/python/PyObject.html>`_ methods to access the module's
    functions, classes and other objects.

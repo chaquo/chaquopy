@@ -298,7 +298,7 @@ Python source code, there are some restrictions on the code's structure:
 
 * Only code which appears unconditionally at the module top-level will be processed.
 * Java classes must be imported using the `import hook`_, not dynamically with :any:`jclass`.
-  Nested classses can be referenced by importing the top-level class and then using attribute
+  Nested classes can be referenced by importing the top-level class and then using attribute
   notation, e.g. `Outer.Nested`.
 * The names bound by the `import` statement must be used directly. For example, after `from
   java.lang import IllegalArgumentException as IAE`, you may use `IAE` in a `throws`

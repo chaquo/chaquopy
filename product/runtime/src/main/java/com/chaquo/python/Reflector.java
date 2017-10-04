@@ -12,7 +12,7 @@ public class Reflector {
     private Map<String,Field> fields;
     private Map<String,Class> classes;
 
-    // FIXME explanation
+    // See note at get_reflector in class.pxi.
     public static Reflector newInstance(Class klass) {
         return new Reflector(klass);
     }

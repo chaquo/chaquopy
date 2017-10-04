@@ -3,7 +3,7 @@
 Android
 #######
 
-Chaquopy is distributed as a plugin for the Android Gradle build system. For a full example of
+Chaquopy is distributed as a plugin for Android's Gradle-based build system. For a full example of
 how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Prerequisites:
