@@ -1,7 +1,8 @@
 from __future__ import absolute_import, division, print_function
 
-import unittest
+import six
 import sys
+import unittest
 
 from java import *
 
@@ -103,3 +104,8 @@ class TestImport(unittest.TestCase):
 
         from package1.package11 import test_relative
         test_relative.run(self)
+
+    @unittest.skipIf(not six.PY2, "Implicit relative imports were removed in Python 3")
+    def test_relative_implicit(self):
+        from package1 import test_relative_implicit
+        test_relative_implicit.run(self)

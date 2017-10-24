@@ -1,4 +1,5 @@
-# Test from a first-level package
+# Test relative imports from a first-level package (package1/package11/test_relative.py
+# performs the same imports from a second-level package context).
 
 def run(self):
     from . import java, python
