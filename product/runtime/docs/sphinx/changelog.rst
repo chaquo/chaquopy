@@ -1,6 +1,11 @@
 Change log
 ##########
 
+0.4.4 (2017-10-24)
+==================
+
+* Fix implicit relative imports (https://github.com/chaquo/chaquopy/issues/12).
+
 0.4.3 (2017-09-21)
 ==================
 

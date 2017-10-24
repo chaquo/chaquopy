@@ -1,3 +1,4 @@
+import six
 from six.moves import builtins
 import sys
 from types import ModuleType
@@ -13,7 +14,8 @@ def set_import_enabled(enable):
     builtins.__import__ = import_override if enable else import_original
 
 
-def import_override(name, globals={}, locals={}, fromlist=None, level=0):
+def import_override(name, globals={}, locals={}, fromlist=None,
+                    level=-1 if six.PY2 else 0):
     try:
         python_module = import_original(name, globals, locals, fromlist, level)
         python_error = python_tb = None

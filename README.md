@@ -1,15 +1,16 @@
 # Release procedure
 
 
+## Sanity check
+
+Test demo app on emulator and phone.
+
+
 ## Gradle plugin
 
 Run gradlew -P cmakeBuildType=Release :gradle-plugin:check
 
-Copy gradle-plugin/build/libs/gradle.jar to the Maven repository under the name
-com/chaquo/python/gradle/<version>/gradle-<version>.jar.
-
-Run server/maven/update_checksums.sh. (TODO: My Gradle client uses HTTP HEAD to detect changes
-and never looks at checksums; if everybody else is the same, we might as well remove them.)
+Copy gradle-plugin/build/libs/gradle.jar to local and remote Maven repository.
 
 
 ## Demo app
@@ -26,7 +27,7 @@ Update version number in public/demo/build.gradle, adjusting SDK version number 
 
 Upload APK to Google Play. Update description and screenshots if necessary.
 
-Upload APK to Maven repository.
+Copy APK to local and remote Maven repository.
 
 
 ## Documentation
