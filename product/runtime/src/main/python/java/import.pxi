@@ -1,9 +1,7 @@
-import six
-from six.moves import builtins
 import sys
 from types import ModuleType
 
-
+builtins = six.moves.builtins
 import_original = builtins.__import__
 
 def set_import_enabled(enable):

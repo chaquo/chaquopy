@@ -1,6 +1,11 @@
 Change log
 ##########
 
+0.4.5 (2017-10-26)
+==================
+
+* Remove dependency on `six` (https://github.com/chaquo/chaquopy/issues/13).
+
 0.4.4 (2017-10-24)
 ==================
 

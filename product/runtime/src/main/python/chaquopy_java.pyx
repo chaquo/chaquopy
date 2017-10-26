@@ -133,7 +133,7 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
 cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return p2j_pyobject(env, import_module("six.moves.builtins"))
+        return p2j_pyobject(env, import_module("java._vendor.six.moves.builtins"))
     except BaseException:
         throw_exception(env)
         return NULL
