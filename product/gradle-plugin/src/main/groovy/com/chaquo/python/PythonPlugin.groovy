@@ -13,7 +13,7 @@ import static java.nio.file.StandardCopyOption.*
 
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")  // TODO #5144
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.2.0")  // First version to use the current ndk {} syntax.
     static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.3")
     static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0-alpha1")  // TODO #5180
 
@@ -150,21 +150,23 @@ class PythonPlugin implements Plugin<Project> {
         // variant.getMergedFlavor returns a DefaultProductFlavor base class object, which, perhaps
         // by an oversight, doesn't contain the NDK options.
         def abis = new TreeSet<String>()
-        if (android.defaultConfig.ndk.abiFilters) {
-            abis.addAll(android.defaultConfig.ndk.abiFilters)
+        def ndk = android.defaultConfig.ndkConfig
+        if (ndk.abiFilters) {
+            abis.addAll(ndk.abiFilters)
         }
         for (flavor in variant.getProductFlavors().reverse()) {
-            if (flavor.ndk.abiFilters) {
+            ndk = flavor.ndkConfig
+            if (ndk.abiFilters) {
                 /* TODO #5202
                 // Replicate the accumulation behaviour of MergedNdkConfig.append
-                abis.addAll(flavor.ndk.abiFilters) */
+                abis.addAll(ndk.abiFilters) */
                 raise GradleException("$variant.name: Chaquopy does not support per-flavor " +
                                       "abiFilters.")
             }
         }
         if (abis.isEmpty()) {
             // The Android plugin doesn't make abiFilters compulsory, but we will, because
-            // adding 25 MB to the APK is not something we want to do by default.
+            // adding every single ABI to the APK is not something we want to do by default.
             throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: you may want to " +
                                       "add it to defaultConfig.")
         }
@@ -195,7 +197,7 @@ class PythonPlugin implements Plugin<Project> {
         return project.task(taskName("generate", variant, "requirements")) {
             ext.destinationDir = variantGenDir(variant, "requirements")
             dependsOn buildPackagesTask
-            inputs.property("python", python)
+            inputs.property("python", python.serialize())
             outputs.dir(destinationDir)
             doLast {
                 project.delete(destinationDir)
@@ -224,7 +226,7 @@ class PythonPlugin implements Plugin<Project> {
         Task genTask = project.task(taskName("generate", variant, "sources")) {
             dependsOn buildPackagesTask, reqsTask
             inputs.dir(srcDir)
-            inputs.property("python", python)
+            inputs.property("python", python.serialize())
             outputs.dir(destinationDir)
             doLast {
                 project.mkdir(srcDir)
@@ -446,25 +448,31 @@ class PythonExtension implements Serializable {
         return overlay != null ? overlay : base
     }
 
-    // equals() and hashCode() are not required in Gradle 3.5 thanks to
-    // https://github.com/gradle/gradle/pull/962, but they're still required in Gradle 3.3, which
-    // is used by Android Studio 2.3.
-    boolean equals(o) {
-        if (getClass() != o.class) return false
-        PythonExtension that = (PythonExtension) o
-        if (version != that.version) return false
-        if (buildPython != that.buildPython) return false
-        if (pipInstall != that.pipInstall) return false
-        if (staticProxy != that.staticProxy) return false
-        return true
+    // Using custom classes as task input properties doesn't work in Gradle 2.14.1
+    // (https://github.com/gradle/gradle/issues/784). This approach also avoids the need for
+    // equals and hashCode methods (https://github.com/gradle/gradle/pull/962).
+    //
+    // We return a String rather than a byte[] because this version of Gradle apparently compares
+    // array properties using equals(), which only checks array identity, not content.
+    String serialize() {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()
+        ObjectOutputStream oos = new ObjectOutputStream(baos)
+        oos.writeObject(this)
+        oos.close()
+        return escape(baos.toByteArray())
     }
 
-    int hashCode() {
-        int result
-        result = (version != null ? version.hashCode() : 0)
-        result = 31 * result + buildPython.hashCode()
-        result = 31 * result + pipInstall.hashCode()
-        result = 31 * result + staticProxy.hashCode()
-        return result
+    public static String escape(byte[] data) {
+        StringBuilder cbuf = new StringBuilder();
+        for (byte b : data) {
+            if (b >= 0x20 && b <= 0x7e) {
+                cbuf.append((char) b);
+            } else {
+                cbuf.append(String.format("\\x%02x", b & 0xFF));
+            }
+        }
+        return cbuf.toString();
     }
 }
+
+

@@ -79,8 +79,14 @@ testPythonTask("testPython") {
 }
 check.dependsOn(testPython)
 
-testPythonTask("testIntegration") {
-    dependsOn assemble
-    workingDir "$projectDir/src/test/integration"
+/** @param version Android Gradle plugin version (corresponds to directory
+ *  test/integration/data/base-$version) */
+Task testIntegrationTask(String version) {
+    return testPythonTask("testIntegration-$version") {
+        dependsOn assemble
+        workingDir "$projectDir/src/test/integration"
+        environment "AGP_VERSION", version
+    }
 }
-check.dependsOn(testIntegration)
+check.dependsOn(testIntegrationTask("2.2"))
+check.dependsOn(testIntegrationTask("2.3"))

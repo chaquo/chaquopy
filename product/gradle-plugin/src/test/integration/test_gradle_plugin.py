@@ -14,6 +14,8 @@ from zipfile import ZipFile
 
 
 class GradleTestCase(TestCase):
+    longMessage = True
+
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
 
@@ -21,15 +23,15 @@ class GradleTestCase(TestCase):
         self.assertTrue(os.path.isfile(filename), filename)
 
     # Prints b as a multi-line string rather than a repr().
-    def assertInLong(self, a, b, re=False):
+    def assertInLong(self, a, b, re=False, msg=None):
         try:
             if re:
                 self.assertRegexpMatches(b, a)
             else:
                 self.assertIn(a, b)
-        except AssertionError:
-            raise AssertionError("'{}' not found in:\n{}".format(a, b))
-
+        except self.failureException:
+            msg = self._formatMessage(msg, "'{}' not found in:\n{}".format(a, b))
+            raise self.failureException(msg)
 
 class Basic(GradleTestCase):
     def test_base(self):
@@ -47,9 +49,9 @@ class AndroidPlugin(GradleTestCase):
 
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong("requires Android Gradle plugin version 2.3.0", run.stderr)
+        self.assertInLong("requires Android Gradle plugin version 2.2.0", run.stderr)
 
-    @skip("no applicable versions currently exist")
+    @skip("no untested versions currently exist")
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested")
         self.assertInLong("not been tested with Android Gradle plugin versions beyond 2.3.3",
@@ -280,6 +282,8 @@ class RunGradle(object):
         for layer in layers:
             copy_tree(join(integration_dir, "data", layer), self.project_dir,
                       preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
+            if layer == "base":
+                self.apply_layers("base-" + os.environ["AGP_VERSION"])
 
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
@@ -310,14 +314,17 @@ class RunGradle(object):
                 self.check_apk(apk_dir, **kwargs)
 
             # Run a second time to check all tasks are considered up to date.
+            first_stdout, first_stderr = self.stdout, self.stderr
+            first_msg = "\n=== FIRST STDOUT ===\n" + first_stdout
             status, self.stdout, self.stderr = self.run_gradle(variants)
             if status != 0:
                 self.dump_run("exit status {}".format(status))
-            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout)
+            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout,
+                                   msg=first_msg)
             for variant in variants:
                 for suffix in ["Requirements", "Sources", "Ticket", "Assets", "JniLibs"]:
                     msg = task_name(":app:generate", variant, "Python" + suffix) + " UP-TO-DATE"
-                    self.test.assertInLong(msg, self.stdout)
+                    self.test.assertInLong(msg, self.stdout, msg=first_msg)
 
         else:
             if succeed:
