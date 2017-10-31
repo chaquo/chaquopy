@@ -5,9 +5,13 @@ import java.util.*;
 
 /** @deprecated internal use */
 public class Common {
-    // This is currently the oldest version included in the NDK. To build the runtime module, the
-    // corresponding platform JAR must have been downloaded using the SDK Manager.
-    public static final int MIN_SDK_VERSION = 9;
+    // API level 15 currently has over 99% support on the Google dashboard, and is the default
+    // minimum version for new apps in Android Studio 3.0.
+    //
+    // Our ability to test older versions is currently limited by the demo app, which uses
+    // com.android.support:preference-v14. We could probably support API level 14 as well, but it's
+    // too awkward to test because it doesn't have an x86 emulator image.
+    public static final int MIN_SDK_VERSION = 15;
 
     // TODO #5148 add Python 3
     // TODO #5213 update Python 2.7

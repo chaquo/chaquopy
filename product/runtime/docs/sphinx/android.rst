@@ -8,10 +8,10 @@ how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Prerequisites:
 
-* Android Gradle plugin version 2.2 or 2.3. (This is specified as
+* Android Gradle plugin version 2.2, 2.3 or 3.0. (This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version.)
-* `minSdkVersion` 9 or higher.
+* `minSdkVersion` 15 or higher.
 
 Basic setup
 ===========

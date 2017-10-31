@@ -65,15 +65,15 @@ class AndroidPlugin(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    def test_old(self):
-        run = self.RunGradle("base", "ApiLevel/9")
-        run.apply_layers("ApiLevel/8")
+    def test_old(self):  # Also tests making a change
+        run = self.RunGradle("base", "ApiLevel/minimum")
+        run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
+        self.assertInLong("debug: Chaquopy requires minSdkVersion 15 or higher", run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: Chaquopy requires minSdkVersion 9 or higher", run.stderr)
+        self.assertInLong("redDebug: Chaquopy requires minSdkVersion 15 or higher", run.stderr)
 
 
 class PythonVersion(GradleTestCase):

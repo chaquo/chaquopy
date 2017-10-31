@@ -3,7 +3,7 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "25.0.2"
+    buildToolsVersion "26.0.2"
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 15
@@ -22,7 +22,7 @@ android {
     productFlavors {
         red {
             dimension "color"
-            minSdkVersion 8
+            minSdkVersion 14
         }
     }
 

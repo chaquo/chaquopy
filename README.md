@@ -7,9 +7,11 @@ Install the following prerequisites:
 * Java 8 or later, either on the PATH as "java", or pointed to by JAVA_HOME.
 * Python 2.7 on the PATH as "python2".
 * Android SDK, including the following packages:
-   * build-tools
-   * cmake
-   * ndk-bundle
+   * Build Tools
+   * CMake
+   * NDK
+   * SDK Platform version corresponding to MIN_SDK_VERSION in
+     product/buildSrc/src/main/java/com/chaquo/python/Common.java.
 * Crystax NDK (for Python header files)
 
 Create product/local.properties with the properties listed in product/runtime/build.gradle.
@@ -39,7 +41,8 @@ end-of-line issues: run it a second time and it should give the correct output.)
 
 Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
 
-"Generate Signed APK" in Android Studio, and test all features on emulator and phone.
+"Generate Signed APK" in Android Studio, and test all features on minimum-version emulator,
+up-to-date emulator, and phone.
 
 Upload APK to Google Play. Update description and screenshots if necessary.
 
