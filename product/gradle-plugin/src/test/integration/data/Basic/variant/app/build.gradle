@@ -18,9 +18,9 @@ android {
         }
     }
 
+    flavorDimensions "color"
     productFlavors {
-        red {}
-        blue {}
+        red { dimension "color" }
+        blue { dimension "color" }
     }
-
 }

@@ -1,10 +1,11 @@
 buildscript {
     repositories {
+        google()
         jcenter()
         maven { url "https://chaquo.com/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.3.3'
+        classpath 'com.android.tools.build:gradle:3.0.0'
 
         // *** Replace in public repository ***************************************
         classpath files('../product/gradle-plugin/build/libs/gradle.jar')
@@ -15,6 +16,7 @@ buildscript {
 
 allprojects {
     repositories {
+        google()
         jcenter()
     }
 }

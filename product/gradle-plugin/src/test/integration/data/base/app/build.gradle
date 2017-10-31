@@ -3,7 +3,12 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "25.0.2"
+
+    // Android Gradle plugin version 3.0 no longer requires this directive, but if it is
+    // specified then it will be ignored unless it's this version or higher. Older versions of
+    // the plugin do require this directive, and seem to work fine with this version.
+    buildToolsVersion "26.0.2"
+
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 15

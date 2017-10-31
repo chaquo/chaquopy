@@ -90,3 +90,4 @@ Task testIntegrationTask(String version) {
 }
 check.dependsOn(testIntegrationTask("2.2"))
 check.dependsOn(testIntegrationTask("2.3"))
+check.dependsOn(testIntegrationTask("3.0"))

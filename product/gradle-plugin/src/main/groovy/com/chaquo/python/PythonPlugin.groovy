@@ -14,8 +14,8 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.2.0")  // First version to use the current ndk {} syntax.
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.3")
-    static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0-alpha1")  // TODO #5180
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0")
+    // static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("9.9.9-alpha1")  // Not currently applicable
 
     Project project
     Object android
@@ -35,11 +35,12 @@ class PythonPlugin implements Plugin<Project> {
                                               "$MIN_ANDROID_PLUGIN_VER or later (current version is " +
                                               "$depVer). Please edit the buildscript block.")
                 }
+                /* Not currently applicable: re-enable test "AndroidPlugin/old" if this changes.
                 if (depVer >= MAX_ANDROID_PLUGIN_VER) {
                     throw new GradleException("Chaquopy does not work with Android Gradle plugin " +
                                     "version $MAX_ANDROID_PLUGIN_VER or later (current version is " +
                                     "$depVer). Please edit the buildscript block.")
-                }
+                } */
                 if (depVer > MAX_TESTED_ANDROID_PLUGIN_VER) {
                     println("Warning: Chaquopy has not been tested with Android Gradle plugin " +
                             "versions beyond $MAX_TESTED_ANDROID_PLUGIN_VER (current version is " +

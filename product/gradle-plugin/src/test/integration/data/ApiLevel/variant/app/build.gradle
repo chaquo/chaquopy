@@ -18,8 +18,10 @@ android {
         }
     }
 
+    flavorDimensions "color"
     productFlavors {
         red {
+            dimension "color"
             minSdkVersion 8
         }
     }

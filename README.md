@@ -1,8 +1,8 @@
-# Development environment
+# Development environment setup
 
 (NOTE: This procedure has not been fully tested and may be incomplete.)
 
-Prerequisites:
+Install the following prerequisites:
 
 * Java 8 or later, either on the PATH as "java", or pointed to by JAVA_HOME.
 * Python 2.7 on the PATH as "python2".
@@ -12,9 +12,7 @@ Prerequisites:
    * ndk-bundle
 * Crystax NDK (for Python header files)
 
-Additional setup:
-
-* Create product/local.properties with the properties listed in product/runtime/build.gradle.
+Create product/local.properties with the properties listed in product/runtime/build.gradle.
 
 
 # Release procedure
@@ -26,7 +24,7 @@ Test demo app on emulator and phone.
 
 ## Gradle plugin
 
-Run gradlew -P cmakeBuildType=Release :gradle-plugin:check
+Run `gradlew -P cmakeBuildType=Release :gradle-plugin:check` on all supported workstation OSs.
 
 Copy gradle-plugin/build/libs/gradle.jar to local and remote Maven repository.
 

@@ -52,15 +52,16 @@ class AndroidPlugin(GradleTestCase):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong("requires Android Gradle plugin version 2.2.0", run.stderr)
 
-    @skip("no untested versions currently exist")
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested")
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 2.3.3",
+        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.0",
                           run.stdout)
 
+    @skip("no incompatible new versions are currently known")
     def test_new(self):
         run = self.RunGradle("base", "AndroidPlugin/new", succeed=False)
-        self.assertInLong("does not work with Android Gradle plugin version 3.0.0", run.stderr)
+        self.assertInLong("does not work with Android Gradle plugin version 9.9.9-alpha1",
+                          run.stderr)
 
 
 class ApiLevel(GradleTestCase):
@@ -263,7 +264,7 @@ class License(GradleTestCase):
 
 
 integration_dir = abspath(dirname(__file__))
-repo_root = join(integration_dir, "../../../../..")
+repo_root = abspath(join(integration_dir, "../../../../.."))
 
 
 class RunGradle(object):
@@ -298,7 +299,7 @@ class RunGradle(object):
                 if "chaquopy.license" not in line:
                     out_file.write(line)
             if key is not None:
-                print("chaquopy.license=" + key, file=out_file)
+                print("\nchaquopy.license=" + key, file=out_file)
 
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
@@ -310,7 +311,12 @@ class RunGradle(object):
 
             # TODO #5180 Android plugin version 3 adds an extra variant directory below "apk".
             for variant in variants:
-                apk_file = join(self.project_dir, "app/build/outputs/apk/app-{}.apk".format(variant))
+                outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
+                apk_file = join(outputs_apk_dir, "app-{}.apk".format(variant))  # Android plugin 2.x
+                if not os.path.isfile(apk_file):
+                    apk_file = join(outputs_apk_dir, variant.replace("-", "/"),
+                                    "app-{}.apk".format(variant))  # Android plugin 3.x
+
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
                     rmtree(apk_dir)
