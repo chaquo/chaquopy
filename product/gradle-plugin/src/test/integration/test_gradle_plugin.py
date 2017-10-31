@@ -53,7 +53,7 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("requires Android Gradle plugin version 2.2.0", run.stderr)
 
     def test_untested(self):
-        run = self.RunGradle("base", "AndroidPlugin/untested")
+        run = self.RunGradle("base", "AndroidPlugin/untested", succeed=None)
         self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.0",
                           run.stdout)
 
@@ -306,7 +306,7 @@ class RunGradle(object):
         status, self.stdout, self.stderr = self.run_gradle(variants)
 
         if status == 0:
-            if not succeed:
+            if succeed == False:  # succeed=None means we don't care
                 self.dump_run("run unexpectedly succeeded")
 
             # TODO #5180 Android plugin version 3 adds an extra variant directory below "apk".

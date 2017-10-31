@@ -88,6 +88,8 @@ Task testIntegrationTask(String version) {
         environment "AGP_VERSION", version
     }
 }
-check.dependsOn(testIntegrationTask("2.2"))
-check.dependsOn(testIntegrationTask("2.3"))
-check.dependsOn(testIntegrationTask("3.0"))
+task("testIntegration", "group": "verification")
+testIntegration.dependsOn(testIntegrationTask("2.2"))
+testIntegration.dependsOn(testIntegrationTask("2.3"))
+testIntegration.dependsOn(testIntegrationTask("3.0"))
+check.dependsOn(testIntegration)
