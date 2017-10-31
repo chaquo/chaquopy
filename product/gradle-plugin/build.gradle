@@ -63,7 +63,7 @@ processResources {
 Task testPythonTask(String name, Closure closure) {
     def t = task(name, closure, "type": Exec, "group": "verification")
     t.configure {
-        executable "python"
+        executable "python2"
         args "-m", "unittest"
         if (project.hasProperty("testPythonArgs")) {
             args project.testPythonArgs.split(" ")

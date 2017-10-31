@@ -9,6 +9,7 @@ from os.path import abspath, dirname, join
 import re
 import shutil
 import subprocess
+import sys
 from unittest import skip, TestCase
 from zipfile import ZipFile
 
@@ -118,9 +119,13 @@ class AbiFilters(GradleTestCase):
 
 
 class PythonSrc(GradleTestCase):
-    # Missing python src directory is already tested by Basic.
+    # Missing src/main/python directory is already tested by Basic.
 
     def test_change(self):
+        # Git can't track a directory hierarchy containing no files.
+        empty_src = join(integration_dir, "data/PythonSrc/empty/app/src/main/python")
+        if not os.path.isdir(empty_src):
+            os.makedirs(empty_src)
         run = self.RunGradle("base", "PythonSrc/empty")
 
         run.apply_layers("PythonSrc/1")                                 # Add
@@ -165,18 +170,18 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
 
     def test_wheel_index(self):
-        # All the test platform wheels have version 0.2, while the Android wheels have version
-        # 0.1. This tests that pip always uses the target platform and ignores the workstation
-        # platform.
+        # All the workstation platform wheels have version 0.2, while the Android wheels have
+        # version 0.1. This tests that pip always uses the target platform and ignores the
+        # workstation platform.
         #
         # If testing on another platform, add it to the list below, and add a corresponding
         # wheel to packages/dist.
-        self.assertIn(distutils.util.get_platform(), ["mingw"])
+        self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "mingw"])
 
-        run = self.RunGradle("base", "PythonReqs/wheel_index_1",   # Has Android wheel
+        run = self.RunGradle("base", "PythonReqs/wheel_index_1",   # Has Android and workstation wheels
                              requirements=["native1_android_todo"])
 
-        run.apply_layers("PythonReqs/wheel_index_2")               # No Android wheel
+        run.apply_layers("PythonReqs/wheel_index_2")               # Only has workstation wheel
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
@@ -287,7 +292,7 @@ class RunGradle(object):
 
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
-        with open(join(repo_root, "demo", LP_FILENAME)) as in_file, \
+        with open(join(repo_root, "product", LP_FILENAME)) as in_file, \
              open(join(self.project_dir, LP_FILENAME), "w") as out_file:
             for line in in_file:
                 if "chaquopy.license" not in line:
@@ -332,10 +337,10 @@ class RunGradle(object):
 
     def run_gradle(self, variants):
         os.chdir(self.project_dir)
-        # TODO #5184 Windows-specific
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1" error.
-        process = subprocess.Popen(["gradlew.bat", "--stacktrace", "--info", "--console", "plain"] +
+        gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
+        process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
                                    [task_name(":app:assemble", v) for v in variants],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
@@ -347,15 +352,16 @@ class RunGradle(object):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         # Python source
-        app_zip = ZipFile(join(asset_dir, "app.zip"))
-        app_check_base_name = join(self.run_dir, "app-check")
+        app_zip_actual = ZipFile(join(asset_dir, "app.zip"))
         # If app/src/main/python didn't already exist, the plugin should have created it.
-        shutil.make_archive(app_check_base_name, "zip",
-                            join(self.project_dir, "app/src/main/python"))
-        app_check_zip = ZipFile(app_check_base_name + ".zip")
-        self.test.assertEqual(set(app_zip.namelist()), set(app_check_zip.namelist()))
-        for name in app_zip.namelist():
-            self.test.assertEqual(app_zip.getinfo(name).CRC, app_check_zip.getinfo(name).CRC, name)
+        app_zip_expected = ZipFile(shutil.make_archive(
+            join(self.run_dir, "app-expected"), "zip",
+            join(self.project_dir, "app/src/main/python")))
+        self.test.assertEqual(set(filelist(app_zip_expected)), set(filelist(app_zip_actual)))
+        for name in filelist(app_zip_expected):
+            self.test.assertEqual(app_zip_expected.getinfo(name).CRC,
+                                  app_zip_actual.getinfo(name).CRC,
+                                  name)
 
         # Python requirements
         reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
@@ -429,7 +435,13 @@ def task_name(prefix, variant, suffix=""):
             cap_first(suffix))
 
 
-# shutil.rmtree is unreliable on Windows: it frequently fails with Windows error 145 (directory
+# shutil.make_archive doesn't create entries for directories in old versions of Python
+# (https://bugs.python.org/issue24982).
+def filelist(zip_file):
+    return [name for name in zip_file.namelist() if not name.endswith("/")]
+
+
+# shutil.rmtree is unreliable on MSYS2: it frequently fails with Windows error 145 (directory
 # not empty), even though it has already removed everything from that directory.
 def rmtree(path):
     subprocess.check_call(["rm", "-rf", path])
