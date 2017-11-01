@@ -403,3 +403,19 @@ exception via the base class:
             at java.lang.NumberFormatException.forInputString(NumberFormatException.java:65)
             at java.lang.Integer.parseInt(Integer.java:580)
             at java.lang.Integer.parseInt(Integer.java:615)
+
+
+.. _python-multi-threading:
+
+Multi-threading
+===============
+
+The global interpreter lock (GIL) is automatically released whenever Python code calls a Java
+method or constructor, allowing Python code to run on other threads while the Java code
+executes.
+
+If your program contains threads created by any means *other* than the Java `Thread
+<https://docs.oracle.com/javase/8/docs/api/java/lang/Thread.html>`_ API or the Python
+:any:`threading` module, you should be aware of the following function:
+
+.. autofunction:: java.detach()

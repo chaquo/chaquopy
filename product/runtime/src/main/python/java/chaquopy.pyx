@@ -7,6 +7,7 @@ cdef extern from "chaquopy_extra.h":
 
 # Imports used in this file
 from collections import defaultdict
+import threading
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
@@ -29,6 +30,23 @@ __all__ = [
 
 # Multi-threading is always enabled in Java.
 PyEval_InitThreads()
+
+# Overriding Thread.run via __getattribute__ is the only option I can think of which allows us
+# to also affect Thread subclasses which don't call up to the base class implementation.
+Thread_getattribute_original = threading.Thread.__getattribute__
+
+def Thread_getattribute(self, name):
+    if name == "run":
+        run_original = Thread_getattribute_original(self, name)
+        def run():
+            run_original()
+            java.detach()
+        return run
+    else:
+        return Thread_getattribute_original(self, name)
+
+threading.Thread.__getattribute__ = Thread_getattribute
+
 
 # TODO #5148
 DEF JNIUS_PYTHON3 = False

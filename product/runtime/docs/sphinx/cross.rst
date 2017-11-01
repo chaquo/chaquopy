@@ -5,13 +5,12 @@ Cross-language issues
 Multi-threading
 ===============
 
-Chaquopy is thread-safe. However, because it's based on the CPython (the Python reference
+Chaquopy is thread-safe. However, because it's based on CPython (the Python reference
 implementation), it is limited by CPython's global interpreter lock (GIL). This means that
 although Python code may be run on any number of threads, only one of those threads will be
 executing at any given moment.
 
-The GIL is automatically released whenever Python code calls a Java method or constructor,
-allowing Python code to run on other threads while the Java code executes.
+See also the :ref:`multi-threading section <python-multi-threading>` of the Python API.
 
 
 Memory management

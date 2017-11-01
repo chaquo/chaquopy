@@ -23,14 +23,16 @@ cdef JNIEnv *get_jnienv() except NULL:
 
     # See comment in jni.pxd.
     cdef Attach_JNIEnv *env = NULL
-    jvm[0].AttachCurrentThread(jvm, &env, NULL)
+    ret = jvm[0].AttachCurrentThread(jvm, &env, NULL)
+    if ret != JNI_OK:
+        raise Exception("AttachCurrentThread failed: {}".format(ret))
     return env
 
 
 cdef set_jvm(JavaVM *new_jvm):
-    if "jvm" in globals():
-        raise Exception("set_jvm cannot be called more than once")
     global jvm
+    if jvm != NULL:
+        raise Exception("set_jvm cannot be called more than once")
     jvm = new_jvm
     config.vm_running = True
     setup_bootstrap_classes()
@@ -99,11 +101,12 @@ def jvm_lib_path():
         return f"{jre_home}lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
 
 
-# TODO #5167: this is not in the public API because non-Java-created threads haven't been
-# tested and probably won't work properly.
 def detach():
-    """Detaches the current thread from the Java VM. This must only be called on a non-Java-created
-    thread, and it must be called on every such thread which uses this module, before the
-    thread exits.
+    """Detaches the current thread from the Java VM. This is done automatically for threads
+    created via the :any:`threading` module. Any other non-Java-created thread which uses the
+    `java` module must call `detach` before the thread exits. Failure to do so will cause a
+    crash on some Java implementations, including Android's Dalvik and ART.
     """
     jvm[0].DetachCurrentThread(jvm)
+    # Ignore return value, because we call this automatically for all threads, including those
+    # which were never attached.

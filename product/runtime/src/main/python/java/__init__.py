@@ -21,7 +21,8 @@ from .signatures import *  # noqa
 # This is the public API.
 __all__ = [
     # .chaquopy
-    "cast", "jclass", "dynamic_proxy", "static_proxy", "constructor", "method", "Override",
+    "detach", "cast", "jclass",
+    "dynamic_proxy", "static_proxy", "constructor", "method", "Override",
     "jarray", "set_import_enabled",
 
     # .signatures
