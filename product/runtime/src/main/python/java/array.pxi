@@ -142,9 +142,9 @@ class JavaArray(object):
     def _chaquopy_set(self, index, value):
         env = CQPEnv()
         cdef JNIRef this = self._chaquopy_this
-        # TODO #5209 use actual rather than declared signature: old Android versions don't
-        # type-check correctly.
-        element_sig = type(self).__name__[1:]
+        # We need to type-check against the actual array type, because old versions of Android
+        # won't do it for us (#5209).
+        element_sig = object_sig(env, this)[1:]
         value_p2j = p2j(env.j_env, element_sig, value)
         r = element_sig[0]
         if r == "Z":

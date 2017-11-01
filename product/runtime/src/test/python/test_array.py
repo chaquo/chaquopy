@@ -97,17 +97,18 @@ class TestArray(unittest.TestCase):
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_modify(self):
-        array_Z = jarray(jboolean)([True, False])
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
-            array_Z[0] = 1
-
         Object = jclass("java.lang.Object")
+        array_Z = jarray(jboolean)([True, False])
+        with self.assertRaisesRegexp(TypeError, "Cannot convert int object to boolean"):
+            array_Z[0] = 1
+        with self.assertRaisesRegexp(TypeError, "Cannot convert Object object to boolean"):
+            array_Z[0] = Object()
+
         Boolean = jclass("java.lang.Boolean")
         array_Boolean = jarray(Boolean)([True, False])
-        with self.assertRaisesRegexp(TypeError, "Cannot convert"):
+        with self.assertRaisesRegexp(TypeError, "Cannot convert int object to java.lang.Boolean"):
             array_Boolean[0] = 1
-        # TODO #5209: fails on Android API level 15
-        with self.assertRaises(jclass("java.lang.ArrayStoreException")):
+        with self.assertRaisesRegexp(TypeError, "Cannot convert int object to java.lang.Boolean"):
             cast(jarray(Object), array_Boolean)[0] = 1
 
         array_Object = jarray(Object)([True, False])

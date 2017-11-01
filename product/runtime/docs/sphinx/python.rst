@@ -189,7 +189,8 @@ array. For example::
 Array objects support the following operations:
 
 * The basic Python sequence protocol:
-   * Reading and writing using `[]` syntax.
+   * Getting and setting using `[]` syntax. (Attempting to set an object of an incompatible
+     type will raise a `TypeError`.)
    * Searching using `in`.
    * Iteration using `for`.
    * Since Java arrays are fixed-length, they do not support `del` or any other way of adding or
