@@ -4,7 +4,6 @@ import keyword
 from threading import RLock
 from weakref import WeakValueDictionary
 
-
 global_class("java.lang.ClassNotFoundException")
 global_class("java.lang.NoClassDefFoundError")
 global_class("java.lang.reflect.InvocationTargetException")
@@ -15,8 +14,6 @@ jclass_cache = {}
 instance_cache = WeakValueDictionary()
 
 
-# TODO #5167 this may fail in non-Java-created threads on Android, because they'll use the
-# wrong ClassLoader.
 def jclass(clsname, **kwargs):
     """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
     using either Java notation (e.g. `java.lang.Object`) or JNI notation (e.g.
@@ -40,19 +37,7 @@ def jclass(clsname, **kwargs):
         global ClassNotFoundException, NoClassDefFoundError
         cls = jclass_cache.get(clsname)
         if not cls:
-            try:
-                cls = JavaClass.create(clsname, **kwargs)
-            except Exception as e:
-                # Putting this directly in an `except` clause would cause any other exception
-                # to be hidden by a NameError if ClassNotFoundException isn't defined yet.
-                if "ClassNotFoundException" in globals() and isinstance(e, ClassNotFoundException):
-                    # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
-                    # throws ClassNotFoundException. Hide this from our users.
-                    ncdfe = NoClassDefFoundError(e.getMessage())
-                    ncdfe.setStackTrace(e.getStackTrace())
-                    raise ncdfe
-                else:
-                    raise
+            cls = JavaClass.create(clsname, **kwargs)
         return cls
 
 

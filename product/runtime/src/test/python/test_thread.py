@@ -81,3 +81,13 @@ class TestThread(unittest.TestCase):
         thread = Thread(target=run)
         thread.start()
         thread.join()
+
+    # Test we don't run into ClassLoader issues looking up app classes from other threads.
+    def test_app_class(self):
+        result = []
+        def run():
+            result.append(jclass("com.chaquo.python.TestThreadAppClass"))
+        thread = Thread(target=run)
+        thread.start()
+        thread.join()
+        self.assertEqual("hello world", result[0].STR)

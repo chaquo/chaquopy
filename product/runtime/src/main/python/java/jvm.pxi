@@ -29,6 +29,10 @@ cdef JNIEnv *get_jnienv() except NULL:
     return env
 
 
+# See CQPEnv.FindClass
+cdef GlobalRef j_class_loader
+cdef jmethodID mid_forName = NULL
+
 cdef set_jvm(JavaVM *new_jvm):
     global jvm
     if jvm != NULL:
@@ -37,6 +41,13 @@ cdef set_jvm(JavaVM *new_jvm):
     config.vm_running = True
     setup_bootstrap_classes()
     set_import_enabled(True)
+
+    global j_class_loader, mid_forName
+    env = CQPEnv()
+    j_class_loader = jclass("com.chaquo.python.Python").getClass().getClassLoader()._chaquopy_this
+    mid_forName = env.GetStaticMethodID(
+        Class._chaquopy_j_klass, "forName",
+        "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;")
 
 
 cdef JavaVM *start_jvm() except NULL:

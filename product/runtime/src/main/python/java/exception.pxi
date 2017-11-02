@@ -16,8 +16,8 @@ def Throwable_str(self):
     else:
         return result
 
-# Must be included earlier in the module than any global_class declarations for Throwable
-# subclasses.
+# This .pxi must be included earlier in the .pyx than any global_class declarations for
+# Throwable subclasses.
 global_class("java.lang.Throwable", cls_dict={"_chaquopy_post_bases": (Exception,),
                                               "__str__": Throwable_str})
 

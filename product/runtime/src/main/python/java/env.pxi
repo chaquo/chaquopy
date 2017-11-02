@@ -24,17 +24,53 @@ cdef class CQPEnv(object):
         return env
 
     # All common notations may be used, including '.' or '/' to separate package names, and
-    # optional "L" and ";" at start and end. Use a leading "[" for array types. Raises the same
-    # exceptions as Class.forName.
-    cpdef LocalRef FindClass(self, cls):
+    # optional "L" and ";" at start and end. Use a leading "[" for array types.
+    #
+    # When not running within the context of a Java `native` method (e.g. in a Python-created
+    # thread), JNI FindClass uses the "system" ClassLoader, which can only see standard library
+    # classes on Android. So once bootstrap is complete, we cache the correct ClassLoader and
+    # use it directly from then on.
+    #
+    # ClassLoader.loadClass is recommended at
+    # https://developer.android.com/training/articles/perf-jni.html#faq_FindClass, but it's not
+    # a drop-in replacement for FindClass because it doesn't work with array classes
+    # (http://bugs.java.com/view_bug.do?bug_id=6500212). So we use Class.forName instead.
+    cdef JNIRef FindClass(self, cls):
         name = cls if isinstance(cls, six.string_types) else java.jni_sig(cls)
-        name = name.replace(".", "/")
         if name.startswith("L") and name.endswith(";"):
             name = name[1:-1]
-        result = self.adopt(self.j_env[0].FindClass(self.j_env, str_for_c(name)))
-        if not result:
-            self.expect_exception(f"FindClass failed for {name}")
-        return result
+
+        try:
+            if not mid_forName:    # Bootstrap not complete (see set_jvm)
+                name = name.replace(".", "/")
+                result = self.adopt(self.j_env[0].FindClass(self.j_env, str_for_c(name)))
+                if result:
+                    return result
+                else:
+                    # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6
+                    # throws ClassNotFoundException.
+                    self.expect_exception(f"FindClass failed for {name}")
+            else:
+                name = name.replace("/", ".")
+                j_name = p2j_string(self.j_env, name)
+                # On Dalvik (but not ART), when CallStaticObjectMethod throws an exception, it
+                # doesn't return NULL. I don't know what value it's returning, but passing it
+                # to DeleteLocalRef causes a crash, so we must not adopt it until after we've
+                # checked for exceptions.
+                j_result = self.j_env[0].CallStaticObjectMethod(
+                    self.j_env, (<JNIRef?>Class._chaquopy_j_klass).obj, mid_forName,
+                    j_name.obj, JNI_FALSE, j_class_loader.obj)
+                self.check_exception()  # throws ClassNotFoundException
+                return self.adopt(j_result)
+        except Exception as e:
+            # Putting this directly in an `except` clause would cause any other exception
+            # to be hidden by a NameError if ClassNotFoundException isn't defined yet.
+            if "ClassNotFoundException" in globals() and isinstance(e, ClassNotFoundException):
+                ncdfe = NoClassDefFoundError(e.getMessage())
+                ncdfe.setStackTrace(e.getStackTrace())
+                raise ncdfe
+            else:
+                raise
 
     cdef IsAssignableFrom(self, JNIRef j_klass1, JNIRef j_klass2):
         return bool(self.j_env[0].IsAssignableFrom(self.j_env, j_klass1.obj, j_klass2.obj))

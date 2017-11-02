@@ -47,10 +47,10 @@ setattr(threading.Thread, b_i, Thread_bootstrap_inner)
 
 
 from .jni cimport *
-include "env.pxi"
-include "jvm.pxi"
 include "utils.pxi"
 include "exception.pxi"
+include "env.pxi"
+include "jvm.pxi"
 include "conversion.pxi"
 include "class.pxi"
 include "proxy.pxi"

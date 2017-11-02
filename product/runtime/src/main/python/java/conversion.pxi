@@ -168,12 +168,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         elif isinstance(obj, (six.string_types, java.jchar)):
             if isinstance(obj, six.string_types):
                 if env.IsAssignableFrom(env.FindClass("java.lang.String"), j_klass):
-                    u = obj.decode('ASCII') if isinstance(obj, bytes) else obj
-                    utf16 = u.encode(JCHAR_ENCODING)
-                      # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python build.
-                    return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
-                                                                    <jchar*><char*>utf16,
-                                                                    len(utf16)//2))
+                    return p2j_string(j_env, obj)
             if autobox:
                 boxed = p2j_box(env, j_klass, "Character", obj)
                 if boxed: return boxed
@@ -279,8 +274,18 @@ def check_range_char(value):
         raise TypeError("Cannot convert non-BMP character to char")
 
 
-cdef JNIRef p2j_string(JNIEnv *env, s):
-    return p2j(env, "Ljava/lang/String;", s)
+cdef JNIRef p2j_string(JNIEnv *j_env, s):
+    if isinstance(s, unicode):
+        u = s
+    elif isinstance(s, bytes):
+        u = s.decode('ASCII')
+    else:
+        raise TypeError(f"{type(s).__name__} object is not a string")
+    utf16 = u.encode(JCHAR_ENCODING)
+      # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python build.
+    return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
+                                                    <jchar*><char*>utf16,
+                                                    len(utf16)//2))
 
 
 cdef box_sig(JNIEnv *j_env, JNIRef j_klass):
