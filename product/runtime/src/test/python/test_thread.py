@@ -42,18 +42,18 @@ class TestThread(unittest.TestCase):
 
     # The detach tests contain no assertions, but they will crash on Android if the detach
     # doesn't take place.
-    def test_detach(self):
+    def test_detach_manual(self):
         def run():
             String.valueOf(99)
             detach()
         _thread.start_new_thread(run, ())
 
-    def test_threading_target(self):
+    def test_detach_target(self):
         thread = Thread(target=lambda: String.valueOf(99))
         thread.start()
         thread.join()
 
-    def test_threading_run(self):
+    def test_detach_run(self):
         class MyThread(Thread):
             def run(self):
                 String.valueOf(99)
@@ -61,8 +61,23 @@ class TestThread(unittest.TestCase):
         thread.start()
         thread.join()
 
-    # Test automatic detaching with an unattached thread.
-    def test_threading_unattached(self):
+    def test_detach_unattached(self):
+        # This thread doesn't use any Java features, so should remain unattached.
         thread = Thread(target=lambda: None)
+        thread.start()
+        thread.join()
+
+    def test_detach_python_exception(self):
+        def run():
+            raise Exception("Expected Python exception")
+        thread = Thread(target=run)
+        thread.start()
+        thread.join()
+
+    def test_detach_java_exception(self):
+        def run():
+            from java.lang import Integer
+            Integer.parseInt("Expected Java exception")
+        thread = Thread(target=run)
         thread.start()
         thread.join()

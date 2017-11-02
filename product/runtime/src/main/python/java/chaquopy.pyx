@@ -31,25 +31,20 @@ __all__ = [
 # Multi-threading is always enabled in Java.
 PyEval_InitThreads()
 
-# Overriding Thread.run via __getattribute__ is the only option I can think of which allows us
-# to also affect Thread subclasses which don't call up to the base class implementation.
-Thread_getattribute_original = threading.Thread.__getattribute__
+# Monkey-patching this internal method isn't ideal, but we want to detach as late as possible
+# in order to avoid accidental reattachment, even if the thread is terminated by a Java
+# exception.
+def Thread_bootstrap_inner(self):
+    try:
+        Thread_bootstrap_inner_original(self)
+    finally:
+        java.detach()
 
-def Thread_getattribute(self, name):
-    if name == "run":
-        run_original = Thread_getattribute_original(self, name)
-        def run():
-            run_original()
-            java.detach()
-        return run
-    else:
-        return Thread_getattribute_original(self, name)
+b_i = ("_Thread__bootstrap_inner" if hasattr(threading.Thread, "_Thread__bootstrap_inner")
+       else "_bootstrap_inner")
+Thread_bootstrap_inner_original = getattr(threading.Thread, b_i)
+setattr(threading.Thread, b_i, Thread_bootstrap_inner)
 
-threading.Thread.__getattribute__ = Thread_getattribute
-
-
-# TODO #5148
-DEF JNIUS_PYTHON3 = False
 
 from .jni cimport *
 include "env.pxi"
