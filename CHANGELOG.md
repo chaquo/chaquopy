@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to Chaquopy itself, see
 https://chaquo.com/chaquopy/doc/current/changelog.html.
 
+## 0.5.0 (2017-11-04)
+
+* Target Android Studio 3.0 (https://github.com/chaquo/chaquopy/issues/3).
+* Make GIL tests more reliable (https://github.com/chaquo/chaquopy/issues/7).
+
 ## 0.4.5 (2017-10-26)
 
 * Remove dependency on `six` (https://github.com/chaquo/chaquopy/issues/13).
