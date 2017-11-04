@@ -2,6 +2,8 @@ Cross-language issues
 #####################
 
 
+.. _cross-multi-threading:
+
 Multi-threading
 ===============
 
@@ -10,7 +12,7 @@ implementation), it is limited by CPython's global interpreter lock (GIL). This 
 although Python code may be run on any number of threads, only one of those threads will be
 executing at any given moment.
 
-See also the :ref:`multi-threading section <python-multi-threading>` of the Python API.
+.. seealso:: The :ref:`multi-threading features <python-multi-threading>` of the Python API.
 
 
 Memory management

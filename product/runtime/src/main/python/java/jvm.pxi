@@ -113,10 +113,10 @@ def jvm_lib_path():
 
 
 def detach():
-    """Detaches the current thread from the Java VM. This is done automatically for threads
+    """Detaches the current thread from the Java VM. This is done automatically on exit for threads
     created via the :any:`threading` module. Any other non-Java-created thread which uses the
     `java` module must call `detach` before the thread exits. Failure to do so will cause a
-    crash on some Java implementations, including Android's Dalvik and ART.
+    crash on some Java implementations, including most versions of Android.
     """
     jvm[0].DetachCurrentThread(jvm)
     # Ignore return value, because we call this automatically for all threads, including those

@@ -36,8 +36,9 @@ Copy gradle-plugin/build/libs/gradle.jar to local and remote Maven repository.
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
 files which require manual merging (e.g. build.gradle), examine them and update the public
-repository as necessary. (If the script reports *every* file, this is probably because of
-end-of-line issues: run it a second time and it should give the correct output.)
+repository as necessary. (If the script lists files which haven't changed since the given
+commit, this is probably because of end-of-line issues: run it a second time and it should give
+the correct output.)
 
 Update version number in public/demo/build.gradle, adjusting SDK version number if necessary.
 
@@ -62,6 +63,8 @@ If sphinx or javadoc have changed:
   documentation page.
 
 Post blog entry on website.
+
+Update GitHub if necessary.
 
 
 ## Source control

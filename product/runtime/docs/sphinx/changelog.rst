@@ -1,6 +1,13 @@
 Change log
 ##########
 
+0.5.0 (2017-11-04)
+==================
+* Support Android Gradle plugin versions 2.2 (https://github.com/chaquo/chaquopy/issues/9) and 3.0 (https://github.com/chaquo/chaquopy/issues/3).
+* Increase minimum API level to 15. This is the default for new apps in Android Studio 3.0, and covers 99% of active devices (https://developer.android.com/about/dashboards/index.html).
+* Fix array store type-checking on old Android versions.
+* Add `java.detach`, and fix several multi-threading issues.
+
 0.4.5 (2017-10-26)
 ==================
 

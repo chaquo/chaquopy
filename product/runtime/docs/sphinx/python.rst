@@ -420,3 +420,5 @@ If your program contains threads created by any means *other* than the Java `Thr
 :any:`threading` module, you should be aware of the following function:
 
 .. autofunction:: java.detach()
+
+.. seealso:: :ref:`Cross-language issues <cross-multi-threading>` relating to multi-threading.
