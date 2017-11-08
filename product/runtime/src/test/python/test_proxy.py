@@ -77,7 +77,6 @@ class TestProxy(TestCase):
         self.assertEqual(11, TP.a1.add(10))
         self.assertEqual(12, TP.a2.add(10))
 
-    # See notes in PyObjectTest.finalize_
     def test_gc(self):
         from java.lang import System
         from pyobjecttest import DelTrigger as DT
@@ -93,7 +92,7 @@ class TestProxy(TestCase):
             def add(self, x):
                 return self.before_init_n + x
 
-        DT.triggered = False
+        DT.reset()
         a = A(5)
         DT.assertTriggered(self, False)
         TP.a1 = a

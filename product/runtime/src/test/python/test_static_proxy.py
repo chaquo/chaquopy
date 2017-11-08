@@ -41,7 +41,7 @@ class TestStaticProxy(TestCase):
     def test_gc(self):
         from pyobjecttest import DelTrigger as DT
 
-        DT.triggered = False
+        DT.reset()
         gc = basic.GC()
         DT.assertTriggered(self, False)
         TSP.o1 = gc
@@ -50,7 +50,7 @@ class TestStaticProxy(TestCase):
         TSP.o1 = None
         DT.assertTriggered(self, True)
 
-        DT.triggered = False
+        DT.reset()
         TSP.o1 = basic.GC()
         DT.assertTriggered(self, False)
         gc = TSP.o1

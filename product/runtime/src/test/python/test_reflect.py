@@ -63,17 +63,14 @@ class TestReflect(unittest.TestCase):
         self.t.setStringArray(a2)
         self.assertIs(a2, self.t.getStringArray())
 
-    # See notes in PyObjectTest.finalize_
     def test_gc(self):
         System = jclass('java.lang.System')
         DelTrigger = jclass("com.chaquo.python.TestReflect$DelTrigger")
-        DelTrigger.delTriggered = False
+        DelTrigger.reset()
         dt = DelTrigger()
-        self.assertFalse(DelTrigger.delTriggered)
+        DelTrigger.assertTriggered(False)
         del dt
-        System.gc()
-        System.runFinalization()
-        self.assertTrue(DelTrigger.delTriggered)
+        DelTrigger.assertTriggered(True)
 
     def test_str_repr(self):
         Object = jclass('java.lang.Object')
