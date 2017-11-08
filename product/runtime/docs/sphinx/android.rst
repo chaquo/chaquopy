@@ -83,7 +83,7 @@ make this easy. To use it, simply add the following attribute to the `<applicati
 
 .. code-block:: xml
 
-    android:name="com.chaquo.python.PyApplication"
+    android:name="com.chaquo.python.android.PyApplication"
 
 Alternatively, if the app only sometimes uses Python, then call Python.start() after first
 checking whether it's already been started:
