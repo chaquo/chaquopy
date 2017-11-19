@@ -6,4 +6,6 @@ canonical capitalization on PyPI.
 In the package subdirectory, create a test.py file to run on a target installation. This should
 contain a unittest.TestCase subclass which imports the package and does some basic sanity checks.
 
-Run build-wheel.py once for each desired combination of version and ABI.
+Run build-wheel.py once for each desired combination of package version, Python version and ABI.
+
+Copy the resulting wheels from packages/*/dist to the package repository.

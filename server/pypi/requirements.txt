@@ -1,1 +1,2 @@
 attrs==17.2.0
+wheel==0.30.0   # We use undocumented internal APIs
