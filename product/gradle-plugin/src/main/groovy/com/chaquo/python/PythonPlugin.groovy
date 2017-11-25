@@ -175,9 +175,10 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Task createBuildPackagesTask() {
-        // It's easier to run directly from the ZIP and extract the cacert file, than it is to
-        // extract the entire zip and then deal with auto-generated pyc files complicating the
-        // up-to-date checks.
+        // pip by default finds the cacert file using a path relative to __file__, which won't work
+        // when __file__ is something like path/to/a.zip/path/to/module.py. It's easier to run
+        // directly from the ZIP and extract the cacert file, than it is to extract the entire ZIP
+        // and then deal with auto-generated pyc files complicating the up-to-date checks.
         return project.task("extractPythonBuildPackages") {
             ext.buildPackagesZip = "$genDir/build-packages.zip"
             def cacertRelPath = "pip/_vendor/requests/cacert.pem"
@@ -207,7 +208,7 @@ class PythonPlugin implements Plugin<Project> {
                    execBuildPython(python, buildPackagesTask) {
                        args "-m", "pip", "install"
                        args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
-                       args "--cert", buildPackagesTask.cacertPem
+                       args "--cert", buildPackagesTask.cacertPem  // See createBuildPackagesTask
                        args "--only-binary", ":all:"
                        args "--python-version", Common.pyVersionNoDot(python.version)
                        args "--platform", "android_todo"  // TODO #5215: this should be "android_x86" etc, and
@@ -310,8 +311,12 @@ class PythonPlugin implements Plugin<Project> {
                 project.mkdir(srcDir)
                 project.ant.zip(basedir: srcDir, excludes: "**/*.pyc",
                                 destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
-                project.ant.zip(basedir: reqsTask.destinationDir, excludes: "**/*.pyc",
-                                destfile: "$assetDir/$Common.ASSET_REQUIREMENTS", whenempty: "create")
+
+                project.copy {
+                    from reqsTask.destinationDir
+                    exclude "**/*.pyc"
+                    into project.mkdir("$assetDir/$Common.ASSET_REQUIREMENTS")
+                }
 
                 def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {    // Stdlib native modules

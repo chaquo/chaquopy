@@ -4,6 +4,7 @@ import android.content.*;
 import android.content.res.*;
 import android.os.*;
 
+import android.util.*;
 import com.chaquo.python.*;
 import java.io.*;
 
@@ -47,7 +48,10 @@ public class AndroidPlatform implements Python.Platform {
     }
 
     private void extractAssets() {
-        // TODO #5158 avoid extraction
+        // TODO #5258 avoid extracting assets
+        Log.d("AndroidPlatform", "BEGIN extractAssets");
+
+        // FIXME delete existing requirements.zip
         try {
             AssetManager assets = mContext.getAssets();
             for (String path : PYTHON_PATH) {
@@ -62,8 +66,11 @@ public class AndroidPlatform implements Python.Platform {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        Log.d("AndroidPlatform", "END extractAssets");
     }
 
+    /** @param path A path which will be read relative to the assets and written relative to
+     *      getFilesDir(). If this is a directory, it will be copied recursively. */
     private void extractAssets(AssetManager assets, String path) throws IOException {
         // The documentation doesn't say what list() does if the path isn't a directory, so be
         // cautious.
@@ -74,12 +81,14 @@ public class AndroidPlatform implements Python.Platform {
             isDir = false;
         }
 
+        File outFile = new File(mContext.getFilesDir(), path);
         if (isDir) {
+            deleteRecursive(outFile);
             for (String filename : assets.list(path)) {
                 extractAssets(assets, path + "/" + filename);
             }
         } else {
-            File outDir = new File(mContext.getFilesDir(), new File(path).getParent());
+            File outDir = outFile.getParentFile();
             if (! outDir.exists()) {
                 outDir.mkdirs();
                 if (! outDir.isDirectory()) {
@@ -87,10 +96,8 @@ public class AndroidPlatform implements Python.Platform {
                 }
             }
 
-            // TODO #5159 only extract if the asset has changed
             InputStream inStream = assets.open(path);
-            File outFile = new File(mContext.getFilesDir(), path);
-            File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
+            File tmpFile = new File(outDir, outFile.getName() + ".tmp");
             tmpFile.delete();
             OutputStream outStream = new FileOutputStream(tmpFile);
             try {
@@ -103,6 +110,16 @@ public class AndroidPlatform implements Python.Platform {
                 throw new IOException("Failed to create " + outFile);
             }
         }
+    }
+
+    private void deleteRecursive(File file) {
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                deleteRecursive(child);
+            }
+        }
+        file.delete();
     }
 
     private void transferStream(InputStream in, OutputStream out) throws IOException {
