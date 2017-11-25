@@ -6,23 +6,21 @@
 
 # Always built as pure Python, but pure Python wheels aren't on PyPI:
 #     pycparser
-
+#
 # Optionally built as pure Python, but pure Python wheels aren't on PyPI:
-#     pyyaml (requires external library)
+#     pyyaml (can use external library, and still reports itself as non-pure even when not using it)
 #     MarkupSafe (self-contained)
-
+#
 # Requires external library:
-#     cffi: libffi
-#     cryptography: openssl
-#     pyzmq: libzmq
-#     scrypt: openssl
-
+#     libffi: cffi
+#     libzmq: pyzml
+#     openssl: cryptography, pycrypto, scrypt
+#
 # Self-contained:
 #     numpy
 #     regex
 #     twisted
 #     ujson
-
 
 import argparse
 import csv
@@ -92,8 +90,8 @@ def parse_args():
     ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
     ap.add_argument("--ndk", metavar="DIR", help="Path to NDK (default: $ANDROID_HOME/ndk-bundle)")
     ap.add_argument("--python", metavar="DIR", required=True,
-                    help="Path to Python to build against. Must follow Crystax "
-                    "'sources/python' subdirectory layout, containing 'include' and 'libs'.")
+                    help="Path to target Python files. Must follow Crystax 'sources/python' "
+                    "subdirectory layout, containing 'include' and 'libs'.")
     ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                     help="Choices: %(choices)s")
     ap.add_argument("--api-level", metavar="N", default="15", help="Default: %(default)s")
@@ -116,6 +114,10 @@ def parse_args():
         if match:
             args.python_lib_version = match.group(1)
             args.python_version = re.sub(r"[a-z]*$", "", args.python_lib_version)
+
+            # We require the build and target Python versions to be the same, because many native
+            # build scripts check sys.version, especially to distinguish between Python 2 and 3.
+            args.pip = "pip" + args.python_version
             break
     else:
         raise CommandError(f"Can't find libpython*.so in {args.python_lib_dir}")
@@ -134,7 +136,7 @@ def unpack_sdist(args):
     if sdist_filename:
         log(f"Found existing sdist")
     else:
-        run(f"pip download --no-binary :all: {args.package}=={args.version}")
+        run(f"{args.pip} download --no-binary :all: {args.package}=={args.version}")
         sdist_filename = find_sdist(sdist_dir)
         if not sdist_filename:
             raise CommandError("Can't find downloaded sdist: maybe it has an unknown filename extension")
@@ -167,12 +169,9 @@ def build_wheel(args):
             "\n".join(f"export {name}='{env[name]}'" for name in sorted(env.keys())))
     os.environ.update(env)
 
-    # We require the build and target Python versions to be the same, because many native build
-    # scripts check sys.version, especially to distinguish between Python 2 and 3.
-    #
     # We can't run "setup.py bdist_wheel" directly, because that would only work with
     # setuptools-aware setup.py files.
-    run(f"pip{args.python_version} wheel{' -v' if args.verbose else ''} --no-deps "
+    run(f"{args.pip} wheel{' -v' if args.verbose else ''} --no-deps "
         f"--build-option --keep-temp "          # Makes diagnosing errors easier
         f"--build-option --universal "
         f"-e .")

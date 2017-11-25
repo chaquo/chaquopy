@@ -1,2 +1,12 @@
+# build-wheel.py requires Python 3.6, but it may also run other versions of Python to match the
+# target Python version.
+
+# The following requirements must all be present for build-wheel.py itself:
+
 attrs==17.2.0
+
+# Additionally, the following requirements must be present for the target Python version:
+
+pip==9.0.1
+setuptools==37.0.0
 wheel==0.30.0   # We use undocumented internal APIs
