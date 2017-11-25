@@ -31,7 +31,7 @@ index f768c90..4e5d168 100644
  #endif
  
 +/* Android only */
-+#ifdef ANDROID
++#ifdef __ANDROID__
 +#undef HAVE_LDEXPL
 +#undef HAVE_FREXPL
 +#endif
