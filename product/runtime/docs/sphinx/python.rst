@@ -150,13 +150,13 @@ accessible via :any:`getattr`.
 
 Aside from attribute access, Java objects also support the following operations:
 
-* `is` is equivalent to Java `==` (i.e. it tests object identity).
+* :any:`str` calls `toString
+  <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#toString()>`_.
 * `==` and `!=` call `equals
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
 * :any:`hash` calls `hashCode
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
-* :any:`str` calls `toString
-  <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#toString()>`_.
+* `is` is equivalent to Java `==` (i.e. it tests object identity).
 * The equivalent of the Java syntax `ClassName.class` is `ClassName.getClass()`; i.e. the
   `getClass()` method can be called on a class as well as an instance.
 
@@ -171,14 +171,21 @@ Any Python iterable (except a string) can normally passed directly to a Java met
 which takes an array type. But where a method has multiple equally-specific overloads, the
 value must be converted to a Java array object to disambiguate the call.
 
-For example, if a class defines the methods `f(long[] x)` and `f(int[] x)`, calling
+For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
 `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
 `f(jarray(jint)([1,2,3]))`.
 
 .. autofunction:: java.jarray
 
-A `jarray` class can be instantiated with any Python iterable to create an equivalent Java
-array. For example::
+A `jarray` class can be instantiated to create a new Java array. The constructor takes
+a single parameter, which must be either:
+
+* An integer, to create an array filled with zero, `false` or `null`::
+
+    # Python code                           # Java equivalent
+    jarray(jint)(5)                         # new int[5]
+
+* A Python iterable containing objects of compatible types::
 
     # Python code                           # Java equivalent
     jarray(jint)([1, 2, 3])                 # new int[]{1, 2, 3}
@@ -188,21 +195,21 @@ array. For example::
 
 Array objects support the following operations:
 
-* The basic Python sequence protocol:
-   * Getting and setting using `[]` syntax. (Attempting to set an object of an incompatible
-     type will raise a `TypeError`.)
+* The standard Python sequence protocol:
+   * Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
+     supported.)
    * Searching using `in`.
    * Iteration using `for`.
-   * Since Java arrays are fixed-length, they do not support `del` or any other way of adding or
-     removing elements.
+   * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
+     of adding or removing elements.
+* All arrays are instances of `java.lang.Object`, so they inherit the `Object` implementations
+  of `toString`, `equals` and `hashCode`. However, these default implementations are not very
+  useful, so the equivalent Python operations are defined as follows:
+   * `str` returns a representation of the array contents.
+   * `==` and `!=` can compare the contents of the array with any Python iterable (including
+     another Java array).
+   * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
-* `==` and `!=` can compare the contents of the array with any Python iterable (including
-  another Java array).
-* Like Python lists, Java array objects are not hashable in Python because they're mutable.
-* `str` returns a representation of the array contents.
-* All arrays are instances of `java.lang.Object`, so the methods `toString`, `equals` and
-  `hashCode` may also be called, though their implementations for arrays are unlikely to be
-  useful.
 
 Casting
 -------

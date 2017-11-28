@@ -23,10 +23,13 @@ def jarray(element_type):
 
 
 class JavaArray(object):
-    def __init__(self, value):
+    def __init__(self, length_or_value):
+        if isinstance(length_or_value, six.integer_types):
+            length, value = length_or_value, None
+        else:
+            length, value = len(length_or_value), length_or_value
+
         env = CQPEnv()
-        cdef JNIRef this
-        length = len(value)
         element_sig = type(self).__name__[1:]
         r = element_sig[0]
         if r == "Z":
@@ -50,8 +53,10 @@ class JavaArray(object):
         else:
             raise ValueError(f"Invalid signature '{element_sig}'")
         set_this(self, this.global_ref())
-        for i, v in enumerate(value):
-            self[i] = v
+
+        if value is not None:
+            for i, v in enumerate(value):
+                self[i] = v
 
     def __repr__(self):
         return f"jarray('{type(self).__name__[1:]}')({format_array(self)})"
@@ -59,6 +64,21 @@ class JavaArray(object):
     # Override JavaObject.__str__, which calls toString()
     def __str__(self):
         return repr(self)
+
+    def __bytes__(self, offset=None, length=None):
+        signature = type(self).__name__
+        if signature != "[B":
+            raise TypeError(f"Cannot call __bytes__ on {java.sig_to_java(signature)}, only on byte[]")
+        if offset is None:
+            offset = 0
+        if length is None:
+            length = len(self) - offset
+
+        env = CQPEnv()
+        elems = env.GetByteArrayElements(self._chaquopy_this)
+        result = elems[offset : offset+length]
+        env.ReleaseByteArrayElements(self._chaquopy_this, elems, 0)
+        return result
 
     def __len__(self):
         return CQPEnv().GetArrayLength(self._chaquopy_this)
