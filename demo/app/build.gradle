@@ -56,6 +56,7 @@ android {
             // buildPython "C:/Python36/python.exe"
             version "2.7.10"
             pipInstall "Pygments==2.2.0"
+            pipInstall "MarkupSafe-1.0-cp27-cp27-android_todo.whl"  // FIXME MarkupSafe==1.0
             staticProxy "com.chaquo.python.demo.ui_demo"
             staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }

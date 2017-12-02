@@ -1,3 +1,4 @@
+from test_android import *
 from test_array import *
 from test_conversion import *
 from test_exception import *

@@ -7,24 +7,25 @@ package com.chaquo.python;
 public class Python {
 
     /** Provides information needed to start Python. */
-    public interface Platform {
-        /** Returns the value to assign to `PYTHONPATH`. */
-        String getPath();
+    public static class Platform {
+        /** Returns the value to assign to `PYTHONPATH`, or `null` to leave it unset. The default
+         * implementation returns `null`. */
+        public String getPath() { return null; }
+
+        /** Called after Python is started. The default implementation does nothing. */
+        public void onStart(Python py) {}
     }
 
     private static boolean started;
     private static boolean failed;
-    private static Python instance;
+    private static Python instance = new Python();
 
     /** Gets the interface to Python. This method always returns the same object. If
      * {@link #start start()} has not yet been called, it will be called with a new
      * {@link GenericPlatform}. */
     public static synchronized Python getInstance() {
-        if (instance == null) {
-            if (!started) {
-                start(new GenericPlatform());
-            }
-            instance = new Python();
+        if (!started) {
+            start(new GenericPlatform());
         }
         return instance;
     }
@@ -41,11 +42,12 @@ public class Python {
             throw new IllegalStateException("Python already started");
         }
         if (failed) {
-            // startNative will crash if called more than once.
+            // startNative will cause a native crash if called more than once.
             throw new IllegalStateException("Python startup previously failed, and cannot be retried");
         }
         try {
             startNative(platform, platform.getPath());
+            platform.onStart(instance);
             started = true;
         } catch (Throwable e) {
             failed = true;

@@ -4,20 +4,24 @@ import android.content.*;
 import android.content.res.*;
 import android.os.*;
 
+import android.util.*;
 import com.chaquo.python.*;
 import java.io.*;
 
 
 /** Platform for Chaquopy on Android. */
 @SuppressWarnings("deprecation")
-public class AndroidPlatform implements Python.Platform {
-    // Earlier elements take priority over later ones.
-    private static final String[] PYTHON_PATH = {
-        Common.ASSET_CHAQUOPY,  // Prevent rsa module from being overridden
-        Common.ASSET_APP,
-        Common.ASSET_REQUIREMENTS,
+public class AndroidPlatform extends Python.Platform {
+    
+    private static final String[] BOOTSTRAP_PATH = {
+        Common.ASSET_CHAQUOPY,
         Common.ASSET_STDLIB,
         "lib-dynload/" + Build.CPU_ABI,
+    };
+
+    private static final String[] APP_PATH = {
+        Common.ASSET_APP,
+        Common.ASSET_REQUIREMENTS,
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
@@ -37,20 +41,29 @@ public class AndroidPlatform implements Python.Platform {
     @Override
     public String getPath() {
         String path = "";
-        for (int i = 0; i < PYTHON_PATH.length; i++) {
-            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + PYTHON_PATH[i];
-            if (i < PYTHON_PATH.length - 1) {
+        for (int i = 0; i < BOOTSTRAP_PATH.length; i++) {
+            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + BOOTSTRAP_PATH[i];
+            if (i < BOOTSTRAP_PATH.length - 1) {
                 path += ":";
             }
         }
         return path;
     }
 
+    @Override
+    public void onStart(Python py) {
+        py.getModule("java.android.importer").callAttr("initialize", mContext);
+        PyObject path = py.getModule("sys").get("path");
+        for (int i = 0; i < APP_PATH.length; i++) {
+            path.callAttr("insert", i, "/android_asset/" + Common.ASSET_DIR + "/" + APP_PATH[i]);
+        }
+    }
+
     private void extractAssets() {
-        // TODO #5158 avoid extraction
+        // TODO #5258 avoid extraction
         try {
             AssetManager assets = mContext.getAssets();
-            for (String path : PYTHON_PATH) {
+            for (String path : BOOTSTRAP_PATH) {
                 extractAssets(assets, Common.ASSET_DIR + "/" + path);
             }
 
@@ -64,6 +77,9 @@ public class AndroidPlatform implements Python.Platform {
         }
     }
 
+    /** @param path A path which will be read relative to the assets and written relative to
+     *      getFilesDir(). If this is a directory, it will be copied recursively, and
+     *      any existing directory with that name will be deleted. */
     private void extractAssets(AssetManager assets, String path) throws IOException {
         // The documentation doesn't say what list() does if the path isn't a directory, so be
         // cautious.
@@ -74,12 +90,14 @@ public class AndroidPlatform implements Python.Platform {
             isDir = false;
         }
 
+        File outFile = new File(mContext.getFilesDir(), path);
         if (isDir) {
+            deleteRecursive(outFile);
             for (String filename : assets.list(path)) {
                 extractAssets(assets, path + "/" + filename);
             }
         } else {
-            File outDir = new File(mContext.getFilesDir(), new File(path).getParent());
+            File outDir = outFile.getParentFile();
             if (! outDir.exists()) {
                 outDir.mkdirs();
                 if (! outDir.isDirectory()) {
@@ -87,10 +105,8 @@ public class AndroidPlatform implements Python.Platform {
                 }
             }
 
-            // TODO #5159 only extract if the asset has changed
             InputStream inStream = assets.open(path);
-            File outFile = new File(mContext.getFilesDir(), path);
-            File tmpFile = new File(outFile.getParent(), outFile.getName() + ".tmp");
+            File tmpFile = new File(outDir, outFile.getName() + ".tmp");
             tmpFile.delete();
             OutputStream outStream = new FileOutputStream(tmpFile);
             try {
@@ -103,6 +119,16 @@ public class AndroidPlatform implements Python.Platform {
                 throw new IOException("Failed to create " + outFile);
             }
         }
+    }
+
+    private void deleteRecursive(File file) {
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                deleteRecursive(child);
+            }
+        }
+        file.delete();
     }
 
     private void transferStream(InputStream in, OutputStream out) throws IOException {

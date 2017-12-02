@@ -1,7 +1,7 @@
 package com.chaquo.python;
 
 /** Platform for a normal Python installation. */
-public class GenericPlatform implements Python.Platform {
+public class GenericPlatform extends Python.Platform {
     private String mPath = System.getenv("PYTHONPATH");
 
     public GenericPlatform() {

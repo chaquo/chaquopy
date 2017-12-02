@@ -324,6 +324,15 @@ cdef class CQPEnv(object):
     cdef LocalRef NewObjectArray(self, length, JNIRef j_klass):
         return self.adopt_notnull(self.j_env[0].NewObjectArray(self.j_env, length, j_klass.obj, NULL))
 
+    cdef jbyte *GetByteArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetByteArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetByteArrayElements failed")
+        return result
+
+    cdef void ReleaseByteArrayElements(self, JNIRef array, jbyte *elems, jint mode):
+        self.j_env[0].ReleaseByteArrayElements(self.j_env, array.obj, elems, mode)
+
     # The primitive type Get...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
     cdef GetBooleanArrayElement(self, JNIRef array, index):

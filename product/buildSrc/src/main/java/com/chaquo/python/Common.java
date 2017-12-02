@@ -35,10 +35,17 @@ public class Common {
          // TODO #5199 "arm64-v8a", "x86_64"
         );
 
+    // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";
-    public static final String ASSET_APP = "app.zip";
-    public static final String ASSET_CHAQUOPY = "chaquopy.zip";
-    public static final String ASSET_REQUIREMENTS = "requirements.zip";
-    public static final String ASSET_STDLIB = "stdlib.zip";
+
+    // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
+    // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
+    // We don't want to alter noCompress because that would apply globally to the app, which could
+    // be surprising. So instead we use one of the pre-defined extensions.
+    public static final String ASSET_APP = "app.mp3";
+    public static final String ASSET_CHAQUOPY = "chaquopy.mp3";
+    public static final String ASSET_REQUIREMENTS = "requirements.mp3";
+    public static final String ASSET_STDLIB = "stdlib.mp3";
+
     public static final String ASSET_TICKET = "ticket.txt";
 }

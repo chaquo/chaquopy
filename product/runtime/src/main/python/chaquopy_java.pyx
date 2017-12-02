@@ -25,8 +25,8 @@ import java
 from java.jni cimport *
 from java.chaquopy cimport *
 cdef extern from "chaquopy_java_extra.h":
-    void PyInit_chaquopy_java() except *                 # These may be preprocessor macros.
-    bint set_path(JNIEnv *env, const char *python_path)  #
+    void PyInit_chaquopy_java() except *                 # These may be preprocessor macros
+    bint set_path(JNIEnv *env, const char *python_path)  #   (see comments in header file).
 
 cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
     return JNI_VERSION_1_6
@@ -51,7 +51,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
             throw_simple_exception(env, "GetStringUTFChars failed in startNativeJava")
             return
         try:
-            if not set_path(env, python_path):
+            if not set_path(env, python_path):  # See chaquopy_java_extra.h
                 return
             if not set_env(env, "CHAQUOPY_PROCESS_TYPE", "java"):  # See chaquopy.pyx
                 return
@@ -91,7 +91,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
 # more than once.
 cdef bint init_module(JNIEnv *env) with gil:
     try:
-        PyInit_chaquopy_java()
+        PyInit_chaquopy_java()  # See chaquopy_java_extra.h
         return True
     except BaseException:
         throw_simple_exception(env, format_exception())

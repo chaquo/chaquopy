@@ -13,8 +13,9 @@ equivalent to `String = jclass("java.lang.String")`.
 * **Only the "from ... import ..." form is supported**, e.g. `import java.lang.String` will not
   work.
 * Wildcard import is not supported, e.g. `from java.lang import *` will not work.
-* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang` and
-  `from java import lang` will not work.
+* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang`
+  and `from java import lang` will not work. Similarly, Java packages are never added to
+  :any:`sys.modules`.
 * Nested and inner classes cannot be imported directly. Instead, import the outer class,
   and access the nested class as an attribute, e.g. `Outer.Nested`.
 
