@@ -24,6 +24,16 @@ public class AndroidPlatform extends Python.Platform {
         Common.ASSET_REQUIREMENTS,
     };
 
+    private static final String[] OBSOLETE_FILES = {
+        // Removed in 0.6.0
+        "app.zip",
+        "requirements.zip",
+
+        // Renamed in 0.6.0
+        "chaquopy.zip",
+        "stdlib.zip",
+    };
+
     /** @deprecated Internal use in chaquopy_java.pyx. */
     public Context mContext;
 
@@ -34,6 +44,9 @@ public class AndroidPlatform extends Python.Platform {
     // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
         mContext = context.getApplicationContext();
+        for (String filename : OBSOLETE_FILES) {
+            new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename).delete();
+        }
         extractAssets();
         loadNativeLibs();
     }

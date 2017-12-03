@@ -59,6 +59,7 @@ class TestImport(unittest.TestCase):
         with self.no_name_error("Nonexistent"):
             from java.lang import String, Nonexistent
 
+        # These test files are also used in test_android.
         with self.assertRaisesRegexp(SyntaxError, "invalid syntax"):
             from package1 import syntax_error
         with self.no_name_error("nonexistent"):

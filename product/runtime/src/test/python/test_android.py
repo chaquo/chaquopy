@@ -4,8 +4,13 @@ and should not be accessed by user code.
 
 from __future__ import absolute_import, division, print_function
 
+from contextlib import contextmanager
 from importlib import import_module
+import marshal
+import os
+from os.path import exists, join
 import sys
+from traceback import format_exc
 import unittest
 
 from java.android.importer import AssetLoader
@@ -14,7 +19,10 @@ if sys.version_info[0] >= 3:
     from importlib import reload
 
 
-REQS_PATH = "/android_asset/chaquopy/requirements.mp3"
+REQS_ZIP = "requirements.mp3"
+REQS_PATH = join("/android_asset/chaquopy", REQS_ZIP)
+CACHE_ROOT = join(globals()["__loader__"].finder.context.getCacheDir().toString(),
+                  "chaquopy/AssetFinder", REQS_ZIP)
 
 try:
     from android.os import Build
@@ -33,25 +41,100 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_py(self):
         # Despite its name, this is a pure Python module.
-        mod = self.check_module("markupsafe._native", REQS_PATH + "/markupsafe/_native.py",
-                                source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
+        mod_name = "markupsafe._native"
+        filename = "markupsafe/_native.py"
+        cache_filename = join(CACHE_ROOT, filename + "c")
+        if exists(cache_filename):
+            os.remove(cache_filename)
+        mod = self.check_module(mod_name, join(REQS_PATH, filename),
+                                source_head='# -*- coding: utf-8 -*-\n"""\n'
+                                '    markupsafe._native\n')
+        self.assertTrue(exists(cache_filename))
 
+        mod.foo = 1
         delattr(mod, "escape")
-        mod.hello = "world"
         reload(mod)
+        self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
-        self.assertEqual("world", mod.hello)
+
+        # A valid .pyc should not be written again.
+        with self.set_mode(cache_filename, "444"):
+            mod = self.clean_reload(mod)
+
+        # And if the header matches, the code in the .pyc should be used, whatever it is.
+        header = self.read_pyc_header(cache_filename)
+        with open(cache_filename, "wb") as pyc_file:
+            pyc_file.write(header)
+            code = compile("foo = 2", "<test>", "exec")
+            marshal.dump(code, pyc_file)
+        self.assertFalse(hasattr(mod, "foo"))  # Should have been removed by clean_reload.
+        mod = self.clean_reload(mod)
+        self.assertEqual(2, mod.foo)
+        self.assertFalse(hasattr(mod, "escape"))
+
+        # A .pyc with mismatching header should be written again.
+        new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
+        self.write_pyc_header(cache_filename, new_header)
+        with self.set_mode(cache_filename, "444"):
+            with self.assertRaisesRegexp(IOError, "Permission denied"):
+                self.clean_reload(mod)
+        self.clean_reload(mod)
+        self.assertEqual(header, self.read_pyc_header(cache_filename))
+
+    def read_pyc_header(self, filename):
+        return open(filename, "rb").read(12)
+
+    def write_pyc_header(self, filename, header):
+        with open(filename, "r+b") as pyc_file:
+            pyc_file.seek(0)
+            pyc_file.write(header)
 
     def test_so(self):
-        mod = self.check_module("markupsafe._speedups", REQS_PATH + "/markupsafe/_speedups.so")
+        mod_name = "markupsafe._speedups"
+        filename = "markupsafe/_speedups.so"
+        cache_filename = join(CACHE_ROOT, filename)
+        if exists(cache_filename):
+            os.remove(cache_filename)
+        mod = self.check_module(mod_name, join(REQS_PATH, filename))
+        self.assertTrue(exists(cache_filename))
 
         with self.assertRaisesRegexp(ImportError,
-                                     "'markupsafe._speedups': cannot reload a native module"):
+                                     "'{}': cannot reload a native module".format(mod_name)):
             reload(mod)
+
+        # A valid file should not be extracted again.
+        with self.set_mode(cache_filename, "444"):
+            mod = self.clean_reload(mod)
+
+        # A file with mismatching mtime should be extracted again.
+        original_mtime = os.stat(cache_filename).st_mtime
+        os.utime(cache_filename, None)
+        with self.set_mode(cache_filename, "444"):
+            with self.assertRaisesRegexp(IOError, "Permission denied"):
+                self.clean_reload(mod)
+        self.clean_reload(mod)
+        self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
+
+    @contextmanager
+    def set_mode(self, filename, mode_str):
+        original_mode = os.stat(filename).st_mode
+        try:
+            os.chmod(filename, int(mode_str, 8))
+            yield
+        finally:
+            os.chmod(filename, original_mode)
+
+    def clean_reload(self, mod):
+        sys.modules.pop(mod.__name__, None)
+        new_mod = import_module(mod.__name__)
+        self.assertIsNot(new_mod, mod)
+        return new_mod
 
     def check_module(self, mod_name, filename, package_path=None, source_head=None):
         sys.modules.pop(mod_name, None)
         mod = import_module(mod_name)
+
+        # Module attributes
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(filename, mod.__file__)
         if package_path:
@@ -63,8 +146,10 @@ class TestAndroidImport(unittest.TestCase):
         loader = mod.__loader__
         self.assertIsInstance(loader, AssetLoader)
 
+        # Optional loader methods
         data = loader.get_data(REQS_PATH + "/markupsafe/_constants.py")
-        self.assertTrue(data.startswith(b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'),
+        self.assertTrue(data.startswith(b'# -*- coding: utf-8 -*-\n"""\n'
+                                        '    markupsafe._constants\n'),
                         data)
         with self.assertRaisesRegexp(IOError, "loader for '{}' can't access '/invalid.py'"
                                      .format(REQS_PATH)):
@@ -76,16 +161,57 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNone(loader.get_code(mod_name))
         source = loader.get_source(mod_name)
         if source_head:
-            self.assertTrue(source.startswith(source_head), source)
+            self.assertTrue(source.startswith(source_head), repr(source))
         else:
             self.assertIsNone(source)
+        self.assertEqual(filename, loader.get_filename(mod_name))
+
+        new_mod = import_module(mod_name)
+        self.assertIs(new_mod, mod)
 
         return mod
 
+    # Verify that the traceback builder can get source code from the loader in all contexts.
+    # (The "package1" test files are also used in test_import.)
     def test_exception(self):
-        pass
-        # FIXME source code in traceback
-        #
-        # FIXME including if exception happened during import. SyntaxError is raised by compile
-        # (which knows the filename), others can be raise by exec. Verify that neither is
-        # supposed to raise an ImportError.
+        # Compilation
+        try:
+            from package1 import syntax_error  # noqa
+        except SyntaxError:
+            s = format_exc()
+            self.assertTrue(s.endswith(
+                'File "/android_asset/chaquopy/app.mp3/package1/syntax_error.py", line 1\n'
+                '    one two\n'
+                '          ^\n'
+                'SyntaxError: invalid syntax\n'), repr(s))
+        else:
+            self.fail()
+
+        # Module execution
+        try:
+            from package1 import recursive_import_error  # noqa
+        except ImportError:
+            s = format_exc()
+            self.assertTrue(s.endswith(
+                'File "/android_asset/chaquopy/app.mp3/package1/recursive_import_error.py", '
+                'line 1, in <module>\n'
+                '    from os import nonexistent\n'
+                'ImportError: cannot import name nonexistent\n'), repr(s))
+        else:
+            self.fail()
+
+        # After import complete
+        class C(object):
+            __html__ = None
+        try:
+            from markupsafe import _native
+            _native.escape(C)
+        except TypeError:
+            s = format_exc()
+            self.assertTrue(s.endswith(
+                'File "/android_asset/chaquopy/requirements.mp3/markupsafe/_native.py", '
+                'line 21, in escape\n'
+                '    return s.__html__()\n'
+                "TypeError: 'NoneType' object is not callable\n"), repr(s))
+        else:
+            self.fail()
