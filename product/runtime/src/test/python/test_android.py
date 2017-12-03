@@ -13,25 +13,23 @@ import sys
 from traceback import format_exc
 import unittest
 
-from java.android.importer import AssetLoader
-
 if sys.version_info[0] >= 3:
     from importlib import reload
 
 
 REQS_ZIP = "requirements.mp3"
 REQS_PATH = join("/android_asset/chaquopy", REQS_ZIP)
-CACHE_ROOT = join(globals()["__loader__"].finder.context.getCacheDir().toString(),
-                  "chaquopy/AssetFinder", REQS_ZIP)
 
 try:
-    from android.os import Build
-    API_LEVEL = Build.VERSION.SDK_INT
+    from android.os import Build  # noqa: F401
+    from java.android import importer
+    CACHE_ROOT = join(__loader__.finder.context.getCacheDir().toString(),  # noqa: F821
+                      "chaquopy/AssetFinder", REQS_ZIP)
 except ImportError:
-    API_LEVEL = None
+    pass
 
 
-@unittest.skipIf(API_LEVEL is None, "Not running on Android")
+@unittest.skipIf("Build" not in globals(), "Not running on Android")
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
@@ -91,7 +89,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_so(self):
         mod_name = "markupsafe._speedups"
-        filename = "markupsafe/_speedups.so"
+        filename = "markupsafe/_speedups.{}.so".format(importer.abi)
         cache_filename = join(CACHE_ROOT, filename)
         if exists(cache_filename):
             os.remove(cache_filename)
@@ -144,7 +142,7 @@ class TestAndroidImport(unittest.TestCase):
             self.assertFalse(hasattr(mod, "__path__"))
             self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
         loader = mod.__loader__
-        self.assertIsInstance(loader, AssetLoader)
+        self.assertIsInstance(loader, importer.AssetLoader)
 
         # Optional loader methods
         data = loader.get_data(REQS_PATH + "/markupsafe/_constants.py")

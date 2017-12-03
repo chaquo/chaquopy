@@ -18,6 +18,7 @@ from types import ModuleType
 from zipfile import ZipFile
 
 from android.content.res import AssetManager
+from android.os import Build
 from com.chaquo.python import Common
 from java import jarray, jbyte
 from java.lang import Integer
@@ -212,11 +213,18 @@ class ExtensionFileLoader(AssetLoader):
         self.set_mod_attrs(mod)
 
 
+SUPPORTED_ABIS = list(getattr(Build, "SUPPORTED_ABIS", [Build.CPU_ABI, Build.CPU_ABI2]))
+for abi in SUPPORTED_ABIS:
+    if abi in Common.ABIS.toArray():
+        break
+else:
+    raise Exception("couldn't identify ABI: supported={}".format(SUPPORTED_ABIS))
+
 # These class names are based on the standard Python 3 loaders from importlib.machinery, though
 # their interfaces are somewhat different.
 LOADERS = [
     (".py", SourceFileLoader),
-    (".so", ExtensionFileLoader),
+    (".{}.so".format(abi), ExtensionFileLoader),
     # No current need for a SourcelessFileLoader, since we exclude .pyc files from app.zip and
     # requirements.zip. To support this fully for both Python 2 and 3 would be non-trivial due
     # to the variation in bytecode file names and locations.
