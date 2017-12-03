@@ -24,7 +24,8 @@
 
 import argparse
 import csv
-import email.generator, email.parser
+import email.generator
+import email.parser
 from glob import glob
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join
@@ -55,7 +56,7 @@ class Abi:
     cflags = attr.ib(default="")
     ldflags = attr.ib(default="")
 
-ABIS = {abi.name : abi for abi in [
+ABIS = {abi.name: abi for abi in [
     Abi("armeabi-v7a", "arm", "arm-linux-androideabi", "arm-linux-androideabi",
         cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16",  # See standalone_toolchain
         ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),               #   above
@@ -122,8 +123,6 @@ def parse_args():
     else:
         raise CommandError(f"Can't find libpython*.so in {args.python_lib_dir}")
 
-
-
     return args
 
 
@@ -139,7 +138,8 @@ def unpack_sdist(args):
         run(f"{args.pip} download --no-binary :all: {args.package}=={args.version}")
         sdist_filename = find_sdist(sdist_dir)
         if not sdist_filename:
-            raise CommandError("Can't find downloaded sdist: maybe it has an unknown filename extension")
+            raise CommandError("Can't find downloaded sdist: maybe it has an unknown filename "
+                               "extension")
 
     if sdist_filename.endswith("zip"):
         run(f"unzip -q {sdist_filename}")
@@ -209,14 +209,14 @@ def get_env(args):
     # in the target Python include directory. The only way I can see to avoid this is to set CC to
     # a wrapper script.
     #
-    # Includes are in order of priority: see https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html
+    # Includes are in order of priority (https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html)
     ipython = f"{args.python}/include/python"
     isystem = f"{args.ndk}/sysroot/usr/include/{abi.tool_prefix}"
     isysroot = f"{args.ndk}/sysroot"                                                # includes
     idirafter = f"{PYPI_DIR}/idirafter"
     sysroot = f"{args.ndk}/platforms/android-{args.api_level}/arch-{abi.platform}"  # libs
-    for dirname in [ipython, isystem, isysroot, idirafter, sysroot]:
-        assert_isdir(dirname)
+    for dir_name in [ipython, isystem, isysroot, idirafter, sysroot]:
+        assert_isdir(dir_name)
     cflags = (f"-fPIC "  # See standalone_toolchain above, and note below about -pie
               f"-I{ipython} -isystem {isystem} -isysroot {isysroot} -idirafter {idirafter} "
               f"--sysroot {sysroot} "
@@ -265,14 +265,16 @@ def fix_wheel(args, in_filename):
         # Passing through parse_version normalizes the version, e.g. 2017.01.02 -> 2017.1.2
         dist_name = f"{args.package}-{parse_version(args.version)}"
         dist_info_dir = f"{tmp_dir}/{dist_name}.dist-info"
-        EXT_SUFFIX = sysconfig.get_config_var("EXT_SUFFIX")
-        for line in csv.reader(open(f"{dist_info_dir}/RECORD")):
-            filename = f"{tmp_dir}/{line[0]}"
-            if filename.endswith(EXT_SUFFIX):
-                os.rename(filename, filename.replace(EXT_SUFFIX, ".so"))
+        host_soabi = sysconfig.get_config_var("SOABI")
+        suffix_re = fr"(\.{host_soabi})?\.so$"
+        target_suffix = f".{args.abi}.so"
+        for original_path, _, _ in csv.reader(open(f"{dist_info_dir}/RECORD")):
+            fixed_path = re.sub(suffix_re, target_suffix, original_path)
+            if fixed_path != original_path:
+                os.rename(join(tmp_dir, original_path), join(tmp_dir, fixed_path))
 
         wheel_info = email.parser.Parser().parse(open(f"{dist_info_dir}/WHEEL"))
-        del wheel_info["Tag"]
+        del wheel_info["Tag"]  # Removes *all* tags.
         wheel_info["Tag"] = compatibility_tag
         email.generator.Generator(open(f"{dist_info_dir}/WHEEL", "w"),
                                   maxheaderlen=0).flatten(wheel_info)
@@ -290,9 +292,9 @@ def run(command):
         raise CommandError(f"Command returned exit status {e.returncode}")
 
 
-def ensure_dir(dirname):
-    if not exists(dirname):
-        run(f"mkdir {dirname}")
+def ensure_dir(dir_name):
+    if not exists(dir_name):
+        run(f"mkdir {dir_name}")
 
 def assert_isdir(filename):
     assert_exists(filename)
