@@ -92,10 +92,10 @@ class PythonPlugin implements Plugin<Project> {
 
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
-            python.mergeFrom(android.defaultConfig)
+            python.mergeFrom(android.defaultConfig.python)
             /* TODO #5202
             for (flavor in variant.getProductFlavors().reverse()) {
-                python.mergeFrom(flavor)
+                python.mergeFrom(flavor.python)
             }
             */
             if (variant.mergedFlavor.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
@@ -204,21 +204,25 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                if (!python.pipInstall.isEmpty()) {
-                   execBuildPython(python, buildPackagesTask) {
-                       args "-m", "pip", "install"
-                       args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
-                       args "--cert", buildPackagesTask.cacertPem
-                       args "--extra-index-url", "https://chaquo.com/pypi"
-                       args "--only-binary", ":all:"
-                       args "--python-version", Common.pyVersionNoDot(python.version)
-                       args "--platform", "android_todo"  // TODO #5215: this should be "android_x86" etc
-                       args "--implementation", "cp"      // TODO: should specify the target version
-                       args "--abi", Common.PYTHON_ABIS.get(python.version)
-                       args "--target", destinationDir
-                       args "--no-compile"
-                       args python.pipInstall
-                   }
+                if (! python.pip.install.isEmpty()) {
+                    def pythonAbi = Common.PYTHON_ABIS.get(python.version)
+                    execBuildPython(python, buildPackagesTask) {
+                        args "-m", "chaquopy.pip_install"
+                        args "--target", destinationDir
+                        args "--android-abis"
+                        args getAbis(variant).toArray()
+                        args python.pip.install
+                        args "--"
+                        args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
+                        args "--cert", buildPackagesTask.cacertPem
+                        args "--extra-index-url", "https://chaquo.com/pypi"
+                        args "--only-binary", ":all:"
+                        args "--implementation", pythonAbi.substring(0, 2)
+                        args "--python-version", pythonAbi.substring(2, 4)
+                        args "--abi", pythonAbi
+                        args "--no-compile"
+                        args python.pip.options
+                    }
                 }
             }
         }
@@ -427,38 +431,76 @@ class PythonPlugin implements Plugin<Project> {
 }
 
 
-class PythonExtension implements Serializable {
+class PythonExtension extends BaseExtension {
     String version
     String buildPython = "python2"
-    List<String> pipInstall = new ArrayList<>();
     List<String> staticProxy = new ArrayList<>();
-
-    void pipInstall(String... args) {
-        pipInstall.addAll(Arrays.asList(args))
-    }
+    PipExtension pip = new PipExtension()
 
     void staticProxy(String... args) {
         staticProxy.addAll(Arrays.asList(args))
     }
 
-    void mergeFrom(o) {
-        PythonExtension overlay = o.python
-        version = chooseNotNull(overlay.version, version)
-        buildPython = chooseNotNull(overlay.buildPython, buildPython)
-        pipInstall.addAll(overlay.pipInstall)
-        staticProxy.addAll(overlay.staticProxy)
+    void pip(Closure closure) {
+        closure.delegate = pip
+        closure()
     }
 
-    private static <T> T chooseNotNull(T overlay, T base) {
+    void mergeFrom(PythonExtension overlay) {
+        version = chooseNotNull(overlay.version, version)
+        buildPython = chooseNotNull(overlay.buildPython, buildPython)
+        staticProxy.addAll(overlay.staticProxy)
+        pip.mergeFrom(overlay.pip)
+    }
+
+    // Removed in 0.6.0
+    void pipInstall(String... args) {
+        throw new GradleException("'pipInstall' has been removed: use 'pip { install ... }' " +
+                                  "or 'pip { options ... }' instead")
+    }
+}
+
+
+class PipExtension extends BaseExtension {
+    List<String> install = new ArrayList<>();
+    List<String> options = new ArrayList<>();
+
+    void install(String... args) {
+        if (args.length == 1) {
+            install.add("--req")
+            install.add(args[0])
+            return
+        } else if (args.length == 2  &&  args[0].equals("-r")) {
+            install.add("--req-file")
+            install.add(args[1])
+            return
+        }
+        throw GradleException("Invalid python.pip.install format: " + args.join(", "))
+    }
+
+    void options (String... args) {
+        options.addAll(Arrays.asList(args))
+    }
+
+    void mergeFrom(PipExtension overlay) {
+        install.addAll(overlay.install)
+        options.addAll(overlay.options)
+    }
+}
+
+
+class BaseExtension implements Serializable {
+    static <T> T chooseNotNull(T overlay, T base) {
         return overlay != null ? overlay : base
     }
 
-    // Using custom classes as task input properties doesn't work in Gradle 2.14.1
-    // (https://github.com/gradle/gradle/issues/784). This approach also avoids the need for
-    // equals and hashCode methods (https://github.com/gradle/gradle/pull/962).
+    // Using custom classes as task input properties doesn't work in Gradle 2.14.1 / Android
+    // Studio 2.2 (https://github.com/gradle/gradle/issues/784), so we use a String as the input
+    // property instead. We don't use a byte[] because this version of Gradle apparently compares
+    // all properties using equals(), which only checks array identity, not content.
     //
-    // We return a String rather than a byte[] because this version of Gradle apparently compares
-    // array properties using equals(), which only checks array identity, not content.
+    // This approach also avoids the need for equals and hashCode methods
+    // (https://github.com/gradle/gradle/pull/962).
     String serialize() {
         ByteArrayOutputStream baos = new ByteArrayOutputStream()
         ObjectOutputStream oos = new ObjectOutputStream(baos)
@@ -467,7 +509,7 @@ class PythonExtension implements Serializable {
         return escape(baos.toByteArray())
     }
 
-    public static String escape(byte[] data) {
+    static String escape(byte[] data) {
         StringBuilder cbuf = new StringBuilder();
         for (byte b : data) {
             if (b >= 0x20 && b <= 0x7e) {

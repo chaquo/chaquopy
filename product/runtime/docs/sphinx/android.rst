@@ -46,13 +46,17 @@ is the Python version, and currently the only available version is 2.7.10::
     }
 
 The Python interpreter is a native component, so you must specify which native ABIs you want
-the app to support. The currently available ABIs are `x86` (for the Android emulator) and
-`armeabi-v7a` (for the vast majority of Android hardware)::
+the app to support. The currently available ABIs are:
+
+* `armeabi-v7a`, for the vast majority of Android hardware.
+* `x86`, for the Android emulator.
+
+During development you will probably want to enable them both::
 
     android {
         defaultConfig {
             ndk {
-               abiFilters "x86", "armeabi-v7a"
+               abiFilters "armeabi-v7a", "x86"
             }
         }
     }
@@ -98,7 +102,7 @@ checking whether it's already been started:
 Other build features
 ====================
 
-These features require Python 2.7 to be available on the build machine. Chaquopy will by
+These features all require Python 2.7 to be available on the build machine. Chaquopy will by
 default look for `python2` on your `PATH`, but this can be configured with the `buildPython`
 setting. For example, a typical Windows installation of Python would look like this::
 
@@ -111,24 +115,52 @@ setting. For example, a typical Windows installation of Python would look like t
 Python requirements
 -------------------
 
-External dependencies may be built into the app by giving a `pip install
-<https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ command line. This may specify
-an exact requirement, a local wheel file, or a requirements file::
+External Python packages may be built into the app by adding `install` lines within the
+`python.pip` block. Each line should specify a requirement in one of the following forms:
+
+* A `pip requirement specifier
+  <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
+* A local wheel filename (relative to the project directory).
+* `"-r"` followed by a local `requirements filename
+  <https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format>`_ (relative
+  to the project directory).
+
+Examples::
 
     python {
-        pipInstall "six==1.10.0"
-        pipInstall "mypackage-1.2.3-py2.py3-none-any.whl"
-        pipInstall "-r", "requirements.txt"
+        pip {
+            install "six==1.10.0"
+            install "LocalPackage-1.2.3-py2.py3-none-any.whl"
+            install "-r", "requirements.txt"
+        }
     }
 
-Any other `pip install` options may also be specified, except the following:
+.. note:: Chaquopy can only install wheel files, not sdist packages. As well as `PyPI
+          <https://pypi.python.org/pypi>`_, Chaquopy also searches for wheels in its own
+          package repository, which contains Android builds of certain native packages, as well
+          as pure-Python packages which aren't available from PyPI in wheel format.
+
+          To see which packages and versions are currently available, you can `browse the
+          repository here <https://chaquo.com/pypi/>`_. To request a package to be added or
+          updated, please visit our `issue tracker
+          <https://github.com/chaquo/chaquopy/issues>`_.
+
+To pass options to `pip install
+<https://pip.readthedocs.io/en/stable/reference/pip_install/>`_, give them as a comma-separated
+list to the `python.pip.options` property. For example::
+
+    python {
+        pip {
+            options "--extra-index-url", "https://example.com/private/repository"
+            install "PrivatePackage==1.2,3"
+        }
+    }
+
+Any `pip install` options may be specified, except the following:
 
 * Target environment options, such as `--target` and `--user`.
 * Installation format options, such as `-e` and `--egg`.
 * Package type options, such as `--no-binary`.
-
-Chaquopy currently only supports pure-Python wheel files: it will not accept sdist packages or
-architecture-specific wheels.
 
 .. _static-proxy-generator:
 

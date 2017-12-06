@@ -42,12 +42,9 @@ class TestAndroidImport(unittest.TestCase):
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
         cache_filename = join(CACHE_ROOT, filename + "c")
-        if exists(cache_filename):
-            os.remove(cache_filename)
-        mod = self.check_module(mod_name, join(REQS_PATH, filename),
-                                source_head='# -*- coding: utf-8 -*-\n"""\n'
-                                '    markupsafe._native\n')
-        self.assertTrue(exists(cache_filename))
+        mod = self.check_module(
+            mod_name, join(REQS_PATH, filename), cache_filename=cache_filename,
+            source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
 
         mod.foo = 1
         delattr(mod, "escape")
@@ -91,10 +88,7 @@ class TestAndroidImport(unittest.TestCase):
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.{}.so".format(importer.abi)
         cache_filename = join(CACHE_ROOT, filename)
-        if exists(cache_filename):
-            os.remove(cache_filename)
-        mod = self.check_module(mod_name, join(REQS_PATH, filename))
-        self.assertTrue(exists(cache_filename))
+        mod = self.check_module(mod_name, join(REQS_PATH, filename), cache_filename=cache_filename)
 
         with self.assertRaisesRegexp(ImportError,
                                      "'{}': cannot reload a native module".format(mod_name)):
@@ -128,9 +122,16 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNot(new_mod, mod)
         return new_mod
 
-    def check_module(self, mod_name, filename, package_path=None, source_head=None):
-        sys.modules.pop(mod_name, None)
+    def check_module(self, mod_name, filename, cache_filename=None, package_path=None,
+                     source_head=None):
+        if cache_filename:
+            if exists(cache_filename):
+                os.remove(cache_filename)
+            sys.modules.pop(mod_name)
+
         mod = import_module(mod_name)
+        if cache_filename:
+            self.assertTrue(exists(cache_filename))
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
@@ -146,9 +147,8 @@ class TestAndroidImport(unittest.TestCase):
 
         # Optional loader methods
         data = loader.get_data(REQS_PATH + "/markupsafe/_constants.py")
-        self.assertTrue(data.startswith(b'# -*- coding: utf-8 -*-\n"""\n'
-                                        '    markupsafe._constants\n'),
-                        data)
+        self.assertTrue(data.startswith(
+            b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
         with self.assertRaisesRegexp(IOError, "loader for '{}' can't access '/invalid.py'"
                                      .format(REQS_PATH)):
             loader.get_data("/invalid.py")
@@ -163,9 +163,6 @@ class TestAndroidImport(unittest.TestCase):
         else:
             self.assertIsNone(source)
         self.assertEqual(filename, loader.get_filename(mod_name))
-
-        new_mod = import_module(mod_name)
-        self.assertIs(new_mod, mod)
 
         return mod
 

@@ -23,9 +23,17 @@ public class Common {
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.
+    public static final Map<String,String> PYTHON_SUFFIXES = new HashMap<>();
+    static {
+        PYTHON_SUFFIXES.put("2.7.10", "2.7");
+    }
+
     public static final Map<String,String> PYTHON_ABIS = new HashMap<>();
     static {
-        PYTHON_ABIS.put("2.7.10", "cp27");
+        for (Map.Entry<String,String> entry : PYTHON_SUFFIXES.entrySet()) {
+            PYTHON_ABIS.put(entry.getKey(),
+                            "cp" + entry.getValue().replace(".", ""));
+        }
     }
 
     public static final List<String> ABIS = Arrays.asList
