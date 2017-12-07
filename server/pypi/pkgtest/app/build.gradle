@@ -41,7 +41,8 @@ def JAVA_INPUT_DIR = "../../../../demo/app/src/main/java/com/chaquo/python/demo"
 def JAVA_OUTPUT_DIR = "src/main/java/com/chaquo/python/pkgtest"
 delete(JAVA_OUTPUT_DIR)
 mkdir(JAVA_OUTPUT_DIR)
-for (def clsName : ["App", "ConsoleActivity", "UnitTestActivity", "PythonTestActivity"]) {
+for (def clsName : ["App", "ConsoleActivity", "MainActivity", "UnitTestActivity",
+                    "PythonTestActivity", "ReplActivity"]) {
     def inSrc = file("$JAVA_INPUT_DIR/${clsName}.java").text
     def outSrc = inSrc.replace("com.chaquo.python.demo", "com.chaquo.python.pkgtest")
     file("$JAVA_OUTPUT_DIR/${clsName}.java").text = outSrc

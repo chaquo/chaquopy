@@ -9,13 +9,21 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <activity android:name=".PythonTestActivity"
+        <activity android:name=".MainActivity"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <activity android:name=".ReplActivity"
+            android:label="@string/repl"
+            android:launchMode="singleInstance"
+            android:windowSoftInputMode="adjustResize"/>
+
+        <activity android:name=".PythonTestActivity"
+            android:label="@string/app_name"/>
 
     </application>
 </manifest>
