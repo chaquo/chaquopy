@@ -230,6 +230,7 @@ def get_env(args):
     # linker to forget it's supposed to be building a shared library
     # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
     env["LDFLAGS"] = (f"-L{args.python_lib_dir} -lpython{args.python_lib_version} "
+                      f"-lm "  # Many packages get away with omitting this on standard Linux.
                       f"{abi.ldflags}")
 
     env["ARFLAGS"] = "rc"
@@ -266,8 +267,8 @@ def fix_wheel(args, in_filename):
         dist_name = f"{args.package}-{parse_version(args.version)}"
         dist_info_dir = f"{tmp_dir}/{dist_name}.dist-info"
         host_soabi = sysconfig.get_config_var("SOABI")
-        suffix_re = fr"(\.{host_soabi})?\.so$"
-        target_suffix = f".{args.abi}.so"
+        suffix_re = fr"(\.{host_soabi})?\.(so|a)$"  # NumPy bundles a .a file.
+        target_suffix = fr".{args.abi}.\2"
         for original_path, _, _ in csv.reader(open(f"{dist_info_dir}/RECORD")):
             fixed_path = re.sub(suffix_re, target_suffix, original_path)
             if fixed_path != original_path:
