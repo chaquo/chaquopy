@@ -370,6 +370,10 @@ def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None,
         fixer = None
         filter = None
         for subdir in os.listdir(os.path.join(wheeldir, datadir)):
+            # Chaquopy added
+            if subdir not in ["purelib", "platlib"]:
+                continue  # Other subdirs would be installed outside the target dir.
+
             fixer = None
             if subdir == 'scripts':
                 fixer = fix_script
@@ -517,7 +521,11 @@ if __name__ == '__main__':
             reader = csv.reader(record_in)
             writer = csv.writer(record_out)
             for row in reader:
-                row[0] = installed.pop(row[0], row[0])
+                # Chaquopy modified
+                row[0] = installed.pop(row[0], None)
+                if not row[0]:  # Excluded .data subdir (see other Chaquopy edit above)
+                    continue
+
                 if row[0] in changed:
                     row[1], row[2] = rehash(row[0])
                 writer.writerow(row)

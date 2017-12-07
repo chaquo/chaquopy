@@ -1,27 +1,88 @@
 apply plugin: 'com.android.application'
 
+apply plugin: 'com.chaquo.python'
+import com.chaquo.python.Common
+
+
 android {
-    compileSdkVersion 26
+    compileSdkVersion 23
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest"
         minSdkVersion 15
-        targetSdkVersion 26
+        targetSdkVersion 23
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        python {
+            version "2.7.10"
+        }
+        ndk {
+            abiFilters Common.ABIS.toArray()
+        }
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    sourceSets {
+        main {
+            res.srcDir "../../../../demo/app/src/main/res"
+        }
+    }
+}
+
+
+def JAVA_INPUT_DIR = "../../../../demo/app/src/main/java/com/chaquo/python/demo"
+def JAVA_OUTPUT_DIR = "src/main/java/com/chaquo/python/pkgtest"
+delete(JAVA_OUTPUT_DIR)
+mkdir(JAVA_OUTPUT_DIR)
+for (def clsName : ["App", "ConsoleActivity", "UnitTestActivity", "PythonTestActivity"]) {
+    def inSrc = file("$JAVA_INPUT_DIR/${clsName}.java").text
+    def outSrc = inSrc.replace("com.chaquo.python.demo", "com.chaquo.python.pkgtest")
+    file("$JAVA_OUTPUT_DIR/${clsName}.java").text = outSrc
+}
+
+
+def PY_INPUT_DIR = "../../packages"
+def PY_OUTPUT_DIR = "src/main/python/pkgtest"
+def INCLUDE_PACKAGES = []
+def EXCLUDE_PACKAGES = []
+delete(PY_OUTPUT_DIR)
+mkdir(PY_OUTPUT_DIR)
+file("$PY_OUTPUT_DIR/__init__.py").text = ""
+
+String suiteSrc = ""
+for (def inDir : file(PY_INPUT_DIR).listFiles().findAll { it.isDirectory() }) {
+    def pkgName = inDir.name
+    if ((!INCLUDE_PACKAGES.isEmpty() && !INCLUDE_PACKAGES.contains(pkgName)) ||
+        EXCLUDE_PACKAGES.contains(pkgName)) {
+        continue
+    }
+
+    def pkgVer = file("$inDir/version.txt").text.trim()
+    android.defaultConfig.python.pip { install "$pkgName==$pkgVer" }
+    copy {
+        from "$inDir/test.py"
+        into PY_OUTPUT_DIR
+        rename "test.py", "${pkgName}.py"
+    }
+    suiteSrc += "from pkgtest.${pkgName} import *\n"
+}
+file("src/main/python/test_suite.py").text = suiteSrc
+copy {
+    from "../../../../demo/app/src/main/python/demo_app.py"
+    into "src/main/python"
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'com.android.support:appcompat-v7:26.1.0'
+    compile 'com.android.support:appcompat-v7:23.4.0'
+    compile 'com.android.support.constraint:constraint-layout:1.0.2'
+    compile 'com.android.support:preference-v14:23.4.0'
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.1'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
 }

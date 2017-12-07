@@ -8,7 +8,7 @@ import argparse
 import csv
 import email.parser
 import os
-from os.path import dirname, exists, join
+from os.path import dirname, exists, join, normpath
 import re
 import shutil
 import subprocess
@@ -27,19 +27,20 @@ class PipInstall(object):
             abi = self.args.android_abis[0]
             native_reqs = self.pip_install(abi, self.args.reqs)
             if native_reqs:
-                print("Found the following native requirements for {}:".format(abi),
-                      ", ".join(native_reqs))
                 for abi in self.args.android_abis[1:]:
-                    print("Installing native requirements for", abi)
                     self.pip_install(abi, native_reqs)
+            else:
+                print("Found no native packages")  # Explains why only one ABI appears in log.
         except subprocess.CalledProcessError as e:
             print("Exit status {}".format(e.returncode), file=sys.stderr)
             sys.exit(1)
         except CommandError as e:
-            print(e, file=sys.stderr)
+            print("Chaquopy: {}".format(e), file=sys.stderr)
+            sys.exit(1)
 
     def pip_install(self, abi, reqs):
-        sys.stdout.flush()  # "print() lines above were appearing after pip output on MSYS2.
+        print("Installing for", abi)
+        sys.stdout.flush()  # "print() output was appearing after pip output on MSYS2.
         abi_dir = "{}.{}".format(self.args.target, abi)
         if exists(abi_dir):
             rmtree(abi_dir)
@@ -68,16 +69,19 @@ class PipInstall(object):
                 native_reqs.append("{}=={}".format(pkg_name, pkg_ver))
 
             for path, hash_str, size in csv.reader(open(join(dist_info_dir, "RECORD"))):
+                if not normpath(join(abi_dir, path)).startswith(normpath(abi_dir)):
+                    # pip's gone and installed something outside of abi_dir.
+                    raise CommandError("invalid path in RECORD for {}-{}: {}"
+                                       .format(pkg_name, pkg_ver, path))
                 if path.startswith(filename):  # i.e. it's in the .dist-info directory
                     continue
                 new_info = (hash_str, size)
                 existing_info = self.dist_info.get(path)
                 if existing_info:
                     if existing_info != new_info:
-                        raise CommandError("File '{}' already installed from ABIs {!r} {} "
-                                           "does not match copy from '{}' {}"
-                                           .format(path, self.abis_installed, existing_info,
-                                                   abi, new_info))
+                        raise CommandError(
+                            "file '{}' from ABIs {!r} {} does not match copy from '{}' {}"
+                            .format(path, self.abis_installed, existing_info, abi, new_info))
                 else:
                     target_dir = dirname(join(self.args.target, path))
                     if not exists(target_dir):

@@ -5,7 +5,8 @@
 
 attrs==17.2.0
 
-# Additionally, the following requirements must be present for the target Python version:
+# Additionally, the following requirements must be present in the host Python environment
+# corresponding to the target Python version:
 
 pip==9.0.1
 setuptools==37.0.0
