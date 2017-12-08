@@ -1,18 +1,18 @@
 from __future__ import absolute_import, division, print_function
 
-from java import *
+from java import detach, jclass
 import unittest
 from time import time, sleep
 from threading import Thread
 import sys
 
+from com.chaquo.python import TestThread as JavaTestThread
+from java.lang import String
+
 if sys.version_info[0] == 2:
     import thread as _thread
 else:
     import _thread
-
-from com.chaquo.python import TestThread as JavaTestThread
-from java.lang import String
 
 
 class TestThread(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestThread(unittest.TestCase):
     def check_gil_release(self, blocking_func):
         self.assertFalse(JavaTestThread.blocked)
         delay = 0.1
-        deadline = time() + delay*2
+        deadline = time() + (delay * 2)
         thread = Thread(target=blocking_func, args=[int(delay * 1000)])
         thread.start()
         while not JavaTestThread.blocked:   # Thread not started yet

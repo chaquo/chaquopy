@@ -37,8 +37,8 @@ def get_options():
 
 
 def set_classpath(*path):
-    """
-    Sets the classpath for the JVM to use. Replaces any existing classpath, overriding the CLASSPATH environment variable.
+    """Sets the classpath for the JVM to use. Replaces any existing classpath, overriding the
+    CLASSPATH environment variable.
     """
     if vm_running:
         raise ValueError("VM is already running, can't set classpath")

@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from unittest import TestCase
 
-from java import *
+from java import static_proxy
 
 from com.chaquo.python import TestStaticProxy as TSP
 import static_proxy.basic as basic
@@ -21,7 +21,7 @@ class TestStaticProxy(TestCase):
         with self.assertRaisesRegexp(TypeError, "static_proxy class "
                                      "com.chaquo.python.static_proxy.WrongLoadOrder loaded "
                                      "before its Python counterpart"):
-            from com.chaquo.python.static_proxy import WrongLoadOrder
+            from com.chaquo.python.static_proxy import WrongLoadOrder  # noqa: F401
 
     # Could happen if static proxies aren't regenerated correctly.
     def test_wrong_bases(self):
@@ -30,10 +30,10 @@ class TestStaticProxy(TestCase):
             class WrongExtends(static_proxy(package="com.chaquo.python.static_proxy")):
                 pass
 
+        from java.lang import Runnable
         with self.assertRaisesRegexp(TypeError, r"expected implements \['java.lang.Runnable', "
                                      r"'com.chaquo.python.StaticProxy'], but Java class actually "
                                      r"implements \[]"):
-            from java.lang import Runnable
             class WrongImplements(static_proxy(None, Runnable,
                                                package="com.chaquo.python.static_proxy")):
                 pass

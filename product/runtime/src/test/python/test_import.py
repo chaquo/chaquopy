@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import sys
 import unittest
 
-from java import *
+from java import jclass, set_import_enabled
 
 
 class TestImport(unittest.TestCase):
@@ -15,12 +15,14 @@ class TestImport(unittest.TestCase):
         return self.assertRaisesRegexp(ImportError, r"^cannot import name {}$".format(name))
 
     def test_enable(self):
-        from java.lang import String
+        # Should be enabled by default
+        from java.lang import String  # noqa: F401
+
         set_import_enabled(False)
         with self.assertRaises(ImportError):
-            from java.lang import String
+            from java.lang import String  # noqa: F811
         set_import_enabled(True)
-        from java.lang import String
+        from java.lang import String  # noqa: F401, F811
 
     def test_single(self):
         # "java" is different because there actually is a Python module by that name.
@@ -43,39 +45,39 @@ class TestImport(unittest.TestCase):
 
     def test_errors(self):
         with self.no_module_error("lang.String"):
-            import java.lang.String
+            import java.lang.String  # noqa: F401
 
         # "java" is different because there actually is a Python module by that name.
         with self.no_module_error("lang"):
-            from java.lang import Nonexistent
+            from java.lang import Nonexistent  # noqa: F401
         with self.no_module_error("lang"):
-            from package1 import wildcard_java_lang
+            from package1 import wildcard_java_lang  # noqa: F401
 
         with self.no_module_error("javax.xml"):
-            from javax.xml import Nonexistent
+            from javax.xml import Nonexistent  # noqa: F401, F811
         with self.no_module_error("javax.xml"):
-            from package1 import wildcard_javax_xml
+            from package1 import wildcard_javax_xml  # noqa: F401
 
         with self.no_name_error("Nonexistent"):
-            from java.lang import String, Nonexistent
+            from java.lang import String, Nonexistent  # noqa: F401, F811
 
         # These test files are also used in test_android.
         with self.assertRaisesRegexp(SyntaxError, "invalid syntax"):
-            from package1 import syntax_error
+            from package1 import syntax_error  # noqa: F401
         with self.no_name_error("nonexistent"):
-            from package1 import recursive_import_error
+            from package1 import recursive_import_error  # noqa: F401
 
     def test_package(self):
         # "java" is different because there actually is a Python module by that name.
         with self.no_module_error("lang"):
-            import java.lang
+            import java.lang  # noqa: F401
         with self.no_name_error("lang"):
-            from java import lang
+            from java import lang  # noqa: F401
 
         with self.no_module_error("javax.xml"):
-            import javax.xml
+            import javax.xml  # noqa: F401
         with self.no_module_error("javax"):
-            from javax import xml
+            from javax import xml  # noqa: F401
 
     def test_multi_language(self):
         from package1 import java, python
@@ -88,7 +90,7 @@ class TestImport(unittest.TestCase):
                                      "Access the Java copy with jclass\('package1.both'\), and the "
                                      "Python copy with 'import package1' followed by "
                                      "'package1.both'.$"):
-            from package1 import both
+            from package1 import both  # noqa: F401
 
         import package1
         self.assertEqual("both python 1", package1.both.x)
@@ -97,7 +99,7 @@ class TestImport(unittest.TestCase):
         # Error wording varies across Python versions.
         with self.assertRaisesRegexp(ValueError, (r"^[Aa]ttempted relative import (with no known "
                                                   r"parent package)|(in non-package)$")):
-            from . import whatever
+            from . import whatever  # noqa: F401
 
         from package1 import test_relative
         test_relative.run(self)

@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import ctypes
 import unittest
 
-from java import *
+from java import cast, jarray, jboolean, jbyte, jchar, jclass, jint
 
 
 class TestArray(unittest.TestCase):
@@ -107,7 +107,8 @@ class TestArray(unittest.TestCase):
             # This version of getBytes returns the 8 low-order of each Unicode character.
             string.getBytes(0, 4, btarray, 0)
             if not isinstance(btarray, tuple):
-                self.assertEquals(btarray, [ctypes.c_int8(x).value for x in [0x56, 0x78, 0x90, 0xAB]])
+                self.assertEquals(btarray, [ctypes.c_int8(x).value
+                                            for x in [0x56, 0x78, 0x90, 0xAB]])
 
     def test_multiple_dimensions(self):
         Arrays = jclass('com.chaquo.python.TestArray')
@@ -218,17 +219,17 @@ class TestArray(unittest.TestCase):
         self.assertEqual([True, False, "hello", "world"], tf + hw)
 
     def test_iter(self):
-        a = jarray(jint)([1,2,3])
-        self.assertEqual([1,2,3], [x for x in a])
+        a = jarray(jint)([1, 2, 3])
+        self.assertEqual([1, 2, 3], [x for x in a])
 
     def test_in(self):
-        a = jarray(jint)([1,2])
+        a = jarray(jint)([1, 2])
         self.assertTrue(1 in a)
         self.assertTrue(2 in a)
         self.assertFalse(3 in a)
 
     def test_attributes(self):
-        a = jarray(jint)([1,2,3])
+        a = jarray(jint)([1, 2, 3])
         with self.assertRaises(AttributeError):
             a.length
         with self.assertRaises(AttributeError):

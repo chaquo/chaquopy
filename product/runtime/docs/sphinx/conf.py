@@ -31,7 +31,7 @@
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc',
-    'sphinx.ext.intersphinx']
+              'sphinx.ext.intersphinx']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -104,7 +104,7 @@ html_title = "Chaquopy {}".format(version)
 html_copy_source = False
 html_show_copyright = True
 html_show_sphinx = False
-html_sidebars = { "**" : ["localtoc.html"] }
+html_sidebars = {"**": ["localtoc.html"]}
 
 
 # -- Options for HTMLHelp output ------------------------------------------

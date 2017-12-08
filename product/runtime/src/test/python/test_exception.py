@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import re
 from unittest import TestCase
 
-from java import *
+from java import jclass
 
 
 class TestException(TestCase):
@@ -30,15 +30,15 @@ class TestException(TestCase):
 
     def test_chained(self):
         from java.lang import RuntimeException
-        with self.assertRaisesRegexp \
-             (RuntimeException,
-              re.compile(r"^2\s*\n" +
-                         trace_line("chain2") +
-                         r".*Caused by: java.lang.RuntimeException: 1\s*\n" +
-                         trace_line("chain1") + trace_line("chain2") +
-                         r".*Caused by: java.lang.RuntimeException: hello method\s*\n" +
-                         trace_line("simple") + trace_line("chain1"),
-                         re.DOTALL)):
+        with self.assertRaisesRegexp(
+                RuntimeException,
+                re.compile(r"^2\s*\n" +
+                           trace_line("chain2") +
+                           r".*Caused by: java.lang.RuntimeException: 1\s*\n" +
+                           trace_line("chain1") + trace_line("chain2") +
+                           r".*Caused by: java.lang.RuntimeException: hello method\s*\n" +
+                           trace_line("simple") + trace_line("chain1"),
+                           re.DOTALL)):
             self.TE.chain2()
 
     def test_catch(self):

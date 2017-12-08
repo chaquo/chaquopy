@@ -1,4 +1,5 @@
-from java import *
+from java import static_proxy
 
 
-class ReqsB1(static_proxy()): pass
+class ReqsB1(static_proxy()):
+    pass

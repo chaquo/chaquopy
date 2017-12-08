@@ -34,9 +34,8 @@ class TestStaticProxy(TestCase):
                       "Module not found: no_init_py.mod")
 
     def test_errors(self):
-        self.run_json("errors", "empty", False, "empty.py: no static_proxy classes found")
-        self.run_json("errors", "no_proxies", False, "no_proxies.py: no static_proxy classes found")
-        self.run_json("errors", "conditional", False, "conditional.py: no static_proxy classes found")
+        for name in ["empty", "no_proxies", "conditional"]:
+            self.run_json("errors", name, False, name + ".py: no static_proxy classes found")
         self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
 
     def test_bindings(self):
@@ -82,23 +81,25 @@ class TestStaticProxy(TestCase):
                       "init_method.py:5:6: @method cannot be used on __init__")
         self.run_json("method", "init_override", False,
                       "init_override.py:5:6: @Override cannot be used on __init__")
-        self.run_json("method", "missing_brackets", False,
-                      "missing_brackets.py:5:6: 'arg_types' must be (<type 'list'>, <type 'tuple'>)")
+        self.run_json("method", "missing_brackets", False, "missing_brackets.py:5:6: 'arg_types' "
+                      "must be (<type 'list'>, <type 'tuple'>)")
         self.run_json("method", "missing_args", False,
                       "missing_args.py:5:6: method() takes at least 2 arguments")
 
     def run_json(self, path, modules, succeed=True, expected=None, **kwargs):
-        if isinstance(path, str): path = [path]
-        if isinstance(modules, str): modules = [modules]
+        if isinstance(path, str):
+            path = [path]
+        if isinstance(modules, str):
+            modules = [modules]
         if succeed and (expected is None):
             assert len(path) == 1 and len(modules) == 1
             expected = join(path[0], modules[0].replace(".", "/")) + ".json"
 
-        process = subprocess.Popen \
-            (["python", join(main_python_dir, "chaquopy/static_proxy.py"),
-              "--path", os.pathsep.join(join(data_dir, d) for d in path),
-              "--json"] + modules,
-             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            ["python", join(main_python_dir, "chaquopy/static_proxy.py"),
+             "--path", os.pathsep.join(join(data_dir, d) for d in path),
+             "--json"] + modules,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
 
         status = process.wait()
@@ -118,8 +119,8 @@ class TestStaticProxy(TestCase):
 
     def dump_run(self, msg, stdout, stderr):
         self.fail(msg + "\n" +
-                   "=== STDOUT ===\n" + stdout +
-                   "=== STDERR ===\n" + stderr)
+                  "=== STDOUT ===\n" + stdout +
+                  "=== STDERR ===\n" + stderr)
 
     # Prints b as a multi-line string rather than a repr().
     def assertInLong(self, a, b, re=False):

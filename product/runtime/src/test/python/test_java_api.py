@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import unittest
 
-from java import *
+from java import jclass
 
 
 # The full Java API is tested by the Java unit tests, but this covers some specific

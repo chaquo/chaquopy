@@ -149,8 +149,8 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base")                               # No reqs
         run.apply_layers("PythonReqs/1a")                          # Add one req
         run.rerun(requirements=["apple"])
-        run.apply_layers("PythonReqs/1")                           # Modify to a req with its own dependency
-        run.rerun(requirements=["alpha", "alpha_dep"])
+        run.apply_layers("PythonReqs/1")                           # Replace with a req which has a
+        run.rerun(requirements=["alpha", "alpha_dep"])             #   transitive dependency
         run.apply_layers("PythonReqs/2")                           # Add another req
         run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
         run.apply_layers("base")                                   # Remove all
@@ -164,7 +164,8 @@ class PythonReqs(GradleTestCase):
 
     def test_sdist_file(self):
         run = self.RunGradle("base", "PythonReqs/sdist_file", succeed=False)
-        self.assertInLong("alpha_dep-0.0.1.tar.gz: Chaquopy does not support sdist packages", run.stderr)
+        self.assertInLong("alpha_dep-0.0.1.tar.gz: Chaquopy does not support sdist packages",
+                          run.stderr)
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
@@ -179,10 +180,10 @@ class PythonReqs(GradleTestCase):
         # wheel to packages/dist.
         self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "mingw"])
 
-        run = self.RunGradle("base", "PythonReqs/wheel_index_1",   # Has Android and workstation wheels
-                             requirements=["native1_android_todo"])
+        run = self.RunGradle("base", "PythonReqs/wheel_index_1",     # Has Android and workstation
+                             requirements=["native1_android_todo"])  #   wheels
 
-        run.apply_layers("PythonReqs/wheel_index_2")               # Only has workstation wheel
+        run.apply_layers("PythonReqs/wheel_index_2")                 # Only has workstation wheels
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
@@ -294,7 +295,7 @@ class RunGradle(object):
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
         with open(join(repo_root, "product", LP_FILENAME)) as in_file, \
-             open(join(self.project_dir, LP_FILENAME), "w") as out_file:
+             open(join(self.project_dir, LP_FILENAME), "w") as out_file:  # noqa: E127
             for line in in_file:
                 if "chaquopy.license" not in line:
                     out_file.write(line)
@@ -306,7 +307,7 @@ class RunGradle(object):
         status, self.stdout, self.stderr = self.run_gradle(variants)
 
         if status == 0:
-            if succeed == False:  # succeed=None means we don't care
+            if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
 
             # TODO #5180 Android plugin version 3 adds an extra variant directory below "apk".
@@ -325,8 +326,7 @@ class RunGradle(object):
                 self.check_apk(apk_dir, **kwargs)
 
             # Run a second time to check all tasks are considered up to date.
-            first_stdout, first_stderr = self.stdout, self.stderr
-            first_msg = "\n=== FIRST STDOUT ===\n" + first_stdout
+            first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
             status, self.stdout, self.stderr = self.run_gradle(variants)
             if status != 0:
                 self.dump_run("exit status {}".format(status))
@@ -344,7 +344,8 @@ class RunGradle(object):
     def run_gradle(self, variants):
         os.chdir(self.project_dir)
         # --info explains why tasks were not considered up to date.
-        # --console plain prevents output being truncated by a "String index out of range: -1" error.
+        # --console plain prevents output being truncated by a "String index out of range: -1"
+        #   error on Windows.
         gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
         process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
                                    [task_name(":app:assemble", v) for v in variants],

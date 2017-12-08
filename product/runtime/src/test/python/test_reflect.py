@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import unittest
 
-from java import *
+from java import cast, jarray, jclass
 from com.chaquo.python import TestReflect as TR
 
 
@@ -48,7 +48,7 @@ class TestReflect(unittest.TestCase):
     # Interaction of identity and casts is tested in TestReflect.test_cast and
     # TestArray.test_cast.
     def test_identity(self):
-        from java.lang import Class, Object, String
+        from java.lang import Object, String
         Object_klass, String_klass = Object.getClass(), String.getClass()
         self.assertIsNot(Object_klass, String_klass)
         self.t.fieldKlass = Object_klass
@@ -64,7 +64,6 @@ class TestReflect(unittest.TestCase):
         self.assertIs(a2, self.t.getStringArray())
 
     def test_gc(self):
-        System = jclass('java.lang.System')
         DelTrigger = jclass("com.chaquo.python.TestReflect$DelTrigger")
         DelTrigger.reset()
         dt = DelTrigger()
@@ -228,7 +227,8 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
-        PrintWriter.print; PrintWriter.print_   # Ensure __dict__ is populated
+        PrintWriter.print   # Ensure __dict__ is populated
+        PrintWriter.print_  #
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)
@@ -276,7 +276,8 @@ class TestReflect(unittest.TestCase):
 
         # Getting an Object method directly from an interface class should return the Object
         # implementation.
-        self.assertRegexpMatches(TR.Interface.toString(c), r"^com.chaquo.python.TestReflect\$Child@")
+        self.assertRegexpMatches(TR.Interface.toString(c),
+                                 r"^com.chaquo.python.TestReflect\$Child@")
 
         # But calling an Object method through an interface cast should be done virtually.
         self.assertEqual("Child object", cast(TR.Interface, c).toString())
