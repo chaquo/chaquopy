@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu
+
+# On Unix:      ln -s ../../hooks/pre-commit .git/hooks/pre-commit
+# On Windows:   mklink .git\hooks\pre-commit hooks\pre-commit
+
+exclude_re='^(hooks/pre-commit)|(product/gradle-plugin/src/main/python/pip/)'
+if git ls-files | egrep -v "$exclude_re" | xargs grep -n FIXME; then
+    exit 1
+fi
+
+flake8
