@@ -148,7 +148,7 @@ Examples::
 
 To pass options to `pip install
 <https://pip.readthedocs.io/en/stable/reference/pip_install/>`_, give them as a comma-separated
-list to the `python.pip.options` property. For example::
+list to the `options` property. For example::
 
     python {
         pip {

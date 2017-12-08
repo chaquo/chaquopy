@@ -194,22 +194,23 @@ a single parameter, which must be either:
     jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
     jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
 
-Array objects support the following operations:
+Array objects support the standard Python sequence protocol:
 
-* The standard Python sequence protocol:
-   * Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
-     supported.)
-   * Searching using `in`.
-   * Iteration using `for`.
-   * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
-     of adding or removing elements.
-* All arrays are instances of `java.lang.Object`, so they inherit the `Object` implementations
-  of `toString`, `equals` and `hashCode`. However, these default implementations are not very
-  useful, so the equivalent Python operations are defined as follows:
-   * `str` returns a representation of the array contents.
-   * `==` and `!=` can compare the contents of the array with any Python iterable (including
-     another Java array).
-   * Like Python lists, Java array objects are not hashable in Python because they're mutable.
+* Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
+  supported.)
+* Searching using `in`.
+* Iteration using `for`.
+* Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
+  of adding or removing elements.
+
+All arrays are instances of `java.lang.Object`, so they inherit the `Object` implementations
+of `toString`, `equals` and `hashCode`. However, these default implementations are not very
+useful, so the equivalent Python operations are defined as follows:
+
+* `str` returns a representation of the array contents.
+* `==` and `!=` can compare the contents of the array with any Python iterable (including
+  another Java array).
+* Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 
 Casting
