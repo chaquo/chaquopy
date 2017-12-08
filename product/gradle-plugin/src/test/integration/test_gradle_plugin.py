@@ -54,7 +54,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested", succeed=None)
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.0",
+        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.1",
                           run.stdout)
 
     @skip("no incompatible new versions are currently known")
