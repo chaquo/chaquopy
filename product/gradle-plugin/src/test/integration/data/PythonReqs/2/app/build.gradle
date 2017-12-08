@@ -12,9 +12,12 @@ android {
         versionName "0.0.1"
         python {
             version "2.7.10"
-            pipInstall "--no-index"
-            pipInstall "--find-links", "../../../../../../../src/test/integration/packages/dist"
-            pipInstall "alpha", "bravo"
+            pip {
+                options "--no-index"
+                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
+                install "alpha"
+                install "bravo"
+            }
         }
         ndk {
             abiFilters "x86"

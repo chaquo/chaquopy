@@ -169,7 +169,7 @@ class PythonReqs(GradleTestCase):
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
-        self.assertInLong("src: Chaquopy does not support editable requirements", run.stderr)
+        self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
     def test_wheel_index(self):
         # All the workstation platform wheels have version 0.2, while the Android wheels have
@@ -189,7 +189,7 @@ class PythonReqs(GradleTestCase):
 
     def test_sdist_index(self):
         # Similarly to test_wheel_index, this test has an sdist for version 0.2 and a wheel for
-        # version 0.1.
+        # version 0.1, to test that pip ignores the sdist.
         run = self.RunGradle("base", "PythonReqs/sdist_index_1",
                              requirements=["sdist1_android_todo"])
 
@@ -359,7 +359,7 @@ class RunGradle(object):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         # Python source
-        app_zip_actual = ZipFile(join(asset_dir, "app.zip"))
+        app_zip_actual = ZipFile(join(asset_dir, "app.mp3"))
         # If app/src/main/python didn't already exist, the plugin should have created it.
         app_zip_expected = ZipFile(shutil.make_archive(
             join(self.run_dir, "app-expected"), "zip",
@@ -371,13 +371,12 @@ class RunGradle(object):
                                   name)
 
         # Python requirements
-        reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
-        reqs_toplevel = set([path.partition("/")[0] for path in reqs_zip.namelist()
-                             if ".dist-info" not in path])
+        reqs_zip = ZipFile(join(asset_dir, "requirements.mp3"))
+        reqs_toplevel = set(path.partition("/")[0] for path in reqs_zip.namelist())
         self.test.assertEqual(set(requirements), reqs_toplevel)
 
         # Python stdlib
-        self.test.assertIsFile(join(asset_dir, "stdlib.zip"))
+        self.test.assertIsFile(join(asset_dir, "stdlib.mp3"))
         self.test.assertEqual(set(abis),
                               set(os.listdir(join(asset_dir, "lib-dynload"))))
         for abi in abis:
@@ -393,7 +392,7 @@ class RunGradle(object):
                 self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
         # Chaquopy runtime library
-        self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
+        self.test.assertIsFile(join(asset_dir, "chaquopy.mp3"))
         classes = dex_classes(join(apk_dir, "classes.dex"))
         self.test.assertIn("com.chaquo.python.Python", classes)
 

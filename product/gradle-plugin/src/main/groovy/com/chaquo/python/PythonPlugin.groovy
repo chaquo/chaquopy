@@ -475,7 +475,7 @@ class PipExtension extends BaseExtension {
             install.add(args[1])
             return
         }
-        throw GradleException("Invalid python.pip.install format: " + args.join(", "))
+        throw new GradleException("Invalid python.pip.install format: '" + args.join(" ") + "'")
     }
 
     void options (String... args) {

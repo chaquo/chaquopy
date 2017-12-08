@@ -12,8 +12,10 @@ android {
         versionName "0.0.1"
         python {
             version "2.7.10"
-            pipInstall "--no-index"
-            pipInstall "packages/alpha_dep-0.0.1-py2.py3-none-any.whl"
+            pip {
+                options "--no-index"
+                install "packages/alpha_dep-0.0.1-py2.py3-none-any.whl"
+            }
         }
         ndk {
             abiFilters "x86"

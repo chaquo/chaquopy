@@ -112,8 +112,8 @@ def parse_args():
 
 
 class ReqFileAppend(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        getattr(namespace, self.dest).extend(["-r"] + values)
+    def __call__(self, parser, namespace, value, option_string=None):
+        getattr(namespace, self.dest).extend(["-r", value])
 
 
 class CommandError(Exception):
