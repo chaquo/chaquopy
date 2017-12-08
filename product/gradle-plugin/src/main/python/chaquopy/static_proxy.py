@@ -23,6 +23,12 @@ import six
 def join(*paths):
     return os.path.join(*paths).replace("\\", "/")
 
+# The ast module can only parse the syntax of its own Python version.
+if not sys.version_info[:2] == (2, 7):
+    print("staticProxy requires Python 2.7 on the build machine. Please edit the "
+          "buildPython setting.", file=sys.stderr)
+    sys.exit(1)
+
 
 PRIMITIVES = ["void", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
 JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only the names used
