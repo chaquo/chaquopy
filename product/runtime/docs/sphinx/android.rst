@@ -115,8 +115,9 @@ setting. For example, a typical Windows installation of Python would look like t
 Python requirements
 -------------------
 
-External Python packages may be built into the app by adding `install` lines within the
-`python.pip` block. Each line should specify a requirement in one of the following forms:
+External Python packages may be built into the app by adding a `python.pip` block to
+`build.gradle`. Within this block, add `install` lines, each specifing a package in one of the
+following forms:
 
 * A `pip requirement specifier
   <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
@@ -152,11 +153,12 @@ list to the `python.pip.options` property. For example::
     python {
         pip {
             options "--extra-index-url", "https://example.com/private/repository"
-            install "PrivatePackage==1.2,3"
+            install "PrivatePackage==1.2.3"
         }
     }
 
-Any `pip install` options may be specified, except the following:
+There may be multiple `options` lines: the options will be combined in the order given. Any
+`pip install` options may be used, except the following:
 
 * Target environment options, such as `--target` and `--user`.
 * Installation format options, such as `-e` and `--egg`.
