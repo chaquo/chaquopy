@@ -5,10 +5,16 @@ import com.chaquo.python.Common;
 
 
 configurations {
-    python
+    // Can't use "compile" or anything based on it, because it contains android.jar. Can't use
+    // "archives" because it somehow ends up containing everything from all the other configurations
+    // as well.
+    chaquopyJava
+
+    chaquopyPython
     jniLibs
     libDynload
 }
+artifacts { chaquopyJava jar }
 
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
@@ -19,7 +25,7 @@ task("zipPython", type: Zip, group: "build") {
     destinationDir buildDir
     archiveName Common.ASSET_CHAQUOPY
 }
-artifacts { python zipPython }
+artifacts { chaquopyPython zipPython }
 
 
 /* My attempts to use Cygwin were not successful (see commit message of 2017-04-20), so there are two

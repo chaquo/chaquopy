@@ -15,8 +15,8 @@ dependencies {
 
     // This is a library project, so use "+" notation for external dependencies.
 
-    runtimeJava         project(path: ":runtime", configuration: "default")
-    runtimePython       project(path: ":runtime", configuration: "python")
+    runtimeJava         project(path: ":runtime", configuration: "chaquopyJava")
+    runtimePython       project(path: ":runtime", configuration: "chaquopyPython")
     runtimeJniLibs      project(path: ":runtime", configuration: "jniLibs")
     runtimeLibDynload   project(path: ":runtime", configuration: "libDynload")
 
