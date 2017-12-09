@@ -31,7 +31,8 @@ class GradleTestCase(TestCase):
             else:
                 self.assertIn(a, b)
         except self.failureException:
-            msg = self._formatMessage(msg, "'{}' not found in:\n{}".format(a, b))
+            msg = self._formatMessage(msg, "{}'{}' not found in:\n{}".format
+                                      ("regex " if re else "", a, b))
             raise self.failureException(msg)
 
 class Basic(GradleTestCase):
@@ -197,6 +198,33 @@ class PythonReqs(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native4 "
                           "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
+
+    def test_multi_abi(self):
+        # This is not the same as the filename pattern used in our real wheels, but the point
+        # is to test that the multi-ABI merging works correctly.
+        self.RunGradle("base", "PythonReqs/multi_abi_1", abis=["armeabi-v7a", "x86"],
+                       requirements=["apple",             # Pure Python requirement
+                                     "multi_abi_1_pure",  # Identical content in both ABIs
+                                     "multi_abi_1_armeabi_v7a.pyd", "multi_abi_1_x86.pyd"])
+
+    def test_multi_abi_clash(self):
+        run = self.RunGradle("base", "PythonReqs/multi_abi_clash", succeed=False)
+        self.assertInLong("file 'multi_abi_1_pure/__init__.py' from ABIs \['armeabi-v7a'\] .* "
+                          "does not match copy from 'x86'", run.stderr, re=True)
+
+    # ABIs should be installed in alphabetical order. (In the order specified is not possible
+    # because the Android Gradle plugin keeps abiFilters in a HashSet.)
+    def test_multi_abi_order(self):
+        # armeabi-v7a will install a pure-Python wheel, so the requirement will not be
+        # installed again for x86, even though an x86 wheel is available.
+        run = self.RunGradle("base", "PythonReqs/multi_abi_order_1", abis=["armeabi-v7a", "x86"],
+                             requirements=["multi_abi_order_pure"])
+
+        # armeabi-v7a will install a native wheel, so the requirement will be installed again
+        # for x86, which will select the pure-Python wheel.
+        run.apply_layers("PythonReqs/multi_abi_order_2")
+        run.rerun(abis=["armeabi-v7a", "x86"],
+                  requirements=["multi_abi_order_armeabi_v7a.pyd", "multi_abi_order_pure"])
 
 
 class StaticProxy(GradleTestCase):

@@ -147,13 +147,13 @@ class PythonPlugin implements Plugin<Project> {
         return "com.chaquo.python:target:$version$TARGET_VERSION_SUFFIX:$classifier@zip"
     }
 
-    Set<String> getAbis(variant) {
+    String[] getAbis(variant) {
         // variant.getMergedFlavor returns a DefaultProductFlavor base class object, which, perhaps
         // by an oversight, doesn't contain the NDK options.
         def abis = new TreeSet<String>()
         def ndk = android.defaultConfig.ndkConfig
         if (ndk.abiFilters) {
-            abis.addAll(ndk.abiFilters)
+            abis.addAll(ndk.abiFilters)  // abiFilters is a HashSet, so its order is undefined.
         }
         for (flavor in variant.getProductFlavors().reverse()) {
             ndk = flavor.ndkConfig
@@ -168,10 +168,10 @@ class PythonPlugin implements Plugin<Project> {
         if (abis.isEmpty()) {
             // The Android plugin doesn't make abiFilters compulsory, but we will, because
             // adding every single ABI to the APK is not something we want to do by default.
-            throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: you may want to " +
-                                      "add it to defaultConfig.")
+            throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: " +
+                                       "you may want to add it to defaultConfig.")
         }
-        return abis
+        return abis.toArray()
     }
 
     Task createBuildPackagesTask() {
@@ -200,6 +200,7 @@ class PythonPlugin implements Plugin<Project> {
             ext.destinationDir = variantGenDir(variant, "requirements")
             dependsOn buildPackagesTask
             inputs.property("python", python.serialize())
+            inputs.files(getConfig(variant, "targetAbis"))
             outputs.dir(destinationDir)
             doLast {
                 project.delete(destinationDir)
@@ -210,7 +211,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args "--android-abis"
-                        args getAbis(variant).toArray()
+                        args getAbis(variant)
                         args python.pip.install
                         args "--"
                         args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
