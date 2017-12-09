@@ -172,31 +172,30 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
     def test_wheel_index(self):
-        # All the workstation platform wheels have version 0.2, while the Android wheels have
-        # version 0.1. This tests that pip always uses the target platform and ignores the
-        # workstation platform.
-        #
-        # If testing on another platform, add it to the list below, and add a corresponding
-        # wheel to packages/dist.
+        # If testing on another platform, add it to the list below, and add corresponding
+        # wheels to packages/dist.
         self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "mingw"])
 
-        run = self.RunGradle("base", "PythonReqs/wheel_index_1",     # Has Android and workstation
-                             requirements=["native1_android_todo"])  #   wheels
+        # This test has build platform wheels for version 0.2, and an Android wheel for version
+        # 0.1, to test that pip always picks the target platform, not the workstation platform.
+        run = self.RunGradle("base", "PythonReqs/wheel_index_1",
+                             requirements=["native1_android_15_x86"])
 
-        run.apply_layers("PythonReqs/wheel_index_2")                 # Only has workstation wheels
+        # This test only has build platform wheels.
+        run.apply_layers("PythonReqs/wheel_index_2")
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
     def test_sdist_index(self):
-        # Similarly to test_wheel_index, this test has an sdist for version 0.2 and a wheel for
-        # version 0.1, to test that pip ignores the sdist.
+        # This test has an sdist for version 0.2 and a wheel for version 0.1, to test that pip
+        # ignores the sdist.
         run = self.RunGradle("base", "PythonReqs/sdist_index_1",
-                             requirements=["sdist1_android_todo"])
+                             requirements=["native3_android_15_x86"])
 
-        # While this test has only an sdist.
+        # This test has only an sdist.
         run.apply_layers("PythonReqs/sdist_index_2")
         run.rerun(succeed=False)
-        self.assertInLong("No matching distribution found for sdist2 "
+        self.assertInLong("No matching distribution found for native4 "
                           "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
 
 

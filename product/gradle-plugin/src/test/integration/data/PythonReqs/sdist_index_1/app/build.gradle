@@ -15,7 +15,7 @@ android {
             pip {
                 options "--no-index"
                 options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "sdist1"
+                install "native3"
             }
         }
         ndk {
