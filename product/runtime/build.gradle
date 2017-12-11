@@ -317,7 +317,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             if (pyVersion == "2.7") {
                 task("sphinx", type: Exec, group: "documentation") {
                     executable "python"
-                    args "-msphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
+                    args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
                 }
                 sphinx.configure(testCommonConfig)
                 doc.dependsOn(sphinx)

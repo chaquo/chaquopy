@@ -351,11 +351,12 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
         throw_exception(env)
         return 0
 
+
 # === Exception handling ======================================================
 
 # Use `DEF` rather than `cdef const` because the latter may not be initialized after module
 # initialization failure.
-DEF fqn_PyException = "com/chaquo/python/PyException"
+DEF fqn_PyException = b"com/chaquo/python/PyException"
 
 
 cdef throw_exception(JNIEnv *env, java_cls_name=fqn_PyException):

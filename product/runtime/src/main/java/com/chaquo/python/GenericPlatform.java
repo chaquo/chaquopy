@@ -7,7 +7,8 @@ public class GenericPlatform extends Python.Platform {
     public GenericPlatform() {
         if (System.getProperty("java.vendor").toLowerCase().contains("android")) {
             throw new RuntimeException("Cannot use GenericPlatform on Android. Call Python.start" +
-                                       "(new AndroidPlatform(context)) before Python.getInstance().");
+                                       "(new AndroidPlatform(context)) before using Python, or " +
+                                       "use PyApplication to do this automatically.");
         }
         System.loadLibrary("chaquopy_java");
     }

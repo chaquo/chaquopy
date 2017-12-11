@@ -1,6 +1,17 @@
 Change log
 ##########
 
+0.6.1 (2017-12-11)
+==================
+
+* Apps can now use certain native packages, including NumPy (`#14
+  <https://github.com/chaquo/chaquopy/issues/14>`_), as well as pure-Python packages which
+  aren't available from PyPI in wheel format. To support this, the `build.gradle` syntax for
+  calling `pip install` has been changed: please see `the
+  documentation <https://chaquo.com/chaquopy/doc/current/android.html#python-requirements>`_.
+* Zero-initialized Java arrays can now be created in Python, by passing an integer to the array
+  constructor rather than a sequence.
+
 0.5.0 (2017-11-04)
 ==================
 * Support Android Gradle plugin versions 2.2 (`#9

@@ -25,7 +25,7 @@ public class AndroidPlatform extends Python.Platform {
     };
 
     private static final String[] OBSOLETE_FILES = {
-        // Removed in 0.6.0
+        // No longer extracted since 0.6.0
         "app.zip",
         "requirements.zip",
 
