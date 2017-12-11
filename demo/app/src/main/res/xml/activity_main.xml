@@ -9,7 +9,7 @@
 
     <Preference android:title="@string/ui_demo" android:summary="@string/ui_demo_summary">
         <intent android:targetPackage="com.chaquo.python.demo"
-            android:targetClass="com.chaquo.python.demo.ui_demo.UIDemoActivity"/>
+            android:targetClass="chaquopy.demo.ui_demo.UIDemoActivity"/>
     </Preference>
 
     <Preference android:title="@string/java_demo" android:summary="@string/java_demo_summary">

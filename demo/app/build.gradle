@@ -20,8 +20,9 @@ afterEvaluate {
     def assetsSrcDir = "src/main/assets/source"
     delete assetsSrcDir
     mkdir assetsSrcDir
-    for (filename in ["src/main/python/com/chaquo/python/demo/ui_demo.py",
+    for (filename in ["src/main/python/chaquopy/demo/ui_demo.py",
                       "src/main/java/com/chaquo/python/demo/JavaDemoActivity.java"]) {
+        assert file(filename).exists()
         copy {
             from filename
             into assetsSrcDir
@@ -52,21 +53,31 @@ android {
         // **********************************************************************
 
         python {
-            // Enable and edit the following line if "python" is not on your PATH.
-            // buildPython "C:/Python36/python.exe"
             version "2.7.10"
+
+            // Enable and edit the following line if "python2" is not on your PATH.
+            // buildPython "C:/Python27/python.exe"
+
+            // Android UI demo
             pip {
-                install "Pygments==2.2.0"
+                install "Pygments==2.2.0"   // Also used in Java API demo
+            }
+            staticProxy "chaquopy.demo.ui_demo"
+
+            // Python unit tests
+            pip {
                 install "MarkupSafe==1.0"
             }
-            staticProxy "com.chaquo.python.demo.ui_demo"
             staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
         }
-        resConfigs "en"
+
+        // Chaquopy generates extra internal-use constructors on static proxy classes.
         lintOptions {
-            // Chaquopy generates extra internal-use constructors on static proxy classes.
             disable "ValidFragment"
         }
+
+        // Remove other languages imported from Android support libraries.
+        resConfigs "en"
     }
 
     buildTypes {

@@ -72,8 +72,8 @@ public class ConsoleActivity extends AppCompatActivity {
         super.onStart();
         adjustScroll();  // Necessary after a screen rotation
 
-        PyObject demo_app = py.getModule("demo_app");
-        PyObject stream = demo_app.callAttr("ForwardingOutputStream", this, "append");
+        PyObject utils = py.getModule("chaquopy.demo.utils");
+        PyObject stream = utils.callAttr("ForwardingOutputStream", this, "append");
         PyObject sys = py.getModule("sys");
         prevStdout = sys.put("stdout", stream);
         prevStderr = sys.put("stderr", stream);
@@ -132,7 +132,7 @@ public class ConsoleActivity extends AppCompatActivity {
     public void append(CharSequence text) {
         if (text.length() == 0) return;
         for (String line : text.toString().split("\n")) {
-            Log.d("append", line);
+            Log.d("console", line);
         }
 
         final List<CharSequence> fragments = new ArrayList<>();

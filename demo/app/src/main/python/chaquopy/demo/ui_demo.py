@@ -13,7 +13,7 @@ from android.view import Menu, MenuItem, View
 from java.lang import String
 
 from com.chaquo.python.demo import R
-from demo_app import view_source
+from .utils import view_source
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
