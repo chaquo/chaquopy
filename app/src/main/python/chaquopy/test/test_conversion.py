@@ -1,10 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
-from contextlib import contextmanager
 import math
 import unittest
 
-from java import *
+from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
 
 
 FLOAT32_EXPONENT_BITS = 8
@@ -68,7 +67,7 @@ class TestConversion(unittest.TestCase):
             self.verify_value(self.obj, "Number", 42)
 
     def verify_int(self, obj, name, bits, wrapper=None, allow_bool=False, allow_float=False):
-        max_val = (2 ** (bits-1)) - 1
+        max_val = (2 ** (bits - 1)) - 1
         min_val = -max_val - 1
 
         self.verify_value(obj, name, min_val, wrapper=wrapper)
@@ -228,14 +227,11 @@ class TestConversion(unittest.TestCase):
         if verify is None:
             verify = self.assertEqual
 
-        self.verify_value_1(obj, name, value, context, verify, wrapper=None)
+        self.verify_value_1(obj, name, value, context, verify)
         if wrapper:
             self.verify_value_1(obj, name, value, context, verify, wrapper)
 
-    def verify_value_1(self, obj, name, value, context, verify, wrapper):
-        if wrapper is None:
-            wrapper = lambda value: value
-
+    def verify_value_1(self, obj, name, value, context, verify, wrapper=(lambda value: value)):
         self.verify_value_2(obj, name, value, context, verify, wrapper)
         self.verify_value_2(type(obj), "Static" + name, value, context, verify, wrapper)
         # Static members can also be accessed on an instance.

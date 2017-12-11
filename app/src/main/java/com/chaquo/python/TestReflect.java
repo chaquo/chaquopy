@@ -1,14 +1,43 @@
 package com.chaquo.python;
 
+import static org.junit.Assert.*;
+
+
 public class TestReflect {
 
+    // See also equivalent Python implementation in pyobjecttest.py.
     public static class DelTrigger {
-        public static boolean delTriggered = false;
+        private static int TIMEOUT = 1000;
+        public static boolean triggered = false;
 
         @Override
         protected void finalize() throws Throwable {
-            delTriggered = true;
+            triggered = true;
             super.finalize();
+        }
+
+        public static void reset() {
+            triggered = false;
+        }
+
+        public static void assertTriggered(boolean expected) {
+            long deadline = System.currentTimeMillis() + TIMEOUT;
+            while (System.currentTimeMillis() < deadline) {
+                System.gc();
+                System.runFinalization();
+                try {
+                    assertEquals(expected, triggered);
+                    return;
+                } catch (AssertionError e) {
+                    if (!expected) {
+                        throw e;
+                    }
+                }
+                try {
+                    Thread.sleep(TIMEOUT / 10);
+                } catch (InterruptedException e) { /* ignore */ }
+            }
+            fail("Not triggered after " + TIMEOUT + " ms");
         }
     }
 

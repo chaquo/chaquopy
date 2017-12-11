@@ -1,8 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-from java import *
-from java.lang import String
 from com.chaquo.java import StaticProxyTest as SPT
+from java import constructor, method, Override, static_proxy, jarray, jboolean, jvoid, jdouble, jint
+from java.lang import String, Thread
+from java.io import FileNotFoundException, EOFException
+from java.lang import Error, RuntimeException
 
 
 class ProtectedChild(static_proxy(SPT.ProtectedParent)):
@@ -48,44 +50,53 @@ class OverrideChild(static_proxy(SPT.OverrideParent)):
 
 class Return(static_proxy()):
     @method(jvoid, [])
-    def void_good(self):            pass
+    def void_good(self):
+        pass
 
     @method(jvoid, [])
-    def void_bad(self):             return "hello"
+    def void_bad(self):
+        return "hello"
 
     @method(jint, [])
-    def primitive_good(self):       return 42
+    def primitive_good(self):
+        return 42
 
     @method(jint, [])
-    def primitive_bad_value(self):  return "hello"
+    def primitive_bad_value(self):
+        return "hello"
 
     @method(jint, [])
-    def primitive_bad_null(self):   pass
+    def primitive_bad_null(self):
+        pass
 
     @method(String, [])
-    def object_good_value(self):    return "hello"
+    def object_good_value(self):
+        return "hello"
 
     @method(String, [])
-    def object_good_null(self):     return None
+    def object_good_null(self):
+        return None
 
     @method(String, [])
-    def object_bad(self):           return 42
+    def object_bad(self):
+        return 42
 
     @method(jarray(String), [])
-    def array_good_value(self):     return ["hello", "world"]
+    def array_good_value(self):
+        return ["hello", "world"]
 
     @method(jarray(String), [])
-    def array_good_null(self):      return None
+    def array_good_null(self):
+        return None
 
     @method(jarray(String), [])
-    def array_bad_content(self):    return [1, 2]
+    def array_bad_content(self):
+        return [1, 2]
 
     @method(jarray(String), [])
-    def array_bad_value(self):      return "hello"
+    def array_bad_value(self):
+        return "hello"
 
-
-from java.io import FileNotFoundException, EOFException
-from java.lang import Error, RuntimeException
 
 class Exceptions(static_proxy()):
     @method(jvoid, [])
@@ -112,8 +123,6 @@ class Exceptions(static_proxy()):
     def runtime_exception(self):
         raise RuntimeException("re")
 
-
-from java.lang import Thread
 
 class Modifiers(static_proxy()):
     @method(jboolean, [], modifiers="public synchronized")

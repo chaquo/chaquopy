@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
-from java import *
+from java import dynamic_proxy, jboolean, jvoid, Override, static_proxy
 
 from android.app import AlertDialog
 from android.content import Context, DialogInterface
@@ -13,7 +13,7 @@ from android.view import Menu, MenuItem, View
 from java.lang import String
 
 from com.chaquo.python.demo import R
-from demo_app import view_source
+from .utils import view_source
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):

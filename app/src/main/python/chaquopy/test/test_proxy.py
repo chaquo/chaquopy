@@ -3,35 +3,46 @@ from __future__ import absolute_import, division, print_function
 import traceback
 from unittest import TestCase
 
-from java import *
+from java import cast, dynamic_proxy, jarray, jfloat, jint
 from com.chaquo.python import PyException, TestProxy as TP
 
 
 class TestProxy(TestCase):
-    from test_utils import assertDir
+    from .test_utils import assertDir
 
     def test_direct_inherit(self):
         from java.lang import Object, Runnable
         for base in [Object, Runnable]:
             with self.assertRaisesRegexp(TypeError, "Java classes can only be inherited using "
                                          "static_proxy or dynamic_proxy"):
-                class P(base): pass
+                class P(base):
+                    pass
 
     def test_dynamic_errors(self):
         from java.lang import Object, Runnable
         with self.assertRaisesRegexp(TypeError, "'hello' is not a Java interface"):
-            class P(dynamic_proxy("hello")): pass
-        with self.assertRaisesRegexp(TypeError, "<class 'java.lang.Object'> is not a Java interface"):
-            class P(dynamic_proxy(Object)): pass
-        with self.assertRaisesRegexp(TypeError, "<class 'test_proxy.P'> is not a Java interface"):
-            class P(dynamic_proxy(Runnable)): pass
-            class P2(dynamic_proxy(P)): pass
+            class P1(dynamic_proxy("hello")):
+                pass
+        with self.assertRaisesRegexp(TypeError,
+                                     "<class 'java.lang.Object'> is not a Java interface"):
+            class P2(dynamic_proxy(Object)):
+                pass
+        with self.assertRaisesRegexp(TypeError, "<class 'chaquopy.test.test_proxy.P3'> "
+                                     "is not a Java interface"):
+            class P3(dynamic_proxy(Runnable)):
+                pass
+            class P4(dynamic_proxy(P3)):
+                pass
 
         with self.assertRaisesRegexp(TypeError, "dynamic_proxy must be used first in class bases"):
-            class B(object): pass
-            class C(B, dynamic_proxy(Runnable)): pass
-        with self.assertRaisesRegexp(TypeError, "dynamic_proxy can only be used once in class bases"):
-            class C(dynamic_proxy(Runnable), dynamic_proxy(Runnable)): pass
+            class B(object):
+                pass
+            class P5(B, dynamic_proxy(Runnable)):
+                pass
+        with self.assertRaisesRegexp(TypeError,
+                                     "dynamic_proxy can only be used once in class bases"):
+            class P6(dynamic_proxy(Runnable), dynamic_proxy(Runnable)):
+                pass
 
     def test_basic(self):
         class AddN(dynamic_proxy(TP.Adder)):
@@ -47,7 +58,7 @@ class TestProxy(TestCase):
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
 
-        from test_utils import Object_names
+        from .test_utils import Object_names
         Proxy_names = Object_names | {"getInvocationHandler", "getProxyClass", "isProxyClass",
                                       "newProxyInstance",
                                       "h"}              # reflect.Proxy instance field
@@ -77,10 +88,8 @@ class TestProxy(TestCase):
         self.assertEqual(11, TP.a1.add(10))
         self.assertEqual(12, TP.a2.add(10))
 
-    # See notes in PyObjectTest.finalize_
     def test_gc(self):
-        from java.lang import System
-        from pyobjecttest import DelTrigger as DT
+        from .pyobjecttest import DelTrigger as DT
 
         test = self
         class A(dynamic_proxy(TP.Adder)):
@@ -93,7 +102,7 @@ class TestProxy(TestCase):
             def add(self, x):
                 return self.before_init_n + x
 
-        DT.triggered = False
+        DT.reset()
         a = A(5)
         DT.assertTriggered(self, False)
         TP.a1 = a
@@ -186,7 +195,6 @@ class TestProxy(TestCase):
 
     # We need a complete test of attribute behaviour because of our unusual __dict__ handling.
     def test_descriptor(self):
-        test = self
         class Add(dynamic_proxy(TP.Adder)):
             @classmethod
             def non_data(cls):
@@ -257,7 +265,6 @@ class TestProxy(TestCase):
         self.assertTrue(a1.equals(a2))
         self.assertEqual(Object.hashCode(a1) + 1, a1.hashCode())
 
-
     def test_object_methods_final(self):
         from java.lang import IllegalMonitorStateException
         class C(dynamic_proxy(TP.Adder)):
@@ -282,9 +289,12 @@ class TestProxy(TestCase):
     def test_return(self):
         from java.lang import Runnable, ClassCastException, NullPointerException
         class C(dynamic_proxy(Runnable, TP.Adder, TP.GetString)):
-            def run(self):       return self.result  # returns void
-            def add(self, x):    return self.result  # returns int
-            def getString(self): return self.result  # returns String
+            def run(self):
+                return self.result  # returns void
+            def add(self, x):
+                return self.result  # returns int
+            def getString(self):
+                return self.result  # returns String
 
         c = C()
         c_Runnable, c_Adder, c_GS = [cast(cls, c) for cls in [Runnable, TP.Adder, TP.GetString]]
@@ -391,7 +401,7 @@ class TestProxy(TestCase):
     def test_exception_indirect(self):
         from java.lang import Integer, NumberFormatException
 
-        ref_line_no = traceback.extract_stack()[-1][1]
+        ref_line = traceback.extract_stack()[-1][1]  # Line number of THIS line.
         class E(dynamic_proxy(TP.Exceptions)):
             def parse(self, s):
                 return self.indirect_parse(s)
@@ -404,8 +414,8 @@ class TestProxy(TestCase):
             e_cast.parse("abc")
         except NumberFormatException as e:
             self.assertHasFrames(e, [("java.lang.Integer", "parseInt", None, None),
-                                     ("<python>", "indirect_parse", "test_proxy.py", ref_line_no + 5),
-                                     ("<python>", "parse", "test_proxy.py", ref_line_no + 3),
+                                     ("<python>", "indirect_parse", "test_proxy.py", ref_line + 5),
+                                     ("<python>", "parse", "test_proxy.py", ref_line + 3),
                                      ("com.chaquo.python.PyObject", "callAttrThrows", None, None)])
         else:
             self.fail()

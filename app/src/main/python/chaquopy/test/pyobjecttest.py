@@ -2,19 +2,40 @@
 
 from __future__ import absolute_import, division, print_function
 
+from time import sleep, time
 
-# Also used in test_proxy and test_static_proxy
+from java.lang import System
+
+
+# See also equivalent Java implementation in TestReflect.java.
+#
+# As well as the Java PyObjectTest, this class is also used in the Python tests test_proxy and
+# test_static_proxy
 class DelTrigger(object):
+    TIMEOUT = 1.0
     triggered = False
+
     def __del__(self):
         DelTrigger.triggered = True
 
     @staticmethod
-    def assertTriggered(test, triggered):
-        from java.lang import System
-        System.gc()
-        System.runFinalization()
-        test.assertEqual(triggered, DelTrigger.triggered)
+    def reset():
+        DelTrigger.triggered = False
+
+    @staticmethod
+    def assertTriggered(test, expected):
+        deadline = time() + DelTrigger.TIMEOUT
+        while time() < deadline:
+            System.gc()
+            System.runFinalization()
+            try:
+                test.assertEqual(expected, DelTrigger.triggered)
+                return
+            except AssertionError:
+                if not expected:
+                    raise
+            sleep(DelTrigger.TIMEOUT / 10)
+        test.fail("Not triggered after {} seconds".format(DelTrigger.TIMEOUT))
 
 
 class EmptyObject(object):

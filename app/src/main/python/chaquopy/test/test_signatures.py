@@ -3,12 +3,13 @@ from __future__ import absolute_import, division, print_function
 import math
 import unittest
 
-from java import *
-from java.signatures import *
+from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
+from java.signatures import jni_method_sig, jni_sig
 
 
 class TestSignatures(unittest.TestCase):
 
+    # jni_sig is not part of the public API and should not be accessed by user code.
     def test_jni_sig(self):
         Object = jclass("java.lang.Object")
 
@@ -29,6 +30,7 @@ class TestSignatures(unittest.TestCase):
         self.assertEquals("[Ljava/lang/Object;", jni_sig(jarray(Object)))
         self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
 
+    # jni_method_sig is not part of the public API and should not be accessed by user code.
     def test_jni_method_sig(self):
         Object = jclass("java.lang.Object")
         String = jclass("java.lang.String")
@@ -65,7 +67,7 @@ class TestSignatures(unittest.TestCase):
         self.verify_int(jlong, 64)
 
     def verify_int(self, cls, bits):
-        max_val = (2 ** (bits-1)) - 1
+        max_val = (2 ** (bits - 1)) - 1
         min_val = -max_val - 1
 
         for val in [min_val, max_val]:

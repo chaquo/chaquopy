@@ -25,7 +25,7 @@
             android:launchMode="singleInstance"
             android:windowSoftInputMode="adjustResize">
         </activity>
-        <activity android:name=".ui_demo.UIDemoActivity"
+        <activity android:name="chaquopy.demo.ui_demo.UIDemoActivity"
             android:label="@string/ui_demo">
         </activity>
         <activity android:name=".JavaDemoActivity"

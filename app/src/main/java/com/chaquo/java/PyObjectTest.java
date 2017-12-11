@@ -25,7 +25,7 @@ public class PyObjectTest {
     public void setUp() {
         python = Python.getInstance();
         builtins = python.getBuiltins();
-        pyobjecttest = python.getModule("pyobjecttest");
+        pyobjecttest = python.getModule("chaquopy.test.pyobjecttest");
     }
 
     @Test
@@ -525,19 +525,18 @@ public class PyObjectTest {
         assertEquals("'hello'", pyobjecttest.get("str_var").repr());
     }
 
-    // It's hard to make a totally deterministic test of finalization. This test and its Python
-    // counterpart still fail sometimes, especially on the emulator for API level 17.
     @SuppressWarnings({"UnusedAssignment", "unused"})
     @Test
     public void finalize_() {
         PyObject DT = pyobjecttest.get("DelTrigger");
-        DT.put("triggered", false);
+        PyObject TestCase = python.getModule("unittest").get("TestCase");
+        PyObject test = TestCase.call("__init__");  // https://stackoverflow.com/a/18084492/220765
+
+        DT.callAttr("reset");
         PyObject dt = DT.call();
-        assertFalse(DT.get("triggered").toJava(Boolean.class));
+        DT.callAttr("assertTriggered", test, false);
         dt = null;
-        System.gc();
-        System.runFinalization();
-        assertTrue(DT.get("triggered").toJava(Boolean.class));
+        DT.callAttr("assertTriggered", test, true);
     }
 
 }

@@ -2,12 +2,12 @@ from __future__ import absolute_import, division, print_function
 
 import unittest
 
-from java import *
+from java import cast, jarray, jclass
 from com.chaquo.python import TestReflect as TR
 
 
 class TestReflect(unittest.TestCase):
-    from test_utils import assertDir
+    from .test_utils import assertDir
 
     def setUp(self):
         self.Test = jclass('com.chaquo.python.TestBasics')
@@ -48,7 +48,7 @@ class TestReflect(unittest.TestCase):
     # Interaction of identity and casts is tested in TestReflect.test_cast and
     # TestArray.test_cast.
     def test_identity(self):
-        from java.lang import Class, Object, String
+        from java.lang import Object, String
         Object_klass, String_klass = Object.getClass(), String.getClass()
         self.assertIsNot(Object_klass, String_klass)
         self.t.fieldKlass = Object_klass
@@ -63,17 +63,13 @@ class TestReflect(unittest.TestCase):
         self.t.setStringArray(a2)
         self.assertIs(a2, self.t.getStringArray())
 
-    # See notes in PyObjectTest.finalize_
     def test_gc(self):
-        System = jclass('java.lang.System')
         DelTrigger = jclass("com.chaquo.python.TestReflect$DelTrigger")
-        DelTrigger.delTriggered = False
+        DelTrigger.reset()
         dt = DelTrigger()
-        self.assertFalse(DelTrigger.delTriggered)
+        DelTrigger.assertTriggered(False)
         del dt
-        System.gc()
-        System.runFinalization()
-        self.assertTrue(DelTrigger.delTriggered)
+        DelTrigger.assertTriggered(True)
 
     def test_str_repr(self):
         Object = jclass('java.lang.Object')
@@ -231,7 +227,8 @@ class TestReflect(unittest.TestCase):
     def test_reserved_words(self):
         StringWriter = jclass("java.io.StringWriter")
         PrintWriter = jclass("java.io.PrintWriter")
-        PrintWriter.print; PrintWriter.print_   # Ensure __dict__ is populated
+        PrintWriter.print   # Ensure __dict__ is populated
+        PrintWriter.print_  #
         self.assertIs(PrintWriter.__dict__["print"], PrintWriter.__dict__["print_"])
         sw = StringWriter()
         pw = PrintWriter(sw)
@@ -279,7 +276,8 @@ class TestReflect(unittest.TestCase):
 
         # Getting an Object method directly from an interface class should return the Object
         # implementation.
-        self.assertRegexpMatches(TR.Interface.toString(c), r"^com.chaquo.python.TestReflect\$Child@")
+        self.assertRegexpMatches(TR.Interface.toString(c),
+                                 r"^com.chaquo.python.TestReflect\$Child@")
 
         # But calling an Object method through an interface cast should be done virtually.
         self.assertEqual("Child object", cast(TR.Interface, c).toString())
@@ -297,7 +295,7 @@ class TestReflect(unittest.TestCase):
         self.assertEqual((Object,), Parent.__bases__)
         self.assertEqual((Parent, Interface), Child.__bases__)
 
-        from test_utils import Object_names
+        from .test_utils import Object_names
         Interface_names = Object_names | {"iConstant", "iMethod"}
         Parent_names = Object_names | {"pStaticField", "pField", "pStaticMethod", "pMethod",
                                        "oStaticField", "oField", "oStaticMethod", "oMethod"}

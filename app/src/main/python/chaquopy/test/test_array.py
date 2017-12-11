@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import ctypes
 import unittest
 
-from java import *
+from java import cast, jarray, jboolean, jbyte, jchar, jclass, jint
 
 
 class TestArray(unittest.TestCase):
@@ -19,6 +19,28 @@ class TestArray(unittest.TestCase):
         self.assertTrue(isinstance(array_C, jclass("java.io.Serializable")))
         self.assertFalse(isinstance(array_C, jclass("java.io.Closeable")))
         self.assertRegexpMatches(array_C.toString(), r"^\[C")
+
+    def test_blank(self):
+        array_Z = jarray(jboolean)(2)
+        self.assertEqual(2, len(array_Z))
+        self.assertEqual([False, False], array_Z)
+
+        array_C = jarray(jchar)(3)
+        self.assertEqual(3, len(array_C))
+        self.assertEqual([u"\u0000", u"\u0000", u"\u0000"], array_C)
+
+        array_I = jarray(jint)(2)
+        self.assertEqual(2, len(array_I))
+        self.assertEqual([0, 0], array_I)
+
+        from java.lang import Object
+        array_Object = jarray(Object)(3)
+        self.assertEqual(3, len(array_Object))
+        self.assertEqual([None, None, None], array_Object)
+
+        array_empty = jarray(Object)(0)
+        self.assertEqual(0, len(array_empty))
+        self.assertEqual([], array_empty)
 
     # More conversion tests in test_conversion.py
     def test_conversion(self):
@@ -85,7 +107,8 @@ class TestArray(unittest.TestCase):
             # This version of getBytes returns the 8 low-order of each Unicode character.
             string.getBytes(0, 4, btarray, 0)
             if not isinstance(btarray, tuple):
-                self.assertEquals(btarray, [ctypes.c_int8(x).value for x in [0x56, 0x78, 0x90, 0xAB]])
+                self.assertEquals(btarray, [ctypes.c_int8(x).value
+                                            for x in [0x56, 0x78, 0x90, 0xAB]])
 
     def test_multiple_dimensions(self):
         Arrays = jclass('com.chaquo.python.TestArray')
@@ -133,6 +156,17 @@ class TestArray(unittest.TestCase):
             self.assertEqual("jarray('Z')([True, False])", func(jarray(jboolean)([True, False])))
             self.assertEqual("jarray('[Z')([[True], [False, True]])",
                              func(jarray(jarray(jboolean))([[True], [False, True]])))
+
+    # __bytes__ is not part of the public API and is subject to change.
+    def test_bytes(self):
+        array_B = jarray(jbyte)([0, 102, 111, 111, 127, -1, -128])
+        self.assertEqual(b"\x00foo\x7F\xFF\x80", array_B.__bytes__())
+        self.assertEqual(b"foo", array_B.__bytes__(1, 3))
+        self.assertEqual(b"\xFF\x80", array_B.__bytes__(5))
+        self.assertEqual(b"\x00foo", array_B.__bytes__(length=4))
+
+        with self.assertRaisesRegexp(TypeError, "Cannot call __bytes__ on char[], only on byte[]"):
+            jarray(jchar)("hello").__bytes__()
 
     def test_eq(self):
         tf = jarray(jboolean)([True, False])
@@ -185,17 +219,17 @@ class TestArray(unittest.TestCase):
         self.assertEqual([True, False, "hello", "world"], tf + hw)
 
     def test_iter(self):
-        a = jarray(jint)([1,2,3])
-        self.assertEqual([1,2,3], [x for x in a])
+        a = jarray(jint)([1, 2, 3])
+        self.assertEqual([1, 2, 3], [x for x in a])
 
     def test_in(self):
-        a = jarray(jint)([1,2])
+        a = jarray(jint)([1, 2])
         self.assertTrue(1 in a)
         self.assertTrue(2 in a)
         self.assertFalse(3 in a)
 
     def test_attributes(self):
-        a = jarray(jint)([1,2,3])
+        a = jarray(jint)([1, 2, 3])
         with self.assertRaises(AttributeError):
             a.length
         with self.assertRaises(AttributeError):

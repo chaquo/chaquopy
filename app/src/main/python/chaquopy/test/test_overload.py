@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import unittest
 
-from java import *
+from java import cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
 from com.chaquo.python import TestOverload as TO
 
 
@@ -35,7 +35,7 @@ class TestOverload(unittest.TestCase):
 
         self.assertEqual(MSI.resolve11(m, "test"), "String")
         with self.inapplicable:
-           MSI.resolve11(m, 42)
+            MSI.resolve11(m, 42)
 
         # ---
 
@@ -273,8 +273,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object([True, False]))
         self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object(array_Z))
         self.assertEqual("Object [true, false]", obj.resolve_Z_Object(cast(Object, array_Z)))
-        self.assertEqual("boolean[] [true, false]", obj.resolve_Z_Object(cast(jarray(jboolean),
-                                                                              cast(Object, array_Z))))
+        self.assertEqual("boolean[] [true, false]",
+                         obj.resolve_Z_Object(cast(jarray(jboolean), cast(Object, array_Z))))
 
     def test_varargs(self):
         obj = jclass("com.chaquo.python.TestOverload$Varargs")()
@@ -289,7 +289,7 @@ class TestOverload(unittest.TestCase):
 
         self.assertEqual("int... []", obj.resolve_ID())  # int is more specific than double.
         with self.ambiguous:
-            obj.resolve_ID(None)                         # But int[] is not more specific than double[].
+            obj.resolve_ID(None)                    # But int[] is not more specific than double[].
         self.assertEqual("int... null", obj.resolve_ID(cast(jarray(jint), None)))
         self.assertEqual("double... null", obj.resolve_ID(cast(jarray(jdouble), None)))
         with self.inapplicable:
@@ -316,7 +316,8 @@ class TestOverload(unittest.TestCase):
         self.assertEqual("Long... [42]", obj.resolve_I_Long(Long(42)))
 
         Number = jclass("java.lang.Number")
-        self.assertEqual("Long... []", obj.resolve_Number_Long())  # Long[] is more specific than Number[].
+        # Long[] is more specific than Number[].
+        self.assertEqual("Long... []", obj.resolve_Number_Long())
         self.assertEqual("Long... [42]", obj.resolve_Number_Long(42))
         self.assertEqual("Long... null", obj.resolve_Number_Long(None))
         self.assertEqual("Long... [null]", obj.resolve_Number_Long([None]))
