@@ -97,18 +97,15 @@ class TestImport(unittest.TestCase):
 
     def test_relative(self):
         # Error wording varies across Python versions.
-        with self.assertRaisesRegexp(ValueError, (r"^[Aa]ttempted relative import (with no known "
-                                                  r"parent package)|(in non-package)$")):
-            from . import whatever  # noqa: F401
-
+        from module1 import test_relative
+        test_relative(self)
         from package1 import test_relative
-        test_relative.run(self)
-
+        test_relative(self)
         from package1.package11 import test_relative
-        test_relative.run(self)
+        test_relative(self)
 
     @unittest.skipIf(sys.version_info[0] >= 3,
                      "Implicit relative imports were removed in Python 3")
     def test_relative_implicit(self):
         from package1 import test_relative_implicit
-        test_relative_implicit.run(self)
+        test_relative_implicit(self)

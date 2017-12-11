@@ -8,7 +8,7 @@ from com.chaquo.python import PyException, TestProxy as TP
 
 
 class TestProxy(TestCase):
-    from test_utils import assertDir
+    from .test_utils import assertDir
 
     def test_direct_inherit(self):
         from java.lang import Object, Runnable
@@ -27,7 +27,8 @@ class TestProxy(TestCase):
                                      "<class 'java.lang.Object'> is not a Java interface"):
             class P2(dynamic_proxy(Object)):
                 pass
-        with self.assertRaisesRegexp(TypeError, "<class 'test_proxy.P3'> is not a Java interface"):
+        with self.assertRaisesRegexp(TypeError, "<class 'chaquopy.test.test_proxy.P3'> "
+                                     "is not a Java interface"):
             class P3(dynamic_proxy(Runnable)):
                 pass
             class P4(dynamic_proxy(P3)):
@@ -57,7 +58,7 @@ class TestProxy(TestCase):
         self.assertEqual(6, cast(TP.Adder, a3).add(3))
         self.assertEqual(5, cast(TP.Adder, a2).add(3))
 
-        from test_utils import Object_names
+        from .test_utils import Object_names
         Proxy_names = Object_names | {"getInvocationHandler", "getProxyClass", "isProxyClass",
                                       "newProxyInstance",
                                       "h"}              # reflect.Proxy instance field
@@ -88,7 +89,7 @@ class TestProxy(TestCase):
         self.assertEqual(12, TP.a2.add(10))
 
     def test_gc(self):
-        from pyobjecttest import DelTrigger as DT
+        from .pyobjecttest import DelTrigger as DT
 
         test = self
         class A(dynamic_proxy(TP.Adder)):

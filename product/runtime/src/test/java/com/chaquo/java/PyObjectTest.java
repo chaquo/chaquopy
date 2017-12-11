@@ -25,7 +25,7 @@ public class PyObjectTest {
     public void setUp() {
         python = Python.getInstance();
         builtins = python.getBuiltins();
-        pyobjecttest = python.getModule("pyobjecttest");
+        pyobjecttest = python.getModule("chaquopy.test.pyobjecttest");
     }
 
     @Test

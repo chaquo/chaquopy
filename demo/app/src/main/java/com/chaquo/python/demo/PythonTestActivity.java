@@ -8,7 +8,7 @@ public class PythonTestActivity extends UnitTestActivity {
     protected void runTests() {
         Python python = Python.getInstance();
         PyObject unittest = python.getModule("unittest");
-        PyObject suite = python.getModule("test_suite");
+        PyObject suite = python.getModule("chaquopy.test");
         PyObject stream = python.getModule("sys").get("stdout");
         PyObject runner = unittest.callAttr("TextTestRunner",
                                             new Kwarg("stream", stream),

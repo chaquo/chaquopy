@@ -5,14 +5,17 @@ apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 import com.chaquo.python.Common;
 
 // TODO #5203 use sourceSets, and remove .gitignore entries
-afterEvaluate {
-    task("copyPythonSrc", type: Copy) {
-        from "../../product/runtime/src/test/python"
-        into "src/main/python"
-        include "**/*.py"
+def IN_DIR = "../../product/runtime/src/test/python"
+def OUT_DIR = "src/main/python"
+// This list should be the same as the one in .gitignore.
+for (filename in ["chaquopy/test", "package1", "module1.py"]) {
+    assert file("$IN_DIR/$filename").exists()
+    delete "$OUT_DIR/$filename"
+    copy {
+        from IN_DIR
+        include filename, "$filename/**"
+        into OUT_DIR
     }
-    generateDebugPythonSources.dependsOn(copyPythonSrc)
-    generateDebugPythonAssets.dependsOn(copyPythonSrc)
 }
 // **********************************************************************
 
@@ -68,7 +71,8 @@ android {
             pip {
                 install "MarkupSafe==1.0"
             }
-            staticProxy "static_proxy.basic", "static_proxy.header", "static_proxy.method"
+            staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
+                        "chaquopy.test.static_proxy.method")
         }
 
         // Chaquopy generates extra internal-use constructors on static proxy classes.

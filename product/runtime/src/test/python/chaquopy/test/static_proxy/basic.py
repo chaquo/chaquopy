@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 from java import constructor, method, static_proxy, jint
-from pyobjecttest import DelTrigger
+from ..pyobjecttest import DelTrigger
 
 
 class BasicAdder(static_proxy()):

@@ -7,7 +7,7 @@ from com.chaquo.python import TestReflect as TR
 
 
 class TestReflect(unittest.TestCase):
-    from test_utils import assertDir
+    from .test_utils import assertDir
 
     def setUp(self):
         self.Test = jclass('com.chaquo.python.TestBasics')
@@ -295,7 +295,7 @@ class TestReflect(unittest.TestCase):
         self.assertEqual((Object,), Parent.__bases__)
         self.assertEqual((Parent, Interface), Child.__bases__)
 
-        from test_utils import Object_names
+        from .test_utils import Object_names
         Interface_names = Object_names | {"iConstant", "iMethod"}
         Parent_names = Object_names | {"pStaticField", "pField", "pStaticMethod", "pMethod",
                                        "oStaticField", "oField", "oStaticMethod", "oMethod"}

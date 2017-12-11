@@ -6,9 +6,9 @@ import java.lang.reflect.*;
 import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
-import static_proxy.basic.*;
-import static_proxy.header.*;
-import static_proxy.method.*;
+import chaquopy.test.static_proxy.basic.*;
+import chaquopy.test.static_proxy.header.*;
+import chaquopy.test.static_proxy.method.*;
 
 import static org.junit.Assert.*;
 import static org.hamcrest.CoreMatchers.isA;
@@ -31,7 +31,8 @@ public class StaticProxyTest {
 
     @Test
     public void toFromJava() {
-        PyObject BA = Python.getInstance().getModule("static_proxy.basic").get("BasicAdder");
+        Python py = Python.getInstance();
+        PyObject BA = py.getModule("chaquopy.test.static_proxy.basic").get("BasicAdder");
         PyObject ba_po = BA.call(42);
         BasicAdder ba = ba_po.toJava(BasicAdder.class);
         assertEquals(45, ba.add(3));
@@ -48,6 +49,7 @@ public class StaticProxyTest {
     public interface IntA {}
     public interface IntB {}
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void bases() {
         assertTrue(new Ca() instanceof ClassA);

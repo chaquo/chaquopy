@@ -53,18 +53,14 @@ for (def clsName : ["App", "ConsoleActivity", "MainActivity", "UnitTestActivity"
 delete("src/main/python")
 copy {
     from "../../../../demo/app/src/main/python"
-    include "chaquopy/**"
+    include "chaquopy/__init__.py", "chaquopy/demo/**"
     into "src/main/python"
 }
 
 def PY_INPUT_DIR = "../../packages"
-def PY_OUTPUT_DIR = "src/main/python/pkgtest"
+def PY_OUTPUT_DIR = "src/main/python/chaquopy/test"
 def INCLUDE_PACKAGES = []
 def EXCLUDE_PACKAGES = []
-delete(PY_OUTPUT_DIR)
-mkdir(PY_OUTPUT_DIR)
-file("$PY_OUTPUT_DIR/__init__.py").text = ""
-
 String suiteSrc = ""
 for (def inDir : file(PY_INPUT_DIR).listFiles().findAll { it.isDirectory() }) {
     def pkgName = inDir.name
@@ -75,14 +71,16 @@ for (def inDir : file(PY_INPUT_DIR).listFiles().findAll { it.isDirectory() }) {
 
     def pkgVer = file("$inDir/version.txt").text.trim()
     android.defaultConfig.python.pip { install "$pkgName==$pkgVer" }
+    def inFilename = "$inDir/test.py"
+    assert file(inFilename).exists()
     copy {
-        from "$inDir/test.py"
+        from inFilename
         into PY_OUTPUT_DIR
         rename "test.py", "${pkgName}.py"
     }
-    suiteSrc += "from pkgtest.${pkgName} import *\n"
+    suiteSrc += "from .${pkgName} import *\n"
 }
-file("src/main/python/test_suite.py").text = suiteSrc
+file("$PY_OUTPUT_DIR/__init__.py").text = suiteSrc
 
 
 dependencies {

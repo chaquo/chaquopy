@@ -153,7 +153,7 @@ assemble.dependsOn(cmakeBuildAnchor)
 def androidJar = "$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar"
 
 dependencies {
-    compile files(androidJar)
+    compileOnly files(androidJar)
 
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.
@@ -257,7 +257,8 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 args "-m", "chaquopy.static_proxy"
                 args "--path", "$projectDir/src/test/python"
                 args "--java", outputDir
-                args "static_proxy.basic", "static_proxy.header", "static_proxy.method"
+                args("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
+                     "chaquopy.test.static_proxy.method")
             }
             sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 
@@ -279,7 +280,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
                 } else {
-                    args "-v", "test_suite"
+                    args "-v", "chaquopy.test"
                 }
             }
             testPython.configure(testCommonConfig)

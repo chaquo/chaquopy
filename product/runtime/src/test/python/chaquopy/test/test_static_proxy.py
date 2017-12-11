@@ -5,7 +5,7 @@ from unittest import TestCase
 from java import static_proxy
 
 from com.chaquo.python import TestStaticProxy as TSP
-import static_proxy.basic as basic
+from .static_proxy import basic
 
 
 class TestStaticProxy(TestCase):
@@ -39,7 +39,7 @@ class TestStaticProxy(TestCase):
                 pass
 
     def test_gc(self):
-        from pyobjecttest import DelTrigger as DT
+        from .pyobjecttest import DelTrigger as DT
 
         DT.reset()
         gc = basic.GC()
