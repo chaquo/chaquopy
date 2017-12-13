@@ -2,6 +2,10 @@
 
 from __future__ import absolute_import, division, print_function
 
+# Workaround for https://github.com/cython/cython/issues/1720, which should ultimately be fixed
+# by https://github.com/cython/cython/issues/1715
+__package__ = "java"
+
 cdef extern from "chaquopy_extra.h":
     pass
 

@@ -16,7 +16,7 @@ public class Common {
     // TODO #5148 add Python 3
     // TODO #5213 update Python 2.7
     public static final List<String> PYTHON_VERSIONS = Arrays.asList
-        ("2.7.10");
+        ("2.7.10" ,"3.6.3");
 
     public static String pyVersionNoDot(String version) {
         return version.substring(0, version.lastIndexOf('.')).replace(".", "");
@@ -26,6 +26,7 @@ public class Common {
     public static final Map<String,String> PYTHON_SUFFIXES = new HashMap<>();
     static {
         PYTHON_SUFFIXES.put("2.7.10", "2.7");
+        PYTHON_SUFFIXES.put("3.6.3", "3.6m");
     }
 
     public static final Map<String,String> PYTHON_ABIS = new HashMap<>();

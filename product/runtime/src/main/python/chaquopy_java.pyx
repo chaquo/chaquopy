@@ -21,6 +21,7 @@ from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
 import java
+from java._vendor import six
 
 from java.jni cimport *
 from java.chaquopy cimport *
@@ -67,18 +68,18 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
     if not init_module(env):
         return
 
+    cdef SavedException se = None
     cdef JavaVM *jvm = NULL
     try:
         ret = env[0].GetJavaVM(env, &jvm)
         if ret != 0:
              raise Exception(f"GetJavaVM failed: {ret}")
         set_jvm(jvm)
-
         check_license(j2p(env, LocalRef.create(env, j_platform)))
-
     except BaseException:
-        throw_exception(env)
-        return
+        se = SavedException()
+    if se:
+        se.throw(env)
 
     # We imported java.chaquopy above, which has called PyEval_InitThreads during its own
     # module intialization, so the GIL now exists and we have it. We must release the GIL
@@ -126,8 +127,9 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
     try:
         return p2j_pyobject(env, import_module(j2p_string(env, LocalRef.create(env, j_name))))
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
@@ -135,8 +137,9 @@ cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
     try:
         return p2j_pyobject(env, import_module("java._vendor.six.moves.builtins"))
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 # === com.chaquo.python.PyObject ==============================================
 
@@ -144,16 +147,20 @@ cdef public void Java_com_chaquo_python_PyObject_openNative \
     (JNIEnv *env, jobject this) with gil:
     try:
         Py_INCREF(j2p_pyobject(env, this))
+        return
     except BaseException:
-        throw_exception(env)
+        se = SavedException()
+    se.throw(env)
 
 
 cdef public void Java_com_chaquo_python_PyObject_closeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
         Py_DECREF(j2p_pyobject(env, this))
+        return
     except BaseException:
-        throw_exception(env)
+        se = SavedException()
+    se.throw(env)
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
@@ -161,8 +168,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
     try:
         return p2j_pyobject(env, j2p(env, LocalRef.create(env, o)))
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_toJava \
@@ -173,11 +181,13 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
         try:
             return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
         except TypeError:
-            throw_exception(env, "java.lang.ClassCastException")
-            return NULL
-    except BaseException:
-        throw_exception(env)
+            se = SavedException()
+        se.throw(env, "java.lang.ClassCastException")
         return NULL
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_id \
@@ -185,8 +195,9 @@ cdef public jlong Java_com_chaquo_python_PyObject_id \
     try:
         return id(j2p_pyobject(env, this))
     except BaseException:
-        throw_exception(env)
-        return 0
+        se = SavedException()
+    se.throw(env)
+    return 0
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_type \
@@ -194,8 +205,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_type \
     try:
         return p2j_pyobject(env, type(j2p_pyobject(env, this)))
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_callThrows \
@@ -203,8 +215,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_callThrows \
     try:
         return call(env, j2p_pyobject(env, this), jargs)
     except BaseException:
-        throw_exception(env, None)
-        return NULL
+        se = SavedException()
+    se.throw(env, None)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_callAttrThrows \
@@ -214,8 +227,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_callAttrThrows \
                        j2p_string(env, LocalRef.create(env, j_key)))
         return call(env, attr, jargs)
     except BaseException:
-        throw_exception(env, None)
-        return NULL
+        se = SavedException()
+    se.throw(env, None)
+    return NULL
 
 
 cdef jobject call(JNIEnv *j_env, obj, jobject jargs) except? NULL:
@@ -252,8 +266,9 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
         # https://github.com/cython/cython/issues/1702
         return __builtins__.hasattr(self, key)
     except BaseException:
-        throw_exception(env)
-        return False
+        se = SavedException()
+    se.throw(env)
+    return False
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_get \
@@ -267,8 +282,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_get \
             return NULL
         return p2j_pyobject(env, value)
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_put \
@@ -283,8 +299,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
         setattr(self, key, j2p(env, LocalRef.create(env, j_value)))
         return p2j_pyobject(env, old_value)
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_remove \
@@ -299,8 +316,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_remove \
         delattr(self, key)
         return p2j_pyobject(env, old_value)
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_dir \
@@ -311,8 +329,9 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
             keys.add(key)
         return (<JNIRef?>keys._chaquopy_this).return_ref(env)
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 # === com.chaquo.python.PyObject (Object) =====================================
 
@@ -321,8 +340,9 @@ cdef public jboolean Java_com_chaquo_python_PyObject_equals \
     try:
         return j2p_pyobject(env, this) == j2p(env, LocalRef.create(env, that))
     except BaseException:
-        throw_exception(env)
-        return False
+        se = SavedException()
+    se.throw(env)
+    return False
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_toString \
@@ -338,8 +358,9 @@ cdef jobject to_string(JNIEnv *env, jobject this, func):
         self = j2p_pyobject(env, this)
         return p2j_string(env, func(self)).return_ref(env)
     except BaseException:
-        throw_exception(env)
-        return NULL
+        se = SavedException()
+    se.throw(env)
+    return NULL
 
 
 cdef public jint Java_com_chaquo_python_PyObject_hashCode \
@@ -348,44 +369,66 @@ cdef public jint Java_com_chaquo_python_PyObject_hashCode \
         self = j2p_pyobject(env, this)
         return ctypes.c_int32(hash(self)).value
     except BaseException:
-        throw_exception(env)
-        return 0
+        se = SavedException()
+    se.throw(env)
+    return 0
 
 
 # === Exception handling ======================================================
 
 # Use `DEF` rather than `cdef const` because the latter may not be initialized after module
 # initialization failure.
-DEF fqn_PyException = b"com/chaquo/python/PyException"
+DEF fqn_PyException_b = b"com/chaquo/python/PyException"
+fqn_PyException = fqn_PyException_b.decode()
 
 
-cdef throw_exception(JNIEnv *env, java_cls_name=fqn_PyException):
-    formatted_exc = format_exception(sys.exc_info())
-    try:
-        j_java_exc = get_exception(env, java_cls_name)
-        sys.exc_clear()     # See note at get_exception
-        ret = env[0].Throw(env, j_java_exc.obj)
-        if ret != 0:
-            raise Exception(f"Throw failed: {ret}")
-    except BaseException:
-        throw_simple_exception(env, f"{formatted_exc}\n"
-                               f"[failed to merge stack traces: {format_exception()}]")
+# See note at convert_exception for why local `jclass` proxy objects must be destroyed before
+# calling JNIEnv.Throw. If the exception was a Java exception, this includes the proxy object
+# for the exception itself. In Python 2, the interpreter would retain it in sys.exc_info()
+# until the handling function returned, but we can deal with this by calling exc_clear(). In
+# Python 3, exc_clear() has been removed, because sys.exc_info() is cleared when the `except`
+# block terminates. This means we must save the exception within the `except` block, and call
+# JNIEnv.Throw outside it.
+cdef class SavedException(object):
+    cdef exc_info
+
+    def __init__(self):
+        self.exc_info = sys.exc_info()
+        if six.PY2:
+            sys.exc_clear()
+
+    cdef throw(self, JNIEnv *env, java_cls_name=fqn_PyException):
+        formatted_exc = format_exception(self.exc_info)
+        try:
+            j_exc = convert_exception(env, self.exc_info, java_cls_name)
+            self.exc_info = None
+            ret = env[0].Throw(env, j_exc.obj)
+            if ret != 0:
+                raise Exception(f"Throw failed: {ret}")
+        except BaseException:
+            msg = f"{formatted_exc}\n[failed to merge stack traces: {format_exception()}]"
+            self.exc_info = None
+            throw_simple_exception(env, msg.encode())
 
 
 # This is broken out into a separate method to make sure all of its local `jclass` and `jarray`
-# instances are destroyed before JNIEnv.Throw is called. Removal from instance_cache calls
-# JNIRef.__hash__, which may call Object.identityHashCode, which Android's CheckJNI will not
-# allow with an exception pending. Caching the hash code should reduce the risk of this, but
-# I'm not totally confident that it covers all cases.
-cdef JNIRef get_exception(JNIEnv *env, java_cls_name):
+# proxy objects are destroyed before JNIEnv.Throw is called. This is necessary because removal
+# from instance_cache calls JNIRef.__hash__, which may call Object.identityHashCode, which
+# Android's CheckJNI will not allow with an exception pending. Caching the hash code should
+# reduce the risk of this, but I'm not totally confident that it covers all cases.
+#
+# If java_cls_name is not None, this function returns a new Java exception of that class.
+# Otherwise, if exc_info refers to a Java exception, it will be returned with a modified stack
+# trace. Otherwise, a new PyException will be returned.
+cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
     StackTraceElement = java.jclass("java.lang.StackTraceElement")
-    _, exc_value, exc_traceback = sys.exc_info()
+    _, exc_value, exc_traceback = exc_info
     python_trace = [StackTraceElement("<python>", func_name, file_name, line_no)
                     for file_name, line_no, func_name, _ in
                     reversed(traceback.extract_tb(exc_traceback))]
 
     Throwable = java.jclass("java.lang.Throwable")
-    if isinstance(exc_value, Throwable) and not java_cls_name:
+    if isinstance(exc_value, Throwable) and java_cls_name is None:
         java_exc = exc_value
         pre_trace = Throwable().getStackTrace()
         post_trace = list(java_exc.getStackTrace())[:-len(pre_trace)]
@@ -420,7 +463,7 @@ cdef format_exception_only(e):
 
 # This may run before Py_Initialize, so it must compile to pure C.
 cdef void throw_simple_exception(JNIEnv *env, const char *message):
-    j_exc_klass = env[0].FindClass(env, fqn_PyException)
+    j_exc_klass = env[0].FindClass(env, fqn_PyException_b)
     if j_exc_klass == NULL:
         printf("%s [FindClass failed in throw_simple_exception]\n", message)
         return

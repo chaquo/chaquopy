@@ -23,6 +23,14 @@ ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Se
 JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
+# Useful if d is an OrderedDict.
+def dict_index(d, key):
+    for i, k in enumerate(d):
+        if k == key:
+            return i
+    raise KeyError(key)
+
+
 # Copy back any modifications the Java method may have made to mutable parameters.
 def copy_output_args(definition_args, args, p2j_args):
     for argtype, arg, p2j_arg in six.moves.zip(definition_args, args, p2j_args):
@@ -140,13 +148,13 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.IntPrimitive) and \
-           INT_TYPES.keys().index(obj.sig) >= INT_TYPES.keys().index(definition):
+           dict_index(INT_TYPES, obj.sig) >= dict_index(INT_TYPES, definition):
             return obj.value
     elif definition in FLOAT_TYPES:
         if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.NumericPrimitive) and \
-           NUMERIC_TYPES.keys().index(obj.sig) >= NUMERIC_TYPES.keys().index(definition):
+           dict_index(NUMERIC_TYPES, obj.sig) >= dict_index(NUMERIC_TYPES, definition):
             return obj.value
     elif definition == "C":
         # We don't check that len(obj) == 1; see note above about range checks.

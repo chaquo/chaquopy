@@ -143,7 +143,10 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, 1,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_int))
         self.verify_value(obj, name, "ab",
-                          context=self.arrOptional(TypeError, "expected a character", allow_string))
+                          context=self.arrOptional(
+                              (TypeError, ValueError),
+                              r"(expected a character|only single character).*length 2",
+                              allow_string))
         self.verify_value(obj, name, u"\U00010000",
                           context=self.arrOptional(TypeError, "non-BMP", allow_string))
 

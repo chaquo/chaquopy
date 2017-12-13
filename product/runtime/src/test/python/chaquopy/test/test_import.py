@@ -9,10 +9,10 @@ from java import jclass, set_import_enabled
 class TestImport(unittest.TestCase):
 
     def no_module_error(self, module):
-        return self.assertRaisesRegexp(ImportError, r"^No module named {}$".format(module))
+        return self.assertRaisesRegexp(ImportError, r"^No module named '?{}'?$".format(module))
 
     def no_name_error(self, name):
-        return self.assertRaisesRegexp(ImportError, r"^cannot import name {}$".format(name))
+        return self.assertRaisesRegexp(ImportError, r"^cannot import name '?{}'?$".format(name))
 
     def test_enable(self):
         # Should be enabled by default
@@ -44,18 +44,18 @@ class TestImport(unittest.TestCase):
         self.assertIs(Integer, jclass("java.lang.Integer"))
 
     def test_errors(self):
-        with self.no_module_error("lang.String"):
+        # "java" sub-packages give different errors on Python 2.7 because there actually is a
+        # Python module by that name.
+        with self.no_module_error(r"(java.lang|lang.String)"):
             import java.lang.String  # noqa: F401
-
-        # "java" is different because there actually is a Python module by that name.
-        with self.no_module_error("lang"):
+        with self.no_module_error(r"(java.)?lang"):
             from java.lang import Nonexistent  # noqa: F401
-        with self.no_module_error("lang"):
+        with self.no_module_error(r"(java.)?lang"):
             from package1 import wildcard_java_lang  # noqa: F401
 
-        with self.no_module_error("javax.xml"):
+        with self.no_module_error(r"javax(.xml)?"):
             from javax.xml import Nonexistent  # noqa: F401, F811
-        with self.no_module_error("javax.xml"):
+        with self.no_module_error(r"javax(.xml)?"):
             from package1 import wildcard_javax_xml  # noqa: F401
 
         with self.no_name_error("Nonexistent"):
@@ -68,13 +68,13 @@ class TestImport(unittest.TestCase):
             from package1 import recursive_import_error  # noqa: F401
 
     def test_package(self):
-        # "java" is different because there actually is a Python module by that name.
-        with self.no_module_error("lang"):
+        # See note above about "java" sub-packages.
+        with self.no_module_error(r"(java.)?lang"):
             import java.lang  # noqa: F401
-        with self.no_name_error("lang"):
+        with self.no_name_error(r"(java.)?lang"):
             from java import lang  # noqa: F401
 
-        with self.no_module_error("javax.xml"):
+        with self.no_module_error(r"javax(.xml)?"):
             import javax.xml  # noqa: F401
         with self.no_module_error("javax"):
             from javax import xml  # noqa: F401
@@ -87,9 +87,9 @@ class TestImport(unittest.TestCase):
         self.assertIs(python, package1.python)
 
         with self.assertRaisesRegexp(ImportError, r"^package1.both exists in both Java and Python. "
-                                     "Access the Java copy with jclass\('package1.both'\), and the "
-                                     "Python copy with 'import package1' followed by "
-                                     "'package1.both'.$"):
+                                     r"Access the Java copy with jclass\('package1.both'\), and "
+                                     r"the Python copy with 'import package1' followed by "
+                                     r"'package1.both'.$"):
             from package1 import both  # noqa: F401
 
         import package1

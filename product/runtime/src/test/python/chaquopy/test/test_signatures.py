@@ -115,7 +115,8 @@ class TestSignatures(unittest.TestCase):
         self.assertEquals("jchar('x')", str(jchar("x")))
         self.assertEquals("jchar('x')", str(jchar(u"x")))
 
-        with self.assertRaisesRegexp(TypeError, "expected a character"):
+        with self.assertRaisesRegexp((TypeError, ValueError),
+                                     r"(expected a character|only single character).*length 2"):
             jchar("ab")
         with self.assertRaisesRegexp(TypeError, "non-BMP"):
             jchar(u"\U00010000")

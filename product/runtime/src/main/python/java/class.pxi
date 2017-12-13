@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import cmp_to_key
 from itertools import chain, groupby
 import keyword
 from threading import RLock
@@ -72,6 +73,7 @@ class JavaClass(type):
                                 f"counterpart")
 
         cls = type.__new__(metacls, cls_name, bases, cls_dict)
+        cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject"
         jclass_cache[java_name] = cls
         return cls
 
@@ -135,9 +137,9 @@ def get_bases(klass):
              ([superclass] if superclass else []) + interfaces]
 
     # Produce a valid order for the C3 MRO algorithm, if one exists.
-    bases.sort(cmp=lambda a, b: (-1 if issubclass(a, b)
-                                 else 1 if issubclass(b, a)
-                                 else 0))
+    bases.sort(key=cmp_to_key(lambda a, b: (-1 if issubclass(a, b)
+                                            else 1 if issubclass(b, a)
+                                            else 0)))
     return tuple(bases)
 
 

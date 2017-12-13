@@ -192,9 +192,9 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     # To avoid data loss, we prefer to treat a Python int or float as the largest of the
     # corresponding Java types.
     elif issubclass(actual_type, six.integer_types) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
-        return INT_TYPES.keys().index(def1) <= INT_TYPES.keys().index(def2)
+        return dict_index(INT_TYPES, def1) <= dict_index(INT_TYPES, def2)
     elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
-        return FLOAT_TYPES.keys().index(def1) <= FLOAT_TYPES.keys().index(def2)
+        return dict_index(FLOAT_TYPES, def1) <= dict_index(FLOAT_TYPES, def2)
 
     # Similarly, we prefer to treat a Python string as a Java String rather than a char.
     # array. (Its length cannot be taken into account: see note above about caching.)
@@ -206,7 +206,7 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     # of passing a Python int where float and double overloads exist: the float overload will
     # be called, just like in Java.
     elif (def1 in NUMERIC_TYPES) and (def2 in NUMERIC_TYPES):
-        return NUMERIC_TYPES.keys().index(def1) >= NUMERIC_TYPES.keys().index(def2)
+        return dict_index(NUMERIC_TYPES, def1) >= dict_index(NUMERIC_TYPES, def2)
 
     elif def2.startswith("L"):
         if def1.startswith("L"):

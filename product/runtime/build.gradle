@@ -139,16 +139,10 @@ cythonTask("cythonJava", group: "build") {
     inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
     inputs.files "$projectDir/../../server/license/check_ticket.py"
 }
-task("cython", group: "build") {
-    dependsOn cythonPython, cythonJava
-}
 
 
 def sdkCmakeParentDir = new File(sdkDir, "cmake")
 def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
-
-def cmakeBuildAnchor = task("cmakeBuild", group: "build")
-assemble.dependsOn(cmakeBuildAnchor)
 
 def androidJar = "$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar"
 
@@ -161,6 +155,22 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
+task("generateStaticProxy", type: Exec, group: "verification") {
+    def outputDir = "$buildDir/static_proxy"
+    outputs.dir(outputDir)
+    outputs.upToDateWhen { false }
+    doFirst { delete outputDir }
+    environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
+    executable "python"
+    args "-m", "chaquopy.static_proxy"
+    args "--path", "$projectDir/src/test/python"
+    args "--java", outputDir
+    args("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
+         "chaquopy.test.static_proxy.method")
+}
+sourceSets.test.java.srcDirs += generateStaticProxy.outputs
+
+def prevPyVersion = null
 for (pyFullVersion in Common.PYTHON_VERSIONS) {
     def pyVersion = pyFullVersion.substring(0, pyFullVersion.lastIndexOf("."))
     for (abi in ["host"] + Common.ABIS) {
@@ -177,7 +187,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
         def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
         def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
         def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
-            dependsOn cython
+            dependsOn cythonPython, cythonJava
             inputs.files "CMakeLists.txt"
             inputs.property("cmakeBuildType", cmakeBuildType)
             outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
@@ -222,8 +232,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             executable "$sdkCmakeDir/bin/cmake"
             args "--build", cmakeBuildSubdir
         }
-        cmakeBuildAnchor.dependsOn(cmakeBuild)
-        if (abi != "host") {
+        if (abi != "host" &&  pyVersion == "2.7") {  // TODO: include 3.6
             project.artifacts {
                 jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
                 libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
@@ -235,6 +244,10 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             def testPythonDir = "$projectDir/src/test/python"
             def setupPythonPath = task("setupPythonPath-$pyVersion", group: "verification") {
                 dependsOn cmakeBuild
+                if (prevPyVersion != null) {
+                    mustRunAfter(tasks.getByName("testJava-$prevPyVersion"))
+                    mustRunAfter(tasks.getByName("testPython-$prevPyVersion"))
+                }
                 doFirst {
                     copy {
                         into mainPythonDir
@@ -245,22 +258,6 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     }
                 }
             }
-
-            def generateStaticProxy = task("generateStaticProxy-$pyVersion",
-                                           type: Exec, group: "verification") {
-                def outputDir = "$buildDir/static_proxy"
-                outputs.dir(outputDir)
-                outputs.upToDateWhen { false }
-                doFirst { delete outputDir }
-                environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-                executable pyPlusVersionExe
-                args "-m", "chaquopy.static_proxy"
-                args "--path", "$projectDir/src/test/python"
-                args "--java", outputDir
-                args("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
-                     "chaquopy.test.static_proxy.method")
-            }
-            sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 
             def testCommonConfig = {
                 dependsOn setupPythonPath, compileTestJava
@@ -276,19 +273,23 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
                 workingDir "$projectDir/src/test/python"
                 executable pyPlusVersionExe
+                args "-W", "error", "-W", "ignore:Please use assert"  // TODO: do this in code, so it affects Android too
                 args "-m", "unittest"
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")
                 } else {
-                    args "-v", "chaquopy.test"
+                    args "chaquopy.test"
                 }
             }
             testPython.configure(testCommonConfig)
             check.dependsOn(testPython)
 
-            // Run via test suite for consistency with Android demo app.
-            test {
+            // Run via test suite for consistency with Android demo app. (NOTE: this will not show
+            // test results within IntelliJ for some reason.)
+            test.exclude "**"  // Disable the default test task
+            def testJava = task("testJava-$pyVersion", type: Test, group: "verification") {
                 outputs.upToDateWhen { false }
+                testClassesDirs = sourceSets.test.output.classesDirs
                 scanForTestClasses = false
                 include "**/TestSuite.class"
                 testLogging {
@@ -296,7 +297,8 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     showStandardStreams = true
                 }
             }
-            test.configure(testCommonConfig)
+            testJava.configure(testCommonConfig)
+            check.dependsOn(testJava)
 
             // Generates a script to start a Python REPL with Java and Python paths set up.
             task("consoleScript-$pyVersion") {
@@ -316,7 +318,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
             if (pyVersion == "2.7") {
                 task("sphinx", type: Exec, group: "documentation") {
-                    executable "python"
+                    executable pyPlusVersionExe
                     args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
                 }
                 sphinx.configure(testCommonConfig)
@@ -324,4 +326,5 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             }
         }
     }
+    prevPyVersion = pyVersion
 }
