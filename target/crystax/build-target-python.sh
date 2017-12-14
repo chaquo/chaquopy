@@ -1,34 +1,13 @@
 #!/bin/bash
+#
+# Modified copy of crystax-ndk-10.3.2/build/tools/build-target-python.sh
 
-# Copyright (c) 2011-2015 CrystaX.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-#    1. Redistributions of source code must retain the above copyright notice, this list of
-#       conditions and the following disclaimer.
-#
-#    2. Redistributions in binary form must reproduce the above copyright notice, this list
-#       of conditions and the following disclaimer in the documentation and/or other materials
-#       provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY CrystaX ''AS IS'' AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
-# FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL CrystaX OR
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# The views and conclusions contained in the software and documentation are those of the
-# authors and should not be interpreted as representing official policies, either expressed
-# or implied, of CrystaX.
+# These variables are also used in prebuilt-common.sh or the other scripts it calls.
+ANDROID_NDK_ROOT=~/crystax-ndk-10.3.2
+NDK_BUILDTOOLS_PATH=$ANDROID_NDK_ROOT/build/tools
 
 # include common function and variable definitions
-. `dirname $0`/prebuilt-common.sh
+. $NDK_BUILDTOOLS_PATH/prebuilt-common.sh
 
 PROGRAM_PARAMETERS="<src-dir>"
 
@@ -97,7 +76,7 @@ PYTHON_DSTDIR=$NDK_DIR/$PYTHON_SUBDIR/$PYTHON_ABI
 mkdir -p $PYTHON_DSTDIR
 fail_panic "Can't create python destination directory: $PYTHON_DSTDIR"
 
-PYTHON_BUILD_UTILS_DIR=$(cd $(dirname $0)/build-target-python && pwd)
+PYTHON_BUILD_UTILS_DIR=$(cd $NDK_BUILDTOOLS_PATH/build-target-python && pwd)
 if [ ! -d "$PYTHON_BUILD_UTILS_DIR" ]; then
     echo "ERROR: No such directory: '$PYTHON_BUILD_UTILS_DIR'"
     exit 1
@@ -452,7 +431,7 @@ build_python_for_abi ()
     local SITE_README_SRCDIR="$PYTHON_SRCDIR/Lib/site-packages"
     local SITE_README_DSTDIR="$PYBIN_INSTALLDIR/site-packages"
     log "Install python$PYTHON_ABI-$ABI site-packages"
-    run mkdir -p $SITE_README_DSTDIR && cp -fpH $SITE_README_SRCDIR/README $SITE_README_DSTDIR
+    run mkdir -p $SITE_README_DSTDIR && cp -fpH $SITE_README_SRCDIR/README* $SITE_README_DSTDIR
     fail_panic "Can't install python$PYTHON_ABI-$ABI site-packages"
 
 # Step 6: build python modules
@@ -640,42 +619,42 @@ build_python_for_abi ()
         fail_panic "Can't install python$PYTHON_ABI-$ABI module '_ssl' in $PYBIN_INSTALLDIR_MODULES"
     fi
 
-# _sqlite3
-    local BUILDDIR_SQLITE3="$BUILDDIR/sqlite3"
-    local OBJDIR_SQLITE3="$BUILDDIR_SQLITE3/obj/local/$ABI"
+# _sqlite3 (TODO #5160)
+    # local BUILDDIR_SQLITE3="$BUILDDIR/sqlite3"
+    # local OBJDIR_SQLITE3="$BUILDDIR_SQLITE3/obj/local/$ABI"
 
-    run mkdir -p "$BUILDDIR_SQLITE3/jni"
-    fail_panic "Can't create directory: $BUILDDIR_SQLITE3/jni"
+    # run mkdir -p "$BUILDDIR_SQLITE3/jni"
+    # fail_panic "Can't create directory: $BUILDDIR_SQLITE3/jni"
 
-    {
-        echo 'LOCAL_PATH := $(call my-dir)'
-        echo 'include $(CLEAR_VARS)'
-        echo 'LOCAL_MODULE := _sqlite3'
-        echo 'LOCAL_CFLAGS := -DMODULE_NAME=\"sqlite3\"'
-        echo "MY_PYTHON_SRC_ROOT := $PYTHON_SRCDIR"
-        echo 'LOCAL_SRC_FILES := \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cache.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/connection.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cursor.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/microprotocols.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/module.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/prepare_protocol.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/row.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/statement.c \'
-        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/util.c'
-        echo 'LOCAL_STATIC_LIBRARIES := python_shared sqlite3_static'
-        echo 'include $(BUILD_SHARED_LIBRARY)'
-        echo "\$(call import-module,python/$PYTHON_ABI)"
-        echo '$(call import-module,sqlite/3)'
-    } >$BUILDDIR_SQLITE3/jni/Android.mk
-    fail_panic "Can't generate $BUILDDIR_SQLITE3/jni/Android.mk"
+    # {
+    #     echo 'LOCAL_PATH := $(call my-dir)'
+    #     echo 'include $(CLEAR_VARS)'
+    #     echo 'LOCAL_MODULE := _sqlite3'
+    #     echo 'LOCAL_CFLAGS := -DMODULE_NAME=\"sqlite3\"'
+    #     echo "MY_PYTHON_SRC_ROOT := $PYTHON_SRCDIR"
+    #     echo 'LOCAL_SRC_FILES := \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cache.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/connection.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cursor.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/microprotocols.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/module.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/prepare_protocol.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/row.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/statement.c \'
+    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/util.c'
+    #     echo 'LOCAL_STATIC_LIBRARIES := python_shared sqlite3_static'
+    #     echo 'include $(BUILD_SHARED_LIBRARY)'
+    #     echo "\$(call import-module,python/$PYTHON_ABI)"
+    #     echo '$(call import-module,sqlite/3)'
+    # } >$BUILDDIR_SQLITE3/jni/Android.mk
+    # fail_panic "Can't generate $BUILDDIR_SQLITE3/jni/Android.mk"
 
-    run $NDK_DIR/ndk-build -C $BUILDDIR_SQLITE3 -j$NUM_JOBS APP_ABI=$ABI V=1
-    fail_panic "Can't build python$PYTHON_ABI-$ABI module '_sqlite3'"
+    # run $NDK_DIR/ndk-build -C $BUILDDIR_SQLITE3 -j$NUM_JOBS APP_ABI=$ABI V=1
+    # fail_panic "Can't build python$PYTHON_ABI-$ABI module '_sqlite3'"
 
-    log "Install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
-    run cp -p -T $OBJDIR_SQLITE3/lib_sqlite3.so $PYBIN_INSTALLDIR_MODULES/_sqlite3.so
-    fail_panic "Can't install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
+    # log "Install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
+    # run cp -p -T $OBJDIR_SQLITE3/lib_sqlite3.so $PYBIN_INSTALLDIR_MODULES/_sqlite3.so
+    # fail_panic "Can't install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
 
 #pyexpat
     local BUILDDIR_PYEXPAT="$BUILDDIR/pyexpat"
@@ -688,7 +667,7 @@ build_python_for_abi ()
         echo 'LOCAL_PATH := $(call my-dir)'
         echo 'include $(CLEAR_VARS)'
         echo 'LOCAL_MODULE := pyexpat'
-        echo 'LOCAL_CFLAGS := -DHAVE_EXPAT_CONFIG_H -DXML_STATIC'
+        echo 'LOCAL_CFLAGS := -DHAVE_EXPAT_CONFIG_H -DXML_STATIC -DXML_DEV_URANDOM'
         echo "MY_PYTHON_SRC_ROOT := $PYTHON_SRCDIR"
         echo "LOCAL_C_INCLUDES := \$(MY_PYTHON_SRC_ROOT)/Modules/expat"
         echo 'LOCAL_SRC_FILES := \'
