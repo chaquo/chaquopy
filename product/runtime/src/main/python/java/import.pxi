@@ -57,10 +57,14 @@ def import_override(name, globals={}, locals={}, fromlist=None,
 # Exception types and wording are based on Python 3.5.
 def resolve_name(name, globals, level):
     if level > 0:   # Explicit relative import
-        try:
-            current_pkg = globals["__package__"]
-        except KeyError:
-            raise ImportError("attempted relative import with no known parent package")
+        current_pkg = globals.get("__package__")
+        if current_pkg is None:  # Empty string indicates a top-level module.
+            spec = globals.get("__spec__")
+            if spec:
+                current_pkg = spec.parent
+            else:
+                mod_name = globals["__name__"]
+                current_pkg = mod_name if "__path__" in globals else mod_name.rpartition(".")[0]
         if not isinstance(current_pkg, str):
             raise TypeError('__package__ not set to a string')
 

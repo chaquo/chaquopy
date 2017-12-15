@@ -37,5 +37,5 @@ def view_source(context, web_view, filename):
     formatter = HtmlFormatter()
     body = highlight(text, get_lexer_for_filename(filename), formatter)
     html = ("<html><head><style>{}\n{}</style></head><body>{}</body></html>"
-            .format(formatter.get_style_defs(), EXTRA_CSS, body))
-    web_view.loadData(b64encode(html), "text/html", "base64")
+            .format(formatter.get_style_defs(), EXTRA_CSS, body)).encode()
+    web_view.loadData(b64encode(html).decode(), "text/html", "base64")

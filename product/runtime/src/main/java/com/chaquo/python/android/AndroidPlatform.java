@@ -3,10 +3,9 @@ package com.chaquo.python.android;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
-
-import android.util.*;
 import com.chaquo.python.*;
 import java.io.*;
+import org.json.*;
 
 
 /** Platform for Chaquopy on Android. */
@@ -43,12 +42,16 @@ public class AndroidPlatform extends Python.Platform {
      * is called. */
     // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
-        mContext = context.getApplicationContext();
-        for (String filename : OBSOLETE_FILES) {
-            new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename).delete();
+        try {
+            mContext = context.getApplicationContext();
+            for (String filename : OBSOLETE_FILES) {
+                new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename).delete();
+            }
+            JSONObject buildJson = extractAssets();
+            loadNativeLibs(buildJson.getString("version"));
+        } catch (IOException | JSONException e) {
+            throw new RuntimeException(e);
         }
-        extractAssets();
-        loadNativeLibs();
     }
 
     @Override
@@ -72,22 +75,23 @@ public class AndroidPlatform extends Python.Platform {
         }
     }
 
-    private void extractAssets() {
+    private JSONObject extractAssets() throws IOException, JSONException {
         // TODO #5258 avoid extraction
-        try {
-            AssetManager assets = mContext.getAssets();
-            for (String path : BOOTSTRAP_PATH) {
-                extractAssets(assets, Common.ASSET_DIR + "/" + path);
-            }
+        AssetManager assets = mContext.getAssets();
+        InputStream buildJsonStream = assets.open(Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON);
+        JSONObject buildJson = new JSONObject(streamToString(buildJsonStream));
 
-            // No ticket is represented as an empty file rather than a missing one. This saves us
-            // from having to delete the extracted copy if the app is updated to remove the ticket.
-            // (We could pass the ticket to the runtime in some other way, but that would be more
-            // complicated.)
-            extractAssets(assets, Common.ASSET_DIR + "/" + Common.ASSET_TICKET);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        for (String path : BOOTSTRAP_PATH) {
+            extractAssets(assets, Common.ASSET_DIR + "/" + path);
         }
+
+        // No ticket is represented as an empty file rather than a missing one. This saves us
+        // from having to delete the extracted copy if the app is updated to remove the ticket.
+        // (We could pass the ticket to the runtime in some other way, but that would be more
+        // complicated.)
+        extractAssets(assets, Common.ASSET_DIR + "/" + Common.ASSET_TICKET);
+
+        return buildJson;
     }
 
     /** @param path A path which will be read relative to the assets and written relative to
@@ -153,11 +157,24 @@ public class AndroidPlatform extends Python.Platform {
         }
     }
 
-    private void loadNativeLibs() {
+    /** This converts all newlines to "\n", and adds a newline at the end of the stream even if
+     * none was present, but neither of those things should matter for a text file. */
+    private String streamToString(InputStream in) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+        StringBuilder out = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            out.append(line);
+            out.append("\n");
+        }
+        return out.toString();
+    }
+
+    private void loadNativeLibs(String pyVersion) {
         // Libraries must be loaded in reverse dependency order before API level 18: see
         // https://developer.android.com/ndk/guides/cpp-support.html
         System.loadLibrary("crystax");
-        System.loadLibrary("python2.7");  // TODO #5148
+        System.loadLibrary("python" + Common.PYTHON_SUFFIXES.get(pyVersion));
         System.loadLibrary("chaquopy_java");
     }
 

@@ -44,13 +44,12 @@ processResources {
             from(configurations.runtimePython)
             into("jniLibs") {
                 for (file in configurations.runtimeJniLibs) {
-                    from(file) { into "${file.parentFile.name}" }       // parent dir name is ABI
-
+                    from(file) { into "$file.parentFile.parentFile.name/$file.parentFile.name" }
                 }
             }
             into("lib-dynload") {
                 for (file in configurations.runtimeLibDynload) {
-                    from(file) { into "${file.parentFile.name}/java" }  // "
+                    from(file) { into "$file.parentFile.parentFile.name/$file.parentFile.name/java" }
                 }
             }
         }

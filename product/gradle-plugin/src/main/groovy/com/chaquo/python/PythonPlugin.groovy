@@ -8,6 +8,7 @@ import org.gradle.util.*
 
 import java.nio.file.*
 
+import static com.chaquo.python.Common.pyVersionShort;
 import static java.nio.file.StandardCopyOption.*
 
 
@@ -141,10 +142,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     String targetDependency(String version, String classifier) {
-        /** Following the Maven version number format, this is the "build number"
-         * (see maven/build.sh). */
-        final def TARGET_VERSION_SUFFIX = "-2"
-        return "com.chaquo.python:target:$version$TARGET_VERSION_SUFFIX:$classifier@zip"
+        def buildNo = Common.PYTHON_BUILD_NUMBERS.get(version)
+        return "com.chaquo.python:target:$version-$buildNo:$classifier@zip"
     }
 
     String[] getAbis(variant) {
@@ -338,16 +337,21 @@ class PythonPlugin implements Plugin<Project> {
 
                 extractResource("runtime/$Common.ASSET_CHAQUOPY", assetDir)
                 for (abi in getAbis(variant)) {
-                    def dynloadJava = "lib-dynload/$abi/java"
-                    extractResource("runtime/$dynloadJava/chaquopy.so",
-                                    "$assetDir/$dynloadJava")
-                    new File("$assetDir/$dynloadJava/__init__.py").createNewFile();
+                    def resDir = "runtime/lib-dynload/${pyVersionShort(python.version)}/$abi/java"
+                    def outDir = "$assetDir/lib-dynload/$abi/java"
+                    extractResource("$resDir/chaquopy.so", outDir)
+
+                    // extend_path is called in runtime/src/main/python/java/__init__.py
+                    new File("$outDir/__init__.py").text = ""
                 }
 
                 project.copy {
                     from ticketTask.destinationDir
                     into assetDir
                 }
+
+                project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = \
+                    """{ "version": "$python.version" }"""
             }
         }
         extendMergeTask(variant.getMergeAssets(), genTask)
@@ -379,7 +383,8 @@ class PythonPlugin implements Plugin<Project> {
                 }
 
                 for (abi in getAbis(variant)) {
-                    extractResource("runtime/jniLibs/$abi/libchaquopy_java.so", "$libsDir/$abi")
+                    def resDir = "runtime/jniLibs/${pyVersionShort(python.version)}/$abi"
+                    extractResource("$resDir/libchaquopy_java.so", "$libsDir/$abi")
                 }
             }
         }

@@ -127,7 +127,7 @@ class TestAndroidImport(unittest.TestCase):
         if cache_filename:
             if exists(cache_filename):
                 os.remove(cache_filename)
-            sys.modules.pop(mod_name)
+            sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
 
         mod = import_module(mod_name)
         if cache_filename:
@@ -187,11 +187,12 @@ class TestAndroidImport(unittest.TestCase):
             from package1 import recursive_import_error  # noqa
         except ImportError:
             s = format_exc()
-            self.assertTrue(s.endswith(
-                'File "/android_asset/chaquopy/app.mp3/package1/recursive_import_error.py", '
-                'line 1, in <module>\n'
-                '    from os import nonexistent\n'
-                'ImportError: cannot import name nonexistent\n'), repr(s))
+            self.assertRegexpMatches(
+                s,
+                r'File "/android_asset/chaquopy/app.mp3/package1/recursive_import_error.py", '
+                r'line 1, in <module>\n'
+                r'    from os import nonexistent\n'
+                r"ImportError: cannot import name '?nonexistent'?\n$")
         else:
             self.fail()
 

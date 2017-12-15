@@ -172,7 +172,7 @@ sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 
 def prevPyVersion = null
 for (pyFullVersion in Common.PYTHON_VERSIONS) {
-    def pyVersion = pyFullVersion.substring(0, pyFullVersion.lastIndexOf("."))
+    def pyVersion = Common.pyVersionShort(pyFullVersion)
     for (abi in ["host"] + Common.ABIS) {
         def pyPlusVersion = "python${Common.PYTHON_SUFFIXES.get(pyFullVersion)}"
         // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
@@ -232,7 +232,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             executable "$sdkCmakeDir/bin/cmake"
             args "--build", cmakeBuildSubdir
         }
-        if (abi != "host" &&  pyVersion == "2.7") {  // TODO: include 3.6
+        if (abi != "host") {
             project.artifacts {
                 jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
                 libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
