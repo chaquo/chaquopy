@@ -17,13 +17,14 @@ if sys.version_info[0] >= 3:
     from importlib import reload
 
 
-REQS_ZIP = "requirements.mp3"
-REQS_PATH = join("/android_asset/chaquopy", REQS_ZIP)
+APP_ZIP = "app.zip"
+REQS_ZIP = "requirements.zip"
+APP_PATH, REQS_PATH = (join("/android_asset/chaquopy", zip) for zip in [APP_ZIP, REQS_ZIP])
 
 try:
     from android.os import Build  # noqa: F401
     from java.android import importer
-    CACHE_ROOT = join(__loader__.finder.context.getCacheDir().toString(),  # noqa: F821
+    REQS_CACHE = join(__loader__.finder.context.getCacheDir().toString(),  # noqa: F821
                       "chaquopy/AssetFinder", REQS_ZIP)
 except ImportError:
     pass
@@ -41,7 +42,7 @@ class TestAndroidImport(unittest.TestCase):
         # Despite its name, this is a pure Python module.
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
-        cache_filename = join(CACHE_ROOT, filename + "c")
+        cache_filename = join(REQS_CACHE, filename + "c")
         mod = self.check_module(
             mod_name, join(REQS_PATH, filename), cache_filename=cache_filename,
             source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
@@ -87,7 +88,7 @@ class TestAndroidImport(unittest.TestCase):
     def test_so(self):
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.{}.so".format(importer.abi)
-        cache_filename = join(CACHE_ROOT, filename)
+        cache_filename = join(REQS_CACHE, filename)
         mod = self.check_module(mod_name, join(REQS_PATH, filename), cache_filename=cache_filename)
 
         with self.assertRaisesRegexp(ImportError,
@@ -174,11 +175,12 @@ class TestAndroidImport(unittest.TestCase):
             from package1 import syntax_error  # noqa
         except SyntaxError:
             s = format_exc()
-            self.assertTrue(s.endswith(
-                'File "/android_asset/chaquopy/app.mp3/package1/syntax_error.py", line 1\n'
-                '    one two\n'
-                '          ^\n'
-                'SyntaxError: invalid syntax\n'), repr(s))
+            self.assertRegexpMatches(
+                s,
+                r'File "{}/package1/syntax_error.py", line 1\n'
+                r'    one two\n'
+                r'          \^\n'
+                r'SyntaxError: invalid syntax\n$'.format(APP_PATH))
         else:
             self.fail()
 
@@ -189,10 +191,9 @@ class TestAndroidImport(unittest.TestCase):
             s = format_exc()
             self.assertRegexpMatches(
                 s,
-                r'File "/android_asset/chaquopy/app.mp3/package1/recursive_import_error.py", '
-                r'line 1, in <module>\n'
+                r'File "{}/package1/recursive_import_error.py", line 1, in <module>\n'
                 r'    from os import nonexistent\n'
-                r"ImportError: cannot import name '?nonexistent'?\n$")
+                r"ImportError: cannot import name '?nonexistent'?\n$".format(APP_PATH))
         else:
             self.fail()
 
@@ -204,10 +205,10 @@ class TestAndroidImport(unittest.TestCase):
             _native.escape(C)
         except TypeError:
             s = format_exc()
-            self.assertTrue(s.endswith(
-                'File "/android_asset/chaquopy/requirements.mp3/markupsafe/_native.py", '
-                'line 21, in escape\n'
-                '    return s.__html__()\n'
-                "TypeError: 'NoneType' object is not callable\n"), repr(s))
+            self.assertRegexpMatches(
+                s,
+                r'File "{}/markupsafe/_native.py", line 21, in escape\n'
+                r'    return s.__html__\(\)\n'
+                r"TypeError: 'NoneType' object is not callable\n$".format(REQS_PATH))
         else:
             self.fail()

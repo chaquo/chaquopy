@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from unittest import skip, TestCase
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_STORED
 
 
 class GradleTestCase(TestCase):
@@ -337,19 +337,24 @@ class RunGradle(object):
             if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
 
-            # TODO #5180 Android plugin version 3 adds an extra variant directory below "apk".
             for variant in variants:
                 outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
-                apk_file = join(outputs_apk_dir, "app-{}.apk".format(variant))  # Android plugin 2.x
-                if not os.path.isfile(apk_file):
-                    apk_file = join(outputs_apk_dir, variant.replace("-", "/"),
-                                    "app-{}.apk".format(variant))  # Android plugin 3.x
+                apk_filename = join(outputs_apk_dir,
+                                    "app-{}.apk".format(variant))       # Android plugin 2.x
+                if not os.path.isfile(apk_filename):
+                    apk_filename = join(outputs_apk_dir, variant.replace("-", "/"),
+                                        "app-{}.apk".format(variant))   # Android plugin 3.x
+
+                apk_file = ZipFile(apk_filename)
+                for archive_name in ["app", "chaquopy", "requirements", "stdlib"]:
+                    info = apk_file.getinfo("assets/chaquopy/{}.zip".format(archive_name))
+                    self.test.assertEqual(ZIP_STORED, info.compress_type)
 
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
                     rmtree(apk_dir)
                 os.makedirs(apk_dir)
-                ZipFile(apk_file).extractall(apk_dir)
+                apk_file.extractall(apk_dir)
                 self.check_apk(apk_dir, **kwargs)
 
             # Run a second time to check all tasks are considered up to date.
@@ -386,7 +391,7 @@ class RunGradle(object):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         # Python source
-        app_zip_actual = ZipFile(join(asset_dir, "app.mp3"))
+        app_zip_actual = ZipFile(join(asset_dir, "app.zip"))
         # If app/src/main/python didn't already exist, the plugin should have created it.
         app_zip_expected = ZipFile(shutil.make_archive(
             join(self.run_dir, "app-expected"), "zip",
@@ -398,12 +403,12 @@ class RunGradle(object):
                                   name)
 
         # Python requirements
-        reqs_zip = ZipFile(join(asset_dir, "requirements.mp3"))
+        reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
         reqs_toplevel = set(path.partition("/")[0] for path in reqs_zip.namelist())
         self.test.assertEqual(set(requirements), reqs_toplevel)
 
         # Python stdlib
-        self.test.assertIsFile(join(asset_dir, "stdlib.mp3"))
+        self.test.assertIsFile(join(asset_dir, "stdlib.zip"))
         self.test.assertEqual(set(abis),
                               set(os.listdir(join(asset_dir, "lib-dynload"))))
         for abi in abis:
@@ -419,7 +424,7 @@ class RunGradle(object):
                 self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
         # Chaquopy runtime library
-        self.test.assertIsFile(join(asset_dir, "chaquopy.mp3"))
+        self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
         classes = dex_classes(join(apk_dir, "classes.dex"))
         self.test.assertIn("com.chaquo.python.Python", classes)
 

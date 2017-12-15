@@ -28,9 +28,9 @@ public class AndroidPlatform extends Python.Platform {
         "app.zip",
         "requirements.zip",
 
-        // Renamed in 0.6.0
-        "chaquopy.zip",
-        "stdlib.zip",
+        // Renamed back to .zip in 0.7.0
+        "chaquopy.mp3",
+        "stdlib.mp3",
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
@@ -108,8 +108,8 @@ public class AndroidPlatform extends Python.Platform {
         }
 
         File outFile = new File(mContext.getFilesDir(), path);
+        deleteRecursive(outFile);
         if (isDir) {
-            deleteRecursive(outFile);
             for (String filename : assets.list(path)) {
                 extractAssets(assets, path + "/" + filename);
             }
@@ -131,7 +131,6 @@ public class AndroidPlatform extends Python.Platform {
             } finally {
                 outStream.close();
             }
-            outFile.delete();
             if (!tmpFile.renameTo(outFile)) {
                 throw new IOException("Failed to create " + outFile);
             }

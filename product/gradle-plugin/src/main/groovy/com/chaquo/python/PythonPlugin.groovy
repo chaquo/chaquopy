@@ -63,14 +63,23 @@ class PythonPlugin implements Plugin<Project> {
                                       "com.android.application before com.chaquo.python?")
         }
         android = project.android
-
         extend(android.defaultConfig)
         /* TODO 5202
         android.productFlavors.whenObjectAdded { extend(it) } */
         // I also tried adding it to buildTypes but it had no effect for some reason
 
-        setupDependencies()
+        // For extraction performance, we want to avoid compressing these files a second time, but
+        // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
+        // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
+        // We don't want to set noCompress "zip" because the user might have an uncompressed ZIP
+        // which they were relying on the APK to compress. Luckily this option works just as well
+        // with entire filenames.
+        android.aaptOptions {
+            noCompress(Common.ASSET_APP, Common.ASSET_CHAQUOPY, Common.ASSET_REQUIREMENTS,
+                       Common.ASSET_STDLIB)
+        }
 
+        setupDependencies()
         project.afterEvaluate { afterEvaluate() }
     }
 
