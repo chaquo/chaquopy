@@ -1,4 +1,8 @@
 buildscript {
+    // *** Replace in public repository ***********************************
+    version = file("../VERSION.txt").text.trim()
+    // ********************************************************************
+
     repositories {
         google()
         jcenter()
@@ -7,10 +11,10 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:3.0.1'
 
-        // *** Replace in public repository ***************************************
-        classpath files('../product/gradle-plugin/build/libs/gradle.jar')
-        // **********************************************************************
-
+        // *** Replace in public repository ***********************************
+        classpath files("../product/gradle-plugin/build/libs/gradle-${version}.jar")
+        classpath "org.json:json:20160810"
+        // ********************************************************************
     }
 }
 

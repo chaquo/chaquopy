@@ -5,6 +5,7 @@ import android.content.res.*;
 import android.os.*;
 import com.chaquo.python.*;
 import java.io.*;
+import java.util.*;
 import org.json.*;
 
 
@@ -35,6 +36,7 @@ public class AndroidPlatform extends Python.Platform {
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
     public Context mContext;
+    private SharedPreferences sp;
 
     /** The given context must be an {@link android.app.Activity}, {@link android.app.Service} or
      * {@link android.app.Application} object from your app. The context is used only for
@@ -42,20 +44,22 @@ public class AndroidPlatform extends Python.Platform {
      * is called. */
     // TODO #5201 Remove reference once no longer required
     public AndroidPlatform(Context context) {
+        mContext = context.getApplicationContext();
+        sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
+    }
+
+    @Override
+    public String getPath() {
         try {
-            mContext = context.getApplicationContext();
             for (String filename : OBSOLETE_FILES) {
-                new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename).delete();
+                deleteRecursive(new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename));
             }
             JSONObject buildJson = extractAssets();
             loadNativeLibs(buildJson.getString("version"));
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
         }
-    }
 
-    @Override
-    public String getPath() {
         String path = "";
         for (int i = 0; i < BOOTSTRAP_PATH.length; i++) {
             path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + BOOTSTRAP_PATH[i];
@@ -76,65 +80,66 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private JSONObject extractAssets() throws IOException, JSONException {
-        // TODO #5258 avoid extraction
         AssetManager assets = mContext.getAssets();
-        InputStream buildJsonStream = assets.open(Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON);
-        JSONObject buildJson = new JSONObject(streamToString(buildJsonStream));
+        String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
+        JSONObject buildJson = new JSONObject(streamToString(assets.open(buildJsonPath)));
+        JSONObject assetsJson = buildJson.getJSONObject("assets");
+        SharedPreferences.Editor spe = sp.edit();
 
-        for (String path : BOOTSTRAP_PATH) {
-            extractAssets(assets, Common.ASSET_DIR + "/" + path);
+        // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so we'll
+        // avoid using it.
+        for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
+            String path = (String) i.next();
+            for (String bsp : BOOTSTRAP_PATH) {
+                if (path.equals(bsp) || path.startsWith(bsp + "/")) {
+                    extractAsset(assets, assetsJson, spe, path);
+                    break;
+                }
+            }
         }
 
         // No ticket is represented as an empty file rather than a missing one. This saves us
         // from having to delete the extracted copy if the app is updated to remove the ticket.
         // (We could pass the ticket to the runtime in some other way, but that would be more
         // complicated.)
-        extractAssets(assets, Common.ASSET_DIR + "/" + Common.ASSET_TICKET);
+        extractAsset(assets, assetsJson, spe, Common.ASSET_TICKET);
 
+        spe.apply();
         return buildJson;
     }
 
-    /** @param path A path which will be read relative to the assets and written relative to
-     *      getFilesDir(). If this is a directory, it will be copied recursively, and
-     *      any existing directory with that name will be deleted. */
-    private void extractAssets(AssetManager assets, String path) throws IOException {
-        // The documentation doesn't say what list() does if the path isn't a directory, so be
-        // cautious.
-        boolean isDir;
+    private void extractAsset(AssetManager assets, JSONObject assetsJson, SharedPreferences.Editor spe,
+                              String path) throws IOException, JSONException {
+        String fullPath = Common.ASSET_DIR  + "/" + path;
+        File outFile = new File(mContext.getFilesDir(), fullPath);
+        String spKey = "asset." + path;
+        String newHash = assetsJson.getString(path);
+        if (outFile.exists() && sp.getString(spKey, "").equals(newHash)) {
+            return;
+        }
+
+        outFile.delete();
+        File outDir = outFile.getParentFile();
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+            if (!outDir.isDirectory()) {
+                throw new IOException("Failed to create " + outDir);
+            }
+        }
+
+        InputStream inStream = assets.open(fullPath);
+        File tmpFile = new File(outDir, outFile.getName() + ".tmp");
+        tmpFile.delete();
+        OutputStream outStream = new FileOutputStream(tmpFile);
         try {
-            isDir = (assets.list(path).length > 0);
-        } catch (IOException e) {
-            isDir = false;
+            transferStream(inStream, outStream);
+        } finally {
+            outStream.close();
         }
-
-        File outFile = new File(mContext.getFilesDir(), path);
-        deleteRecursive(outFile);
-        if (isDir) {
-            for (String filename : assets.list(path)) {
-                extractAssets(assets, path + "/" + filename);
-            }
-        } else {
-            File outDir = outFile.getParentFile();
-            if (! outDir.exists()) {
-                outDir.mkdirs();
-                if (! outDir.isDirectory()) {
-                    throw new IOException("Failed to create " + outDir);
-                }
-            }
-
-            InputStream inStream = assets.open(path);
-            File tmpFile = new File(outDir, outFile.getName() + ".tmp");
-            tmpFile.delete();
-            OutputStream outStream = new FileOutputStream(tmpFile);
-            try {
-                transferStream(inStream, outStream);
-            } finally {
-                outStream.close();
-            }
-            if (!tmpFile.renameTo(outFile)) {
-                throw new IOException("Failed to create " + outFile);
-            }
+        if (!tmpFile.renameTo(outFile)) {
+            throw new IOException("Failed to create " + outFile);
         }
+        spe.putString(spKey, newHash);
     }
 
     private void deleteRecursive(File file) {

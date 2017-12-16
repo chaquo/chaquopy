@@ -5,8 +5,10 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
 import org.gradle.util.*
+import org.json.JSONObject
 
 import java.nio.file.*
+import java.security.MessageDigest
 
 import static com.chaquo.python.Common.pyVersionShort;
 import static java.nio.file.StandardCopyOption.*
@@ -359,11 +361,32 @@ class PythonPlugin implements Plugin<Project> {
                     into assetDir
                 }
 
-                project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = \
-                    """{ "version": "$python.version" }"""
+                def buildJson = new JSONObject()
+                buildJson.put("version", python.version)
+                buildJson.put("assets", hashAssets(assetDir))
+                project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
         extendMergeTask(variant.getMergeAssets(), genTask)
+    }
+
+    JSONObject hashAssets(File assetDir) {
+        def assetsJson = new JSONObject()
+        def digest = MessageDigest.getInstance("SHA-1")
+        hashAssets(assetsJson, digest, assetDir, "")
+        return assetsJson
+    }
+
+    void hashAssets(JSONObject assetsJson, MessageDigest digest, File dir, String prefix) {
+        for (file in dir.listFiles()) {
+            def path = prefix + file.name
+            if (file.isDirectory()) {
+                hashAssets(assetsJson, digest, file, path + "/")
+            } else {
+                digest.reset()
+                assetsJson.put(path, digest.digest(file.bytes).encodeHex())
+            }
+        }
     }
 
     void createJniLibsTasks(variant, PythonExtension python) {

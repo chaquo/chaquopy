@@ -1,4 +1,5 @@
 apply plugin: 'groovy'
+apply plugin: 'maven'
 
 evaluationDependsOn ":runtime"
 
@@ -13,14 +14,17 @@ dependencies {
     compile localGroovy()
     compile gradleApi()
 
-    // This is a library project, so use "+" notation for external dependencies.
+    // I experimented with various notations for making this a *minimum* version, but none of them
+    // worked with this 1-level version number format. Anyway, Gradle's default version conflict
+    // resolution strategy is to use the newest version, which will have the same effect.
+    compile "org.json:json:20160810"
 
     runtimeJava         project(path: ":runtime", configuration: "chaquopyJava")
     runtimePython       project(path: ":runtime", configuration: "chaquopyPython")
     runtimeJniLibs      project(path: ":runtime", configuration: "jniLibs")
     runtimeLibDynload   project(path: ":runtime", configuration: "libDynload")
 
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile "junit:junit:4.12"
 }
 
 sourceCompatibility = 7
@@ -92,3 +96,14 @@ testIntegration.dependsOn(testIntegrationTask("2.2"))
 testIntegration.dependsOn(testIntegrationTask("2.3"))
 testIntegration.dependsOn(testIntegrationTask("3.0"))
 check.dependsOn(testIntegration)
+
+group = "com.chaquo.python"
+version = file("../../VERSION.txt").text.trim()
+
+task writePom {
+    doLast {
+        pom {
+            artifactId = archivesBaseName
+        }.writeTo("$jar.destinationDir/$archivesBaseName-${version}.pom")
+    }
+}

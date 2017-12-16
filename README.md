@@ -26,9 +26,10 @@ Test demo and pkgtest apps on emulator and phone.
 
 ## Gradle plugin
 
-Run `gradlew -P cmakeBuildType=Release :gradle-plugin:check` on all supported workstation OSs.
+Run `gradlew -P cmakeBuildType=Release gradle-plugin:check` on all supported workstation OSs.
+Run `gradlew gradle-plugin:writePom`
 
-Copy gradle-plugin/build/libs/gradle.jar to local and remote Maven repository.
+Copy .jar and .pom from gradle-plugin/build/libs to local and remote Maven repository.
 
 
 ## Demo app

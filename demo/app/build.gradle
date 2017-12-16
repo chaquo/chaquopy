@@ -44,9 +44,8 @@ android {
         // *** Replace in public repository **********************************
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
         // builds in the public repo.
-        def ver = file("../../VERSION.txt").text.trim()
-        versionName ver + "-SNAPSHOT"
-        def verParsed = ver.split(/\./).collect { Integer.parseInt(it) }
+        versionName rootProject.version + "-SNAPSHOT"
+        def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
         ndk {
