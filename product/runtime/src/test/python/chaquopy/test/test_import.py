@@ -1,12 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
+from java import jclass, set_import_enabled
 import sys
 import unittest
 
-from java import jclass, set_import_enabled
+from .test_utils import FilterWarningsCase
 
 
-class TestImport(unittest.TestCase):
+class TestImport(FilterWarningsCase):
 
     def no_module_error(self, module):
         return self.assertRaisesRegexp(ImportError, r"^No module named '?{}'?$".format(module))

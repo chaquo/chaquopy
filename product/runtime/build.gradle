@@ -273,7 +273,6 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             def testPython = task("testPython-$pyVersion", type: Exec, group: "verification") {
                 workingDir "$projectDir/src/test/python"
                 executable pyPlusVersionExe
-                args "-W", "error", "-W", "ignore:Please use assert"  // TODO: do this in code, so it affects Android too
                 args "-m", "unittest"
                 if (project.hasProperty("testPythonArgs")) {
                     args project.testPythonArgs.split(" ")

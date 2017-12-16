@@ -1,13 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-import math
-import unittest
-
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
 from java.signatures import jni_method_sig, jni_sig
+import math
+
+from .test_utils import FilterWarningsCase
 
 
-class TestSignatures(unittest.TestCase):
+class TestSignatures(FilterWarningsCase):
 
     # jni_sig is not part of the public API and should not be accessed by user code.
     def test_jni_sig(self):

@@ -1,13 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-import traceback
-from unittest import TestCase
-
 from java import cast, dynamic_proxy, jarray, jfloat, jint
+import traceback
+
+from .test_utils import FilterWarningsCase
 from com.chaquo.python import PyException, TestProxy as TP
 
 
-class TestProxy(TestCase):
+class TestProxy(FilterWarningsCase):
     from .test_utils import assertDir
 
     def test_direct_inherit(self):

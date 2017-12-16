@@ -1,11 +1,11 @@
 from __future__ import absolute_import, division, print_function
 
 from java import detach, jclass
-import unittest
 from time import time, sleep
 from threading import Thread
 import sys
 
+from .test_utils import FilterWarningsCase
 from com.chaquo.python import TestThread as JavaTestThread
 from java.lang import String
 
@@ -15,7 +15,7 @@ else:
     import _thread
 
 
-class TestThread(unittest.TestCase):
+class TestThread(FilterWarningsCase):
 
     def test_gil_release_method(self):
         self.check_gil_release(JavaTestThread.BlockingMethods.blockStatic)

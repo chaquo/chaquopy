@@ -1,14 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
-import unittest
-
 from java import cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
+
+from .test_utils import FilterWarningsCase
 from com.chaquo.python import TestOverload as TO
 
 
-class TestOverload(unittest.TestCase):
+class TestOverload(FilterWarningsCase):
 
     def setUp(self):
+        super(TestOverload, self).setUp()
         self.ambiguous = self.assertRaisesRegexp(TypeError, "ambiguous")
         self.inapplicable = self.assertRaisesRegexp(TypeError, "cannot be applied")
 

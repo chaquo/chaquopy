@@ -1,18 +1,19 @@
 from __future__ import absolute_import, division, print_function
 
 import math
-import unittest
-
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
+
+from .test_utils import FilterWarningsCase
 
 
 FLOAT32_EXPONENT_BITS = 8
 FLOAT64_EXPONENT_BITS = 11
 
 
-class TestConversion(unittest.TestCase):
+class TestConversion(FilterWarningsCase):
 
     def setUp(self):
+        super(TestConversion, self).setUp()
         self.obj = jclass('com.chaquo.python.TestBasics')()
         self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
 

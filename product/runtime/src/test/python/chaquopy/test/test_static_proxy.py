@@ -1,14 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-from unittest import TestCase
-
 from java import static_proxy
 
-from com.chaquo.python import TestStaticProxy as TSP
 from .static_proxy import basic
+from .test_utils import FilterWarningsCase
+from com.chaquo.python import TestStaticProxy as TSP
 
 
-class TestStaticProxy(TestCase):
+class TestStaticProxy(FilterWarningsCase):
 
     def test_basic(self):
         BA = basic.BasicAdder
