@@ -471,7 +471,7 @@ class PythonPlugin implements Plugin<Project> {
 
 class PythonExtension extends BaseExtension {
     String version
-    String buildPython = "python2"
+    String buildPython = "python"
     List<String> staticProxy = new ArrayList<>();
     PipExtension pip = new PipExtension()
 

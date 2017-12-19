@@ -84,7 +84,8 @@ class PythonVersion(GradleTestCase):
 
     def test_invalid(self):
         run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
-        self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are [2.7.10]",
+        self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are "
+                          "[2.7.10, 3.6.3]",
                           run.stderr)
 
     # TODO #5202
@@ -138,12 +139,24 @@ class PythonSrc(GradleTestCase):
         run.rerun()
 
 
+class BuildPythonCase(TestCase):
+    def setUp(self):
+        super(BuildPythonCase, self).setUp()
+        os.environ["buildPython"] = self.buildPython
+
+    def tearDown(self):
+        del os.environ["buildPython"]
+
+class BuildPython2(BuildPythonCase):
+    buildPython = "python2"
+
+class BuildPython3(BuildPythonCase):
+    buildPython = "python3"
+
+
 class PythonReqs(GradleTestCase):
     def test_build_python(self):
-        run = self.RunGradle("base", "PythonReqs/build_python_3", requirements=["apple"])
-
-        run.apply_layers("PythonReqs/build_python_invalid")
-        run.rerun(succeed=False)
+        run = self.RunGradle("base", "PythonReqs/build_python_invalid", succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_change(self):
@@ -226,6 +239,12 @@ class PythonReqs(GradleTestCase):
         run.rerun(abis=["armeabi-v7a", "x86"],
                   requirements=["multi_abi_order_armeabi_v7a.pyd", "multi_abi_order_pure"])
 
+class PythonReqs2(PythonReqs, BuildPython2):
+    pass
+class PythonReqs3(PythonReqs, BuildPython3):
+    pass
+del PythonReqs
+
 
 class StaticProxy(GradleTestCase):
     def test_change(self):
@@ -240,9 +259,11 @@ class StaticProxy(GradleTestCase):
         run.apply_layers("base")                    # Remove all
         run.rerun()
 
-    @skip("#5293")
-    def test_build_python_3(self):
-        self.RunGradle("base", "StaticProxy/build_python_3", static_proxies=["a.ReqsA1"])
+class StaticProxy2(StaticProxy, BuildPython2):
+    pass
+class StaticProxy3(StaticProxy, BuildPython3):
+    pass
+del StaticProxy
 
 
 class License(GradleTestCase):
@@ -483,6 +504,3 @@ def filelist(zip_file):
 # not empty), even though it has already removed everything from that directory.
 def rmtree(path):
     subprocess.check_call(["rm", "-rf", path])
-
-
-del GradleTestCase

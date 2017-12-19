@@ -11,6 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
+            buildPython System.getenv("buildPython")
             version "2.7.10"
             staticProxy "static_proxy.a"
         }

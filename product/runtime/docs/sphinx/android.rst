@@ -16,58 +16,67 @@ Prerequisites:
 Basic setup
 ===========
 
-In the project's *top-level* `build.gradle` file, add the following lines to the existing
-`repositories` and `dependencies` blocks:
+Plugin
+------
+
+In the project's *top-level* `build.gradle` file, add the Chaquopy repository and dependency to
+the end of the existing `repositories` and `de
+pendencies` blocks:
 
 .. parsed-literal::
     buildscript {
         repositories {
+            ...
             maven { url "https://chaquo.com/maven" }
         }
         dependencies {
+            ...
             classpath "com.chaquo.python:gradle:|release|"
         }
     }
 
 In the app's *module-level* `build.gradle` file, apply the Chaquopy plugin at the top of the
-file, but after the Android plugin::
+file, but *after* the Android plugin::
 
-   apply plugin: "com.chaquo.python"  // Must come after com.android.application
+   apply plugin: "com.chaquo.python"    // Must come after com.android.application
 
-Chaquopy is configured in the `python` block within `defaultConfig`. The only required setting
-in this block is the Python version, and the currently available versions are:
+Python version
+--------------
 
-* `2.7.10`
-* `3.6.3`
+With the plugin applied, you can now add a `python` block within `android.defaultConfig`. The
+only required setting in this block is the Python version, and the currently available versions
+are:
+
+* 2.7.10
+* 3.6.3
 
 For example::
 
-    android {
-        defaultConfig {
-            python {
-               version "2.7.10"
-            }
+    defaultConfig {
+        python {
+            version "2.7.10"
         }
     }
 
-The Python interpreter is a native component, so you must specify which native ABIs you want
-the app to support. The currently available ABIs are:
+ABI selection
+-------------
+
+The Python interpreter is a native component, so you must specify which native ABIs you
+want the app to support. The currently available ABIs are:
 
 * `armeabi-v7a`, for the vast majority of Android hardware.
 * `x86`, for the Android emulator.
 
 During development you will probably want to enable them both::
 
-    android {
-        defaultConfig {
-            ndk {
-               abiFilters "armeabi-v7a", "x86"
-            }
+    defaultConfig {
+        ndk {
+           abiFilters "armeabi-v7a", "x86"
         }
     }
 
 .. note:: There's no need to actually install the Android native development kit (NDK), as
-          Chaquopy will download pre-compiled CPython binaries for the specified ABIs. Each ABI
+          Chaquopy will download pre-compiled CPython binaries for the selected ABIs. Each ABI
           will add several MB to the size of the app.
 
 .. _android-development:
@@ -83,33 +92,34 @@ It's important to structure the app so that `Python.start()
 called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
 attempting to run Python code. There are two basic ways to achieve this:
 
-If the app always uses Python, then call Python.start() from a location which is guaranteed to
-run exactly once per process. The recommended location is `Application.onCreate()
-<https://developer.android.com/reference/android/app/Application.html#onCreate()>`_, and a
-`PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to
-make this easy. To use it, simply add the following attribute to the `<application>` element in
-`AndroidManifest.xml`:
+* If the app always uses Python, then call Python.start() from a location which is guaranteed to
+  run exactly once per process. The recommended location is `Application.onCreate()
+  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_, and a
+  `PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to
+  make this easy. To use it, simply add the following attribute to the `<application>` element in
+  `AndroidManifest.xml`:
 
-.. code-block:: xml
+  .. code-block:: xml
 
-    android:name="com.chaquo.python.android.PyApplication"
+      android:name="com.chaquo.python.android.PyApplication"
 
-Alternatively, if the app only sometimes uses Python, then call Python.start() after first
-checking whether it's already been started:
+* Alternatively, if the app only sometimes uses Python, then call Python.start() after first
+  checking whether it's already been started:
 
-.. code-block:: java
+  .. code-block:: java
 
-    // "context" must be an Activity, Service or Application object from your app.
-    if (! Python.isStarted()) {
-        Python.start(new AndroidPlatform(context));
-    }
+      // "context" must be an Activity, Service or Application object from your app.
+      if (! Python.isStarted()) {
+          Python.start(new AndroidPlatform(context));
+      }
 
 Other build features
 ====================
 
-These features all require Python 2.7 to be available on the build machine. Chaquopy will by
-default look for `python2` on your `PATH`, but this can be configured with the `buildPython`
-setting. For example, a typical Windows installation of Python would look like this::
+These features all require a Python interpreter (version 2.7+ or 3.3+) to be available on the
+build machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
+configured with the `buildPython` setting. For example, a typical Windows installation of
+Python would look like this::
 
     python {
         buildPython "C:/Python27/python.exe"
