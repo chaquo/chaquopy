@@ -23,12 +23,6 @@ import six
 def join(*paths):
     return os.path.join(*paths).replace("\\", "/")
 
-# The ast module can only parse the syntax of its own Python version.
-if not sys.version_info[:2] == (2, 7):
-    print("staticProxy requires Python 2.7 on the build machine. Please edit the "
-          "buildPython setting.", file=sys.stderr)
-    sys.exit(1)
-
 
 PRIMITIVES = ["void", "boolean", "byte", "short", "int", "long", "float", "double", "char"]
 JAVA_ALL = (["static_proxy", "jarray", "constructor", "method", "Override"] +  # Only the names used
@@ -67,6 +61,12 @@ def main():
 
     except CommandError as e:
         print(e, file=sys.stderr)
+        sys.exit(1)
+    except SyntaxError as e:
+        print("{}:{}:{}: {}".format(e.filename, e.lineno, e.offset, e.msg), file=sys.stderr)
+        print("Build Python is version {}.{}. If you are using syntax incompatible with this "
+              "version, please edit the buildPython setting in build.gradle."
+              .format(*sys.version_info[:2]), file=sys.stderr)
         sys.exit(1)
 
 
@@ -165,17 +165,14 @@ class Module(object):
 
     def process(self):
         classes = []
-
-        try:
-            root = ast.parse(open(self.filename).read(), self.filename)
-        except SyntaxError as e:
-            raise CommandError("{}:{}:{}: {}".format(e.filename, e.lineno, e.offset, e.msg))
+        root = ast.parse(open(self.filename).read(), self.filename)
 
         # These are all the node types which can change global bindings. We map the bound name
         # to its fully-qualified name if it's a usable import, or otherwise to the node which
         # bound it so we can give a useful error if the name is passed to one of our functions.
         for node in root.body:
-            if isinstance(node, ast.FunctionDef):
+            if isinstance(node, (ast.FunctionDef if six.PY2
+                                 else (ast.FunctionDef, ast.AsyncFunctionDef))):
                 self.bindings[node.name] = node
             elif isinstance(node, ast.ClassDef):
                 c = self.process_class(node)
@@ -188,7 +185,8 @@ class Module(object):
             elif isinstance(node, ast.Assign):
                 for t in node.targets:
                     self.process_assign(t)
-            elif isinstance(node, ast.AugAssign):
+            elif isinstance(node, (ast.AugAssign if six.PY2
+                                   else (ast.AugAssign, ast.AnnAssign))):
                 self.process_assign(node.target)
             elif isinstance(node, ast.Import):
                 self.process_import(node.names, lambda name: name)
@@ -273,7 +271,7 @@ class Module(object):
     # literals, or expressions which can be turned into strings by resolve(). Additional
     # keyword arguments may also be passed through.
     def call(self, function, call, **kwargs):
-        if call.starargs or call.kwargs:
+        if self.has_starargs(call) or self.has_kwargs(call):
             self.error(call, "*args and **kwargs are not supported here")
         args = [self.evaluate(a) for a in call.args]
         kwargs.update((kw.arg, self.evaluate(kw.value)) for kw in call.keywords)
@@ -283,11 +281,25 @@ class Module(object):
             self.error(call, type_error_msg(e))
         return result
 
+    def has_starargs(self, call):
+        if six.PY2:
+            return bool(call.starargs)
+        else:
+            return any(isinstance(a, ast.Starred) for a in call.args)
+
+    def has_kwargs(self, call):
+        if six.PY2:
+            return bool(call.kwargs)
+        else:
+            return any(kw.arg is None for kw in call.keywords)
+
     def evaluate(self, expr):
         if isinstance(expr, ast.Num):
             return expr.n
         elif isinstance(expr, ast.Str):
             return expr.s
+        elif six.PY3 and isinstance(expr, ast.NameConstant):
+            return expr.value
         elif isinstance(expr, ast.Name):
             if expr.id in ["True", "False", "None"]:
                 return getattr(six.moves.builtins, expr.id)

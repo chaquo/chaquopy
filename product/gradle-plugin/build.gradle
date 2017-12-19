@@ -63,10 +63,9 @@ processResources {
     }
 }
 
-Task testPythonTask(String name, Closure closure) {
-    def t = task(name, closure, "type": Exec, "group": "verification")
-    t.configure {
-        executable "python2"
+Task testTask(String name, Closure closure) {
+    def t = task(name, "type": Exec, "group": "verification") {
+        executable "python"
         args "-m", "unittest"
         if (project.hasProperty("testPythonArgs")) {
             args project.testPythonArgs.split(" ")
@@ -74,18 +73,26 @@ Task testPythonTask(String name, Closure closure) {
             args "discover", "-v"
         }
     }
+    closure.delegate = t
+    closure()
     return t
 }
 
-testPythonTask("testPython") {
-    workingDir "$projectDir/src/test/python"
+Task testPythonTask(String version) {
+    return testTask("testPython-$version") {
+        executable "python$version"
+        workingDir "$projectDir/src/test/python"
+    }
 }
+task("testPython", "group": "verification")
+testPython.dependsOn(testPythonTask("2"))
+testPython.dependsOn(testPythonTask("3"))
 check.dependsOn(testPython)
 
 /** @param version Android Gradle plugin version (corresponds to directory
  *  test/integration/data/base-$version) */
 Task testIntegrationTask(String version) {
-    return testPythonTask("testIntegration-$version") {
+    return testTask("testIntegration-$version") {
         dependsOn assemble
         workingDir "$projectDir/src/test/integration"
         environment "AGP_VERSION", version

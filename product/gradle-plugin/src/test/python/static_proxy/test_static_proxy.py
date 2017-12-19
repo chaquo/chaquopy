@@ -3,9 +3,11 @@ from __future__ import absolute_import, division, print_function
 import json
 import os
 from os.path import abspath, dirname, join
+import six
 import subprocess
-from unittest import TestCase
+import sys
 
+from .test_utils import FilterWarningsCase
 
 static_proxy_dir = abspath(dirname(__file__))
 data_dir = join(static_proxy_dir, "data")
@@ -13,7 +15,7 @@ main_python_dir = abspath(join(static_proxy_dir, "../../../main/python"))
 os.environ["PYTHONPATH"] = main_python_dir
 
 
-class TestStaticProxy(TestCase):
+class TestStaticProxy(FilterWarningsCase):
 
     maxDiff = None
 
@@ -36,7 +38,15 @@ class TestStaticProxy(TestCase):
     def test_errors(self):
         for name in ["empty", "no_proxies", "conditional"]:
             self.run_json("errors", name, False, name + ".py: no static_proxy classes found")
+
         self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
+        self.run_json("errors", "syntax_py2", False,
+                      "syntax_py2.py: no static_proxy classes found" if six.PY2
+                      else "syntax_py2.py:1:13: Missing parentheses in call to 'print'")
+
+        for name in ["starargs", "kwargs"]:
+            self.run_json("errors", name, False,
+                          name + ".py:6:9: *args and **kwargs are not supported here")
 
     def test_bindings(self):
         self.run_json("bindings", "import_from")
@@ -58,6 +68,14 @@ class TestStaticProxy(TestCase):
                       "cannot resolve 'C' \(bound at .*assign_list_recursive.py:4:8\)", re=True)
         self.run_json("bindings", "assign_aug", False, "assign_aug.py:7:22: cannot resolve 'C' "
                       "\(bound at .*assign_aug.py:5:1\)", re=True)
+
+    def test_bindings_py3(self):
+        for name, line, col in [("def_async", 4, 7), ("assign_ann", 4, 1)]:
+            self.run_json("bindings", name, False,
+                          r"{}.py:{}:\d+: invalid syntax".format(name, line) if six.PY2
+                          else (r"{}.py:6:22: cannot resolve 'x' \(bound at .*{}.py:{}:{}\)"
+                                .format(name, name, line, col)),
+                          re=True)
 
     def test_header(self):
         self.run_json("header", "bases")
@@ -81,10 +99,11 @@ class TestStaticProxy(TestCase):
                       "init_method.py:5:6: @method cannot be used on __init__")
         self.run_json("method", "init_override", False,
                       "init_override.py:5:6: @Override cannot be used on __init__")
-        self.run_json("method", "missing_brackets", False, "missing_brackets.py:5:6: 'arg_types' "
-                      "must be (<type 'list'>, <type 'tuple'>)")
-        self.run_json("method", "missing_args", False,
-                      "missing_args.py:5:6: method() takes at least 2 arguments")
+        self.run_json("method", "missing_brackets", False, r"missing_brackets.py:5:6: 'arg_types' "
+                      r"must be \(<(type|class) 'list'>, <(type|class) 'tuple'>\)", re=True)
+        self.run_json("method", "missing_args", False, r"missing_args.py:5:6: method\(\) "
+                      r"(takes at least 2 arguments|missing 1 required positional argument)",
+                      re=True)
 
     def run_json(self, path, modules, succeed=True, expected=None, **kwargs):
         if isinstance(path, str):
@@ -96,10 +115,10 @@ class TestStaticProxy(TestCase):
             expected = join(path[0], modules[0].replace(".", "/")) + ".json"
 
         process = subprocess.Popen(
-            ["python", join(main_python_dir, "chaquopy/static_proxy.py"),
+            [sys.executable, join(main_python_dir, "chaquopy/static_proxy.py"),
              "--path", os.pathsep.join(join(data_dir, d) for d in path),
              "--json"] + modules,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         stdout, stderr = process.communicate()
 
         status = process.wait()
@@ -111,7 +130,8 @@ class TestStaticProxy(TestCase):
             except ValueError:
                 print("Invalid output\n" + stdout)
                 raise
-            self.assertEqual(json.load(open(join(data_dir, expected))), result)
+            with open(join(data_dir, expected)) as expected_file:
+                self.assertEqual(json.load(expected_file), result)
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status), stdout, stderr)
