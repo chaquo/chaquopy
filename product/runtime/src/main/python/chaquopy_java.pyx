@@ -384,11 +384,15 @@ fqn_PyException = fqn_PyException_b.decode()
 
 # See note at convert_exception for why local `jclass` proxy objects must be destroyed before
 # calling JNIEnv.Throw. If the exception was a Java exception, this includes the proxy object
-# for the exception itself. In Python 2, the interpreter would retain it in sys.exc_info()
-# until the handling function returned, but we can deal with this by calling exc_clear(). In
-# Python 3, exc_clear() has been removed, because sys.exc_info() is cleared when the `except`
-# block terminates. This means we must save the exception within the `except` block, and call
-# JNIEnv.Throw outside it.
+# for the exception itself. In Python 2, the interpreter retains the last-caught exception in
+# sys.exc_info() until the function with the `except` block returns, but we can deal with this
+# by calling exc_clear(). In Python 3, exc_info() is cleared automatically when the `except`
+# block terminates, but there's no way to clear it earlier because exc_clear() has been
+# removed.
+#
+# The best solution I can think of is to save the exception within the `except` block, and call
+# JNIEnv.Throw outside it. This can't be done with a context manager because the system would
+# still have its own reference to the exception while the __exit__ method was running.
 cdef class SavedException(object):
     cdef exc_info
 

@@ -2,7 +2,7 @@ Python API
 ##########
 
 The `java` module provides facilities to use Java classes and objects from Python code. For
-examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
+examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`__.
 
 Import hook
 ===========
@@ -37,7 +37,7 @@ the same name. However, this is still possible, subject to the following points:
 
     JavaClass = jclass("com.example.Class")
 
-* Relative import syntax is supported. For example, within a Python module called
+* Relative package syntax is supported. For example, within a Python module called
   `com.example.module`::
 
     from . import Class                # Same as "from com.example import Class"
@@ -183,16 +183,16 @@ a single parameter, which must be either:
 
 * An integer, to create an array filled with zero, `false` or `null`::
 
-    # Python code                           # Java equivalent
-    jarray(jint)(5)                         # new int[5]
+    # Python code                                 // Java equivalent
+    jarray(jint)(5)                               new int[5]
 
 * A Python iterable containing objects of compatible types::
 
-    # Python code                           # Java equivalent
-    jarray(jint)([1, 2, 3])                 # new int[]{1, 2, 3}
-    jarray(jarray(jint))([[1, 2], [3, 4]])  # new int[][]{{1, 2}, {3, 4}}
-    jarray(String)(["Hello", "world"])      # new String[]{"Hello", "world"}
-    jarray(jchar)("hello")                  # new char[] {'h', 'e', 'l', 'l', 'o'}
+    # Python code                                 // Java equivalent
+    jarray(jint)([1, 2, 3])                       new int[]{1, 2, 3}
+    jarray(jarray(jint))([[1, 2], [3, 4]])        new int[][]{{1, 2}, {3, 4}}
+    jarray(String)(["Hello", "world"])            new String[]{"Hello", "world"}
+    jarray(jchar)("hello")                        new char[] {'h', 'e', 'l', 'l', 'o'}
 
 Array objects support the standard Python sequence protocol:
 
@@ -234,13 +234,14 @@ doing this:
 Dynamic proxy
 -------------
 
-.. note:: For further examples of how dynamic proxies can be used, see the corresponding `unit tests
-          <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/test_proxy.py>`_.
-
 .. autofunction:: java.dynamic_proxy(*implements)
 
 Dynamic proxy classes are implemented just like regular Python classes, but any method names
-which appear in the specified interfaces will be visible to Java. For example::
+defined by the given interfaces will be visible to Java. If Java code calls an interface method
+which is not implemented by the Python class, a `PyException
+<java/com/chaquo/python/PyException.html>`_ will be thrown.
+
+Simple example (for more examples, see the `unit tests <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/test_proxy.py>`__)::
 
     >>> from java.lang import Runnable, Thread
     >>> class R(dynamic_proxy(Runnable)):
@@ -259,10 +260,7 @@ which appear in the specified interfaces will be visible to Java. For example::
     >>> t.getState()
     <java.lang.Thread$State 'TERMINATED'>
 
-If Java code calls an interface method which is not implemented by the Python class, a
-`PyException <java/com/chaquo/python/PyException.html>`_ will be thrown.
-
-Dynamic proxy classes have the following restrictions:
+Dynamic proxy classes have the following limitations:
 
 * They cannot extend Java classes, only implement Java interfaces.
 * They cannot be referenced by name in Java source code.
@@ -275,95 +273,90 @@ If you need to do any of these things, you'll need to use a `static proxy`_ inst
 Static proxy
 ------------
 
-.. note:: For futher examples of how static proxies can be used, see the `class declarations
-          <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/static_proxy>`_
-          in the unit tests, and the corresponding `Java code
-          <https://github.com/chaquo/chaquopy/tree/master/app/src/main/java/com/chaquo/java/StaticProxyTest.java>`_
-          which uses those classes.
-
 .. autofunction:: java.static_proxy(extends=None, *implements, package=None, modifiers="public")
 
-To add members to the generated Java class, use the following decorators:
+To generate Java methods for the class, use the following decorators:
 
-.. autofunction:: java.constructor(arg_types, *, modifiers="public", throws=None)
 .. autofunction:: java.method(return_type, arg_types, *, modifiers="public", throws=None)
 .. autofunction:: java.Override(return_type, arg_types, *, modifiers="public", throws=None)
+.. autofunction:: java.constructor(arg_types, *, modifiers="public", throws=None)
 
-Notes on the decorators:
+Simple example (for more examples, see the `demo app
+<https://github.com/chaquo/chaquopy/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
+and `unit tests
+<https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__)::
 
-* Multiple decorators may be used on the same method, in which case multiple Java signatures
-  will be generated for it (see notes on overloading below).
-* Java types must be specified as one of the following:
-   * A Java class imported using the `import hook`_.
-   * A :any:`jarray` type.
-   * One of the :ref:`primitive types <primitives>`.
-* `return_type` must be a single Java type, or :any:`jvoid`.
-* `arg_types` must be a (possibly empty) list or tuple of Java types.
-* `modifiers` must be a string which is copied to the generated Java declaration. For example,
-  to make a method synchronized, you can pass `modifiers="public synchronized"`.
-* `throws` must be a list or tuple of `java.lang.Throwable` subclasses.
+    # Python code                                 // Java equivalent
+    from com.example import Base                  import com.example.Base;
+    from java.lang import String, Exception
+
+    class C(static_proxy(Base)):                  class C extends Base {
+
+        @constructor([jint, String])                  public C(int i, String s) {
+        def __init__(self, i, s):                         ...
+            ...                                       }
+
+        @method(jvoid, [int],                         public void f(int x) throws Exception {
+                throws=[Exception])                       ...
+        @Override(String, [String],                   }
+                  modifiers="protected")
+        def f(self, x):                               @Override
+            ...                                       protected String f(String x) {
+                                                          ...
+                                                      }
+                                                  }
 
 Because the :ref:`static proxy generator <static-proxy-generator>` works by static analysis of the
 Python source code, there are some restrictions on the code's structure:
 
-* Only code which appears unconditionally at the module top-level will be processed.
-* Java classes must be imported using the `import hook`_, not dynamically with :any:`jclass`.
-  Nested classes can be referenced by importing the top-level class and then using attribute
-  notation, e.g. `Outer.Nested`.
-* The names bound by the `import` statement must be used directly. For example, after `from
-  java.lang import IllegalArgumentException as IAE`, you may use `IAE` in a `throws`
-  declaration. However, if you assign `IAE` to another variable, you cannot use that variable in
-  a `throws` declaration, as the static proxy generator will be unable to resolve it.
-* Similarly, string parameters must be given as literals.
-* `import` statements using relative import syntax or `import *` will be ignored, except for
-  `from java import *`, which will import all names documented on this page.
+* Only classses which appear unconditionally at the module top-level will be processed.
+* Java classes passed to `static_proxy` or its method decorators must have been imported using
+  the `import hook`_, not dynamically with :any:`jclass`.
+
+  * Nested classes can be referenced by importing the top-level class and then using attribute
+    notation, e.g. `Outer.Nested`.
+  * The names bound by the `import` statement must be used directly. For example, after `from
+    java.lang import IllegalArgumentException as IAE`, you may use `IAE` in a `throws`
+    declaration. However, if you assign `IAE` to another variable, you cannot use that variable in
+    a `throws` declaration, as the static proxy generator will be unable to resolve it.
+  * The static proxy generator does not currently support relative package syntax.
+
+* String parameters must be given as literals.
+* Extending `static_proxy` classes with other `static_proxy` classes is not currently
+  supported. However, behaviour can still be shared between `static_proxy` classes by making
+  them inherit from a common Python base class.
+
 
 Notes
 -----
 
 The following notes apply to both types of proxy:
 
-* Classes may have any number of Python base classes, as long as the :any:`dynamic_proxy` or
+* Proxy classes may have additional Python base classes, as long as the :any:`dynamic_proxy` or
   :any:`static_proxy` expression comes first.
 
-* Classes may have any number of attributes, Those with the same names as inherited Java members
-  will override or hide them as appropriate.
-
-* Object instances may also have any number of attributes, but attempting to assign to an
-  inherited Java member other than a non-final field will raise an `AttributeError`.
-
-* Instances of proxy classes can be used just like Java instances. For example, they can be
-  passed directly to any compatible Java method or field, and to :any:`cast`. `isinstance` will
-  show that they are instances of the specified Java base classes, and of `java.lang.Object`.
-
-* When Python methods are called from Python, the call always takes place directly. When Python
-  methods are called from Java, the parameters and return value are converted as described in
-  `data types`_ above. In particular, if the method is passed an array, including via varargs
-  syntax ("..."), the Python method will receive it as a :any:`jarray` object.
+* When a Python method is called from Java, the parameters and return value are converted as
+  described in `data types`_ above. In particular, if the method is passed an array, including
+  via varargs syntax ("..."), it will be received as a :any:`jarray` object.
 
 * If a method is overloaded (i.e. it has multiple Java signatures), the Python signature should
   be able to accept them all. This can usually be achieved by some combination of `duck typing
   <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax.
 
-  However, this doesn't mean the Python method has to *implement* all the overloads. If there
-  are any cases you don't want to override, you can call through to the base class
-  implementation using the form `SuperClass.method(self, *args)`. (Using :any:`super` is
-  not currently supported for Java methods, though it may be used in `__init__`.)
+* To call through to the base class implementation of a method, use the syntax
+  `SuperClass.method(self, args)`. Using :any:`super` is not currently supported for Java
+  methods, though it may be used in `__init__`.
 
 * Special methods:
 
-   * If you override `__init__`, you must call through to the superclass `__init__` with zero
-     arguments. Until this is done, the object cannot be used as a Java object. Supplying
-     arguments to the superclass constructor is not currently possible.
-
-   * If you override `__str__`, `__eq__` or `__hash__`, they will only be called when an object
-     is accessed from Python. It's usually better to override the equivalent Java methods
-     `toString`, `equals` and `hashCode`, which will take effect in both Python and Java. If
-     any of these methods are not overridden, the default `java.lang.Object` implementation
-     will be inherited.
-
-   * If you override any other special method, make sure to call through to the superclass
-     implementation for any cases you don't handle.
+  * If you override `__init__`, you *must* call through to the superclass `__init__` with zero
+    arguments. Until this is done, the object cannot be used as a Java object. Supplying
+    arguments to the superclass constructor is not currently possible.
+  * If you override `__str__`, `__eq__` or `__hash__`, they will only be called when an object
+    is accessed from Python. It's usually better to override the equivalent Java methods
+    `toString`, `equals` and `hashCode`, which will take effect in both Python and Java.
+  * If you override any other special method, make sure to call through to the superclass
+    implementation for any cases you don't handle.
 
 
 Exceptions

@@ -30,8 +30,8 @@ def cast(cls, obj):
     Situations where this could be useful are the same as those where you might use the Java
     cast syntax `(ClassName)obj`. By changing the apparent type of an object:
 
-       * Different members may be visible on the object.
-       * A different overload may be chosen when passing the object to a method.
+    * Different members may be visible on the object.
+    * A different overload may be chosen when passing the object to a method.
     """
     sig = java.jni_sig(cls)
     if sig[0] not in "L[":

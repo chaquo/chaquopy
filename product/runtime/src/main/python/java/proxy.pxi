@@ -92,14 +92,13 @@ global_class("com.chaquo.python.PyCtorMarker")
 def static_proxy(extends=None, *implements, package=None, modifiers="public"):
     """Use the return value of this function in the bases of a class declaration, and the
     :ref:`static proxy generator <static-proxy-generator>` tool will create a Java source file
-    allowing the class to be instantiated and accessed by Java code. `extends` must be a Java
-    class, or None for `java.lang.Object`. `implements`, if present, must be Java interface
-    types. `package` is the name of the Java package in which the Java class will be generated,
-    defaulting to the same as the Python module name.
+    allowing the class to be instantiated and accessed by Java code.
 
-    Extending static_proxy classes with other static_proxy classes is not currently supported.
-    However, behaviour can still be shared between static_proxy classes by making them inherit from
-    a common Python base class.
+    * `extends` must be a Java class type. Pass `None` if you only want to implement interfaces.
+    * All other positional arguments must be Java interface types to implement.
+    * `package` is the name of the Java package in which the Java class will be generated,
+      defaulting to the same as the Python module name.
+    * `modifiers` is described below.
     """
     if extends is None:
         extends = JavaObject
@@ -141,13 +140,31 @@ global_class("com.chaquo.python.StaticProxy", cls_dict={"__init__": StaticProxy_
 
 # Member decorators currently have no effect at runtime.
 def constructor(arg_types, *, modifiers="public", throws=None):
-    """Generates a Java constructor. This decorator can only be used on the `__init__` method.
+    """Generates a Java constructor. This decorator can only be used on the `__init__` method. Note
+    there is no return type.
     """
     return lambda f: f
+
 def method(return_type, arg_types, *, modifiers="public", throws=None):
     """Generates a Java method.
+
+    * `return_type` must be a single Java type, or :any:`jvoid`.
+    * `arg_types` must be a (possibly empty) list or tuple of Java types.
+    * `modifiers` is a string which is copied to the generated Java declaration. For example,
+      to make a method synchronized, you can pass `modifiers="public synchronized"`.
+    * `throws` is a list or tuple of `java.lang.Throwable` subclasses.
+
+    All Java types must be specified as one of the following:
+
+    * A Java class imported using the `import hook`_.
+    * One of the :ref:`primitive types <primitives>`.
+    * A :any:`jarray` type.
+
+    Multiple decorators may be used on the same method, in which case multiple Java signatures
+    will be generated for it (see notes below on overloading).
     """
     return lambda f: f
+
 def Override(return_type, arg_types, *, modifiers="public", throws=None):
     """Same as :any:`method`, but adds the `@Override
     <https://docs.oracle.com/javase/8/docs/api/java/lang/Override.html>`_ annotation.

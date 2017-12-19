@@ -35,7 +35,12 @@ file, but after the Android plugin::
    apply plugin: "com.chaquo.python"  // Must come after com.android.application
 
 Chaquopy is configured in the `python` block within `defaultConfig`. The only required setting
-is the Python version, and currently the only available version is 2.7.10::
+in this block is the Python version, and the currently available versions are:
+
+* `2.7.10`
+* `3.6.3`
+
+For example::
 
     android {
         defaultConfig {
@@ -61,9 +66,9 @@ During development you will probably want to enable them both::
         }
     }
 
-There's no need to actually install the Android native development kit (NDK), as Chaquopy will
-download pre-compiled CPython binaries for the specified ABIs. (Each ABI will add several MB to
-the size of the app.)
+.. note:: There's no need to actually install the Android native development kit (NDK), as
+          Chaquopy will download pre-compiled CPython binaries for the specified ABIs. Each ABI
+          will add several MB to the size of the app.
 
 .. _android-development:
 
@@ -179,19 +184,25 @@ setting specifies which Python modules to search for these classes::
 
 The app's :ref:`source tree <android-development>` and its :ref:`requirements
 <android-requirements>` will be searched, in that order, for the specified modules. Either
-simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be used.
+simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be found.
 
-Within the modules, static proxy classes must be declared in the format described in the
+Within the modules, static proxy classes must be declared using the syntax described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
 
 Licensing
 =========
 
-A license is required in order to distribute apps built with Chaquopy. The unlicensed version
-is fully-functional, but will display a notification whenever the app is started.
+Evaluation
+----------
 
-All licenses include upgrades to future versions of Chaquopy.
+You can try out Chaquopy right now by cloning one of the `example apps
+<https://github.com/chaquo>`_, or following the setup instructions above in an app of your own.
+The unlicensed version is fully-functional, but apps built with it will display a notification
+on startup.
+
+In order to distribute apps built with Chaquopy, a license is required. All licenses are
+perpetual and include upgrades to all future versions.
 
 Commercial license
 ------------------
