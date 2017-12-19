@@ -34,6 +34,12 @@ public class AndroidPlatform extends Python.Platform {
         "stdlib.mp3",
     };
 
+    private static final String[] OBSOLETE_CACHE = {
+        // Renamed back to .zip in 0.7.0
+        "AssetFinder/app.mp3",
+        "AssetFinder/requirements.mp3",
+    };
+
     /** @deprecated Internal use in chaquopy_java.pyx. */
     public Context mContext;
     private SharedPreferences sp;
@@ -51,9 +57,9 @@ public class AndroidPlatform extends Python.Platform {
     @Override
     public String getPath() {
         try {
-            for (String filename : OBSOLETE_FILES) {
-                deleteRecursive(new File(mContext.getFilesDir(), Common.ASSET_DIR + "/" + filename));
-            }
+            deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
+            deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
+
             JSONObject buildJson = extractAssets();
             loadNativeLibs(buildJson.getString("version"));
         } catch (IOException | JSONException e) {
@@ -68,6 +74,12 @@ public class AndroidPlatform extends Python.Platform {
             }
         }
         return path;
+    }
+
+    private void deleteObsolete(File baseDir, String[] filenames) {
+        for (String filename : filenames) {
+            deleteRecursive(new File(baseDir, Common.ASSET_DIR + "/" + filename));
+        }
     }
 
     @Override
