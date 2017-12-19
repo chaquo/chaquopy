@@ -2,10 +2,10 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:orderingFromXml="true">
 
-    <Preference android:title="@string/demo_dialog"/>
-    <Preference android:title="@string/demo_notify"/>
-    <Preference android:title="@string/demo_toast"/>
-    <Preference android:title="@string/demo_sound"/>
-    <Preference android:title="@string/demo_vibrate"/>
+    <Preference android:title="@string/demo_dialog" android:key="demo_dialog"/>
+    <Preference android:title="@string/demo_notify" android:key="demo_notify"/>
+    <Preference android:title="@string/demo_toast" android:key="demo_toast"/>
+    <Preference android:title="@string/demo_sound" android:key="demo_sound"/>
+    <Preference android:title="@string/demo_vibrate" android:key="demo_vibrate"/>
 
 </PreferenceScreen>

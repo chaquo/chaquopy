@@ -70,14 +70,9 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
 
     @Override(jboolean, [Preference])
     def onPreferenceTreeClick(self, pref):
-        activity = self.getActivity()
-        keys = ["demo_dialog", "demo_notify", "demo_toast", "demo_sound",
-                "demo_vibrate"]
-        dispatch = {activity.getString(getattr(R.string, key)): getattr(self, key)
-                    for key in keys}
-        method = dispatch.get(str(pref.getTitle()))
+        method = getattr(self, pref.getKey())
         if method:
-            method(activity)
+            method(self.getActivity())
             return True
         else:
             return False
