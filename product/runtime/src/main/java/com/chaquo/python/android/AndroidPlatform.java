@@ -29,13 +29,13 @@ public class AndroidPlatform extends Python.Platform {
         "app.zip",
         "requirements.zip",
 
-        // Renamed back to .zip in 0.7.0
+        // Renamed back to .zip in 1.1.0
         "chaquopy.mp3",
         "stdlib.mp3",
     };
 
     private static final String[] OBSOLETE_CACHE = {
-        // Renamed back to .zip in 0.7.0
+        // Renamed back to .zip in 1.1.0
         "AssetFinder/app.mp3",
         "AssetFinder/requirements.mp3",
     };
