@@ -70,12 +70,14 @@ class TestStaticProxy(FilterWarningsCase):
                       "\(bound at .*assign_aug.py:5:1\)", re=True)
 
     def test_bindings_py3(self):
-        for name, line, col in [("def_async", 4, 7), ("assign_ann", 4, 1)]:
-            self.run_json("bindings", name, False,
-                          r"{}.py:{}:\d+: invalid syntax".format(name, line) if six.PY2
-                          else (r"{}.py:6:22: cannot resolve 'x' \(bound at .*{}.py:{}:{}\)"
-                                .format(name, name, line, col)),
-                          re=True)
+        self.run_json("bindings", "def_async", False,
+                      r"def_async.py:4:9: invalid syntax" if sys.version_info < (3, 5)
+                      else (r"def_async.py:6:22: cannot resolve 'x' "
+                            r"\(bound at .*def_async.py:4:7\)"), re=True)
+        self.run_json("bindings", "assign_ann", False,
+                      r"assign_ann.py:4:3: invalid syntax" if sys.version_info < (3, 6)
+                      else (r"assign_ann.py:6:22: cannot resolve 'x' "
+                            r"\(bound at .*assign_ann.py:4:1\)"), re=True)
 
     def test_header(self):
         self.run_json("header", "bases")

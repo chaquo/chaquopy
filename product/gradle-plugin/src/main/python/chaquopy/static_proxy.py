@@ -171,7 +171,7 @@ class Module(object):
         # to its fully-qualified name if it's a usable import, or otherwise to the node which
         # bound it so we can give a useful error if the name is passed to one of our functions.
         for node in root.body:
-            if isinstance(node, (ast.FunctionDef if six.PY2
+            if isinstance(node, (ast.FunctionDef if sys.version_info < (3, 5)
                                  else (ast.FunctionDef, ast.AsyncFunctionDef))):
                 self.bindings[node.name] = node
             elif isinstance(node, ast.ClassDef):
@@ -185,7 +185,7 @@ class Module(object):
             elif isinstance(node, ast.Assign):
                 for t in node.targets:
                     self.process_assign(t)
-            elif isinstance(node, (ast.AugAssign if six.PY2
+            elif isinstance(node, (ast.AugAssign if sys.version_info < (3, 6)
                                    else (ast.AugAssign, ast.AnnAssign))):
                 self.process_assign(node.target)
             elif isinstance(node, ast.Import):
@@ -282,13 +282,13 @@ class Module(object):
         return result
 
     def has_starargs(self, call):
-        if six.PY2:
+        if sys.version_info < (3, 5):
             return bool(call.starargs)
         else:
             return any(isinstance(a, ast.Starred) for a in call.args)
 
     def has_kwargs(self, call):
-        if six.PY2:
+        if sys.version_info < (3, 5):
             return bool(call.kwargs)
         else:
             return any(kw.arg is None for kw in call.keywords)
@@ -298,7 +298,7 @@ class Module(object):
             return expr.n
         elif isinstance(expr, ast.Str):
             return expr.s
-        elif six.PY3 and isinstance(expr, ast.NameConstant):
+        elif sys.version_info >= (3, 4) and isinstance(expr, ast.NameConstant):
             return expr.value
         elif isinstance(expr, ast.Name):
             if expr.id in ["True", "False", "None"]:
