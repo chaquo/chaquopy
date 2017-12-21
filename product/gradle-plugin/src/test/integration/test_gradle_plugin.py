@@ -40,9 +40,8 @@ class Basic(GradleTestCase):
         self.RunGradle("base")
 
     def test_variant(self):
-        variants = ["red-debug", "blue-debug"]
-        self.RunGradle("base", "Basic/variant", variants=variants)
-
+        self.RunGradle("base", "Basic/variant", variants={"red-debug": {},
+                                                          "blue-debug": {}})
 
 class AndroidPlugin(GradleTestCase):
     def test_misordered(self):
@@ -54,7 +53,8 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("requires Android Gradle plugin version 2.2.0", run.stderr)
 
     def test_untested(self):
-        run = self.RunGradle("base", "AndroidPlugin/untested", succeed=None)
+        run = self.RunGradle("base", "AndroidPlugin/untested",
+                             succeed=None)  # 3.1.0-alpha01 fails on Linux, don't know why.
         self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.1",
                           run.stdout)
 
@@ -85,13 +85,21 @@ class PythonVersion(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
         self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are "
-                          "[2.7.10, 3.6.3]",
-                          run.stderr)
+                          "[2.7.10, 3.6.3]", run.stderr)
 
-    # TODO #5202
     def test_variant(self):
-        run = self.RunGradle("base", "PythonVersion/variant", succeed=False)
-        self.assertInLong("Could not find method python", run.stderr)
+        self.RunGradle("base", "PythonVersion/variant",
+                       variants={"py2-debug": {"version": "2.7"},
+                                 "py3-debug": {"version": "3.6m"}})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "PythonVersion/variant_merge",
+                       variants={"py2-debug": {"version": "2.7"},
+                                 "py3-debug": {"version": "3.6m"}})
+
+    def test_variant_missing(self):
+        run = self.RunGradle("base", "PythonVersion/variant_missing", succeed=False)
+        self.assertInLong("missingDebug: python.version not set", run.stderr)
 
 
 class AbiFilters(GradleTestCase):
@@ -104,10 +112,19 @@ class AbiFilters(GradleTestCase):
         self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
                           "Supported ABIs are [armeabi-v7a, x86].", run.stderr)
 
-    # TODO #5202
     def test_variant(self):
-        run = self.RunGradle("base", "AbiFilters/variant", succeed=False)
-        self.assertInLong("redDebug: Chaquopy does not support per-flavor abiFilters", run.stderr)
+        self.RunGradle("base", "AbiFilters/variant",
+                       variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},
+                                 "x86-debug":         {"abis": ["x86"]}})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "AbiFilters/variant_merge",
+                       variants={"x86-debug":  {"abis": ["x86"]},
+                                 "both-debug": {"abis": ["armeabi-v7a", "x86"]}})
+
+    def test_variant_missing(self):
+        run = self.RunGradle("base", "AbiFilters/variant_missing", succeed=False)
+        self.assertInLong("missingDebug: Chaquopy requires ndk.abiFilters", run.stderr)
 
     # We only test adding an ABI, because when removing one I kept getting this error: Execution
     # failed for task ':app:transformNativeLibsWithStripDebugSymbolForDebug'.
@@ -139,6 +156,28 @@ class PythonSrc(GradleTestCase):
         run.rerun()
 
 
+class BuildPython(GradleTestCase):
+    def test_default(self):
+        self.RunGradle("base", "BuildPython/default", requirements=["apple"])
+
+    def test_invalid(self):
+        run = self.RunGradle("base", "BuildPython/invalid", succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+
+    def test_variant(self):
+        run = self.RunGradle("base", "BuildPython/variant",
+                             requirements=["apple"], variants={"good-debug": {}})
+        run.rerun(variants={"bad-debug": {}}, succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+
+    def test_variant_merge(self):
+        run = self.RunGradle("base", "BuildPython/variant_merge",
+                             requirements=["apple"], variants={"good-debug": {}})
+        run.rerun(variants={"bad-debug": {}}, succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+
+
+# Use these as mixins to run a set of tests once each for python2 and python3.
 class BuildPythonCase(TestCase):
     def setUp(self):
         super(BuildPythonCase, self).setUp()
@@ -146,6 +185,7 @@ class BuildPythonCase(TestCase):
 
     def tearDown(self):
         del os.environ["buildPython"]
+        super(BuildPythonCase, self).tearDown()
 
 class BuildPython2(BuildPythonCase):
     buildPython = "python2"
@@ -155,10 +195,6 @@ class BuildPython3(BuildPythonCase):
 
 
 class PythonReqs(GradleTestCase):
-    def test_build_python(self):
-        run = self.RunGradle("base", "PythonReqs/build_python_invalid", succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
-
     def test_change(self):
         run = self.RunGradle("base")                               # No reqs
         run.apply_layers("PythonReqs/1a")                          # Add one req
@@ -169,6 +205,26 @@ class PythonReqs(GradleTestCase):
         run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
         run.apply_layers("base")                                   # Remove all
         run.rerun()
+
+    def test_install_variant(self):
+        self.RunGradle("base", "PythonReqs/install_variant",
+                       variants={"red-debug":  {"requirements": ["apple"]},
+                                 "blue-debug": {"requirements": ["bravo"]}})
+
+    def test_install_variant_merge(self):
+        self.RunGradle("base", "PythonReqs/install_variant_merge",
+                       variants={"red-debug":  {"requirements": ["apple"]},
+                                 "blue-debug": {"requirements": ["apple", "bravo"]}})
+
+    def test_options_variant(self):
+        self.RunGradle("base", "PythonReqs/options_variant",
+                       variants={"red-debug":  {"requirements": ["apple"]},
+                                 "blue-debug": {"requirements": ["apple_local"]}})
+
+    def test_options_variant_merge(self):
+        self.RunGradle("base", "PythonReqs/options_variant_merge",
+                       variants={"red-debug":  {"requirements": ["alpha", "alpha_dep"]},
+                                 "blue-debug": {"requirements": ["alpha"]}})
 
     def test_reqs_file(self):
         self.RunGradle("base", "PythonReqs/reqs_file", requirements=["apple", "bravo"])
@@ -220,6 +276,15 @@ class PythonReqs(GradleTestCase):
                                      "multi_abi_1_pure",  # Identical content in both ABIs
                                      "multi_abi_1_armeabi_v7a.pyd", "multi_abi_1_x86.pyd"])
 
+    def test_multi_abi_variant(self):
+        variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
+                                          "requirements": ["apple", "multi_abi_1_pure",
+                                                           "multi_abi_1_armeabi_v7a.pyd"]},
+                    "x86-debug":         {"abis": ["x86"],
+                                          "requirements": ["apple", "multi_abi_1_pure",
+                                                           "multi_abi_1_x86.pyd"]}}
+        self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
+
     def test_multi_abi_clash(self):
         run = self.RunGradle("base", "PythonReqs/multi_abi_clash", succeed=False)
         self.assertInLong("file 'multi_abi_1_pure/__init__.py' from ABIs \['armeabi-v7a'\] .* "
@@ -258,6 +323,18 @@ class StaticProxy(GradleTestCase):
         run.rerun(static_proxies=["a.SrcA2"])
         run.apply_layers("base")                    # Remove all
         run.rerun()
+
+    def test_variant(self):
+        self.RunGradle("base", "StaticProxy/variant",
+                       requirements=["static_proxy"],
+                       variants={"red-debug":  {"static_proxies": ["a.ReqsA1"]},
+                                 "blue-debug": {"static_proxies": ["b.ReqsB1"]}})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "StaticProxy/variant_merge",
+                       requirements=["static_proxy"],
+                       variants={"red-debug":  {"static_proxies": ["a.ReqsA1"]},
+                                 "blue-debug": {"static_proxies": ["a.ReqsA1", "b.ReqsB1"]}})
 
 class StaticProxy2(StaticProxy, BuildPython2):
     pass
@@ -321,7 +398,7 @@ class RunGradle(object):
     def __init__(self, test, key=None, *layers, **kwargs):
         self.test = test
 
-        module, cls, func = test.id().split(".")
+        module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
         self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration", cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
@@ -330,7 +407,6 @@ class RunGradle(object):
         os.makedirs(self.project_dir)
         self.apply_layers(*layers)
         self.apply_key(key)
-
         self.rerun(**kwargs)
 
     def apply_layers(self, *layers):
@@ -351,14 +427,14 @@ class RunGradle(object):
                 print("\nchaquopy.license=" + key, file=out_file)
 
     @kwonly_defaults
-    def rerun(self, succeed=True, variants=["debug"], **kwargs):
-        status, self.stdout, self.stderr = self.run_gradle(variants)
+    def rerun(self, succeed=True, variants={"debug": {}}, **kwargs):
+        status, self.stdout, self.stderr = self.run_gradle(variants.keys())
 
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
 
-            for variant in variants:
+            for variant, variant_kwargs in variants.items():
                 outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
                 apk_filename = join(outputs_apk_dir,
                                     "app-{}.apk".format(variant))       # Android plugin 2.x
@@ -376,7 +452,10 @@ class RunGradle(object):
                     rmtree(apk_dir)
                 os.makedirs(apk_dir)
                 apk_file.extractall(apk_dir)
-                self.check_apk(apk_dir, **kwargs)
+
+                merged_kwargs = kwargs.copy()
+                merged_kwargs.update(variant_kwargs)
+                self.check_apk(apk_dir, **merged_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
@@ -407,8 +486,8 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], requirements=[], static_proxies=[],
-                  licensed_id=None):
+    def check_apk(self, apk_dir, abis=["x86"], version="2.7", static_proxies=[],
+                  requirements=[], licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         # Python source
@@ -430,8 +509,7 @@ class RunGradle(object):
 
         # Python stdlib
         self.test.assertIsFile(join(asset_dir, "stdlib.zip"))
-        self.test.assertEqual(set(abis),
-                              set(os.listdir(join(asset_dir, "lib-dynload"))))
+        self.test.assertEqual(set(abis), set(os.listdir(join(asset_dir, "lib-dynload"))))
         for abi in abis:
             # The native module list here is intended to be representative, not complete.
             for filename in ["_ctypes.so", "select.so", "unicodedata.so",
@@ -441,7 +519,8 @@ class RunGradle(object):
         # JNI libs
         self.test.assertEqual(set(abis), set(os.listdir(join(apk_dir, "lib"))))
         for abi in abis:
-            for filename in ["libchaquopy_java.so", "libcrystax.so", "libpython2.7.so"]:
+            for filename in ["libchaquopy_java.so", "libcrystax.so",
+                             "libpython{}.so".format(version)]:
                 self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
         # Chaquopy runtime library

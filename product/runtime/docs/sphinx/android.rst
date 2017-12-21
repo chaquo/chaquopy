@@ -75,9 +75,29 @@ During development you will probably want to enable them both::
         }
     }
 
-.. note:: There's no need to actually install the Android native development kit (NDK), as
-          Chaquopy will download pre-compiled CPython binaries for the selected ABIs. Each ABI
-          will add several MB to the size of the app.
+There's no need to actually install the Android native development kit (NDK), as Chaquopy will
+download pre-compiled CPython binaries for the selected ABIs.
+
+.. note:: Each ABI will add several MB to the size of the app. Because some of the native
+          components are stored as assets, the `split APK
+          <https://developer.android.com/studio/build/configure-apk-splits.html>`_ feature
+          cannot be used to mitigate this. If you want to build separate APKs for each ABI,
+          this can instead be done using a `product flavor dimension
+          <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_::
+
+              android {
+                  flavorDimensions "abi"
+                  productFlavors {
+                      armeabi_v7a {
+                          dimension "abi"
+                          ndk { abiFilters "armeabi-v7a" }
+                      }
+                      x86 {
+                          dimension "abi"
+                          ndk { abiFilters "x86" }
+                      }
+                  }
+              }
 
 .. _android-development:
 

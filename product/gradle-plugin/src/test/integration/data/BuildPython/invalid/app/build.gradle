@@ -10,20 +10,17 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
+        python {
+            buildPython "pythoninvalid"
+            version "2.7.10"
+            pip {
+                options "--no-index"
+                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
+                install "apple"
+            }
+        }
         ndk {
             abiFilters "x86"
-        }
-    }
-
-    flavorDimensions "pyVersion"
-    productFlavors {
-        py2 {
-            dimension "pyVersion"
-            python { version "2.7.10" }
-        }
-        py3 {
-            dimension "pyVersion"
-            python { version "3.6.3" }
         }
     }
 }

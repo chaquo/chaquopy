@@ -10,6 +10,9 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
+        python {
+            version "2.7.10"
+        }
         ndk {
             abiFilters "x86"
         }
@@ -19,11 +22,11 @@ android {
     productFlavors {
         py2 {
             dimension "pyVersion"
-            python { version "2.7.10" }
         }
         py3 {
             dimension "pyVersion"
             python { version "3.6.3" }
         }
     }
+
 }

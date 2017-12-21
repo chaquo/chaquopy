@@ -66,9 +66,7 @@ class PythonPlugin implements Plugin<Project> {
         }
         android = project.android
         extend(android.defaultConfig)
-        /* TODO 5202
-        android.productFlavors.whenObjectAdded { extend(it) } */
-        // I also tried adding it to buildTypes but it had no effect for some reason
+        android.productFlavors.whenObjectAdded { extend(it) }
 
         // For extraction performance, we want to avoid compressing these files a second time, but
         // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
@@ -105,11 +103,10 @@ class PythonPlugin implements Plugin<Project> {
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
             python.mergeFrom(android.defaultConfig.python)
-            /* TODO #5202
             for (flavor in variant.getProductFlavors().reverse()) {
                 python.mergeFrom(flavor.python)
             }
-            */
+
             if (variant.mergedFlavor.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
                 throw new GradleException("$variant.name: Chaquopy requires minSdkVersion " +
                                           "$Common.MIN_SDK_VERSION or higher.")
@@ -168,11 +165,8 @@ class PythonPlugin implements Plugin<Project> {
         for (flavor in variant.getProductFlavors().reverse()) {
             ndk = flavor.ndkConfig
             if (ndk.abiFilters) {
-                /* TODO #5202
                 // Replicate the accumulation behaviour of MergedNdkConfig.append
-                abis.addAll(ndk.abiFilters) */
-                raise GradleException("$variant.name: Chaquopy does not support per-flavor " +
-                                      "abiFilters.")
+                abis.addAll(ndk.abiFilters)
             }
         }
         if (abis.isEmpty()) {

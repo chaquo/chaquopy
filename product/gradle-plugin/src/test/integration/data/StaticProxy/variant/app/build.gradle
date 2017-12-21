@@ -18,10 +18,21 @@ android {
                 options "--find-links", "../../../../../../../src/test/integration/packages/dist"
                 install "static_proxy"
             }
-            staticProxy "static_proxy.a", "static_proxy.b"
         }
         ndk {
             abiFilters "x86"
+        }
+    }
+
+    flavorDimensions "color"
+    productFlavors {
+        red {
+            dimension "color"
+            python { staticProxy "static_proxy.a" }
+        }
+        blue {
+            dimension "color"
+            python { staticProxy "static_proxy.b" }
         }
     }
 }

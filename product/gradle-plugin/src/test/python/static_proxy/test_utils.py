@@ -14,5 +14,5 @@ class FilterWarningsCase(TestCase):
         filterwarnings("ignore", r"Please use assert\w+ instead")
 
     def tearDown(self):
-        super(FilterWarningsCase, self).tearDown()
         self.cw.__exit__(None, None, None)
+        super(FilterWarningsCase, self).tearDown()

@@ -1,4 +1,6 @@
 buildscript {
+    version = file("../../../../../../../../VERSION.txt").text.trim()
+
     repositories {
         jcenter()
         maven {
@@ -7,7 +9,8 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.0.0-alpha1'
-        classpath files('../../../../../libs/gradle.jar')
+        classpath files("../../../../../libs/gradle-${version}.jar")
+        classpath "org.json:json:20160810"
     }
 }
 

@@ -3,7 +3,7 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "25.0.2"
+    buildToolsVersion "26.0.2"
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 15
@@ -16,12 +16,21 @@ android {
             pip {
                 options "--no-index"
                 options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "static_proxy"
+                install "apple"
+                install "multi_abi_1"
             }
-            staticProxy "static_proxy.a", "static_proxy.b"
         }
-        ndk {
-            abiFilters "x86"
+    }
+
+    flavorDimensions "abi"
+    productFlavors {
+        x86 {
+            dimension "abi"
+            ndk { abiFilters "x86" }
+        }
+        armeabi_v7a {
+            dimension "abi"
+            ndk { abiFilters "armeabi-v7a" }
         }
     }
 }

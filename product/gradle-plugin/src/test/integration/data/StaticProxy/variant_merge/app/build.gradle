@@ -13,15 +13,26 @@ android {
         python {
             buildPython System.getenv("buildPython")
             version "2.7.10"
-            buildPython "pythoninvalid"
             pip {
                 options "--no-index"
                 options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "apple"
+                install "static_proxy"
             }
+            staticProxy "static_proxy.a"
         }
         ndk {
             abiFilters "x86"
+        }
+    }
+
+    flavorDimensions "color"
+    productFlavors {
+        red {
+            dimension "color"
+        }
+        blue {
+            dimension "color"
+            python { staticProxy "static_proxy.b" }
         }
     }
 }

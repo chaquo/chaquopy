@@ -15,13 +15,29 @@ android {
             version "2.7.10"
             pip {
                 options "--no-index"
-                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "static_proxy"
+                install "apple"
             }
-            staticProxy "static_proxy.a", "static_proxy.b"
         }
         ndk {
             abiFilters "x86"
         }
     }
+
+    flavorDimensions "color"
+    productFlavors {
+        red {
+            dimension "color"
+            python.pip {
+                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
+            }
+
+        }
+        blue {
+            dimension "color"
+            python.pip {
+                options "--find-links", "packages"
+            }
+        }
+    }
+
 }

@@ -16,12 +16,25 @@ android {
             pip {
                 options "--no-index"
                 options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "static_proxy"
+                install "alpha"
             }
-            staticProxy "static_proxy.a", "static_proxy.b"
         }
         ndk {
             abiFilters "x86"
         }
     }
+
+    flavorDimensions "color"
+    productFlavors {
+        red {
+            dimension "color"
+        }
+        blue {
+            dimension "color"
+            python.pip {
+                options "--no-deps"
+            }
+        }
+    }
+
 }

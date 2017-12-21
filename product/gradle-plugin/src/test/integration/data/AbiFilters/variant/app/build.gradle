@@ -13,19 +13,17 @@ android {
         python {
             version "2.7.10"
         }
-        ndk {
-            abiFilters "x86"
-        }
     }
 
-    flavorDimensions "color"
+    flavorDimensions "abi"
     productFlavors {
-        red {
-            dimension "color"
-            ndk {
-                abiFilters "armeabi-v7a"
-            }
+        x86 {
+            dimension "abi"
+            ndk { abiFilters "x86" }
+        }
+        armeabi_v7a {
+            dimension "abi"
+            ndk { abiFilters "armeabi-v7a" }
         }
     }
-
 }

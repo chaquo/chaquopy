@@ -10,20 +10,19 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
-        ndk {
-            abiFilters "x86"
+        python {
+            version "2.7.10"
         }
     }
 
-    flavorDimensions "pyVersion"
+    flavorDimensions "abi"
     productFlavors {
-        py2 {
-            dimension "pyVersion"
-            python { version "2.7.10" }
+        x86 {
+            dimension "abi"
+            ndk { abiFilters "x86" }
         }
-        py3 {
-            dimension "pyVersion"
-            python { version "3.6.3" }
+        missing {
+            dimension "abi"
         }
     }
 }
