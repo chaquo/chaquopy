@@ -151,7 +151,7 @@ def setup_object_class():
         def __init__(self, *args):
             # Java SE 8 raises an InstantiationException when calling NewObject on an abstract
             # class, but Android 6 crashes with a CheckJNI error.
-            if Modifier.isAbstract(self.getClass().getModifiers()):
+            if Modifier.isAbstract(type(self).getClass().getModifiers()):
                 raise TypeError(f"{cls_fullname(type(self))} is abstract and cannot be instantiated")
 
             # Can't use getattr(): Java constructors are not inherited.
@@ -206,10 +206,6 @@ def setup_object_class():
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
         def __ne__(self, other): return not (self == other)  # Not automatic in Python 2
-
-        @classmethod    # To provide the equivalent of Java ".class" syntax
-        def getClass(cls):
-            return Class(instance=cls._chaquopy_j_klass)
 
 
 # Associates a Python object with its Java counterpart.
@@ -660,7 +656,9 @@ cdef class JavaMethod(JavaSimpleMember):
     # Otherwise we'll call non-virtually, and rely on the Python method resolution rules to
     # pick the correct override.
     def __get__(self, obj, objtype):
-        if obj is None or self.is_static or self.is_constructor:
+        if obj is None and self.name == "getClass":  # Equivalent of Java `.class` syntax.
+            return lambda: Class(instance=objtype._chaquopy_j_klass)
+        elif obj is None or self.is_static or self.is_constructor:
             return self
         else:
             return lambda *args: self(obj, *args, virtual=(obj._chaquopy_real_obj is not None))

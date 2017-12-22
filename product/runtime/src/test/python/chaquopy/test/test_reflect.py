@@ -39,6 +39,9 @@ class TestReflect(FilterWarningsCase):
         b_Object = cast(Object, b)
         self.assertIsNot(b, b_Object)
         self.assertEqual(b, b_Object)
+        self.assertIs(Boolean.getClass(), b.getClass())
+        self.assertIs(Boolean.getClass(), b_Object.getClass())
+        self.assertIsNot(Object.getClass(), b_Object.getClass())
         self.assertIs(b_Object, cast(Object, b))
         self.assertIs(b, cast(Boolean, b_Object))
 
