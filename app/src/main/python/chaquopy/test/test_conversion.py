@@ -1,18 +1,19 @@
 from __future__ import absolute_import, division, print_function
 
 import math
-import unittest
-
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
+
+from .test_utils import FilterWarningsCase
 
 
 FLOAT32_EXPONENT_BITS = 8
 FLOAT64_EXPONENT_BITS = 11
 
 
-class TestConversion(unittest.TestCase):
+class TestConversion(FilterWarningsCase):
 
     def setUp(self):
+        super(TestConversion, self).setUp()
         self.obj = jclass('com.chaquo.python.TestBasics')()
         self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
 
@@ -143,7 +144,10 @@ class TestConversion(unittest.TestCase):
         self.verify_value(obj, name, 1,
                           context=self.arrOptional(TypeError, "Cannot convert", allow_int))
         self.verify_value(obj, name, "ab",
-                          context=self.arrOptional(TypeError, "expected a character", allow_string))
+                          context=self.arrOptional(
+                              (TypeError, ValueError),
+                              r"(expected a character|only single character).*length 2",
+                              allow_string))
         self.verify_value(obj, name, u"\U00010000",
                           context=self.arrOptional(TypeError, "non-BMP", allow_string))
 

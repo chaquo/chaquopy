@@ -1,13 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-import math
-import unittest
-
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
 from java.signatures import jni_method_sig, jni_sig
+import math
+
+from .test_utils import FilterWarningsCase
 
 
-class TestSignatures(unittest.TestCase):
+class TestSignatures(FilterWarningsCase):
 
     # jni_sig is not part of the public API and should not be accessed by user code.
     def test_jni_sig(self):
@@ -115,7 +115,8 @@ class TestSignatures(unittest.TestCase):
         self.assertEquals("jchar('x')", str(jchar("x")))
         self.assertEquals("jchar('x')", str(jchar(u"x")))
 
-        with self.assertRaisesRegexp(TypeError, "expected a character"):
+        with self.assertRaisesRegexp((TypeError, ValueError),
+                                     r"(expected a character|only single character).*length 2"):
             jchar("ab")
         with self.assertRaisesRegexp(TypeError, "non-BMP"):
             jchar(u"\U00010000")

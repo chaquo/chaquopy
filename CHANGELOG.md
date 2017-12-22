@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to Chaquopy itself, see
 https://chaquo.com/chaquopy/doc/current/changelog.html.
 
+## 1.1.0 (2017-12-22)
+
+* Now available for Python 3 (search "Chaquopy Python 3" on Google Play).
+
 ## 0.6.1 (2017-12-11)
 
 * Fix garbage collection tests on API levels 17-19 ([#17](https://github.com/chaquo/chaquopy/issues/17)).

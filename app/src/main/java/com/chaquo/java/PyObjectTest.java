@@ -219,7 +219,8 @@ public class PyObjectTest {
     @Test
     public void callAttr_fail_nonexistent() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("AttributeError: 'module' object has no attribute 'nonexistent'");
+        thrown.expectMessage("AttributeError");
+        thrown.expectMessage("has no attribute 'nonexistent'");
         pyobjecttest.callAttr("nonexistent");
     }
 

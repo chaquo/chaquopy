@@ -1,13 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
-import traceback
-from unittest import TestCase
-
 from java import cast, dynamic_proxy, jarray, jfloat, jint
+import traceback
+
+from .test_utils import FilterWarningsCase
 from com.chaquo.python import PyException, TestProxy as TP
 
 
-class TestProxy(TestCase):
+class TestProxy(FilterWarningsCase):
     from .test_utils import assertDir
 
     def test_direct_inherit(self):
@@ -220,7 +220,7 @@ class TestProxy(TestCase):
     def test_unimplemented(self):
         class A(dynamic_proxy(TP.Adder)):
             pass
-        with self.assertRaisesRegexp(PyException, "TestProxy\$Adder.add is abstract"):
+        with self.assertRaisesRegexp(PyException, r"TestProxy\$Adder.add is abstract"):
             cast(TP.Adder, A()).add(5)
 
     def test_object_methods_unimplemented(self):
@@ -339,9 +339,9 @@ class TestProxy(TestCase):
         c = C()
         c_Args = cast(TP.Args, c)
 
-        with self.assertRaisesRegexp(PyException, "1 argument \(2 given\)"):
+        with self.assertRaisesRegexp(PyException, args_error(1, 2)):
             c_Args.tooMany(42)
-        with self.assertRaisesRegexp(PyException, "2 arguments \(1 given\)"):
+        with self.assertRaisesRegexp(PyException, args_error(2, 1)):
             c_Args.tooFew()
 
         self.assertEqual(3, c_Args.addDuck(jint(1), jint(2)))
@@ -355,7 +355,7 @@ class TestProxy(TestCase):
             c_Args.star("hello", "world", "again")
         self.assertEqual("hello,world,again", c.star("hello", "world", "again"))
 
-        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+        with self.assertRaisesRegexp(TypeError, args_error(1, 0, varargs=True)):
             c_Args.varargs()
         self.assertEqual("", c_Args.varargs(":"))
         self.assertEqual("hello", c_Args.varargs("|", "hello"))
@@ -450,3 +450,17 @@ class TestProxy(TestCase):
         from java.lang import RuntimeException
         with self.assertRaisesRegexp(RuntimeException, "Not implemented: tooMany"):
             p.tooMany(42)
+
+
+def args_error(expected, given, varargs=False):
+    py2_error = (r"takes {} arguments? \({} given\)"
+                 .format(("no" if expected == 0 else
+                          "at least {}".format(expected) if varargs else
+                          "exactly {}".format(expected)),
+                         given))
+    if given < expected:
+        py3_error = r"missing {} required positional arguments?".format(expected - given)
+    else:
+        py3_error = (r"takes {} positional arguments? but {} (were|was) given"
+                     .format(expected, given))
+    return r"{}|{}".format(py2_error, py3_error)

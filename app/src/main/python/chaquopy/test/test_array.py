@@ -1,12 +1,12 @@
 from __future__ import absolute_import, division, print_function
 
 import ctypes
-import unittest
-
 from java import cast, jarray, jboolean, jbyte, jchar, jclass, jint
 
+from .test_utils import FilterWarningsCase
 
-class TestArray(unittest.TestCase):
+
+class TestArray(FilterWarningsCase):
 
     def test_basic(self):
         array_C = jarray(jchar)("hello")

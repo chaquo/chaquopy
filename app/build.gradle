@@ -19,19 +19,16 @@ android {
     compileSdkVersion 23
     buildToolsVersion "26.0.2"
     defaultConfig {
-        applicationId "com.chaquo.python.demo"
         minSdkVersion 15
         targetSdkVersion 23
 
-        def appVersion = "0.6.1"
+        def appVersion = "1.1.0"
         versionName appVersion
         def verParsed = appVersion.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
         python {
-            version "2.7.10"
-
-            // Enable and edit the following line if "python2" is not on your PATH.
+            // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python27/python.exe"
 
             // Android UI demo
@@ -58,6 +55,26 @@ android {
 
         // Remove other languages imported from Android support libraries.
         resConfigs "en"
+    }
+
+    flavorDimensions "pyVersion"
+    productFlavors {
+        py2 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.demo"
+            python { version "2.7.10" }
+        }
+        py3 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.demo3"
+            python { version "3.6.3" }
+        }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "demo-${variant.versionName}-${variant.name}.apk"
+        }
     }
 
     buildTypes {

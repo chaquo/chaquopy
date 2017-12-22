@@ -1,15 +1,16 @@
 from __future__ import absolute_import, division, print_function
 
-import unittest
-
 from java import cast, jarray, jclass
+
+from .test_utils import FilterWarningsCase
 from com.chaquo.python import TestReflect as TR
 
 
-class TestReflect(unittest.TestCase):
+class TestReflect(FilterWarningsCase):
     from .test_utils import assertDir
 
     def setUp(self):
+        super(TestReflect, self).setUp()
         self.Test = jclass('com.chaquo.python.TestBasics')
         self.t = self.Test()
 

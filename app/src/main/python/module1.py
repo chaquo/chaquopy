@@ -2,6 +2,6 @@
 
 
 def test_relative(self):
-    with self.assertRaisesRegexp(ValueError, (r"^[Aa]ttempted relative import (with no known "
-                                              r"parent package)|(in non-package)$")):
+    with self.assertRaisesRegexp((ValueError, ImportError), r"^[Aa]ttempted relative import "
+                                 r"(with no known parent package|in non-package)$"):
         from . import whatever  # noqa: F401

@@ -1,14 +1,15 @@
 from __future__ import absolute_import, division, print_function
 
-import re
-from unittest import TestCase
-
 from java import jclass
+import re
+
+from .test_utils import FilterWarningsCase
 
 
-class TestException(TestCase):
+class TestException(FilterWarningsCase):
 
     def setUp(self):
+        super(TestException, self).setUp()
         self.TE = jclass('com.chaquo.python.TestException')
 
     def test_constructor(self):
