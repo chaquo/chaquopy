@@ -89,7 +89,7 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
         builder.setContentText(
             activity.getString(R.string.demo_notify_text))
         activity.getSystemService(Context.NOTIFICATION_SERVICE)\
-            .notify(0, builder.build())
+            .notify(0, builder.getNotification())
 
     def demo_toast(self, activity):
         from android.widget import Toast

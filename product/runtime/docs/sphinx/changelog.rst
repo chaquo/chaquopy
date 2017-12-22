@@ -1,6 +1,16 @@
 Change log
 ##########
 
+1.1.0 (2017-12-22)
+==================
+
+* Add Python 3.6 runtime (`#1 <https://github.com/chaquo/chaquopy/issues/1>`_).
+* `buildPython` can now be Python 2.7 or 3.3+ (`#2
+  <https://github.com/chaquo/chaquopy/issues/2>`_).
+* Support configuration in product flavors (`#6
+  <https://github.com/chaquo/chaquopy/issues/6>`_).
+* Improve startup performance.
+
 0.6.1 (2017-12-11)
 ==================
 

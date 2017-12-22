@@ -37,7 +37,6 @@ android {
     compileSdkVersion 23
     buildToolsVersion '26.0.2'
     defaultConfig {
-        applicationId "com.chaquo.python.demo"
         minSdkVersion 15
         targetSdkVersion 23
 
@@ -54,9 +53,7 @@ android {
         // **********************************************************************
 
         python {
-            version "2.7.10"
-
-            // Enable and edit the following line if "python2" is not on your PATH.
+            // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python27/python.exe"
 
             // Android UI demo
@@ -80,6 +77,20 @@ android {
 
         // Remove other languages imported from Android support libraries.
         resConfigs "en"
+    }
+
+    flavorDimensions "pyVersion"
+    productFlavors {
+        py2 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.demo"
+            python { version "2.7.10" }
+        }
+        py3 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.demo3"
+            python { version "3.6.3" }
+        }
     }
 
     buildTypes {

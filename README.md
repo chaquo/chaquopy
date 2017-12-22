@@ -19,42 +19,45 @@ Create product/local.properties with the properties listed in product/runtime/bu
 
 # Release procedure
 
-## Sanity check
+## Pre-release tests
 
-Test demo and pkgtest apps on emulator and phone.
+Test demo app (any device, any Python version: other combinations will be covered below).
+
+Test pkgtest app on emulator and phone for both Python 2 and 3.
 
 
 ## Gradle plugin
 
-Run `gradlew -P cmakeBuildType=Release gradle-plugin:check` on all supported workstation OSs.
-Run `gradlew gradle-plugin:writePom`
+Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are running, copy
+the generated .jar to other supported workstation OSs and do the same there.
+
+Run `gradlew gradle-plugin:writePom`.
 
 Copy .jar and .pom from gradle-plugin/build/libs to local and remote Maven repository.
 
 
 ## Demo app
 
-Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
-SDK changes.
-
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
 files which require manual merging (e.g. build.gradle), examine them and update the public
-repository as necessary. (If the script lists files which haven't changed since the given
-commit, this is probably because of end-of-line issues: run it a second time and it should give
-the correct output.)
+repository as necessary. (If the script lists too many files, this is probably because of
+end-of-line issues: run it a second time and it should give the correct output.)
 
 Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
-"Generate Signed APK" in Android Studio, and test all features on:
+Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
+SDK changes.
 
-* Minimum-version emulator
-* Up-to-date emulator
+"Generate Signed APK" in Android Studio for Python 2 and 3, and test all features on:
+
+* minSdkVersion emulator
+* targetSdkVersion emulator
 * Phone
 
-Upload APK to Google Play. Update description and screenshots if necessary.
+Upload APKs to Google Play. Update description and screenshots if necessary.
 
-Copy APK to local and remote Maven repository.
+Copy APKs to local and remote Maven repository.
 
 
 ## Documentation

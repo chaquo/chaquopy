@@ -136,7 +136,7 @@ attempting to run Python code. There are two basic ways to achieve this:
 Other build features
 ====================
 
-These features all require a Python interpreter (version 2.7+ or 3.3+) to be available on the
+These features all require a Python interpreter (version 2.7 or 3.3+) to be available on the
 build machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
 configured with the `buildPython` setting. For example, a typical Windows installation of
 Python would look like this::
