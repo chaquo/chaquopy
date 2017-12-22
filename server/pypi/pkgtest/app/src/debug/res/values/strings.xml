@@ -1,4 +1,4 @@
 <!-- Using a build variant source set so we can override the imported main source set -->
 <resources>
-    <string name="app_name">Chaquopy package tests</string>
+    <string name="pkg_tests">Package tests</string>
 </resources>

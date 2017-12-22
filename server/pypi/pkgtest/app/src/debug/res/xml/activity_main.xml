@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Using a build variant source set so we can override the imported main source set -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:orderingFromXml="true">
 
     <Preference android:title="@string/repl" android:summary="@string/repl_summary">
-        <intent android:targetPackage="com.chaquo.python.pkgtest"
+        <intent android:targetPackage="@string/app_id"
             android:targetClass="com.chaquo.python.pkgtest.ReplActivity"/>
     </Preference>
 
-    <Preference android:title="@string/app_name">
-        <intent android:targetPackage="com.chaquo.python.pkgtest"
+    <Preference android:title="@string/pkg_tests">
+        <intent android:targetPackage="@string/app_id"
             android:targetClass="com.chaquo.python.pkgtest.PythonTestActivity"/>
     </Preference>
 

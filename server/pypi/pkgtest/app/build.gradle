@@ -7,15 +7,13 @@ import com.chaquo.python.Common
 android {
     compileSdkVersion 23
     defaultConfig {
-        applicationId "com.chaquo.python.pkgtest"
         minSdkVersion 15
         targetSdkVersion 23
 
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
         // builds in the public repo.
-        def ver = file("../../../../VERSION.txt").text.trim()
-        versionName ver + "-SNAPSHOT"
-        def verParsed = ver.split(/\./).collect { Integer.parseInt(it) }
+        versionName rootProject.version + "-SNAPSHOT"
+        def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -25,6 +23,20 @@ android {
         }
         ndk {
             abiFilters Common.ABIS.toArray()
+        }
+    }
+
+    flavorDimensions "pyVersion"
+    productFlavors {
+        py2 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.pkgtest2"
+            python { version "2.7.10" }
+        }
+        py3 {
+            dimension "pyVersion"
+            applicationId "com.chaquo.python.pkgtest3"
+            python { version "3.6.3" }
         }
     }
 
