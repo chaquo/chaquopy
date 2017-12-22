@@ -33,6 +33,18 @@ public class ReplActivity extends ConsoleActivity {
 
         etInput = (EditText) findViewById(R.id.etInput);
         etInput.setHint(getPrompt());
+        etInput.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            // Strip formatting from pasted text.
+            @Override
+            public void afterTextChanged(Editable e) {
+                for (CharacterStyle cs : e.getSpans(0, e.length(), CharacterStyle.class)) {
+                    e.removeSpan(cs);
+                }
+            }
+        });
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
