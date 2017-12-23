@@ -248,9 +248,9 @@ def setup_bootstrap_classes():
 
     setup_object_class()
 
-    Reflector = JavaClass.create("com.chaquo.python.Reflector", [JavaObject])
+    Reflector = JavaClass.create("com.chaquo.python.internal.Reflector", [JavaObject])
     add_member(Reflector, "newInstance", JavaMethod,
-               "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
+               "(Ljava/lang/Class;)Lcom/chaquo/python/internal/Reflector;", static=True)
     add_member(Reflector, "getMethods", JavaMethod,
                "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
     add_member(Reflector, "getField", JavaMethod, "(Ljava/lang/String;)Ljava/lang/reflect/Field;")

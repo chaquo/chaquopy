@@ -1,6 +1,8 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
-/** @deprecated Internal use in class.pxi */
+import com.chaquo.python.*;
+
+
 public interface PyProxy {
     PyObject _chaquopyGetDict();
     void _chaquopySetDict(PyObject dict);

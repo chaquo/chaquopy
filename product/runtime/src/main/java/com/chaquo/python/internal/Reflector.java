@@ -1,9 +1,9 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
 import java.lang.reflect.*;
 import java.util.*;
 
-/** @deprecated */
+
 public class Reflector {
 
     private final Class klass;

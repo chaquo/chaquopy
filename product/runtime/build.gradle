@@ -66,8 +66,9 @@ javadoc {
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
     doFirst { delete(destinationDir) }
-    title "Java API — Chaquopy"  // Consistent with Sphinx page title style
     executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
+    title "Java API — Chaquopy"  // Consistent with Sphinx page title style
+    exclude "**/internal/**"
     options {
         addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
         addStringOption("sourcepath", "$javaHome/src.zip")  // For documentation of inherited members

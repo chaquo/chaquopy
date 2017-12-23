@@ -367,8 +367,8 @@ class write_java(object):
             self.line("package {};", cls.package)
             self.line()
             self.line("import com.chaquo.python.*;")
+            self.line("import com.chaquo.python.internal.*;")
             self.line("import java.lang.reflect.*;")
-            self.line("import static com.chaquo.python.PyObject._chaquopyCall;")
             self.line()
             with self.block("{} class {} {} {}", cls.modifiers, cls.name,
                             self.format_optional("extends", cls.extends),
@@ -385,6 +385,14 @@ class write_java(object):
                 self.line("private PyObject _chaquopyDict;")
                 self.line("public PyObject _chaquopyGetDict() { return _chaquopyDict; }")
                 self.line("public void _chaquopySetDict(PyObject dict) { _chaquopyDict = dict; }")
+                self.line()
+                with self.block("private PyObject _chaquopyCall(String name, Object... args)"):
+                    with self.block("try"):
+                        self.line("return PyObject.fromJava(this).callAttrThrows(name, args);")
+                    with self.block("catch (RuntimeException | Error e)"):
+                        self.line("throw e;")
+                    with self.block("catch (Throwable e)"):
+                        self.line("throw new UndeclaredThrowableException(e);")
 
     def method(self, cls, method):
         is_ctor = isinstance(method, Constructor)
@@ -397,8 +405,7 @@ class write_java(object):
         with self.block(header):
             self.line("PyObject result;")
             with self.handle_exceptions(method):
-                args = (["this",
-                        '"{}"'.format("__init__" if is_ctor else method.name)] +
+                args = (['"{}"'.format("__init__" if is_ctor else method.name)] +
                         ["arg{}".format(i) for i in range(len(method.arg_types))])
                 self.line("result = _chaquopyCall({});".format(", ".join(args)))
 

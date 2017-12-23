@@ -1,9 +1,9 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
+import com.chaquo.python.*;
 import java.lang.reflect.*;
 
 
-/** @deprecated Internal use in proxy.pxi */
 public class PyInvocationHandler implements InvocationHandler {
     private PyObject type;
     private PyObject dict;

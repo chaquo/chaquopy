@@ -1,6 +1,8 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
-/** @deprecated Internal use in proxy.pxi */
+import com.chaquo.python.*;
+
+
 public interface DynamicProxy extends PyProxy {
     PyObject _chaquopyGetType();
 }

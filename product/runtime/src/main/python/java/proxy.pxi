@@ -1,4 +1,4 @@
-global_class("com.chaquo.python.PyProxy")
+global_class("com.chaquo.python.internal.PyProxy")
 
 
 PROXY_BASE_NAME = "_chaquopy_proxy"
@@ -34,7 +34,7 @@ class ProxyClass(JavaClass):
 
 
 global_class("java.lang.reflect.Proxy")
-global_class("com.chaquo.python.PyInvocationHandler")
+global_class("com.chaquo.python.internal.PyInvocationHandler")
 
 
 def dynamic_proxy(*implements):
@@ -81,13 +81,13 @@ def DynamicProxy_init(self):
     global PyInvocationHandler
     JavaObject.__init__(self, PyInvocationHandler(type(self)))
 
-global_class("com.chaquo.python.DynamicProxy", cls_dict={"__init__": DynamicProxy_init})
+global_class("com.chaquo.python.internal.DynamicProxy", cls_dict={"__init__": DynamicProxy_init})
 
 
 # -------------------------------------------------------------------------------------------------
 
 
-global_class("com.chaquo.python.PyCtorMarker")
+global_class("com.chaquo.python.internal.PyCtorMarker")
 
 def static_proxy(extends=None, *implements, package=None, modifiers="public"):
     """Use the return value of this function in the bases of a class declaration, and the
@@ -135,7 +135,7 @@ def StaticProxy_init(self):
     else:                                   # Python-initiated construction
         JavaObject.__init__(self, PyCtorMarker())
 
-global_class("com.chaquo.python.StaticProxy", cls_dict={"__init__": StaticProxy_init})
+global_class("com.chaquo.python.internal.StaticProxy", cls_dict={"__init__": StaticProxy_init})
 
 
 # Member decorators currently have no effect at runtime.

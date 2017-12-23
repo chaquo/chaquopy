@@ -375,7 +375,7 @@ class TestProxy(FilterWarningsCase):
 
         fnf_frames = [("<python>", "fnf", "test_proxy.py", ref_line_no + 3),
                       ("com.chaquo.python.PyObject", "callAttrThrows", None, None),
-                      ("com.chaquo.python.PyInvocationHandler", "invoke",
+                      ("com.chaquo.python.internal.PyInvocationHandler", "invoke",
                        "PyInvocationHandler.java", None)]
 
         def assertFnfThrows(message, throw_cls, catch_cls=None, check_cause=False):

@@ -31,8 +31,8 @@ class TestStaticProxy(FilterWarningsCase):
 
         from java.lang import Runnable
         with self.assertRaisesRegexp(TypeError, r"expected implements \['java.lang.Runnable', "
-                                     r"'com.chaquo.python.StaticProxy'], but Java class actually "
-                                     r"implements \[]"):
+                                     r"'com.chaquo.python.internal.StaticProxy'], but Java class "
+                                     r"actually implements \[]"):
             class WrongImplements(static_proxy(None, Runnable,
                                                package="com.chaquo.python.static_proxy")):
                 pass
