@@ -85,12 +85,19 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     return jclass(sig)(instance=j_object)
 
 
+cdef GlobalRef j_String
+
 cdef j2p_string(JNIEnv *j_env, JNIRef j_string):
+    env = CQPEnv.wrap(j_env)
+
     # GetStringChars will crash if either of these prerequisites are violated.
     if not j_string:
         raise ValueError("String cannot be null or None")
-    env = CQPEnv()
-    if not env.IsInstanceOf(j_string, env.FindClass("java.lang.String")):
+    #
+    global j_String
+    if not j_String:
+        j_String = env.FindClass("java.lang.String").global_ref()
+    if not env.IsInstanceOf(j_string, j_String):
         raise TypeError("Object is not a String")
 
     cdef const jchar *jchar_str = j_env[0].GetStringChars(j_env, j_string.obj, NULL)
