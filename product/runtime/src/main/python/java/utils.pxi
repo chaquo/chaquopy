@@ -5,16 +5,24 @@ global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
-def global_class(cls_name, **kwargs):
-    assert cls_name not in global_classes, cls_name  # Because kwargs may vary, global_class
-    global_classes[cls_name] = kwargs                # can only be used once per class.
+def global_class(full_name, **kwargs):
+    # Because kwargs may vary, global_class can only be used once per class. Also, because the
+    # simple class name becomes an attribute of this module, that must be unique too.
+    simple_name = full_name.rpartition(".")[2]
+    assert simple_name not in global_classes, full_name
+    global_classes[simple_name] = (full_name, kwargs)
+    globals()[simple_name] = None
+
     if "Class" in globals():
+         # Bootstrap is complete, so load_global_classes has already been called once.
         load_global_classes()
 
+
 def load_global_classes():
-    for cls_name, kwargs in six.iteritems(global_classes):
-        assert cls_name not in jclass_cache, cls_name  # See comment at Throwable in exception.pxi
-        globals()[cls_name.rpartition(".")[2]] = jclass(cls_name, **kwargs)
+    g = globals()
+    for simple_name, (full_name, kwargs) in six.iteritems(global_classes):
+        assert full_name not in jclass_cache, full_name  # See comment at Throwable in exception.pxi
+        g[simple_name] = jclass(full_name, **kwargs)
     global_classes.clear()
 
 

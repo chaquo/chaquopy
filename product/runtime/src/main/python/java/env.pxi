@@ -63,9 +63,9 @@ cdef class CQPEnv(object):
                 self.check_exception()  # throws ClassNotFoundException
                 return self.adopt(j_result)
         except Exception as e:
-            # Putting this directly in an `except` clause would cause any other exception
-            # to be hidden by a NameError if ClassNotFoundException isn't defined yet.
-            if "ClassNotFoundException" in globals() and isinstance(e, ClassNotFoundException):
+            # Putting ClassNotFoundException directly in an `except` clause would cause any
+            # other exception to be hidden by a NameError if bootstrap isn't complete.
+            if (ClassNotFoundException is not None) and isinstance(e, ClassNotFoundException):
                 ncdfe = NoClassDefFoundError(e.getMessage())
                 ncdfe.setStackTrace(e.getStackTrace())
                 raise ncdfe

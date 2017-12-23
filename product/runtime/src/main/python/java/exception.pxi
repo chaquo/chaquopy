@@ -25,6 +25,7 @@ global_class("java.lang.Throwable", cls_dict={"_chaquopy_post_bases": (Exception
 cdef jmethodID mid_getMessage = NULL
 
 cdef check_exception(JNIEnv *j_env):
+    global Throwable
     env = CQPEnv()
     j_exc = env.ExceptionOccurred()
     if not j_exc:
@@ -32,7 +33,7 @@ cdef check_exception(JNIEnv *j_env):
     env.ExceptionClear()
 
     try:
-        if "Throwable" not in globals():
+        if Throwable is None:
             raise Exception("bootstrap not complete")
         exc = j2p(env.j_env, j_exc)
     except Exception:

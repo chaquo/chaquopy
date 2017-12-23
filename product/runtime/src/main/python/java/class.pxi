@@ -68,7 +68,7 @@ class JavaClass(type):
         if bases is None:  # When called from jclass()
             klass = Class(instance=cls_dict["_chaquopy_j_klass"])
             bases = get_bases(klass) + cls_dict.pop("_chaquopy_post_bases", ())
-            if ("StaticProxy" in globals()) and (StaticProxy in bases):
+            if (StaticProxy is not None) and (StaticProxy in bases):
                 raise TypeError(f"static_proxy class {java_name} loaded before its Python "
                                 f"counterpart")
 
@@ -727,8 +727,7 @@ cdef class JavaMethod(JavaSimpleMember):
 
     cdef call_virtual_method(self, CQPEnv env, obj, p2j_args):
         global Proxy
-        if "Proxy" in globals() and \
-           isinstance(obj._chaquopy_real_obj or obj, Proxy) and \
+        if (Proxy is not None) and isinstance(obj._chaquopy_real_obj or obj, Proxy) and \
            not (self.cls is JavaObject and self.is_final):  # See comment at call_proxy_method
             return self.call_proxy_method(env, obj, p2j_args)
 
@@ -761,7 +760,7 @@ cdef class JavaMethod(JavaSimpleMember):
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
     cdef call_nonvirtual_method(self, CQPEnv env, obj, p2j_args):
-        if "Proxy" in globals() and issubclass(self.cls, Proxy):
+        if (Proxy is not None) and issubclass(self.cls, Proxy):
             return self.call_proxy_method(env, obj, p2j_args)
 
         cdef JNIRef this = obj._chaquopy_this
