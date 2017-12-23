@@ -370,6 +370,7 @@ class write_java(object):
             self.line("import java.lang.reflect.*;")
             self.line("import static com.chaquo.python.PyObject._chaquopyCall;")
             self.line()
+            self.line('@SuppressWarnings("deprecation")')
             with self.block("{} class {} {} {}", cls.modifiers, cls.name,
                             self.format_optional("extends", cls.extends),
                             self.format_list("implements", cls.implements + ("StaticProxy",))):

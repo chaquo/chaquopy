@@ -13,7 +13,7 @@ import java.util.*;
  *   returned.
  *
  * Unless otherwise specified, all methods in this class throw {@link PyException} on failure.*/
-@SuppressWarnings("deprecation")
+@SuppressWarnings({"deprecation", "DeprecatedIsStillUsed"})
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
