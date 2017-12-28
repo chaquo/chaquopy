@@ -6,15 +6,15 @@ public class PythonTestActivity extends UnitTestActivity {
 
     @Override
     protected void runTests() {
-        Python python = Python.getInstance();
-        PyObject unittest = python.getModule("unittest");
-        PyObject suite = python.getModule("chaquopy.test");
-        PyObject stream = python.getModule("sys").get("stdout");
+        Python py = Python.getInstance();
+        PyObject unittest = py.getModule("unittest");
+        PyObject stream = py.getModule("sys").get("stdout");  // https://bugs.python.org/issue10786
         PyObject runner = unittest.callAttr("TextTestRunner",
                                             new Kwarg("stream", stream),
                                             new Kwarg("verbosity", 2));
         PyObject loader = unittest.get("defaultTestLoader");
-        runner.callAttr("run", loader.callAttr("loadTestsFromModule", suite));
+        PyObject suite = loader.callAttr("loadTestsFromModule", py.getModule("chaquopy.test"));
+        runner.callAttr("run", suite);
     }
 
 }
