@@ -16,56 +16,61 @@ public class TestBasics {
     }
 
     // === Instance ==========================================================
+    //
+    // Fields are all initialized to a value different from any value used in the tests.
 
     public final boolean fieldFinalZ = false;
-    public boolean fieldZ;
-    public byte fieldB;
-    public char fieldC;
-    public short fieldS;
-    public int fieldI;
-    public long fieldJ;
-    public float fieldF;
-    public double fieldD;
+    public boolean fieldZ = false;
+    public byte fieldB = 42;
+    public char fieldC = 42;
+    public short fieldS = 42;
+    public int fieldI = 42;
+    public long fieldJ = 42;
+    public float fieldF = 42;
+    public double fieldD = 42;
 
-    public Object fieldObject;
+    public Object fieldObject = 42;
 
-    public Number fieldNumber;
-    public Byte fieldByte;
-    public Short fieldShort;
-    public Integer fieldInteger;
-    public Long fieldLong;
-    public Float fieldFloat;
-    public Double fieldDouble;
+    public Number fieldNumber = 42;
+    public Byte fieldByte = 42;
+    public Short fieldShort = 42;
+    public Integer fieldInteger = 42;
+    public Long fieldLong = 42L;
+    public Float fieldFloat = 42f;
+    public Double fieldDouble = 42d;
+    public Boolean fieldBoolean = false;
+    public Character fieldCharacter = 42;
 
-    public Boolean fieldBoolean;
-    public Character fieldCharacter;
+    public CharSequence fieldCharSequence = "42";
+    public String fieldString = "42";
 
-    public CharSequence fieldCharSequence;
-    public String fieldString;
+    public Class fieldKlass = TestBasics.class;
 
-    public Class fieldKlass;
+    public boolean[] fieldZArray = {false, false};
+    public byte[] fieldBArray = {42};
+    public char[] fieldCArray = {42};
+    public short[] fieldSArray = {42};
+    public int[] fieldIArray = {42};
+    public long[] fieldJArray = {42};
+    public float[] fieldFArray = {42};
+    public double[] fieldDArray = {42};
 
-    public boolean[] fieldZArray;
-    public byte[] fieldBArray;
-    public char[] fieldCArray;
-    public short[] fieldSArray;
-    public int[] fieldIArray;
-    public long[] fieldJArray;
-    public float[] fieldFArray;
-    public double[] fieldDArray;
-    public Object[] fieldObjectArray;
-    public Number[] fieldNumberArray;
-    public Byte[] fieldByteArray;
-    public Short[] fieldShortArray;
-    public Integer[] fieldIntegerArray;
-    public Long[] fieldLongArray;
-    public Float[] fieldFloatArray;
-    public Double[] fieldDoubleArray;
-    public Boolean[] fieldBooleanArray;
-    public Character[] fieldCharacterArray;
-    public CharSequence[] fieldCharSequenceArray;
-    public String[] fieldStringArray;
-    public Class[] fieldKlassArray;
+    public Object[] fieldObjectArray = {42};
+
+    public Number[] fieldNumberArray = {42};
+    public Byte[] fieldByteArray = {42};
+    public Short[] fieldShortArray = {42};
+    public Integer[] fieldIntegerArray = {42};
+    public Long[] fieldLongArray = {42L};
+    public Float[] fieldFloatArray = {42f};
+    public Double[] fieldDoubleArray = {42d};
+    public Boolean[] fieldBooleanArray = {false, false};
+    public Character[] fieldCharacterArray = {42};
+
+    public CharSequence[] fieldCharSequenceArray = {"42"};
+    public String[] fieldStringArray = {"42"};
+
+    public Class[] fieldKlassArray = {TestBasics.class};
 
 
     public void noArgs() {}
@@ -408,57 +413,63 @@ public class TestBasics {
         this.fieldKlassArray = fieldKlassArray;
     }
 
+
     // === Static ============================================================
+    //
+    // Fields are all initialized to a value different from any value used in the tests.
 
     public static final boolean fieldStaticFinalZ = false;
-    public static boolean fieldStaticZ;
-    public static byte fieldStaticB;
-    public static char fieldStaticC;
-    public static short fieldStaticS;
-    public static int fieldStaticI;
-    public static long fieldStaticJ;
-    public static float fieldStaticF;
-    public static double fieldStaticD;
+    public static boolean fieldStaticZ = false;
+    public static byte fieldStaticB = 42;
+    public static char fieldStaticC = 42;
+    public static short fieldStaticS = 42;
+    public static int fieldStaticI = 42;
+    public static long fieldStaticJ = 42;
+    public static float fieldStaticF = 42;
+    public static double fieldStaticD = 42;
 
-    public static Object fieldStaticObject;
+    public static Object fieldStaticObject = 42;
 
-    public static Number fieldStaticNumber;
-    public static Byte fieldStaticByte;
-    public static Short fieldStaticShort;
-    public static Integer fieldStaticInteger;
-    public static Long fieldStaticLong;
-    public static Float fieldStaticFloat;
-    public static Double fieldStaticDouble;
+    public static Number fieldStaticNumber = 42;
+    public static Byte fieldStaticByte = 42;
+    public static Short fieldStaticShort = 42;
+    public static Integer fieldStaticInteger = 42;
+    public static Long fieldStaticLong = 42L;
+    public static Float fieldStaticFloat = 42f;
+    public static Double fieldStaticDouble = 42d;
+    public static Boolean fieldStaticBoolean = false;
+    public static Character fieldStaticCharacter = 42;
 
-    public static Boolean fieldStaticBoolean;
-    public static Character fieldStaticCharacter;
+    public static CharSequence fieldStaticCharSequence = "42";
+    public static String fieldStaticString = "42";
 
-    public static CharSequence fieldStaticCharSequence;
-    public static String fieldStaticString;
+    public static Class fieldStaticKlass = TestBasics.class;
 
-    public static Class fieldStaticKlass;
+    public static boolean[] fieldStaticZArray = {false, false};
+    public static byte[] fieldStaticBArray = {42};
+    public static char[] fieldStaticCArray = {42};
+    public static short[] fieldStaticSArray = {42};
+    public static int[] fieldStaticIArray = {42};
+    public static long[] fieldStaticJArray = {42};
+    public static float[] fieldStaticFArray = {42};
+    public static double[] fieldStaticDArray = {42};
 
-    public static boolean[] fieldStaticZArray;
-    public static byte[] fieldStaticBArray;
-    public static char[] fieldStaticCArray;
-    public static short[] fieldStaticSArray;
-    public static int[] fieldStaticIArray;
-    public static long[] fieldStaticJArray;
-    public static float[] fieldStaticFArray;
-    public static double[] fieldStaticDArray;
-    public static Object[] fieldStaticObjectArray;
-    public static Number[] fieldStaticNumberArray;
-    public static Byte[] fieldStaticByteArray;
-    public static Short[] fieldStaticShortArray;
-    public static Integer[] fieldStaticIntegerArray;
-    public static Long[] fieldStaticLongArray;
-    public static Float[] fieldStaticFloatArray;
-    public static Double[] fieldStaticDoubleArray;
-    public static Boolean[] fieldStaticBooleanArray;
-    public static Character[] fieldStaticCharacterArray;
-    public static CharSequence[] fieldStaticCharSequenceArray;
-    public static String[] fieldStaticStringArray;
-    public static Class[] fieldStaticKlassArray;
+    public static Object[] fieldStaticObjectArray = {42};
+
+    public static Number[] fieldStaticNumberArray = {42};
+    public static Byte[] fieldStaticByteArray = {42};
+    public static Short[] fieldStaticShortArray = {42};
+    public static Integer[] fieldStaticIntegerArray = {42};
+    public static Long[] fieldStaticLongArray = {42L};
+    public static Float[] fieldStaticFloatArray = {42f};
+    public static Double[] fieldStaticDoubleArray = {42d};
+    public static Boolean[] fieldStaticBooleanArray = {false, false};
+    public static Character[] fieldStaticCharacterArray = {42};
+
+    public static CharSequence[] fieldStaticCharSequenceArray = {"42"};
+    public static String[] fieldStaticStringArray = {"42"};
+
+    public static Class[] fieldStaticKlassArray = {TestBasics.class};
 
 
     public static void staticNoArgs() {}
