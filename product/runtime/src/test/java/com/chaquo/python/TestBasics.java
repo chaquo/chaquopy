@@ -29,7 +29,7 @@ public class TestBasics {
     public float fieldF = 42;
     public double fieldD = 42;
 
-    public Object fieldObject = 42;
+    public Object fieldObject = "42";
 
     public Number fieldNumber = 42;
     public Byte fieldByte = 42;
@@ -55,7 +55,7 @@ public class TestBasics {
     public float[] fieldFArray = {42};
     public double[] fieldDArray = {42};
 
-    public Object[] fieldObjectArray = {42};
+    public Object[] fieldObjectArray = {"42"};
 
     public Number[] fieldNumberArray = {42};
     public Byte[] fieldByteArray = {42};
@@ -428,7 +428,7 @@ public class TestBasics {
     public static float fieldStaticF = 42;
     public static double fieldStaticD = 42;
 
-    public static Object fieldStaticObject = 42;
+    public static Object fieldStaticObject = "42";
 
     public static Number fieldStaticNumber = 42;
     public static Byte fieldStaticByte = 42;
@@ -454,7 +454,7 @@ public class TestBasics {
     public static float[] fieldStaticFArray = {42};
     public static double[] fieldStaticDArray = {42};
 
-    public static Object[] fieldStaticObjectArray = {42};
+    public static Object[] fieldStaticObjectArray = {"42"};
 
     public static Number[] fieldStaticNumberArray = {42};
     public static Byte[] fieldStaticByteArray = {42};

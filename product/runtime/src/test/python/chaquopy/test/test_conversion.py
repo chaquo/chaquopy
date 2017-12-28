@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from math import isnan
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
+import sys
 
 from .test_utils import FilterWarningsCase
 
@@ -71,6 +72,8 @@ class TestConversion(FilterWarningsCase):
 
         self.verify_value(obj, name, min_val, wrapper=wrapper)
         self.verify_value(obj, name, max_val, wrapper=wrapper)
+        if sys.version_info[0] < 3:
+            self.verify_value(obj, name, long(123), wrapper=wrapper)  # noqa: F821
 
         # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True, context=self.conv_error_unless(allow_bool))
@@ -106,6 +109,8 @@ class TestConversion(FilterWarningsCase):
         for val in [123,  # Floating-point types always accept an int.
                     min_val, max_val, float("inf"), float("-inf")]:
             self.verify_value(obj, name, val, wrapper=wrapper)
+        if sys.version_info[0] < 3:
+            self.verify_value(obj, name, long(123), wrapper=wrapper)  # noqa: F821
 
         self.verify_value(obj, name, float("nan"),  # NaN is unequal to everything including itself.
                           wrapper=wrapper,
@@ -241,7 +246,7 @@ class TestConversion(FilterWarningsCase):
 
         # If the original and test values are the same then the test is pointless.
         original = getattr(obj, field)
-        with self.assertRaises(AssertionError, msg="{} is already {}".format(field, original)):
+        with self.assertRaises(Exception, msg="{} is already {}".format(field, original)):
             verify(output, original)
 
         with context:
