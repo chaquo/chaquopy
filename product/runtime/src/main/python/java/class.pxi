@@ -73,7 +73,8 @@ class JavaClass(type):
                                 f"counterpart")
 
         cls = type.__new__(metacls, cls_name, bases, cls_dict)
-        cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject"
+        if six.PY3:
+            cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject".
         jclass_cache[java_name] = cls
         return cls
 
@@ -106,8 +107,9 @@ class JavaClass(type):
 
         return self
 
-    def __getattribute__(cls, name):
-        reflect_member(cls, name)
+    def __getattribute__(cls, str name):
+        if name != "__dict__":  # Optimization
+            reflect_member(cls, name)
         return type.__getattribute__(cls, name)
 
     # Override to allow static field set (type.__setattr__ would simply overwrite the class dict)
@@ -160,8 +162,9 @@ def setup_object_class():
                 raise TypeError(f"{cls_fullname(type(self))} has no accessible constructors")
             set_this(self, constructor.__get__(self, type(self))(*args))
 
-        def __getattribute__(self, name):
-            reflect_member(type(self), name)
+        def __getattribute__(self, str name):
+            if name != "__dict__":  # Optimization
+                reflect_member(type(self), name)
             try:
                 return object.__getattribute__(self, name)
             except AttributeError:
@@ -304,10 +307,9 @@ def add_member(cls, name, member_cls, *args, **kwargs):
     type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
 
 
-def reflect_member(cls, name, inherit=True):
-    if name.startswith("_chaquopy") or (name.startswith("__") and name.endswith("__")):
+cdef reflect_member(cls, str name, bint inherit=True):
+    if hasattr(object, name) or name.startswith("_chaquopy"):
         return None
-
     try:
         return cls.__dict__[name]
     except KeyError: pass
@@ -318,7 +320,8 @@ def reflect_member(cls, name, inherit=True):
             if issubclass(base, JavaObject):
                 inherited = reflect_member(base, name)
                 if isinstance(inherited, JavaMember):
-                    # TODO #5262: do interface default methods require us to handle multiple inheritance?
+                    # TODO #5262: do interface default methods require us to handle multiple
+                    # inheritance?
                     break
 
     # To avoid infinite recursion, we need unimplemented methods in proxy classes (including
