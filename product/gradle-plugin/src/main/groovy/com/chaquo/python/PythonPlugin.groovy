@@ -205,18 +205,29 @@ class PythonPlugin implements Plugin<Project> {
             dependsOn buildPackagesTask
             inputs.property("python", python.serialize())
             inputs.files(getConfig(variant, "targetAbis"))
+            def reqsArgs = []
+            for (req in python.pip.reqs) {
+                reqsArgs.addAll(["--req", req])
+                if (project.file(req).exists()) {
+                    inputs.files(req)
+                }
+            }
+            for (reqFile in python.pip.reqFiles) {
+                reqsArgs.addAll(["--req-file", reqFile])
+                inputs.files(reqFile)
+            }
             outputs.dir(destinationDir)
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                if (! python.pip.install.isEmpty()) {
+                if (! reqsArgs.isEmpty()) {
                     def pythonAbi = Common.PYTHON_ABIS.get(python.version)
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args "--android-abis"
                         args getAbis(variant)
-                        args python.pip.install
+                        args reqsArgs
                         args "--"
                         args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
                         args "--cert", buildPackagesTask.cacertPem
@@ -494,20 +505,18 @@ class PythonExtension extends BaseExtension {
 
 
 class PipExtension extends BaseExtension {
-    List<String> install = new ArrayList<>();
+    List<String> reqs = new ArrayList<>();
+    List<String> reqFiles = new ArrayList<>();
     List<String> options = new ArrayList<>();
 
     void install(String... args) {
         if (args.length == 1) {
-            install.add("--req")
-            install.add(args[0])
-            return
+            reqs.add(args[0])
         } else if (args.length == 2  &&  args[0].equals("-r")) {
-            install.add("--req-file")
-            install.add(args[1])
-            return
+            reqFiles.add(args[1])
+        } else {
+            throw new GradleException("Invalid python.pip.install format: '" + args.join(" ") + "'")
         }
-        throw new GradleException("Invalid python.pip.install format: '" + args.join(" ") + "'")
     }
 
     void options (String... args) {
@@ -515,7 +524,8 @@ class PipExtension extends BaseExtension {
     }
 
     void mergeFrom(PipExtension overlay) {
-        install.addAll(overlay.install)
+        reqs.addAll(overlay.reqs)
+        reqFiles.addAll(overlay.reqFiles)
         options.addAll(overlay.options)
     }
 }

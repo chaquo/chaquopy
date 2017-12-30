@@ -15,7 +15,7 @@ android {
             version "2.7.10"
             pip {
                 options "--no-index"
-                install "packages/alpha_dep-0.0.1-py2.py3-none-any.whl"
+                install "packages/apple-0.0.1-py2.py3-none-any.whl"
             }
         }
         ndk {

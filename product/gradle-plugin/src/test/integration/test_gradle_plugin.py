@@ -227,10 +227,14 @@ class PythonReqs(GradleTestCase):
                                  "blue-debug": {"requirements": ["alpha"]}})
 
     def test_reqs_file(self):
-        self.RunGradle("base", "PythonReqs/reqs_file", requirements=["apple", "bravo"])
+        run = self.RunGradle("base", "PythonReqs/reqs_file", requirements=["apple", "bravo"])
+        run.apply_layers("PythonReqs/reqs_file_2")
+        run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
 
     def test_wheel_file(self):
-        self.RunGradle("base", "PythonReqs/wheel_file", requirements=["alpha_dep"])
+        run = self.RunGradle("base", "PythonReqs/wheel_file", requirements=["apple"])
+        run.apply_layers("PythonReqs/wheel_file_2")
+        run.rerun(requirements=["apple2"])
 
     def test_sdist_file(self):
         run = self.RunGradle("base", "PythonReqs/sdist_file", succeed=False)
