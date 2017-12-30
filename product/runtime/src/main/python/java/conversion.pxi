@@ -283,6 +283,14 @@ def check_range_float32(value):
 # `ord` will raise a TypeError if not passed a string of length 1. In "narrow" Python builds, a
 # non-BMP character is represented as a string of length 2, so avoid a potentially confusing
 # error message.
+#
+# I considered whether the TypeError raised here or by `ord` could cause incorrect overload
+# caching. If you pass a Python string to a boxed Character parameter, then is_applicable_arg
+# will indeed catch a TypeError and disregard the overload. But the only *other* Java types a
+# Python string could be applicable to are String and its base classes (which are explicitly
+# preferred over Character in better_overload_arg) and primitive char (which would have already
+# been selected in the earlier phase with autoboxing disabled). So I don't think there's any
+# situation in which the TypeError could change the result.
 def check_range_char(value):
     if (len(value) == 2 and re.match(u'[\ud800-\udbff][\udc00-\udfff]', value, re.UNICODE)) or \
        ord(value) > 0xFFFF:
@@ -309,7 +317,6 @@ cdef box_sig(JNIEnv *j_env, JNIRef j_klass):
     return f"Ljava/lang/{box_cls_name};" if box_cls_name else original_sig
 
 
-# TODO #5170: range checking may lead to incorrect overload caching.
 cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     full_box_cls_name = "java.lang." + box_cls_name
     j_box_klass = env.FindClass(full_box_cls_name)

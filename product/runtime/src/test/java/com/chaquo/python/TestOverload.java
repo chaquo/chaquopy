@@ -131,10 +131,10 @@ public class TestOverload {
             return "long " + a;
         }
 
-        public String resolve_Integer_Long(Integer a) {
-            return "Integer " + a;
+        public String resolve_Short_Long(Short a) {
+            return "Short " + a;
         }
-        public String resolve_Integer_Long(Long a) {
+        public String resolve_Short_Long(Long a) {
             return "Long " + a;
         }
 
@@ -155,21 +155,39 @@ public class TestOverload {
 
 
     public static class TestString {
-        public String resolve_String_C_Character(String a) {
-            return "String " + a;
-        }
-        public String resolve_String_C_Character(char a) {
+        public String resolve_C_Character(char a) {
             return "char " + a;
         }
-        public String resolve_String_C_Character(Character a) {
+        public String resolve_C_Character(Character a) {
             return "Character " + a;
         }
 
-        public String resolve_Z_Character(boolean a) {
-            return "boolean " + a;
+        public String resolve_C_String(char a) {
+            return "char " + a;
         }
-        public String resolve_Z_Character(Character a) {
+        public String resolve_C_String(String a) {
+            return "String " + a;
+        }
+
+        public String resolve_C_Object(char a) {
+            return "char " + a;
+        }
+        public String resolve_C_Object(Object a) {
+            return "Object " + a;
+        }
+
+        public String resolve_Character_String(Character a) {
             return "Character " + a;
+        }
+        public String resolve_Character_String(String a) {
+            return "String " + a;
+        }
+
+        public String resolve_Character_Object(Character a) {
+            return "Character " + a;
+        }
+        public String resolve_Character_Object(Object a) {
+            return "Object " + a;
         }
     }
 

@@ -204,10 +204,11 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
         return dict_index(FLOAT_TYPES, def1) <= dict_index(FLOAT_TYPES, def2)
 
-    # Similarly, we prefer to treat a Python string as a Java String rather than a char.
-    # array. (Its length cannot be taken into account: see note above about caching.)
+    # Similarly, we prefer to treat a Python string as a Java String rather than a character.
+    # (Its length cannot be taken into account: see note above about caching.)
     elif issubclass(actual_type, six.string_types) and \
-         def2 in ["C", "Ljava/lang/Character;"] and def1 == "Ljava/lang/String;":
+         def2 in ["C", "Ljava/lang/Character;"] and \
+         env.IsAssignableFrom(env.FindClass("Ljava/lang/String;"), env.FindClass(def1)):
         return True
 
     # Otherwise we prefer the smallest (i.e. most specific) Java type. This includes the case

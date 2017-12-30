@@ -12,6 +12,7 @@ class TestOverload(FilterWarningsCase):
         super(TestOverload, self).setUp()
         self.ambiguous = self.assertRaisesRegexp(TypeError, "ambiguous")
         self.inapplicable = self.assertRaisesRegexp(TypeError, "cannot be applied")
+        self.too_big = self.assertRaisesRegexp(OverflowError, "too (big|large)")
 
     def test_constructors(self):
         String = jclass('java.lang.String')
@@ -150,11 +151,12 @@ class TestOverload(FilterWarningsCase):
         self.assertEqual(obj.resolve(jfloat(1.23)), 'float 1.23')
         self.assertEqual(obj.resolve(jdouble(1.23)), 'double 1.23')
 
-        # When passing an int with integral overloads available, we should never fall back on
-        # a float overload no matter how large the value is.
-        with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
-            obj.resolve_SF(100000)
+        # When passing an int, applicable integral overloads should be preferred over floating
+        # overloads no matter what the value is.
         self.assertEqual(obj.resolve_SF(42), 'short 42')
+        with self.too_big:
+            obj.resolve_SF(100000)
+        self.assertEqual(obj.resolve_SF(float(100000)), 'float 100000.0')
 
         self.assertEqual(obj.resolve_IJ(42), 'long 42')
         self.assertEqual(obj.resolve_IJ(jbyte(42)), 'int 42')
@@ -172,8 +174,9 @@ class TestOverload(FilterWarningsCase):
             obj.resolve_BIF(jdouble(42))
 
         # This may seem inconsistent, but it's what Java does. float and double are both
-        # applicable, and float is more specific.
+        # applicable when passing an int, and float is more specific.
         self.assertEqual(obj.resolve_FD(42), 'float 42.0')
+        self.assertEqual(obj.resolve_FD(42.0), 'double 42.0')
         self.assertEqual(obj.resolve_FD(jdouble(42)), 'double 42.0')
 
     def test_boxing(self):
@@ -189,7 +192,14 @@ class TestOverload(FilterWarningsCase):
         self.assertEqual(obj.resolve_Z_Object(Boolean(True)), 'Object true')
 
         Long = jclass("java.lang.Long")
+        Short = jclass("java.lang.Short")
+        # When passing a primitive, applicable primitive overloads should be preferred over
+        # boxed overloads no matter what the value is.
         self.assertEqual(obj.resolve_S_Long(42), 'short 42')
+        with self.too_big:
+            obj.resolve_S_Long(100000)
+        self.assertEqual(obj.resolve_S_Long(jlong(100000)), 'Long 100000')
+
         self.assertEqual(obj.resolve_S_Long(jbyte(42)), 'short 42')
         self.assertEqual(obj.resolve_S_Long(jshort(42)), 'short 42')
         with self.inapplicable:
@@ -197,9 +207,12 @@ class TestOverload(FilterWarningsCase):
             obj.resolve_S_Long(jint(42))
         self.assertEqual(obj.resolve_S_Long(jlong(42)), 'Long 42')
         self.assertEqual(obj.resolve_S_Long(Long(42)), 'Long 42')
+        with self.inapplicable:
+            # Auto-unboxing is not currently implemented.
+            obj.resolve_S_Long(Short(42))
 
-        Short = jclass("java.lang.Short")
         self.assertEqual(obj.resolve_Short_L(42), 'long 42')
+        self.assertEqual(obj.resolve_Short_L(100000), 'long 100000')
         self.assertEqual(obj.resolve_Short_L(jbyte(42)), 'long 42')
         self.assertEqual(obj.resolve_Short_L(jshort(42)), 'long 42')
         self.assertEqual(obj.resolve_Short_L(jint(42)), 'long 42')
@@ -207,13 +220,19 @@ class TestOverload(FilterWarningsCase):
         self.assertEqual(obj.resolve_Short_L(Short(42)), 'Short 42')
 
         with self.ambiguous:
-            obj.resolve_Integer_Long(42)
+            obj.resolve_Short_Long(42)
+        with self.too_big:
+            # It would be better to give an ambiguous overload error, but this message should
+            # be clear enough to indicate that the short overload is being considered, and the
+            # programmer can then use a wrapper to exclude it.
+            obj.resolve_Short_Long(100000)
         with self.inapplicable:
-            obj.resolve_Integer_Long(jbyte(42))
+            obj.resolve_Short_Long(jbyte(42))
+        self.assertEqual(obj.resolve_Short_Long(jshort(42)), 'Short 42')
         with self.inapplicable:
-            obj.resolve_Integer_Long(jshort(42))
-        self.assertEqual(obj.resolve_Integer_Long(jint(42)), 'Integer 42')
-        self.assertEqual(obj.resolve_Integer_Long(jlong(42)), 'Long 42')
+            obj.resolve_Short_Long(jint(42))
+        self.assertEqual(obj.resolve_Short_Long(jlong(42)), 'Long 42')
+        self.assertEqual(obj.resolve_Short_Long(jlong(100000)), 'Long 100000')
 
         with self.ambiguous:
             obj.resolve_Integer_Float(42)
@@ -233,11 +252,28 @@ class TestOverload(FilterWarningsCase):
         obj = jclass("com.chaquo.python.TestOverload$TestString")()
         Character = jclass("java.lang.Character")
 
-        self.assertEqual("String x", obj.resolve_String_C_Character("x"))
-        self.assertEqual("char x", obj.resolve_String_C_Character(jchar("x")))
-        self.assertEqual("Character x", obj.resolve_String_C_Character(Character("x")))
+        self.assertEqual("char x", obj.resolve_C_Character("x"))
+        self.assertEqual("char x", obj.resolve_C_Character(jchar("x")))
+        self.assertEqual("Character x", obj.resolve_C_Character(Character("x")))
+        with self.assertRaisesRegexp((TypeError, ValueError),
+                                     r"(expected a character|only single character).*length 2"):
+            obj.resolve_C_Character("xy")
 
-        self.assertEqual("Character x", obj.resolve_Z_Character("x"))
+        self.assertEqual("String x", obj.resolve_C_String("x"))
+        self.assertEqual("char x", obj.resolve_C_String(jchar("x")))
+        self.assertEqual("String xy", obj.resolve_C_String("xy"))
+
+        self.assertEqual("Object x", obj.resolve_C_Object("x"))
+        self.assertEqual("char x", obj.resolve_C_Object(jchar("x")))
+        self.assertEqual("Object xy", obj.resolve_C_Object("xy"))
+
+        self.assertEqual("String x", obj.resolve_Character_String("x"))
+        self.assertEqual("Character x", obj.resolve_Character_String(jchar("x")))
+        self.assertEqual("String xy", obj.resolve_Character_String("xy"))
+
+        self.assertEqual("Object x", obj.resolve_Character_Object("x"))
+        self.assertEqual("Character x", obj.resolve_Character_Object(jchar("x")))
+        self.assertEqual("Object xy", obj.resolve_Character_Object("xy"))
 
     def test_array(self):
         obj = jclass("com.chaquo.python.TestOverload$TestArray")()

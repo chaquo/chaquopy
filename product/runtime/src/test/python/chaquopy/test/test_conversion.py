@@ -160,8 +160,14 @@ class TestConversion(FilterWarningsCase):
     def test_string(self):
         for name in ["String", "CharSequence", "Object"]:
             self.verify_string(self.obj, name)
+
+        # No implicit conversions should happen between strings and character arrays.
         for name in ["CArray", "CharacterArray"]:
             self.verify_value(self.obj, name, "hello", context=self.conv_error)
+
+        # Or between between integers and characters (unlike in Java).
+        for name, value in [("I", "x"), ("C", 42)]:
+            self.verify_value(self.obj, name, value, context=self.conv_error)
 
     def verify_string(self, obj, name):
         for val in ["", "h", "hello",   # Will be byte strings in Python 2
