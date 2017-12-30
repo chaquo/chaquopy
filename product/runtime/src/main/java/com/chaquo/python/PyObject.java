@@ -157,16 +157,16 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     // ==== Map ==============================================================
 
-    /** Attempts to remove all attributes returned by `dir()`. Because `dir()` usually returns
+    /** Attempts to remove all attributes returned by `dir()`. Because `dir()` usually includes
      * non-removable attributes such as `__class__`, this will probably fail unless
      * the object has a custom `__dir__` method.
      *
-     * See also the notes on {@link #remove remove()} and {{@link #isEmpty}. */
+     * See also the notes on {@link #remove remove()} and {@link #isEmpty}. */
     @Override public void clear() { super.clear(); }
 
-    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` usually returns an object's
-     * class attributes, `isEmpty` is unlikely ever to return true (even after calling {@link
-     * #clear}), unless the object has a custom `__dir__` method. */
+    /** Equivalent to `{@link #keySet()}.isEmpty()`. Because `dir()` usually includes an object's
+     * class attributes, `isEmpty` is unlikely ever to return true, even after calling {@link
+     * #clear}, unless the object has a custom `__dir__` method. */
     @Override public boolean isEmpty() { return super.isEmpty(); }
 
     /** Equivalent to Python `hasattr()`. */

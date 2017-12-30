@@ -176,7 +176,7 @@ For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then callin
 `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
 `f(jarray(jint)([1,2,3]))`.
 
-.. autofunction:: java.jarray
+.. autofunction:: java.jarray(element_type)
 
 A `jarray` class can be instantiated to create a new Java array. The constructor takes
 a single parameter, which must be either:

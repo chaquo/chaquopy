@@ -16,12 +16,15 @@ Prerequisites:
 Basic setup
 ===========
 
+For a minimal complete example, see `chaquopy-hello
+<https://github.com/chaquo/chaquopy-hello>`_, a Python version of the Android Studio "Empty
+Activity" app template.
+
 Plugin
 ------
 
 In the project's *top-level* `build.gradle` file, add the Chaquopy repository and dependency to
-the end of the existing `repositories` and `de
-pendencies` blocks:
+the end of the existing `repositories` and `dependencies` blocks:
 
 .. parsed-literal::
     buildscript {

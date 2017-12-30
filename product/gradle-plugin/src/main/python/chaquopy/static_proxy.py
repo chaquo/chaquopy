@@ -229,10 +229,11 @@ class Module(object):
         # TODO allow static proxy classes as bases (#5283) and return, argument and throws
         # types (#5284).
         self.bindings[node.name] = node
-
-        for base in node.bases:
-            if isinstance(base, ast.Call) and self.lookup(base.func) == "java.static_proxy":
-                return self.process_static_proxy(node, base)
+        if node.bases:
+            first_base = node.bases[0]
+            if isinstance(first_base, ast.Call) and \
+               self.lookup(first_base.func) == "java.static_proxy":
+                return self.process_static_proxy(node, first_base)
         return None
 
     def process_static_proxy(self, cls, sp_call):

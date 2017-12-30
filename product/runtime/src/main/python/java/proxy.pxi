@@ -38,8 +38,8 @@ global_class("com.chaquo.python.PyInvocationHandler")
 
 
 def dynamic_proxy(*implements):
-    """Use the return value of this function in the bases of a class declaration, and the
-    `java.lang.reflect.Proxy
+    """If you use the return value of this function as the first base of a class declaration, then
+    the `java.lang.reflect.Proxy
     <https://docs.oracle.com/javase/7/docs/api/java/lang/reflect/Proxy.html>`_ mechanism will
     be used to generate a Java class for it at runtime. All arguments must be Java interface
     types.
@@ -90,9 +90,10 @@ global_class("com.chaquo.python.DynamicProxy", cls_dict={"__init__": DynamicProx
 global_class("com.chaquo.python.PyCtorMarker")
 
 def static_proxy(extends=None, *implements, package=None, modifiers="public"):
-    """Use the return value of this function in the bases of a class declaration, and the
-    :ref:`static proxy generator <static-proxy-generator>` tool will create a Java source file
-    allowing the class to be instantiated and accessed by Java code.
+    """If you use the return value of this function as the first base of a class declaration, and pass
+    the containing module to the :ref:`static proxy generator <static-proxy-generator>` tool,
+    then it will create a Java source file allowing the class to be instantiated and accessed
+    by Java code.
 
     * `extends` must be a Java class type. Pass `None` if you only want to implement interfaces.
     * All other positional arguments must be Java interface types to implement.
