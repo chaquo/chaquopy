@@ -7,6 +7,9 @@ import org.gradle.api.plugins.*
 import org.gradle.util.*
 import org.json.JSONObject
 
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Method
+import java.lang.reflect.Proxy
 import java.nio.file.*
 import java.security.MessageDigest
 
@@ -92,16 +95,64 @@ class PythonPlugin implements Plugin<Project> {
         ea.extensions.create(NAME, PythonExtension)
     }
 
+    // FIXME this won't work, because the generated class doesn't extend the concrete internal class
+    // DefaultAndroidSourceSet, which the Android plugin sometimes casts to when retrieving objects
+    // from the sourceSets container. It looks like groovy.util.Proxy would be even worse, since it
+    // wouldn't even implement the AndroidSourceSet interface, which would prevent the object even
+    // being added to the container.
+    //
+    // More minor issues include:
+    //   * Removing the sourceSet from the container and adding a replacement will trigger another
+    //     whenObjectAdded call in BaseVariantImpl, which is not entirely idempotent (though the
+    //     duplicated effects seem to be limited to deprecation warnings).
+    //   * It won't coexist with another plugin which does the same kind of thing.
     void extendSourceSets() {
+        def proxyKlass = Proxy.getProxyClass(
+            getClass().getClassLoader(),
+            Class.forName("com.android.build.gradle.api.AndroidSourceSet"),
+            PythonSourceSet)
+
         android.sourceSets.all { sourceSet ->
-            sourceSet.metaClass.pyDirSet = sourceSet.java.getClass().newInstance(
-                [sourceSet.displayName + " Python source", project] as Object[])
-            sourceSet.metaClass.getPython = { return pyDirSet }
-            sourceSet.metaClass.python = { closure ->
+            if (proxyKlass.isInstance(sourceSet)) return
+            android.sourceSets.remove(sourceSet)
+            android.sourceSets.add(proxyKlass.newInstance(
+                [new SourceSetHandler(sourceSet)] as Object[]))
+        }
+    }
+
+    interface PythonSourceSet {
+        Object getPython()
+        Object python(Closure closure)
+    }
+
+    class SourceSetHandler implements InvocationHandler {
+        private Object sourceSet
+        private Object pyDirSet
+
+        SourceSetHandler(Object sourceSet) {
+            this.sourceSet = sourceSet
+            pyDirSet = (
+                Class.forName("com.android.build.gradle.internal.api.DefaultAndroidSourceDirectorySet")
+                .newInstance([sourceSet.displayName + " Python source", project] as Object[]))
+            pyDirSet.srcDirs = ["src/$sourceSet.name/python"]
+        }
+
+        @Override
+        Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            def methName = method.getName()
+            if (methName.equals("setRoot")) {
+                String path = args[0]
+                pyDirSet.srcDirs = ["$path/python"]
+                return method.invoke(sourceSet, args)
+            } else if (methName.equals("getPython")) {
+                return pyDirSet
+            } else if (methName.equals("python")) {
+                Closure closure = args[0]
                 closure.delegate = pyDirSet
-                closure()
+                return closure()
+            } else {
+                return method.invoke(sourceSet, args)
             }
-            sourceSet.python.srcDirs = ["src/$sourceSet.name/python"]
         }
     }
 
