@@ -28,6 +28,33 @@ class PythonPlugin implements Plugin<Project> {
         project = p
         genDir = new File(project.buildDir, "generated/$NAME")
 
+        if (!project.hasProperty("android")) {
+            throw new GradleException("project.android not set. Did you apply plugin " +
+                                              "com.android.application before com.chaquo.python?")
+        }
+        android = project.android
+        checkAndroidPluginVersion()
+
+        extendProductFlavor(android.defaultConfig)
+        android.productFlavors.all { extendProductFlavor(it) }
+        extendSourceSets()
+
+        // For extraction performance, we want to avoid compressing these files a second time, but
+        // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
+        // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
+        // We don't want to set noCompress "zip" because the user might have an uncompressed ZIP
+        // which they were relying on the APK to compress. Luckily this option works just as well
+        // with entire filenames.
+        android.aaptOptions {
+            noCompress(Common.ASSET_APP, Common.ASSET_CHAQUOPY, Common.ASSET_REQUIREMENTS,
+                       Common.ASSET_STDLIB)
+        }
+
+        setupDependencies()
+        project.afterEvaluate { afterEvaluate() }
+    }
+
+    void checkAndroidPluginVersion() {
         def depVer = null
         for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
                 .getAllDependencies()) {
@@ -59,32 +86,23 @@ class PythonPlugin implements Plugin<Project> {
                     "$MAX_TESTED_ANDROID_PLUGIN_VER. If you experience problems with a different " +
                     "version, try editing the buildscript block.")
         }
-
-        if (! project.hasProperty("android")) {
-            throw new GradleException("project.android not set. Did you apply plugin "+
-                                      "com.android.application before com.chaquo.python?")
-        }
-        android = project.android
-        extend(android.defaultConfig)
-        android.productFlavors.whenObjectAdded { extend(it) }
-
-        // For extraction performance, we want to avoid compressing these files a second time, but
-        // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
-        // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
-        // We don't want to set noCompress "zip" because the user might have an uncompressed ZIP
-        // which they were relying on the APK to compress. Luckily this option works just as well
-        // with entire filenames.
-        android.aaptOptions {
-            noCompress(Common.ASSET_APP, Common.ASSET_CHAQUOPY, Common.ASSET_REQUIREMENTS,
-                       Common.ASSET_STDLIB)
-        }
-
-        setupDependencies()
-        project.afterEvaluate { afterEvaluate() }
     }
 
-    void extend(ExtensionAware ea) {
+    void extendProductFlavor(ExtensionAware ea) {
         ea.extensions.create(NAME, PythonExtension)
+    }
+
+    void extendSourceSets() {
+        android.sourceSets.all { sourceSet ->
+            sourceSet.metaClass.pyDirSet = sourceSet.java.getClass().newInstance(
+                [sourceSet.displayName + " Python source", project] as Object[])
+            sourceSet.metaClass.getPython = { return pyDirSet }
+            sourceSet.metaClass.python = { closure ->
+                closure.delegate = pyDirSet
+                closure()
+            }
+            sourceSet.python.srcDirs = ["src/$sourceSet.name/python"]
+        }
     }
 
     void setupDependencies() {
@@ -122,9 +140,10 @@ class PythonPlugin implements Plugin<Project> {
 
             createConfigs(variant, python)
             Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
-            createSourceTasks(variant, python, buildPackagesTask, reqsTask)
+            Task mergeSrcTask = createMergeSrcTask(variant, python)
+            createProxyTask(variant, python, buildPackagesTask, reqsTask, mergeSrcTask)
             Task ticketTask = createTicketTask(variant)
-            createAssetsTasks(variant, python, reqsTask, ticketTask)
+            createAssetsTasks(variant, python, reqsTask, mergeSrcTask, ticketTask)
             createJniLibsTasks(variant, python)
         }
     }
@@ -244,34 +263,71 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createSourceTasks(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask) {
-        File srcDir = variantSrcDir(variant)
-        File destinationDir = variantGenDir(variant, "source")
-        Task genTask = project.task(taskName("generate", variant, "sources")) {
-            dependsOn buildPackagesTask, reqsTask
-            inputs.dir(srcDir)
+    Task createMergeSrcTask(variant, PythonExtension python) {
+        // Create the main source set directory if it doesn't already exist, to invite the user
+        // to put things in it.
+        for (dir in android.sourceSets.main.python.srcDirs) {
+            project.mkdir(dir)
+        }
+
+        def dirSets = (variant.sourceSets.collect { it.python }
+                       .findAll { ! it.sourceFiles.isEmpty() })
+        def needMerge = ! (dirSets.size() == 1 &&
+                           dirSets[0].srcDirs.size() == 1 &&
+                           dirSets[0].filter.excludes.isEmpty() &&
+                           dirSets[0].filter.includes.isEmpty())
+
+        def mergeDir = variantGenDir(variant, "sources")
+        return project.task(taskName("merge", variant, "sources")) {
+            ext.destinationDir = needMerge ? mergeDir : dirSets[0].srcDirs.asList()[0]
+            inputs.files(dirSets.collect { it.srcDirs })
+            outputs.dir(destinationDir)
+            doLast {
+                project.delete(mergeDir)
+                project.mkdir(mergeDir)
+                if (! needMerge) return
+                project.copy {
+                    into mergeDir
+                    duplicatesStrategy "fail"
+                    for (dirSet in dirSets) {
+                        for (File srcDir in dirSet.srcDirs) {
+                            from(srcDir) {
+                                excludes = dirSet.filter.excludes
+                                includes = dirSet.filter.includes
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void createProxyTask(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask,
+                          Task mergeSrcTask) {
+        File destinationDir = variantGenDir(variant, "proxies")
+        Task proxyTask = project.task(taskName("generate", variant, "proxies")) {
+            inputs.files(buildPackagesTask, reqsTask, mergeSrcTask)
             inputs.property("python", python.serialize())
             outputs.dir(destinationDir)
             doLast {
-                project.mkdir(srcDir)
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (!python.staticProxy.isEmpty()) {
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.static_proxy"
-                        args "--path", (srcDir.toString() + File.pathSeparator +
-                                        reqsTask.destinationDir)
+                        args "--path", (mergeSrcTask.destinationDir.toString() +
+                                        File.pathSeparator + reqsTask.destinationDir)
                         args "--java", destinationDir
                         args python.staticProxy
                     }
                 }
             }
         }
-        variant.registerJavaGeneratingTask(genTask, destinationDir)
+        variant.registerJavaGeneratingTask(proxyTask, destinationDir)
     }
 
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
-        buildPackagesTask.project.exec {
+        project.exec {
             environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
             executable python.buildPython
             closure.delegate = delegate
@@ -314,25 +370,21 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createAssetsTasks(variant, python, Task reqsTask, Task ticketTask) {
+    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask, Task ticketTask) {
         def assetBaseDir = variantGenDir(variant, "assets")
         def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
-        def srcDir = variantSrcDir(variant)
         def stdlibConfig = getConfig(variant, "targetStdlib")
         def abiConfig = getConfig(variant, "targetAbis")
-
         def genTask = project.task(taskName("generate", variant, "assets")) {
-            inputs.dir(srcDir)
-            inputs.files(ticketTask, reqsTask)
+            inputs.files(reqsTask, mergeSrcTask, ticketTask)
             inputs.files(stdlibConfig, abiConfig)
             outputs.dir(assetBaseDir)
             doLast {
                 project.delete(assetBaseDir)
                 project.mkdir(assetDir)
 
-                project.mkdir(srcDir)
                 def excludes = "**/*.pyc **/*.pyo"
-                project.ant.zip(basedir: srcDir, excludes: excludes,
+                project.ant.zip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
                                 destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
                 project.ant.zip(basedir: reqsTask.destinationDir, excludes: excludes,
                                 destfile: "$assetDir/$Common.ASSET_REQUIREMENTS", whenempty: "create")
@@ -438,11 +490,6 @@ class PythonPlugin implements Plugin<Project> {
                 into mergeTask.outputDir
             }
         }
-    }
-
-    File variantSrcDir(variant) {
-        // TODO #5203 make configurable
-        return project.file("src/main/python")
     }
 
     File variantGenDir(variant, String type) {
@@ -563,5 +610,3 @@ class BaseExtension implements Serializable {
         return cbuf.toString();
     }
 }
-
-

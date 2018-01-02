@@ -40,8 +40,7 @@ class Basic(GradleTestCase):
         self.RunGradle("base")
 
     def test_variant(self):
-        self.RunGradle("base", "Basic/variant", variants={"red-debug": {},
-                                                          "blue-debug": {}})
+        self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
 
 class AndroidPlugin(GradleTestCase):
     def test_misordered(self):
@@ -139,21 +138,53 @@ class AbiFilters(GradleTestCase):
 
 
 class PythonSrc(GradleTestCase):
-    # Missing src/main/python directory is already tested by Basic.
-
     def test_change(self):
-        # Git can't track a directory hierarchy containing no files.
+        # Missing (as opposed to empty) src/main/python directory is already tested by Basic.
+        #
+        # Git can't track a directory hierarchy containing no files, and in this case even a
+        # .gitignore file would invalidate the point of the test.
         empty_src = join(integration_dir, "data/PythonSrc/empty/app/src/main/python")
         if not os.path.isdir(empty_src):
             os.makedirs(empty_src)
         run = self.RunGradle("base", "PythonSrc/empty")
 
         run.apply_layers("PythonSrc/1")                                 # Add
-        run.rerun()
+        run.rerun(app={"one.py": "one", "package/submodule.py": "submodule"})
         run.apply_layers("PythonSrc/2")                                 # Modify
-        run.rerun()
+        run.rerun(app={"one.py": "one modified", "package/submodule.py": "submodule"})
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
-        run.rerun()
+        run.rerun(app={"package/submodule.py": "submodule"})
+
+    def test_variant(self):
+        self.RunGradle("base", "PythonSrc/variant",
+                       variants={"red-debug": dict(app={"common.py": "common",
+                                                        "color.py": "red"}),
+                                 "blue-debug": dict(app={"common.py": "common",
+                                                         "color.py": "blue"})})
+
+    def test_conflict(self):
+        variants = {"red-debug": dict(app={"common.py": "common main", "color.py": "red"}),
+                    "blue-debug": dict(app={"common.py": "common main", "color.py": "blue"})}
+        run = self.RunGradle("base", "PythonSrc/conflict", variants=variants, succeed=False)
+        self.assertInLong('(?s)mergeBlueDebugPythonSources.*Encountered duplicate path "common.py"',
+                          run.stderr, re=True)
+        run.apply_layers("PythonSrc/conflict_exclude")
+        run.rerun(variants=variants)
+        run.apply_layers("PythonSrc/conflict_include")
+        run.rerun(variants=variants)
+
+    def test_multi_dir(self):
+        self.RunGradle("base", "PythonSrc/multi_dir", app=["one.py", "two.py"])
+
+    def test_multi_dir_conflict(self):
+        run = self.RunGradle("base", "PythonSrc/multi_dir_conflict", succeed=False)
+        self.assertInLong('(?s)mergeDebugPythonSources.*Encountered duplicate path "one.py"',
+                          run.stderr, re=True)
+
+    @skip("TODO #5341 setRoot not implemented")
+    def test_set_root(self):
+        self.RunGradle("base", "PythonSrc/set_root", app={"one.py": "one main2"},
+                       classes=["One", "One$Main2"])
 
 
 class BuildPython(GradleTestCase):
@@ -166,14 +197,14 @@ class BuildPython(GradleTestCase):
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant",
-                             requirements=["apple"], variants={"good-debug": {}})
-        run.rerun(variants={"bad-debug": {}}, succeed=False)
+                             requirements=["apple"], variants=["good-debug"])
+        run.rerun(variants=["bad-debug"], succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge",
-                             requirements=["apple"], variants={"good-debug": {}})
-        run.rerun(variants={"bad-debug": {}}, succeed=False)
+                             requirements=["apple"], variants=["good-debug"])
+        run.rerun(variants=["bad-debug"], succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
 
@@ -317,28 +348,29 @@ del PythonReqs
 
 class StaticProxy(GradleTestCase):
     def test_change(self):
-        run = self.RunGradle("base", "StaticProxy/reqs", requirements=["static_proxy"],
-                             static_proxies=["a.ReqsA1", "b.ReqsB1"])
+        run = self.RunGradle("base", "StaticProxy/reqs", requirements=["chaquopy_test"],
+                             classes=["a.ReqsA1", "b.ReqsB1"])
+        app = ["chaquopy_test/__init__.py", "chaquopy_test/a.py"]
         run.apply_layers("StaticProxy/src_1")       # Src should take priority over reqs.
-        run.rerun(requirements=["static_proxy"], static_proxies=["a.SrcA1", "b.ReqsB1"])
+        run.rerun(requirements=["chaquopy_test"], app=app, classes=["a.SrcA1", "b.ReqsB1"])
         run.apply_layers("StaticProxy/src_only")    # Remove reqs
-        run.rerun(static_proxies=["a.SrcA1"])
+        run.rerun(app=app, classes=["a.SrcA1"])
         run.apply_layers("StaticProxy/src_2")       # Change source code
-        run.rerun(static_proxies=["a.SrcA2"])
+        run.rerun(app=app, classes=["a.SrcA2"])
         run.apply_layers("base")                    # Remove all
-        run.rerun()
+        run.rerun(app=app)
 
     def test_variant(self):
         self.RunGradle("base", "StaticProxy/variant",
-                       requirements=["static_proxy"],
-                       variants={"red-debug":  {"static_proxies": ["a.ReqsA1"]},
-                                 "blue-debug": {"static_proxies": ["b.ReqsB1"]}})
+                       requirements=["chaquopy_test"],
+                       variants={"red-debug":  {"classes": ["a.ReqsA1"]},
+                                 "blue-debug": {"classes": ["b.ReqsB1"]}})
 
     def test_variant_merge(self):
         self.RunGradle("base", "StaticProxy/variant_merge",
-                       requirements=["static_proxy"],
-                       variants={"red-debug":  {"static_proxies": ["a.ReqsA1"]},
-                                 "blue-debug": {"static_proxies": ["a.ReqsA1", "b.ReqsB1"]}})
+                       requirements=["chaquopy_test"],
+                       variants={"red-debug":  {"classes": ["a.ReqsA1"]},
+                                 "blue-debug": {"classes": ["a.ReqsA1", "b.ReqsB1"]}})
 
 class StaticProxy2(StaticProxy, BuildPython2):
     pass
@@ -431,14 +463,14 @@ class RunGradle(object):
                 print("\nchaquopy.license=" + key, file=out_file)
 
     @kwonly_defaults
-    def rerun(self, succeed=True, variants={"debug": {}}, **kwargs):
-        status, self.stdout, self.stderr = self.run_gradle(variants.keys())
+    def rerun(self, succeed=True, variants=["debug"], **kwargs):
+        status, self.stdout, self.stderr = self.run_gradle(variants)
 
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
 
-            for variant, variant_kwargs in variants.items():
+            for variant in variants:
                 outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
                 apk_filename = join(outputs_apk_dir,
                                     "app-{}.apk".format(variant))       # Android plugin 2.x
@@ -458,7 +490,8 @@ class RunGradle(object):
                 apk_file.extractall(apk_dir)
 
                 merged_kwargs = kwargs.copy()
-                merged_kwargs.update(variant_kwargs)
+                if isinstance(variants, dict):
+                    merged_kwargs.update(variants[variant])
                 self.check_apk(apk_dir, **merged_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
@@ -469,8 +502,9 @@ class RunGradle(object):
             self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout,
                                    msg=first_msg)
             for variant in variants:
-                for suffix in ["Requirements", "Sources", "Ticket", "Assets", "JniLibs"]:
-                    msg = task_name(":app:generate", variant, "Python" + suffix) + " UP-TO-DATE"
+                for verb, obj in [("generate", "Requirements"), ("merge", "Sources"), ("generate", "Proxies"),
+                                  ("generate", "Ticket"), ("generate", "Assets"), ("generate", "JniLibs")]:
+                    msg = task_name(verb, variant, "Python" + obj) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout, msg=first_msg)
 
         else:
@@ -484,27 +518,24 @@ class RunGradle(object):
         #   error on Windows.
         gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
         process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
-                                   [task_name(":app:assemble", v) for v in variants],
+                                   [task_name("assemble", v) for v in variants],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], version="2.7", static_proxies=[],
+    def check_apk(self, apk_dir, abis=["x86"], version="2.7", classes=[], app=[],
                   requirements=[], licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
 
         # Python source
-        app_zip_actual = ZipFile(join(asset_dir, "app.zip"))
+        app_zip = ZipFile(join(asset_dir, "app.zip"))
         # If app/src/main/python didn't already exist, the plugin should have created it.
-        app_zip_expected = ZipFile(shutil.make_archive(
-            join(self.run_dir, "app-expected"), "zip",
-            join(self.project_dir, "app/src/main/python")))
-        self.test.assertEqual(set(filelist(app_zip_expected)), set(filelist(app_zip_actual)))
-        for name in filelist(app_zip_expected):
-            self.test.assertEqual(app_zip_expected.getinfo(name).CRC,
-                                  app_zip_actual.getinfo(name).CRC,
-                                  name)
+        self.test.assertEqual(set(app), set(name for name in app_zip.namelist()
+                                            if not name.endswith("/")))
+        if isinstance(app, dict):
+            for name, text in app.items():
+                self.test.assertEqual(text, app_zip.read(name).decode().strip())
 
         # Python requirements
         reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
@@ -529,12 +560,12 @@ class RunGradle(object):
 
         # Chaquopy runtime library
         self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
-        classes = dex_classes(join(apk_dir, "classes.dex"))
-        self.test.assertIn("com.chaquo.python.Python", classes)
+        all_classes = dex_classes(join(apk_dir, "classes.dex"))
+        self.test.assertIn("com.chaquo.python.Python", all_classes)
 
-        # Static proxies
-        self.test.assertEqual(set(("static_proxy." + c) for c in static_proxies),
-                              set(filter(lambda x: x.startswith("static_proxy"), classes)))
+        # App Java classes
+        self.test.assertEqual(set(("chaquopy_test." + c) for c in classes),
+                              set(filter(lambda x: x.startswith("chaquopy_test"), all_classes)))
 
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
@@ -572,7 +603,7 @@ def task_name(prefix, variant, suffix=""):
     def cap_first(s):
         return s if (s == "") else (s[0].upper() + s[1:])
 
-    return (prefix +
+    return (":app:" + prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
 

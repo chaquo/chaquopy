@@ -11,17 +11,16 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython System.getenv("buildPython")
             version "2.7.10"
-            pip {
-                options "--no-index"
-                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "static_proxy"
-            }
-            staticProxy "chaquopy_test.a", "chaquopy_test.b"
         }
         ndk {
             abiFilters "x86"
+        }
+    }
+
+    sourceSets {
+        main {
+            setRoot "src/main2"
         }
     }
 }

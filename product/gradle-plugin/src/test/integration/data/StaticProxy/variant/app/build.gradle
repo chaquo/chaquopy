@@ -28,11 +28,11 @@ android {
     productFlavors {
         red {
             dimension "color"
-            python { staticProxy "static_proxy.a" }
+            python { staticProxy "chaquopy_test.a" }
         }
         blue {
             dimension "color"
-            python { staticProxy "static_proxy.b" }
+            python { staticProxy "chaquopy_test.b" }
         }
     }
 }

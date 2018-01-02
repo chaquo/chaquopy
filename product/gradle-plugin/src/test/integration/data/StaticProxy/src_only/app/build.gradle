@@ -13,7 +13,7 @@ android {
         python {
             buildPython System.getenv("buildPython")
             version "2.7.10"
-            staticProxy "static_proxy.a"
+            staticProxy "chaquopy_test.a"
         }
         ndk {
             abiFilters "x86"
