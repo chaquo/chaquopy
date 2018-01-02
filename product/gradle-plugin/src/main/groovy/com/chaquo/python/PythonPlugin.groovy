@@ -92,7 +92,33 @@ class PythonPlugin implements Plugin<Project> {
         ea.extensions.create(NAME, PythonExtension)
     }
 
+    // See https://issues.apache.org/jira/browse/GROOVY-3493. According to the comment on
+    // 30 Jun 2015, in order for a method override to take effect on instances which already
+    // exist (e.g. sourceSets.main), we need to update the metaclasses of the *interface*
+    // which declared the method (AndroidSourceSet) as well as each individual instance. The
+    // metaclass of the *implementing* class (DefaultAndroidSourceSet) seems to have no effect
+    // on pre-existing instances in this case, but we update that one as well in case this
+    // bug is fixed in the future.
+    //
+    // FIXME unfortunately this isn't acceptable because a class metaClass (as opposed to an
+    // instance metaclass) is process-level state which the Gradle daemon will leak between build
+    // executions and even between projects. For example, this could cause Chaquopy code to be
+    // executed by a non-Chaquopy project which called setRoot. I also experienced the related
+    // problem described at https://github.com/gradle/gradle/issues/742, though I'm not clear on
+    // whether that's actually a Gradle bug or just a consequence of the above.
     void extendSourceSets() {
+        def SourceSet = Class.forName("com.android.build.gradle.internal.api.DefaultAndroidSourceSet")
+        def originalSetRoot = SourceSet.getMethod("setRoot", [String] as Class[])
+        def setRoot = { String path ->
+            python {
+                srcDirs = ["$path/python"] }
+            println 2
+            return originalSetRoot.invoke(delegate, path)
+        }
+        for (klass in [SourceSet] + SourceSet.getInterfaces().toList()) {
+            klass.metaClass.setRoot = setRoot
+        }
+
         android.sourceSets.all { sourceSet ->
             sourceSet.metaClass.pyDirSet = sourceSet.java.getClass().newInstance(
                 [sourceSet.displayName + " Python source", project] as Object[])
@@ -102,6 +128,7 @@ class PythonPlugin implements Plugin<Project> {
                 closure()
             }
             sourceSet.python.srcDirs = ["src/$sourceSet.name/python"]
+            sourceSet.metaClass.setRoot = setRoot
         }
     }
 
