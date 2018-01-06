@@ -3,20 +3,6 @@ apply plugin: 'com.chaquo.python'  // Must come after com.android.application
 
 // *** Remove in public repository ********************************************
 import com.chaquo.python.Common;
-
-// TODO #5203 use sourceSets, and remove .gitignore entries
-def IN_DIR = "../../product/runtime/src/test/python"
-def OUT_DIR = "src/main/python"
-// This list should be the same as the one in .gitignore.
-for (filename in ["chaquopy/test", "package1", "module1.py"]) {
-    assert file("$IN_DIR/$filename").exists()
-    delete "$OUT_DIR/$filename"
-    copy {
-        from IN_DIR
-        include filename, "$filename/**"
-        into OUT_DIR
-    }
-}
 // **********************************************************************
 
 afterEvaluate {
@@ -115,8 +101,10 @@ android {
     }
 
     sourceSets {
+        def testSrc = "../../product/runtime/src/test"
         main {
-            java.srcDirs += ['../../product/runtime/src/test/java']
+            java { srcDir "$testSrc/java" }
+            python { srcDir "$testSrc/python" }
         }
     }
     // **********************************************************************

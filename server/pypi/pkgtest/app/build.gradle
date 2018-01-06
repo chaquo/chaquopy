@@ -48,23 +48,19 @@ android {
     }
 
     sourceSets {
+        def demoSrc = "../../../../demo/app/src"
         main {
-            res.srcDir "../../../../demo/app/src/main/res"
+            java {
+                srcDirs = ["$demoSrc/main/java"]
+                includes = ["**/App.java", "**/ConsoleActivity.java", "**/MainActivity.java",
+                            "**/UnitTestActivity.java", "**/PythonTestActivity.java",
+                            "**/ReplActivity.java"]
+            }
+            res { srcDirs = ["$demoSrc/main/res"] }
         }
+        py2.res { srcDir "$demoSrc/py2/res" }
+        py3.res { srcDir "$demoSrc/py3/res" }
     }
-}
-
-
-delete("src/main/java")
-def JAVA_INPUT_DIR = "../../../../demo/app/src/main/java/com/chaquo/python/demo"
-def JAVA_OUTPUT_DIR = "src/main/java/com/chaquo/python/pkgtest"
-delete(JAVA_OUTPUT_DIR)
-mkdir(JAVA_OUTPUT_DIR)
-for (def clsName : ["App", "ConsoleActivity", "MainActivity", "UnitTestActivity",
-                    "PythonTestActivity", "ReplActivity"]) {
-    def inSrc = file("$JAVA_INPUT_DIR/${clsName}.java").text
-    def outSrc = inSrc.replace("com.chaquo.python.demo", "com.chaquo.python.pkgtest")
-    file("$JAVA_OUTPUT_DIR/${clsName}.java").text = outSrc
 }
 
 

@@ -1,7 +1,2 @@
 app/src/main/assets/source
 build
-
-# This list should be the same as the one in app/build.gradle.
-app/src/main/python/chaquopy/test
-app/src/main/python/package1
-app/src/main/python/module1.py

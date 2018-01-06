@@ -7,7 +7,6 @@ from kwonly_args import kwonly_defaults
 import os
 from os.path import abspath, dirname, join
 import re
-import shutil
 import subprocess
 import sys
 from unittest import skip, TestCase
@@ -173,6 +172,9 @@ class PythonSrc(GradleTestCase):
         run.apply_layers("PythonSrc/conflict_include")
         run.rerun(variants=variants)
 
+    def test_set_dirs(self):
+        self.RunGradle("base", "PythonSrc/set_dirs", app=["two.py"])
+
     def test_multi_dir(self):
         self.RunGradle("base", "PythonSrc/multi_dir", app=["one.py", "two.py"])
 
@@ -180,6 +182,18 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/multi_dir_conflict", succeed=False)
         self.assertInLong('(?s)mergeDebugPythonSources.*Encountered duplicate path "one.py"',
                           run.stderr, re=True)
+
+    def test_multi_dir_conflict_empty(self):
+        self.RunGradle("base", "PythonSrc/multi_dir_conflict_empty",
+                       app=["one.py", "two.py", "empty.py"])
+
+    # Instance metaclasses are buggy (see branch "setroot-metaclass" and #5341) and inadequately
+    # documented. Make absolutely sure none of our modifications leak from build to build.
+    def test_metaclass_leak(self):
+        run = self.RunGradle("base", "PythonSrc/metaclass_leak_1", app=["two.py"])
+        run.apply_layers("PythonSrc/metaclass_leak_2")  # Non-Chaquopy project
+        run.rerun(succeed=False)
+        self.assertInLong("Could not find method python()", run.stderr)
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
@@ -502,8 +516,9 @@ class RunGradle(object):
             self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout,
                                    msg=first_msg)
             for variant in variants:
-                for verb, obj in [("generate", "Requirements"), ("merge", "Sources"), ("generate", "Proxies"),
-                                  ("generate", "Ticket"), ("generate", "Assets"), ("generate", "JniLibs")]:
+                for verb, obj in [("generate", "Requirements"), ("merge", "Sources"),
+                                  ("generate", "Proxies"), ("generate", "Ticket"),
+                                  ("generate", "Assets"), ("generate", "JniLibs")]:
                     msg = task_name(verb, variant, "Python" + obj) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout, msg=first_msg)
 

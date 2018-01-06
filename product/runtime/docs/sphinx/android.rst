@@ -3,8 +3,7 @@
 Android
 #######
 
-Chaquopy is distributed as a plugin for Android's Gradle-based build system. For a full example of
-how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
+Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
@@ -12,13 +11,21 @@ Prerequisites:
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version.)
 * `minSdkVersion` 15 or higher.
+* Some features require a Python interpreter (version 2.7 or 3.3+) to be available on the build
+  machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
+  configured with the `buildPython` setting. For example, a typical Windows installation of
+  Python would look like this::
+
+      python {
+          buildPython "C:/Python27/python.exe"
+      }
 
 Basic setup
 ===========
 
-For a minimal complete example, see `chaquopy-hello
-<https://github.com/chaquo/chaquopy-hello>`_, a Python version of the Android Studio "Empty
-Activity" app template.
+For a minimal example, see `chaquopy-hello <https://github.com/chaquo/chaquopy-hello>`_, a
+Python version of the Android Studio "Empty Activity" app template. For a more complete
+example, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Plugin
 ------
@@ -107,8 +114,57 @@ download pre-compiled CPython binaries for the selected ABIs.
 Development
 ===========
 
-Place Python source code in `src/main/python`, and Chaquopy will automatically build it into
-the app.
+Source code
+-----------
+
+By default, Chaquopy will look for Python source code in the `python` subdirectory of each
+`source set <https://developer.android.com/studio/build/index.html#sourcesets>`_. For example,
+the Python code for the `main` source set should go in `src/main/python`.
+
+To add or change source directories, use the `android.sourceSets
+<https://developer.android.com/studio/build/build-variants.html#configure-sourcesets>`_ block.
+For example::
+
+    android {
+        sourceSets {
+            main {
+                python {
+                    srcDirs = ["replacement/dir"]
+                    srcDir "additional/dir"
+                }
+            }
+        }
+    }
+
+.. note:: The `setRoot
+          <https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.api.AndroidSourceSet.html#com.android.build.gradle.api.AndroidSourceSet:setRoot(java.lang.String)>`_
+          method only takes effect on the standard Android directories. If you want to set the
+          Python directory as well, you must do so explicitly, e.g.::
+
+              main {
+                  setRoot "some/other/main"
+                  python.srcDirs = ["some/other/main/python"]
+              }
+
+`As with Java
+<https://developer.android.com/studio/build/build-variants.html#sourceset-build>`_, it is
+usually an error if the source directories for a given build variant include multiple copies of
+the same filename. However, duplicate filenames are permitted if the files are all empty, such
+as may happen with `__init__.py`.
+
+If your Python source tree contains non-Python resource files which you need to load at
+runtime, don't locate them using `__file__`, because they're stored in the APK assets and don't
+exist as separate files. Instead, load them using :any:`pkgutil.get_data`. For example, to load
+`some/package/subdir/README.txt` from within `some/package/module.py`:
+
+.. code-block:: python
+
+    readme = pkgutil.get_data(__name__, "subdir/README.txt")
+    # To read it like a file, use io.StringIO(readme.decode())
+
+
+Startup
+-------
 
 It's important to structure the app so that `Python.start()
 <java/com/chaquo/python/Python.html#start-com.chaquo.python.Python.Platform->`_ is always
@@ -136,22 +192,10 @@ attempting to run Python code. There are two basic ways to achieve this:
           Python.start(new AndroidPlatform(context));
       }
 
-Other build features
-====================
-
-These features all require a Python interpreter (version 2.7 or 3.3+) to be available on the
-build machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
-configured with the `buildPython` setting. For example, a typical Windows installation of
-Python would look like this::
-
-    python {
-        buildPython "C:/Python27/python.exe"
-    }
-
 .. _android-requirements:
 
-Python requirements
--------------------
+Requirements
+------------
 
 External Python packages may be built into the app by adding a `python.pip` block to
 `build.gradle`. Within this block, add `install` lines, each specifing a package in one of the

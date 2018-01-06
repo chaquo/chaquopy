@@ -270,6 +270,7 @@ class PythonPlugin implements Plugin<Project> {
             project.mkdir(dir)
         }
 
+        // Avoid merge in the common case where there's only one source directory.
         def dirSets = (variant.sourceSets.collect { it.python }
                        .findAll { ! it.sourceFiles.isEmpty() })
         def needMerge = ! (dirSets.size() == 1 &&
@@ -288,12 +289,22 @@ class PythonPlugin implements Plugin<Project> {
                 if (! needMerge) return
                 project.copy {
                     into mergeDir
+                    exclude "**/*.pyc", "**/*.pyo"
                     duplicatesStrategy "fail"
                     for (dirSet in dirSets) {
                         for (File srcDir in dirSet.srcDirs) {
                             from(srcDir) {
                                 excludes = dirSet.filter.excludes
                                 includes = dirSet.filter.includes
+                            }
+                        }
+                    }
+                    // Allow duplicates for empty files (e.g. __init__.py)
+                    eachFile { FileCopyDetails fcd ->
+                        if (fcd.file.length() == 0) {
+                            def destFile = new File("$mergeDir/$fcd.path")
+                            if (destFile.exists() && destFile.length() == 0) {
+                                fcd.duplicatesStrategy = DuplicatesStrategy.INCLUDE
                             }
                         }
                     }
