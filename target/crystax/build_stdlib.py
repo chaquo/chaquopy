@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# Modified copy of crystax-ndk-10.3.2/build/tools/build_stdlib.py
+
 import argparse
 import os.path
 import zipfile
@@ -7,7 +10,6 @@ IGNORE_DIR = (
     'site-packages',
     'curses',
     'dbm',
-    'distutils',
     'idlelib',
     'lib2to3',
     'msilib',
@@ -17,26 +19,25 @@ IGNORE_DIR = (
     'venv',
     'ensurepip',
 
-# 2.7 specific
+    # 2.7 specific
     'bsddb',
     'lib-tk'
 )
 
 IGNORE_FILE = (
-   'site.py',
-   'sysconfig.py',
-   'doctest.py',
-   'turtle.py',
-   'tabnanny.py',
-   'this.py',
-   '__phello__.foo.py',
-   '_osx_support.py',
-   'asyncio/test_utils.py',
+    'site.py',
+    'sysconfig.py',
+    'turtle.py',
+    'tabnanny.py',
+    'this.py',
+    '__phello__.foo.py',
+    '_osx_support.py',
+    'asyncio/test_utils.py',
 
-# 2.7 specific
-   'anydbm.py',
-   'user.py',
-   'whichdb.py',
+    # 2.7 specific
+    'anydbm.py',
+    'user.py',
+    'whichdb.py',
 )
 
 
@@ -69,7 +70,7 @@ def in_interest(fs_path, arch_path, is_dir, pathbits):
         return file_in_interest(fs_path, arch_path)
 
 
-def enum_content(seed, catalog, pathbits = None):
+def enum_content(seed, catalog, pathbits=None):
     if pathbits is None:
         fs_path = seed
         is_dir = True
@@ -110,7 +111,7 @@ def build_stdlib():
     parser.add_argument('--py2', action='store_true')
     args = parser.parse_args()
 
-    dirhere = os.path.normpath(os.path.abspath(os.path.dirname(__file__)))
+    dirhere = os.environ["PYTHON_BUILD_UTILS_DIR"]  # Set by build-target-python.sh
     stdlib_srcdir = os.path.normpath(os.path.abspath(os.path.join(args.pysrc_root, 'Lib')))
     zipfilename = os.path.normpath(os.path.abspath(args.output_zip))
     display_zipname = os.path.basename(zipfilename)

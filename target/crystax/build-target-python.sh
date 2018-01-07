@@ -2,6 +2,8 @@
 #
 # Modified copy of crystax-ndk-10.3.2/build/tools/build-target-python.sh
 
+CHAQUOPY_CRYSTAX_DIR="$(dirname "$0")"
+
 # These variables are also used in prebuilt-common.sh or the other scripts it calls.
 ANDROID_NDK_ROOT=~/crystax-ndk-10.3.2
 NDK_BUILDTOOLS_PATH=$ANDROID_NDK_ROOT/build/tools
@@ -76,7 +78,8 @@ PYTHON_DSTDIR=$NDK_DIR/$PYTHON_SUBDIR/$PYTHON_ABI
 mkdir -p $PYTHON_DSTDIR
 fail_panic "Can't create python destination directory: $PYTHON_DSTDIR"
 
-PYTHON_BUILD_UTILS_DIR=$(cd $NDK_BUILDTOOLS_PATH/build-target-python && pwd)
+# Used by modified copy of build_stdlib.py
+export PYTHON_BUILD_UTILS_DIR=$(cd $NDK_BUILDTOOLS_PATH/build-target-python && pwd)
 if [ ! -d "$PYTHON_BUILD_UTILS_DIR" ]; then
     echo "ERROR: No such directory: '$PYTHON_BUILD_UTILS_DIR'"
     exit 1
@@ -420,10 +423,10 @@ build_python_for_abi ()
     local PYSTDLIB_ZIPFILE="$PYBIN_INSTALLDIR/stdlib.zip"
     log "Install python$PYTHON_ABI-$ABI stdlib as $PYSTDLIB_ZIPFILE"
     if [ "$PYTHON_MAJOR_VERSION" = "2" ]; then
-        run $PYTHON_FOR_BUILD $PYTHON_BUILD_UTILS_DIR/build_stdlib.py --py2 --pysrc-root $PYTHON_SRCDIR --output-zip $PYSTDLIB_ZIPFILE
+        run $PYTHON_FOR_BUILD $CHAQUOPY_CRYSTAX_DIR/build_stdlib.py --py2 --pysrc-root $PYTHON_SRCDIR --output-zip $PYSTDLIB_ZIPFILE
         fail_panic "Can't install python$PYTHON_ABI-$ABI stdlib"
     else
-        run $PYTHON_FOR_BUILD $PYTHON_BUILD_UTILS_DIR/build_stdlib.py --pysrc-root $PYTHON_SRCDIR --output-zip $PYSTDLIB_ZIPFILE
+        run $PYTHON_FOR_BUILD $CHAQUOPY_CRYSTAX_DIR/build_stdlib.py --pysrc-root $PYTHON_SRCDIR --output-zip $PYSTDLIB_ZIPFILE
         fail_panic "Can't install python$PYTHON_ABI-$ABI stdlib"
     fi
 
