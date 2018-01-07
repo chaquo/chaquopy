@@ -22,7 +22,7 @@ android {
         minSdkVersion 15
         targetSdkVersion 23
 
-        def appVersion = "1.1.0"
+        def appVersion = "1.2.0"
         versionName appVersion
         def verParsed = appVersion.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
@@ -62,7 +62,7 @@ android {
         py2 {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo"
-            python { version "2.7.10" }
+            python { version "2.7.14" }
         }
         py3 {
             dimension "pyVersion"

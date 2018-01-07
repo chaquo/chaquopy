@@ -9,9 +9,9 @@ import android.widget.*;
 import com.chaquo.python.*;
 import java.util.*;
 
-public class ConsoleActivity extends AppCompatActivity {
+public abstract class ConsoleActivity extends AppCompatActivity {
 
-    protected Python py = Python.getInstance();
+    protected Python py;
     protected ScrollView svBuffer;
     protected TextView tvBuffer;
 
@@ -26,6 +26,7 @@ public class ConsoleActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        py = Python.getInstance();
         svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
         if (Build.VERSION.SDK_INT >= 23) {

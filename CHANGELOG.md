@@ -3,6 +3,16 @@
 This file only records changes to the demo app. For changes to Chaquopy itself, see
 https://chaquo.com/chaquopy/doc/current/changelog.html.
 
+## 1.2.0 (2018-01-07)
+
+* Provide separate icons for Python 2 and Python 3.
+* Upgrade Python 2 version to 2.7.14.
+* Fix font in API level 21.
+* Make ConsoleActivity easier to reuse ([chaquopy-hello
+  #2](https://github.com/chaquo/chaquopy-hello/issues/2)).
+* Don't paste formatting into Python console input box.
+* Unit test cleanups and performance improvements.
+
 ## 1.1.0 (2017-12-22)
 
 * Now available for Python 3 (search "Chaquopy Python 3" on Google Play).
