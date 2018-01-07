@@ -61,7 +61,7 @@ public class AndroidPlatform extends Python.Platform {
             deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
 
             JSONObject buildJson = extractAssets();
-            loadNativeLibs(buildJson.getString("version"));
+            loadNativeLibs(Common.pyVersionShort(buildJson.getString("version")));
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
         }
@@ -186,11 +186,11 @@ public class AndroidPlatform extends Python.Platform {
         return out.toString();
     }
 
-    private void loadNativeLibs(String pyVersion) {
+    private void loadNativeLibs(String pyVersionShort) {
         // Libraries must be loaded in reverse dependency order before API level 18: see
         // https://developer.android.com/ndk/guides/cpp-support.html
         System.loadLibrary("crystax");
-        System.loadLibrary("python" + Common.PYTHON_SUFFIXES.get(pyVersion));
+        System.loadLibrary("python" + Common.PYTHON_SUFFIXES.get(pyVersionShort));
         System.loadLibrary("chaquopy_java");
     }
 

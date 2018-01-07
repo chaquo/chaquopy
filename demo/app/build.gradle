@@ -70,7 +70,7 @@ android {
         py2 {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo"
-            python { version "2.7.10" }
+            python { version "2.7.14" }
         }
         py3 {
             dimension "pyVersion"

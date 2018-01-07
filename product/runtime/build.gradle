@@ -177,8 +177,10 @@ check.dependsOn(testPython, testJava)
 def prevPyVersion = null
 for (pyFullVersion in Common.PYTHON_VERSIONS) {
     def pyVersion = Common.pyVersionShort(pyFullVersion)
+    if (prevPyVersion != null && pyVersion.equals(prevPyVersion)) continue
+
     for (abi in ["host"] + Common.ABIS) {
-        def pyPlusVersion = "python${Common.PYTHON_SUFFIXES.get(pyFullVersion)}"
+        def pyPlusVersion = "python${Common.PYTHON_SUFFIXES.get(pyVersion)}"
         // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
         def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
 

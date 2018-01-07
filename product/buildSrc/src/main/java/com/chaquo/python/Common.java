@@ -13,9 +13,8 @@ public class Common {
     // too awkward to test because it doesn't have an x86 emulator image.
     public static final int MIN_SDK_VERSION = 15;
 
-    // TODO #5213 update Python 2.7
     public static final List<String> PYTHON_VERSIONS = Arrays.asList
-        ("2.7.10" ,"3.6.3");
+        ("2.7.10", "2.7.14", "3.6.3");
 
     public static String pyVersionShort(String version) {
         return version.substring(0, version.lastIndexOf('.'));
@@ -25,14 +24,15 @@ public class Common {
     public static final Map<String,String> PYTHON_BUILD_NUMBERS = new HashMap<>();
     static {
         PYTHON_BUILD_NUMBERS.put("2.7.10", "2");
-        PYTHON_BUILD_NUMBERS.put("3.6.3", "0");
+        PYTHON_BUILD_NUMBERS.put("2.7.14", "0");
+        PYTHON_BUILD_NUMBERS.put("3.6.3", "1");
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.
     public static final Map<String,String> PYTHON_SUFFIXES = new HashMap<>();
     static {
-        PYTHON_SUFFIXES.put("2.7.10", "2.7");
-        PYTHON_SUFFIXES.put("3.6.3", "3.6m");
+        PYTHON_SUFFIXES.put("2.7", "2.7");
+        PYTHON_SUFFIXES.put("3.6", "3.6m");
     }
 
     public static final Map<String,String> PYTHON_ABIS = new HashMap<>();

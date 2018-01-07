@@ -83,7 +83,7 @@ class PythonVersion(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
         self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are "
-                          "[2.7.10, 3.6.3]", run.stderr)
+                          "[2.7.10, 2.7.14, 3.6.3]", run.stderr)
 
     def test_variant(self):
         self.RunGradle("base", "PythonVersion/variant",
@@ -621,12 +621,6 @@ def task_name(prefix, variant, suffix=""):
     return (":app:" + prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
-
-
-# shutil.make_archive doesn't create entries for directories in old versions of Python
-# (https://bugs.python.org/issue24982).
-def filelist(zip_file):
-    return [name for name in zip_file.namelist() if not name.endswith("/")]
 
 
 # shutil.rmtree is unreliable on MSYS2: it frequently fails with Windows error 145 (directory

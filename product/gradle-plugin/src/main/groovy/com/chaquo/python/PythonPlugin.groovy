@@ -240,7 +240,7 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (! reqsArgs.isEmpty()) {
-                    def pythonAbi = Common.PYTHON_ABIS.get(python.version)
+                    def pythonAbi = Common.PYTHON_ABIS.get(pyVersionShort(python.version))
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir

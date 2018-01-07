@@ -57,16 +57,21 @@ With the plugin applied, you can now add a `python` block within `android.defaul
 only required setting in this block is the Python version, and the currently available versions
 are:
 
-* 2.7.10
+* 2.7.14
 * 3.6.3
 
 For example::
 
     defaultConfig {
         python {
-            version "2.7.10"
+            version "3.6.3"
         }
     }
+
+.. note:: The following obsolete versions are still available, but should not be used for new
+          projects:
+
+          * 2.7.10
 
 ABI selection
 -------------
