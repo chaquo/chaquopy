@@ -67,19 +67,22 @@ ABIS = {abi.name: abi for abi in [
 def main():
     try:
         args = parse_args()
-
         package_dir = join(PYPI_DIR, "packages", args.package)
         if not exists(package_dir):
             raise CommandError(f"{package_dir} does not exist (package name is case-sensitive)")
+        if not args.version:
+            with open(f"{package_dir}/version.txt") as version_file:
+                args.version = version_file.read().strip()
+
         build_dir = join(package_dir, "build")
         ensure_dir(build_dir)
-
         cd(build_dir)
         sdist_dir = unpack_sdist(args)
         cd(sdist_dir)
         apply_patches()
         wheel_filename = build_wheel(args)
         fix_wheel(args, wheel_filename)
+
     except CommandError as e:
         log(str(e))
         sys.exit(1)
@@ -97,7 +100,7 @@ def parse_args():
                     help="Choices: %(choices)s")
     ap.add_argument("--api-level", metavar="N", default="15", help="Default: %(default)s")
     ap.add_argument("package")
-    ap.add_argument("version")
+    ap.add_argument("version", nargs="?", help="Default: given by version.txt")
     args = ap.parse_args()
 
     if not args.ndk:
@@ -135,7 +138,7 @@ def unpack_sdist(args):
     if sdist_filename:
         log(f"Found existing sdist")
     else:
-        run(f"{args.pip} download --no-binary :all: {args.package}=={args.version}")
+        run(f"{args.pip} download --no-deps --no-binary :all: {args.package}=={args.version}")
         sdist_filename = find_sdist(sdist_dir)
         if not sdist_filename:
             raise CommandError("Can't find downloaded sdist: maybe it has an unknown filename "
