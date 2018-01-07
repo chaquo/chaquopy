@@ -13,6 +13,7 @@ global_class("java.lang.reflect.InvocationTargetException")
 class_lock = RLock()
 jclass_cache = {}
 instance_cache = WeakValueDictionary()
+# class_lock also protects none_casts in utils.pxi.
 
 
 def jclass(clsname, **kwargs):

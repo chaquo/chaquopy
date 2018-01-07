@@ -6,16 +6,18 @@ global_classes = OrderedDict()
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
 def global_class(full_name, **kwargs):
+    if "Class" in globals():
+        raise Exception(f"global_class('{full_name}') called after bootstrap complete")
+
     # Because kwargs may vary, global_class can only be used once per class. Also, because the
     # simple class name becomes an attribute of this module, that must be unique too.
     simple_name = full_name.rpartition(".")[2]
     assert simple_name not in global_classes, full_name
     global_classes[simple_name] = (full_name, kwargs)
-    globals()[simple_name] = None
 
-    if "Class" in globals():
-         # Bootstrap is complete, so load_global_classes has already been called once.
-        load_global_classes()
+    # globals() is non-trivial in Cython, so it's better for performance-critical code
+    # elsewhere to be checking `is not None` rather than `in globals()`.
+    globals()[simple_name] = None
 
 
 def load_global_classes():

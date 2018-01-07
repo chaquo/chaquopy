@@ -146,6 +146,7 @@ def constructor(arg_types, *, modifiers="public", throws=None):
     """
     return lambda f: f
 
+
 def method(return_type, arg_types, *, modifiers="public", throws=None):
     """Generates a Java method.
 
@@ -165,6 +166,7 @@ def method(return_type, arg_types, *, modifiers="public", throws=None):
     will be generated for it (see notes below on overloading).
     """
     return lambda f: f
+
 
 def Override(return_type, arg_types, *, modifiers="public", throws=None):
     """Same as :any:`method`, but adds the `@Override

@@ -13,6 +13,7 @@ import re
 import struct
 import sys
 import time
+from threading import RLock
 from traceback import format_exc
 from types import ModuleType
 from zipfile import ZipFile
@@ -42,15 +43,23 @@ def initialize(context):
 
 class AssetFinder(object):
     def __init__(self, context, path):
-        # If we raise ImportError, the finder is silently skipped. This is what we want only if
-        # the path entry isn't an asset path: all other errors should abort the import,
-        # including when the asset doesn't exist.
         try:
             self.context = context
             self.path = path
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
                                      "AssetFinder", basename(path))
+
+            # The ZipFile index is completely read during construction above. However, while
+            # actually reading files out of the .zip, the AssetFile will be seeked, so we can
+            # only extract one file at a time. (Python 3 may import different modules in
+            # different threads at the same time, but never the same module, so writing files
+            # to extract_root doesn't need to be locked.)
+            self.lock = RLock()
+
+        # If we raise ImportError, the finder is silently skipped. This is what we want only if
+        # the path entry isn't an asset path: all other errors should abort the import,
+        # including when the asset doesn't exist.
         except InvalidAssetPathError:
             raise ImportError(format_exc())
         except ImportError:
@@ -102,7 +111,8 @@ class AssetLoader(object):
         if not match:
             raise IOError("loader for '{}' can't access '{}'".format(self.finder.path, path))
         try:
-            return self.finder.zip_file.read(match.group(1))
+            with self.finder.lock:
+                return self.finder.zip_file.read(match.group(1))
         except KeyError as e:
             raise IOError(str(e))
 
@@ -160,7 +170,8 @@ class SourceFileLoader(AssetLoader):
                 source_bytes.decode(encoding))
 
     def get_source_bytes(self):
-        return self.finder.zip_file.read(self.zip_info)
+        with self.finder.lock:
+            return self.finder.zip_file.read(self.zip_info)
 
     def write_pyc(self, filename, code):
         pyc_dirname = dirname(filename)
@@ -205,7 +216,8 @@ class ExtensionFileLoader(AssetLoader):
         else:
             need_extract = True
         if need_extract:
-            self.finder.zip_file.extract(self.zip_info, self.finder.extract_root)
+            with self.finder.lock:
+                self.finder.zip_file.extract(self.zip_info, self.finder.extract_root)
             os.utime(out_filename, (time.time(), timegm(self.zip_info.date_time)))
 
         mod = imp.load_dynamic(self.mod_name, out_filename)
