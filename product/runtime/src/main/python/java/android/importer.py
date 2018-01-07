@@ -49,12 +49,6 @@ class AssetFinder(object):
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
                                      "AssetFinder", basename(path))
-
-            # The ZipFile index is completely read during construction above. However, while
-            # actually reading files out of the .zip, the AssetFile will be seeked, so we can
-            # only extract one file at a time. (Python 3 may import different modules in
-            # different threads at the same time, but never the same module, so writing files
-            # to extract_root doesn't need to be locked.)
             self.lock = RLock()
 
         # If we raise ImportError, the finder is silently skipped. This is what we want only if
@@ -87,7 +81,14 @@ class AssetLoader(object):
         assert mod_name == self.mod_name
         is_reload = mod_name in sys.modules
         try:
-            self.load_module_impl()
+            # Python guarantees that a given module will only be imported in one thread at a
+            # time. And the ZipFile index is completely read during construction above, so
+            # calling `getinfo` above is thread-safe. However, while actually reading files out
+            # of the .zip, the AssetFile will be seeked, so we can only extract one file at a
+            # time. Also, there's a race condition in makedirs below, so let's just serialize
+            # at this level.
+            with self.finder.lock:
+                self.load_module_impl()
             # The module that ends up in sys.modules is not necessarily the one we just created
             # (e.g. see bottom of pygments/formatters/__init__.py).
             return sys.modules[mod_name]
@@ -111,8 +112,7 @@ class AssetLoader(object):
         if not match:
             raise IOError("loader for '{}' can't access '{}'".format(self.finder.path, path))
         try:
-            with self.finder.lock:
-                return self.finder.zip_file.read(match.group(1))
+            return self.finder.zip_file.read(match.group(1))
         except KeyError as e:
             raise IOError(str(e))
 
@@ -170,8 +170,7 @@ class SourceFileLoader(AssetLoader):
                 source_bytes.decode(encoding))
 
     def get_source_bytes(self):
-        with self.finder.lock:
-            return self.finder.zip_file.read(self.zip_info)
+        return self.finder.zip_file.read(self.zip_info)
 
     def write_pyc(self, filename, code):
         pyc_dirname = dirname(filename)
@@ -216,8 +215,7 @@ class ExtensionFileLoader(AssetLoader):
         else:
             need_extract = True
         if need_extract:
-            with self.finder.lock:
-                self.finder.zip_file.extract(self.zip_info, self.finder.extract_root)
+            self.finder.zip_file.extract(self.zip_info, self.finder.extract_root)
             os.utime(out_filename, (time.time(), timegm(self.zip_info.date_time)))
 
         mod = imp.load_dynamic(self.mod_name, out_filename)

@@ -14,5 +14,5 @@ https://github.com/inclement/crystax_python_builds:
 ./build-target-python.sh --abis=armeabi-v7a,x86 --verbose $PYTHON_DIR
 
 The Python libraries and includes will now be in $CRYSTAX_DIR/sources/python. These should be
-packaged for the Maven repository by package-target.sh, and copied to other machines where Chaqupy
-itself may be built.
+packaged for the Maven repository by package-target.sh. If adding a new Python x.y version,
+they will also need to be copied to any other machines where Chaqupy itself is built.

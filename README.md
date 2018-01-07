@@ -38,13 +38,13 @@ Copy .jar and .pom from gradle-plugin/build/libs to local and remote Maven repos
 
 ## Demo app
 
+Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
+
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
 files which require manual merging (e.g. build.gradle), examine them and update the public
 repository as necessary. (If the script lists too many files, this is probably because of
 end-of-line issues: run it a second time and it should give the correct output.)
-
-Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
 Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
 SDK changes.
@@ -69,7 +69,7 @@ If sphinx or javadoc have changed:
 * If major.minor version number has changed, update "current" symlink and add link on WordPress
   documentation page.
 
-Post blog entry on website.
+Post blog entry to website and Facebook.
 
 Update GitHub issues if necessary.
 

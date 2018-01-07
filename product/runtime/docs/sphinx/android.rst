@@ -154,8 +154,8 @@ For example::
 `As with Java
 <https://developer.android.com/studio/build/build-variants.html#sourceset-build>`_, it is
 usually an error if the source directories for a given build variant include multiple copies of
-the same filename. However, duplicate filenames are permitted if the files are all empty, such
-as may happen with `__init__.py`.
+the same filename. This is only permitted if the duplicate files are all empty, such as may
+happen with `__init__.py`.
 
 If your Python source tree contains non-Python resource files which you need to load at
 runtime, don't locate them using `__file__`, because they're stored in the APK assets and don't
@@ -203,7 +203,7 @@ Requirements
 ------------
 
 External Python packages may be built into the app by adding a `python.pip` block to
-`build.gradle`. Within this block, add `install` lines, each specifing a package in one of the
+`build.gradle`. Within this block, add `install` lines, each specifying a package in one of the
 following forms:
 
 * A `pip requirement specifier

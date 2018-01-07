@@ -1,6 +1,20 @@
 Change log
 ##########
 
+1.2.0 (2018-01-17)
+==================
+
+* Python source directory locations can now be configured in the `sourceSets` block, just like
+  Java.
+* `getClass`, when called on a Java object, now returns the Java object class rather than the
+  proxy object class.
+* Generated `static_proxy` Java files no longer produce build warnings.
+* Ensure pip is re-run if local requirements or wheel file changes.
+* Add Python 2.7.14.
+* Include `distutils` and `doctest` modules (`#20
+  <https://github.com/chaquo/chaquopy/issues/20>`_). For Python 2 apps, this also requires
+  upgrading to Python 2.7.14.
+
 1.1.0 (2017-12-22)
 ==================
 
