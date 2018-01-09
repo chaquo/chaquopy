@@ -74,10 +74,12 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         adjustScroll();  // Necessary after a screen rotation
 
         PyObject utils = py.getModule("chaquopy.demo.utils");
-        PyObject stream = utils.callAttr("ForwardingOutputStream", this, "append");
+        PyObject JavaTeeOutputStream = utils.get("JavaTeeOutputStream");
         PyObject sys = py.getModule("sys");
-        prevStdout = sys.put("stdout", stream);
-        prevStderr = sys.put("stderr", stream);
+        prevStdout = sys.get("stdout");
+        prevStderr = sys.get("stderr");
+        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "append"));
+        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "append"));
     }
 
     @Override
@@ -132,10 +134,6 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     public void append(CharSequence text) {
         if (text.length() == 0) return;
-        for (String line : text.toString().split("\n")) {
-            Log.d("console", line);
-        }
-
         final List<CharSequence> fragments = new ArrayList<>();
         if (state.pendingNewline) {
             fragments.add("\n");

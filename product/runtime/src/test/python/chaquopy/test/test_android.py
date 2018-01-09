@@ -9,6 +9,8 @@ from importlib import import_module
 import marshal
 import os
 from os.path import exists, join
+import shlex
+from subprocess import check_output
 import sys
 from traceback import format_exc
 import unittest
@@ -212,3 +214,57 @@ class TestAndroidImport(unittest.TestCase):
                 r"TypeError: 'NoneType' object is not callable\n$".format(REQS_PATH))
         else:
             self.fail()
+
+
+@unittest.skipIf("Build" not in globals(), "Not running on Android")
+class TestAndroidStreams(unittest.TestCase):
+
+    def setUp(self):
+        from android.util import Log
+        Log.i(*self.get_marker())
+        self.expected = []
+
+    def add(self, ignored, expected):
+        self.expected += expected
+
+    def tearDown(self):
+        actual = None
+        marker = "I/{}: {}".format(*self.get_marker())
+        for line in check_output(shlex.split("logcat -d -v tag")).decode().splitlines():
+            if line == marker:
+                actual = []
+            elif actual is not None and "/python.std" in line:
+                actual.append(line)
+        self.assertEqual(self.expected, actual)
+
+    def get_marker(self):
+        cls_name, test_name = self.id().split(".")[-2:]
+        return cls_name, test_name
+
+    def test_basic(self):
+        self.add(sys.stdout.write("a"),            ["I/python.stdout: a"])
+        self.add(sys.stdout.write("Hello world"),  ["I/python.stdout: Hello world"])
+        self.add(sys.stderr.write("Hello stderr"), ["W/python.stderr: Hello stderr"])
+        self.add(sys.stdout.write(" "),            ["I/python.stdout:  "])
+        self.add(sys.stdout.write("  "),           ["I/python.stdout:   "])
+
+        # Empty lines can't be logged, so we change them to a space. Empty strings, on the
+        # other hand, should be ignored.
+        self.add(sys.stdout.write(""),             [])
+        self.add(sys.stdout.write("\n"),           ["I/python.stdout:  "])
+        self.add(sys.stdout.write("\na"),          ["I/python.stdout:  ",
+                                                    "I/python.stdout: a"])
+        self.add(sys.stdout.write("a\n"),          ["I/python.stdout: a"])
+        self.add(sys.stdout.write("a\n\n"),        ["I/python.stdout: a",
+                                                    "I/python.stdout:  "])
+        self.add(sys.stdout.write("a\nb"),         ["I/python.stdout: a",
+                                                    "I/python.stdout: b"])
+        self.add(sys.stdout.write("a\n\nb"),       ["I/python.stdout: a",
+                                                    "I/python.stdout:  ",
+                                                    "I/python.stdout: b"])
+
+    # The maximum line length is 4060.
+    def test_long_line(self):
+        self.add(sys.stdout.write("foobar" * 700),
+                 ["I/python.stdout: " + ("foobar" * 676) + "foob",
+                  "I/python.stdout: ar" + ("foobar" * 23)])
