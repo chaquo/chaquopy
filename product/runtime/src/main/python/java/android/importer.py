@@ -28,17 +28,11 @@ from java._vendor import six
 if six.PY3:
     from tokenize import detect_encoding
 
-__all__ = ["initialize"]
 
-
-initialized = False
-
-def initialize(context):
-    global initialized
-    if initialized:
-        raise Exception("already initialized")
+def initialize(context, app_path):
     sys.path_hooks.insert(0, partial(AssetFinder, context))
-    initialized = True
+    for i, path in enumerate(app_path):
+        sys.path.insert(i, join("/android_asset", Common.ASSET_DIR, path))
 
 
 class AssetFinder(object):

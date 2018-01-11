@@ -85,17 +85,7 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public void onStart(Python py) {
-        PyObject sys = py.getModule("sys");
-        py.getModule("java.android.importer").callAttr("initialize", mContext);
-        PyObject path = sys.get("path");
-        for (int i = 0; i < APP_PATH.length; i++) {
-            path.callAttr("insert", i, "/android_asset/" + Common.ASSET_DIR + "/" + APP_PATH[i]);
-        }
-
-        // Log levels are consistent with those used by Java.
-        PyObject LogOutputStream = py.getModule("java.android.stream").get("LogOutputStream");
-        sys.put("stdout", LogOutputStream.call(Log.INFO, "python.stdout"));
-        sys.put("stderr", LogOutputStream.call(Log.WARN, "python.stderr"));
+        py.getModule("java.android").callAttr("initialize", mContext, APP_PATH);
     }
 
     private JSONObject extractAssets() throws IOException, JSONException {

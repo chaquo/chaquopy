@@ -8,10 +8,11 @@ from contextlib import contextmanager
 from importlib import import_module
 import marshal
 import os
-from os.path import exists, join
+from os.path import dirname, exists, join
 import shlex
 from subprocess import check_output
 import sys
+import tempfile
 from traceback import format_exc
 import unittest
 
@@ -24,15 +25,21 @@ REQS_ZIP = "requirements.zip"
 APP_PATH, REQS_PATH = (join("/android_asset/chaquopy", zip) for zip in [APP_ZIP, REQS_ZIP])
 
 try:
-    from android.os import Build  # noqa: F401
-    from java.android import importer
-    REQS_CACHE = join(__loader__.finder.context.getCacheDir().toString(),  # noqa: F821
-                      "chaquopy/AssetFinder", REQS_ZIP)
+    from android.os import Build
 except ImportError:
-    pass
+    API_LEVEL = None
+else:
+    API_LEVEL = Build.VERSION.SDK_INT
+    from java.android import importer
+    context = __loader__.finder.context  # noqa: F821
+    REQS_CACHE = join(context.getCacheDir().toString(), "chaquopy/AssetFinder", REQS_ZIP)
 
 
-@unittest.skipIf("Build" not in globals(), "Not running on Android")
+def setUpModule():
+    if API_LEVEL is None:
+        raise unittest.SkipTest("Not running on Android")
+
+
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
@@ -216,7 +223,14 @@ class TestAndroidImport(unittest.TestCase):
             self.fail()
 
 
-@unittest.skipIf("Build" not in globals(), "Not running on Android")
+class TestAndroidStdlib(unittest.TestCase):
+
+    def test_tempfile(self):
+        with tempfile.NamedTemporaryFile() as f:
+            self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
+                             dirname(f.name))
+
+
 class TestAndroidStreams(unittest.TestCase):
 
     def setUp(self):
@@ -230,7 +244,7 @@ class TestAndroidStreams(unittest.TestCase):
     def tearDown(self):
         actual = None
         marker = "I/{}: {}".format(*self.get_marker())
-        for line in check_output(shlex.split("logcat -d -v tag")).decode().splitlines():
+        for line in check_output(shlex.split("logcat -d -v tag")).decode("UTF-8").splitlines():
             if line == marker:
                 actual = []
             elif actual is not None and "/python.std" in line:
