@@ -9,6 +9,7 @@ from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, join
+import platform
 import shlex
 from subprocess import check_output
 import sys
@@ -224,6 +225,19 @@ class TestAndroidImport(unittest.TestCase):
 
 
 class TestAndroidStdlib(unittest.TestCase):
+
+    def test_os(self):
+        self.assertEqual("posix", os.name)
+
+    def test_platform(self):
+        # This depends on sys.executable existing.
+        p = platform.platform()
+        self.assertRegexpMatches(p, r"^Linux")
+
+    def test_sys(self):
+        self.assertEqual([""], sys.argv)
+        self.assertTrue(exists(sys.executable), sys.executable)
+        self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):
         with tempfile.NamedTemporaryFile() as f:
