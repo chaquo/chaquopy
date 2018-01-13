@@ -16,6 +16,11 @@ def initialize(context, app_path):
 
 
 def initialize_stdlib(context):
+    # OpenSSL actually does know the location of the system CA store on Android, but
+    # unfortunately there are multiple incompatible formats of that location, so we can't rely
+    # on it (https://blog.kylemanna.com/android/android-ca-certificates/).
+    os.environ["SSL_CERT_FILE"] = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
+
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
 

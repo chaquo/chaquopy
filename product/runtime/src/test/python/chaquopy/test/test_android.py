@@ -11,13 +11,17 @@ import os
 from os.path import dirname, exists, join
 import platform
 import shlex
+import sqlite3
 from subprocess import check_output
 import sys
 import tempfile
 from traceback import format_exc
 import unittest
 
-if sys.version_info[0] >= 3:
+if sys.version_info[0] < 3:
+    from urllib2 import urlopen
+else:
+    from urllib.request import urlopen
     from importlib import reload
 
 
@@ -233,6 +237,18 @@ class TestAndroidStdlib(unittest.TestCase):
         # This depends on sys.executable existing.
         p = platform.platform()
         self.assertRegexpMatches(p, r"^Linux")
+
+    def test_sqlite(self):
+        conn = sqlite3.connect(":memory:")
+        conn.execute("create table test (a text, b text)")
+        conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
+        cur = conn.execute("select b from test where a = 'bravo'")
+        self.assertEqual([("two",)], cur.fetchall())
+
+    def test_ssl(self):
+        resp = urlopen("https://chaquo.com/chaquopy/")
+        self.assertEqual(200, resp.getcode())
+        self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
 
     def test_sys(self):
         self.assertEqual([""], sys.argv)
