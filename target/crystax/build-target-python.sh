@@ -115,12 +115,12 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 fail_panic "Can't create build directory: $BUILD_DIR"
 
-OPENSSL_HOME=''
-if [ -n "$DEFAULT_OPENSSL_VERSION" ]; then
-    if [ -f "$NDK_DIR/$OPENSSL_SUBDIR/$DEFAULT_OPENSSL_VERSION/Android.mk" \
-         -a -f "$NDK_DIR/$OPENSSL_SUBDIR/$DEFAULT_OPENSSL_VERSION/include/openssl/opensslconf.h" ]; then
-        OPENSSL_HOME="openssl/$DEFAULT_OPENSSL_VERSION"
-    fi
+if [ -n "$OPENSSL_VERSION" \
+    -a -f "$NDK_DIR/$OPENSSL_SUBDIR/$OPENSSL_VERSION/Android.mk" \
+    -a -f "$NDK_DIR/$OPENSSL_SUBDIR/$OPENSSL_VERSION/include/openssl/opensslconf.h" ]; then
+    OPENSSL_HOME="openssl/$OPENSSL_VERSION"
+else
+    fail_panic "OPENSSL_VERSION must be set to a built version (see README.txt)"
 fi
 
 # $1: ABI
@@ -132,7 +132,7 @@ build_python_for_abi ()
     local PYBIN_INSTALLDIR=$PYTHON_DSTDIR/libs/$ABI
     local PYBIN_INSTALLDIR_MODULES="$PYBIN_INSTALLDIR/modules"
     if [ -n "$OPENSSL_HOME" ]; then
-        log "Building python$PYTHON_ABI for $ABI (with OpenSSL-$DEFAULT_OPENSSL_VERSION)"
+        log "Building python$PYTHON_ABI for $ABI (with OpenSSL-$OPENSSL_VERSION)"
     else
         log "Building python$PYTHON_ABI for $ABI (without OpenSSL support)"
     fi
@@ -622,42 +622,42 @@ build_python_for_abi ()
         fail_panic "Can't install python$PYTHON_ABI-$ABI module '_ssl' in $PYBIN_INSTALLDIR_MODULES"
     fi
 
-# _sqlite3 (TODO #5160)
-    # local BUILDDIR_SQLITE3="$BUILDDIR/sqlite3"
-    # local OBJDIR_SQLITE3="$BUILDDIR_SQLITE3/obj/local/$ABI"
+# _sqlite3
+    local BUILDDIR_SQLITE3="$BUILDDIR/sqlite3"
+    local OBJDIR_SQLITE3="$BUILDDIR_SQLITE3/obj/local/$ABI"
 
-    # run mkdir -p "$BUILDDIR_SQLITE3/jni"
-    # fail_panic "Can't create directory: $BUILDDIR_SQLITE3/jni"
+    run mkdir -p "$BUILDDIR_SQLITE3/jni"
+    fail_panic "Can't create directory: $BUILDDIR_SQLITE3/jni"
 
-    # {
-    #     echo 'LOCAL_PATH := $(call my-dir)'
-    #     echo 'include $(CLEAR_VARS)'
-    #     echo 'LOCAL_MODULE := _sqlite3'
-    #     echo 'LOCAL_CFLAGS := -DMODULE_NAME=\"sqlite3\"'
-    #     echo "MY_PYTHON_SRC_ROOT := $PYTHON_SRCDIR"
-    #     echo 'LOCAL_SRC_FILES := \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cache.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/connection.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cursor.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/microprotocols.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/module.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/prepare_protocol.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/row.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/statement.c \'
-    #     echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/util.c'
-    #     echo 'LOCAL_STATIC_LIBRARIES := python_shared sqlite3_static'
-    #     echo 'include $(BUILD_SHARED_LIBRARY)'
-    #     echo "\$(call import-module,python/$PYTHON_ABI)"
-    #     echo '$(call import-module,sqlite/3)'
-    # } >$BUILDDIR_SQLITE3/jni/Android.mk
-    # fail_panic "Can't generate $BUILDDIR_SQLITE3/jni/Android.mk"
+    {
+        echo 'LOCAL_PATH := $(call my-dir)'
+        echo 'include $(CLEAR_VARS)'
+        echo 'LOCAL_MODULE := _sqlite3'
+        echo 'LOCAL_CFLAGS := -DMODULE_NAME=\"sqlite3\"'
+        echo "MY_PYTHON_SRC_ROOT := $PYTHON_SRCDIR"
+        echo 'LOCAL_SRC_FILES := \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cache.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/connection.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/cursor.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/microprotocols.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/module.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/prepare_protocol.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/row.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/statement.c \'
+        echo '  $(MY_PYTHON_SRC_ROOT)/Modules/_sqlite/util.c'
+        echo 'LOCAL_STATIC_LIBRARIES := python_shared sqlite3_static'
+        echo 'include $(BUILD_SHARED_LIBRARY)'
+        echo "\$(call import-module,python/$PYTHON_ABI)"
+        echo '$(call import-module,sqlite/3)'
+    } >$BUILDDIR_SQLITE3/jni/Android.mk
+    fail_panic "Can't generate $BUILDDIR_SQLITE3/jni/Android.mk"
 
-    # run $NDK_DIR/ndk-build -C $BUILDDIR_SQLITE3 -j$NUM_JOBS APP_ABI=$ABI V=1
-    # fail_panic "Can't build python$PYTHON_ABI-$ABI module '_sqlite3'"
+    run $NDK_DIR/ndk-build -C $BUILDDIR_SQLITE3 -j$NUM_JOBS APP_ABI=$ABI V=1
+    fail_panic "Can't build python$PYTHON_ABI-$ABI module '_sqlite3'"
 
-    # log "Install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
-    # run cp -p -T $OBJDIR_SQLITE3/lib_sqlite3.so $PYBIN_INSTALLDIR_MODULES/_sqlite3.so
-    # fail_panic "Can't install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
+    log "Install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
+    run cp -p -T $OBJDIR_SQLITE3/lib_sqlite3.so $PYBIN_INSTALLDIR_MODULES/_sqlite3.so
+    fail_panic "Can't install python$PYTHON_ABI-$ABI module '_sqlite3' in $PYBIN_INSTALLDIR_MODULES"
 
 #pyexpat
     local BUILDDIR_PYEXPAT="$BUILDDIR/pyexpat"

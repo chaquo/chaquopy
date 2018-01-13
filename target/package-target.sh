@@ -25,7 +25,6 @@ for abi in armeabi-v7a x86; do
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
     cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
-    rm -f "$dynload_dir/_sqlite3.so"  # TODO 5160
 
     if [[ $abi == "arm64-v8a" ]]; then
         gcc_abi="aarch64"
