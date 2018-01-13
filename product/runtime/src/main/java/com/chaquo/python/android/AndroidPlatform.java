@@ -3,7 +3,6 @@ package com.chaquo.python.android;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
-import android.util.*;
 import com.chaquo.python.*;
 import java.io.*;
 import java.util.*;
@@ -14,16 +13,25 @@ import org.json.*;
 @SuppressWarnings("deprecation")
 public class AndroidPlatform extends Python.Platform {
     
-    private static final String[] BOOTSTRAP_PATH = {
-        Common.ASSET_CHAQUOPY,
-        Common.ASSET_STDLIB,
-        "lib-dynload/" + Build.CPU_ABI,
-    };
+    private static final List<String> BOOTSTRAP_PATH = new ArrayList<>();
+    static {
+        BOOTSTRAP_PATH.add(Common.ASSET_CHAQUOPY);
+        BOOTSTRAP_PATH.add(Common.ASSET_STDLIB);
+        BOOTSTRAP_PATH.add("lib-dynload/" + Build.CPU_ABI);
+    }
 
-    private static final String[] APP_PATH = {
-        Common.ASSET_APP,
-        Common.ASSET_REQUIREMENTS,
-    };
+    private static final List<String> EXTRACT_ASSETS = new ArrayList<>();
+    static {
+        EXTRACT_ASSETS.addAll(BOOTSTRAP_PATH);
+        EXTRACT_ASSETS.add(Common.ASSET_CACERT);
+        EXTRACT_ASSETS.add(Common.ASSET_TICKET);
+    }
+
+    private static final List<String> APP_PATH = new ArrayList<>();
+    static {
+        APP_PATH.add(Common.ASSET_APP);
+        APP_PATH.add(Common.ASSET_REQUIREMENTS);
+    }
 
     private static final String[] OBSOLETE_FILES = {
         // No longer extracted since 0.6.0
@@ -68,9 +76,9 @@ public class AndroidPlatform extends Python.Platform {
         }
 
         String path = "";
-        for (int i = 0; i < BOOTSTRAP_PATH.length; i++) {
-            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + BOOTSTRAP_PATH[i];
-            if (i < BOOTSTRAP_PATH.length - 1) {
+        for (int i = 0; i < BOOTSTRAP_PATH.size(); i++) {
+            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + BOOTSTRAP_PATH.get(i);
+            if (i < BOOTSTRAP_PATH.size() - 1) {
                 path += ":";
             }
         }
@@ -85,7 +93,7 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public void onStart(Python py) {
-        py.getModule("java.android").callAttr("initialize", mContext, APP_PATH);
+        py.getModule("java.android").callAttr("initialize", mContext, APP_PATH.toArray());
     }
 
     private JSONObject extractAssets() throws IOException, JSONException {
@@ -93,26 +101,19 @@ public class AndroidPlatform extends Python.Platform {
         String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
         JSONObject buildJson = new JSONObject(streamToString(assets.open(buildJsonPath)));
         JSONObject assetsJson = buildJson.getJSONObject("assets");
-        SharedPreferences.Editor spe = sp.edit();
 
         // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so we'll
         // avoid using it.
+        SharedPreferences.Editor spe = sp.edit();
         for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
             String path = (String) i.next();
-            for (String bsp : BOOTSTRAP_PATH) {
-                if (path.equals(bsp) || path.startsWith(bsp + "/")) {
+            for (String ea : EXTRACT_ASSETS) {
+                if (path.equals(ea) || path.startsWith(ea + "/")) {
                     extractAsset(assets, assetsJson, spe, path);
                     break;
                 }
             }
         }
-
-        // No ticket is represented as an empty file rather than a missing one. This saves us
-        // from having to delete the extracted copy if the app is updated to remove the ticket.
-        // (We could pass the ticket to the runtime in some other way, but that would be more
-        // complicated.)
-        extractAsset(assets, assetsJson, spe, Common.ASSET_TICKET);
-
         spe.apply();
         return buildJson;
     }

@@ -24,8 +24,8 @@ public class Common {
     public static final Map<String,String> PYTHON_BUILD_NUMBERS = new HashMap<>();
     static {
         PYTHON_BUILD_NUMBERS.put("2.7.10", "2");
-        PYTHON_BUILD_NUMBERS.put("2.7.14", "0");
-        PYTHON_BUILD_NUMBERS.put("3.6.3", "1");
+        PYTHON_BUILD_NUMBERS.put("2.7.14", "1");
+        PYTHON_BUILD_NUMBERS.put("3.6.3", "2");
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.
@@ -59,5 +59,6 @@ public class Common {
     public static final String ASSET_STDLIB = "stdlib.zip";
 
     public static final String ASSET_BUILD_JSON = "build.json";
+    public static final String ASSET_CACERT = "cacert.pem";
     public static final String ASSET_TICKET = "ticket.txt";
 }

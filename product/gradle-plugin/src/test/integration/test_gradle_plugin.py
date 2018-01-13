@@ -590,6 +590,9 @@ class RunGradle(object):
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
+        # Miscellaneous assets
+        self.test.assertIsFile(join(asset_dir, "cacert.pem"))
+
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +
                        "=== STDOUT ===\n" + self.stdout +

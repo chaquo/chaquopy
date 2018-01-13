@@ -346,6 +346,10 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
+    // No ticket is represented as an empty file rather than a missing one. This saves us
+    // from having to delete the extracted copy if the app is updated to remove the ticket.
+    // (We could pass the ticket to the runtime in some other way, but that would be more
+    // complicated.)
     Task createTicketTask(variant) {
         def localProps = new Properties()
         def propsStream = project.rootProject.file('local.properties').newInputStream()
@@ -361,7 +365,7 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                def ticket = "";  // See note in AndroidPlatform
+                def ticket = "";
                 if (key != null) {
                     final def TIMEOUT = 10000
                     def url = ("https://chaquo.com/license/get_ticket" +
@@ -423,6 +427,8 @@ class PythonPlugin implements Plugin<Project> {
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     new File("$outDir/__init__.py").text = ""
                 }
+
+                extractResource(Common.ASSET_CACERT, assetDir)
 
                 project.copy {
                     from ticketTask.destinationDir
