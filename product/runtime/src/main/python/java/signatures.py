@@ -102,7 +102,7 @@ class jlong(IntPrimitive):
 class FloatPrimitive(NumericPrimitive):
     def __init__(self, value, truncate=False):
         if not (isinstance(value, (float, six.integer_types)) and not isinstance(value, bool)):
-            raise TypeError("a float is required")
+            raise TypeError("a float or integer is required")
         self.value = float(value)
 
 class jfloat(FloatPrimitive):

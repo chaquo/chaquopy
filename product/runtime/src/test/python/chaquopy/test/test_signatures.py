@@ -80,9 +80,11 @@ class TestSignatures(FilterWarningsCase):
             self.assertEquals("{}({})".format(cls.__name__, truncate(val, bits)),
                               str(cls(val, truncate=True)))
 
-        with self.assertRaisesRegexp(TypeError, "integer"):
+        with self.assertRaisesRegexp(TypeError, "an integer is required"):
             cls("42")
-        with self.assertRaisesRegexp(TypeError, "integer"):
+        with self.assertRaisesRegexp(TypeError, "an integer is required"):
+            cls(42.0)
+        with self.assertRaisesRegexp(TypeError, "an integer is required"):
             cls(True)
 
     def test_float(self):
@@ -106,9 +108,9 @@ class TestSignatures(FilterWarningsCase):
                                                   math.copysign(1, val) * float("inf")),
                                   str(cls(val, truncate=True)))
 
-        with self.assertRaisesRegexp(TypeError, "float"):
+        with self.assertRaisesRegexp(TypeError, "a float or integer is required"):
             cls("42")
-        with self.assertRaisesRegexp(TypeError, "float"):
+        with self.assertRaisesRegexp(TypeError, "a float or integer is required"):
             cls(True)
 
     def test_char(self):

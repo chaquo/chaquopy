@@ -228,10 +228,12 @@ else:
 # their interfaces are somewhat different.
 LOADERS = [
     (".py", SourceFileLoader),
-    (".{}.so".format(abi), ExtensionFileLoader),
+    (".{}.so".format(abi), ExtensionFileLoader),    # For requirements.zip
+    (".so".format(abi), ExtensionFileLoader),       # For stdlib-native/<abi>.zip
     # No current need for a SourcelessFileLoader, since we exclude .pyc files from app.zip and
     # requirements.zip. To support this fully for both Python 2 and 3 would be non-trivial due
-    # to the variation in bytecode file names and locations.
+    # to the variation in bytecode file names and locations. However, we could select one
+    # variation and use it for all Python versions.
 ]
 
 

@@ -10,7 +10,6 @@ import org.json.JSONObject
 import java.nio.file.*
 import java.security.MessageDigest
 
-import static com.chaquo.python.Common.pyVersionShort;
 import static java.nio.file.StandardCopyOption.*
 
 
@@ -42,12 +41,18 @@ class PythonPlugin implements Plugin<Project> {
         // For extraction performance, we want to avoid compressing these files a second time, but
         // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
         // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
+        //
         // We don't want to set noCompress "zip" because the user might have an uncompressed ZIP
         // which they were relying on the APK to compress. Luckily this option works just as well
-        // with entire filenames.
+        // with entire filenames. Unluckily, it replaces the existing list rather than adds to it.
+        // So if the user's build.gradle uses it as well, our list will be lost (TODO #5353).
         android.aaptOptions {
-            noCompress(Common.ASSET_APP, Common.ASSET_CHAQUOPY, Common.ASSET_REQUIREMENTS,
-                       Common.ASSET_STDLIB)
+            def filenames = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP, Common.ASSET_REQUIREMENTS,
+                             Common.ASSET_STDLIB]
+            for (abi in Common.ABIS) {
+                filenames.add("${abi}.zip")
+            }
+            noCompress(filenames as String[])
         }
 
         setupDependencies()
@@ -240,7 +245,7 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (! reqsArgs.isEmpty()) {
-                    def pythonAbi = Common.PYTHON_ABIS.get(pyVersionShort(python.version))
+                    def pythonAbi = Common.PYTHON_ABIS.get(python.versionShort)
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
@@ -404,30 +409,42 @@ class PythonPlugin implements Plugin<Project> {
                 project.ant.zip(basedir: reqsTask.destinationDir, excludes: excludes,
                                 destfile: "$assetDir/$Common.ASSET_REQUIREMENTS", whenempty: "create")
 
-                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
-                for (art in artifacts) {    // Stdlib native modules
+                project.copy {
+                    from stdlibConfig
+                    into assetDir
+                    rename { Common.ASSET_STDLIB }
+                }
+                extractResource("runtime/$Common.ASSET_BOOTSTRAP", assetDir)
+
+                // The following stdlib native modules are needed during bootstrap and are
+                // pre-extracted; all others are loaded from a .zip using AssetFinder.
+                def BOOTSTRAP_NATIVE_STDLIB = ["_ctypes.so", "select.so"]
+                for (art in abiConfig.resolvedConfiguration.resolvedArtifacts) {
+                    def abi = art.classifier
                     project.copy {
                         from project.zipTree(art.file)
                         include "lib-dynload/**"
                         into assetDir
                     }
-                }
-                project.copy {              // Stdlib Python modules
-                    from stdlibConfig
-                    into assetDir
-                    rename { Common.ASSET_STDLIB }
-                }
-
-                extractResource("runtime/$Common.ASSET_CHAQUOPY", assetDir)
-                for (abi in getAbis(variant)) {
-                    def resDir = "runtime/lib-dynload/${pyVersionShort(python.version)}/$abi/java"
-                    def outDir = "$assetDir/lib-dynload/$abi/java"
-                    extractResource("$resDir/chaquopy.so", outDir)
-
+                    project.ant.zip(basedir: "$assetDir/lib-dynload/$abi",
+                                    destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
+                                    excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "), whenempty: "fail")
+                    
                     // extend_path is called in runtime/src/main/python/java/__init__.py
-                    new File("$outDir/__init__.py").text = ""
-                }
+                    def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
+                    extractResource("runtime/lib-dynload/$python.versionShort/$abi/java/chaquopy.so",
+                                    "$bootstrapDir/java")
+                    new File("$bootstrapDir/java/__init__.py").text = ""
 
+                    project.copy {
+                        from "$assetDir/lib-dynload/$abi"
+                        into bootstrapDir
+                        include BOOTSTRAP_NATIVE_STDLIB
+                    }
+
+                    project.delete("$assetDir/lib-dynload")
+                }
+                
                 extractResource(Common.ASSET_CACERT, assetDir)
 
                 project.copy {
@@ -489,8 +506,8 @@ class PythonPlugin implements Plugin<Project> {
                 }
 
                 for (abi in getAbis(variant)) {
-                    def resDir = "runtime/jniLibs/${pyVersionShort(python.version)}/$abi"
-                    extractResource("$resDir/libchaquopy_java.so", "$libsDir/$abi")
+                    extractResource("runtime/jniLibs/$python.versionShort/$abi/libchaquopy_java.so",
+                                    "$libsDir/$abi")
                 }
             }
         }
@@ -544,6 +561,10 @@ class PythonExtension extends BaseExtension {
     List<String> staticProxy = new ArrayList<>();
     PipExtension pip = new PipExtension()
 
+    String getVersionShort() {
+        return Common.pyVersionShort(version)
+    }
+    
     void staticProxy(String... args) {
         staticProxy.addAll(Arrays.asList(args))
     }

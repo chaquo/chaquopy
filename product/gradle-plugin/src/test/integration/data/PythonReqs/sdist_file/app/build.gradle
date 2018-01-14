@@ -12,7 +12,7 @@ android {
         versionName "0.0.1"
         python {
             buildPython System.getenv("buildPython")
-            version "2.7.10"
+            version "2.7.14"
             pip {
                 options "--no-index"
                 install "packages/alpha_dep-0.0.1.tar.gz"

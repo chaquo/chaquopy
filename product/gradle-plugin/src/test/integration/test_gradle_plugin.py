@@ -493,9 +493,9 @@ class RunGradle(object):
                                         "app-{}.apk".format(variant))   # Android plugin 3.x
 
                 apk_file = ZipFile(apk_filename)
-                for archive_name in ["app", "chaquopy", "requirements", "stdlib"]:
-                    info = apk_file.getinfo("assets/chaquopy/{}.zip".format(archive_name))
-                    self.test.assertEqual(ZIP_STORED, info.compress_type)
+                for info in apk_file.infolist():
+                    if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
+                        self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
 
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
@@ -542,6 +542,10 @@ class RunGradle(object):
     def check_apk(self, apk_dir, abis=["x86"], version="2.7", classes=[], app=[],
                   requirements=[], licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
+        self.test.assertEqual({"bootstrap-native", "stdlib-native", "app.zip", "bootstrap.zip",
+                               "build.json", "cacert.pem", "requirements.zip", "stdlib.zip",
+                               "ticket.txt"},
+                              set(os.listdir(asset_dir)))
 
         # Python source
         app_zip = ZipFile(join(asset_dir, "app.zip"))
@@ -557,14 +561,23 @@ class RunGradle(object):
         reqs_toplevel = set(path.partition("/")[0] for path in reqs_zip.namelist())
         self.test.assertEqual(set(requirements), reqs_toplevel)
 
-        # Python stdlib
-        self.test.assertIsFile(join(asset_dir, "stdlib.zip"))
-        self.test.assertEqual(set(abis), set(os.listdir(join(asset_dir, "lib-dynload"))))
+        # Python bootstrap
+        bootstrap_native_dir = join(asset_dir, "bootstrap-native")
+        self.test.assertEqual(set(abis), set(os.listdir(bootstrap_native_dir)))
         for abi in abis:
-            # The native module list here is intended to be representative, not complete.
-            for filename in ["_ctypes.so", "select.so", "unicodedata.so",
-                             "java/__init__.py", "java/chaquopy.so"]:
-                self.test.assertIsFile(join(asset_dir, "lib-dynload", abi, filename))
+            self.test.assertEqual({"java", "_ctypes.so", "select.so"},
+                                  set(os.listdir(join(bootstrap_native_dir, abi))))
+            self.test.assertEqual({"__init__.py", "chaquopy.so"},
+                                  set(os.listdir(join(bootstrap_native_dir, abi, "java"))))
+
+        # Python stdlib
+        stdlib_native_dir = join(asset_dir, "stdlib-native")
+        self.test.assertEqual({a + ".zip" for a in abis},
+                              set(os.listdir(stdlib_native_dir)))
+        for abi in abis:
+            self.test.assertEqual({"_multiprocessing.so", "_socket.so", "_sqlite3.so",
+                                   "_ssl.so", "pyexpat.so", "unicodedata.so"},
+                                  set(ZipFile(join(stdlib_native_dir, abi + ".zip")).namelist()))
 
         # JNI libs
         self.test.assertEqual(set(abis), set(os.listdir(join(apk_dir, "lib"))))
@@ -574,7 +587,6 @@ class RunGradle(object):
                 self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
 
         # Chaquopy runtime library
-        self.test.assertIsFile(join(asset_dir, "chaquopy.zip"))
         all_classes = dex_classes(join(apk_dir, "classes.dex"))
         self.test.assertIn("com.chaquo.python.Python", all_classes)
 
@@ -589,9 +601,6 @@ class RunGradle(object):
                                    "--quiet", "--ticket", ticket_filename, "--app", licensed_id])
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
-
-        # Miscellaneous assets
-        self.test.assertIsFile(join(asset_dir, "cacert.pem"))
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

@@ -54,9 +54,11 @@ public class Common {
     public static final String ASSET_DIR = "chaquopy";
 
     public static final String ASSET_APP = "app.zip";
-    public static final String ASSET_CHAQUOPY = "chaquopy.zip";
+    public static final String ASSET_BOOTSTRAP = "bootstrap.zip";
+    public static final String ASSET_BOOTSTRAP_NATIVE = "bootstrap-native";
     public static final String ASSET_REQUIREMENTS = "requirements.zip";
     public static final String ASSET_STDLIB = "stdlib.zip";
+    public static final String ASSET_STDLIB_NATIVE = "stdlib-native";
 
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";

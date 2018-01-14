@@ -19,7 +19,7 @@ android {
     productFlavors {
         py2 {
             dimension "pyVersion"
-            python { version "2.7.10" }
+            python { version "2.7.14" }
         }
         py3 {
             dimension "pyVersion"

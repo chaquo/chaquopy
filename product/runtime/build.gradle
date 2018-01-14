@@ -23,7 +23,7 @@ archivesBaseName = "chaquopy_java"
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") { include "**/*.py" }
     destinationDir buildDir
-    archiveName Common.ASSET_CHAQUOPY
+    archiveName Common.ASSET_BOOTSTRAP
 }
 artifacts { chaquopyPython zipPython }
 

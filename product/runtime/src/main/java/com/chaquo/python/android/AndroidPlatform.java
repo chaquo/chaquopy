@@ -3,6 +3,7 @@ package com.chaquo.python.android;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
+import android.util.*;
 import com.chaquo.python.*;
 import java.io.*;
 import java.util.*;
@@ -15,9 +16,9 @@ public class AndroidPlatform extends Python.Platform {
     
     private static final List<String> BOOTSTRAP_PATH = new ArrayList<>();
     static {
-        BOOTSTRAP_PATH.add(Common.ASSET_CHAQUOPY);
         BOOTSTRAP_PATH.add(Common.ASSET_STDLIB);
-        BOOTSTRAP_PATH.add("lib-dynload/" + Build.CPU_ABI);
+        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP);
+        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP_NATIVE + "/" + Build.CPU_ABI);
     }
 
     private static final List<String> EXTRACT_ASSETS = new ArrayList<>();
@@ -27,10 +28,12 @@ public class AndroidPlatform extends Python.Platform {
         EXTRACT_ASSETS.add(Common.ASSET_TICKET);
     }
 
+    // The final path will be APP_PATH then BOOTSTRAP_PATH, in that order.
     private static final List<String> APP_PATH = new ArrayList<>();
     static {
         APP_PATH.add(Common.ASSET_APP);
         APP_PATH.add(Common.ASSET_REQUIREMENTS);
+        APP_PATH.add(Common.ASSET_STDLIB_NATIVE + "/" + Build.CPU_ABI + ".zip");
     }
 
     private static final String[] OBSOLETE_FILES = {
@@ -41,10 +44,16 @@ public class AndroidPlatform extends Python.Platform {
         // Renamed back to .zip in 1.1.0
         "chaquopy.mp3",
         "stdlib.mp3",
+
+        // Renamed to bootstrap.zip in 1.3.0
+        "chaquopy.zip",
+
+        // Split into bootstrap-native and stdlib-native/<abi>.zip in 1.3.0
+        "lib-dynload",
     };
 
     private static final String[] OBSOLETE_CACHE = {
-        // Renamed back to .zip in 1.1.0
+        // Renamed back to .zip in 1.1.0 (these are directories, not files)
         "AssetFinder/app.mp3",
         "AssetFinder/requirements.mp3",
     };
