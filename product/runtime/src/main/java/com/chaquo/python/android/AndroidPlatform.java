@@ -61,6 +61,7 @@ public class AndroidPlatform extends Python.Platform {
     /** @deprecated Internal use in chaquopy_java.pyx. */
     public Context mContext;
     private SharedPreferences sp;
+    private JSONObject buildJson;
 
     /** The given context must be an {@link android.app.Activity}, {@link android.app.Service} or
      * {@link android.app.Application} object from your app. The context is used only for
@@ -77,8 +78,7 @@ public class AndroidPlatform extends Python.Platform {
         try {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
             deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
-
-            JSONObject buildJson = extractAssets();
+            extractAssets();
             loadNativeLibs(Common.pyVersionShort(buildJson.getString("version")));
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
@@ -102,13 +102,14 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public void onStart(Python py) {
-        py.getModule("java.android").callAttr("initialize", mContext, APP_PATH.toArray());
+        py.getModule("java.android").callAttr(
+            "initialize", mContext, buildJson, APP_PATH.toArray());
     }
 
-    private JSONObject extractAssets() throws IOException, JSONException {
+    private void extractAssets() throws IOException, JSONException {
         AssetManager assets = mContext.getAssets();
         String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
-        JSONObject buildJson = new JSONObject(streamToString(assets.open(buildJsonPath)));
+        buildJson = new JSONObject(streamToString(assets.open(buildJsonPath)));
         JSONObject assetsJson = buildJson.getJSONObject("assets");
 
         // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so we'll
@@ -124,7 +125,6 @@ public class AndroidPlatform extends Python.Platform {
             }
         }
         spe.apply();
-        return buildJson;
     }
 
     private void extractAsset(AssetManager assets, JSONObject assetsJson, SharedPreferences.Editor spe,

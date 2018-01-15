@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from importlib import import_module
 import marshal
 import os
-from os.path import dirname, exists, join
+from os.path import dirname, exists, isdir, isfile, join
 import platform
 import shlex
 import sqlite3
@@ -21,8 +21,9 @@ import unittest
 if sys.version_info[0] < 3:
     from urllib2 import urlopen
 else:
-    from urllib.request import urlopen
+    import importlib.machinery
     from importlib import reload
+    from urllib.request import urlopen
 
 
 APP_ZIP = "app.zip"
@@ -226,6 +227,24 @@ class TestAndroidImport(unittest.TestCase):
                 r"TypeError: 'NoneType' object is not callable\n$".format(REQS_PATH))
         else:
             self.fail()
+
+    def test_extract_package(self):
+        import certifi
+        self.assertTrue(isfile(certifi.__file__))
+        self.assertRegexpMatches(certifi.__file__, r"/certifi/__init__.py$")
+        self.assertEqual(1, len(certifi.__path__))
+        self.assertTrue(isdir(certifi.__path__[0]))
+        self.assertRegexpMatches(certifi.core.__file__, r"^" + certifi.__path__[0])
+
+        self.assertTrue(isfile(certifi.core.__file__))
+        self.assertRegexpMatches(certifi.core.__file__, r"/certifi/core.py$")
+        self.assertFalse(hasattr(certifi.core, "__path__"))
+
+        for mod in [certifi, certifi.core]:
+            if sys.version_info[0] < 3:
+                self.assertFalse(hasattr(mod, "__loader__"))
+            else:
+                self.assertIsInstance(mod.__loader__, importlib.machinery.SourceFileLoader)
 
 
 class TestAndroidStdlib(unittest.TestCase):

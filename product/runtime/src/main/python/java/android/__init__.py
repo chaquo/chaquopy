@@ -9,10 +9,10 @@ import traceback
 from . import stream, importer
 
 
-def initialize(context, app_path):
+def initialize(context, build_json, app_path):
     stream.initialize()
     initialize_stdlib(context)
-    importer.initialize(context, app_path)
+    importer.initialize(context, build_json, app_path)
 
 
 def initialize_stdlib(context):

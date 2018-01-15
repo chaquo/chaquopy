@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function
 from distutils.dir_util import copy_tree
 import distutils.util
 from jproperties import Properties
+import json
 from kwonly_args import kwonly_defaults
 import os
 from os.path import abspath, dirname, join
@@ -19,9 +20,6 @@ class GradleTestCase(TestCase):
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
 
-    def assertIsFile(self, filename):
-        self.assertTrue(os.path.isfile(filename), filename)
-
     # Prints b as a multi-line string rather than a repr().
     def assertInLong(self, a, b, re=False, msg=None):
         try:
@@ -34,12 +32,14 @@ class GradleTestCase(TestCase):
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg)
 
+
 class Basic(GradleTestCase):
     def test_base(self):
         self.RunGradle("base")
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
+
 
 class AndroidPlugin(GradleTestCase):
     def test_misordered(self):
@@ -87,13 +87,13 @@ class PythonVersion(GradleTestCase):
 
     def test_variant(self):
         self.RunGradle("base", "PythonVersion/variant",
-                       variants={"py2-debug": {"version": "2.7"},
-                                 "py3-debug": {"version": "3.6m"}})
+                       variants={"py2-debug": dict(version="2.7.14"),
+                                 "py3-debug": dict(version="3.6.3")})
 
     def test_variant_merge(self):
         self.RunGradle("base", "PythonVersion/variant_merge",
-                       variants={"py2-debug": {"version": "2.7"},
-                                 "py3-debug": {"version": "3.6m"}})
+                       variants={"py2-debug": dict(version="2.7.14"),
+                                 "py3-debug": dict(version="3.6.3")})
 
     def test_variant_missing(self):
         run = self.RunGradle("base", "PythonVersion/variant_missing", succeed=False)
@@ -199,6 +199,23 @@ class PythonSrc(GradleTestCase):
     def test_set_root(self):
         self.RunGradle("base", "PythonSrc/set_root", app={"one.py": "one main2"},
                        classes=["One", "One$Main2"])
+
+
+class ExtractPackages(GradleTestCase):
+    def test_change(self):
+        run = self.RunGradle("base", "ExtractPackages/1", extract_packages=["alpha"])
+        run.apply_layers("ExtractPackages/2")
+        run.rerun(extract_packages=["alpha", "bravo.subpackage", "charlie"])
+
+    def test_variant(self):
+        self.RunGradle("base", "ExtractPackages/variant",
+                       variants={"red-debug": dict(extract_packages=["red"]),
+                                 "blue-debug": dict(extract_packages=["blue"])})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "ExtractPackages/variant_merge",
+                       variants={"red-debug": dict(extract_packages=["common"]),
+                                 "blue-debug": dict(extract_packages=["common", "blue"])})
 
 
 class BuildPython(GradleTestCase):
@@ -539,60 +556,73 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], version="2.7", classes=[], app=[],
-                  requirements=[], licensed_id=None):
+    def check_apk(self, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
+                  requirements=[], extract_packages=[], licensed_id=None):
         asset_dir = join(apk_dir, "assets/chaquopy")
-        self.test.assertEqual({"bootstrap-native", "stdlib-native", "app.zip", "bootstrap.zip",
-                               "build.json", "cacert.pem", "requirements.zip", "stdlib.zip",
-                               "ticket.txt"},
-                              set(os.listdir(asset_dir)))
+        self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",
+                               "cacert.pem", "requirements.zip", "stdlib-native", "stdlib.zip",
+                               "ticket.txt"],
+                              sorted(os.listdir(asset_dir)))
 
         # Python source
         app_zip = ZipFile(join(asset_dir, "app.zip"))
         # If app/src/main/python didn't already exist, the plugin should have created it.
-        self.test.assertEqual(set(app), set(name for name in app_zip.namelist()
-                                            if not name.endswith("/")))
+        self.test.assertEqual(sorted(app), sorted(name for name in app_zip.namelist()
+                                                  if not name.endswith("/")))
         if isinstance(app, dict):
             for name, text in app.items():
                 self.test.assertEqual(text, app_zip.read(name).decode().strip())
 
         # Python requirements
         reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
-        reqs_toplevel = set(path.partition("/")[0] for path in reqs_zip.namelist())
-        self.test.assertEqual(set(requirements), reqs_toplevel)
+        self.test.assertEqual(set(requirements),
+                              set(path.partition("/")[0] for path in reqs_zip.namelist()))
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
-        self.test.assertEqual(set(abis), set(os.listdir(bootstrap_native_dir)))
+        self.test.assertEqual(sorted(abis), sorted(os.listdir(bootstrap_native_dir)))
         for abi in abis:
-            self.test.assertEqual({"java", "_ctypes.so", "select.so"},
-                                  set(os.listdir(join(bootstrap_native_dir, abi))))
-            self.test.assertEqual({"__init__.py", "chaquopy.so"},
-                                  set(os.listdir(join(bootstrap_native_dir, abi, "java"))))
+            self.test.assertEqual(["_ctypes.so", "java", "select.so"],
+                                  sorted(os.listdir(join(bootstrap_native_dir, abi))))
+            self.test.assertEqual(["__init__.py", "chaquopy.so"],
+                                  sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
         # Python stdlib
         stdlib_native_dir = join(asset_dir, "stdlib-native")
-        self.test.assertEqual({a + ".zip" for a in abis},
-                              set(os.listdir(stdlib_native_dir)))
+        self.test.assertEqual([abi + ".zip" for abi in sorted(abis)],
+                              sorted(os.listdir(stdlib_native_dir)))
         for abi in abis:
-            self.test.assertEqual({"_multiprocessing.so", "_socket.so", "_sqlite3.so",
-                                   "_ssl.so", "pyexpat.so", "unicodedata.so"},
-                                  set(ZipFile(join(stdlib_native_dir, abi + ".zip")).namelist()))
+            stdlib_native_zip = ZipFile(join(stdlib_native_dir, abi + ".zip"))
+            self.test.assertEqual(["_multiprocessing.so", "_socket.so", "_sqlite3.so",
+                                   "_ssl.so", "pyexpat.so", "unicodedata.so"],
+                                  sorted(stdlib_native_zip.namelist()))
 
         # JNI libs
-        self.test.assertEqual(set(abis), set(os.listdir(join(apk_dir, "lib"))))
+        self.test.assertEqual(sorted(abis), sorted(os.listdir(join(apk_dir, "lib"))))
+        ver_suffix = version.rpartition(".")[0]
+        if ver_suffix.startswith("3"):
+            ver_suffix += "m"
         for abi in abis:
-            for filename in ["libchaquopy_java.so", "libcrystax.so",
-                             "libpython{}.so".format(version)]:
-                self.test.assertIsFile(join(apk_dir, "lib", abi, filename))
+            self.test.assertEqual(["libchaquopy_java.so", "libcrystax.so",
+                                   "libpython{}.so".format(ver_suffix)],
+                                  sorted(os.listdir(join(apk_dir, "lib", abi))))
 
         # Chaquopy runtime library
-        all_classes = dex_classes(join(apk_dir, "classes.dex"))
-        self.test.assertIn("com.chaquo.python.Python", all_classes)
+        actual_classes = dex_classes(join(apk_dir, "classes.dex"))
+        self.test.assertIn("com.chaquo.python.Python", actual_classes)
 
         # App Java classes
-        self.test.assertEqual(set(("chaquopy_test." + c) for c in classes),
-                              set(filter(lambda x: x.startswith("chaquopy_test"), all_classes)))
+        self.test.assertEqual(sorted(("chaquopy_test." + c) for c in classes),
+                              sorted(c for c in actual_classes if c.startswith("chaquopy_test")))
+
+        # build.json
+        DEFAULT_EXTRACT_PACKAGES = ["certifi"]
+        with open(join(asset_dir, "build.json")) as build_json_file:
+            build_json = json.load(build_json_file)
+        self.test.assertEqual(["assets", "extractPackages", "version"], sorted(build_json))
+        self.test.assertEqual(version, build_json["version"])
+        self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
+                              sorted(build_json["extractPackages"]))
 
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")

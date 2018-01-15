@@ -5,7 +5,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
 import org.gradle.util.*
-import org.json.JSONObject
+import org.json.*
 
 import java.nio.file.*
 import java.security.MessageDigest
@@ -396,6 +396,7 @@ class PythonPlugin implements Plugin<Project> {
         def stdlibConfig = getConfig(variant, "targetStdlib")
         def abiConfig = getConfig(variant, "targetAbis")
         def genTask = project.task(taskName("generate", variant, "assets")) {
+            inputs.property("python", python.serialize())
             inputs.files(reqsTask, mergeSrcTask, ticketTask)
             inputs.files(stdlibConfig, abiConfig)
             outputs.dir(assetBaseDir)
@@ -455,6 +456,7 @@ class PythonPlugin implements Plugin<Project> {
                 def buildJson = new JSONObject()
                 buildJson.put("version", python.version)
                 buildJson.put("assets", hashAssets(assetDir))
+                buildJson.put("extractPackages", new JSONArray(python.extractPackages))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
@@ -558,15 +560,20 @@ class PythonPlugin implements Plugin<Project> {
 class PythonExtension extends BaseExtension {
     String version
     String buildPython = "python"
-    List<String> staticProxy = new ArrayList<>();
+    Set<String> staticProxy = new TreeSet<>()
+    Set<String> extractPackages = new TreeSet<>(["certifi"])
     PipExtension pip = new PipExtension()
 
     String getVersionShort() {
         return Common.pyVersionShort(version)
     }
     
-    void staticProxy(String... args) {
-        staticProxy.addAll(Arrays.asList(args))
+    void staticProxy(String... modules) {
+        staticProxy.addAll(Arrays.asList(modules))
+    }
+
+    void extractPackages(String... packages) {
+        extractPackages.addAll(Arrays.asList(packages))
     }
 
     void pip(Closure closure) {
@@ -578,6 +585,7 @@ class PythonExtension extends BaseExtension {
         version = chooseNotNull(overlay.version, version)
         buildPython = chooseNotNull(overlay.buildPython, buildPython)
         staticProxy.addAll(overlay.staticProxy)
+        extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)
     }
 

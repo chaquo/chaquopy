@@ -10,6 +10,7 @@ import marshal
 import os
 from os.path import basename, dirname, exists, join
 import re
+import shutil
 import struct
 import sys
 import time
@@ -29,16 +30,20 @@ if six.PY3:
     from tokenize import detect_encoding
 
 
-def initialize(context, app_path):
-    sys.path_hooks.insert(0, partial(AssetFinder, context))
+def initialize(context, build_json, app_path):
+    ep_json = build_json.get("extractPackages")
+    extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
+
+    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     for i, path in enumerate(app_path):
         sys.path.insert(i, join("/android_asset", Common.ASSET_DIR, path))
 
 
 class AssetFinder(object):
-    def __init__(self, context, path):
+    def __init__(self, context, extract_packages, path):
         try:
             self.context = context
+            self.extract_packages = extract_packages
             self.path = path
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
@@ -62,7 +67,35 @@ class AssetFinder(object):
                     zip_info = self.zip_file.getinfo(prefix + infix + suffix)
                 except KeyError:
                     continue
-                return loader(self, mod_name, zip_info)
+
+                if infix == "/__init__" and mod_name in self.extract_packages:
+                    return ExtractLoader(mod_name, self.extract_package(prefix))
+                else:
+                    return loader(self, mod_name, zip_info)
+
+    def extract_package(self, package_subdir):
+        package_dir = join(self.extract_root, package_subdir)
+        if exists(package_dir):
+            shutil.rmtree(package_dir)
+        for info in self.zip_file.infolist():
+            if info.filename.startswith(package_subdir):
+                self.zip_file.extract(info, self.extract_root)
+        return package_dir
+
+
+# This is used to load packages listed in extractPackages. It causes the package and everything
+# in it to be loaded using the default filesystem mechanism and have __file__, __path__ and
+# __loader__ set accordingly. (In Python 3 we could have achieved this by deferring to the
+# default finder, but in Python 2 there is no such thing.)
+class ExtractLoader(object):
+    def __init__(self, mod_name, package_dir):
+        self.mod_name = mod_name
+        self.package_dir = package_dir
+
+    def load_module(self, mod_name):
+        assert mod_name == self.mod_name
+        imp.load_module(mod_name, None, self.package_dir, ("", "", imp.PKG_DIRECTORY))
+        return sys.modules[mod_name]
 
 
 class AssetLoader(object):
@@ -79,8 +112,8 @@ class AssetLoader(object):
             # time. And the ZipFile index is completely read during construction above, so
             # calling `getinfo` above is thread-safe. However, while actually reading files out
             # of the .zip, the AssetFile will be seeked, so we can only extract one file at a
-            # time. Also, there's a race condition in makedirs below, so let's just serialize
-            # at this level.
+            # time per .zip. Also, there's a race condition in makedirs below, so let's just
+            # serialize at this level.
             with self.finder.lock:
                 self.load_module_impl()
             # The module that ends up in sys.modules is not necessarily the one we just created
@@ -223,6 +256,7 @@ for abi in SUPPORTED_ABIS:
         break
 else:
     raise Exception("couldn't identify ABI: supported={}".format(SUPPORTED_ABIS))
+
 
 # These class names are based on the standard Python 3 loaders from importlib.machinery, though
 # their interfaces are somewhat different.
