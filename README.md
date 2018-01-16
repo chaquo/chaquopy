@@ -33,7 +33,7 @@ the generated .jar to other supported workstation OSs and do the same there.
 
 Run `gradlew gradle-plugin:writePom`.
 
-Copy .jar and .pom from gradle-plugin/build/libs to local and remote Maven repository.
+Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
 
 
 ## Demo app
@@ -46,18 +46,17 @@ files which require manual merging (e.g. build.gradle), examine them and update 
 repository as necessary. (If the script lists too many files, this is probably because of
 end-of-line issues: run it a second time and it should give the correct output.)
 
-Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
-SDK changes.
-
 "Generate Signed APK" in Android Studio for Python 2 and 3, and test all features on:
 
 * minSdkVersion emulator
 * targetSdkVersion emulator
 * Phone
 
-Upload APKs to Google Play. Update description and screenshots if necessary.
+Release APKs on Google Play. Update public/demo/CHANGELOG.md for demo app changes, and
+runtime/docs/sphinx/changelog.rst for SDK changes, and copy these into the Google Play release
+notes. Update description and screenshots if necessary.
 
-Copy APKs to local and remote Maven repository.
+Copy APKs to Maven repository.
 
 
 ## Documentation

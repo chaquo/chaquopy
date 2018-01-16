@@ -4,13 +4,13 @@ Chaquopy
 Setup instructions
 ==================
 
+Chaquopy is currently available for the following operating systems. If you're interested in
+using it on another platform, please `contact us <https://chaquo.com/chaquopy/contact/>`_.
+
 .. toctree::
    :maxdepth: 1
 
    android
-
-.. note:: If you're interested in using Chaquopy on another platform, please `contact us
-          <https://chaquo.com/chaquopy/contact/>`_.
 
 
 Reference

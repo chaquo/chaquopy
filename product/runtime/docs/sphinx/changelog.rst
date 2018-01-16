@@ -1,7 +1,19 @@
 Change log
 ##########
 
-1.2.0 (2018-01-17)
+1.3.0 (2018-01-15)
+==================
+
+* The following things now return reasonable values: `sys.argv`, `sys.executable`, and
+  `platform.platform()`.
+* The following modules now work correctly: sqlite3, ssl (`#23
+  <https://github.com/chaquo/chaquopy/issues/23>`_), and tempfile. (Requires python.version to
+  be 2.7.14 or 3.6.3.)
+* `sys.stdout` and `sys.stderr` are now directed to the Android logcat.
+* Add `extractPackages`, and use it by default for `certifi
+  <https://pypi.python.org/pypi/certifi>`_.
+
+1.2.0 (2018-01-07)
 ==================
 
 * Python source directory locations can now be configured in the `sourceSets` block, just like
@@ -11,9 +23,9 @@ Change log
 * Generated `static_proxy` Java files no longer produce build warnings.
 * Ensure pip is re-run if local requirements or wheel file changes.
 * Add Python 2.7.14.
-* Include `distutils` and `doctest` modules (`#20
-  <https://github.com/chaquo/chaquopy/issues/20>`_). For Python 2 apps, this also requires
-  upgrading to Python 2.7.14.
+* Include distutils and doctest modules (`#20
+  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires python.version to be 2.7.14 or
+  3.6.3.)
 
 1.1.0 (2017-12-22)
 ==================

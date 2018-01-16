@@ -51,7 +51,7 @@ android {
             // Python unit tests
             pip {
                 install "MarkupSafe==1.0"
-                install "certifi==2017.11.5"
+                install "certifi==2017.11.5"  // This is in the default extractPackages list.
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")

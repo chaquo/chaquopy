@@ -157,16 +157,6 @@ usually an error if the source directories for a given build variant include mul
 the same filename. This is only permitted if the duplicate files are all empty, such as may
 happen with `__init__.py`.
 
-If your Python source tree contains non-Python resource files which you need to load at
-runtime, don't locate them using `__file__`, because they're stored in the APK assets and don't
-exist as separate files. Instead, load them using :any:`pkgutil.get_data`. For example, to load
-`some/package/subdir/README.txt` from within `some/package/module.py`:
-
-.. code-block:: python
-
-    readme = pkgutil.get_data(__name__, "subdir/README.txt")
-    # To read it like a file, use io.StringIO(readme.decode())
-
 
 Startup
 -------
@@ -271,6 +261,36 @@ simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`
 Within the modules, static proxy classes must be declared using the syntax described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
+
+Resource files
+--------------
+
+By default, Python modules are loaded directly from the APK assets at runtime and don't exist
+as separate files. Because of this, any code which depends upon :any:`__file__` to locate
+resource files will fail. There are two ways of dealing with this.
+
+The most efficient way is to change the code to use :any:`pkgutil.get_data` instead. For
+example, to load `some/package/subdir/README.txt` from within `some/package/module.py`:
+
+.. code-block:: python
+
+    readme = pkgutil.get_data(__name__, "subdir/README.txt")
+    # To read it like a file, use io.StringIO(readme.decode())
+
+If this is not feasible (e.g. the code is in an external requirement), then you can specify
+certain Python packages to extract at runtime using the `extractPackages` setting. For
+example::
+
+    python {
+        extractPackages "somepackage", "some.subpackage"
+    }
+
+Extracted packages will load slower and use more storage space, so you should specify the
+deepest possible package which contains both the module on which `__file__` is looked up, and
+the files being loaded.
+
+`extractPackages` is used by default for certain PyPI packages which are known to require it.
+If you discover any more, please `let us know <https://github.com/chaquo/chaquopy/issues>`_.
 
 Licensing
 =========
