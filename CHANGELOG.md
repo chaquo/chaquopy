@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to Chaquopy itself, see
 https://chaquo.com/chaquopy/doc/current/changelog.html.
 
+## 1.3.0 (2018-01-15)
+
+* Stop logging stdout and stderr: Chaquopy now does this automatically.
+
 ## 1.2.0 (2018-01-07)
 
 * Provide separate icons for Python 2 and Python 3.

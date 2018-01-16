@@ -8,13 +8,22 @@ from contextlib import contextmanager
 from importlib import import_module
 import marshal
 import os
-from os.path import exists, join
+from os.path import dirname, exists, isdir, isfile, join
+import platform
+import shlex
+import sqlite3
+from subprocess import check_output
 import sys
+import tempfile
 from traceback import format_exc
 import unittest
 
-if sys.version_info[0] >= 3:
+if sys.version_info[0] < 3:
+    from urllib2 import urlopen
+else:
+    import importlib.machinery
     from importlib import reload
+    from urllib.request import urlopen
 
 
 APP_ZIP = "app.zip"
@@ -22,15 +31,21 @@ REQS_ZIP = "requirements.zip"
 APP_PATH, REQS_PATH = (join("/android_asset/chaquopy", zip) for zip in [APP_ZIP, REQS_ZIP])
 
 try:
-    from android.os import Build  # noqa: F401
-    from java.android import importer
-    REQS_CACHE = join(__loader__.finder.context.getCacheDir().toString(),  # noqa: F821
-                      "chaquopy/AssetFinder", REQS_ZIP)
+    from android.os import Build
 except ImportError:
-    pass
+    API_LEVEL = None
+else:
+    API_LEVEL = Build.VERSION.SDK_INT
+    from java.android import importer
+    context = __loader__.finder.context  # noqa: F821
+    REQS_CACHE = join(context.getCacheDir().toString(), "chaquopy/AssetFinder", REQS_ZIP)
 
 
-@unittest.skipIf("Build" not in globals(), "Not running on Android")
+def setUpModule():
+    if API_LEVEL is None:
+        raise unittest.SkipTest("Not running on Android")
+
+
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
@@ -212,3 +227,107 @@ class TestAndroidImport(unittest.TestCase):
                 r"TypeError: 'NoneType' object is not callable\n$".format(REQS_PATH))
         else:
             self.fail()
+
+    def test_extract_package(self):
+        import certifi
+        self.assertTrue(isfile(certifi.__file__))
+        self.assertRegexpMatches(certifi.__file__, r"/certifi/__init__.py$")
+        self.assertEqual(1, len(certifi.__path__))
+        self.assertTrue(isdir(certifi.__path__[0]))
+        self.assertRegexpMatches(certifi.core.__file__, r"^" + certifi.__path__[0])
+
+        self.assertTrue(isfile(certifi.core.__file__))
+        self.assertRegexpMatches(certifi.core.__file__, r"/certifi/core.py$")
+        self.assertFalse(hasattr(certifi.core, "__path__"))
+
+        for mod in [certifi, certifi.core]:
+            if sys.version_info[0] < 3:
+                self.assertFalse(hasattr(mod, "__loader__"))
+            else:
+                self.assertIsInstance(mod.__loader__, importlib.machinery.SourceFileLoader)
+
+
+class TestAndroidStdlib(unittest.TestCase):
+
+    def test_os(self):
+        self.assertEqual("posix", os.name)
+
+    def test_platform(self):
+        # This depends on sys.executable existing.
+        p = platform.platform()
+        self.assertRegexpMatches(p, r"^Linux")
+
+    def test_sqlite(self):
+        conn = sqlite3.connect(":memory:")
+        conn.execute("create table test (a text, b text)")
+        conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
+        cur = conn.execute("select b from test where a = 'bravo'")
+        self.assertEqual([("two",)], cur.fetchall())
+
+    def test_ssl(self):
+        resp = urlopen("https://chaquo.com/chaquopy/")
+        self.assertEqual(200, resp.getcode())
+        self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
+
+    def test_sys(self):
+        self.assertEqual([""], sys.argv)
+        self.assertTrue(exists(sys.executable), sys.executable)
+        self.assertRegexpMatches(sys.platform, r"^linux")
+
+    def test_tempfile(self):
+        with tempfile.NamedTemporaryFile() as f:
+            self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
+                             dirname(f.name))
+
+
+class TestAndroidStreams(unittest.TestCase):
+
+    def setUp(self):
+        from android.util import Log
+        Log.i(*self.get_marker())
+        self.expected = []
+
+    def add(self, ignored, expected):
+        self.expected += expected
+
+    def tearDown(self):
+        actual = None
+        marker = "I/{}: {}".format(*self.get_marker())
+        for line in check_output(shlex.split("logcat -d -v tag")).decode("UTF-8").splitlines():
+            if line == marker:
+                actual = []
+            elif actual is not None and "/python.std" in line:
+                actual.append(line)
+        self.assertEqual(self.expected, actual)
+
+    def get_marker(self):
+        cls_name, test_name = self.id().split(".")[-2:]
+        return cls_name, test_name
+
+    def test_basic(self):
+        self.add(sys.stdout.write("a"),            ["I/python.stdout: a"])
+        self.add(sys.stdout.write("Hello world"),  ["I/python.stdout: Hello world"])
+        self.add(sys.stderr.write("Hello stderr"), ["W/python.stderr: Hello stderr"])
+        self.add(sys.stdout.write(" "),            ["I/python.stdout:  "])
+        self.add(sys.stdout.write("  "),           ["I/python.stdout:   "])
+
+        # Empty lines can't be logged, so we change them to a space. Empty strings, on the
+        # other hand, should be ignored.
+        self.add(sys.stdout.write(""),             [])
+        self.add(sys.stdout.write("\n"),           ["I/python.stdout:  "])
+        self.add(sys.stdout.write("\na"),          ["I/python.stdout:  ",
+                                                    "I/python.stdout: a"])
+        self.add(sys.stdout.write("a\n"),          ["I/python.stdout: a"])
+        self.add(sys.stdout.write("a\n\n"),        ["I/python.stdout: a",
+                                                    "I/python.stdout:  "])
+        self.add(sys.stdout.write("a\nb"),         ["I/python.stdout: a",
+                                                    "I/python.stdout: b"])
+        self.add(sys.stdout.write("a\n\nb"),       ["I/python.stdout: a",
+                                                    "I/python.stdout:  ",
+                                                    "I/python.stdout: b"])
+
+    # The maximum line length is 4060.
+    def test_long_line(self):
+        self.add(sys.stdout.write("foobar" * 700),
+                 ["I/python.stdout: " + ("foobar" * 676) + "foob",
+                  "I/python.stdout: ar" + ("foobar" * 23)])

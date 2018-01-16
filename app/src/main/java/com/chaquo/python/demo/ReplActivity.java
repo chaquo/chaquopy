@@ -4,6 +4,7 @@ import android.graphics.*;
 import android.os.*;
 import android.text.*;
 import android.text.style.*;
+import android.util.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
@@ -77,11 +78,12 @@ public class ReplActivity extends ConsoleActivity {
     }
 
     private void push(String input) {
-        append(getPrompt());
-        SpannableString spannableInput = new SpannableString(input);
-        spannableInput.setSpan(new StyleSpan(Typeface.BOLD), 0, input.length(), 0);
+        String prompt = getPrompt();
+        SpannableString spannableInput = new SpannableString(prompt + input + "\n");
+        spannableInput.setSpan(new StyleSpan(Typeface.BOLD), prompt.length(),
+                               spannableInput.length(), 0);
+        Log.i("ReplActivity", spannableInput.toString());
         append(spannableInput);
-        append("\n");
 
         state.more = state.console.callAttr("push", input).toJava(Boolean.class);
         etInput.setHint(getPrompt());

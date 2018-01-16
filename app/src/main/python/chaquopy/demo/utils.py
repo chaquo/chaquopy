@@ -1,22 +1,21 @@
+from io import StringIO
 from os.path import join
-import sys
-
-if sys.version_info[0] == 2:
-    from StringIO import StringIO
-else:
-    from io import StringIO
 
 
-class ForwardingOutputStream(StringIO):
-    def __init__(self, obj, method):
+# Passes each write to the underlying stream, and also to the given method (which must take a
+# single String argument) on the given Java object.
+class JavaTeeOutputStream(StringIO):
+    def __init__(self, stream, obj, method):
         StringIO.__init__(self)
+        self.stream = stream
         self.func = getattr(obj, method)
 
     def write(self, s):
-        StringIO.write(self, s)
-        self.func(self.getvalue())
-        self.seek(0)
-        self.truncate(0)
+        self.stream.write(s)
+        self.func(s)
+
+    def flush(self):
+        self.stream.flush()
 
 
 ASSET_SOURCE_DIR = "source"
