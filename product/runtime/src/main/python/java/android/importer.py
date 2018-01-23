@@ -69,7 +69,10 @@ class AssetFinder(object):
                     continue
 
                 if infix == "/__init__" and mod_name in self.extract_packages:
-                    return ExtractLoader(mod_name, self.extract_package(prefix))
+                    # See note at other use of lock below.
+                    with self.lock:
+                        package_dir = self.extract_package(prefix)
+                    return ExtractLoader(mod_name, package_dir)
                 else:
                     return loader(self, mod_name, zip_info)
 
