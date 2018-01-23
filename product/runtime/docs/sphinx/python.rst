@@ -56,11 +56,14 @@ Data types are converted between Python and Java as follows:
 * Java `null` corresponds to Python `None`.
 
 * The Java boolean, integer and floating point types correspond to Python `bool`, `int` and
-  `float` respectively. (The Python 2 types `int` and `long` are treated as equivalent.)
-  Auto-boxing and unboxing is also implemented.
+  `float` respectively. (In Python 2, `long` is accepted for Python-to-Java conversions, and is
+  used when necessary in Java-to-Python conversions.)
+
+* When Java code uses a "boxed" type, auto-boxing is done when converting from Python to Java,
+  and auto-unboxing when converting from Java to Python.
 
 * Java `String` and `char` both correspond to a Python Unicode string. (In Python 2, a byte
-  string is also accepted.)
+  string is also accepted, as long as it only contains ASCII characters.)
 
 * A Java object is represented as a :any:`jclass` object.
 

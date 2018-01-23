@@ -29,6 +29,8 @@ class LogOutputStream(StringIO):
     # produce multiple log messages. The only alternatives would be buffering, or ignoring
     # empty lines, both of which would be bad for debugging.
     def write(self, s):
+        if sys.version_info[0] < 3 and isinstance(s, str):
+            s = s.decode("UTF-8", "replace")
         for line in s.splitlines():
             line = line or " "  # Empty log messages are ignored.
             while True:

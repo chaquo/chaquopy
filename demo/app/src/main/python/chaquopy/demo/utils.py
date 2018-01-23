@@ -1,5 +1,8 @@
+from __future__ import absolute_import, division, print_function
+
 from io import StringIO
 from os.path import join
+import sys
 
 
 # Passes each write to the underlying stream, and also to the given method (which must take a
@@ -11,6 +14,8 @@ class JavaTeeOutputStream(StringIO):
         self.func = getattr(obj, method)
 
     def write(self, s):
+        if sys.version_info[0] < 3 and isinstance(s, str):
+            s = s.decode("UTF-8", "replace")
         self.stream.write(s)
         self.func(s)
 
