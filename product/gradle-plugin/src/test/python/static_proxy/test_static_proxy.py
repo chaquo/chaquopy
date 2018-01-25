@@ -35,6 +35,14 @@ class TestStaticProxy(FilterWarningsCase):
         self.run_json("find_module/path3", "no_init_py.mod", False,
                       "Module not found: no_init_py.mod")
 
+    def test_encoding(self):
+        self.run_json("encoding", "utf8")
+        if sys.version_info[0] >= 3:  # PEP 3131
+            self.run_json("encoding", "utf8_identifiers")
+        self.run_json("encoding", "big5_marked")  # PEP 263
+        self.run_json("encoding", "big5_unmarked", False,
+                      "'utf-?8' codec can't decode byte 0xa4", re=True)
+
     def test_errors(self):
         for name in ["empty", "no_proxies", "conditional"]:
             self.run_json("errors", name, False, name + ".py: no static_proxy classes found")
@@ -117,7 +125,8 @@ class TestStaticProxy(FilterWarningsCase):
             expected = join(path[0], modules[0].replace(".", "/")) + ".json"
 
         process = subprocess.Popen(
-            [sys.executable, join(main_python_dir, "chaquopy/static_proxy.py"),
+            [sys.executable,
+             "-m", "chaquopy.static_proxy",
              "--path", os.pathsep.join(join(data_dir, d) for d in path),
              "--json"] + modules,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -128,12 +137,12 @@ class TestStaticProxy(FilterWarningsCase):
             if not succeed:
                 self.dump_run("run unexpectedly succeeded", stdout, stderr)
             try:
-                result = json.loads(stdout)
+                actual = json.loads(stdout)
             except ValueError:
                 print("Invalid output\n" + stdout)
                 raise
-            with open(join(data_dir, expected)) as expected_file:
-                self.assertEqual(json.load(expected_file), result)
+            with open(join(data_dir, expected), "rb") as expected_file:
+                self.assertEqual(json.loads(expected_file.read()), actual)
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status), stdout, stderr)

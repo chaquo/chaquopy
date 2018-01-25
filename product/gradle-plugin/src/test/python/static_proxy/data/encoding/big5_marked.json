@@ -1,0 +1,6 @@
+[
+    {
+        "name": "Chinese", "package": "中文", "module": "big5_marked", "modifiers": "public",
+        "extends": null, "implements": [], "constructors": [], "methods": []
+    }
+]

@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Olé", "package": "utf8_identifiers", "module": "utf8_identifiers",
+        "modifiers": "public", "extends": null, "implements": [], "constructors": [], "methods": []
+    },
+    {
+        "name": "中文", "package": "utf8_identifiers", "module": "utf8_identifiers",
+        "modifiers": "public", "extends": null, "implements": [], "constructors": [], "methods": []
+    }
+]
