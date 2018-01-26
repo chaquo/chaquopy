@@ -311,6 +311,16 @@ class TestAndroidStreams(unittest.TestCase):
         self.add(sys.stdout.write(" "),            ["I/python.stdout:  "])
         self.add(sys.stdout.write("  "),           ["I/python.stdout:   "])
 
+        non_ascii = [
+            (b"ol\xc3\xa9",               u"ol\u00e9"),         # Spanish
+            (b"\xe4\xb8\xad\xe6\x96\x87", u"\u4e2d\u6587"),     # Chinese
+        ]
+        for b, u in non_ascii:
+            expected = [u"I/python.stdout: " + u]
+            self.add(sys.stdout.write(u), expected)
+            if sys.version_info[0] < 3:
+                self.add(sys.stdout.write(b), expected)
+
         # Empty lines can't be logged, so we change them to a space. Empty strings, on the
         # other hand, should be ignored.
         self.add(sys.stdout.write(""),             [])

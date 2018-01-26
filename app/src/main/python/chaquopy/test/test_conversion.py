@@ -170,10 +170,29 @@ class TestConversion(FilterWarningsCase):
             self.verify_value(self.obj, name, value, context=self.conv_error)
 
     def verify_string(self, obj, name):
-        for val in ["", "h", "hello",   # Will be byte strings in Python 2
+        for val in [u"", u"h", u"hello",
                     u"\u0000",          # Null character       # (handled differently by
                     u"\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
             self.verify_value(obj, name, val)
+
+        # Byte strings can be converted to Java Strings only on Python 2. However, if the
+        # target type is Object, Python 3 will fall back on the default conversion of a Python
+        # iterable to Object[].
+        context = verify = None
+        if name == "Object":
+            def verify(expected, actual):
+                self.assertEqual(expected, actual)
+                self.assertIsInstance(actual, (unicode if sys.version_info[0] < 3  # noqa: F821
+                                               else jarray("Ljava/lang/Object;")))
+        elif sys.version_info[0] >= 3:
+            context = self.conv_error
+        for val in [b"", b"h", b"hello"]:
+            self.verify_value(obj, name, val, context=context, verify=verify)
+
+        # Even on Python 2, only ASCII byte strings can be converted.
+        if sys.version_info[0] < 3:
+            self.verify_value(obj, name, b"\x99",
+                              context=self.assertRaisesRegexp(UnicodeDecodeError, "'ascii' codec"))
 
     def test_class(self):
         for name in ["Klass", "Object"]:
