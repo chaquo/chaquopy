@@ -141,8 +141,8 @@ global_class("com.chaquo.python.StaticProxy", cls_dict={"__init__": StaticProxy_
 
 # Member decorators currently have no effect at runtime.
 def constructor(arg_types, *, modifiers="public", throws=None):
-    """Generates a Java constructor. This decorator can only be used on the `__init__` method. Note
-    there is no return type.
+    """Same as :any:`method`, except it generates a Java constructor. This decorator can only be
+    used on the `__init__` method. Note there is no return type.
     """
     return lambda f: f
 

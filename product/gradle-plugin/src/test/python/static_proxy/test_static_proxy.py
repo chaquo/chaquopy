@@ -142,7 +142,7 @@ class TestStaticProxy(FilterWarningsCase):
                 print("Invalid output\n" + stdout)
                 raise
             with open(join(data_dir, expected), "rb") as expected_file:
-                self.assertEqual(json.loads(expected_file.read()), actual)
+                self.assertEqual(json.loads(expected_file.read().decode("utf-8")), actual)
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status), stdout, stderr)

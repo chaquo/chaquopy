@@ -1,6 +1,12 @@
 Change log
 ##########
 
+1.3.1 (2018-01-26)
+==================
+
+* Static proxy generator now handles non-ASCII source files correctly (`#27
+  <https://github.com/chaquo/chaquopy/issues/27>`_).
+
 1.3.0 (2018-01-15)
 ==================
 

@@ -19,24 +19,19 @@ Create product/local.properties with the properties listed in product/runtime/bu
 
 # Release procedure
 
-## Pre-release tests
-
-Test demo app (any device, any Python version: other combinations will be covered below).
-
-Test pkgtest app on emulator and phone for both Python 2 and 3.
-
-
 ## Gradle plugin
 
 Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are running, copy
 the generated .jar to other supported workstation OSs and do the same there.
 
-Run `gradlew gradle-plugin:writePom`.
-
-Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
+Test pkgtest app on emulator and phone for both Python 2 and 3.
 
 
 ## Demo app
+
+Run `gradlew gradle-plugin:writePom`.
+
+Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
 
 Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
@@ -52,9 +47,9 @@ end-of-line issues: run it a second time and it should give the correct output.)
 * targetSdkVersion emulator
 * Phone
 
-Release APKs on Google Play. Update public/demo/CHANGELOG.md for demo app changes, and
-runtime/docs/sphinx/changelog.rst for SDK changes, and copy these into the Google Play release
-notes. Update description and screenshots if necessary.
+Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
+SDK changes, and copy these into the Google Play release notes. Activate releases, and update
+description and screenshots if necessary.
 
 Copy APKs to Maven repository.
 

@@ -289,25 +289,25 @@ Simple example (for more examples, see the `demo app
 and `unit tests
 <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__)::
 
-    # Python code                                 // Java equivalent
-    from com.example import Base                  import com.example.Base;
+    # Python code                                     // Java equivalent
+    from com.example import Base, Iface1, Iface1      import com.example.*;
     from java.lang import String, Exception
 
-    class C(static_proxy(Base)):                  class C extends Base {
+    class C(static_proxy(Base, Iface1, Iface2)):      class C extends Base implements Iface1, Iface2 {
 
-        @constructor([jint, String])                  public C(int i, String s) {
-        def __init__(self, i, s):                         ...
-            ...                                       }
+        @constructor([jint, String])                      public C(int i, String s) {
+        def __init__(self, i, s):                             ...
+            ...                                           }
 
-        @method(jvoid, [int],                         public void f(int x) throws Exception {
-                throws=[Exception])                       ...
-        @Override(String, [String],                   }
-                  modifiers="protected")
-        def f(self, x):                               @Override
-            ...                                       protected String f(String x) {
-                                                          ...
+        @method(jvoid, [int], throws=[Exception])         public void f(int x) throws Exception {
+                                                              ...
+                                                          }
+
+        @Override(String, [String],                       @Override
+                  modifiers="protected")                  protected String f(String x) {
+        def f(self, x):                                       ...
+            ...                                           }
                                                       }
-                                                  }
 
 Because the :ref:`static proxy generator <static-proxy-generator>` works by static analysis of the
 Python source code, there are some restrictions on the code's structure:
