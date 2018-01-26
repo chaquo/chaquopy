@@ -1,0 +1,29 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+
+    // Android Gradle plugin version 3.0 no longer requires this directive, but if it is
+    // specified then it will be ignored unless it's this version or higher. Older versions of
+    // the plugin do require this directive, and seem to work fine with this version.
+    buildToolsVersion "26.0.2"
+
+    aaptOptions {
+        noCompress = "alpha"
+    }
+
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            version "2.7.14"
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+}

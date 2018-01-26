@@ -34,27 +34,10 @@ class PythonPlugin implements Plugin<Project> {
         android = project.android
         checkAndroidPluginVersion()
 
+        extendAaptOptions()
         extendProductFlavor(android.defaultConfig)
         android.productFlavors.all { extendProductFlavor(it) }
         extendSourceSets()
-
-        // For extraction performance, we want to avoid compressing these files a second time, but
-        // .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
-        // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
-        //
-        // We don't want to set noCompress "zip" because the user might have an uncompressed ZIP
-        // which they were relying on the APK to compress. Luckily this option works just as well
-        // with entire filenames. Unluckily, it replaces the existing list rather than adds to it.
-        // So if the user's build.gradle uses it as well, our list will be lost (TODO #5353).
-        android.aaptOptions {
-            def filenames = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP, Common.ASSET_REQUIREMENTS,
-                             Common.ASSET_STDLIB]
-            for (abi in Common.ABIS) {
-                filenames.add("${abi}.zip")
-            }
-            noCompress(filenames as String[])
-        }
-
         setupDependencies()
         project.afterEvaluate { afterEvaluate() }
     }
@@ -93,10 +76,62 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
+    // For extraction performance, we want to avoid compressing our .zip files a second time,
+    // but .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
+    // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
+    // We don't want to set noCompress "zip" because the user might have an uncompressed .zip
+    // which they were relying on the APK to compress.
+    //
+    // Luckily this option works just as well with entire filenames. Unluckily, it replaces the
+    // existing list rather than adds to it, so if we only called noCompress now, it would be lost
+    // if the build.gradle used it as well. afterEvaluate is too late to do this, as the Android
+    // plugin's own afterEvaluate has already been run by that point and it's copied the noCompress
+    // settings elsewhere.
+    void extendAaptOptions() {
+        def ao = android.aaptOptions
+
+        def originalSet = ao.getClass().getMethod("noCompress", [String[].class] as Class[])
+        def newSet = {String... nc ->
+            def mergedNc = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP, Common.ASSET_REQUIREMENTS,
+                            Common.ASSET_STDLIB]
+            for (abi in Common.ABIS) {
+                mergedNc.add("${abi}.zip")
+            }
+            mergedNc.addAll(nc)
+            originalSet.invoke(ao, [mergedNc as String[]] as Object[])
+        }
+        ao.metaClass.noCompress = newSet
+
+        // It also defines a 1-argument overload for some reason. (The metaclass assignment operator
+        // will create overloads if closure parameter types are different.)
+        ao.metaClass.noCompress = { String nc -> newSet(nc) }
+
+        // We don't currently override setNoCompress to handle `=` notation. Unlike elsewhere in
+        // the Android plugin, it doesn't accept an Iterable, only a single String or a String[]
+        // array, which would require the syntax `[...] as String[]`. I tried overriding it to
+        // support this anyway, but the array somehow got passed straight through as if it was a
+        // String, ignoring the parameter type declarations on the closures.
+        //
+        // From searches I couldn't find an example of anyone actualy using `=` notation here, so
+        // the current situation is probably fine. However, we'll check and display a warning just
+        // in case.
+        project.afterEvaluate {
+            if (! ao.noCompress.contains(Common.ASSET_APP)) {
+                println("Warning: aaptOptions.noCompress has been overridden: this may reduce " +
+                        "Chaquopy performance. Consider replacing `noCompress =` with simply " +
+                        "`noCompress`.")
+            }
+        }
+
+        // Set initial state.
+        ao.noCompress()
+    }
+
     void extendProductFlavor(ExtensionAware ea) {
         ea.extensions.create(NAME, PythonExtension)
     }
 
+    // TODO #5341: support setRoot
     void extendSourceSets() {
         android.sourceSets.all { sourceSet ->
             sourceSet.metaClass.pyDirSet = sourceSet.java.getClass().newInstance(
@@ -122,7 +157,7 @@ class PythonPlugin implements Plugin<Project> {
 
     void afterEvaluate() {
         Task buildPackagesTask = createBuildPackagesTask()
-
+        
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
             python.mergeFrom(android.defaultConfig.python)

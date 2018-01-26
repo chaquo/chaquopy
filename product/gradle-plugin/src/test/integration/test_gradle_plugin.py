@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
 import distutils.util
+from functools import partial
 from jproperties import Properties
 import json
 from kwonly_args import kwonly_defaults
@@ -11,7 +12,7 @@ import re
 import subprocess
 import sys
 from unittest import skip, TestCase
-from zipfile import ZipFile, ZIP_STORED
+from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 
 class GradleTestCase(TestCase):
@@ -61,6 +62,31 @@ class AndroidPlugin(GradleTestCase):
         run = self.RunGradle("base", "AndroidPlugin/new", succeed=False)
         self.assertInLong("does not work with Android Gradle plugin version 9.9.9-alpha1",
                           run.stderr)
+
+
+# Verify that the user can use noCompress without interfering with our use of it.
+# We test both 1 and 2-argument calls because of the way the overloads are defined.
+class NoCompress(GradleTestCase):
+    def test_1(self):
+        self.RunGradle("base", "Basic/nocompress_1",
+                       extra_check=partial(self.check, alpha=ZIP_STORED,
+                                           bravo=ZIP_DEFLATED, charlie=ZIP_DEFLATED))
+
+    def test_2(self):
+        self.RunGradle("base", "Basic/nocompress_2",
+                       extra_check=partial(self.check, alpha=ZIP_STORED,
+                                           bravo=ZIP_STORED, charlie=ZIP_DEFLATED))
+
+    def test_assign(self):
+        with self.assertRaisesRegexp(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
+            run = self.RunGradle("base", "Basic/nocompress_assign", run=False)
+            run.rerun()
+        self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
+
+    def check(self, apk_zip, apk_dir, **kwargs):
+        for filename, expected in kwargs.items():
+            info = apk_zip.getinfo("assets/file." + filename)
+            self.assertEqual(expected, info.compress_type)
 
 
 class ApiLevel(GradleTestCase):
@@ -462,7 +488,7 @@ repo_root = abspath(join(integration_dir, "../../../../.."))
 
 class RunGradle(object):
     @kwonly_defaults
-    def __init__(self, test, key=None, *layers, **kwargs):
+    def __init__(self, test, run=True, key=None, *layers, **kwargs):
         self.test = test
 
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
@@ -474,7 +500,8 @@ class RunGradle(object):
         os.makedirs(self.project_dir)
         self.apply_layers(*layers)
         self.apply_key(key)
-        self.rerun(**kwargs)
+        if run:
+            self.rerun(**kwargs)
 
     def apply_layers(self, *layers):
         for layer in layers:
@@ -509,21 +536,17 @@ class RunGradle(object):
                     apk_filename = join(outputs_apk_dir, variant.replace("-", "/"),
                                         "app-{}.apk".format(variant))   # Android plugin 3.x
 
-                apk_file = ZipFile(apk_filename)
-                for info in apk_file.infolist():
-                    if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
-                        self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
-
+                apk_zip = ZipFile(apk_filename)
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
                     rmtree(apk_dir)
                 os.makedirs(apk_dir)
-                apk_file.extractall(apk_dir)
+                apk_zip.extractall(apk_dir)
 
                 merged_kwargs = kwargs.copy()
                 if isinstance(variants, dict):
                     merged_kwargs.update(variants[variant])
-                self.check_apk(apk_dir, **merged_kwargs)
+                self.check_apk(apk_zip, apk_dir, **merged_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
@@ -556,8 +579,12 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     @kwonly_defaults
-    def check_apk(self, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
-                  requirements=[], extract_packages=[], licensed_id=None):
+    def check_apk(self, apk_zip, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
+                  requirements=[], extract_packages=[], licensed_id=None, extra_check=None):
+        for info in apk_zip.infolist():
+            if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
+                self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
+
         asset_dir = join(apk_dir, "assets/chaquopy")
         self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",
                                "cacert.pem", "requirements.zip", "stdlib-native", "stdlib.zip",
@@ -631,6 +658,9 @@ class RunGradle(object):
                                    "--quiet", "--ticket", ticket_filename, "--app", licensed_id])
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
+
+        if extra_check:
+            extra_check(apk_zip, apk_dir)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +
