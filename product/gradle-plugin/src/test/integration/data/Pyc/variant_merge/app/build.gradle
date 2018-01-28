@@ -11,27 +11,24 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython "python-red"
             version "2.7.14"
-            pip {
-                options "--no-index"
-                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
-                install "apple"
-            }
+            pyc { stdlib false }
         }
         ndk {
             abiFilters "x86"
         }
     }
 
-    flavorDimensions "buildPython"
+    flavorDimensions "color"
     productFlavors {
         red {
-            dimension "buildPython"
+            dimension "color"
         }
         blue {
-            dimension "buildPython"
-            python { buildPython "python-blue" }
+            dimension "color"
+            python {
+                pyc { stdlib true }
+            }
         }
     }
 

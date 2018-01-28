@@ -35,7 +35,7 @@ class PythonPlugin implements Plugin<Project> {
         checkAndroidPluginVersion()
 
         extendAaptOptions()
-        extendProductFlavor(android.defaultConfig)
+        extendProductFlavor(android.defaultConfig).setDefaults()
         android.productFlavors.all { extendProductFlavor(it) }
         extendSourceSets()
         setupDependencies()
@@ -127,8 +127,10 @@ class PythonPlugin implements Plugin<Project> {
         ao.noCompress()
     }
 
-    void extendProductFlavor(ExtensionAware ea) {
-        ea.extensions.create(NAME, PythonExtension)
+    PythonExtension extendProductFlavor(ExtensionAware ea) {
+        def python = new PythonExtension()
+        ea.extensions.add(NAME, python)
+        return python
     }
 
     // TODO #5341: support setRoot
@@ -191,7 +193,9 @@ class PythonPlugin implements Plugin<Project> {
     void createConfigs(variant, PythonExtension python) {
         def stdlibConfig = configName(variant, "targetStdlib")
         project.configurations.create(stdlibConfig)
-        project.dependencies.add(stdlibConfig, targetDependency(python.version, "stdlib"))
+        project.dependencies.add(stdlibConfig,
+                                 targetDependency(python.version,
+                                                  python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
 
         def abiConfig = configName(variant, "targetAbis")
         project.configurations.create(abiConfig)
@@ -594,27 +598,30 @@ class PythonPlugin implements Plugin<Project> {
 
 class PythonExtension extends BaseExtension {
     String version
-    String buildPython = "python"
+    String buildPython
     Set<String> staticProxy = new TreeSet<>()
-    Set<String> extractPackages = new TreeSet<>(["certifi"])
+    Set<String> extractPackages = new TreeSet<>()
     PipExtension pip = new PipExtension()
+    PycExtension pyc = new PycExtension()
+
+    void setDefaults() {
+        // There is no default version: the user must specify it.
+        buildPython = "python"
+        extractPackages.addAll(["certifi"])
+        pip.setDefaults()
+        pyc.setDefaults()
+    }
 
     String getVersionShort() {
         return Common.pyVersionShort(version)
     }
-    
-    void staticProxy(String... modules) {
-        staticProxy.addAll(Arrays.asList(modules))
-    }
 
-    void extractPackages(String... packages) {
-        extractPackages.addAll(Arrays.asList(packages))
-    }
-
-    void pip(Closure closure) {
-        closure.delegate = pip
-        closure()
-    }
+    void version(String v)                      { version = v }
+    void buildPython(String bp)                 { buildPython = bp }
+    void staticProxy(String... modules)         { staticProxy.addAll(modules) }
+    void extractPackages(String... packages)    { extractPackages.addAll(packages) }
+    void pip(Closure closure)                   { applyClosure(pip, closure) }
+    void pyc(Closure closure)                   { applyClosure(pyc, closure) }
 
     void mergeFrom(PythonExtension overlay) {
         version = chooseNotNull(overlay.version, version)
@@ -622,6 +629,7 @@ class PythonExtension extends BaseExtension {
         staticProxy.addAll(overlay.staticProxy)
         extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)
+        pyc.mergeFrom(overlay.pyc)
     }
 
     // Removed in 0.6.0
@@ -659,7 +667,29 @@ class PipExtension extends BaseExtension {
 }
 
 
+class PycExtension extends BaseExtension {
+    Boolean stdlib
+
+    void setDefaults() {
+        stdlib = true
+    }
+
+    void stdlib(boolean s) { stdlib = s }
+
+    void mergeFrom(PycExtension overlay) {
+        stdlib = chooseNotNull(overlay.stdlib, stdlib)
+    }
+}
+
+
 class BaseExtension implements Serializable {
+    void setDefaults() {}
+
+    static void applyClosure(BaseExtension be, Closure closure) {
+        closure.delegate = be
+        closure()
+    }
+
     static <T> T chooseNotNull(T overlay, T base) {
         return overlay != null ? overlay : base
     }

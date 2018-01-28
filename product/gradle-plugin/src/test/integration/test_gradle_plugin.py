@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
 import distutils.util
-from functools import partial
 from jproperties import Properties
 import json
 from kwonly_args import kwonly_defaults
@@ -32,6 +31,9 @@ class GradleTestCase(TestCase):
             msg = self._formatMessage(msg, "{}'{}' not found in:\n{}".format
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg)
+
+    def extra_check(self, apk_zip, apk_dir, kwargs):
+        pass
 
 
 class Basic(GradleTestCase):
@@ -69,13 +71,13 @@ class AndroidPlugin(GradleTestCase):
 class NoCompress(GradleTestCase):
     def test_1(self):
         self.RunGradle("base", "Basic/nocompress_1",
-                       extra_check=partial(self.check, alpha=ZIP_STORED,
-                                           bravo=ZIP_DEFLATED, charlie=ZIP_DEFLATED))
+                       compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_DEFLATED,
+                                          charlie=ZIP_DEFLATED))
 
     def test_2(self):
         self.RunGradle("base", "Basic/nocompress_2",
-                       extra_check=partial(self.check, alpha=ZIP_STORED,
-                                           bravo=ZIP_STORED, charlie=ZIP_DEFLATED))
+                       compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_STORED,
+                                          charlie=ZIP_DEFLATED))
 
     def test_assign(self):
         with self.assertRaisesRegexp(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
@@ -83,8 +85,8 @@ class NoCompress(GradleTestCase):
             run.rerun()
         self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
 
-    def check(self, apk_zip, apk_dir, **kwargs):
-        for filename, expected in kwargs.items():
+    def extra_check(self, apk_zip, apk_dir, kwargs):
+        for filename, expected in kwargs["compress_type"].items():
             info = apk_zip.getinfo("assets/file." + filename)
             self.assertEqual(expected, info.compress_type)
 
@@ -102,6 +104,11 @@ class ApiLevel(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
+    def test_change(self):
+        run = self.RunGradle("base", version="2.7.14")
+        run.apply_layers("PythonVersion/change")
+        run.rerun(version="3.6.3")
+
     def test_missing(self):
         run = self.RunGradle("base", "PythonVersion/missing", succeed=False)
         self.assertInLong("debug: python.version not set", run.stderr)
@@ -244,12 +251,35 @@ class ExtractPackages(GradleTestCase):
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
 
 
-class BuildPython(GradleTestCase):
-    def test_default(self):
-        self.RunGradle("base", "BuildPython/default", requirements=["apple"])
+class Pyc(GradleTestCase):
+    def test_change(self):
+        run = self.RunGradle("base", pyc={"stdlib": True})
+        run.apply_layers("Pyc/change")
+        run.rerun(pyc={"stdlib": False})
 
-    def test_invalid(self):
-        run = self.RunGradle("base", "BuildPython/invalid", succeed=False)
+    def test_variant(self):
+        self.RunGradle("base", "Pyc/variant",
+                       variants={"red-debug": dict(pyc={"stdlib": True}),
+                                 "blue-debug": dict(pyc={"stdlib": False})})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "Pyc/variant_merge",
+                       variants={"red-debug": dict(pyc={"stdlib": False}),
+                                 "blue-debug": dict(pyc={"stdlib": True})})
+
+    def extra_check(self, apk_zip, apk_dir, kwargs):
+        pyc = kwargs["pyc"]
+
+        stdlib_files = set(ZipFile(join(apk_dir, "assets/chaquopy/stdlib.zip")).namelist())
+        self.assertEqual(pyc["stdlib"],    "argparse.pyc" in stdlib_files)
+        self.assertNotEqual(pyc["stdlib"], "argparse.py" in stdlib_files)
+
+
+class BuildPython(GradleTestCase):
+    def test_change(self):
+        run = self.RunGradle("base", "BuildPython/default", requirements=["apple"])
+        run.apply_layers("BuildPython/invalid")
+        run.rerun(succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_variant(self):
@@ -259,10 +289,11 @@ class BuildPython(GradleTestCase):
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_variant_merge(self):
-        run = self.RunGradle("base", "BuildPython/variant_merge",
-                             requirements=["apple"], variants=["good-debug"])
-        run.rerun(variants=["bad-debug"], succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+        run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
+                             succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'python-red''", run.stderr)
+        run.rerun(variants=["blue-debug"], succeed=False)
+        self.assertInLong("problem occurred starting process 'command 'python-blue''", run.stderr)
 
 
 # Use these as mixins to run a set of tests once each for python2 and python3.
@@ -578,9 +609,10 @@ class RunGradle(object):
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
+    # TODO: refactor this into a set of methods all using the same API as extra_check.
     @kwonly_defaults
     def check_apk(self, apk_zip, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
-                  requirements=[], extract_packages=[], licensed_id=None, extra_check=None):
+                  requirements=[], extract_packages=[], licensed_id=None, **kwargs):
         for info in apk_zip.infolist():
             if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
                 self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
@@ -659,13 +691,28 @@ class RunGradle(object):
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
-        if extra_check:
-            extra_check(apk_zip, apk_dir)
+        kwargs_wrapped = KwargsWrapper(kwargs)
+        self.test.extra_check(apk_zip, apk_dir, kwargs_wrapped)
+        self.test.assertFalse(kwargs_wrapped.unused_kwargs)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +
                        "=== STDOUT ===\n" + self.stdout +
                        "=== STDERR ===\n" + self.stderr)
+
+
+class KwargsWrapper(object):
+    def __init__(self, kwargs):
+        self.kwargs = kwargs
+        self.unused_kwargs = set(kwargs)
+
+    def get(self, key, default=None):
+        self.unused_kwargs.discard(key)
+        return self.kwargs.get(key, default)
+
+    def __getitem__(self, key):
+        self.unused_kwargs.discard(key)
+        return self.kwargs[key]
 
 
 def dex_classes(dex_filename):

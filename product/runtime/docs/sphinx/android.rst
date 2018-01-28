@@ -262,6 +262,25 @@ Within the modules, static proxy classes must be declared using the syntax descr
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
 
+Packaging
+=========
+
+Bytecode compilation
+--------------------
+
+Your app will start up faster if its Python code is compiled to `.pyc` format. This is
+currently only supported for the Python standard library, but may be extended to app code and
+pip-installed packages in a future version.
+
+Compilation prevents source code text from appearing in Python stack traces, so you may wish
+to disable it during development. The default settings are as follows::
+
+    python {
+        pyc {
+            stdlib true
+        }
+    }
+
 Resource files
 --------------
 
@@ -277,9 +296,9 @@ example, to load `some/package/subdir/README.txt` from within `some/package/modu
     readme = pkgutil.get_data(__name__, "subdir/README.txt")
     # To read it like a file, use io.StringIO(readme.decode())
 
-If this is not feasible (e.g. the code is in an external requirement), then you can specify
-certain Python packages to extract at runtime using the `extractPackages` setting. For
-example::
+If this is not feasible (e.g. if the code is installed :ref:`using pip
+<android-requirements>`), then you can specify certain Python packages to extract at runtime
+using the `extractPackages` setting. For example::
 
     python {
         extractPackages "somepackage", "some.subpackage"

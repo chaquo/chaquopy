@@ -36,7 +36,6 @@ def jclass(clsname, **kwargs):
         clsname = str(clsname)
 
     with class_lock:
-        global ClassNotFoundException, NoClassDefFoundError
         cls = jclass_cache.get(clsname)
         if not cls:
             cls = JavaClass.create(clsname, **kwargs)
