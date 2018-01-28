@@ -6,13 +6,23 @@ import os
 from os.path import exists, join
 import sys
 import traceback
-from . import stream, importer
 
 
 def initialize(context, build_json, app_path):
+    # FIXME
+    from cProfile import Profile
+    p = Profile()
+    p.enable()
+    from . import stream, importer
+
     stream.initialize()
     initialize_stdlib(context)
     importer.initialize(context, build_json, app_path)
+
+    # FIXME
+    import os
+    p.disable()
+    p.dump_stats(join(str(context.getCacheDir()), "{}.profile".format(os.getpid())))
 
 
 def initialize_stdlib(context):

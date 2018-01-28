@@ -1,6 +1,12 @@
-#cython: binding=True, nonecheck=False
+# FIXME
+#cython: binding=True, nonecheck=False, profile=True
 
 from __future__ import absolute_import, division, print_function
+
+# FIXME
+import time
+init_start = int(time.time() * 1000)
+
 
 # Workaround for https://github.com/cython/cython/issues/1720, which should ultimately be fixed
 # by https://github.com/cython/cython/issues/1715
@@ -68,3 +74,5 @@ def chaquopy_init():
 
         platform = java.jclass("com.chaquo.python.GenericPlatform")()
         java.jclass("com.chaquo.python.Python").start(platform)
+
+init_end = int(time.time() * 1000)

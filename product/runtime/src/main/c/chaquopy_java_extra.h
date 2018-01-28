@@ -28,3 +28,6 @@ PyAPI_FUNC(void) Py_SetPath(char *path);
 // Call function defined in chaquopy_java.pyx
 #define set_path set_path_env
 #endif
+
+// FIXME
+#define suseconds_t long

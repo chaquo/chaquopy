@@ -47,7 +47,10 @@ public class Python {
         }
         try {
             startNative(platform, platform.getPath());
+            System.out.println(instance.getModule("chaquopy_java").get("startup_log").toString());
+            long startStart = System.currentTimeMillis();
             platform.onStart(instance);
+            System.out.println("onStart: " + (System.currentTimeMillis() - startStart));
             started = true;
         } catch (Throwable e) {
             failed = true;

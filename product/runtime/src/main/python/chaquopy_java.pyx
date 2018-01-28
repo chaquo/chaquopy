@@ -20,6 +20,10 @@ from libc.stdlib cimport getenv, malloc
 from libc.string cimport strerror, strlen
 from posix.stdlib cimport putenv
 
+# FIXME
+from posix.time cimport timeval, gettimeofday
+
+
 import java
 from java._vendor import six
 
@@ -59,7 +63,12 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
         finally:  # Yes, this does compile to pure C, with the help of "goto".
             env[0].ReleaseStringUTFChars(env, j_python_path, python_path)
 
+    cdef timeval time1, time2, time3, time4  # FIXME
+    gettimeofday(&time1, NULL)
+
     Py_Initialize()  # Calls abort() on failure
+
+    gettimeofday(&time2, NULL)
 
     # All code run before Py_Initialize must compile to pure C. After Py_Initialize returns we
     # can start using the Python VM, but many things will still cause a native crash until our
@@ -67,6 +76,8 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
     # be bound, and "import" won't work either, even locally.
     if not init_module(env):
         return
+
+    gettimeofday(&time3, NULL)
 
     cdef SavedException se = None
     cdef JavaVM *jvm = NULL
@@ -81,11 +92,25 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
     if se:
         se.throw(env)
 
+    gettimeofday(&time4, NULL)
+
+    global startup_log
+    startup_log = (f"Py_Initialize: {tv_to_ms(time2) - tv_to_ms(time1)}\n"
+                   f"init_module pre: {java.chaquopy.init_start - tv_to_ms(time2)}\n"
+                   f"java.chaquopy: {java.chaquopy.init_end - java.chaquopy.init_start}\n"
+                   f"init_module post: {tv_to_ms(time3) - java.chaquopy.init_end}\n"
+                   f"set_jvm, check_license: {tv_to_ms(time4) - tv_to_ms(time3)}\n")
+
     # We imported java.chaquopy above, which has called PyEval_InitThreads during its own
     # module intialization, so the GIL now exists and we have it. We must release the GIL
     # before we return to Java so that the methods below can be called from any thread.
     # (http://bugs.python.org/issue1720250)
     PyEval_SaveThread();
+
+
+cdef tv_to_ms(timeval tv):
+    return int(tv.tv_sec)*1000 + tv.tv_usec//1000
+
 
 
 # WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
