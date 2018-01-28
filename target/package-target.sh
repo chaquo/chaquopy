@@ -4,18 +4,20 @@ set -eu
 crystax=~/crystax-ndk-10.3.2
 ndk="$ANDROID_HOME/ndk-bundle"
 
-short_ver="$1"      # e.g. "2.7"
-minor_build="$2"    # e.g. "10-2" (see Common.java)
+short_ver="${1:?}"      # e.g. "2.7"
+minor_build="${2:?}"    # e.g. "10-2" (see Common.java)
 full_ver="$short_ver.$minor_build"
-target_dir="$(pwd)"
+target_dir="$(cd ${3:?}; pwd)"
+target_prefix="$target_dir/target-$full_ver"
+
+tmp_dir="/tmp/package-target-$$"
+mkdir "$tmp_dir"
+cd "$tmp_dir"
 
 for abi in armeabi-v7a x86; do
     echo "$abi"
-    zipfile="$target_dir/target-$full_ver-$abi.zip"
-    rm -f $zipfile
-    rm -rf tmp
-    mkdir tmp
-    cd tmp
+    mkdir "$abi"
+    cd "$abi"
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
@@ -35,10 +37,31 @@ for abi in armeabi-v7a x86; do
     fi
     $ndk/toolchains/$gcc_abi-*/prebuilt/*/*/bin/strip $(find -name *.so)
 
-    zip -q -r "$zipfile" *
+    abi_zip="$target_prefix-$abi.zip"
+    rm -f "$abi_zip"
+    zip -q -r "$abi_zip" .
     cd ..
-    rm -r tmp
 done
 
 echo "stdlib"
-cp "$crystax/sources/python/$short_ver/libs/x86/stdlib.zip" "$target_dir/target-$full_ver-stdlib.zip"
+stdlib_zip="$target_prefix-stdlib.zip"
+cp "$crystax/sources/python/$short_ver/libs/x86/stdlib.zip" "$stdlib_zip"
+
+echo "stdlib-pyc"
+mkdir stdlib
+# Run compileall from the parent directory: that way the "stdlib/" prefix gets encoded into the
+# .pyc files and will appear in traceback messages.
+unzip -q "$stdlib_zip" -d stdlib
+compileall_args=""
+if echo "$short_ver" | grep -q "^3"; then
+    compileall_args="-b"  # zipimport doesn't support __pycache__ directories.
+fi
+"python$short_ver" -m compileall -q "$compileall_args" stdlib
+
+stdlib_pyc_zip="$target_prefix-stdlib-pyc.zip"
+rm -f "$stdlib_pyc_zip"
+cd stdlib
+zip -q -i '*.pyc' -r "$stdlib_pyc_zip" .
+cd ..
+
+rm -rf "$tmp_dir"
