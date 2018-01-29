@@ -66,7 +66,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
     # module initialization function succeeds. In particular, global and built-in names won't
     # be bound, and "import" won't work either, even locally.
     if not init_module(env):
-        return
+        return  # A Java exception should already have been thrown.
 
     cdef SavedException se = None
     cdef JavaVM *jvm = NULL
@@ -95,7 +95,7 @@ cdef bint init_module(JNIEnv *env) with gil:
         PyInit_chaquopy_java()  # See chaquopy_java_extra.h
         return True
     except BaseException:
-        throw_simple_exception(env, format_exception())
+        throw_simple_exception(env, format_exception().encode())
         return False
 
 
@@ -447,11 +447,12 @@ cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
 # Unlike the `traceback` function of the same name, this function returns a single string.
 # May be called after module initialization failure (see note after call to Py_Initialize).
 cdef format_exception(exc_info=None):
-    if exc_info is None:
-        sys = PyImport_ImportModule("sys")
-        exc_info = sys.exc_info()
-    e = exc_info[1]
+    e = None
     try:
+        if exc_info is None:
+            sys = PyImport_ImportModule("sys")
+            exc_info = sys.exc_info()
+        e = exc_info[1]
         traceback = PyImport_ImportModule("traceback")
         return "".join(traceback.format_exception(*exc_info)).strip()
     except BaseException as e2:
