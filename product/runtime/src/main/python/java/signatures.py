@@ -8,7 +8,7 @@ from java._vendor import six
 
 import java
 from .chaquopy import (JavaArray, JavaClass, NoneCast, check_range_char, check_range_float32,
-                       CQPEnv, klass_sig, str_repr)
+                       CQPEnv, klass_sig, native_str)
 
 __all__ = ["jni_sig", "name_to_sig", "jni_method_sig", "split_method_sig",
            "sig_to_java", "args_sig_to_java",
@@ -129,7 +129,7 @@ class jchar(Primitive):
         self.value = six.text_type(value)
 
     def __repr__(self):
-        return "{}({})".format(type(self).__name__, str_repr(self.value))
+        return native_str(u"{}('{}')".format(type(self).__name__, self.value))
 
 
 def jni_method_sig(returns, takes):

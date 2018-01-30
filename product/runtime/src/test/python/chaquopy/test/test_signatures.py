@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
 from java.signatures import jni_method_sig, jni_sig
 import math
+import sys
 
 from .test_utils import FilterWarningsCase
 
@@ -116,6 +118,13 @@ class TestSignatures(FilterWarningsCase):
     def test_char(self):
         self.assertEquals("jchar('x')", str(jchar("x")))
         self.assertEquals("jchar('x')", str(jchar(u"x")))
+
+        zhong_j = jchar(u"中")
+        zhong_j_u = u"jchar('中')"
+        if sys.version_info[0] < 3:
+            self.assertEqual(zhong_j_u.encode("utf-8"), str(zhong_j))
+        else:
+            self.assertEqual(zhong_j_u, str(zhong_j))
 
         with self.assertRaisesRegexp((TypeError, ValueError),
                                      r"(expected a character|only single character).*length 2"):

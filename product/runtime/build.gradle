@@ -307,6 +307,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
 
             // Generates a script to start a Python REPL with Java and Python paths set up.
             task("consoleScript-$pyVersion") {
+                dependsOn setupPythonPath
                 doLast {
                     def writer = new PrintWriter("$projectDir/console-${pyVersion}.sh")
                     writer.println "#!/bin/bash -e"

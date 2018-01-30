@@ -93,13 +93,12 @@ cdef str_for_c(s):
         return s
 
 
-# Hide difference between unicode and byte strings to make tests consistent between Python 2
-# and 3.
-def str_repr(s):
-    result = repr(s)
-    if isinstance(s, unicode) and result.startswith("u"):
-        result = result[1:]
-    return result
+def native_str(s):
+    if isinstance(s, unicode):
+        return s.encode("utf-8") if six.PY2 else s
+    else:
+        assert isinstance(s, bytes)
+        return s if six.PY2 else s.decode("utf-8")
 
 
 cdef jmethodID mid_getName = NULL

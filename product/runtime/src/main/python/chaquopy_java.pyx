@@ -95,7 +95,7 @@ cdef bint init_module(JNIEnv *env) with gil:
         PyInit_chaquopy_java()  # See chaquopy_java_extra.h
         return True
     except BaseException:
-        throw_simple_exception(env, format_exception().encode())
+        throw_simple_exception(env, format_exception().encode("utf-8"))
         return False
 
 
@@ -412,7 +412,7 @@ cdef class SavedException(object):
         except BaseException:
             msg = f"{formatted_exc}\n[failed to merge stack traces: {format_exception()}]"
             self.exc_info = None
-            throw_simple_exception(env, msg.encode())
+            throw_simple_exception(env, msg.encode("utf-8"))
 
 
 # This is broken out into a separate method to make sure all of its local `jclass` and `jarray`

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Test data for PyObjectTest.java"""
 
 from __future__ import absolute_import, division, print_function
@@ -58,9 +59,12 @@ def sum_mul(*args, **kwargs):
     return sum(args) * mul // div
 
 
-def throws():
+def throws_java(msg=u"abc olé 中文"):
     from java.io import IOException
-    raise IOException("abc")
+    raise IOException(msg)
+
+def throws_python(msg=u"abc olé 中文"):
+    raise ValueError(msg)
 
 
 def is_none(x):

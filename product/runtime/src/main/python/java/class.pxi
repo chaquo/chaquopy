@@ -197,15 +197,18 @@ def setup_object_class():
             full_name = cls_fullname(type(self))
             if self._chaquopy_this:
                 ts = self.toString()
-                if ts is not None and \
-                   ts.startswith(full_name):  # e.g. "java.lang.Object@28d93b30"
-                    return f"<{ts}>"
+                if ts is None:
+                    result = f"<{full_name} [toString returned null]>"
+                elif ts.startswith(full_name):  # e.g. "java.lang.Object@28d93b30"
+                    result = f"<{ts}>"
                 else:
-                    return f"<{full_name} {str_repr(ts)}>"
+                    result = f"<{full_name} '{ts}'>"
             else:
-                return f"<{full_name} (no instance)>"
+                result = f"<{full_name} [no instance]>"
+            return native_str(result)
 
-        def __str__(self):       return self.toString()
+        def __str__(self):       return native_str(self.toString())
+        def __unicode__(self):   return self.toString()
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
         def __ne__(self, other): return not (self == other)  # Not automatic in Python 2
