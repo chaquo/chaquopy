@@ -34,18 +34,18 @@ public class ReplActivity extends ConsoleActivity {
 
         etInput = (EditText) findViewById(R.id.etInput);
         etInput.setHint(getPrompt());
+
+        // Strip formatting from pasted text.
         etInput.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            // Strip formatting from pasted text.
-            @Override
             public void afterTextChanged(Editable e) {
                 for (CharacterStyle cs : e.getSpans(0, e.length(), CharacterStyle.class)) {
                     e.removeSpan(cs);
                 }
             }
         });
+
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -59,8 +59,22 @@ public class ReplActivity extends ConsoleActivity {
                 return false;
             }
         });
+    }
 
-        if (savedInstanceState == null) {
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        if (getLastCustomNonConfigurationInstance() == null) {
+            // Don't restore the scrollback if the Python InteractiveConsole object can't be
+            // restored as well (saw this happen once).
+            tvBuffer.setText("");
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (tvBuffer.getText().length() == 0) {
             PyObject sys = py.getModule("sys");
             append(String.format("Python %s on %s\n",sys.get("version"), sys.get("platform")));
             append(getString(R.string.repl_banner) + "\n");

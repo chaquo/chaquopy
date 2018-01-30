@@ -3,7 +3,6 @@ package com.chaquo.python.demo;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
-import android.util.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -17,7 +16,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     protected static class State {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
-        boolean scrolledToBottom = false;
+        boolean scrolledToBottom = true;
     }
     protected State state;
 
@@ -38,19 +37,18 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             state = initState();
         }
 
-        svBuffer.getViewTreeObserver().addOnScrollChangedListener(new ViewTreeObserver.OnScrollChangedListener() {
-            @Override
-            public void onScrollChanged() {
-                state.scrolledToBottom = isScrolledToBottom();
-            }
-        });
+        svBuffer.getViewTreeObserver().addOnScrollChangedListener(
+            new ViewTreeObserver.OnScrollChangedListener() {
+                @Override
+                public void onScrollChanged() { saveScroll(); }
+            });
 
         // Triggered when the keyboard is hidden or shown. Also triggered by the text selection
         // toolbar appearing and disappearing, on Android versions which use it.
         svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
-                adjustScroll();
+                restoreScroll();
             }
         });
     }
@@ -60,18 +58,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        // Don't restore the REPL UI scrollback if the Python InteractiveConsole object can't be
-        // restored as well (saw this happen once).
-        if (getLastCustomNonConfigurationInstance() != null) {
-            super.onRestoreInstanceState(savedInstanceState);
-        }
-    }
-
-    @Override
     protected void onStart() {
         super.onStart();
-        adjustScroll();  // Necessary after a screen rotation
+        restoreScroll();  // Necessary after a screen rotation
 
         PyObject utils = py.getModule("chaquopy.demo.utils");
         PyObject JavaTeeOutputStream = utils.get("JavaTeeOutputStream");
@@ -90,7 +79,11 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         sys.put("stderr", prevStderr);
     }
 
-    private void adjustScroll() {
+    private void saveScroll() {
+        state.scrolledToBottom = isScrolledToBottom();
+    }
+
+    private void restoreScroll() {
         if (state.scrolledToBottom  &&  ! isScrolledToBottom()) {
             scroll(View.FOCUS_DOWN);
         }
@@ -98,8 +91,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     private boolean isScrolledToBottom() {
         int svBufferHeight = (svBuffer.getHeight() -
-        svBuffer.getPaddingTop() -
-        svBuffer.getPaddingBottom());
+                              svBuffer.getPaddingTop() -
+                              svBuffer.getPaddingBottom());
         int maxScroll = Math.max(0, tvBuffer.getHeight() - svBufferHeight);
         return (svBuffer.getScrollY() >= maxScroll);
     }
