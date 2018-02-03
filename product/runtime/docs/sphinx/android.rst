@@ -20,6 +20,7 @@ Prerequisites:
           buildPython "C:/Python27/python.exe"
       }
 
+
 Basic setup
 ===========
 
@@ -27,8 +28,8 @@ For a minimal example, see `chaquopy-hello <https://github.com/chaquo/chaquopy-h
 Python version of the Android Studio "Empty Activity" app template. For a more complete
 example, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
-Plugin
-------
+Gradle plugin
+-------------
 
 In the project's *top-level* `build.gradle` file, add the Chaquopy repository and dependency to
 the end of the existing `repositories` and `dependencies` blocks:
@@ -45,8 +46,8 @@ the end of the existing `repositories` and `dependencies` blocks:
         }
     }
 
-In the app's *module-level* `build.gradle` file, apply the Chaquopy plugin at the top of the
-file, but *after* the Android plugin::
+Then, in the app's *module-level* `build.gradle` file, apply the Chaquopy plugin at the top of
+the file, but *after* the Android plugin::
 
    apply plugin: "com.chaquo.python"    // Must come after com.android.application
 
@@ -114,6 +115,23 @@ download pre-compiled CPython binaries for the selected ABIs.
                   }
               }
 
+Android Studio plugin
+---------------------
+
+To add Python suppport to the Android Studio user interface, you may optionally install the
+JetBrains Python plugin.
+
+.. note:: Chaquopy is not fully integrated with this plugin. It will only provide syntax
+          highlighting, and limited code completion and navigation features. It does not
+          support Python debugging, and it will show numerous "unresolved reference" warnings.
+          We hope to improve this in a future version.
+
+* In Android Studio, select File > Settings.
+* Go to the Plugins page, and click "Install JetBrains plugin".
+* Select "Python Community Edition", and click "Install".
+* Restart Android Studio when prompted.
+
+
 .. _android-development:
 
 Development
@@ -156,7 +174,6 @@ For example::
 usually an error if the source directories for a given build variant include multiple copies of
 the same filename. This is only permitted if the duplicate files are all empty, such as may
 happen with `__init__.py`.
-
 
 Startup
 -------
@@ -262,6 +279,7 @@ Within the modules, static proxy classes must be declared using the syntax descr
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
 generated and built into the app.
 
+
 Packaging
 =========
 
@@ -310,6 +328,7 @@ the files being loaded.
 
 `extractPackages` is used by default for certain PyPI packages which are known to require it.
 If you discover any more, please `let us know <https://github.com/chaquo/chaquopy/issues>`_.
+
 
 Licensing
 =========
