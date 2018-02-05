@@ -1,5 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
+from os.path import join
+
 from java import dynamic_proxy, jboolean, jvoid, Override, static_proxy
 
 from android.app import AlertDialog
@@ -13,7 +15,6 @@ from android.view import Menu, MenuItem, View
 from java.lang import String
 
 from com.chaquo.python.demo import R
-from .utils import view_source
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
@@ -124,3 +125,25 @@ class ColorDialog(static_proxy(DialogFragment)):
         builder.setNeutralButton(R.string.green, Listener(R.color.green))
         builder.setPositiveButton(R.string.blue, Listener(R.color.blue))
         return builder.create()
+
+
+ASSET_SOURCE_DIR = "source"
+EXTRA_CSS = "body { background-color: #eeeeee; font-size: 85%; }"
+
+# Compare with the equivalent Java code in JavaDemoActivity.java
+def view_source(context, web_view, filename):
+    from base64 import b64encode
+    from java.io import BufferedReader, InputStreamReader
+    from pygments import highlight
+    from pygments.formatters import HtmlFormatter
+    from pygments.lexers import get_lexer_for_filename
+
+    stream = context.getAssets().open(join(ASSET_SOURCE_DIR, filename))
+    reader = BufferedReader(InputStreamReader(stream))
+    text = "\n".join(iter(reader.readLine, None))
+
+    formatter = HtmlFormatter()
+    body = highlight(text, get_lexer_for_filename(filename), formatter)
+    html = ("<html><head><style>{}\n{}</style></head><body>{}</body></html>"
+            .format(formatter.get_style_defs(), EXTRA_CSS, body)).encode()
+    web_view.loadData(b64encode(html).decode(), "text/html", "base64")

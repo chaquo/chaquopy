@@ -30,7 +30,7 @@ public class JavaDemoActivity extends AppCompatActivity {
     private static final String EXTRA_CSS =
         "body { background-color: #eeeeee; font-size: 85%; }";
 
-    // Compare with the equivalent Python code in chaquopy/demo/utils.py
+    // Compare with the equivalent Python code in chaquopy/demo/ui_demo.py
     private static void viewSource(Context context, WebView wv,
                                    String filename) throws IOException {
         InputStream stream = context.getAssets().open
