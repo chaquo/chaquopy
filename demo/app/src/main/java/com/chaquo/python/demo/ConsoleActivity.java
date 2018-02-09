@@ -3,16 +3,16 @@ package com.chaquo.python.demo;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
+import android.util.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
-import java.util.*;
 
 public abstract class ConsoleActivity extends AppCompatActivity {
 
     protected Python py;
-    protected ScrollView svBuffer;
-    protected TextView tvBuffer;
+    protected ScrollView svOutput;  // FIXME private
+    protected TextView tvOutput;    // FIXME private
 
     protected static class State {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
@@ -33,8 +33,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             state = initState();
         }
 
-        svBuffer = (ScrollView) findViewById(R.id.svBuffer);
-        svBuffer.getViewTreeObserver().addOnScrollChangedListener(
+        svOutput = (ScrollView) findViewById(R.id.svBuffer);
+        svOutput.getViewTreeObserver().addOnScrollChangedListener(
             new ViewTreeObserver.OnScrollChangedListener() {
                 @Override public void onScrollChanged() { saveScroll(); }
             });
@@ -43,15 +43,15 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         //   * After onResume, while the UI is being laid out (possibly multiple times).
         //   * Keyboard is shown or hidden.
         //   * Text selection toolbar appears or disappears (on some Android versions).
-        svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+        svOutput.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override public void onGlobalLayout() {
                 restoreScroll();
             }
         });
 
-        tvBuffer = (TextView) findViewById(R.id.tvBuffer);
+        tvOutput = (TextView) findViewById(R.id.tvBuffer);
         if (Build.VERSION.SDK_INT >= 23) {
-            tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+            tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
     }
 
@@ -72,8 +72,8 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         PyObject sys = py.getModule("sys");
         prevStdout = sys.get("stdout");
         prevStderr = sys.get("stderr");
-        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "append"));
-        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "append"));
+        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "output"));
+        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "output"));
     }
 
     @Override
@@ -90,11 +90,11 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     // is scrolled to the bottom, in which case we'll maintain that.
     private void saveScroll() {
         if (isScrolledToBottom()) {
-            state.scrollChar = tvBuffer.getText().length();
+            state.scrollChar = tvOutput.getText().length();
             state.scrollAdjust = 0;
         } else {
-            int scrollY = svBuffer.getScrollY();
-            Layout layout = tvBuffer.getLayout();
+            int scrollY = svOutput.getScrollY();
+            Layout layout = tvOutput.getLayout();
             int line = layout.getLineForVertical(scrollY);
             state.scrollChar = layout.getLineStart(line);
             state.scrollAdjust = scrollY - layout.getLineTop(line);
@@ -104,28 +104,28 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     private void restoreScroll() {
         // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
         // zero-length selection) during startup, and re-create it if necessary whenever the user
-        // taps on the view. When a TextView is focused and it has a cursor, it will adjust its
+        // taps on the view. When a TextView is focused and it has a cursor, it will adjust its xxxxxxxx
         // containing ScrollView to keep the cursor on-screen. textIsSelectable implies focusable,
         // so if there are no other focusable views in the layout, then it will always be focused.
         //
         // This interferes with our own scroll control, so we'll remove the cursor to stop it
         // from happening. Non-zero-length selections are left untouched.
-        int selStart = tvBuffer.getSelectionStart();
-        int selEnd = tvBuffer.getSelectionEnd();
+        int selStart = tvOutput.getSelectionStart();
+        int selEnd = tvOutput.getSelectionEnd();
         if (selStart != -1 && selStart == selEnd) {
-            Selection.removeSelection((Spannable) tvBuffer.getText());
+            Selection.removeSelection((Spannable) tvOutput.getText());
         }
 
-        Layout layout = tvBuffer.getLayout();
+        Layout layout = tvOutput.getLayout();
         int line = layout.getLineForOffset(state.scrollChar);
-        svBuffer.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
+        svOutput.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
     }
 
     private boolean isScrolledToBottom() {
-        int visibleHeight = (svBuffer.getHeight() - svBuffer.getPaddingTop() -
-                             svBuffer.getPaddingBottom());
-        int maxScroll = Math.max(0, tvBuffer.getHeight() - visibleHeight);
-        return (svBuffer.getScrollY() >= maxScroll);
+        int visibleHeight = (svOutput.getHeight() - svOutput.getPaddingTop() -
+                             svOutput.getPaddingBottom());
+        int maxScroll = Math.max(0, tvOutput.getHeight() - visibleHeight);
+        return (svOutput.getScrollY() >= maxScroll);
     }
 
     @Override
@@ -151,38 +151,38 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return true;
     }
 
-    public void append(CharSequence text) {
+    public void output(final CharSequence text) {
         if (text.length() == 0) return;
-        final List<CharSequence> fragments = new ArrayList<>();
-        if (state.pendingNewline) {
-            fragments.add("\n");
-            state.pendingNewline = false;
-        }
-        if (text.charAt(text.length() - 1) == '\n') {
-            fragments.add(text.subSequence(0, text.length() - 1));
-            state.pendingNewline = true;
-        } else {
-            fragments.add(text);
-        }
-        
         runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                for (CharSequence frag : fragments) {
-                    tvBuffer.append(frag);
+            @Override public void run() {
+                boolean atBottom = isScrolledToBottom();
+                Log.i("output", text.toString() + ", atBottom=" + atBottom);
+
+                if (state.pendingNewline) {
+                    tvOutput.append("\n");
+                    state.pendingNewline = false;
                 }
-                svBuffer.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        scroll(View.FOCUS_DOWN);
-                    }
-                });
+                if (text.charAt(text.length() - 1) == '\n') {
+                    tvOutput.append(text.subSequence(0, text.length() - 1));
+                    state.pendingNewline = true;
+                } else {
+                    tvOutput.append(text);
+                }
+
+                if (atBottom) {
+                    scroll(View.FOCUS_DOWN);
+                }
             }
         });
     }
 
-    protected void scroll(int direction) {
-        svBuffer.fullScroll(direction);
+    public void scroll(final int direction) {
+        // post to give the TextView a chance to update its dimensions if the text has just changed.
+        svOutput.post(new Runnable() {
+            @Override public void run() {
+                svOutput.fullScroll(direction);
+            }
+        });
     }
 
 }

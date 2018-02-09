@@ -51,9 +51,8 @@ public class ReplActivity extends ConsoleActivity {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                    String input = etInput.getText().toString();
+                    push(etInput.getText().toString());
                     etInput.setText("");
-                    push(input);
                     return true;
                 }
                 return false;
@@ -67,17 +66,17 @@ public class ReplActivity extends ConsoleActivity {
         if (getLastCustomNonConfigurationInstance() == null) {
             // Don't restore the scrollback if the Python InteractiveConsole object can't be
             // restored as well (saw this happen once).
-            tvBuffer.setText("");
+            tvOutput.setText("");
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (tvBuffer.getText().length() == 0) {
+        if (tvOutput.getText().length() == 0) {
             PyObject sys = py.getModule("sys");
-            append(String.format("Python %s on %s\n",sys.get("version"), sys.get("platform")));
-            append(getString(R.string.repl_banner) + "\n");
+            output(String.format("Python %s on %s\n", sys.get("version"), sys.get("platform")));
+            output(getString(R.string.repl_banner) + "\n");
             push("from java import *");
         }
     }
@@ -97,7 +96,8 @@ public class ReplActivity extends ConsoleActivity {
         spannableInput.setSpan(new StyleSpan(Typeface.BOLD), prompt.length(),
                                spannableInput.length(), 0);
         Log.i("ReplActivity", spannableInput.toString());
-        append(spannableInput);
+        output(spannableInput);
+        scroll(View.FOCUS_DOWN);
 
         state.more = state.console.callAttr("push", input).toJava(Boolean.class);
         etInput.setHint(getPrompt());
@@ -107,9 +107,14 @@ public class ReplActivity extends ConsoleActivity {
         return getString(state.more ? R.string.ps2 : R.string.ps1);
     }
 
-    protected void scroll(int direction) {
+    // FIXME move up
+    public void scroll(int direction) {
         super.scroll(direction);
-        etInput.requestFocus();
+        svOutput.post(new Runnable() {
+            @Override public void run() {
+                etInput.requestFocus();  // FIXME only if it was focused before
+            }
+        });
     }
 
 }
