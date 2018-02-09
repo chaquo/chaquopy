@@ -17,7 +17,6 @@
     <style name="ConsoleOutput" parent="Code">
         <item name="android:layout_marginLeft">8dp</item>
         <item name="android:layout_marginRight">8dp</item>
-        <item name="android:bufferType">editable</item>  <!-- FIXME See RemoveCursorWatcher -->
         <item name="android:textIsSelectable">true</item>
         <item name="android:freezesText">true</item>
     </style>

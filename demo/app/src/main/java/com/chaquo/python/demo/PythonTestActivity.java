@@ -5,7 +5,7 @@ import com.chaquo.python.*;
 public class PythonTestActivity extends PythonConsoleActivity {
 
     @Override
-    protected void run() {
+    public void run() {
         Python py = Python.getInstance();
         PyObject unittest = py.getModule("unittest");
         PyObject stream = py.getModule("sys").get("stdout");  // https://bugs.python.org/issue10786

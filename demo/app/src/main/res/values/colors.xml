@@ -8,5 +8,6 @@
     <color name="green">#3f8e3d</color>
     <color name="blue">@color/colorPrimary</color>
 
-    <color name="stderr">#b53f3f</color>
+    <color name="console_stderr">#b53f3f</color>
+    <color name="console_meta">#3f51b5</color>
 </resources>

@@ -9,13 +9,15 @@ else:
     from queue import Queue
 
 
-# Passes each write to the underlying stream, and also to the given method (which must take a
-# single String argument) on the given Java object.
 class ConsoleOutputStream(TextIOBase):
-    def __init__(self, stream, obj, method):
+    """Passes each write to the underlying stream, and also to the given method (which must take a
+    single String argument) on the given Java object.
+    """
+    def __init__(self, activity, method_name, stream):
         TextIOBase.__init__(self)
         self.stream = stream
-        self.func = getattr(obj, method)
+        self.activity = activity
+        self.method_name = method_name
 
     def writable(self):
         return True
@@ -24,18 +26,20 @@ class ConsoleOutputStream(TextIOBase):
         if sys.version_info[0] < 3 and isinstance(s, str):
             s = s.decode("UTF-8", "replace")
         self.stream.write(s)
-        self.func(s)
+        getattr(self.activity, self.method_name)(s)
 
     def flush(self):
         self.stream.flush()
 
 
-# Receives input in on_input in one thread (non-blocking), and provides a read interface in another
-# thread (blocking). Input must be in unicode, but reads will return bytes in Python 2 or unicode in
-# Python 3.
 class ConsoleInputStream(TextIOBase):
-    def __init__(self):
+    """Receives input in on_input in one thread (non-blocking), and provides a read interface in 
+    another thread (blocking). Input must be in unicode, but reads will return bytes in Python 2 or 
+    unicode in Python 3.
+    """
+    def __init__(self, activity):
         TextIOBase.__init__(self)
+        self.activity = activity
         self.queue = Queue()
         self.buffer = ""
 
@@ -50,7 +54,10 @@ class ConsoleInputStream(TextIOBase):
             size = None
         buffer = self.buffer
         while (size is None) or (len(buffer) < size):
+            if self.queue.empty():
+                self.activity.setInputState(True)
             buffer += self.queue.get()
+            self.activity.setInputState(False)
 
         result = buffer if (size is None) else buffer[:size]
         self.buffer = buffer[len(result):]
@@ -69,3 +76,5 @@ class ConsoleInputStream(TextIOBase):
                 break
 
         return "".join(chars)
+
+    # FIXME add sentinel (None?) to queue on close, and return EOF?

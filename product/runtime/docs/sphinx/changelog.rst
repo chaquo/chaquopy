@@ -12,8 +12,8 @@ Change log
 
 * The following things now return reasonable values: `sys.argv`, `sys.executable`, and
   `platform.platform()`.
-* The following modules now work correctly: sqlite3, ssl (`#23
-  <https://github.com/chaquo/chaquopy/issues/23>`_), and tempfile. (Requires python.version to
+* The following modules now work correctly: `sqlite3`, `ssl` (`#23
+  <https://github.com/chaquo/chaquopy/issues/23>`_), and `tempfile`. (Requires `python.version` to
   be 2.7.14 or 3.6.3.)
 * `sys.stdout` and `sys.stderr` are now directed to the Android logcat.
 * Add `extractPackages`, and use it by default for `certifi
@@ -30,7 +30,7 @@ Change log
 * Ensure pip is re-run if local requirements or wheel file changes.
 * Add Python 2.7.14.
 * Include distutils and doctest modules (`#20
-  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires python.version to be 2.7.14 or
+  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires `python.version` to be 2.7.14 or
   3.6.3.)
 
 1.1.0 (2017-12-22)

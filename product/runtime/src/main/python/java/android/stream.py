@@ -17,9 +17,10 @@ def initialize():
     # Log levels are consistent with those used by Java.
     sys.stdout = LogOutputStream(Log.INFO, "python.stdout")
     sys.stderr = LogOutputStream(Log.WARN, "python.stderr")
+    # FIXME set stdin to something which always returns EOF
 
 
-class LogOutputStream(StringIO):
+class LogOutputStream(StringIO):  # FIXME TextIOBase?
     def __init__(self, level, tag):
         StringIO.__init__(self)
         self.level = level

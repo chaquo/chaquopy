@@ -1,59 +1,102 @@
 package com.chaquo.python.demo;
 
 import android.os.*;
-import android.text.*;
 import android.text.style.*;
+import android.util.*;
 import com.chaquo.python.*;
 
 
-/** Redirects Python's stdin, stdout and stderr to connect to the activity UI. */
+/** Redirects Python's stdin, stdout and stderr to connect to the user interface. */
 public abstract class PythonConsoleActivity extends ConsoleActivity {
 
-    protected Python py;
-    private PyObject stdin;
-    private PyObject prevStdout, prevStderr, prevStdin;
+    // TODO: maybe a fragment would be a cleaner way to achieve this.
+    protected static class State extends ConsoleActivity.State {
+        Python py;
+        PyObject sys;
+        PyObject prevStdin, prevStdout, prevStderr;
+        PyObject stdin, stdout, stderr;
+
+        public State() {
+            py = Python.getInstance();
+            sys = py.getModule("sys");
+            prevStdin = sys.get("stdin");
+            prevStdout = sys.get("stdout");
+            prevStderr = sys.get("stderr");
+
+            PyObject utils = py.getModule("chaquopy.utils.console");
+            stdin = utils.callAttr("ConsoleInputStream", (Object) null);
+            stdout = utils.callAttr("ConsoleOutputStream", null, "output", prevStdout);
+            stderr = utils.callAttr("ConsoleOutputStream", null, "outputStderr", prevStderr);
+        }
+
+        public void start(PythonConsoleActivity activity) {
+            stdin.put("activity", activity);
+            stdout.put("activity", activity);
+            stderr.put("activity", activity);
+            sys.put("stdout", stdout);
+            sys.put("stderr", stderr);
+            sys.put("stdin", stdin);
+        }
+
+        public void stop() {
+            sys.put("stdout", prevStdout);
+            sys.put("stderr", prevStderr);
+            sys.put("stdin", prevStdin);
+        }
+    }
+    protected State state;
+
+    protected State initState() {
+        return new State();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        py = Python.getInstance();
+        state = (State) super.state;
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        PyObject utils = py.getModule("chaquopy.utils.console");
-        PyObject sys = py.getModule("sys");
-
-        prevStdout = sys.get("stdout");
-        prevStderr = sys.get("stderr");
-        sys.put("stdout", utils.callAttr("ConsoleOutputStream", prevStdout, this, "output"));
-        sys.put("stderr", utils.callAttr("ConsoleOutputStream", prevStderr, this, "outputStderr"));
-
-        prevStdin = sys.get("stdin");
-        stdin = utils.callAttr("ConsoleInputStream");
-        sys.put("stdin", stdin);
+        state.start(this);
     }
 
-    protected void outputStderr(CharSequence text) {
-        SpannableString spanText = new SpannableString(text);
-        spanText.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.stderr)),
-                         0, text.length(), 0);
-        output(spanText);
-    }
-
-    @Override
-    protected void onInput(String input) {
-        stdin.callAttr("on_input", input);
-    }
-
+    // FIXME should retain streams in state and restore them if we're started again. stdin should
+    // return EOF only if we're really being destroyed. But how can we know that? If isFinishing
+    // isn't good enough, might need to use a retained fragment. Worried about leaving threads
+    // or streams behind in some circumstances.
+    //
+    // FIXME restoring stdin may cause background thread to block permanently. We can't give
+    // enough isolation between activities here without starting a separate process. Add a comment
+    // at the top to explain this.
     @Override
     protected void onStop() {
         super.onStop();
-        PyObject sys = py.getModule("sys");
-        sys.put("stdout", prevStdout);
-        sys.put("stderr", prevStderr);
-        sys.put("stdin", prevStdin);
+        state.stop();
     }
+
+    public void outputStderr(CharSequence text) {
+        output(text, new ForegroundColorSpan(getResources().getColor(R.color.console_stderr)));
+    }
+
+    @Override
+    public void onInput(String input) {
+        Log.i("python.stdin", input);
+        state.stdin.callAttr("on_input", input);
+    }
+
+    public void setInputState(final boolean blocked) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                onInputState(blocked);
+            }
+        });
+    }
+
+    /** If `blocked` is true, the background thread is blocked waiting for input. If it's false,
+     * the thread has become unblocked. */
+    public void onInputState(boolean blocked) {}
 
 }

@@ -16,9 +16,23 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     protected EditText etInput;
 
     protected static class State {
-        boolean alreadyRun = false;
+        Thread thread;
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
-        public int scrollOffset;         // Character offset within tvOutput
+        int scrollOffset;                // Character offset within tvOutput
+
+        public State(ConsoleActivity activity) {
+            thread = new Thread() {
+                @Override
+                public void run() {
+                    ConsoleActivity.this.run();
+                    output("[Finished]",
+                           new ForegroundColorSpan(getResources().getColor(R.color.console_meta)));
+                    etInput.setText("");
+                    etInput.setEnabled(false);
+                }
+            };
+
+        }
     }
     protected State state;
 
@@ -44,33 +58,6 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return state;
     }
 
-    private void onCreateOutput() {
-        svOutput = (ScrollView) findViewById(R.id.svOutput);
-        svOutput.getViewTreeObserver().addOnScrollChangedListener(
-            new ViewTreeObserver.OnScrollChangedListener() {
-                @Override
-                public void onScrollChanged() { saveScroll(); }
-            });
-        svOutput.getViewTreeObserver().addOnGlobalLayoutListener(
-            new ViewTreeObserver.OnGlobalLayoutListener() {
-                // Triggered by various events, including:
-                //   * After onResume, while the UI is being laid out (possibly multiple times).
-                //   * Keyboard appears or disappears.
-                //   * Text selection toolbar appears or disappears (on some Android versions).
-                @Override
-                public void onGlobalLayout() {
-                    restoreScroll();
-                }
-            });
-
-        tvOutput = (TextView) findViewById(R.id.tvOutput);
-        if (Build.VERSION.SDK_INT >= 23) {
-            tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
-        }
-        tvOutput.setText("", TextView.BufferType.EDITABLE); // FIXME explain why not use XML
-        RemoveCursorWatcher.install(tvOutput);
-    }
-
     private void onCreateInput() {
         etInput = (EditText) findViewById(R.id.etInput);
 
@@ -78,6 +65,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         etInput.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
             public void afterTextChanged(Editable e) {
                 for (CharacterStyle cs : e.getSpans(0, e.length(), CharacterStyle.class)) {
                     e.removeSpan(cs);
@@ -90,12 +78,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                    String input = etInput.getText().toString() + "\n";
+                    String text = etInput.getText().toString() + "\n";
                     etInput.setText("");
-                    SpannableString spanInput = new SpannableString(input);
-                    spanInput.setSpan(new StyleSpan(Typeface.BOLD), 0, input.length(), 0);
-                    output(spanInput);
-                    onInput(input);
+                    input(text);
                     return true;
                 }
                 return false;
@@ -103,7 +88,78 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         });
     }
 
-    protected void setInputEnabled(boolean enabled) {
+    private void onCreateOutput() {
+        svOutput = (ScrollView) findViewById(R.id.svOutput);
+        svOutput.getViewTreeObserver().addOnScrollChangedListener(
+            new ViewTreeObserver.OnScrollChangedListener() {
+                @Override
+                public void onScrollChanged() { saveScroll(); }
+            });
+        svOutput.getViewTreeObserver().addOnGlobalLayoutListener(
+            new ViewTreeObserver.OnGlobalLayoutListener() {
+                // Triggered by various events, including:
+                //   * After onResume, while the UI is being laid out (possibly multiple times).
+                //   * Keyboard is shown or hidden.
+                //   * Text selection toolbar appears or disappears (on some Android versions).
+                @Override
+                public void onGlobalLayout() {
+                    restoreScroll();
+                }
+            });
+
+        tvOutput = (TextView) findViewById(R.id.tvOutput);
+        if (Build.VERSION.SDK_INT >= 23) {
+            tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+        }
+        tvOutput.addTextChangedListener(new RemoveCursorWatcher());
+    }
+
+    // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
+    // zero-length selection) during startup, and re-create it if necessary whenever the user taps
+    // on the view. When a cursor exists, a focused TextView will adjust its containing ScrollView
+    // to keep the cursor on-screen at various times, including whenever the text changes and after
+    // a screen rotation. textIsSelectable implies focusable, so if there are no other focusable
+    // views in the layout, then it will indeed be focused.
+    //
+    // This interferes with our own scroll control, so we'll remove the cursor whenever we can.
+    // Non-zero-length selections are left untouched.
+    private static class RemoveCursorWatcher implements TextWatcher {
+        SpanWatcher sw = new SpanWatcher() {
+            @Override
+            public void onSpanAdded(Spannable text, Object what, int start, int end) {
+                removeCursor(text);
+            }
+            @Override
+            public void onSpanChanged(Spannable text, Object what, int ostart, int oend, int nstart,
+                                      int nend) {
+                removeCursor(text);
+            }
+            public void onSpanRemoved(Spannable text, Object what, int start, int end) {}
+        };
+
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override
+        public void afterTextChanged(Editable e) {
+            removeCursor(e);
+            e.setSpan(sw, 0, e.length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
+        }
+
+        void removeCursor(Spannable s) {
+            int selStart = Selection.getSelectionStart(s);
+            int selEnd = Selection.getSelectionEnd(s);
+            if (selStart != -1 && selStart == selEnd) {
+                Selection.removeSelection(s);
+            }
+        }
+    }
+
+    public void input(String text) {
+        output(text, new StyleSpan(Typeface.BOLD));
+        onInput(text);
+    }
+
+    public void setInputEnabled(boolean enabled) {
         if (enabled) {
             etInput.setVisibility(View.VISIBLE);
             etInput.requestFocus();
@@ -136,78 +192,44 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-
-        // FIXME refactor with copy in oncreateoutput
-        tvOutput.setText(tvOutput.getText(), TextView.BufferType.EDITABLE); // FIXME explain why not use xml
-        RemoveCursorWatcher.install(tvOutput);  // Text object may have been replaced.
-    }
-
-    // FIXME explain
-    // FIXME explain bufferType in xml
-    private static class RemoveCursorWatcher implements SpanWatcher {
-        private static RemoveCursorWatcher watcher = new RemoveCursorWatcher();
-
-        public static void install(TextView tv) {
-            Spannable text = (Spannable) tv.getText();
-            text.setSpan(watcher, 0, 0, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
-            watcher.removeCursor(text);
-        }
-
-        @Override
-        public void onSpanAdded(Spannable text, Object what, int start, int end) {
-            removeCursor(text);
-        }
-
-        @Override
-        public void onSpanChanged(Spannable text, Object what, int ostart, int oend, int nstart,
-                                  int nend) {
-            removeCursor(text);
-        }
-
-        @Override
-        public void onSpanRemoved(Spannable text, Object what, int start, int end) {}
-
-        public void removeCursor(Spannable text) {
-            int start = Selection.getSelectionStart(text), end = Selection.getSelectionEnd(text);
-            if (start != -1 && start == end) {
-                Selection.removeSelection(text);
-            }
-        }
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
-        if (! state.alreadyRun) {
+        if (state.thread.getState() == Thread.State.NEW) {
             tvOutput.setText("");  // We may have restored the output from a previous instance.
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    ConsoleActivity.this.run();
-                }
-            }).start();
-            state.alreadyRun = true;
+            state.thread.start();
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        saveScroll(); // FIXME unnecessary?
+        //saveScroll(); // FIXME unnecessary?
+    }
+
+    public void onBackPressed() {
+        if (state.thread.isAlive()) {
+            moveTaskToBack(true);
+        }
     }
 
     /** Override this method to provide the activity's implementation. It will be called on a
      *  background thread. It can call `output` on any thread to add text to the console output. */
-    protected abstract void run();
+    public abstract void run();
 
     /** Called each time the user enters a line of input. The default implementation does nothing.
      * If you override this method, you should also call `setInputEnabled(true)`. */
-    protected void onInput(String input) {}
+    public void onInput(String input) {}
 
-    protected void output(final CharSequence text) {
-        if (text.length() == 0) return;
+    public void output(CharSequence text, Object... spans) {
+        Spannable spanText = new SpannableStringBuilder(text);
+        for (Object span : spans) {
+            spanText.setSpan(span, 0, text.length(), 0);
+        }
+        output(spanText);
+    }
+
+    public void output(final CharSequence text) {
+        if (text.length() == 0) return; // FIXME remove
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -224,7 +246,6 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                     tvOutput.append(text);
                 }
 
-                /*FIXME
                 if (atBottom) {
                     // Auto-scroll once the TextView has updated its layout.
                     svOutput.post(new Runnable() {
@@ -234,19 +255,14 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                         }
                     });
                 }
-                */
             }
         });
     }
 
-    // After a rotation, svOutput will initially restore the previous pixel scroll position.
-    // However, due to re-wrapping, this may result in a completely different piece of text being
-    // visible.
-    //
-    // If etInput is disabled, then tvOutput will be the focused view (textIsSelectable implies
-    // focusable). In this case, svOutput will be scrolled again, by the minimum amount necessary to
-    // put tvInput's cursor on-screen. (The cursor is invisible, and is located by default at the
-    // end, or at the character which was last tapped.)
+    // After a rotation or a keyboard show/hide, a ScrollView will restore the previous pixel scroll
+    // position. However, due to re-wrapping, this may result in a completely different piece of
+    // text being visible. We'll try to maintain the text position of the top line, unless the view
+    // is scrolled to the bottom, in which case we'll maintain that.
     private void saveScroll() {
         if (isScrolledToBottom()) {
             state.scrollOffset = tvOutput.getText().length();
@@ -260,7 +276,9 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     private void restoreScroll() {
         Layout layout = tvOutput.getLayout();
         int scrollY = layout.getLineTop(layout.getLineForOffset(state.scrollOffset));
-        svOutput.smoothScrollTo(0, scrollY); // FIXME explain why smooth, or maybe unnecessary now
+        svOutput.scrollTo(0, scrollY);
+
+        //svOutput.smoothScrollTo(0, scrollY); // FIXME explain why smooth, or maybe unnecessary now
     }
 
     private boolean isScrolledToBottom() {
