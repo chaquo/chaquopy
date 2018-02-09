@@ -16,9 +16,6 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     protected static class State {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
-        int scrollChar = 0;              // Character offset of the top visible line.
-        int scrollAdjust = 0;            // Pixels by which that line is scrolled above the top
-                                         // (prevents movement when keyboard hidden/shown).
     }
     protected State state;
 
@@ -38,16 +35,6 @@ public abstract class ConsoleActivity extends AppCompatActivity {
             new ViewTreeObserver.OnScrollChangedListener() {
                 @Override public void onScrollChanged() { saveScroll(); }
             });
-
-        // Triggered by various events, including:
-        //   * After onResume, while the UI is being laid out (possibly multiple times).
-        //   * Keyboard is shown or hidden.
-        //   * Text selection toolbar appears or disappears (on some Android versions).
-        svOutput.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override public void onGlobalLayout() {
-                restoreScroll();
-            }
-        });
 
         tvOutput = (TextView) findViewById(R.id.tvBuffer);
         if (Build.VERSION.SDK_INT >= 23) {
@@ -86,39 +73,21 @@ public abstract class ConsoleActivity extends AppCompatActivity {
 
     // After a rotation or a keyboard show/hide, a ScrollView will restore the previous pixel scroll
     // position. However, due to re-wrapping, this may result in a completely different piece of
-    // text being visible. We'll try to maintain the text position of the top line, unless the view
+    // text being visible. FIXME We'll try to maintain the text position of the top line, unless the view
     // is scrolled to the bottom, in which case we'll maintain that.
     private void saveScroll() {
+        Spannable s = (Spannable) tvOutput.getText();
+        if (Selection.getSelectionStart(s) != Selection.getSelectionEnd(s)) {
+            return;  // Don't interfere with an actual selection
+        }
+        int cursorPos;
         if (isScrolledToBottom()) {
-            state.scrollChar = tvOutput.getText().length();
-            state.scrollAdjust = 0;
+            cursorPos = s.length();
         } else {
-            int scrollY = svOutput.getScrollY();
             Layout layout = tvOutput.getLayout();
-            int line = layout.getLineForVertical(scrollY);
-            state.scrollChar = layout.getLineStart(line);
-            state.scrollAdjust = scrollY - layout.getLineTop(line);
+            cursorPos = layout.getLineStart(layout.getLineForVertical(svOutput.getScrollY()));
         }
-    }
-
-    private void restoreScroll() {
-        // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
-        // zero-length selection) during startup, and re-create it if necessary whenever the user
-        // taps on the view. When a TextView is focused and it has a cursor, it will adjust its xxxxxxxx
-        // containing ScrollView to keep the cursor on-screen. textIsSelectable implies focusable,
-        // so if there are no other focusable views in the layout, then it will always be focused.
-        //
-        // This interferes with our own scroll control, so we'll remove the cursor to stop it
-        // from happening. Non-zero-length selections are left untouched.
-        int selStart = tvOutput.getSelectionStart();
-        int selEnd = tvOutput.getSelectionEnd();
-        if (selStart != -1 && selStart == selEnd) {
-            Selection.removeSelection((Spannable) tvOutput.getText());
-        }
-
-        Layout layout = tvOutput.getLayout();
-        int line = layout.getLineForOffset(state.scrollChar);
-        svOutput.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
+        Selection.setSelection(s, cursorPos);
     }
 
     private boolean isScrolledToBottom() {
@@ -156,7 +125,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override public void run() {
                 boolean atBottom = isScrolledToBottom();
-                Log.i("output", text.toString() + ", atBottom=" + atBottom);
+                Log.d("output", text.toString() + ", height=" + svOutput.getHeight());
 
                 if (state.pendingNewline) {
                     tvOutput.append("\n");
@@ -181,6 +150,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         svOutput.post(new Runnable() {
             @Override public void run() {
                 svOutput.fullScroll(direction);
+                Log.d("scroll", "height=" + svOutput.getHeight());
             }
         });
     }
