@@ -51,9 +51,8 @@ public class ReplActivity extends ConsoleActivity {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
                     (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
-                    String input = etInput.getText().toString();
+                    push(etInput.getText().toString());
                     etInput.setText("");
-                    push(input);
                     return true;
                 }
                 return false;
@@ -76,7 +75,7 @@ public class ReplActivity extends ConsoleActivity {
         super.onResume();
         if (tvBuffer.getText().length() == 0) {
             PyObject sys = py.getModule("sys");
-            append(String.format("Python %s on %s\n",sys.get("version"), sys.get("platform")));
+            append(String.format("Python %s on %s\n", sys.get("version"), sys.get("platform")));
             append(getString(R.string.repl_banner) + "\n");
             push("from java import *");
         }
@@ -97,7 +96,7 @@ public class ReplActivity extends ConsoleActivity {
         spannableInput.setSpan(new StyleSpan(Typeface.BOLD), prompt.length(),
                                spannableInput.length(), 0);
         Log.i("ReplActivity", spannableInput.toString());
-        append(spannableInput);
+        append(spannableInput, true);
 
         state.more = state.console.callAttr("push", input).toJava(Boolean.class);
         etInput.setHint(getPrompt());
@@ -105,11 +104,6 @@ public class ReplActivity extends ConsoleActivity {
 
     private String getPrompt() {
         return getString(state.more ? R.string.ps2 : R.string.ps1);
-    }
-
-    protected void scroll(int direction) {
-        super.scroll(direction);
-        etInput.requestFocus();
     }
 
 }

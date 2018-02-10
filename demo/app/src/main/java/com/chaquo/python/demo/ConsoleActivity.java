@@ -1,24 +1,27 @@
 package com.chaquo.python.demo;
 
+import android.annotation.*;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
-import java.util.*;
 
-public abstract class ConsoleActivity extends AppCompatActivity {
+
+public abstract class ConsoleActivity extends AppCompatActivity
+implements ViewTreeObserver.OnGlobalLayoutListener {
 
     protected Python py;
-    protected ScrollView svBuffer;
-    protected TextView tvBuffer;
+    private ScrollView svBuffer;
+    protected TextView tvBuffer;    // FIXME private
+    private int outputWidth = 0, outputHeight = 0;
 
     protected static class State {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
         int scrollChar = 0;              // Character offset of the top visible line.
         int scrollAdjust = 0;            // Pixels by which that line is scrolled above the top
-                                         // (prevents movement when keyboard hidden/shown).
+                                         //   (prevents movement when keyboard hidden/shown).
     }
     protected State state;
 
@@ -39,15 +42,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
                 @Override public void onScrollChanged() { saveScroll(); }
             });
 
-        // Triggered by various events, including:
-        //   * After onResume, while the UI is being laid out (possibly multiple times).
-        //   * Keyboard is shown or hidden.
-        //   * Text selection toolbar appears or disappears (on some Android versions).
-        svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override public void onGlobalLayout() {
-                restoreScroll();
-            }
-        });
+        svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
         tvBuffer = (TextView) findViewById(R.id.tvBuffer);
         if (Build.VERSION.SDK_INT >= 23) {
@@ -76,6 +71,18 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "append"));
     }
 
+    // This callback is triggered by numerous events, all of which occur after onResume, at a time
+    // when we have completed layout. We're only interested if the append view size has been
+    // initialized or changed, and we want to avoid adjusting the scroll at other times because it
+    // can interfere with auto-scrolling.
+    @Override public void onGlobalLayout() {
+        if (outputWidth != svBuffer.getWidth() || outputHeight != svBuffer.getHeight()) {
+            outputWidth = svBuffer.getWidth();
+            outputHeight = svBuffer.getHeight();
+            restoreScroll();
+        }
+    }
+
     @Override
     protected void onStop() {
         super.onStop();
@@ -84,10 +91,11 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         sys.put("stderr", prevStderr);
     }
 
-    // After a rotation or a keyboard show/hide, a ScrollView will restore the previous pixel scroll
-    // position. However, due to re-wrapping, this may result in a completely different piece of
-    // text being visible. We'll try to maintain the text position of the top line, unless the view
-    // is scrolled to the bottom, in which case we'll maintain that.
+    // After a rotation, a ScrollView will restore the previous pixel scroll position. However, due
+    // to re-wrapping, this may result in a completely different piece of text being visible. We'll
+    // try to maintain the text position of the top line, unless the view is scrolled to the bottom,
+    // in which case we'll maintain that. Maintaining the bottom line will also cause a scroll
+    // adjustment when the keyboard's hidden or shown.
     private void saveScroll() {
         if (isScrolledToBottom()) {
             state.scrollChar = tvBuffer.getText().length();
@@ -102,20 +110,7 @@ public abstract class ConsoleActivity extends AppCompatActivity {
     }
 
     private void restoreScroll() {
-        // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
-        // zero-length selection) during startup, and re-create it if necessary whenever the user
-        // taps on the view. When a TextView is focused and it has a cursor, it will adjust its
-        // containing ScrollView to keep the cursor on-screen. textIsSelectable implies focusable,
-        // so if there are no other focusable views in the layout, then it will always be focused.
-        //
-        // This interferes with our own scroll control, so we'll remove the cursor to stop it
-        // from happening. Non-zero-length selections are left untouched.
-        int selStart = tvBuffer.getSelectionStart();
-        int selEnd = tvBuffer.getSelectionEnd();
-        if (selStart != -1 && selStart == selEnd) {
-            Selection.removeSelection((Spannable) tvBuffer.getText());
-        }
-
+        removeCursor();
         Layout layout = tvBuffer.getLayout();
         int line = layout.getLineForOffset(state.scrollChar);
         svBuffer.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
@@ -135,15 +130,14 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return true;
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
+    @Override public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_top: {
-                scroll(View.FOCUS_UP);
+                handler.sendEmptyMessage(SCROLL_TOP);
             } break;
 
             case R.id.menu_bottom: {
-                scroll(View.FOCUS_DOWN);
+                handler.sendEmptyMessage(SCROLL_BOTTOM);
             } break;
 
             default: return false;
@@ -151,38 +145,76 @@ public abstract class ConsoleActivity extends AppCompatActivity {
         return true;
     }
 
-    public void append(CharSequence text) {
+    public void append(CharSequence text) { append(text, false); }
+
+    public void append(final CharSequence text, final boolean forceScroll) {
         if (text.length() == 0) return;
-        final List<CharSequence> fragments = new ArrayList<>();
-        if (state.pendingNewline) {
-            fragments.add("\n");
-            state.pendingNewline = false;
-        }
-        if (text.charAt(text.length() - 1) == '\n') {
-            fragments.add(text.subSequence(0, text.length() - 1));
-            state.pendingNewline = true;
-        } else {
-            fragments.add(text);
-        }
-        
         runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                for (CharSequence frag : fragments) {
-                    tvBuffer.append(frag);
+            @Override public void run() {
+                removeCursor();
+                if (state.pendingNewline) {
+                    tvBuffer.append("\n");
+                    state.pendingNewline = false;
                 }
-                svBuffer.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        scroll(View.FOCUS_DOWN);
-                    }
-                });
+                if (text.charAt(text.length() - 1) == '\n') {
+                    tvBuffer.append(text.subSequence(0, text.length() - 1));
+                    state.pendingNewline = true;
+                } else {
+                    tvBuffer.append(text);
+                }
+
+                // If the append has caused the TextView to get taller, that won't be reflected by
+                // getHeight until after the next layout pass, which has now been scheduled. So
+                // isScrolledToBottom is safe here, but scrollTo needs to be posted so it runs
+                // after layout.
+                if (forceScroll || isScrolledToBottom()) {
+                    handler.sendEmptyMessage(SCROLL_BOTTOM);
+                }
             }
         });
     }
 
-    protected void scroll(int direction) {
-        svBuffer.fullScroll(direction);
+    private static final int SCROLL_TOP = 0, SCROLL_BOTTOM = 1;
+
+    @SuppressLint("HandlerLeak")  // No delayed messages are used.
+    Handler handler = new Handler() {
+        @Override public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case SCROLL_TOP:
+                    scrollTo(0);
+                    removeMessages(SCROLL_BOTTOM);  // Prevent pending auto-scroll.
+                    break;
+                case SCROLL_BOTTOM:
+                    scrollTo(tvBuffer.getHeight());
+                    break;
+                default: throw new Error(msg.toString());
+            }
+        }
+
+        // Don't use smooth scroll, because if an output call happens while it's animating towards
+        // the bottom, isScrolledToBottom will believe we've left the bottom and auto-scrolling will
+        // stop. Don't use fullScroll either, because not only does it use smooth scroll, it also
+        // grabs focus.
+        public void scrollTo(int y) {
+            svBuffer.scrollTo(0, y);
+        }
+    };
+
+    // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
+    // zero-length selection) during startup, and re-create it if necessary whenever the user taps
+    // on the view. When a TextView is focused and it has a cursor, it will adjust its containing
+    // ScrollView whenever the text changes in an attempt to keep the cursor on-screen.
+    // textIsSelectable implies focusable, so if there are no other focusable views in the layout,
+    // then it will always be focused.
+    //
+    // This interferes with our own scroll control, so we'll remove the cursor before we try
+    // from happening. Non-zero-length selections are left untouched.
+    private void removeCursor() {
+        int selStart = tvBuffer.getSelectionStart();
+        int selEnd = tvBuffer.getSelectionEnd();
+        if (selStart != -1 && selStart == selEnd) {
+            Selection.removeSelection((Spannable) tvBuffer.getText());
+        }
     }
 
 }
