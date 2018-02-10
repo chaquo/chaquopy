@@ -4,6 +4,7 @@ import android.annotation.*;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
+import android.text.style.*;
 import android.view.*;
 import android.widget.*;
 import com.chaquo.python.*;
@@ -68,7 +69,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         prevStdout = sys.get("stdout");
         prevStderr = sys.get("stderr");
         sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "append"));
-        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "append"));
+        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "appendStderr"));
     }
 
     // This callback is triggered by numerous events, all of which occur after onResume, at a time
@@ -143,6 +144,20 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
             default: return false;
         }
         return true;
+    }
+
+    @SuppressWarnings("unused")  // Passed to Python above
+    public void appendStderr(CharSequence text) {
+        int color = getResources().getColor(R.color.console_stderr);
+        append(span(text, new ForegroundColorSpan(color)));
+    }
+
+    private static Spannable span(CharSequence text, Object... spans) {
+        Spannable spanText = new SpannableStringBuilder(text);
+        for (Object span : spans) {
+            spanText.setSpan(span, 0, text.length(), 0);
+        }
+        return spanText;
     }
 
     public void append(CharSequence text) { append(text, false); }
