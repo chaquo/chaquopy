@@ -18,6 +18,11 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     protected TextView tvBuffer;    // FIXME private
     private int outputWidth = 0, outputHeight = 0;
 
+    enum Scroll {
+        TOP, BOTTOM
+    }
+    private Scroll scrollRequest;
+    
     protected static class State {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
         int scrollChar = 0;              // Character offset of the top visible line.
@@ -72,15 +77,31 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "appendStderr"));
     }
 
-    // This callback is triggered by numerous events, all of which occur after onResume, at a time
-    // when we have completed layout. We're only interested if the append view size has been
-    // initialized or changed, and we want to avoid adjusting the scroll at other times because it
-    // can interfere with auto-scrolling.
+    // This callback is run after onResume each time the layout changes, i.e. a views size, position
+    // or visibility has changed.
     @Override public void onGlobalLayout() {
         if (outputWidth != svBuffer.getWidth() || outputHeight != svBuffer.getHeight()) {
+            // Either we've just started up, or the keyboard has been hidden or shown.
             outputWidth = svBuffer.getWidth();
             outputHeight = svBuffer.getHeight();
             restoreScroll();
+        } else if (scrollRequest != null) {
+            int y = -1;
+            switch (scrollRequest) {
+                case TOP:
+                    y = 0;
+                    break;
+                case BOTTOM:
+                    y = tvBuffer.getHeight();
+                    break;
+            }
+
+            // Don't use smooth scroll, because if an output call happens while it's animating
+            // towards the bottom, isScrolledToBottom will believe we've left the bottom and
+            // auto-scrolling will stop. Don't use fullScroll either, because not only does it use
+            // smooth scroll, it also grabs focus.
+            svBuffer.scrollTo(0, y);
+            scrollRequest = null;
         }
     }
 
@@ -134,11 +155,11 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     @Override public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_top: {
-                handler.sendEmptyMessage(SCROLL_TOP);
+                scrollTo(Scroll.TOP);
             } break;
 
             case R.id.menu_bottom: {
-                handler.sendEmptyMessage(SCROLL_BOTTOM);
+                scrollTo(Scroll.BOTTOM);
             } break;
 
             default: return false;
@@ -152,7 +173,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         append(span(text, new ForegroundColorSpan(color)));
     }
 
-    private static Spannable span(CharSequence text, Object... spans) {
+    public static Spannable span(CharSequence text, Object... spans) {
         Spannable spanText = new SpannableStringBuilder(text);
         for (Object span : spans) {
             spanText.setSpan(span, 0, text.length(), 0);
@@ -178,42 +199,25 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
                     tvBuffer.append(text);
                 }
 
-                // If the append has caused the TextView to get taller, that won't be reflected by
-                // getHeight until after the next layout pass, which has now been scheduled. So
-                // isScrolledToBottom is safe here, but scrollTo needs to be posted so it runs
-                // after layout.
+                // Even if the append will cause the TextView to get taller, that won't be reflected
+                // by getHeight until after the next layout pass, so isScrolledToBottom is safe
+                // here.
                 if (forceScroll || isScrolledToBottom()) {
-                    handler.sendEmptyMessage(SCROLL_BOTTOM);
+                    scrollTo(Scroll.BOTTOM);
                 }
             }
         });
     }
-
-    private static final int SCROLL_TOP = 0, SCROLL_BOTTOM = 1;
-
-    @SuppressLint("HandlerLeak")  // No delayed messages are used.
-    Handler handler = new Handler() {
-        @Override public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case SCROLL_TOP:
-                    scrollTo(0);
-                    removeMessages(SCROLL_BOTTOM);  // Prevent pending auto-scroll.
-                    break;
-                case SCROLL_BOTTOM:
-                    scrollTo(tvBuffer.getHeight());
-                    break;
-                default: throw new Error(msg.toString());
-            }
+    
+    // Don't actually scroll until the next onGlobalLayout, when we'll know what the new TextView
+    // height is.
+    private void scrollTo(Scroll request) {
+        // The "top" button should take priority over an auto-scroll.
+        if (scrollRequest != Scroll.TOP) {
+            scrollRequest = request;
         }
-
-        // Don't use smooth scroll, because if an output call happens while it's animating towards
-        // the bottom, isScrolledToBottom will believe we've left the bottom and auto-scrolling will
-        // stop. Don't use fullScroll either, because not only does it use smooth scroll, it also
-        // grabs focus.
-        public void scrollTo(int y) {
-            svBuffer.scrollTo(0, y);
-        }
-    };
+        svBuffer.requestLayout();
+    }
 
     // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a
     // zero-length selection) during startup, and re-create it if necessary whenever the user taps
