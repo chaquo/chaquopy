@@ -99,7 +99,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     public void onInput(String input) {}
 
     private void createOutput() {
-        svOutput = (ScrollView) findViewById(R.id.svBuffer);
+        svOutput = (ScrollView) findViewById(R.id.svOutput);
         svOutput.getViewTreeObserver().addOnScrollChangedListener(
             new ViewTreeObserver.OnScrollChangedListener() {
                 @Override public void onScrollChanged() { saveScroll(); }
@@ -107,7 +107,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
         svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
-        tvOutput = (TextView) findViewById(R.id.tvBuffer);
+        tvOutput = (TextView) findViewById(R.id.tvOutput);
         if (Build.VERSION.SDK_INT >= 23) {
             tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
