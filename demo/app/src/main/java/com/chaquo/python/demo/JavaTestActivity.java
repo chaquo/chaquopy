@@ -16,12 +16,12 @@ public class JavaTestActivity extends UnitTestActivity {
     private class Listener extends RunListener {
         @Override
         public void testStarted(Description description) throws Exception {
-            append(description.toString() + "\n");
+            output(description.toString() + "\n");
         }
 
         @Override
         public void testIgnored(Description description) throws Exception {
-            append("IGNORED\n");
+            output("IGNORED\n");
         }
 
         @Override
@@ -40,17 +40,17 @@ public class JavaTestActivity extends UnitTestActivity {
                     filteredTrace.append(line).append("\n");
                 }
             }
-            append(filteredTrace.toString());
+            output(filteredTrace.toString());
         }
 
         @Override
         public void testAssumptionFailure(Failure failure) {
-            append("ASSUMPTION FAILED\n");
+            output("ASSUMPTION FAILED\n");
         }
 
         @Override
         public void testRunFinished(Result result) throws Exception {
-            append(String.format("Ran %s tests in %.3f seconds (%s failed, %s ignored)\n",
+            output(String.format("Ran %s tests in %.3f seconds (%s failed, %s ignored)\n",
                                  result.getRunCount(), result.getRunTime() / 1000.0,
                                  result.getFailureCount(), result.getIgnoreCount()));
         }

@@ -31,18 +31,18 @@ public class ReplActivity extends ConsoleActivity {
         if (getLastCustomNonConfigurationInstance() == null) {
             // Don't restore the scrollback if the Python InteractiveConsole object can't be
             // restored as well (saw this happen once).
-            tvBuffer.setText("");
+            tvOutput.setText("");
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (tvBuffer.getText().length() == 0) {
+        if (tvOutput.getText().length() == 0) {
             PyObject sys = py.getModule("sys");
-            append(String.format("Python %s on %s\n", sys.get("version"), sys.get("platform")));
-            append(getString(R.string.repl_banner) + "\n");
-            append(getPrompt());
+            output(String.format("Python %s on %s\n", sys.get("version"), sys.get("platform")));
+            output(getString(R.string.repl_banner) + "\n");
+            output(getPrompt());
             input("from java import *\n");
         }
     }
@@ -61,7 +61,7 @@ public class ReplActivity extends ConsoleActivity {
             input = input.substring(0, input.length() - 1);
         }
         state.more = state.console.callAttr("push", input).toJava(Boolean.class);
-        append(getPrompt());
+        output(getPrompt());
     }
 
     private String getPrompt() {

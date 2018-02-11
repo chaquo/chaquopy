@@ -16,8 +16,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     protected Python py;
     private EditText etInput;
-    private ScrollView svBuffer;
-    protected /* FIXME private */ TextView tvBuffer;
+    private ScrollView svOutput;
+    protected /* FIXME private */ TextView tvOutput;
     private int outputWidth = 0, outputHeight = 0;
 
     enum Scroll {
@@ -91,7 +91,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     /** Generates input as if it had been typed. */
     public void input(String text) {
-        append(span(text, new StyleSpan(Typeface.BOLD)));
+        output(span(text, new StyleSpan(Typeface.BOLD)));
         scrollTo(Scroll.BOTTOM);
         onInput(text);
     }
@@ -104,17 +104,17 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     public void onInput(String input) {}
 
     private void createOutput() {
-        svBuffer = (ScrollView) findViewById(R.id.svBuffer);
-        svBuffer.getViewTreeObserver().addOnScrollChangedListener(
+        svOutput = (ScrollView) findViewById(R.id.svBuffer);
+        svOutput.getViewTreeObserver().addOnScrollChangedListener(
             new ViewTreeObserver.OnScrollChangedListener() {
                 @Override public void onScrollChanged() { saveScroll(); }
             });
 
-        svBuffer.getViewTreeObserver().addOnGlobalLayoutListener(this);
+        svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
-        tvBuffer = (TextView) findViewById(R.id.tvBuffer);
+        tvOutput = (TextView) findViewById(R.id.tvBuffer);
         if (Build.VERSION.SDK_INT >= 23) {
-            tvBuffer.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+            tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
     }
 
@@ -135,17 +135,17 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         PyObject sys = py.getModule("sys");
         prevStdout = sys.get("stdout");
         prevStderr = sys.get("stderr");
-        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "append"));
-        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "appendStderr"));
+        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "output"));
+        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "outputStderr"));
     }
 
     // This callback is run after onResume, after each layout pass. If a view's size, position
     // or visibility has changed, the new values will be visible here.
     @Override public void onGlobalLayout() {
-        if (outputWidth != svBuffer.getWidth() || outputHeight != svBuffer.getHeight()) {
+        if (outputWidth != svOutput.getWidth() || outputHeight != svOutput.getHeight()) {
             // Either we've just started up, or the keyboard has been hidden or shown.
-            outputWidth = svBuffer.getWidth();
-            outputHeight = svBuffer.getHeight();
+            outputWidth = svOutput.getWidth();
+            outputHeight = svOutput.getHeight();
             restoreScroll();
         } else if (scrollRequest != null) {
             int y = -1;
@@ -154,7 +154,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
                     y = 0;
                     break;
                 case BOTTOM:
-                    y = tvBuffer.getHeight();
+                    y = tvOutput.getHeight();
                     break;
             }
 
@@ -162,7 +162,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
             // towards the bottom, isScrolledToBottom will believe we've left the bottom and
             // auto-scrolling will stop. Don't use fullScroll either, because not only does it use
             // smooth scroll, it also grabs focus.
-            svBuffer.scrollTo(0, y);
+            svOutput.scrollTo(0, y);
             scrollRequest = null;
         }
     }
@@ -182,11 +182,11 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     // adjustment when the keyboard's hidden or shown.
     private void saveScroll() {
         if (isScrolledToBottom()) {
-            state.scrollChar = tvBuffer.getText().length();
+            state.scrollChar = tvOutput.getText().length();
             state.scrollAdjust = 0;
         } else {
-            int scrollY = svBuffer.getScrollY();
-            Layout layout = tvBuffer.getLayout();
+            int scrollY = svOutput.getScrollY();
+            Layout layout = tvOutput.getLayout();
             int line = layout.getLineForVertical(scrollY);
             state.scrollChar = layout.getLineStart(line);
             state.scrollAdjust = scrollY - layout.getLineTop(line);
@@ -195,16 +195,16 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     private void restoreScroll() {
         removeCursor();
-        Layout layout = tvBuffer.getLayout();
+        Layout layout = tvOutput.getLayout();
         int line = layout.getLineForOffset(state.scrollChar);
-        svBuffer.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
+        svOutput.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
     }
 
     private boolean isScrolledToBottom() {
-        int visibleHeight = (svBuffer.getHeight() - svBuffer.getPaddingTop() -
-                             svBuffer.getPaddingBottom());
-        int maxScroll = Math.max(0, tvBuffer.getHeight() - visibleHeight);
-        return (svBuffer.getScrollY() >= maxScroll);
+        int visibleHeight = (svOutput.getHeight() - svOutput.getPaddingTop() -
+                             svOutput.getPaddingBottom());
+        int maxScroll = Math.max(0, tvOutput.getHeight() - visibleHeight);
+        return (svOutput.getScrollY() >= maxScroll);
     }
 
     @Override
@@ -230,9 +230,9 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     }
 
     @SuppressWarnings("unused")  // Passed to Python above
-    public void appendStderr(CharSequence text) {
+    public void outputStderr(CharSequence text) {
         int color = getResources().getColor(R.color.console_stderr);
-        append(span(text, new ForegroundColorSpan(color)));
+        output(span(text, new ForegroundColorSpan(color)));
     }
 
     public static Spannable span(CharSequence text, Object... spans) {
@@ -243,23 +243,23 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         return spanText;
     }
 
-    public void append(final CharSequence text) {
+    public void output(final CharSequence text) {
         if (text.length() == 0) return;
         runOnUiThread(new Runnable() {
             @Override public void run() {
                 removeCursor();
                 if (state.pendingNewline) {
-                    tvBuffer.append("\n");
+                    tvOutput.append("\n");
                     state.pendingNewline = false;
                 }
                 if (text.charAt(text.length() - 1) == '\n') {
-                    tvBuffer.append(text.subSequence(0, text.length() - 1));
+                    tvOutput.append(text.subSequence(0, text.length() - 1));
                     state.pendingNewline = true;
                 } else {
-                    tvBuffer.append(text);
+                    tvOutput.append(text);
                 }
 
-                // Even if the append will cause the TextView to get taller, that won't be reflected
+                // Even if the output will cause the TextView to get taller, that won't be reflected
                 // by getHeight until after the next layout pass, so isScrolledToBottom is safe
                 // here.
                 if (isScrolledToBottom()) {
@@ -275,7 +275,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         // The "top" button should take priority over an auto-scroll.
         if (scrollRequest != Scroll.TOP) {
             scrollRequest = request;
-            svBuffer.requestLayout();
+            svOutput.requestLayout();
         }
     }
 
@@ -289,10 +289,10 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     // This interferes with our own scroll control, so we'll remove the cursor before we try
     // from happening. Non-zero-length selections are left untouched.
     private void removeCursor() {
-        int selStart = tvBuffer.getSelectionStart();
-        int selEnd = tvBuffer.getSelectionEnd();
+        int selStart = tvOutput.getSelectionStart();
+        int selEnd = tvOutput.getSelectionEnd();
         if (selStart != -1 && selStart == selEnd) {
-            Selection.removeSelection((Spannable) tvBuffer.getText());
+            Selection.removeSelection((Spannable) tvOutput.getText());
         }
     }
 
