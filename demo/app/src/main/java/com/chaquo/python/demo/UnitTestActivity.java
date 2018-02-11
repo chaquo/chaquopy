@@ -8,7 +8,6 @@ public abstract class UnitTestActivity extends ConsoleActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        setContentView(R.layout.activity_unit_test);
         super.onCreate(savedInstanceState);
         alreadyRun = (savedInstanceState != null);
     }

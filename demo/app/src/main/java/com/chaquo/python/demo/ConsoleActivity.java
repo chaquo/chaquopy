@@ -1,11 +1,12 @@
 package com.chaquo.python.demo;
 
-import android.annotation.*;
+import android.graphics.*;
 import android.os.*;
 import android.support.v7.app.*;
 import android.text.*;
 import android.text.style.*;
 import android.view.*;
+import android.view.inputmethod.*;
 import android.widget.*;
 import com.chaquo.python.*;
 
@@ -14,8 +15,9 @@ public abstract class ConsoleActivity extends AppCompatActivity
 implements ViewTreeObserver.OnGlobalLayoutListener {
 
     protected Python py;
+    private EditText etInput;
     private ScrollView svBuffer;
-    protected TextView tvBuffer;    // FIXME private
+    protected /* FIXME private */ TextView tvBuffer;
     private int outputWidth = 0, outputHeight = 0;
 
     enum Scroll {
@@ -42,6 +44,66 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
             state = initState();
         }
 
+        setContentView(R.layout.activity_console);
+        createInput();
+        createOutput();
+    }
+
+    private void createInput() {
+        etInput = (EditText) findViewById(R.id.etInput);
+
+        // Strip formatting from pasted text.
+        etInput.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            public void afterTextChanged(Editable e) {
+                for (CharacterStyle cs : e.getSpans(0, e.length(), CharacterStyle.class)) {
+                    e.removeSpan(cs);
+                }
+            }
+        });
+
+        etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                    String text = etInput.getText().toString() + "\n";
+                    etInput.setText("");
+                    input(text);
+                    return true;
+                }
+                return false;
+            }
+        });
+
+    }
+
+    /** If you make the input box visible, you should also override `onInput`. */
+    public void setInputVisible(boolean enabled) {
+        if (enabled) {
+            etInput.setVisibility(View.VISIBLE);
+            etInput.requestFocus();
+        } else {
+            etInput.setVisibility(View.GONE);
+        }
+    }
+
+    /** Generates input as if it had been typed. */
+    public void input(String text) {
+        append(span(text, new StyleSpan(Typeface.BOLD)));
+        scrollTo(Scroll.BOTTOM);
+        onInput(text);
+    }
+
+    /** Called each time the user enters some input, or `input()` is called. If the input came
+     * from the user, a trailing newline is always included.
+     *
+     * The default implementation does nothing. If you override this method, you should also call
+     * `setInputVisible(true)`. */
+    public void onInput(String input) {}
+
+    private void createOutput() {
         svBuffer = (ScrollView) findViewById(R.id.svBuffer);
         svBuffer.getViewTreeObserver().addOnScrollChangedListener(
             new ViewTreeObserver.OnScrollChangedListener() {
@@ -77,8 +139,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "appendStderr"));
     }
 
-    // This callback is run after onResume each time the layout changes, i.e. a views size, position
-    // or visibility has changed.
+    // This callback is run after onResume, after each layout pass. If a view's size, position
+    // or visibility has changed, the new values will be visible here.
     @Override public void onGlobalLayout() {
         if (outputWidth != svBuffer.getWidth() || outputHeight != svBuffer.getHeight()) {
             // Either we've just started up, or the keyboard has been hidden or shown.
@@ -181,9 +243,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         return spanText;
     }
 
-    public void append(CharSequence text) { append(text, false); }
-
-    public void append(final CharSequence text, final boolean forceScroll) {
+    public void append(final CharSequence text) {
         if (text.length() == 0) return;
         runOnUiThread(new Runnable() {
             @Override public void run() {
@@ -202,21 +262,21 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
                 // Even if the append will cause the TextView to get taller, that won't be reflected
                 // by getHeight until after the next layout pass, so isScrolledToBottom is safe
                 // here.
-                if (forceScroll || isScrolledToBottom()) {
+                if (isScrolledToBottom()) {
                     scrollTo(Scroll.BOTTOM);
                 }
             }
         });
     }
-    
+
     // Don't actually scroll until the next onGlobalLayout, when we'll know what the new TextView
     // height is.
     private void scrollTo(Scroll request) {
         // The "top" button should take priority over an auto-scroll.
         if (scrollRequest != Scroll.TOP) {
             scrollRequest = request;
+            svBuffer.requestLayout();
         }
-        svBuffer.requestLayout();
     }
 
     // Because we've set textIsSelectable, the TextView will create an invisible cursor (i.e. a

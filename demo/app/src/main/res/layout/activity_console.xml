@@ -5,11 +5,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.chaquo.python.demo.ReplActivity">
+    tools:context="com.chaquo.python.demo.ConsoleActivity">
 
     <!-- textVisiblePassword prevents Google keyboard from displaying suggestion bar -->
     <EditText
         android:id="@+id/etInput"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="7dp"
