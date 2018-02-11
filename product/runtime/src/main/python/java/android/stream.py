@@ -3,7 +3,7 @@
 from __future__ import absolute_import, division, print_function
 
 from android.util import Log
-from io import StringIO
+from io import TextIOBase
 import sys
 
 
@@ -14,16 +14,32 @@ MAX_LINE_LEN = 4060
 
 
 def initialize():
+    sys.stdin = EmptyInputStream()
+
     # Log levels are consistent with those used by Java.
     sys.stdout = LogOutputStream(Log.INFO, "python.stdout")
     sys.stderr = LogOutputStream(Log.WARN, "python.stderr")
 
 
-class LogOutputStream(StringIO):
+class EmptyInputStream(TextIOBase):
+    def readable(self):
+        return True
+
+    def read(self, size=None):
+        return ""
+
+    def readline(self, size=None):
+        return ""
+
+
+class LogOutputStream(TextIOBase):
     def __init__(self, level, tag):
-        StringIO.__init__(self)
+        TextIOBase.__init__(self)
         self.level = level
         self.tag = tag
+
+    def writable(self):
+        return True
 
     # print() calls write() separately to write the ending newline, which will unfortunately
     # produce multiple log messages. The only alternatives would be buffering, or ignoring
@@ -31,7 +47,7 @@ class LogOutputStream(StringIO):
     def write(self, s):
         if sys.version_info[0] < 3 and isinstance(s, str):
             s = s.decode("UTF-8", "replace")
-        for line in s.splitlines():
+        for line in s.splitlines():  # "".splitlines() == [], so nothing will be logged.
             line = line or " "  # Empty log messages are ignored.
             while True:
                 Log.println(self.level, self.tag, line[:MAX_LINE_LEN])

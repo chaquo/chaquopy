@@ -1,17 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
-from io import StringIO
+from io import TextIOBase
 from os.path import join
 import sys
 
 
 # Passes each write to the underlying stream, and also to the given method (which must take a
 # single String argument) on the given Java object.
-class JavaTeeOutputStream(StringIO):
+class JavaTeeOutputStream(TextIOBase):
     def __init__(self, stream, obj, method):
-        StringIO.__init__(self)
+        TextIOBase.__init__(self)
         self.stream = stream
         self.func = getattr(obj, method)
+
+    def writable(self):
+        return True
 
     def write(self, s):
         if sys.version_info[0] < 3 and isinstance(s, str):

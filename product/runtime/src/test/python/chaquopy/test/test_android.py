@@ -304,7 +304,11 @@ class TestAndroidStreams(unittest.TestCase):
         cls_name, test_name = self.id().split(".")[-2:]
         return cls_name, test_name
 
-    def test_basic(self):
+    def test_output(self):
+        for stream in [sys.stdout, sys.stderr]:
+            self.assertTrue(stream.writable())
+            self.assertFalse(stream.readable())
+
         self.add(sys.stdout.write("a"),            ["I/python.stdout: a"])
         self.add(sys.stdout.write("Hello world"),  ["I/python.stdout: Hello world"])
         self.add(sys.stderr.write("Hello stderr"), ["W/python.stderr: Hello stderr"])
@@ -337,7 +341,15 @@ class TestAndroidStreams(unittest.TestCase):
                                                     "I/python.stdout: b"])
 
     # The maximum line length is 4060.
-    def test_long_line(self):
+    def test_output_long(self):
         self.add(sys.stdout.write("foobar" * 700),
                  ["I/python.stdout: " + ("foobar" * 676) + "foob",
                   "I/python.stdout: ar" + ("foobar" * 23)])
+
+    def test_input(self):
+        self.assertTrue(sys.stdin.readable())
+        self.assertFalse(sys.stdin.writable())
+        self.assertEqual("", sys.stdin.read())
+        self.assertEqual("", sys.stdin.read(42))
+        self.assertEqual("", sys.stdin.readline())
+        self.assertEqual("", sys.stdin.readline(42))
