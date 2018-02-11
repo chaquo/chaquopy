@@ -4,7 +4,11 @@ import android.os.*;
 import com.chaquo.python.*;
 
 
-public class ReplActivity extends ConsoleActivity {
+public class ReplActivity extends PythonConsoleActivity {
+
+    @Override public void run() {
+        // TODO #5366
+    }
 
     protected static class State extends ConsoleActivity.State {
         PyObject console;
@@ -23,16 +27,6 @@ public class ReplActivity extends ConsoleActivity {
         state = (State) ((ConsoleActivity)this).state;
 
         setInputVisible(true);
-    }
-
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        if (getLastCustomNonConfigurationInstance() == null) {
-            // Don't restore the scrollback if the Python InteractiveConsole object can't be
-            // restored as well (saw this happen once).
-            tvOutput.setText("");
-        }
     }
 
     @Override

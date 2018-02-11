@@ -4,10 +4,9 @@ import com.chaquo.java.*;
 import org.junit.runner.*;
 import org.junit.runner.notification.*;
 
-public class JavaTestActivity extends UnitTestActivity {
+public class JavaTestActivity extends ConsoleActivity {
 
-    @Override
-    protected void runTests() {
+    @Override public void run() {
         JUnitCore juc = new JUnitCore();
         juc.addListener(new Listener());
         juc.run(TestSuite.class);

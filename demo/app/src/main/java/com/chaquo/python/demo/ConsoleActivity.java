@@ -8,13 +8,10 @@ import android.text.style.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
-import com.chaquo.python.*;
-
 
 public abstract class ConsoleActivity extends AppCompatActivity
 implements ViewTreeObserver.OnGlobalLayoutListener {
 
-    protected Python py;
     private EditText etInput;
     private ScrollView svOutput;
     protected /* FIXME private */ TextView tvOutput;
@@ -26,6 +23,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     private Scroll scrollRequest;
     
     protected static class State {
+        Thread thread;
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
         int scrollChar = 0;              // Character offset of the top visible line.
         int scrollAdjust = 0;            // Pixels by which that line is scrolled above the top
@@ -33,12 +31,9 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     }
     protected State state;
 
-    private PyObject prevStdout, prevStderr;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        py = Python.getInstance();
         state = (State) getLastCustomNonConfigurationInstance();
         if (state == null) {
             state = initState();
@@ -96,8 +91,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         onInput(text);
     }
 
-    /** Called each time the user enters some input, or `input()` is called. If the input came
-     * from the user, a trailing newline is always included.
+    /** Called on the UI thread each time the user enters some input, or `input()` is called. If the
+     * input came from the user, a trailing newline is always included.
      *
      * The default implementation does nothing. If you override this method, you should also call
      * `setInputVisible(true)`. */
@@ -127,17 +122,28 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         return state;
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        PyObject utils = py.getModule("chaquopy.demo.utils");
-        PyObject JavaTeeOutputStream = utils.get("JavaTeeOutputStream");
-        PyObject sys = py.getModule("sys");
-        prevStdout = sys.get("stdout");
-        prevStderr = sys.get("stderr");
-        sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "output"));
-        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "outputError"));
+    @Override protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        // Don't restore the UI state unless we have the non-UI state as well.
+        if (state.thread != null) {
+            super.onRestoreInstanceState(savedInstanceState);
+        }
     }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (state.thread == null) {
+            state.thread = new Thread(new Runnable() {
+                @Override public void run() {
+                    ConsoleActivity.this.run();
+                }
+            });
+            state.thread.start();
+        }
+    }
+
+    /** Override this method to provide the activity's implementation. It will be called on a
+     *  background thread. */
+    public abstract void run();
 
     // This callback is run after onResume, after each layout pass. If a view's size, position
     // or visibility has changed, the new values will be visible here.
@@ -165,14 +171,6 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
             svOutput.scrollTo(0, y);
             scrollRequest = null;
         }
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        PyObject sys = py.getModule("sys");
-        sys.put("stdout", prevStdout);
-        sys.put("stderr", prevStderr);
     }
 
     // After a rotation, a ScrollView will restore the previous pixel scroll position. However, due
