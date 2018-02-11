@@ -40,19 +40,24 @@ public class JavaTestActivity extends UnitTestActivity {
                     filteredTrace.append(line).append("\n");
                 }
             }
-            output(filteredTrace.toString());
+            outputError(filteredTrace);
         }
 
         @Override
         public void testAssumptionFailure(Failure failure) {
-            output("ASSUMPTION FAILED\n");
+            outputError("ASSUMPTION FAILED\n");
         }
 
         @Override
         public void testRunFinished(Result result) throws Exception {
-            output(String.format("Ran %s tests in %.3f seconds (%s failed, %s ignored)\n",
-                                 result.getRunCount(), result.getRunTime() / 1000.0,
-                                 result.getFailureCount(), result.getIgnoreCount()));
+            String message = String.format("Ran %s tests in %.3f seconds (%s failed, %s ignored)\n",
+                                             result.getRunCount(), result.getRunTime() / 1000.0,
+                                             result.getFailureCount(), result.getIgnoreCount());
+            if (result.getFailureCount() > 0) {
+                outputError(message);
+            } else {
+                output(message);
+            }
         }
     }
 

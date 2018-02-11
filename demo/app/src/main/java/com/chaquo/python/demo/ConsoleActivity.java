@@ -136,7 +136,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         prevStdout = sys.get("stdout");
         prevStderr = sys.get("stderr");
         sys.put("stdout", JavaTeeOutputStream.call(prevStdout, this, "output"));
-        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "outputStderr"));
+        sys.put("stderr", JavaTeeOutputStream.call(prevStderr, this, "outputError"));
     }
 
     // This callback is run after onResume, after each layout pass. If a view's size, position
@@ -230,8 +230,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     }
 
     @SuppressWarnings("unused")  // Passed to Python above
-    public void outputStderr(CharSequence text) {
-        int color = getResources().getColor(R.color.console_stderr);
+    public void outputError(CharSequence text) {
+        int color = getResources().getColor(R.color.console_error);
         output(span(text, new ForegroundColorSpan(color)));
     }
 

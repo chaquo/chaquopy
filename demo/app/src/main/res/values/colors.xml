@@ -8,5 +8,5 @@
     <color name="green">#3f8e3d</color>
     <color name="blue">@color/colorPrimary</color>
 
-    <color name="console_stderr">#b53f3f</color>
+    <color name="console_error">#b53f3f</color>
 </resources>
