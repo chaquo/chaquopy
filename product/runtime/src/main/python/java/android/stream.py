@@ -7,10 +7,12 @@ from io import TextIOBase
 import sys
 
 
-# LOGGER_ENTRY_MAX_PAYLOAD is defined as 4076 in
-# android/platform/system/core/include/cutils/logger.h, but it looks like the level marker and
-# tag are also included in this value.
-MAX_LINE_LEN = 4060
+# LOGGER_ENTRY_MAX_PAYLOAD is defined in system/core/include/cutils/logger.h or
+# system/core/liblog/include/log/log_read.h, depending on Android version. The size of the
+# level marker and tag are subtracted from this value. It has already been reduced at least
+# once in the history of Android (from 4076 to 4068 between API level 23 and 26), so leave some
+# headroom.
+MAX_LINE_LEN = 4000
 
 
 def initialize():
@@ -46,11 +48,16 @@ class LogOutputStream(TextIOBase):
     # empty lines, both of which would be bad for debugging.
     def write(self, s):
         if sys.version_info[0] < 3 and isinstance(s, str):
-            s = s.decode("UTF-8", "replace")
-        for line in s.splitlines():  # "".splitlines() == [], so nothing will be logged.
+            u = s.decode("UTF-8", "replace")
+        else:
+            u = s
+
+        for line in u.splitlines():  # "".splitlines() == [], so nothing will be logged.
             line = line or " "  # Empty log messages are ignored.
             while True:
                 Log.println(self.level, self.tag, line[:MAX_LINE_LEN])
                 line = line[MAX_LINE_LEN:]
                 if not line:
                     break
+
+        return len(s)

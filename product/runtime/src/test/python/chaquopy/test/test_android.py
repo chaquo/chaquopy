@@ -20,10 +20,12 @@ import unittest
 
 if sys.version_info[0] < 3:
     from urllib2 import urlopen
+    bytes = str
 else:
     import importlib.machinery
     from importlib import reload
     from urllib.request import urlopen
+    unicode = str
 
 
 APP_ZIP = "app.zip"
@@ -282,38 +284,44 @@ class TestAndroidStdlib(unittest.TestCase):
 
 class TestAndroidStreams(unittest.TestCase):
 
+    maxDiff = None
+
     def setUp(self):
         from android.util import Log
         Log.i(*self.get_marker())
-        self.expected = []
+        self.expected_log = []
 
-    def add(self, ignored, expected):
-        self.expected += expected
+    def write(self, stream, s, expected_log):
+        self.assertEqual(len(s), stream.write(s))
+        self.expected_log += [line.decode("utf-8") if isinstance(line, bytes) else line
+                              for line in expected_log]
 
     def tearDown(self):
-        actual = None
+        actual_log = None
         marker = "I/{}: {}".format(*self.get_marker())
         for line in check_output(shlex.split("logcat -d -v tag")).decode("UTF-8").splitlines():
             if line == marker:
-                actual = []
-            elif actual is not None and "/python.std" in line:
-                actual.append(line)
-        self.assertEqual(self.expected, actual)
+                actual_log = []
+            elif actual_log is not None and "/python.std" in line:
+                actual_log.append(line)
+        self.assertEqual(self.expected_log, actual_log)
 
     def get_marker(self):
         cls_name, test_name = self.id().split(".")[-2:]
         return cls_name, test_name
 
     def test_output(self):
-        for stream in [sys.stdout, sys.stderr]:
+        out = sys.stdout
+        err = sys.stderr
+        for stream in [out, err]:
             self.assertTrue(stream.writable())
             self.assertFalse(stream.readable())
 
-        self.add(sys.stdout.write("a"),            ["I/python.stdout: a"])
-        self.add(sys.stdout.write("Hello world"),  ["I/python.stdout: Hello world"])
-        self.add(sys.stderr.write("Hello stderr"), ["W/python.stderr: Hello stderr"])
-        self.add(sys.stdout.write(" "),            ["I/python.stdout:  "])
-        self.add(sys.stdout.write("  "),           ["I/python.stdout:   "])
+        self.write(out, "a",             ["I/python.stdout: a"])
+        self.write(out, "Hello world",   ["I/python.stdout: Hello world"])
+        self.write(err, "Hello stderr",  ["W/python.stderr: Hello stderr"])
+        self.write(out, " ",             ["I/python.stdout:  "])
+        self.write(out, "  ",            ["I/python.stdout:   "])
 
         non_ascii = [
             (b"ol\xc3\xa9",               u"ol\u00e9"),         # Spanish
@@ -321,30 +329,33 @@ class TestAndroidStreams(unittest.TestCase):
         ]
         for b, u in non_ascii:
             expected = [u"I/python.stdout: " + u]
-            self.add(sys.stdout.write(u), expected)
+            self.write(out, u, expected)
             if sys.version_info[0] < 3:
-                self.add(sys.stdout.write(b), expected)
+                self.write(out, b, expected)
 
         # Empty lines can't be logged, so we change them to a space. Empty strings, on the
         # other hand, should be ignored.
-        self.add(sys.stdout.write(""),             [])
-        self.add(sys.stdout.write("\n"),           ["I/python.stdout:  "])
-        self.add(sys.stdout.write("\na"),          ["I/python.stdout:  ",
-                                                    "I/python.stdout: a"])
-        self.add(sys.stdout.write("a\n"),          ["I/python.stdout: a"])
-        self.add(sys.stdout.write("a\n\n"),        ["I/python.stdout: a",
-                                                    "I/python.stdout:  "])
-        self.add(sys.stdout.write("a\nb"),         ["I/python.stdout: a",
-                                                    "I/python.stdout: b"])
-        self.add(sys.stdout.write("a\n\nb"),       ["I/python.stdout: a",
-                                                    "I/python.stdout:  ",
-                                                    "I/python.stdout: b"])
+        #
+        # Avoid repeating log messages as it may activate "chatty" filtering and break the
+        # tests. Also, it makes debugging easier.
+        self.write(out, "",              [])
+        self.write(out, "\n",            ["I/python.stdout:  "])
+        self.write(out, "\na",           ["I/python.stdout:  ",
+                                          "I/python.stdout: a"])
+        self.write(out, "b\n",           ["I/python.stdout: b"])
+        self.write(out, "c\n\n",         ["I/python.stdout: c",
+                                          "I/python.stdout:  "])
+        self.write(out, "d\ne",          ["I/python.stdout: d",
+                                          "I/python.stdout: e"])
+        self.write(out, "f\n\ng",        ["I/python.stdout: f",
+                                          "I/python.stdout:  ",
+                                          "I/python.stdout: g"])
 
     # The maximum line length is 4060.
     def test_output_long(self):
-        self.add(sys.stdout.write("foobar" * 700),
-                 ["I/python.stdout: " + ("foobar" * 676) + "foob",
-                  "I/python.stdout: ar" + ("foobar" * 23)])
+        self.write(sys.stdout, "foobar" * 700,
+                   ["I/python.stdout: " + ("foobar" * 666) + "foob",
+                    "I/python.stdout: ar" + ("foobar" * 33)])
 
     def test_input(self):
         self.assertTrue(sys.stdin.readable())

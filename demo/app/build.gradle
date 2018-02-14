@@ -20,11 +20,16 @@ afterEvaluate {
 }
 
 android {
-    compileSdkVersion 23
+    compileSdkVersion 26
+
+    // Android Gradle plugin version 3.0 no longer requires this directive, but if it is
+    // specified then it will be ignored unless it's this version or higher. Older versions of
+    // the plugin do require this directive, and seem to work fine with this version.
     buildToolsVersion '26.0.2'
+
     defaultConfig {
         minSdkVersion 15
-        targetSdkVersion 23
+        targetSdkVersion 26
 
         // *** Replace in public repository **********************************
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
@@ -114,9 +119,9 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:appcompat-v7:23.4.0'
+    compile 'com.android.support:appcompat-v7:26.1.0'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    compile 'com.android.support:preference-v14:23.4.0'
+    compile 'com.android.support:preference-v14:26.1.0'
     compile 'junit:junit:4.12'
     testCompile 'junit:junit:4.12'
 }
