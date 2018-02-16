@@ -1,8 +1,14 @@
 package com.chaquo.python.demo;
 
+import android.os.*;
 import com.chaquo.python.*;
 
 public class PythonTestActivity extends PythonConsoleActivity {
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setStdinEnabled(false);  // test_android expects stdin to return EOF.
+    }
 
     @Override public void run() {
         Python py = Python.getInstance();

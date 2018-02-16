@@ -51,7 +51,10 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *
      * After calling `close()`, the PyObject can no longer be used. If there are no other
      * references to the underlying object, it may be destroyed by Python. If it continues to exist
-     * and is retrieved by Java code again, a new PyObject will be returned. */
+     * and is retrieved by Java code again, a new PyObject will be returned.
+     *
+     * Caution: any references to the same Python object elsewhere in your program will be
+     * represented by the same PyObject, so they will all be invalidated by this call. */
     public void close() {
         if (addr == 0) return;
         synchronized (cache) {

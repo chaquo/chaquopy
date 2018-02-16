@@ -31,10 +31,10 @@ public class PyObjectTest {
 
     @Test
     public void getInstance() {
-        PyObject sys = python.getModule("sys");
-        assertSame(sys, python.getModule("sys"));
-        sys.close();
-        assertNotSame(sys, python.getModule("sys"));
+        PyObject SO = pyobjecttest.get("SimpleObject");
+        assertSame(SO, pyobjecttest.get("SimpleObject"));
+        SO.close();
+        assertNotSame(SO, pyobjecttest.get("SimpleObject"));
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.chaquo.python.demo;
 
 import android.graphics.*;
 import android.os.*;
+import android.support.v4.content.*;
 import android.support.v7.app.*;
 import android.text.*;
 import android.text.style.*;
@@ -14,8 +15,9 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     private EditText etInput;
     private ScrollView svOutput;
-    protected /* FIXME private */ TextView tvOutput;
+    private TextView tvOutput;
     private int outputWidth = 0, outputHeight = 0;
+    private InputListener inputListener;
 
     enum Scroll {
         TOP, BOTTOM
@@ -45,7 +47,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     }
 
     private void createInput() {
-        etInput = (EditText) findViewById(R.id.etInput);
+        etInput = findViewById(R.id.etInput);
 
         // Strip formatting from pasted text.
         etInput.addTextChangedListener(new TextWatcher() {
@@ -74,32 +76,44 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     }
 
-    /** If you make the input box visible, you should also override `onInput`. */
-    public void setInputVisible(boolean enabled) {
-        if (enabled) {
-            etInput.setVisibility(View.VISIBLE);
-            etInput.requestFocus();
-        } else {
-            etInput.setVisibility(View.GONE);
-        }
+    /** Enables input and displays the input box. To disable input, pass null. */
+    public void setInputListener(InputListener listener) {
+        inputListener = listener;
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                if (inputListener != null) {
+                    etInput.setVisibility(View.VISIBLE);
+                    etInput.requestFocus();
+                } else {
+                    etInput.setVisibility(View.GONE);
+                }
+            }
+        });
     }
 
-    /** Generates input as if it had been typed. */
-    public void input(String text) {
-        output(span(text, new StyleSpan(Typeface.BOLD)));
-        scrollTo(Scroll.BOTTOM);
-        onInput(text);
+    public InputListener getInputListener() {
+        return inputListener;
     }
 
-    /** Called on the UI thread each time the user enters some input, or `input()` is called. If the
-     * input came from the user, a trailing newline is always included.
-     *
-     * The default implementation does nothing. If you override this method, you should also call
-     * `setInputVisible(true)`. */
-    public void onInput(String input) {}
+    public interface InputListener {
+        /** Called on the UI thread each time the user enters some input, or input() is called. If
+         * the input came from the user, a trailing newline is always included. */
+        void onInput(String text);
+    }
+
+    /** Generates input as if it had been typed. A trailing newline is *not* automatically added. */
+    public void input(final String text) {
+        runOnUiThread(new Runnable() {
+            @Override public void run() {
+                output(span(text, new StyleSpan(Typeface.BOLD)));
+                scrollTo(Scroll.BOTTOM);
+                inputListener.onInput(text);
+            }
+        });
+    }
 
     private void createOutput() {
-        svOutput = (ScrollView) findViewById(R.id.svOutput);
+        svOutput = findViewById(R.id.svOutput);
         svOutput.getViewTreeObserver().addOnScrollChangedListener(
             new ViewTreeObserver.OnScrollChangedListener() {
                 @Override public void onScrollChanged() { saveScroll(); }
@@ -107,7 +121,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
         svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
-        tvOutput = (TextView) findViewById(R.id.tvOutput);
+        tvOutput = findViewById(R.id.tvOutput);
         if (Build.VERSION.SDK_INT >= 23) {
             tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
@@ -132,11 +146,15 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     @Override protected void onResume() {
         super.onResume();
         if (state.thread == null) {
-            state.thread = new Thread(new Runnable() {
+            state.thread = new Thread(getClass().getSimpleName()) {
                 @Override public void run() {
                     ConsoleActivity.this.run();
+                    output(spanColor("[Finished]", R.color.console_meta));
+                    etInput.setEnabled(false);
+                    ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
+                        .hideSoftInputFromInputMethod(tvOutput.getWindowToken(), 0);
                 }
-            });
+            };
             state.thread.start();
         }
     }
@@ -227,10 +245,13 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         return true;
     }
 
-    @SuppressWarnings("unused")  // Passed to Python above
     public void outputError(CharSequence text) {
-        int color = getResources().getColor(R.color.console_error);
-        output(span(text, new ForegroundColorSpan(color)));
+        output(spanColor(text, R.color.console_error));
+    }
+
+    public Spannable spanColor(CharSequence text, int colorId) {
+        int color = ContextCompat.getColor(this, colorId);
+        return span(text, new ForegroundColorSpan(color));
     }
 
     public static Spannable span(CharSequence text, Object... spans) {
@@ -257,9 +278,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
                     tvOutput.append(text);
                 }
 
-                // Even if the output will cause the TextView to get taller, that won't be reflected
-                // by getHeight until after the next layout pass, so isScrolledToBottom is safe
-                // here.
+                // Changes to the TextView height won't be reflected by getHeight until after the
+                // next layout pass, so isScrolledToBottom is safe here.
                 if (isScrolledToBottom()) {
                     scrollTo(Scroll.BOTTOM);
                 }
@@ -284,8 +304,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     // textIsSelectable implies focusable, so if there are no other focusable views in the layout,
     // then it will always be focused.
     //
-    // This interferes with our own scroll control, so we'll remove the cursor before we try
-    // from happening. Non-zero-length selections are left untouched.
+    // To avoid interference from this, we'll remove any cursor before we adjust the scroll.
+    // Non-zero-length selections are left untouched.
     private void removeCursor() {
         int selStart = tvOutput.getSelectionStart();
         int selEnd = tvOutput.getSelectionEnd();
