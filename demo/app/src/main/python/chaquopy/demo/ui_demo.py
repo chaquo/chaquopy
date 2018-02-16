@@ -12,7 +12,7 @@ from android.support.v7.preference import Preference, PreferenceFragmentCompat
 from android.view import Menu, MenuItem, View
 from java.lang import String
 
-from com.chaquo.python.demo import R
+from com.chaquo.python.demo import App, R
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
@@ -80,8 +80,8 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
         ColorDialog().show(self.getFragmentManager(), "color")
 
     def demo_notify(self, activity):
-        from android.app import Notification
-        builder = Notification.Builder(activity)
+        from android.support.v4.app import NotificationCompat
+        builder = NotificationCompat.Builder(activity, App.DEFAULT_CHANNEL)
         builder.setSmallIcon(R.drawable.ic_launcher)
         builder.setContentTitle(
             activity.getString(R.string.demo_notify_title))
