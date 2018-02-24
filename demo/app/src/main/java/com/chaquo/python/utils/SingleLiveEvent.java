@@ -65,7 +65,8 @@ public class SingleLiveEvent<T> extends MutableLiveData<T> {
 
     @Override
     public void removeObserver(@NonNull Observer<T> observer) {
-        if (observer == mObserver) {
+        if (observer == mObserverWrapper ||  // Will happen when lifecycle owner is destroyed.
+            observer == mObserver) {
             super.removeObserver(mObserverWrapper);
             mObserver = mObserverWrapper = null;
         }

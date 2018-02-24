@@ -1,7 +1,9 @@
 package com.chaquo.python.demo;
 
+import android.arch.lifecycle.*;
 import android.graphics.*;
 import android.os.*;
+import android.support.annotation.*;
 import android.support.v4.content.*;
 import android.support.v7.app.*;
 import android.text.*;
@@ -9,6 +11,7 @@ import android.text.style.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
+import com.chaquo.python.utils.*;
 
 public abstract class ConsoleActivity extends AppCompatActivity
 implements ViewTreeObserver.OnGlobalLayoutListener {
@@ -17,34 +20,33 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     private ScrollView svOutput;
     private TextView tvOutput;
     private int outputWidth = 0, outputHeight = 0;
-    private InputListener inputListener;
 
     enum Scroll {
         TOP, BOTTOM
     }
     private Scroll scrollRequest;
     
-    protected static class State {
-        Thread thread;
+    public static class ConsoleModel extends ViewModel {
         boolean pendingNewline = false;  // Prevent empty line at bottom of screen
         int scrollChar = 0;              // Character offset of the top visible line.
         int scrollAdjust = 0;            // Pixels by which that line is scrolled above the top
                                          //   (prevents movement when keyboard hidden/shown).
     }
-    protected State state;
+    private ConsoleModel consoleModel;
+
+    protected Task task;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        state = (State) getLastCustomNonConfigurationInstance();
-        if (state == null) {
-            state = initState();
-        }
-
+        consoleModel = ViewModelProviders.of(this).get(ConsoleModel.class);
+        task = ViewModelProviders.of(this).get(getTaskClass());
         setContentView(R.layout.activity_console);
         createInput();
         createOutput();
     }
+
+    protected abstract Class<? extends Task> getTaskClass();
 
     private void createInput() {
         etInput = findViewById(R.id.etInput);
@@ -67,47 +69,28 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
                     (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
                     String text = etInput.getText().toString() + "\n";
                     etInput.setText("");
-                    input(text);
+                    output(span(text, new StyleSpan(Typeface.BOLD)));
+                    scrollTo(Scroll.BOTTOM);
+                    task.onInput(text);
                     return true;
                 }
                 return false;
             }
         });
 
-    }
-
-    /** Enables input and displays the input box. To disable input, pass null. */
-    public void setInputListener(InputListener listener) {
-        inputListener = listener;
-        runOnUiThread(new Runnable() {
-            @Override public void run() {
-                if (inputListener != null) {
+        task.inputEnabled.observe(this, new Observer<Boolean>() {
+            @Override public void onChanged(@Nullable Boolean enabled) {
+                if (enabled) {
                     etInput.setVisibility(View.VISIBLE);
+                    etInput.setEnabled(true);
                     etInput.requestFocus();
                 } else {
-                    etInput.setVisibility(View.GONE);
+                    // Disable rather than hide, otherwise tvOutput gets a gray background on API
+                    // level 26, like tvCaption in the main menu when you press an arrow key.
+                    etInput.setEnabled(false);
+                    ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
+                        .hideSoftInputFromWindow(tvOutput.getWindowToken(), 0);
                 }
-            }
-        });
-    }
-
-    public InputListener getInputListener() {
-        return inputListener;
-    }
-
-    public interface InputListener {
-        /** Called on the UI thread each time the user enters some input, or input() is called. If
-         * the input came from the user, a trailing newline is always included. */
-        void onInput(String text);
-    }
-
-    /** Generates input as if it had been typed. A trailing newline is *not* automatically added. */
-    public void input(final String text) {
-        runOnUiThread(new Runnable() {
-            @Override public void run() {
-                output(span(text, new StyleSpan(Typeface.BOLD)));
-                scrollTo(Scroll.BOTTOM);
-                inputListener.onInput(text);
             }
         });
     }
@@ -125,43 +108,25 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         if (Build.VERSION.SDK_INT >= 23) {
             tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
-    }
-
-    protected State initState() {
-        return new State();
-    }
-
-    @Override
-    public Object onRetainCustomNonConfigurationInstance() {
-        return state;
+        // Don't start observing task.output yet: we need to restore the scroll position first so
+        // we maintain the scrolled-to-bottom state.
     }
 
     @Override protected void onRestoreInstanceState(Bundle savedInstanceState) {
         // Don't restore the UI state unless we have the non-UI state as well.
-        if (state.thread != null) {
+        if (task.thread.getState() != Thread.State.NEW) {
             super.onRestoreInstanceState(savedInstanceState);
         }
     }
 
     @Override protected void onResume() {
         super.onResume();
-        if (state.thread == null) {
-            state.thread = new Thread(getClass().getSimpleName()) {
-                @Override public void run() {
-                    ConsoleActivity.this.run();
-                    output(spanColor("[Finished]", R.color.console_meta));
-                    etInput.setEnabled(false);
-                    ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
-                        .hideSoftInputFromInputMethod(tvOutput.getWindowToken(), 0);
-                }
-            };
-            state.thread.start();
+        // Needs to be in onResume rather than onStart because onRestoreInstanceState runs
+        // between them.
+        if (task.thread.getState() == Thread.State.NEW) {
+            task.thread.start();
         }
     }
-
-    /** Override this method to provide the activity's implementation. It will be called on a
-     *  background thread. */
-    public abstract void run();
 
     // This callback is run after onResume, after each layout pass. If a view's size, position
     // or visibility has changed, the new values will be visible here.
@@ -197,23 +162,34 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     // in which case we'll maintain that. Maintaining the bottom line will also cause a scroll
     // adjustment when the keyboard's hidden or shown.
     private void saveScroll() {
-        if (isScrolledToBottom()) {
-            state.scrollChar = tvOutput.getText().length();
-            state.scrollAdjust = 0;
+    if (isScrolledToBottom()) {
+            consoleModel.scrollChar = tvOutput.getText().length();
+            consoleModel.scrollAdjust = 0;
         } else {
             int scrollY = svOutput.getScrollY();
             Layout layout = tvOutput.getLayout();
             int line = layout.getLineForVertical(scrollY);
-            state.scrollChar = layout.getLineStart(line);
-            state.scrollAdjust = scrollY - layout.getLineTop(line);
+            consoleModel.scrollChar = layout.getLineStart(line);
+            consoleModel.scrollAdjust = scrollY - layout.getLineTop(line);
         }
     }
 
     private void restoreScroll() {
         removeCursor();
         Layout layout = tvOutput.getLayout();
-        int line = layout.getLineForOffset(state.scrollChar);
-        svOutput.scrollTo(0, layout.getLineTop(line) + state.scrollAdjust);
+        int line = layout.getLineForOffset(consoleModel.scrollChar);
+        svOutput.scrollTo(0, layout.getLineTop(line) + consoleModel.scrollAdjust);
+
+        // If we are now scrolled to the bottom, we should stick there. (scrollTo probably won't
+        // trigger onScrollChanged unless the scroll actually changed.)
+        saveScroll();
+
+        task.output.removeObservers(this);
+        task.output.observe(this, new Observer<CharSequence>() {
+            @Override public void onChanged(@Nullable CharSequence text) {
+                output(text);
+            }
+        });
     }
 
     private boolean isScrolledToBottom() {
@@ -243,14 +219,10 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
             default: return false;
         }
         return true;
-    }
+}
 
-    public void outputError(CharSequence text) {
-        output(spanColor(text, R.color.console_error));
-    }
-
-    public Spannable spanColor(CharSequence text, int colorId) {
-        int color = ContextCompat.getColor(this, colorId);
+    public static Spannable spanColor(CharSequence text, int colorId) {
+        int color = ContextCompat.getColor(App.context, colorId);
         return span(text, new ForegroundColorSpan(color));
     }
 
@@ -262,29 +234,24 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         return spanText;
     }
 
-    public void output(final CharSequence text) {
-        if (text.length() == 0) return;
-        runOnUiThread(new Runnable() {
-            @Override public void run() {
-                removeCursor();
-                if (state.pendingNewline) {
-                    tvOutput.append("\n");
-                    state.pendingNewline = false;
-                }
-                if (text.charAt(text.length() - 1) == '\n') {
-                    tvOutput.append(text.subSequence(0, text.length() - 1));
-                    state.pendingNewline = true;
-                } else {
-                    tvOutput.append(text);
-                }
+    private void output(CharSequence text) {
+        removeCursor();
+        if (consoleModel.pendingNewline) {
+            tvOutput.append("\n");
+            consoleModel.pendingNewline = false;
+        }
+        if (text.charAt(text.length() - 1) == '\n') {
+            tvOutput.append(text.subSequence(0, text.length() - 1));
+            consoleModel.pendingNewline = true;
+        } else {
+            tvOutput.append(text);
+        }
 
-                // Changes to the TextView height won't be reflected by getHeight until after the
-                // next layout pass, so isScrolledToBottom is safe here.
-                if (isScrolledToBottom()) {
-                    scrollTo(Scroll.BOTTOM);
-                }
-            }
-        });
+        // Changes to the TextView height won't be reflected by getHeight until after the
+        // next layout pass, so isScrolledToBottom is safe here.
+        if (isScrolledToBottom()) {
+            scrollTo(Scroll.BOTTOM);
+        }
     }
 
     // Don't actually scroll until the next onGlobalLayout, when we'll know what the new TextView
@@ -305,12 +272,63 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
     // then it will always be focused.
     //
     // To avoid interference from this, we'll remove any cursor before we adjust the scroll.
-    // Non-zero-length selections are left untouched.
+    // A non-zero-length selection is left untouched and may affect the scroll in the normal way,
+    // which is fine because it'll only exist if the user deliberately created it.
     private void removeCursor() {
-        int selStart = tvOutput.getSelectionStart();
-        int selEnd = tvOutput.getSelectionEnd();
+        // When textIsSelectable is set, the buffer type after onRestoreInstanceState is always
+        // Spannable, regardless of the value of bufferType. It would then become Editable (and
+        // have a cursor added), during the first call to append(). Make that happen now so we can
+        // remove the cursor before append() is called.
+        Spannable text = (Spannable) tvOutput.getText();
+        if (!(text instanceof Editable)) {
+            tvOutput.setText(text, TextView.BufferType.EDITABLE);
+            text = (Editable) tvOutput.getText();
+        }
+
+        int selStart = Selection.getSelectionStart(text);
+        int selEnd = Selection.getSelectionEnd(text);
         if (selStart != -1 && selStart == selEnd) {
-            Selection.removeSelection((Spannable) tvOutput.getText());
+            Selection.removeSelection(text);
+        }
+    }
+
+    // =============================================================================================
+
+    public static abstract class Task extends ViewModel {
+
+        public Thread thread = new Thread(getClass().getName()) {
+            @Override public void run() {
+                try {
+                    Task.this.run();
+                    output(spanColor("[Finished]", R.color.console_meta));
+                } finally {
+                    inputEnabled.postValue(false);
+                }
+            }
+        };
+
+        public MutableLiveData<Boolean> inputEnabled = new MutableLiveData<>();
+        public BufferedLiveEvent<CharSequence> output = new BufferedLiveEvent<>();
+
+        public Task() {
+            inputEnabled.setValue(false);
+        }
+
+        /** Override this method to provide the task's implementation. It will be called on a
+         *  background thread. */
+        public abstract void run();
+
+        /** Called on the UI thread each time the user enters some input, A trailing newline is
+         * always included. The base class implementation does nothing. */
+        public void onInput(String text) {}
+
+        public void output(final CharSequence text) {
+            if (text.length() == 0) return;
+            output.postValue(text);
+        }
+
+        public void outputError(CharSequence text) {
+            output(spanColor(text, R.color.console_error));
         }
     }
 

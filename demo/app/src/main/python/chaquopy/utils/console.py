@@ -13,9 +13,9 @@ class ConsoleInputStream(TextIOBase):
     """Receives input in on_input in one thread (non-blocking), and provides a read interface in
     another thread (blocking). Reads will return bytes in Python 2 or unicode in Python 3.
     """
-    def __init__(self, activity):
+    def __init__(self, task):
         TextIOBase.__init__(self)
-        self.activity = activity
+        self.task = task
         self.queue = Queue()
         self.buffer = ""
         self.eof = False
@@ -36,9 +36,9 @@ class ConsoleInputStream(TextIOBase):
         buffer = self.buffer
         while (self.queue is not None) and ((size is None) or (len(buffer) < size)):
             if self.queue.empty():
-                self.activity.onInputState(True)
+                self.task.onInputState(True)
             input = self.queue.get()
-            self.activity.onInputState(False)
+            self.task.onInputState(False)
             if input is None:  # EOF
                 self.queue = None
             else:
@@ -65,13 +65,12 @@ class ConsoleInputStream(TextIOBase):
 
 class ConsoleOutputStream(TextIOBase):
     """Passes each write to the underlying stream, and also to the given method (which must take a
-    single String argument) on the given Java object.
+    single String argument) on the given Task object.
     """
-    def __init__(self, activity, method_name, stream):
+    def __init__(self, task, method_name, stream):
         TextIOBase.__init__(self)
         self.stream = stream
-        self.activity = activity
-        self.method_name = method_name
+        self.method = getattr(task, method_name)
 
     def writable(self):
         return True
@@ -81,7 +80,7 @@ class ConsoleOutputStream(TextIOBase):
             u = s.decode("UTF-8", "replace")
         else:
             u = s
-        getattr(self.activity, self.method_name)(u)
+        self.method(u)
         return self.stream.write(s)
 
     def flush(self):

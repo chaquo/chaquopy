@@ -10,11 +10,15 @@ import java.util.*;
 public class BufferedLiveEvent<T> extends SingleLiveEvent<T> {
 
     private ArrayList<T> mBuffer = new ArrayList<>();
-    private Handler mHandler = new Handler(Looper.getMainLooper());
+    private Handler mHandler;
 
     /** Unlike in the base class, multiple calls to postData will always result in multiple values
      * being notified to the observer. */
     @Override public void postValue(@Nullable final T value) {
+        // Delay initialization for unit tests.
+        if (mHandler == null) {
+            mHandler = new Handler(Looper.getMainLooper());
+        }
         mHandler.post(new Runnable() {
             @Override public void run() {
                 setValue(value);
@@ -23,7 +27,7 @@ public class BufferedLiveEvent<T> extends SingleLiveEvent<T> {
     }
 
     @Override public void setValue(@Nullable T t) {
-        if (hasActiveObservers()) {
+        if (hasActiveObservers() && mBuffer.isEmpty()) {  // See onActive
             super.setValue(t);
         } else {
             mBuffer.add(t);
@@ -31,8 +35,9 @@ public class BufferedLiveEvent<T> extends SingleLiveEvent<T> {
     }
 
     @Override protected void onActive() {
-        for (T t : mBuffer) {
-            super.setValue(t);
+        // Don't use a foreach loop, an observer might call setValue and lengthen the buffer.
+        for (int i = 0; i < mBuffer.size(); i++) {
+            super.setValue(mBuffer.get(i));
         }
         mBuffer.clear();
     }
