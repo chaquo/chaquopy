@@ -48,6 +48,12 @@ class AssetFinder(object):
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
                                      "AssetFinder", basename(path))
+
+            # Python guarantees that a given module will only be imported in one thread at a time.
+            # `getinfo` and `infolist` are thread-safe, because the ZipFile index is completely
+            # read during construction. However, while actually reading or extracting a file from
+            # the .zip, the AssetFile will be seeked, so we can only do this in one thread at a time
+            # per .zip.
             self.lock = RLock()
 
         # If we raise ImportError, the finder is silently skipped. This is what we want only if
@@ -69,21 +75,26 @@ class AssetFinder(object):
                     continue
 
                 if infix == "/__init__" and mod_name in self.extract_packages:
-                    # See note at other use of lock below.
-                    with self.lock:
-                        package_dir = self.extract_package(prefix)
-                    return ExtractLoader(mod_name, package_dir)
+                    return ExtractLoader(mod_name, self.extract_package(prefix))
                 else:
                     return loader(self, mod_name, zip_info)
 
     def extract_package(self, package_subdir):
         package_dir = join(self.extract_root, package_subdir)
         if exists(package_dir):
-            shutil.rmtree(package_dir)
+            shutil.rmtree(package_dir)  # Just do it the easy way for now.
         for info in self.zip_file.infolist():
             if info.filename.startswith(package_subdir):
-                self.zip_file.extract(info, self.extract_root)
+                self.extract(info, self.extract_root)
         return package_dir
+
+    def extract(self, *args, **kwargs):
+        with self.lock:
+            return self.zip_file.extract(*args, **kwargs)
+
+    def read(self, *args, **kwargs):
+        with self.lock:
+            return self.zip_file.read(*args, **kwargs)
 
 
 # This is used to load packages listed in extractPackages. It causes the package and everything
@@ -111,14 +122,7 @@ class AssetLoader(object):
         assert mod_name == self.mod_name
         is_reload = mod_name in sys.modules
         try:
-            # Python guarantees that a given module will only be imported in one thread at a
-            # time. And the ZipFile index is completely read during construction above, so
-            # calling `getinfo` above is thread-safe. However, while actually reading files out
-            # of the .zip, the AssetFile will be seeked, so we can only extract one file at a
-            # time per .zip. Also, there's a race condition in makedirs below, so let's just
-            # serialize at this level.
-            with self.finder.lock:
-                self.load_module_impl()
+            self.load_module_impl()
             # The module that ends up in sys.modules is not necessarily the one we just created
             # (e.g. see bottom of pygments/formatters/__init__.py).
             return sys.modules[mod_name]
@@ -142,7 +146,7 @@ class AssetLoader(object):
         if not match:
             raise IOError("loader for '{}' can't access '{}'".format(self.finder.path, path))
         try:
-            return self.finder.zip_file.read(match.group(1))
+            return self.finder.read(match.group(1))
         except KeyError as e:
             raise IOError(str(e))
 
@@ -200,12 +204,13 @@ class SourceFileLoader(AssetLoader):
                 source_bytes.decode(encoding))
 
     def get_source_bytes(self):
-        return self.finder.zip_file.read(self.zip_info)
+        return self.finder.read(self.zip_info)
 
     def write_pyc(self, filename, code):
         pyc_dirname = dirname(filename)
-        if not exists(pyc_dirname):
-            os.makedirs(pyc_dirname)
+        with self.finder.lock:  # Avoid race
+            if not exists(pyc_dirname):
+                os.makedirs(pyc_dirname)
         with open(filename, "wb") as pyc_file:
             # Write header last, so read_pyc doesn't try to load an incomplete file.
             header = self.pyc_header()
@@ -245,7 +250,7 @@ class ExtensionFileLoader(AssetLoader):
         else:
             need_extract = True
         if need_extract:
-            self.finder.zip_file.extract(self.zip_info, self.finder.extract_root)
+            self.finder.extract(self.zip_info, self.finder.extract_root)
             os.utime(out_filename, (time.time(), timegm(self.zip_info.date_time)))
 
         mod = imp.load_dynamic(self.mod_name, out_filename)
