@@ -30,11 +30,39 @@ public class PyObjectTest {
     }
 
     @Test
-    public void getInstance() {
+    public void identity() {
         PyObject SO = pyobjecttest.get("SimpleObject");
         assertSame(SO, pyobjecttest.get("SimpleObject"));
         SO.close();
         assertNotSame(SO, pyobjecttest.get("SimpleObject"));
+    }
+
+    /** Check for deadlocks and other threading errors by creating, accessing and destroying large
+     * numbers of PyObjects on 2 threads simultaneously. */
+    @Test
+    public void multithreading() {
+        final long stopTime = System.currentTimeMillis() + 100;
+        Runnable r = new Runnable() {
+            @Override public void run() {
+                Random random = new Random();
+                PyObject SO = pyobjecttest.get("SimpleObject");
+                while (System.currentTimeMillis() < stopTime) {
+                    PyObject so = SO.call();
+                    int x = random.nextInt();
+                    so.put("x", x);
+                    assertEquals(x, (int) so.get("x").toJava(int.class));
+                    so.close();
+                }
+            }
+        };
+        Thread t = new Thread(r);
+        t.start();  // Run it on the other thread.
+        r.run();    // And do the same on this thread.
+        try {
+            t.join();
+        } catch (InterruptedException e) {
+            fail();
+        }
     }
 
     @Test

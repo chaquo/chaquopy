@@ -336,17 +336,18 @@ cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     return jclass(full_box_cls_name)(value)._chaquopy_this
 
 
-cdef jobject p2j_pyobject(JNIEnv *env, obj) except? NULL:
+cdef jobject p2j_pyobject(JNIEnv *j_env, obj) except? NULL:
     if obj is None:
         return NULL
+
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
     JPyObject = jclass("com.chaquo.python.PyObject")
     cdef JavaMethod jm_getInstance = JPyObject.getInstance
-    cdef jobject j_pyobject = env[0].CallStaticObjectMethod \
-        (env,
-         (<JNIRef?>JPyObject._chaquopy_j_klass).obj,
-         jm_getInstance.j_method,
-         <jlong><PyObject*>obj)
-    check_exception(env)
-    return j_pyobject
+
+    env = CQPEnv.wrap(j_env)
+    cdef jvalue j_args[1]
+    j_args[0].j = <jlong><PyObject*>obj
+    return (env.CallStaticObjectMethodA(<JNIRef?>JPyObject._chaquopy_j_klass,
+                                       jm_getInstance.j_method, j_args)
+            .return_ref(j_env))

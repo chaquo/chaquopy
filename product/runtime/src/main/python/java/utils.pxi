@@ -103,8 +103,9 @@ def native_str(s):
 
 cdef jmethodID mid_getName = NULL
 
-# To avoid infinite recursion, this function must not use anything which could call
-# klass_sig itself, including any jclass proxy methods.
+# To avoid infinite recursion, this function must not use anything which could call klass_sig
+# itself. This includes any jclass proxy methods, and even CQPEnv methods, because they all call
+# check_exception, which calls j2p.
 def klass_sig(CQPEnv env, JNIRef j_cls):
     global mid_getName
     if not mid_getName:
@@ -114,7 +115,7 @@ def klass_sig(CQPEnv env, JNIRef j_cls):
     j_name = env.adopt(env.j_env[0].CallObjectMethod(env.j_env, j_cls.obj, mid_getName))
     if not j_name:
         env.ExceptionClear()
-        raise Exception("getName failed")
+        raise Exception("Class.getName failed")
     return java.name_to_sig(j2p_string(env.j_env, j_name))
 
 
