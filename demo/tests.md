@@ -60,7 +60,9 @@
 * Rotate the screen and complete the expression. The correct result should appear.
 
 * Use the `print` function to print a non-ASCII Latin-1 character (e.g. "é"), and a non-Latin-1
-  character (e.g. "√"). They should be output correctly both on screen and in the Android log.
+  character (e.g. "√"), both with and without the 'u' string prefix. They should be output
+  correctly both on screen and in the Android log. (This test in particular should be done on
+  both Python 2 and 3.)
 
 * Enter the following. The numbers should appear at 1-second intervals.
   ```

@@ -20,6 +20,14 @@ class ConsoleInputStream(TextIOBase):
         self.buffer = ""
         self.eof = False
 
+    @property
+    def encoding(self):
+        return "UTF-8"
+
+    @property
+    def errors(self):
+        return "strict"  # UTF-8 encoding should never fail.
+
     def readable(self):
         return True
 
@@ -31,7 +39,7 @@ class ConsoleInputStream(TextIOBase):
         self.queue.put(input)
 
     def read(self, size=None):
-        if size < 0:
+        if size is not None and size < 0:
             size = None
         buffer = self.buffer
         while (self.queue is not None) and ((size is None) or (len(buffer) < size)):
@@ -46,10 +54,10 @@ class ConsoleInputStream(TextIOBase):
 
         result = buffer if (size is None) else buffer[:size]
         self.buffer = buffer[len(result):]
-        return result.encode("utf-8") if (sys.version_info[0] < 3) else result
+        return result.encode(self.encoding, self.errors) if (sys.version_info[0] < 3) else result
 
     def readline(self, size=None):
-        if size < 0:
+        if size is not None and size < 0:
             size = None
         chars = []
         while (size is None) or (len(chars) < size):
@@ -72,12 +80,20 @@ class ConsoleOutputStream(TextIOBase):
         self.stream = stream
         self.method = getattr(task, method_name)
 
+    @property
+    def encoding(self):
+        return self.stream.encoding
+
+    @property
+    def errors(self):
+        return self.stream.errors
+
     def writable(self):
         return True
 
     def write(self, s):
         if sys.version_info[0] < 3 and isinstance(s, str):
-            u = s.decode("UTF-8", "replace")
+            u = s.decode(self.encoding, self.errors)
         else:
             u = s
         self.method(u)

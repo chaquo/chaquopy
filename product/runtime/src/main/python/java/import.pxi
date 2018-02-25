@@ -16,11 +16,10 @@ def import_override(name, globals={}, locals={}, fromlist=None,
                     level=-1 if six.PY2 else 0):
     try:
         python_module = import_original(name, globals, locals, fromlist, level)
-        python_error = python_tb = None
-    except ImportError as e:
+        python_exc_info = None
+    except ImportError:
         python_module = None
-        python_error = e
-        python_tb = sys.exc_info()[2]
+        python_exc_info = sys.exc_info()
 
     if fromlist and (fromlist[0] != "*"):
         from_pkg = resolve_name(name, globals, level)
@@ -33,7 +32,8 @@ def import_override(name, globals={}, locals={}, fromlist=None,
                 pass  # The caller is responsible for raising ImportError if some names aren't found.
 
         if java_imports:
-            # Don't add attributes to the Python module of the same name, that would be confusing.
+            # If there's a Python module of the same name, don't add the Java imports to it as
+            # attributes. Instead, return a new module object containing only the requested names.
             module = ModuleType("<java import hook>")
             if python_module:
                 for from_name in fromlist:
@@ -49,8 +49,8 @@ def import_override(name, globals={}, locals={}, fromlist=None,
                 setattr(module, from_name, cls)
             return module
 
-    if python_error:
-        six.reraise(ImportError, python_error, python_tb)
+    if python_exc_info:
+        six.reraise(*python_exc_info)
     return python_module
 
 

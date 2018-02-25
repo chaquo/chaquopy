@@ -40,6 +40,14 @@ class LogOutputStream(TextIOBase):
         self.level = level
         self.tag = tag
 
+    @property
+    def encoding(self):
+        return "UTF-8"
+
+    @property
+    def errors(self):
+        return "replace"
+
     def writable(self):
         return True
 
@@ -48,7 +56,7 @@ class LogOutputStream(TextIOBase):
     # empty lines, both of which would be bad for debugging.
     def write(self, s):
         if sys.version_info[0] < 3 and isinstance(s, str):
-            u = s.decode("UTF-8", "replace")
+            u = s.decode(self.encoding, self.errors)
         else:
             u = s
 
