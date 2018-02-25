@@ -14,12 +14,12 @@ import android.widget.*;
 import com.chaquo.python.utils.*;
 
 public abstract class ConsoleActivity extends AppCompatActivity
-implements ViewTreeObserver.OnGlobalLayoutListener {
+implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollChangedListener {
 
     private EditText etInput;
     private ScrollView svOutput;
     private TextView tvOutput;
-    private int outputWidth = 0, outputHeight = 0;
+    private int outputWidth = -1, outputHeight = -1;
 
     enum Scroll {
         TOP, BOTTOM
@@ -97,11 +97,6 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
 
     private void createOutput() {
         svOutput = findViewById(R.id.svOutput);
-        svOutput.getViewTreeObserver().addOnScrollChangedListener(
-            new ViewTreeObserver.OnScrollChangedListener() {
-                @Override public void onScrollChanged() { saveScroll(); }
-            });
-
         svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
         tvOutput = findViewById(R.id.tvOutput);
@@ -128,10 +123,21 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         }
     }
 
+    @Override protected void onPause() {
+        super.onPause();
+        saveScroll();  // Necessary to save bottom position in case we've never scrolled.
+    }
+
     // This callback is run after onResume, after each layout pass. If a view's size, position
     // or visibility has changed, the new values will be visible here.
     @Override public void onGlobalLayout() {
         if (outputWidth != svOutput.getWidth() || outputHeight != svOutput.getHeight()) {
+            // Can't register this listener in onCreate on API level 15
+            // (https://stackoverflow.com/a/35054919).
+            if (outputWidth == -1) {
+                svOutput.getViewTreeObserver().addOnScrollChangedListener(this);
+            }
+
             // Either we've just started up, or the keyboard has been hidden or shown.
             outputWidth = svOutput.getWidth();
             outputHeight = svOutput.getHeight();
@@ -156,13 +162,17 @@ implements ViewTreeObserver.OnGlobalLayoutListener {
         }
     }
 
+   @Override public void onScrollChanged() {
+        saveScroll();
+    }
+
     // After a rotation, a ScrollView will restore the previous pixel scroll position. However, due
     // to re-wrapping, this may result in a completely different piece of text being visible. We'll
     // try to maintain the text position of the top line, unless the view is scrolled to the bottom,
     // in which case we'll maintain that. Maintaining the bottom line will also cause a scroll
     // adjustment when the keyboard's hidden or shown.
     private void saveScroll() {
-    if (isScrolledToBottom()) {
+        if (isScrolledToBottom()) {
             consoleModel.scrollChar = tvOutput.getText().length();
             consoleModel.scrollAdjust = 0;
         } else {
