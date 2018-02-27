@@ -285,19 +285,25 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     // A non-zero-length selection is left untouched and may affect the scroll in the normal way,
     // which is fine because it'll only exist if the user deliberately created it.
     private void removeCursor() {
+        Spannable text = (Spannable) tvOutput.getText();
+        int selStart = Selection.getSelectionStart(text);
+        int selEnd = Selection.getSelectionEnd(text);
+
         // When textIsSelectable is set, the buffer type after onRestoreInstanceState is always
         // Spannable, regardless of the value of bufferType. It would then become Editable (and
         // have a cursor added), during the first call to append(). Make that happen now so we can
         // remove the cursor before append() is called.
-        Spannable text = (Spannable) tvOutput.getText();
         if (!(text instanceof Editable)) {
             tvOutput.setText(text, TextView.BufferType.EDITABLE);
             text = (Editable) tvOutput.getText();
+
+            // setText removes any existing selection, at least on API level 26.
+            if (selStart >= 0) {
+                Selection.setSelection(text, selStart, selEnd);
+            }
         }
 
-        int selStart = Selection.getSelectionStart(text);
-        int selEnd = Selection.getSelectionEnd(text);
-        if (selStart != -1 && selStart == selEnd) {
+        if (selStart >= 0 && selStart == selEnd) {
             Selection.removeSelection(text);
         }
     }
