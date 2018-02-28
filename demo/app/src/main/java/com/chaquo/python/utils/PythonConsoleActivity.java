@@ -1,5 +1,6 @@
-package com.chaquo.python.demo;
+package com.chaquo.python.utils;
 
+import android.app.*;
 import android.arch.lifecycle.*;
 import android.os.*;
 import android.util.*;
@@ -46,9 +47,10 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
 
         public static final int STDIN_DISABLED = 0x0, STDIN_ENABLED = 0x1;
 
-        public Task() { this(STDIN_ENABLED); }
+        public Task(Application app) { this(app, STDIN_ENABLED); }
 
-        public Task(int flags) {
+        public Task(Application app, int flags) {
+            super(app);
             sys = py.getModule("sys");
             PyObject console = py.getModule("chaquopy.utils.console");
             if ((flags & STDIN_ENABLED) != 0) {

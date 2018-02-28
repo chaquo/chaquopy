@@ -1,6 +1,8 @@
 package com.chaquo.python.demo;
 
+import android.app.*;
 import com.chaquo.java.*;
+import com.chaquo.python.utils.*;
 import org.junit.runner.*;
 import org.junit.runner.notification.*;
 
@@ -13,6 +15,10 @@ public class JavaTestActivity extends ConsoleActivity {
     // =============================================================================================
 
     public static class JavaTestTask extends Task {
+
+        public JavaTestTask(Application app) {
+            super(app);
+        }
 
         @Override public void run() {
             JUnitCore juc = new JUnitCore();

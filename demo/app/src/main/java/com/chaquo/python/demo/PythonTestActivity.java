@@ -1,6 +1,8 @@
 package com.chaquo.python.demo;
 
+import android.app.*;
 import com.chaquo.python.*;
+import com.chaquo.python.utils.*;
 
 public class PythonTestActivity extends PythonConsoleActivity {
 
@@ -11,8 +13,8 @@ public class PythonTestActivity extends PythonConsoleActivity {
     // =============================================================================================
 
     public static class Task extends PythonConsoleActivity.Task {
-        public Task() {
-            super(STDIN_DISABLED);  // test_android expects stdin to return EOF.
+        public Task(Application app) {
+            super(app, STDIN_DISABLED);  // test_android expects stdin to return EOF.
         }
 
         @Override public void run() {

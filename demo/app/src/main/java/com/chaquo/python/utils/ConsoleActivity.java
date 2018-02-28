@@ -1,6 +1,9 @@
-package com.chaquo.python.demo;
+package com.chaquo.python.utils;
 
+import android.app.*;
 import android.arch.lifecycle.*;
+import android.content.*;
+import android.content.res.*;
 import android.graphics.*;
 import android.os.*;
 import android.support.annotation.*;
@@ -11,7 +14,6 @@ import android.text.style.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
-import com.chaquo.python.utils.*;
 
 public abstract class ConsoleActivity extends AppCompatActivity
 implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollChangedListener {
@@ -41,7 +43,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         super.onCreate(savedInstanceState);
         consoleModel = ViewModelProviders.of(this).get(ConsoleModel.class);
         task = ViewModelProviders.of(this).get(getTaskClass());
-        setContentView(R.layout.activity_console);
+        setContentView(resId("layout", "activity_console"));
         createInput();
         createOutput();
     }
@@ -49,7 +51,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     protected abstract Class<? extends Task> getTaskClass();
 
     private void createInput() {
-        etInput = findViewById(R.id.etInput);
+        etInput = findViewById(resId("id", "etInput"));
 
         // Strip formatting from pasted text.
         etInput.addTextChangedListener(new TextWatcher() {
@@ -96,10 +98,10 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     }
 
     private void createOutput() {
-        svOutput = findViewById(R.id.svOutput);
+        svOutput = findViewById(resId("id", "svOutput"));
         svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
-        tvOutput = findViewById(R.id.tvOutput);
+        tvOutput = findViewById(resId("id", "tvOutput"));
         if (Build.VERSION.SDK_INT >= 23) {
             tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
@@ -212,28 +214,20 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater mi = getMenuInflater();
-        mi.inflate(R.menu.top_bottom, menu);
+        mi.inflate(resId("menu", "top_bottom"), menu);
         return true;
     }
 
     @Override public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.menu_top: {
-                scrollTo(Scroll.TOP);
-            } break;
-
-            case R.id.menu_bottom: {
-                scrollTo(Scroll.BOTTOM);
-            } break;
-
-            default: return false;
+        int id = item.getItemId();
+        if (id == resId("id", "menu_top")) {
+            scrollTo(Scroll.TOP);
+        } else if (id == resId("id", "menu_bottom")) {
+            scrollTo(Scroll.BOTTOM);
+        } else {
+            return false;
         }
         return true;
-}
-
-    public static Spannable spanColor(CharSequence text, int colorId) {
-        int color = ContextCompat.getColor(App.context, colorId);
-        return span(text, new ForegroundColorSpan(color));
     }
 
     public static Spannable span(CharSequence text, Object... spans) {
@@ -308,15 +302,27 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         }
     }
 
+    /** Make this file easy to copy to other apps by avoiding direct "R" references. (It would be
+     * better to do this by distributing it along with its resources in an AAR, but Chaquoopy
+     * doesn't support getting Python code from an AAR yet.)*/
+    public static int resId(Context context, String type, String name) {
+        Resources resources = context.getResources();
+        return resources.getIdentifier(name, type, context.getApplicationInfo().packageName);
+    }
+
+    public int resId(String type, String name) {
+        return resId(this, type, name);
+    }
+
     // =============================================================================================
 
-    public static abstract class Task extends ViewModel {
+    public static abstract class Task extends AndroidViewModel {
 
         public Thread thread = new Thread(getClass().getName()) {
             @Override public void run() {
                 try {
                     Task.this.run();
-                    output(spanColor("[Finished]", R.color.console_meta));
+                    output(spanColor("[Finished]", resId("color", "console_meta")));
                 } finally {
                     inputEnabled.postValue(false);
                 }
@@ -326,7 +332,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         public MutableLiveData<Boolean> inputEnabled = new MutableLiveData<>();
         public BufferedLiveEvent<CharSequence> output = new BufferedLiveEvent<>();
 
-        public Task() {
+        public Task(Application app) {
+            super(app);
             inputEnabled.setValue(false);
         }
 
@@ -344,7 +351,16 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         }
 
         public void outputError(CharSequence text) {
-            output(spanColor(text, R.color.console_error));
+            output(spanColor(text, resId("color", "console_error")));
+        }
+
+        public Spannable spanColor(CharSequence text, int colorId) {
+            int color = ContextCompat.getColor(this.getApplication(), colorId);
+            return span(text, new ForegroundColorSpan(color));
+        }
+
+        public int resId(String type, String name) {
+            return ConsoleActivity.resId(getApplication(), type, name);
         }
     }
 

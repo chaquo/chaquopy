@@ -7,10 +7,11 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version 2.2, 2.3 or 3.0. (This is specified as
+* Android Gradle plugin version should be between 2.2.x and 3.0.x. (This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
-  usually be the same as your Android Studio version.)
-* `minSdkVersion` 15 or higher.
+  usually be the same as your Android Studio version.) Newer versions may also work, but have
+  not been tested with this version of Chaquopy.
+* `minSdkVersion` must be 15 or higher.
 * Some features require a Python interpreter (version 2.7 or 3.3+) to be available on the build
   machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
   configured with the `buildPython` setting. For example, a typical Windows installation of
@@ -23,10 +24,6 @@ Prerequisites:
 
 Basic setup
 ===========
-
-For a minimal example, see `chaquopy-hello <https://github.com/chaquo/chaquopy-hello>`_, a
-Python version of the Android Studio "Empty Activity" app template. For a more complete
-example, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 Gradle plugin
 -------------
@@ -330,16 +327,37 @@ the files being loaded.
 If you discover any more, please `let us know <https://github.com/chaquo/chaquopy/issues>`_.
 
 
+Python standard library
+=======================
+
+ssl
+---
+
+Because of inconsistencies in the system certificate authority store formats of different Android
+versions, the `ssl` module is configured to use a copy of the CA bundle from `certifi
+<https://github.com/certifi/python-certifi/>`_. The current version is from certifi 2017.11.05.
+
+sys
+---
+
+`stdout` and `stderr` are redirected to `Logcat
+<https://developer.android.com/studio/debug/am-logcat.html>`_ with the tags `python.stdout` and
+`python.stderr` respectively. The streams will produce one log line for each call to `write()`,
+which may result in lines being broken up in the log.
+
+`stdin` always returns EOF. If you want to run some code which takes interactive text input, you
+may find the `console app template <https://github.com/chaquo/chaquopy-console>`_ useful.
+
+
 Licensing
 =========
 
 Evaluation
 ----------
 
-You can try out Chaquopy right now by cloning one of the `example apps
-<https://github.com/chaquo>`_, or following the setup instructions above in an app of your own.
-The unlicensed version is fully-functional, but apps built with it will display a notification
-on startup.
+You can try out Chaquopy right now by cloning one of the :ref:`example apps <quick-start>`, or
+following the setup instructions above in an app of your own. The unlicensed version is
+fully-functional, but apps built with it will display a notification on startup.
 
 In order to distribute apps built with Chaquopy, a license is required. All licenses are
 perpetual and include upgrades to all future versions.

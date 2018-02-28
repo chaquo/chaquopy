@@ -7,8 +7,6 @@
 
     <string name="repl">Python console</string>
     <string name="repl_summary">Interactive read-eval-print loop</string>
-    <string name="top">Top</string>
-    <string name="bottom">Bottom</string>
 
     <string name="ui_demo">Android UI demo</string>
     <string name="ui_demo_summary">Demonstrates writing an app entirely in Python</string>

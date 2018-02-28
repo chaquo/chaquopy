@@ -19,12 +19,19 @@ Create product/local.properties with the properties listed in product/runtime/bu
 
 # Release procedure
 
+## Runtime
+
+Run `gradlew runtime:check`.
+
+
 ## Gradle plugin
 
 Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are running, copy
 the generated .jar to other supported workstation OSs and do the same there.
 
-Test pkgtest app on emulator and phone for both Python 2 and 3.
+Test pkgtest app for Python 2 and 3 on:
+* targetSdkVersion emulator
+* Phone
 
 
 ## Demo app
@@ -38,8 +45,7 @@ Update version numbers in public/demo/build.gradle and public/demo/app/build.gra
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
 files which require manual merging (e.g. build.gradle), examine them and update the public
-repository as necessary. (If the script lists too many files, this is probably because of
-end-of-line issues: run it a second time and it should give the correct output.)
+repository as necessary.
 
 "Generate Signed APK" in Android Studio for Python 2 and 3, and test all features on:
 
