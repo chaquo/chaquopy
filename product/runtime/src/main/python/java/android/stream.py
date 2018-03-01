@@ -62,10 +62,8 @@ class LogOutputStream(TextIOBase):
 
         for line in u.splitlines():  # "".splitlines() == [], so nothing will be logged.
             line = line or " "  # Empty log messages are ignored.
-            while True:
+            while line:
                 Log.println(self.level, self.tag, line[:MAX_LINE_LEN])
                 line = line[MAX_LINE_LEN:]
-                if not line:
-                    break
 
         return len(s)

@@ -82,16 +82,22 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
 
         task.inputEnabled.observe(this, new Observer<Boolean>() {
             @Override public void onChanged(@Nullable Boolean enabled) {
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
                 if (enabled) {
                     etInput.setVisibility(View.VISIBLE);
                     etInput.setEnabled(true);
+
+                    // requestFocus alone doesn't always bring up the soft keyboard during startup
+                    // on the Nexus 4 with API level 22: probably some race condition. (After
+                    // rotation with input *already* enabled, the focus may be overridden by
+                    // onRestoreInstanceState, which will run after this observer.)
                     etInput.requestFocus();
+                    imm.showSoftInput(etInput, InputMethodManager.SHOW_IMPLICIT);
                 } else {
                     // Disable rather than hide, otherwise tvOutput gets a gray background on API
                     // level 26, like tvCaption in the main menu when you press an arrow key.
                     etInput.setEnabled(false);
-                    ((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
-                        .hideSoftInputFromWindow(tvOutput.getWindowToken(), 0);
+                    imm.hideSoftInputFromWindow(tvOutput.getWindowToken(), 0);
                 }
             }
         });

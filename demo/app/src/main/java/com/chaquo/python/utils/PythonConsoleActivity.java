@@ -89,7 +89,8 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
 
         @Override public void onInput(String text) {
             if (text != null) {
-                Log.i("python.stdin", text);
+                // Messages which are empty (or only consist of newlines) will not be logged.
+                Log.i("python.stdin", text.equals("\n") ? " " : text);
             }
             stdin.callAttr("on_input", text);
         }
