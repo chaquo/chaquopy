@@ -33,9 +33,10 @@ public class Python {
     /** Starts the Python virtual machine. If this method is called, it can only be called once, and
      * it must be before any call to {@link #getInstance}.
      *
-     * If running on Android, see the notes <a href="../../../../android.html#development">here</a>
-     * on how to call this method in an app. If running on any other platform, there's no need to
-     * call this method, unless you want to customize the Python startup process.
+     * If running on Android, see the notes <a
+     * href="../../../../android.html#android-startup">here</a> on how to call this method in an
+     * app. If running on any other platform, there's no need to call this method, unless you want
+     * to customize the Python startup process.
      **/
     public static synchronized void start(Platform platform) {
         if (started) {
@@ -68,7 +69,8 @@ public class Python {
 
     private Python() {}
 
-    /** Returns the module with the given absolute name. */
+    /** Returns the module with the given name. Dot notation may be used to get submodules (e.g.
+     * `os.path`). */
     public native PyObject getModule(String name);
 
     /** Returns the module `__builtin__` in Python 2 or `builtins` in Python 3. This module contains

@@ -75,13 +75,13 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     private native void closeNative();
 
     /** Gives the given Java object a presence in the Python virtual machine.
-     * There's usually no need to call this method manually: it will be called automatically by the
+     * There's usually no need to call this method directly: it will be called automatically by the
      * methods of this class which take `Object` parameters.
      *
-     * * If the given object is of an immutable value type such as `Boolean`, `Integer` or `String`,
-     *   an equivalent Python object will be created.
-     * * If the given object is itself a proxy for a Python object, the original Python object
-     *   will be returned.
+     * * If `o` is of an immutable value type (such as `Integer` or `String`), an equivalent Python
+     *   object will be created.
+     * * If `o` is a <a href="../../../../python.html#python-inheriting">proxy</a> for a Python
+     *   object, the underlying Python object will be returned.
      * * Otherwise, a Python <a href="../../../../python.html#java.jclass">jclass</a> or
      *   <a href="../../../../python.html#java.jarray">jarray</a> object will be created. */
     //
@@ -90,12 +90,14 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     public static native PyObject fromJava(Object o);
 
     /** Attempts to view the Python object as the given Java type. For example.
-     * `toJava(String.class)` will attempt to view the object as a String.
+     * `toJava(int.class)` will attempt to view the object as an `int`.
      *
-     * * If the given type is an immutable value type such as `Boolean`, `Integer` or `String`,
-     *   and the Python object is of a compatible type, an equivalent object will be returned.
-     * * If the Python object is itself a proxy for a Java object of a compatible type, the
-     *   original Java object will be returned.
+     * * If `klass` is a primitive type (such as `int`), or an immutable value type (such as
+     *   `Integer` or `String`), and the Python object is compatible with it, an equivalent Java
+     *   object will be returned.
+     * * If the Python object is a <a href="../../../../python.html#java.jclass">jclass</a> or <a
+     *   href="../../../../python.html#java.jarray">jarray</a> object which is compatible with
+     *   `klass`, the underlying Java object will be returned.
      * * Otherwise, a `ClassCastException` will be thrown. */
     //
     // TODO #5154 If the given type is `List`, `Map` or `Set`, a proxy object will be returned which

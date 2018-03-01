@@ -129,10 +129,10 @@ JetBrains Python plugin.
 * Restart Android Studio when prompted.
 
 
-.. _android-development:
-
 Development
 ===========
+
+.. _android-source:
 
 Source code
 -----------
@@ -172,6 +172,8 @@ usually an error if the source directories for a given build variant include mul
 the same filename. This is only permitted if the duplicate files are all empty, such as may
 happen with `__init__.py`.
 
+.. _android-startup:
+
 Startup
 -------
 
@@ -180,16 +182,18 @@ It's important to structure the app so that `Python.start()
 called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
 attempting to run Python code. There are two basic ways to achieve this:
 
-* If the app always uses Python, then call Python.start() from a location which is guaranteed to
-  run exactly once per process. The recommended location is `Application.onCreate()
-  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_, and a
-  `PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to
-  make this easy. To use it, simply add the following attribute to the `<application>` element in
+* If the app always uses Python, then call Python.start() from a location which is guaranteed to run
+  exactly once per process, such as `Application.onCreate()
+  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_. A
+  `PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to make
+  this easy: simply add the following attribute to the `<application>` element in
   `AndroidManifest.xml`:
 
   .. code-block:: xml
 
       android:name="com.chaquo.python.android.PyApplication"
+
+  You can also use your own subclass of `PyApplication` here.
 
 * Alternatively, if the app only sometimes uses Python, then call Python.start() after first
   checking whether it's already been started:
@@ -268,7 +272,7 @@ setting specifies which Python modules to search for these classes::
         staticProxy "module.one", "module.two"
     }
 
-The app's :ref:`source tree <android-development>` and its :ref:`requirements
+The app's :ref:`source tree <android-source>` and its :ref:`requirements
 <android-requirements>` will be searched, in that order, for the specified modules. Either
 simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be found.
 

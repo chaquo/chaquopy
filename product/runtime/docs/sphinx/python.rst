@@ -221,6 +221,8 @@ Casting
 
 .. autofunction:: java.cast(cls, obj)
 
+.. _python-inheriting:
+
 Inheriting Java classes
 =======================
 
