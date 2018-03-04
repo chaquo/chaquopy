@@ -60,6 +60,7 @@ include "class.pxi"
 include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
+include "license.pxi"
 
 def chaquopy_init():
     if "CHAQUOPY_PROCESS_TYPE" not in os.environ:  # See chaquopy_java.pyx

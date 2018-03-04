@@ -477,5 +477,3 @@ cdef void throw_simple_exception(JNIEnv *env, const char *message):
         printf("%s [ThrowNew failed in throw_simple_exception: %d]\n", message, ret)
     # No need to release local references: if we're throwing a Java exception then we must be
     # imminently returning from a `native` method.
-
-
