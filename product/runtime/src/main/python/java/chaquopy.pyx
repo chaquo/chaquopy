@@ -11,6 +11,8 @@ cdef extern from "chaquopy_extra.h":
 
 
 # Imports used in this file
+from threading import Thread
+
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
@@ -19,7 +21,6 @@ cdef extern from "Python.h":
 from collections import OrderedDict
 import os
 import sys
-import threading
 
 import java
 from java._vendor import six
@@ -51,10 +52,10 @@ def Thread_bootstrap_inner(self):
     finally:
         java.detach()
 
-b_i = ("_Thread__bootstrap_inner" if hasattr(threading.Thread, "_Thread__bootstrap_inner")
+b_i = ("_Thread__bootstrap_inner" if hasattr(Thread, "_Thread__bootstrap_inner")
        else "_bootstrap_inner")
-Thread_bootstrap_inner_original = getattr(threading.Thread, b_i)
-setattr(threading.Thread, b_i, Thread_bootstrap_inner)
+Thread_bootstrap_inner_original = getattr(Thread, b_i)
+setattr(Thread, b_i, Thread_bootstrap_inner)
 
 
 from .jni cimport *
