@@ -1,4 +1,3 @@
-from collections import defaultdict
 from functools import cmp_to_key
 from itertools import chain, groupby
 import keyword

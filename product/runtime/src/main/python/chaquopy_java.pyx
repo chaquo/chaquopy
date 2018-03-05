@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import ctypes
 from importlib import import_module
-from os.path import join
 import sys
 import traceback
 

@@ -9,17 +9,24 @@ __package__ = "java"
 cdef extern from "chaquopy_extra.h":
     pass
 
+
 # Imports used in this file
-from collections import defaultdict
-import threading
 cdef extern from "Python.h":
     void PyEval_InitThreads()
 
-# Imports used in multiple .pxi files
+
+# Imports used in multiple files
+from collections import OrderedDict
+import os
+import sys
+import threading
+
 import java
 from java._vendor import six
+
 cdef extern from "alloca.h":
     void *alloca(size_t size)
+
 
 __all__ = [
     "chaquopy_init",
@@ -61,6 +68,7 @@ include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
 include "license.pxi"
+
 
 def chaquopy_init():
     if "CHAQUOPY_PROCESS_TYPE" not in os.environ:  # See chaquopy_java.pyx

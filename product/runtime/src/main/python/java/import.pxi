@@ -1,4 +1,3 @@
-import sys
 from types import ModuleType
 
 builtins = six.moves.builtins

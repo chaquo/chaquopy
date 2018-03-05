@@ -1,6 +1,3 @@
-from collections import OrderedDict
-
-
 global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
@@ -232,13 +229,19 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     return False
 
 
-# Trigger a simple native crash, for use when testing logging.
-def crash():
-    cdef char *s = NULL
-    print(s)
+# Trigger a simple native crash, for use when testing logging. Also called by license enforcement.
+cpdef crash():
+    # The following generates a SIGSEGV as expected on API level 23, but on API level 26 it
+    # generates a SIGSYS with the error "seccomp prevented call to disallowed x86 system call 7" and
+    # Chrome.apk at the top of the stack. None of that makes any sense to me, but at least it is
+    # reliably reported as a crash in both the logcat and the UI. (I tried abort(2), but on API
+    # level 26 it was reported in neither, and simply terminated the process.)
+    cdef int *p = NULL
+    print(p[0])
+
 
 # Trigger a CheckJNI crash, for use when testing logging.
-def crash_jni():
+cpdef crash_jni():
     cdef JNIEnv *j_env = get_jnienv()
     cdef jobject ref = j_env[0].FindClass(j_env, "java/lang/String")  # This is a local ref,
     j_env[0].DeleteGlobalRef(j_env, ref)                              # so this is invalid.
