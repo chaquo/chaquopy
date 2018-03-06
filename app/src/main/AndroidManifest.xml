@@ -22,10 +22,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Contrary to documentation, singleTask does not always create a new task:
+             https://issuetracker.google.com/issues/36921210-->
         <activity android:name=".ReplActivity"
             android:label="@string/repl"
-            android:launchMode="singleInstance"
-            android:windowSoftInputMode="adjustResize">
+            android:launchMode="singleInstance">
         </activity>
         <activity android:name="chaquopy.demo.ui_demo.UIDemoActivity"
             android:label="@string/ui_demo">

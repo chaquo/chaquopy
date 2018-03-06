@@ -1,7 +1,18 @@
 # Change log
 
-This file only records changes to the demo app. For changes to Chaquopy itself, see
-https://chaquo.com/chaquopy/doc/current/changelog.html.
+This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
+[its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
+
+## 1.4.0 (2018-03-05)
+
+* Increase target API level from 23 to 26.
+* Console activities are now based on the [console app
+  template](https://github.com/chaquo/chaquopy-console), giving the following improvements:
+  * Code input in the REPL is now executed on a background thread.
+  * The REPL can now be terminated by typing `exit()`, then restarted by pressing back and
+    re-entering the activity.
+  * Stderr is now shown in red.
+  * Scrolling, rotation and state restoration are all more reliable.
 
 ## 1.3.1 (2018-01-26)
 

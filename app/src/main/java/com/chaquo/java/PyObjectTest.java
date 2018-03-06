@@ -1,14 +1,15 @@
 package com.chaquo.java;
 
 import com.chaquo.python.*;
-
 import java.io.*;
+import java.util.*;
 import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
 
-import java.util.*;
-
+import static org.hamcrest.core.IsEqual.equalTo;
+import static org.hamcrest.core.IsInstanceOf.any;
+import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.Assert.*;
 
 
@@ -29,11 +30,39 @@ public class PyObjectTest {
     }
 
     @Test
-    public void getInstance() {
-        PyObject sys = python.getModule("sys");
-        assertSame(sys, python.getModule("sys"));
-        sys.close();
-        assertNotSame(sys, python.getModule("sys"));
+    public void identity() {
+        PyObject SO = pyobjecttest.get("SimpleObject");
+        assertSame(SO, pyobjecttest.get("SimpleObject"));
+        SO.close();
+        assertNotSame(SO, pyobjecttest.get("SimpleObject"));
+    }
+
+    /** Check for deadlocks and other threading errors by creating, accessing and destroying large
+     * numbers of PyObjects on 2 threads simultaneously. */
+    @Test
+    public void multithreading() {
+        final long stopTime = System.currentTimeMillis() + 100;
+        Runnable r = new Runnable() {
+            @Override public void run() {
+                Random random = new Random();
+                PyObject SO = pyobjecttest.get("SimpleObject");
+                while (System.currentTimeMillis() < stopTime) {
+                    PyObject so = SO.call();
+                    int x = random.nextInt();
+                    so.put("x", x);
+                    assertEquals(x, (int) so.get("x").toJava(int.class));
+                    so.close();
+                }
+            }
+        };
+        Thread t = new Thread(r);
+        t.start();  // Run it on the other thread.
+        r.run();    // And do the same on this thread.
+        try {
+            t.join();
+        } catch (InterruptedException e) {
+            fail();
+        }
     }
 
     @Test
@@ -151,6 +180,10 @@ public class PyObjectTest {
         assertNotSame(type, bool);
     }
 
+    // javac still uses Latin-1 by default when reading source files, or when printing any errors
+    // which occur during these tests.
+    private static String exceptionMsg = "abc ol\u00e9 \u4e2d\u6587";
+
     @Test
     public void call() {
         PyObject sm = pyobjecttest.get("sum_mul");
@@ -165,26 +198,19 @@ public class PyObjectTest {
         PyObject two = sm.call(2), three = sm.call(3), four = sm.call(4);
         assertEquals(14, (int)sm.call(three, four, new Kwarg("mul", two)).toJava(Integer.class));
 
-        try {
-            pyobjecttest.get("throws").call();
-            fail("No exception thrown");
-        } catch (PyException e) {
-            assertEquals("java.io.IOException: abc", e.getMessage());
-            assertTrue(e.getCause() instanceof IOException);
-        }
+        thrown.expect(PyException.class);
+        thrown.expectMessage(equalTo("java.io.IOException: " + exceptionMsg));
+        thrown.expectCause(any(IOException.class));
+        // Stack trace merging is covered in test_proxy.py.
+        pyobjecttest.get("throws_java").call();
     }
 
     @Test
-    public void callThrows() {
-        try {
-            pyobjecttest.get("throws").callThrows();
-            fail("No exception thrown");
-        } catch (IOException e) {
-            assertEquals("abc", e.getMessage());
-            assertNull(e.getCause());
-        } catch (Throwable e) {
-            throw new AssertionError(e);
-        }
+    public void callThrows() throws Throwable {
+        thrown.expect(IOException.class);
+        thrown.expectMessage(equalTo(exceptionMsg));
+        thrown.expectCause(nullValue(Throwable.class));
+        pyobjecttest.get("throws_java").callThrows();
     }
 
     @Test
@@ -194,26 +220,26 @@ public class PyObjectTest {
         assertEquals(6,  (int)pyobjecttest.callAttr("sum_mul", 1, 2, 3).toJava(Integer.class));
         assertEquals(24, (int)pyobjecttest.callAttr("sum_mul", 6, new Kwarg("mul", 4)).toJava(Integer.class));
 
-        try {
-            pyobjecttest.callAttr("throws");
-            fail("No exception thrown");
-        } catch (PyException e) {
-            assertEquals("java.io.IOException: abc", e.getMessage());
-            assertTrue(e.getCause() instanceof IOException);
-        }
+        thrown.expect(PyException.class);
+        thrown.expectMessage(equalTo("java.io.IOException: " + exceptionMsg));
+        thrown.expectCause(any(IOException.class));
+        pyobjecttest.callAttr("throws_java");
     }
 
     @Test
-    public void callAttrThrows() {
-        try {
-            pyobjecttest.callAttrThrows("throws");
-            fail("No exception thrown");
-        } catch (IOException e) {
-            assertEquals("abc", e.getMessage());
-            assertNull(e.getCause());
-        } catch (Throwable e) {
-            throw new AssertionError(e);
-        }
+    public void callAttrThrows() throws Throwable {
+        thrown.expect(IOException.class);
+        thrown.expectMessage(equalTo(exceptionMsg));
+        thrown.expectCause(nullValue(Throwable.class));
+        pyobjecttest.callAttrThrows("throws_java");
+    }
+
+    @Test
+    public void callAttrThrowsPython() throws Throwable {
+        thrown.expect(PyException.class);
+        thrown.expectMessage(equalTo("ValueError: " + exceptionMsg));
+        thrown.expectCause(nullValue(Throwable.class));
+        pyobjecttest.callAttrThrows("throws_python");
     }
 
     @Test

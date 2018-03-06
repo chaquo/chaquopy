@@ -5,11 +5,12 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.chaquo.python.demo.ReplActivity">
+    tools:context="com.chaquo.python.demo.ConsoleActivity">
 
     <!-- textVisiblePassword prevents Google keyboard from displaying suggestion bar -->
     <EditText
         android:id="@+id/etInput"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="7dp"
@@ -29,7 +30,7 @@
     </EditText>
 
     <ScrollView
-        android:id="@+id/svBuffer"
+        android:id="@+id/svOutput"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginBottom="0dp"
@@ -44,10 +45,10 @@
         app:layout_constraintVertical_bias="0.0">
 
         <TextView
-            android:id="@+id/tvBuffer"
+            android:id="@+id/tvOutput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            style="@style/ConsoleBuffer"/>
+            style="@style/ConsoleOutput"/>
     </ScrollView>
 
 </android.support.constraint.ConstraintLayout>
