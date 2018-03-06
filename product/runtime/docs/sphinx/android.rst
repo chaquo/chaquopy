@@ -363,34 +363,37 @@ Evaluation
 ----------
 
 You can try out Chaquopy right now by cloning one of the :ref:`example apps <quick-start>`, or
-following the setup instructions above in an app of your own. The unlicensed version is
-fully-functional, but apps built with it will display a notification on startup.
+following the setup instructions above in an app of your own.
 
-In order to distribute apps built with Chaquopy, a license is required. All licenses are
-perpetual and include upgrades to all future versions.
+An unlicensed SDK is fully-functional, but apps built with it will display a notification on
+startup, and are limited to a run-time of 5 minutes. To remove these restrictions, a license is
+required. All licenses are perpetual and include upgrades to all future versions.
 
-Commercial license
-------------------
+Standard license
+----------------
 
-A commercial license allows unlimited use of Chaquopy by a single developer. While Chaquopy is
-in beta, licenses are available free of charge. Please `contact us
-<https://chaquo.com/chaquopy/contact/>`_ to obtain a license key.
+A standard license allows unlimited use of Chaquopy in any number of apps. Please `contact us
+<https://chaquo.com/chaquopy/contact/>`_ to request a license key, giving the following information:
 
-Once you have a key, add the following line to the project's `local.properties` file::
+* A summary of what your app is, and how Chaquopy will be used in it.
+* How many developers on your project will be using Chaquopy.
+
+Once you have a key, activate it by adding the following line to the project’s `local.properties`
+file::
 
     chaquopy.license=<license key>
 
 Open-source license
 -------------------
 
-If your app is open-source, you may obtain a license for it free of charge. Please `contact us
+For open-source apps, Chaquopy will always be free of charge. Please `contact us
 <https://chaquo.com/chaquopy/contact/>`_ with details of your app, including:
 
 * The app ID (package name)
 * Where the app is distributed (e.g. Google Play)
 * Where the app's source code is available
 
-Once the app ID is activated on our server, anyone will be able to use Chaquopy to build the
+Once the app ID is activated on our server, anyone will be able to use Chaquopy to build that
 app by adding the following line to the project's `local.properties` file::
 
     chaquopy.license=

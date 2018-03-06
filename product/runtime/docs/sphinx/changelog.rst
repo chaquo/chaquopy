@@ -4,8 +4,10 @@ Change log
 1.4.0 (2018-03-05)
 ==================
 
-* The Python standard library is now loaded from compiled .pyc files by default, which significantly
-  speeds up app startup. To disable this, see :ref:`the documentation <android-bytecode>`.
+* The Python standard library is now loaded from compiled .pyc files by default (see
+  :ref:`documentation <android-bytecode>`). As a result, startup of a minimal app is now 20-30%
+  faster with Python 2, and 50-60% faster with Python 3. (Python 3 startup is still slower than
+  Python 2, but only by 15-20%.)
 * `sys.stdin` now returns EOF rather than blocking. If you want to run some code which takes
   interactive text input, you may find the `console app template
   <https://github.com/chaquo/chaquopy-console>`_ useful.
