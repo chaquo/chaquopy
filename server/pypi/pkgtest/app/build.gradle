@@ -5,10 +5,10 @@ import com.chaquo.python.Common
 
 
 android {
-    compileSdkVersion 23
+    compileSdkVersion 26
     defaultConfig {
         minSdkVersion 15
-        targetSdkVersion 23
+        targetSdkVersion 26
 
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
         // builds in the public repo.
@@ -47,10 +47,11 @@ android {
         main {
             java {
                 srcDirs = ["$demoSrc/main/java"]
-                includes = ["**/App.java", "**/ConsoleActivity.java", "**/MainActivity.java",
-                            "**/UnitTestActivity.java", "**/PythonTestActivity.java",
-                            "**/ReplActivity.java"]
+                includes = ["**/App.java", "**/MainActivity.java",
+                            "**/PythonTestActivity.java", "**/ReplActivity.java",
+                            "com/chaquo/python/utils/**"]
             }
+            python { srcDir "$demoSrc/main/python" }
             res { srcDirs = ["$demoSrc/main/res"] }
         }
         py2.res { srcDir "$demoSrc/py2/res" }
@@ -59,17 +60,12 @@ android {
 }
 
 
-delete("src/main/python")
-copy {
-    from "../../../../demo/app/src/main/python"
-    include "chaquopy/__init__.py", "chaquopy/demo/**"
-    into "src/main/python"
-}
-
 def PY_INPUT_DIR = "../../packages"
 def PY_OUTPUT_DIR = "src/main/python/chaquopy/test"
 def INCLUDE_PACKAGES = []
 def EXCLUDE_PACKAGES = []
+
+delete(PY_OUTPUT_DIR)
 String suiteSrc = ""
 for (def inDir : file(PY_INPUT_DIR).listFiles().findAll { it.isDirectory() }) {
     def pkgName = inDir.name
@@ -94,8 +90,9 @@ file("$PY_OUTPUT_DIR/__init__.py").text = suiteSrc
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:appcompat-v7:23.4.0'
+    compile "android.arch.lifecycle:extensions:1.1.0"
+    compile 'com.android.support:appcompat-v7:26.1.0'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    compile 'com.android.support:preference-v14:23.4.0'
+    compile 'com.android.support:preference-v14:26.1.0'
     testImplementation 'junit:junit:4.12'
 }
