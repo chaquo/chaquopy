@@ -1,3 +1,6 @@
+from libc.stdlib cimport abort
+
+
 global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
@@ -229,15 +232,21 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
     return False
 
 
-# Trigger a simple native crash, for use when testing logging. Also called by license enforcement.
+# Trigger a simple native crash, for use when testing logging. Also called by license enforcement,
+# where we want to make sure it's reported as a crash in both the logcat and the UI, otherwise the
+# back-stack might just be recreated in a new process and it wouldn't be obvious what happened.
+# abort(2) and SIGKILL aren't good enough because they exit silently on API level 26.
+#
+# The following generates a SIGSEGV as expected on API level 23, but on API level 26 it generates a
+# SIGSYS with the error "seccomp prevented call to disallowed x86 system call 7", and Chrome.apk at
+# the top of the stack. None of that makes any sense to me (maybe it's because it's an emulator),
+# but at least it's reliable.
 cpdef crash():
-    # The following generates a SIGSEGV as expected on API level 23, but on API level 26 it
-    # generates a SIGSYS with the error "seccomp prevented call to disallowed x86 system call 7" and
-    # Chrome.apk at the top of the stack. None of that makes any sense to me, but at least it is
-    # reliably reported as a crash in both the logcat and the UI. (I tried abort(2), but on API
-    # level 26 it was reported in neither, and simply terminated the process.)
-    cdef int *p = NULL
+    # Avoid C compiler null pointer optimizations in release builds, which on API level 26 actually
+    # caused us to not crash and print a random number instead.
+    cdef int *p = <int*><int> int("0")
     print(p[0])
+    abort()  # Just in case that didn't work.
 
 
 # Trigger a CheckJNI crash, for use when testing logging.
