@@ -284,6 +284,8 @@ generated and built into the app.
 Packaging
 =========
 
+.. _android-bytecode:
+
 Bytecode compilation
 --------------------
 
@@ -347,7 +349,8 @@ sys
 `stdout` and `stderr` are redirected to `Logcat
 <https://developer.android.com/studio/debug/am-logcat.html>`_ with the tags `python.stdout` and
 `python.stderr` respectively. The streams will produce one log line for each call to `write()`,
-which may result in lines being broken up in the log.
+which may result in lines being split up in the log. Lines may also be split if they exceed the
+Logcat message length limit of approximately 4000 bytes.
 
 `stdin` always returns EOF. If you want to run some code which takes interactive text input, you
 may find the `console app template <https://github.com/chaquo/chaquopy-console>`_ useful.

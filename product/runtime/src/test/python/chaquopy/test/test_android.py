@@ -351,7 +351,7 @@ class TestAndroidStreams(unittest.TestCase):
                                           "I/python.stdout:  ",
                                           "I/python.stdout: g"])
 
-    # The maximum line length is 4060.
+    # The maximum line length is 4000.
     def test_output_long(self):
         self.write(sys.stdout, "foobar" * 700,
                    ["I/python.stdout: " + ("foobar" * 666) + "foob",

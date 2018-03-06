@@ -29,12 +29,15 @@ Run `gradlew runtime:check`.
 Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are running, copy
 the generated .jar to other supported workstation OSs and do the same there.
 
-Test pkgtest app for Python 2 and 3 on:
+Test pkgtest app for both Python 2 and 3 on:
 * targetSdkVersion emulator
 * Phone
 
+On one of these devices, test on both Python 2 and 3 that the license notification and enforcement
+works correctly.
 
-## Demo app
+
+## Demo apps
 
 Run `gradlew gradle-plugin:writePom`.
 
@@ -47,15 +50,14 @@ Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit o
 files which require manual merging (e.g. build.gradle), examine them and update the public
 repository as necessary.
 
-"Generate Signed APK" in Android Studio for Python 2 and 3, and test all features on:
+"Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on:
 
 * minSdkVersion emulator
 * targetSdkVersion emulator
 * Phone
 
 Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
-SDK changes, and copy these into the Google Play release notes. Activate releases, and update
-description and screenshots if necessary.
+SDK changes. Release apps on Google Play, updating description and screenshots if necessary.
 
 Copy APKs to Maven repository.
 
@@ -69,14 +71,19 @@ If sphinx or javadoc have changed:
 * If major.minor version number has changed, update "current" symlink and add link on WordPress
   documentation page.
 
-Post blog entry to website and Facebook.
-
-Update GitHub issues if necessary.
-
 
 ## Source control
 
-Commit public/demo repository, and push to chaquo.com and GitHub.
+Commit public/demo and repository, and push to chaquo.com and GitHub.
+
+Do the same if necessary for public/hello and public/console.
 
 Commit python repository, add version number tag, and push. Then increment
 python/VERSION.txt for next version number.
+
+
+## User communication
+
+Post blog entry to website and Facebook.
+
+Update GitHub issues if necessary.

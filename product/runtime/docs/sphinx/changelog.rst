@@ -1,6 +1,20 @@
 Change log
 ##########
 
+1.4.0 (2018-03-05)
+==================
+
+* The Python standard library is now loaded from compiled .pyc files by default, which significantly
+  speeds up app startup. To disable this, see :ref:`the documentation <android-bytecode>`.
+* `sys.stdin` now returns EOF rather than blocking. If you want to run some code which takes
+  interactive text input, you may find the `console app template
+  <https://github.com/chaquo/chaquopy-console>`_ useful.
+* The `write` method of `sys.stdout` and `sys.stderr` now returns the character count.
+* Very long lines written to `sys.stdout` and `sys.stderr` are now split into slightly smaller
+  fragments, to allow for the shorter Logcat message length limit in recent versions of Android.
+* Fix a multi-threading deadlock.
+* Apps built with an unlicensed copy of the SDK are now limited to a run-time of 5 minutes.
+
 1.3.1 (2018-01-26)
 ==================
 
@@ -12,10 +26,10 @@ Change log
 
 * The following things now return reasonable values: `sys.argv`, `sys.executable`, and
   `platform.platform()`.
-* The following modules now work correctly: sqlite3, ssl (`#23
-  <https://github.com/chaquo/chaquopy/issues/23>`_), and tempfile. (Requires python.version to
-  be 2.7.14 or 3.6.3.)
-* `sys.stdout` and `sys.stderr` are now directed to the Android logcat.
+* The following modules now work correctly: `sqlite3`, `ssl` (`#23
+  <https://github.com/chaquo/chaquopy/issues/23>`_), and `tempfile`. (Requires `python.version`
+  to be 2.7.14 or 3.6.3.)
+* `sys.stdout` and `sys.stderr` are now directed to the Android Logcat.
 * Add `extractPackages`, and use it by default for `certifi
   <https://pypi.python.org/pypi/certifi>`_.
 
@@ -29,8 +43,8 @@ Change log
 * Generated `static_proxy` Java files no longer produce build warnings.
 * Ensure pip is re-run if local requirements or wheel file changes.
 * Add Python 2.7.14.
-* Include distutils and doctest modules (`#20
-  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires python.version to be 2.7.14 or
+* Include `distutils` and `doctest` modules (`#20
+  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires `python.version` to be 2.7.14 or
   3.6.3.)
 
 1.1.0 (2017-12-22)
@@ -47,10 +61,9 @@ Change log
 ==================
 
 * Apps can now use certain native packages, including NumPy (`#14
-  <https://github.com/chaquo/chaquopy/issues/14>`_), as well as pure-Python packages which
-  aren't available from PyPI in wheel format. To support this, the `build.gradle` syntax for
-  calling `pip install` has been changed: please see `the
-  documentation <https://chaquo.com/chaquopy/doc/current/android.html#python-requirements>`_.
+  <https://github.com/chaquo/chaquopy/issues/14>`_), as well as pure-Python packages which aren't
+  available from PyPI in wheel format. To support this, the `build.gradle` syntax for calling `pip
+  install` has been changed: please see :ref:`the documentation <android-requirements>`.
 * Zero-initialized Java arrays can now be created in Python, by passing an integer to the array
   constructor rather than a sequence.
 
