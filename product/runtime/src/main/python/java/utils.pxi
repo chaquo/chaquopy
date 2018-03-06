@@ -1,3 +1,4 @@
+from libc.stdint cimport uintptr_t
 from libc.stdlib cimport abort
 
 
@@ -244,7 +245,7 @@ def better_overload_arg(CQPEnv env, def1, def2, actual_type):
 cpdef crash():
     # Avoid C compiler null pointer optimizations in release builds, which on API level 26 actually
     # caused us to not crash and print a random number instead.
-    cdef int *p = <int*><int> int("0")
+    cdef int *p = <int*><uintptr_t> int("0")
     print(p[0])
     abort()  # Just in case that didn't work.
 
