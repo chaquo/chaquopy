@@ -130,7 +130,7 @@ class JavaClass(type):
         return list(result)
 
 
-def get_bases(klass):
+cdef get_bases(klass):
     superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
     if not (superclass or interfaces):  # Class is a top-level interface
         superclass = JavaObject.getClass()
@@ -144,7 +144,7 @@ def get_bases(klass):
     return tuple(bases)
 
 
-def setup_object_class():
+cdef setup_object_class():
     global JavaObject
     class JavaObject(six.with_metaclass(JavaClass, object)):
         _chaquopy_name = "java.lang.Object"
@@ -227,7 +227,7 @@ def setup_object_class():
 #     * (PROXY ONLY) The WeakRef in the __dict__ is now invalid, but that's not a
 #       problem because the __dict__ is unreachable from both languages. With the Java object
 #       gone, the __dict__ and WeakRef now die, in that order.
-def set_this(self, GlobalRef this, real_obj=None):
+cdef set_this(self, GlobalRef this, real_obj=None):
     global PyProxy
     with class_lock:
         is_proxy = isinstance(type(self), ProxyClass)
@@ -245,7 +245,7 @@ def set_this(self, GlobalRef this, real_obj=None):
 
 # This isn't done during module initialization because we don't have a JVM yet, and we don't
 # want to automatically start one because we might already be in a Java process.
-def setup_bootstrap_classes():
+cdef setup_bootstrap_classes():
     # Declare only the methods needed to complete the bootstrap process.
     global Reflector, Class, Modifier, Method, Field, Constructor
     if "Class" in globals():
@@ -345,7 +345,7 @@ cdef reflect_member(cls, str name, bint inherit=True):
             return member
 
 
-def find_member(cls, name, inherited=None):
+cdef find_member(cls, name, inherited=None):
     reflector = get_reflector(cls)
     jms = [JavaMethod(cls, name, m) for m in (reflector.getMethods(name) or [])]
     if isinstance(inherited, JavaMethod):
@@ -367,7 +367,7 @@ def find_member(cls, name, inherited=None):
     return inherited
 
 
-def get_reflector(cls):
+cdef get_reflector(cls):
     reflector = cls.__dict__.get("_chaquopy_reflector")
     if not reflector:
         # Can't call constructor directly, because JavaObject.__init__ calls some inherited
@@ -378,7 +378,7 @@ def get_reflector(cls):
 
 
 # Methods earlier in the list will override later ones with the same argument signature.
-def apply_overrides(jms_in):
+cdef apply_overrides(jms_in):
     jms_out = []
     sigs_seen = set()
     cdef JavaMethod jm
@@ -394,12 +394,12 @@ EXTRA_RESERVED_WORDS = {'exec', 'print',                      # Removed in Pytho
                         'nonlocal', 'True', 'False', 'None',  # Added in Python 3.0
                         'async', 'await'}                     # Added in Python 3.5
 
-def is_reserved_word(word):
+cdef is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS
 
 
 # Looks up an attribute in a class hierarchy without calling descriptors.
-def type_lookup(cls, name):
+cdef type_lookup(cls, name):
     for c in cls.__mro__:
         try:
             return c.__dict__[name]
@@ -418,7 +418,7 @@ cdef class JavaMember(object):
     def __set__(self, obj, value):
         raise AttributeError(f"Java member {self.fqn()} is not a field")
 
-    def fqn(self):
+    cdef fqn(self):
         return f"{cls_fullname(self.cls)}.{self.name}"
 
 
@@ -431,7 +431,7 @@ cdef class JavaSimpleMember(JavaMember):
         self.is_static = static
         self.is_final = final
 
-    def format_modifiers(self):
+    cdef format_modifiers(self):
         return (f"{'static ' if self.is_static else ''}"
                 f"{'final ' if self.is_final else ''}")
 
@@ -613,7 +613,7 @@ cdef class JavaMethod(JavaSimpleMember):
     def __repr__(self):
         return f"<JavaMethod {self.format_declaration()}>"
 
-    def format_declaration(self):
+    cdef format_declaration(self):
         return (f"{self.format_modifiers()}"
                 f"{java.sig_to_java(self.return_sig)} {self.fqn()}"
                 f"{java.args_sig_to_java(self.args_sig, self.is_varargs)}")
@@ -692,7 +692,7 @@ cdef class JavaMethod(JavaSimpleMember):
         return result
 
     # Exception types and wording are based on Python 2.7.
-    def check_args(self, args):
+    cdef check_args(self, args):
         obj = None
         if not (self.is_static or self.is_constructor):
             if not args:
@@ -900,7 +900,7 @@ cdef class JavaMultipleMethod(JavaMember):
 
         return best_overload.__get__(obj, objtype)(*args)
 
-    def find_applicable(self, obj, args, *, autobox, varargs):
+    cdef find_applicable(self, obj, args, autobox, varargs):
         result = []
         cdef JavaMethod jm
         for jm in self.methods:
@@ -917,7 +917,8 @@ cdef class JavaMultipleMethod(JavaMember):
                 result.append(jm)
         return result
 
-    def overload_err(self, msg, args, methods):
+    cdef overload_err(self, msg, args, methods):
+        cdef JavaMethod jm
         args_type_names = "({})".format(", ".join([type(a).__name__ for a in args]))
         return (f"{self.fqn()} {msg} {args_type_names}: options are " +
                 ", ".join([jm.format_declaration() for jm in methods]))

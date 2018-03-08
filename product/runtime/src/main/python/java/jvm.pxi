@@ -81,7 +81,7 @@ cdef JavaVM *start_jvm() except NULL:
     return jvm
 
 
-def jvm_lib_path():
+cdef jvm_lib_path():
     try:
         java_home = os.environ['JAVA_HOME']
     except KeyError:

@@ -54,7 +54,7 @@ def import_override(name, globals={}, locals={}, fromlist=None,
 
 
 # Exception types and wording are based on Python 3.5.
-def resolve_name(name, globals, level):
+cdef resolve_name(name, globals, level):
     if level > 0:   # Explicit relative import
         current_pkg = globals.get("__package__")
         if current_pkg is None:  # Empty string indicates a top-level module.

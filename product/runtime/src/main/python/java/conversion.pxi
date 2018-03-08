@@ -22,7 +22,7 @@ JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
 
 
 # Useful if d is an OrderedDict.
-def dict_index(d, key):
+cdef dict_index(d, key):
     for i, k in enumerate(d):
         if k == key:
             return i
@@ -30,7 +30,7 @@ def dict_index(d, key):
 
 
 # Copy back any modifications the Java method may have made to mutable parameters.
-def copy_output_args(definition_args, args, p2j_args):
+cdef copy_output_args(definition_args, args, p2j_args):
     for argtype, arg, p2j_arg in six.moves.zip(definition_args, args, p2j_args):
         if (argtype[0] == "[") and arg and (not isinstance(arg, JavaArray)):
             ret = jarray(argtype[1:])(instance=p2j_arg)
@@ -244,7 +244,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the object type, not its value.
-def assignable_to_array(definition, obj):
+cdef assignable_to_array(definition, obj):
     if not (definition.startswith("[") or (definition in ARRAY_CONVERSIONS)):
         return False
     if obj is None:

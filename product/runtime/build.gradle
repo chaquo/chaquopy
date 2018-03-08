@@ -172,12 +172,13 @@ sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 
 task("testPython", "group": "verification")
 task("testJava", "group": "verification")
-check.dependsOn(testPython, testJava)
 
 def prevPyVersion = null
 for (pyFullVersion in Common.PYTHON_VERSIONS) {
     def pyVersion = Common.pyVersionShort(pyFullVersion)
     if (prevPyVersion != null && pyVersion.equals(prevPyVersion)) continue
+    def testVer = task("test-$pyVersion", "group": "verification")
+    check.dependsOn(testVer)
 
     for (abi in ["host"] + Common.ABIS) {
         def pyPlusVersion = "python${Common.PYTHON_SUFFIXES.get(pyVersion)}"
@@ -288,6 +289,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             }
             testPythonVer.configure(testCommonConfig)
             testPython.dependsOn(testPythonVer)
+            testVer.dependsOn(testPythonVer)
 
             // Run via test suite for consistency with Android demo app. (NOTE: this will not show
             // test results within IntelliJ for some reason.)
@@ -304,6 +306,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             }
             testJavaVer.configure(testCommonConfig)
             testJava.dependsOn(testJavaVer)
+            testVer.dependsOn(testJavaVer)
 
             // Generates a script to start a Python REPL with Java and Python paths set up.
             task("consoleScript-$pyVersion") {

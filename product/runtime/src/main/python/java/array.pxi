@@ -55,7 +55,7 @@ class JavaArray(object):
 
         if value is not None:
             for i, v in enumerate(value):
-                self[i] = v
+                array_set(self, i, v)
 
     def __repr__(self):
         return f"jarray('{type(self).__name__[1:]}')({format_array(self)})"
@@ -86,7 +86,7 @@ class JavaArray(object):
         if isinstance(key, six.integer_types):
             if not (0 <= key < len(self)):
                 raise IndexError(str(key))
-            return self._chaquopy_get(key)
+            return array_get(self, key)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -98,7 +98,7 @@ class JavaArray(object):
         if isinstance(key, six.integer_types):
             if not (0 <= key < len(self)):
                 raise IndexError(str(key))
-            return self._chaquopy_set(key, value)
+            return array_set(self, key, value)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -132,64 +132,64 @@ class JavaArray(object):
     def __radd__(self, other):
         return list(itertools.chain(other, self))
 
-    def _chaquopy_get(self, index):
-        env = CQPEnv()
-        cdef JNIRef this = self._chaquopy_this
-        element_sig = type(self).__name__[1:]
-        r = element_sig[0]
-        if r == "Z":
-            return env.GetBooleanArrayElement(this, index)
-        elif r == "B":
-            return env.GetByteArrayElement(this, index)
-        elif r == "S":
-            return env.GetShortArrayElement(this, index)
-        elif r == "I":
-            return env.GetIntArrayElement(this, index)
-        elif r == "J":
-            return env.GetLongArrayElement(this, index)
-        elif r == "F":
-            return env.GetFloatArrayElement(this, index)
-        elif r == "D":
-            return env.GetDoubleArrayElement(this, index)
-        elif r == "C":
-            return env.GetCharArrayElement(this, index)
-        elif r in "L[":
-            return j2p(env.j_env, env.GetObjectArrayElement(this, index))
-        else:
-            raise ValueError(f"Invalid signature '{element_sig}'")
+cdef array_get(self, jint index):
+    env = CQPEnv()
+    cdef JNIRef this = self._chaquopy_this
+    element_sig = type(self).__name__[1:]
+    r = element_sig[0]
+    if r == "Z":
+        return env.GetBooleanArrayElement(this, index)
+    elif r == "B":
+        return env.GetByteArrayElement(this, index)
+    elif r == "S":
+        return env.GetShortArrayElement(this, index)
+    elif r == "I":
+        return env.GetIntArrayElement(this, index)
+    elif r == "J":
+        return env.GetLongArrayElement(this, index)
+    elif r == "F":
+        return env.GetFloatArrayElement(this, index)
+    elif r == "D":
+        return env.GetDoubleArrayElement(this, index)
+    elif r == "C":
+        return env.GetCharArrayElement(this, index)
+    elif r in "L[":
+        return j2p(env.j_env, env.GetObjectArrayElement(this, index))
+    else:
+        raise ValueError(f"Invalid signature '{element_sig}'")
 
-    def _chaquopy_set(self, index, value):
-        env = CQPEnv()
-        cdef JNIRef this = self._chaquopy_this
-        # We need to type-check against the actual array type, because old versions of Android
-        # won't do it for us (#5209).
-        element_sig = object_sig(env, this)[1:]
-        value_p2j = p2j(env.j_env, element_sig, value)
-        r = element_sig[0]
-        if r == "Z":
-            env.SetBooleanArrayElement(this, index, value_p2j)
-        elif r == "B":
-            env.SetByteArrayElement(this, index, value_p2j)
-        elif r == "S":
-            env.SetShortArrayElement(this, index, value_p2j)
-        elif r == "I":
-            env.SetIntArrayElement(this, index, value_p2j)
-        elif r == "J":
-            env.SetLongArrayElement(this, index, value_p2j)
-        elif r == "F":
-            env.SetFloatArrayElement(this, index, value_p2j)
-        elif r == "D":
-            env.SetDoubleArrayElement(this, index, value_p2j)
-        elif r == "C":
-            env.SetCharArrayElement(this, index, value_p2j)
-        elif r in "L[":
-            env.SetObjectArrayElement(this, index, value_p2j)
-        else:
-            raise ValueError(f"Invalid signature '{element_sig}'")
+cdef array_set(self, jint index, value):
+    env = CQPEnv()
+    cdef JNIRef this = self._chaquopy_this
+    # We need to type-check against the actual array type, because old versions of Android
+    # won't do it for us (#5209).
+    element_sig = object_sig(env, this)[1:]
+    value_p2j = p2j(env.j_env, element_sig, value)
+    r = element_sig[0]
+    if r == "Z":
+        env.SetBooleanArrayElement(this, index, value_p2j)
+    elif r == "B":
+        env.SetByteArrayElement(this, index, value_p2j)
+    elif r == "S":
+        env.SetShortArrayElement(this, index, value_p2j)
+    elif r == "I":
+        env.SetIntArrayElement(this, index, value_p2j)
+    elif r == "J":
+        env.SetLongArrayElement(this, index, value_p2j)
+    elif r == "F":
+        env.SetFloatArrayElement(this, index, value_p2j)
+    elif r == "D":
+        env.SetDoubleArrayElement(this, index, value_p2j)
+    elif r == "C":
+        env.SetCharArrayElement(this, index, value_p2j)
+    elif r in "L[":
+        env.SetObjectArrayElement(this, index, value_p2j)
+    else:
+        raise ValueError(f"Invalid signature '{element_sig}'")
 
 
 # Formats a possibly-multidimensional array using nested "[]" syntax.
-def format_array(array):
+cdef format_array(array):
     return  ("[" +
              ", ".join([format_array(value) if isinstance(value, JavaArray)
                         else f"'{value}'" if isinstance(value, six.text_type)  # Remove 'u' prefix in Python 2 so tests are consistent.

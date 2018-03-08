@@ -10,6 +10,7 @@ from cpython.object cimport Py_EQ, Py_NE
 #     CQPEnv returns a Python Unicode string.
 #   * Where JNIEnv accepts a char*, CQPEnv accepts a Python Unicode and byte string,
 #
+@cython.final
 cdef class CQPEnv(object):
     cdef JNIEnv *j_env
 
@@ -338,88 +339,88 @@ cdef class CQPEnv(object):
 
     # The primitive type Get...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
-    cdef GetBooleanArrayElement(self, JNIRef array, index):
+    cdef GetBooleanArrayElement(self, JNIRef array, jint index):
         cdef jboolean j_value = 0
         self.j_env[0].GetBooleanArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return bool(j_value)
-    cdef GetByteArrayElement(self, JNIRef array, index):
+    cdef GetByteArrayElement(self, JNIRef array, jint index):
         cdef jbyte j_value = 0
         self.j_env[0].GetByteArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetShortArrayElement(self, JNIRef array, index):
+    cdef GetShortArrayElement(self, JNIRef array, jint index):
         cdef jshort j_value = 0
         self.j_env[0].GetShortArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetIntArrayElement(self, JNIRef array, index):
+    cdef GetIntArrayElement(self, JNIRef array, jint index):
         cdef jint j_value = 0
         self.j_env[0].GetIntArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetLongArrayElement(self, JNIRef array, index):
+    cdef GetLongArrayElement(self, JNIRef array, jint index):
         cdef jlong j_value = 0
         self.j_env[0].GetLongArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetFloatArrayElement(self, JNIRef array, index):
+    cdef GetFloatArrayElement(self, JNIRef array, jint index):
         cdef jfloat j_value = 0
         self.j_env[0].GetFloatArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetDoubleArrayElement(self, JNIRef array, index):
+    cdef GetDoubleArrayElement(self, JNIRef array, jint index):
         cdef double j_value = 0
         self.j_env[0].GetDoubleArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return j_value
-    cdef GetCharArrayElement(self, JNIRef array, index):
+    cdef GetCharArrayElement(self, JNIRef array, jint index):
         cdef jchar j_value = 0
         self.j_env[0].GetCharArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
         return six.unichr(j_value)
-    cdef LocalRef GetObjectArrayElement(self, JNIRef array, index):
+    cdef LocalRef GetObjectArrayElement(self, JNIRef array, jint index):
         result = self.adopt(self.j_env[0].GetObjectArrayElement(self.j_env, array.obj, index))
         self.check_exception()
         return result
 
     # The primitive type Set...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
-    cdef SetBooleanArrayElement(self, JNIRef array, index, value):
+    cdef SetBooleanArrayElement(self, JNIRef array, jint index, value):
         cdef jboolean j_value = value
         self.j_env[0].SetBooleanArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetByteArrayElement(self, JNIRef array, index, value):
+    cdef SetByteArrayElement(self, JNIRef array, jint index, value):
         cdef jbyte j_value = value
         self.j_env[0].SetByteArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetShortArrayElement(self, JNIRef array, index, value):
+    cdef SetShortArrayElement(self, JNIRef array, jint index, value):
         cdef jshort j_value = value
         self.j_env[0].SetShortArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetIntArrayElement(self, JNIRef array, index, value):
+    cdef SetIntArrayElement(self, JNIRef array, jint index, value):
         cdef jint j_value = value
         self.j_env[0].SetIntArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetLongArrayElement(self, JNIRef array, index, value):
+    cdef SetLongArrayElement(self, JNIRef array, jint index, value):
         cdef jlong j_value = value
         self.j_env[0].SetLongArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetFloatArrayElement(self, JNIRef array, index, value):
+    cdef SetFloatArrayElement(self, JNIRef array, jint index, value):
         check_range_float32(value)
         cdef jfloat j_value = value
         self.j_env[0].SetFloatArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetDoubleArrayElement(self, JNIRef array, index, value):
+    cdef SetDoubleArrayElement(self, JNIRef array, jint index, value):
         cdef jdouble j_value = value
         self.j_env[0].SetDoubleArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetCharArrayElement(self, JNIRef array, index, value):
+    cdef SetCharArrayElement(self, JNIRef array, jint index, value):
         check_range_char(value)
         cdef jchar j_value = ord(value)
         self.j_env[0].SetCharArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-    cdef SetObjectArrayElement(self, JNIRef array, index, JNIRef value):
+    cdef SetObjectArrayElement(self, JNIRef array, jint index, JNIRef value):
         self.j_env[0].SetObjectArrayElement(self.j_env, array.obj, index, value.obj)
         self.check_exception()
 
@@ -497,6 +498,7 @@ cdef class JNIRef(object):
             return NULL
 
 
+@cython.final
 cdef class GlobalRef(object):
     @staticmethod
     cdef GlobalRef create(JNIEnv *env, jobject obj):
@@ -516,6 +518,7 @@ cdef class GlobalRef(object):
         return self
 
 
+@cython.final
 cdef class LocalRef(JNIRef):
     # Member variables declared in .pxd
 
@@ -539,6 +542,7 @@ cdef class LocalRef(JNIRef):
         # The __dealloc__() method of the superclass will be called automatically.
 
 
+@cython.final
 cdef class WeakRef(JNIRef):
     @staticmethod
     cdef WeakRef create(JNIEnv *env, jobject obj):

@@ -21,7 +21,7 @@ def global_class(full_name, **kwargs):
     globals()[simple_name] = None
 
 
-def load_global_classes():
+cdef load_global_classes():
     g = globals()
     for simple_name, (full_name, kwargs) in six.iteritems(global_classes):
         assert full_name not in jclass_cache, full_name  # See comment at Throwable in exception.pxi
@@ -81,7 +81,7 @@ class none_cast_dict(dict):
 none_casts = none_cast_dict()
 
 
-def cls_fullname(cls):
+cdef cls_fullname(cls):
     module = cls.__module__
     return f"{(module + '.') if module else ''}{cls.__name__}"
 
@@ -120,11 +120,11 @@ def klass_sig(CQPEnv env, JNIRef j_cls):
     return java.name_to_sig(j2p_string(env.j_env, j_name))
 
 
-def object_sig(CQPEnv env, JNIRef j_obj):
+cdef object_sig(CQPEnv env, JNIRef j_obj):
     return klass_sig(env, env.GetObjectClass(j_obj))
 
 
-def is_applicable(sign_args, args, autobox, varargs):
+cdef is_applicable(sign_args, args, autobox, varargs):
     if len(args) == len(sign_args):
         pass
     elif varargs:
@@ -162,7 +162,7 @@ cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
         return False
 
 
-def better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, *, varargs):
+cdef better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, varargs):
     """Returns whether jm1 is an equal or better match than jm2 for the given actual parameter
     types. This is based on JLS 15.12.2.5. "Choosing the Most Specific Method" and JLS 4.10.
     "Subtyping".
@@ -182,7 +182,7 @@ def better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, *,
                  for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
 
 
-def extend_varargs(defs, length):
+cdef extend_varargs(defs, length):
     varargs_count = length - (len(defs) - 1)
     vararg_type = defs[-1][1:]
     return defs[:-1] + ((vararg_type,) * varargs_count)
@@ -196,7 +196,7 @@ def extend_varargs(defs, length):
 # actual parameter type which is applicable to one will not be applicable to the others.
 #
 # In this context, boxed and unboxed types are NOT treated as related.
-def better_overload_arg(CQPEnv env, def1, def2, actual_type):
+cdef better_overload_arg(CQPEnv env, def1, def2, actual_type):
     if def2 == def1:
         return True
 
@@ -257,7 +257,7 @@ cpdef crash_jni():
     j_env[0].DeleteGlobalRef(j_env, ref)                              # so this is invalid.
 
 
-def plural(n, singular, plural=None):
+cdef plural(n, singular, plural=None):
     if plural is None:
         plural = singular + "s"
     return f"{n} {singular if (n == 1) else plural}"

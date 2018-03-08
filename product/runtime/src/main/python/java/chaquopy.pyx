@@ -25,6 +25,7 @@ import sys
 import java
 from java._vendor import six
 
+cimport cython
 cdef extern from "alloca.h":
     void *alloca(size_t size)
 
