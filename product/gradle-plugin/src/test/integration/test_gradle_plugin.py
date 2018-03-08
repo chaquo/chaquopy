@@ -8,10 +8,22 @@ from kwonly_args import kwonly_defaults
 import os
 from os.path import abspath, dirname, join
 import re
+import rsa
+import shutil
 import subprocess
 import sys
 from unittest import skip, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+
+integration_dir = abspath(dirname(__file__))
+repo_root = abspath(join(integration_dir, "../../../../.."))
+
+sys.path.append(join(repo_root, "server/license"))
+from check_ticket import check_ticket  # noqa: E402
+
+
+with open(join(repo_root, "server/license/public.pem")) as pub_key_file:
+    pub_key = rsa.PublicKey.load_pkcs1(pub_key_file.read(), "PEM")
 
 
 class GradleTestCase(TestCase):
@@ -32,7 +44,10 @@ class GradleTestCase(TestCase):
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg)
 
-    def extra_check(self, apk_zip, apk_dir, kwargs):
+    def pre_check(self, apk_zip, apk_dir, kwargs):
+        pass
+
+    def post_check(self, apk_zip, apk_dir, kwargs):
         pass
 
 
@@ -85,7 +100,7 @@ class NoCompress(GradleTestCase):
             run.rerun()
         self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
 
-    def extra_check(self, apk_zip, apk_dir, kwargs):
+    def post_check(self, apk_zip, apk_dir, kwargs):
         for filename, expected in kwargs["compress_type"].items():
             info = apk_zip.getinfo("assets/file." + filename)
             self.assertEqual(expected, info.compress_type)
@@ -267,7 +282,7 @@ class Pyc(GradleTestCase):
                        variants={"red-debug": dict(pyc={"stdlib": False}),
                                  "blue-debug": dict(pyc={"stdlib": True})})
 
-    def extra_check(self, apk_zip, apk_dir, kwargs):
+    def post_check(self, apk_zip, apk_dir, kwargs):
         pyc = kwargs["pyc"]
 
         stdlib_files = set(ZipFile(join(apk_dir, "assets/chaquopy/stdlib.zip")).namelist())
@@ -494,27 +509,25 @@ class License(GradleTestCase):
         run.apply_key(None)
         run.rerun(licensed_id=None)
 
-    # There should be no way to produce a bad ticket via the plugin, but it could be done by
-    # deliberate tampering.
-    def test_bad_ticket(self):
-        self.check_bad_ticket("valid.txt", "com.chaquo.python.test",
-                              "Ticket is for 'com.chaquo.python.demo', but this app is "
-                              "'com.chaquo.python.test'")
-        self.check_bad_ticket("invalid.txt", "com.chaquo.python.test",
-                              "VerificationError")
+    def test_stolen_ticket(self):
+        with self.assertRaisesRegexp(ValueError, "License is for 'com.chaquo.python.demo', "
+                                     "but this app is 'com.chaquo.python.test'"):
+            self.RunGradle("base", licensed_id="com.chaquo.python.test",
+                           ticket_filename=join(integration_dir,
+                                                "data/License/tickets/demo.txt"))
 
-    def check_bad_ticket(self, ticket_filename, app_id, error):
-        ticket_path = join(integration_dir, "data/License/tickets", ticket_filename)
-        process = subprocess.Popen(["python", join(repo_root, "server/license/check_ticket.py"),
-                                    "--ticket", ticket_path, "--app", app_id],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        self.assertNotEqual(0, process.wait())
-        self.assertInLong(error, stderr)
+    def test_invalid_ticket(self):
+        with self.assertRaisesRegexp(rsa.VerificationError, "Verification failed"):
+            self.RunGradle("base", licensed_id="com.chaquo.python.test",
+                           ticket_filename=join(integration_dir,
+                                                "data/License/tickets/invalid.txt"))
 
-
-integration_dir = abspath(dirname(__file__))
-repo_root = abspath(join(integration_dir, "../../../../.."))
+    def pre_check(self, apk_zip, apk_dir, kwargs):
+        try:
+            shutil.copy(kwargs["ticket_filename"],
+                        join(apk_dir, "assets/chaquopy/ticket.txt"))
+        except KeyError:
+            pass
 
 
 class RunGradle(object):
@@ -609,10 +622,14 @@ class RunGradle(object):
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
-    # TODO: refactor this into a set of methods all using the same API as extra_check.
+    # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
+    # post_check.
     @kwonly_defaults
     def check_apk(self, apk_zip, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
                   requirements=[], extract_packages=[], licensed_id=None, **kwargs):
+        kwargs_wrapped = KwargsWrapper(kwargs)
+        self.test.pre_check(apk_zip, apk_dir, kwargs_wrapped)
+
         for info in apk_zip.infolist():
             if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
                 self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
@@ -686,13 +703,11 @@ class RunGradle(object):
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
         if licensed_id:
-            subprocess.check_call(["python", join(repo_root, "server/license/check_ticket.py"),
-                                   "--quiet", "--ticket", ticket_filename, "--app", licensed_id])
+            check_ticket(open(ticket_filename).read(), pub_key, licensed_id)
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
-        kwargs_wrapped = KwargsWrapper(kwargs)
-        self.test.extra_check(apk_zip, apk_dir, kwargs_wrapped)
+        self.test.post_check(apk_zip, apk_dir, kwargs_wrapped)
         self.test.assertFalse(kwargs_wrapped.unused_kwargs)
 
     def dump_run(self, msg):

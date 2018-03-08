@@ -133,11 +133,11 @@ cythonTask("cythonPython", group: "build") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
         include "*.pyx", "*.pxi", "*.pxd"
     }
+    inputs.files "$projectDir/../../server/license/check_ticket.py"
 }
 cythonTask("cythonJava", group: "build") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
     inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
-    inputs.files "$projectDir/../../server/license/check_ticket.py"
 }
 
 
