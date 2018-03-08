@@ -49,7 +49,7 @@ cdef check_exception(JNIEnv *j_env):
         else:
             env.ExceptionClear()
             message = "[Throwable.getMessage failed]"
-        raise Exception(f"{java.sig_to_java(object_sig(env, j_exc))}: "
+        raise Exception(f"{sig_to_java(object_sig(env, j_exc))}: "
                         f"{message} [failed to convert: {traceback.format_exc()}]")
     else:
         raise exc

@@ -89,8 +89,8 @@ class JavaClass(type):
                 if not self:
                     env = CQPEnv()
                     if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
-                        expected = java.sig_to_java(klass_sig(env, cls._chaquopy_j_klass))
-                        actual = java.sig_to_java(object_sig(env, instance))
+                        expected = sig_to_java(klass_sig(env, cls._chaquopy_j_klass))
+                        actual = sig_to_java(object_sig(env, instance))
                         raise TypeError(f"cannot create {expected} proxy from {actual} instance")
                     self = cls.__new__(cls, *args, **kwargs)
 
@@ -442,14 +442,14 @@ cdef class JavaField(JavaSimpleMember):
 
     def __repr__(self):
         return (f"<JavaField {self.format_modifiers()}"
-                f"{java.sig_to_java(self.definition)} {self.fqn()}>")
+                f"{sig_to_java(self.definition)} {self.fqn()}>")
 
     def __init__(self, cls, name, definition_or_reflected, *, static=False, final=False):
         if isinstance(definition_or_reflected, str):
             self.definition = definition_or_reflected
         else:
             reflected = definition_or_reflected
-            self.definition = java.jni_sig(reflected.getType())
+            self.definition = jni_sig(reflected.getType())
             modifiers = reflected.getModifiers()
             static = Modifier.isStatic(modifiers)
             final = Modifier.isFinal(modifiers)
@@ -615,8 +615,8 @@ cdef class JavaMethod(JavaSimpleMember):
 
     cdef format_declaration(self):
         return (f"{self.format_modifiers()}"
-                f"{java.sig_to_java(self.return_sig)} {self.fqn()}"
-                f"{java.args_sig_to_java(self.args_sig, self.is_varargs)}")
+                f"{sig_to_java(self.return_sig)} {self.fqn()}"
+                f"{args_sig_to_java(self.args_sig, self.is_varargs)}")
 
     def __init__(self, cls, name, definition_or_reflected, *, static=False, final=False,
                  abstract=False, varargs=False):
@@ -626,7 +626,7 @@ cdef class JavaMethod(JavaSimpleMember):
             self.reflected = definition_or_reflected
             return_type = (java.jvoid if isinstance(self.reflected, Constructor)
                            else self.reflected.getReturnType())
-            definition = java.jni_method_sig(return_type, self.reflected.getParameterTypes())
+            definition = jni_method_sig(return_type, self.reflected.getParameterTypes())
             modifiers = self.reflected.getModifiers()
             static = Modifier.isStatic(modifiers)
             final = Modifier.isFinal(modifiers)
@@ -634,7 +634,7 @@ cdef class JavaMethod(JavaSimpleMember):
             varargs = self.reflected.isVarArgs()
 
         super().__init__(cls, name, static, final)
-        self.return_sig, self.args_sig = java.split_method_sig(definition)
+        self.return_sig, self.args_sig = split_method_sig(definition)
         self.is_abstract = abstract
         self.is_varargs = varargs
 

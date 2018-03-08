@@ -38,7 +38,7 @@ cdef class CQPEnv(object):
     # (http://bugs.java.com/view_bug.do?bug_id=6500212). So we use Class.forName instead.
     cdef JNIRef FindClass(self, cls):
         global ClassNotFoundException, NoClassDefFoundError
-        name = cls if isinstance(cls, six.string_types) else java.jni_sig(cls)
+        name = cls if isinstance(cls, six.string_types) else jni_sig(cls)
         if name.startswith("L") and name.endswith(";"):
             name = name[1:-1]
 

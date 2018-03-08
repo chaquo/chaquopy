@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function
 
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
-from java.signatures import jni_method_sig, jni_sig
+from java.chaquopy import jni_method_sig, jni_sig
 import math
 import sys
 

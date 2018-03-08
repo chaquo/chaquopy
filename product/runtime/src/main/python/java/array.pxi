@@ -9,7 +9,7 @@ def jarray(element_type):
     * A `java.lang.Class` instance
     * A JNI type signature
     """
-    element_sig = java.jni_sig(element_type)
+    element_sig = jni_sig(element_type)
     if not isinstance(element_sig, str):
         element_sig = str(element_sig)
     name = "[" + element_sig
@@ -67,7 +67,7 @@ class JavaArray(object):
     def __bytes__(self, offset=None, length=None):
         signature = type(self).__name__
         if signature != "[B":
-            raise TypeError(f"Cannot call __bytes__ on {java.sig_to_java(signature)}, only on byte[]")
+            raise TypeError(f"Cannot call __bytes__ on {sig_to_java(signature)}, only on byte[]")
         if offset is None:
             offset = 0
         if length is None:

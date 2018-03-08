@@ -239,7 +239,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     else:
         raise ValueError(f"Invalid signature '{definition}'")
 
-    raise TypeError(f"Cannot convert {type(obj).__name__} object to {java.sig_to_java(definition)}")
+    raise TypeError(f"Cannot convert {type(obj).__name__} object to {sig_to_java(definition)}")
 
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
@@ -251,7 +251,7 @@ cdef assignable_to_array(definition, obj):
         return True
     if isinstance(obj, (JavaArray, NoneCast)):
         env = CQPEnv()
-        return env.IsAssignableFrom(env.FindClass(java.jni_sig(type(obj))),
+        return env.IsAssignableFrom(env.FindClass(jni_sig(type(obj))),
                                     env.FindClass(definition))
 
     # All other iterable types are assignable to all array types, except strings, which would
@@ -278,7 +278,9 @@ cdef JNIRef p2j_array(element_type, obj):
 #
 # TODO #5182 we should also test against FLT_MIN, which is the most infintesimal float32, to
 # avoid accidental conversion to zero.
-def check_range_float32(value):
+#
+# cpdef because it's called from primitive.py.
+cpdef check_range_float32(value):
     if value not in [float("nan"), float("inf"), float("-inf")] and \
        (value < -FLT_MAX or value > FLT_MAX):
         raise OverflowError("value too large to convert to float")
@@ -295,7 +297,9 @@ def check_range_float32(value):
 # preferred over Character in better_overload_arg) and primitive char (which would have already
 # been selected in the earlier phase with autoboxing disabled). So I don't think there's any
 # situation in which the TypeError could change the result.
-def check_range_char(value):
+#
+# cpdef because it's called from primitive.py.
+cpdef check_range_char(value):
     if (len(value) == 2 and re.match(u'[\ud800-\udbff][\udc00-\udfff]', value, re.UNICODE)) or \
        ord(value) > 0xFFFF:
         raise TypeError("Cannot convert non-BMP character to char")

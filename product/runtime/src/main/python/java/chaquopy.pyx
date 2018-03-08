@@ -61,11 +61,13 @@ setattr(Thread, b_i, Thread_bootstrap_inner)
 
 from .jni cimport *
 include "utils.pxi"
+include "signature.pxi"
 include "exception.pxi"
 include "env.pxi"
 include "jvm.pxi"
 include "conversion.pxi"
 include "class.pxi"
+include "overload.pxi"
 include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
@@ -77,5 +79,5 @@ def chaquopy_init():
         os.environ["CHAQUOPY_PROCESS_TYPE"] = "python"
         set_jvm(start_jvm())
 
-        platform = java.jclass("com.chaquo.python.GenericPlatform")()
-        java.jclass("com.chaquo.python.Python").start(platform)
+        platform = jclass("com.chaquo.python.GenericPlatform")()
+        jclass("com.chaquo.python.Python").start(platform)
