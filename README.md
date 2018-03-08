@@ -78,8 +78,9 @@ Commit public/demo and repository, and push to chaquo.com and GitHub.
 
 Do the same if necessary for public/hello and public/console.
 
-Commit python repository, add version number tag, and push. Then increment
-python/VERSION.txt for next version number.
+Commit python repository, add version number tag, and push.
+
+Increment python/VERSION.txt for next version number.
 
 
 ## User communication

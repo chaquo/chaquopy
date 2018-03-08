@@ -258,12 +258,12 @@ cdef setup_bootstrap_classes():
     setup_object_class()
 
     Reflector = new_class("com.chaquo.python.Reflector", (JavaObject,))
-    add_member(Reflector, "newInstance", JavaMethod,
-               "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
-    add_member(Reflector, "getMethods", JavaMethod,
-               "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
-    add_member(Reflector, "getField", JavaMethod, "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
-    add_member(Reflector, "getNestedClass", JavaMethod, "(Ljava/lang/String;)Ljava/lang/Class;")
+    bootstrap_method(Reflector, "newInstance",
+                     "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
+    bootstrap_method(Reflector, "getMethods",
+                     "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
+    bootstrap_method(Reflector, "getField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+    bootstrap_method(Reflector, "getNestedClass", "(Ljava/lang/String;)Ljava/lang/Class;")
 
     AnnotatedElement = new_class("java.lang.reflect.AnnotatedElement", (JavaObject,))
     AccessibleObject = new_class("java.lang.reflect.AccessibleObject",
@@ -272,33 +272,33 @@ cdef setup_bootstrap_classes():
     GenericDeclaration = new_class("java.lang.reflect.GenericDeclaration", (JavaObject,))
 
     Class = new_class("java.lang.Class", (AnnotatedElement, GenericDeclaration, JavaObject))
-    add_member(Class, "getModifiers", JavaMethod, '()I')
-    add_member(Class, "getName", JavaMethod, '()Ljava/lang/String;')
+    bootstrap_method(Class, "getModifiers", '()I')
+    bootstrap_method(Class, "getName", '()Ljava/lang/String;')
 
     Modifier = new_class("java.lang.reflect.Modifier", (JavaObject,))
-    add_member(Modifier, "isAbstract", JavaMethod, '(I)Z', static=True)
-    add_member(Modifier, "isFinal", JavaMethod, '(I)Z', static=True)
-    add_member(Modifier, "isStatic", JavaMethod, '(I)Z', static=True)
+    bootstrap_method(Modifier, "isAbstract", '(I)Z', static=True)
+    bootstrap_method(Modifier, "isFinal", '(I)Z', static=True)
+    bootstrap_method(Modifier, "isStatic", '(I)Z', static=True)
 
     Method = new_class("java.lang.reflect.Method",
                        (AccessibleObject, GenericDeclaration, Member))
-    add_member(Method, "getModifiers", JavaMethod, '()I')
-    add_member(Method, "getName", JavaMethod, '()Ljava/lang/String;')
-    add_member(Method, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
-    add_member(Method, "getReturnType", JavaMethod, '()Ljava/lang/Class;')
-    add_member(Method, "isVarArgs", JavaMethod, '()Z')
+    bootstrap_method(Method, "getModifiers", '()I')
+    bootstrap_method(Method, "getName", '()Ljava/lang/String;')
+    bootstrap_method(Method, "getParameterTypes", '()[Ljava/lang/Class;')
+    bootstrap_method(Method, "getReturnType", '()Ljava/lang/Class;')
+    bootstrap_method(Method, "isVarArgs", '()Z')
 
     Field = new_class("java.lang.reflect.Field", (AccessibleObject, Member))
-    add_member(Field, "getModifiers", JavaMethod, '()I')
-    add_member(Field, "getName", JavaMethod, '()Ljava/lang/String;')
-    add_member(Field, "getType", JavaMethod, '()Ljava/lang/Class;')
+    bootstrap_method(Field, "getModifiers", '()I')
+    bootstrap_method(Field, "getName", '()Ljava/lang/String;')
+    bootstrap_method(Field, "getType", '()Ljava/lang/Class;')
 
     Constructor = new_class("java.lang.reflect.Constructor",
                             (AccessibleObject, GenericDeclaration, Member))
-    add_member(Constructor, "getModifiers", JavaMethod, '()I')
-    add_member(Constructor, "getName", JavaMethod, '()Ljava/lang/String;')
-    add_member(Constructor, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
-    add_member(Constructor, "isVarArgs", JavaMethod, '()Z')
+    bootstrap_method(Constructor, "getModifiers", '()I')
+    bootstrap_method(Constructor, "getName", '()Ljava/lang/String;')
+    bootstrap_method(Constructor, "getParameterTypes", '()[Ljava/lang/Class;')
+    bootstrap_method(Constructor, "isVarArgs", '()Z')
 
     # Arrays will be required for class reflection, and `jarray` gives arrays these interfaces.
     global Cloneable, Serializable
@@ -308,8 +308,8 @@ cdef setup_bootstrap_classes():
     load_global_classes()
 
 
-def add_member(cls, name, member_cls, *args, **kwargs):
-    member = member_cls(cls, name, *args, **kwargs)
+cdef bootstrap_method(cls, name, signature, static=False):
+    member = JavaMethod(cls, name, signature, static=static)
     type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
 
 
@@ -337,7 +337,7 @@ cdef reflect_member(cls, str name, bint inherit=True):
     else:
         member = find_member(cls, name, inherited)
     if member:
-        type.__setattr__(cls, name, member)
+        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
         return member
 
     # As recommended by PEP 8, members whose names are reserved words are available through dot
