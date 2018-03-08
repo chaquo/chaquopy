@@ -1,7 +1,7 @@
 import itertools
 
 
-def jarray(element_type):
+cpdef jarray(element_type):
     """Returns a Python class for a Java array type. The element type may be specified as any of:
 
     * The primitive types :any:`jboolean`, :any:`jbyte`, etc.
@@ -17,7 +17,7 @@ def jarray(element_type):
     with class_lock:
         cls = jclass_cache.get(name)
         if not cls:
-            cls = JavaClass.create(name, [JavaArray, Cloneable, Serializable, JavaObject])
+            cls = new_class(name, (JavaArray, Cloneable, Serializable, JavaObject))
         return cls
 
 

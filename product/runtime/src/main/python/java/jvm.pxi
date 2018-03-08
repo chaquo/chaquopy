@@ -110,7 +110,7 @@ cdef jvm_lib_path():
         return f"{jre_home}lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
 
 
-def detach():
+cpdef detach():
     """Detaches the current thread from the Java VM. This is done automatically on exit for threads
     created via the :any:`threading` module. Any other non-Java-created thread which uses the
     `java` module must call `detach` before the thread exits. Failure to do so will cause a

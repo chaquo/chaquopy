@@ -51,7 +51,7 @@ def Thread_bootstrap_inner(self):
     try:
         Thread_bootstrap_inner_original(self)
     finally:
-        java.detach()
+        detach()
 
 b_i = ("_Thread__bootstrap_inner" if hasattr(Thread, "_Thread__bootstrap_inner")
        else "_bootstrap_inner")

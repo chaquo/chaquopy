@@ -3,7 +3,7 @@ from types import ModuleType
 builtins = six.moves.builtins
 import_original = builtins.__import__
 
-def set_import_enabled(enable):
+cpdef set_import_enabled(enable):
     """Sets whether the import hook is enabled. The import hook is enabled automatically when the
     `java` module is first loaded, so you only need to call this function if you want to
     disable it.

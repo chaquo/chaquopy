@@ -6,7 +6,7 @@ global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
-def global_class(full_name, **kwargs):
+cdef global_class(full_name, cls_dict=None):
     if "Class" in globals():
         raise Exception(f"global_class('{full_name}') called after bootstrap complete")
 
@@ -14,7 +14,7 @@ def global_class(full_name, **kwargs):
     # simple class name becomes an attribute of this module, that must be unique too.
     simple_name = full_name.rpartition(".")[2]
     assert simple_name not in global_classes, full_name
-    global_classes[simple_name] = (full_name, kwargs)
+    global_classes[simple_name] = (full_name, cls_dict)
 
     # globals() is non-trivial in Cython, so it's better for performance-critical code
     # elsewhere to be checking `is not None` rather than `in globals()`.
@@ -23,16 +23,15 @@ def global_class(full_name, **kwargs):
 
 cdef load_global_classes():
     g = globals()
-    for simple_name, (full_name, kwargs) in six.iteritems(global_classes):
-        assert full_name not in jclass_cache, full_name  # See comment at Throwable in exception.pxi
-        g[simple_name] = jclass(full_name, **kwargs)
+    for simple_name, (full_name, cls_dict) in six.iteritems(global_classes):
+        g[simple_name] = jclass(full_name, cls_dict)
     global_classes.clear()
 
 
 # I considered whether to make `cast` aliases clearly distinguishable from plain objects, by
 # generalizing `NoneCast` to `Cast`, and giving it a `repr` of `cast('<jni-signature>',
 # repr(<underlying-object>))`. However, this would be a major change for no clear benefit.
-def cast(cls, obj):
+cpdef cast(cls, obj):
     """Returns a view of the given object as the given class. The class must be one created by
     :any:`jclass` or :any:`jarray`, or a JNI type signature for a class or array. The object
     must either be assignable to the given class, or `None` (representing Java `null`),

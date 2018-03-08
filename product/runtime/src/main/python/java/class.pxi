@@ -15,7 +15,7 @@ instance_cache = WeakValueDictionary()
 # class_lock also protects none_casts in utils.pxi.
 
 
-def jclass(clsname, **kwargs):
+cpdef jclass(clsname, cls_dict=None):
     """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
     using either Java notation (e.g. `java.lang.Object`) or JNI notation (e.g.
     `Ljava/lang/Object;`). To refer to a nested or inner class, separate it from the containing
@@ -36,26 +36,30 @@ def jclass(clsname, **kwargs):
 
     with class_lock:
         cls = jclass_cache.get(clsname)
-        if not cls:
-            cls = JavaClass.create(clsname, **kwargs)
+        if cls:
+            if cls_dict:
+                raise ValueError("Can't alter class dict: class has already been reflected")
+            return cls
+        else:
+            cls = new_class(clsname, None, cls_dict)
         return cls
 
 
-class JavaClass(type):
-    @staticmethod
-    def create(cls_name, bases=None, *, cls_dict=None):
-        if not isinstance(bases, (tuple, type(None))):
-            bases = tuple(bases)
-        if cls_dict is None:
-            cls_dict = {}
-        cls_dict["_chaquopy_name"] = cls_name
-        return JavaClass(None, bases, cls_dict)
+cdef new_class(cls_name, bases, cls_dict=None):
+    if cls_dict is None:
+        cls_dict = {}
+    cls_dict["_chaquopy_name"] = cls_name
+    return JavaClass(None, bases, cls_dict)
 
-    def __new__(metacls, cls_name, bases, cls_dict):
+
+class JavaClass(type):
+    def __new__(metacls, cls_name, bases, cls_dict, internal_call=False):
         java_name = cls_dict.pop("_chaquopy_name", None)
         if not java_name:
             raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
 
+        # _chaquopy_j_klass will already be set for a proxy class, in which case we'll leave
+        # __name__ and __module__ set to the Python-level values the user would expect.
         if "_chaquopy_j_klass" not in cls_dict:
             cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name).global_ref()
             if ("." in java_name) and ("[" not in java_name):
@@ -246,14 +250,14 @@ cdef set_this(self, GlobalRef this, real_obj=None):
 # This isn't done during module initialization because we don't have a JVM yet, and we don't
 # want to automatically start one because we might already be in a Java process.
 cdef setup_bootstrap_classes():
-    # Declare only the methods needed to complete the bootstrap process.
+# Declare only the methods needed to complete the bootstrap process.
     global Reflector, Class, Modifier, Method, Field, Constructor
     if "Class" in globals():
         raise Exception("setup_bootstrap_classes called more than once")
 
     setup_object_class()
 
-    Reflector = JavaClass.create("com.chaquo.python.Reflector", [JavaObject])
+    Reflector = new_class("com.chaquo.python.Reflector", (JavaObject,))
     add_member(Reflector, "newInstance", JavaMethod,
                "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
     add_member(Reflector, "getMethods", JavaMethod,
@@ -261,36 +265,36 @@ cdef setup_bootstrap_classes():
     add_member(Reflector, "getField", JavaMethod, "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
     add_member(Reflector, "getNestedClass", JavaMethod, "(Ljava/lang/String;)Ljava/lang/Class;")
 
-    AnnotatedElement = JavaClass.create("java.lang.reflect.AnnotatedElement", [JavaObject])
-    AccessibleObject = JavaClass.create("java.lang.reflect.AccessibleObject",
-                                    [AnnotatedElement, JavaObject])
-    Member = JavaClass.create("java.lang.reflect.Member", [JavaObject])
-    GenericDeclaration = JavaClass.create("java.lang.reflect.GenericDeclaration", [JavaObject])
+    AnnotatedElement = new_class("java.lang.reflect.AnnotatedElement", (JavaObject,))
+    AccessibleObject = new_class("java.lang.reflect.AccessibleObject",
+                                 (AnnotatedElement, JavaObject))
+    Member = new_class("java.lang.reflect.Member", (JavaObject,))
+    GenericDeclaration = new_class("java.lang.reflect.GenericDeclaration", (JavaObject,))
 
-    Class = JavaClass.create("java.lang.Class", [AnnotatedElement, GenericDeclaration, JavaObject])
+    Class = new_class("java.lang.Class", (AnnotatedElement, GenericDeclaration, JavaObject))
     add_member(Class, "getModifiers", JavaMethod, '()I')
     add_member(Class, "getName", JavaMethod, '()Ljava/lang/String;')
 
-    Modifier = JavaClass.create("java.lang.reflect.Modifier", [JavaObject])
+    Modifier = new_class("java.lang.reflect.Modifier", (JavaObject,))
     add_member(Modifier, "isAbstract", JavaMethod, '(I)Z', static=True)
     add_member(Modifier, "isFinal", JavaMethod, '(I)Z', static=True)
     add_member(Modifier, "isStatic", JavaMethod, '(I)Z', static=True)
 
-    Method = JavaClass.create("java.lang.reflect.Method",
-                              [AccessibleObject, GenericDeclaration, Member])
+    Method = new_class("java.lang.reflect.Method",
+                       (AccessibleObject, GenericDeclaration, Member))
     add_member(Method, "getModifiers", JavaMethod, '()I')
     add_member(Method, "getName", JavaMethod, '()Ljava/lang/String;')
     add_member(Method, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
     add_member(Method, "getReturnType", JavaMethod, '()Ljava/lang/Class;')
     add_member(Method, "isVarArgs", JavaMethod, '()Z')
 
-    Field = JavaClass.create("java.lang.reflect.Field", [AccessibleObject, Member])
+    Field = new_class("java.lang.reflect.Field", (AccessibleObject, Member))
     add_member(Field, "getModifiers", JavaMethod, '()I')
     add_member(Field, "getName", JavaMethod, '()Ljava/lang/String;')
     add_member(Field, "getType", JavaMethod, '()Ljava/lang/Class;')
 
-    Constructor = JavaClass.create("java.lang.reflect.Constructor",
-                               [AccessibleObject, GenericDeclaration, Member])
+    Constructor = new_class("java.lang.reflect.Constructor",
+                            (AccessibleObject, GenericDeclaration, Member))
     add_member(Constructor, "getModifiers", JavaMethod, '()I')
     add_member(Constructor, "getName", JavaMethod, '()Ljava/lang/String;')
     add_member(Constructor, "getParameterTypes", JavaMethod, '()[Ljava/lang/Class;')
@@ -298,8 +302,8 @@ cdef setup_bootstrap_classes():
 
     # Arrays will be required for class reflection, and `jarray` gives arrays these interfaces.
     global Cloneable, Serializable
-    Cloneable = JavaClass.create("java.lang.Cloneable", [JavaObject])
-    Serializable = JavaClass.create("java.io.Serializable", [JavaObject])
+    Cloneable = new_class("java.lang.Cloneable", (JavaObject,))
+    Serializable = new_class("java.io.Serializable", (JavaObject,))
 
     load_global_classes()
 
