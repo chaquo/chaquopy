@@ -102,12 +102,8 @@ def cythonTask = {Map taskArgs, String name, Closure closure ->
                 // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
                 // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
                 // some platforms including x86. So alter the generated C code to add it.
-                [/__PYX_EXTERN_C DL_EXPORT\((.+?)\)/,
+                [/^__PYX_EXTERN_C (\w+)/,
                  '/* cythonTask altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL'],
-
-                // Reduce clutter in exception traces
-                [/"%s \(%s:%d\)", funcname, __pyx_cfilenm, c_line/,
-                 '/* cythonTask altered */ "%s (%s:%d)", funcname, ".c", c_line'],
             ]
             def cFile = outputs.files.getSingleFile()
             def tmpFile = new File("${cFile}.tmp")
