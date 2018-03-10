@@ -2,7 +2,7 @@
 from __future__ import absolute_import, division, print_function
 
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort, jvoid
-from java.chaquopy import jni_method_sig, jni_sig
+from java.chaquopy import jni_sig
 import math
 import sys
 
@@ -31,24 +31,6 @@ class TestSignatures(FilterWarningsCase):
 
         self.assertEquals("[Ljava/lang/Object;", jni_sig(jarray(Object)))
         self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
-
-    # jni_method_sig is not part of the public API and should not be accessed by user code.
-    def test_jni_method_sig(self):
-        Object = jclass("java.lang.Object")
-        String = jclass("java.lang.String")
-        Integer = jclass("java.lang.Integer")
-
-        self.assertEquals("()V", jni_method_sig(jvoid, []))
-        self.assertEquals("()J", jni_method_sig(jlong, []))
-        self.assertEquals("()Ljava/lang/String;", jni_method_sig(String, []))
-
-        self.assertEquals("(Ljava/lang/Integer;)Ljava/lang/String;",
-                          jni_method_sig(String, [Integer]))
-        self.assertEquals("(Ljava/lang/Object;ZLjava/lang/Integer;)D",
-                          jni_method_sig(jdouble, [Object, jboolean, Integer]))
-
-        self.assertEquals("()[I", jni_method_sig(jarray(jint), []))
-        self.assertEquals("([I[Z)V", jni_method_sig(jvoid, [jarray(jint), jarray(jboolean)]))
 
     def test_jvoid(self):
         with self.assertRaisesRegexp(TypeError, "Cannot create"):

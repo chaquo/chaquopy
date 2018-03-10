@@ -624,13 +624,16 @@ cdef class JavaMethod(JavaSimpleMember):
 
     def __init__(self, cls, name, definition_or_reflected, *, static=False, final=False,
                  abstract=False, varargs=False):
+        self.is_constructor = (name == "<init>")
         if isinstance(definition_or_reflected, str):
             definition = definition_or_reflected
+            self.return_sig, self.args_sig = split_method_sig(definition)
         else:
             self.reflected = definition_or_reflected
-            return_type = (java.jvoid if isinstance(self.reflected, Constructor)
-                           else self.reflected.getReturnType())
-            definition = jni_method_sig(return_type, self.reflected.getParameterTypes())
+            self.return_sig = ("V" if self.is_constructor
+                               else jni_sig(self.reflected.getReturnType()))
+            self.args_sig = tuple([jni_sig(x) for x in self.reflected.getParameterTypes()])
+            definition = f"({''.join(self.args_sig)}){self.return_sig}"
             modifiers = self.reflected.getModifiers()
             static = Modifier.isStatic(modifiers)
             final = Modifier.isFinal(modifiers)
@@ -638,7 +641,6 @@ cdef class JavaMethod(JavaSimpleMember):
             varargs = self.reflected.isVarArgs()
 
         super().__init__(cls, name, static, final)
-        self.return_sig, self.args_sig = split_method_sig(definition)
         self.is_abstract = abstract
         self.is_varargs = varargs
 
@@ -648,7 +650,6 @@ cdef class JavaMethod(JavaSimpleMember):
             self.j_method = env.GetStaticMethodID(j_klass, self.name, definition)
         else:
             self.j_method = env.GetMethodID(j_klass, self.name, definition)
-        self.is_constructor = (self.name == "<init>")
 
     # To be consistent with Python syntax, we want instance methods to be called non-virtually
     # in the following cases:

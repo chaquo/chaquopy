@@ -21,11 +21,6 @@ cdef object_sig(CQPEnv env, JNIRef j_obj):
 
 
 # cpdef because it has unit tests.
-cpdef jni_method_sig(returns, takes):
-    return "(" + "".join(map(jni_sig, takes)) + ")" + jni_sig(returns)
-
-
-# cpdef because it has unit tests.
 cpdef jni_sig(c):
     if isinstance(c, six.string_types):
         sig_to_java(c)  # Check syntax
