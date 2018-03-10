@@ -679,7 +679,7 @@ cdef class JavaMethod(JavaSimpleMember):
             raise NotImplementedError(f"{self.fqn()} is abstract and cannot be called")
 
         env = CQPEnv()
-        obj, args = self.check_args(args)
+        obj, args = self.check_args(env, args)
         p2j_args = [p2j(env.j_env, argtype, arg)
                     for argtype, arg in six.moves.zip(self.args_sig, args)]
 
@@ -696,7 +696,7 @@ cdef class JavaMethod(JavaSimpleMember):
         return result
 
     # Exception types and wording are based on Python 2.7.
-    cdef check_args(self, args):
+    cdef check_args(self, CQPEnv env, args):
         obj = None
         if not (self.is_static or self.is_constructor):
             if not args:
@@ -718,7 +718,8 @@ cdef class JavaMethod(JavaSimpleMember):
                 raise TypeError(f'{self.fqn()} takes at least '
                                 f'{plural(len(self.args_sig) - 1, "argument")} ({len(args)} given)')
 
-            if len(args) == len(self.args_sig) and assignable_to_array(self.args_sig[-1], args[-1]):
+            if len(args) == len(self.args_sig) and \
+               assignable_to_array(env, self.args_sig[-1], args[-1]):
                 # As in Java, passing a single None as the varargs parameter will be
                 # interpreted as a null array. To pass an an array of one null, use [None].
                 pass  # Non-varargs call.
@@ -872,25 +873,26 @@ cdef class JavaMultipleMethod(JavaMember):
         obj_args_types = (type(obj), args_types)
         best_overload = self.overload_cache.get(obj_args_types)
         if not best_overload:
+            env = CQPEnv()
+
             # JLS 15.12.2.2. "Identify Matching Arity Methods Applicable by Subtyping"
             varargs = False
-            applicable = self.find_applicable(obj, args, autobox=False, varargs=False)
+            applicable = self.find_applicable(env, obj, args, autobox=False, varargs=False)
 
             # JLS 15.12.2.3. "Identify Matching Arity Methods Applicable by Method Invocation
             # Conversion"
             if not applicable:
-                applicable = self.find_applicable(obj, args, autobox=True, varargs=False)
+                applicable = self.find_applicable(env, obj, args, autobox=True, varargs=False)
 
             # JLS 15.12.2.4. "Identify Applicable Variable Arity Methods"
             if not applicable:
                 varargs = True
-                applicable = self.find_applicable(obj, args, autobox=True, varargs=True)
+                applicable = self.find_applicable(env, obj, args, autobox=True, varargs=True)
 
             if not applicable:
                 raise TypeError(self.overload_err(f"cannot be applied to", args, self.methods))
 
             # JLS 15.12.2.5. "Choosing the Most Specific Method"
-            env = CQPEnv()
             maximal = []
             for jm1 in applicable:
                 if not any([better_overload(env, jm2, jm1, args_types, varargs=varargs)
@@ -904,7 +906,7 @@ cdef class JavaMultipleMethod(JavaMember):
 
         return best_overload.__get__(obj, objtype)(*args)
 
-    cdef find_applicable(self, obj, args, autobox, varargs):
+    cdef find_applicable(self, CQPEnv env, obj, args, autobox, varargs):
         result = []
         cdef JavaMethod jm
         for jm in self.methods:
@@ -917,7 +919,7 @@ cdef class JavaMultipleMethod(JavaMember):
             else:
                 args_except_this = args
             if not (varargs and not jm.is_varargs) and \
-               is_applicable(jm.args_sig, args_except_this, autobox, varargs):
+               is_applicable(env, jm.args_sig, args_except_this, autobox, varargs):
                 result.append(jm)
         return result
 

@@ -22,34 +22,5 @@ global_class("java.lang.Throwable", cls_dict={"_chaquopy_post_bases": (Exception
                                               "__str__": Throwable_str})
 
 
+# Used in CQPEnv.check_exception.
 cdef jmethodID mid_getMessage = NULL
-
-# To avoid infinite recursion, this function must not use anything which could call check_exception
-# itself, including CQPEnv methods.
-cdef check_exception(JNIEnv *j_env):
-    global Throwable
-    env = CQPEnv()
-    j_exc = env.ExceptionOccurred()
-    if not j_exc:
-        return
-    env.ExceptionClear()
-
-    try:
-        if Throwable is None:
-            raise Exception("bootstrap not complete")
-        exc = j2p(env.j_env, j_exc)
-    except Exception:
-        global mid_getMessage
-        if not mid_getMessage:
-            j_Throwable = env.FindClass("java.lang.Throwable")
-            mid_getMessage = env.GetMethodID(j_Throwable, "getMessage", "()Ljava/lang/String;")
-        j_message = env.adopt(env.j_env[0].CallObjectMethod(env.j_env, j_exc.obj, mid_getMessage))
-        if j_message:
-            message = j2p_string(env.j_env, j_message)
-        else:
-            env.ExceptionClear()
-            message = "[Throwable.getMessage failed]"
-        raise Exception(f"{sig_to_java(object_sig(env, j_exc))}: "
-                        f"{message} [failed to convert: {traceback.format_exc()}]")
-    else:
-        raise exc

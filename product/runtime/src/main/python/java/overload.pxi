@@ -1,4 +1,4 @@
-cdef is_applicable(sign_args, args, autobox, varargs):
+cdef is_applicable(CQPEnv env, sign_args, args, autobox, varargs):
     if len(args) == len(sign_args):
         pass
     elif varargs:
@@ -7,12 +7,11 @@ cdef is_applicable(sign_args, args, autobox, varargs):
     else:
         return False
 
-    cdef JNIEnv *env = get_jnienv()
     for index, sign_arg in enumerate(sign_args):
         if varargs and (index == len(sign_args) - 1):
             assert sign_arg[0] == "["
             remaining_args = args[index:]
-            return is_applicable([sign_arg[1:]] * len(remaining_args),
+            return is_applicable(env, [sign_arg[1:]] * len(remaining_args),
                                  remaining_args, autobox, False)
         else:
             arg = args[index]
@@ -24,13 +23,13 @@ cdef is_applicable(sign_args, args, autobox, varargs):
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the actual parameter type, not its value.
-cdef is_applicable_arg(JNIEnv *env, r, arg, autobox):
+cdef is_applicable_arg(CQPEnv env, r, arg, autobox):
     # All Python iterable types are considered applicable to all array types. (p2j would
     # type-check the values, possibly leading to incorrect overload caching.)
-    if assignable_to_array(r, arg):
+    if assignable_to_array(env, r, arg):
         return True
     try:
-        p2j(env, r, arg, autobox)
+        p2j(env.j_env, r, arg, autobox)
         return True
     except TypeError:
         return False

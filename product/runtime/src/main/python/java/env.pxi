@@ -36,9 +36,8 @@ cdef class CQPEnv(object):
     # https://developer.android.com/training/articles/perf-jni.html#faq_FindClass, but it's not
     # a drop-in replacement for FindClass because it doesn't work with array classes
     # (http://bugs.java.com/view_bug.do?bug_id=6500212). So we use Class.forName instead.
-    cdef JNIRef FindClass(self, cls):
+    cdef JNIRef FindClass(self, name):
         global ClassNotFoundException, NoClassDefFoundError
-        name = cls if isinstance(cls, six.string_types) else jni_sig(cls)
         if name.startswith("L") and name.endswith(";"):
             name = name[1:-1]
 
@@ -436,8 +435,33 @@ cdef class CQPEnv(object):
         self.check_exception()
         raise Exception(msg)
 
+    # If anything goes wrong in this method, it could cause infinite recursion, so be extra-careful.
     cdef check_exception(self):
-        check_exception(self.j_env)
+        j_exc = self.ExceptionOccurred()
+        if not j_exc:
+            return
+        self.ExceptionClear()
+
+        try:
+            global Throwable
+            if Throwable is None:
+                raise Exception("bootstrap not complete")
+            exc = j2p(self.j_env, j_exc)
+        except Exception:
+            global mid_getMessage  # In exception.pxi
+            if not mid_getMessage:
+                j_Throwable = self.FindClass("java.lang.Throwable")
+                mid_getMessage = self.GetMethodID(j_Throwable, "getMessage", "()Ljava/lang/String;")
+            j_message = self.adopt(self.j_env[0].CallObjectMethod(self.j_env, j_exc.obj, mid_getMessage))
+            if j_message:
+                message = j2p_string(self.j_env, j_message)
+            else:
+                self.ExceptionClear()
+                message = "[Throwable.getMessage failed]"
+            raise Exception(f"{sig_to_java(object_sig(self, j_exc))}: "
+                            f"{message} [failed to convert: {traceback.format_exc()}]")
+        else:
+            raise exc
 
 
 cdef GlobalRef j_System

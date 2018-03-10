@@ -175,7 +175,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             return obj.value
 
     elif definition[0] == 'L':
-        env = CQPEnv()
+        env = CQPEnv.wrap(j_env)
         j_klass = env.FindClass(definition)
 
         if obj is None:
@@ -223,7 +223,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         elif isinstance(obj, JavaClass):
             if env.IsAssignableFrom(env.FindClass("java.lang.Class"), j_klass):
                 return <JNIRef?>obj._chaquopy_j_klass
-        elif assignable_to_array(definition, obj):  # Can only be via ARRAY_CONVERSIONS
+        elif assignable_to_array(env, definition, obj):  # Can only be via ARRAY_CONVERSIONS
             return p2j_array("Ljava/lang/Object;", obj)
 
         # Anything, including the above types, can be converted to a PyObject. (We don't use
@@ -233,7 +233,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
 
     elif definition[0] == '[':
-        if assignable_to_array(definition, obj):
+        env = CQPEnv.wrap(j_env)
+        if assignable_to_array(env, definition, obj):
             return p2j_array(definition[1:], obj)
 
     else:
@@ -244,13 +245,12 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
 
 # Because of the caching in JavaMultipleMethod, the result of this function must only be
 # affected by the object type, not its value.
-cdef assignable_to_array(definition, obj):
+cdef assignable_to_array(CQPEnv env, definition, obj):
     if not (definition.startswith("[") or (definition in ARRAY_CONVERSIONS)):
         return False
     if obj is None:
         return True
     if isinstance(obj, (JavaArray, NoneCast)):
-        env = CQPEnv()
         return env.IsAssignableFrom(env.FindClass(jni_sig(type(obj))),
                                     env.FindClass(definition))
 
