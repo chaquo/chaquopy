@@ -9,9 +9,9 @@ global_class("java.lang.NoClassDefFoundError")
 global_class("java.lang.reflect.InvocationTargetException")
 
 
-class_lock = RLock()
-jclass_cache = {}
-instance_cache = WeakValueDictionary()
+cdef class_lock = RLock()
+cdef dict jclass_cache = {}
+cdef instance_cache = WeakValueDictionary()
 # class_lock also protects none_casts in utils.pxi.
 
 
@@ -61,7 +61,7 @@ class JavaClass(type):
         # _chaquopy_j_klass will already be set for a proxy class, in which case we'll leave
         # __name__ and __module__ set to the Python-level values the user would expect.
         if "_chaquopy_j_klass" not in cls_dict:
-            cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name).global_ref()
+            cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name)
             if ("." in java_name) and ("[" not in java_name):
                 module, _, cls_name = java_name.rpartition(".")
             else:

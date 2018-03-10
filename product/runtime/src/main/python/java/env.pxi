@@ -1,6 +1,9 @@
 from cpython.object cimport Py_EQ, Py_NE
 
 
+cdef dict FindClass_cache = {}
+
+
 # Friendlier interface to JNIEnv:
 #   * Checks for and raises Java exceptions.
 #   * Uses JNIRef everywhere.
@@ -36,16 +39,23 @@ cdef class CQPEnv(object):
     # https://developer.android.com/training/articles/perf-jni.html#faq_FindClass, but it's not
     # a drop-in replacement for FindClass because it doesn't work with array classes
     # (http://bugs.java.com/view_bug.do?bug_id=6500212). So we use Class.forName instead.
-    cdef JNIRef FindClass(self, name):
-        global ClassNotFoundException, NoClassDefFoundError
+    cdef GlobalRef FindClass(self, name):
+        try:
+            return FindClass_cache[name]
+        except KeyError: pass
+
         if name.startswith("L") and name.endswith(";"):
             name = name[1:-1]
 
+        global ClassNotFoundException, NoClassDefFoundError
         try:
             if not mid_forName:    # Bootstrap not complete (see set_jvm)
-                return self.FindClass_JNI(name)
+                result = self.FindClass_JNI(name)
             else:
-                return self.FindClass_ClassLoader(name)
+                result = self.FindClass_ClassLoader(name)
+            result_gr = result.global_ref()
+            FindClass_cache[name] = result_gr
+            return result_gr
         except Exception as e:
             # Putting ClassNotFoundException directly in an `except` clause would cause any
             # other exception to be hidden by a NameError if bootstrap isn't complete.
@@ -58,7 +68,7 @@ cdef class CQPEnv(object):
 
     # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
     # ClassNotFoundException.
-    cdef JNIRef FindClass_JNI(self, name):
+    cdef LocalRef FindClass_JNI(self, name):
         result = self.j_env[0].FindClass(self.j_env, str_for_c(name.replace(".", "/")))
         if result:
             return self.adopt(result)
@@ -66,7 +76,7 @@ cdef class CQPEnv(object):
             self.expect_exception(f"FindClass failed for {name}")
 
     # Throws ClassNotFoundException
-    cdef JNIRef FindClass_ClassLoader(self, name):
+    cdef LocalRef FindClass_ClassLoader(self, name):
         j_name = p2j_string(self.j_env, name.replace("/", "."))
         cdef jvalue j_args[3]
         j_args[0].l = j_name.obj
@@ -493,13 +503,14 @@ cdef class JNIRef(object):
     def __hash__(self):
         if not self.hash_code:
             global j_System, mid_identityHashCode
-            env = CQPEnv()
             if not j_System:
-                j_System = env.FindClass("Ljava/lang/System;").global_ref()
+                env = CQPEnv()
+                j_System = env.FindClass("Ljava/lang/System;")
                 mid_identityHashCode = env.GetStaticMethodID \
                     (j_System, "identityHashCode", "(Ljava/lang/Object;)I")
-            self.hash_code = env.j_env[0].CallStaticIntMethod \
-                (env.j_env, j_System.obj, mid_identityHashCode, self.obj)
+            j_env = get_jnienv()
+            self.hash_code = j_env[0].CallStaticIntMethod \
+                (j_env, j_System.obj, mid_identityHashCode, self.obj)
         return self.hash_code
 
     def __nonzero__(self):      # Python 2 name

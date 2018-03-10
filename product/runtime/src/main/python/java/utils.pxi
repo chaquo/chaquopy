@@ -2,7 +2,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport abort
 
 
-global_classes = OrderedDict()
+cdef global_classes = OrderedDict()
 
 # Schedules the the given class to be added to the module dictionary, under its simple name,
 # once bootstrap is complete.
@@ -77,7 +77,7 @@ class none_cast_dict(dict):
         self[sig] = obj
         return obj
 
-none_casts = none_cast_dict()
+cdef none_casts = none_cast_dict()
 
 
 cdef cls_fullname(cls):
