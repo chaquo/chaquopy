@@ -59,8 +59,13 @@ class TestImport(FilterWarningsCase):
         with self.no_module_error(r"javax(.xml)?"):
             from package1 import wildcard_javax_xml  # noqa: F401
 
+        # A Java name and a nonexistent one.
         with self.no_name_error("Nonexistent"):
             from java.lang import String, Nonexistent  # noqa: F401, F811
+
+        # A Python name and a nonexistent one.
+        with self.no_name_error("Nonexistent"):
+            from sys import path, Nonexistent  # noqa: F401, F811
 
         # These test files are also used in test_android.
         with self.assertRaisesRegexp(SyntaxError, "invalid syntax"):
@@ -81,20 +86,20 @@ class TestImport(FilterWarningsCase):
             from javax import xml  # noqa: F401
 
     def test_multi_language(self):
-        from package1 import java, python
+        from package1 import java, python, both
         self.assertEqual("java 1", java.x)
         self.assertEqual("python 1", python.x)
+        self.assertEqual("both python 1", both.x)
+        self.assertEqual("both java 1", jclass("package1.both").x)
+
         import package1.python
+        import package1.both
         self.assertIs(python, package1.python)
+        self.assertIs(both, package1.both)
 
-        with self.assertRaisesRegexp(ImportError, r"^package1.both exists in both Java and Python. "
-                                     r"Access the Java copy with jclass\('package1.both'\), and "
-                                     r"the Python copy with 'import package1' followed by "
-                                     r"'package1.both'.$"):
-            from package1 import both  # noqa: F401
-
-        import package1
-        self.assertEqual("both python 1", package1.both.x)
+        # A name from each language, and a nonexistent one.
+        with self.no_name_error("Nonexistent"):
+            from package1 import java, Nonexistent, python  # noqa: F401, F811
 
     def test_relative(self):
         # Error wording varies across Python versions.

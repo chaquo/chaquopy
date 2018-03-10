@@ -4,46 +4,6 @@ Python API
 The `java` module provides facilities to use Java classes and objects from Python code. For
 examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`__.
 
-Import hook
-===========
-
-The import hook allows you to write code like `from java.lang import String`, which is
-equivalent to `String = jclass("java.lang.String")`.
-
-* **Only the "from ... import ..." form is supported**, e.g. `import java.lang.String` will not
-  work.
-* Wildcard import is not supported, e.g. `from java.lang import *` will not work.
-* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang`
-  and `from java import lang` will not work. Similarly, Java packages are never added to
-  :any:`sys.modules`.
-* Nested and inner classes cannot be imported directly. Instead, import the outer class,
-  and access the nested class as an attribute, e.g. `Outer.Nested`.
-
-To avoid confusion, it's recommended to avoid having a Java package and a Python module with
-the same name. However, this is still possible, subject to the following points:
-
-* Names imported from the Java package will not automatically be added as attributes of the
-  Python module.
-
-* Imports from both languages may be intermixed, even within a single `from ... import`
-  statement. However, if you attempt to import a name which exists in both languages, an
-  `ImportError` will be raised. This can be worked around by accessing the names indirectly.
-  For example, if both Java and Python have a class named `com.example.Class`, then instead of
-  `from com.example import Class`, you can access them like this::
-
-    # By using "import" without "from", the Java import hook is bypassed.
-    import com.example
-    PythonClass = com.example.Class
-
-    JavaClass = jclass("com.example.Class")
-
-* Relative package syntax is supported. For example, within a Python module called
-  `com.example.module`::
-
-    from . import Class                # Same as "from com.example import Class"
-    from ..other.package import Class  # Same as "from com.other.package import Class"
-
-.. autofunction:: java.set_import_enabled(enable)
 
 Data types
 ==========
@@ -221,6 +181,46 @@ Casting
 
 .. autofunction:: java.cast(cls, obj)
 
+
+Import hook
+===========
+
+The import hook allows you to write code like `from java.lang import String`, which is
+equivalent to `String = jclass("java.lang.String")`.
+
+* **Only the** `from ... import` **form is supported**, e.g. `import java.lang.String` will not
+  work.
+* Wildcard import is not supported, e.g. `from java.lang import *` will not work.
+* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang`
+  and `from java import lang` will not work. Similarly, Java packages are never added to
+  :any:`sys.modules`.
+* Nested and inner classes cannot be imported directly. Instead, import the outer class,
+  and access the nested class as an attribute, e.g. `Outer.Nested`.
+
+To avoid confusion, it's recommended to avoid having a Java package and a Python module with
+the same name. However, this is still possible, subject to the following points:
+
+* Names imported from the Java package will not automatically be added as attributes of the
+  Python module.
+
+* Imports from both languages may be intermixed, even within a single `from ... import`
+  statement. If you attempt to import a name which exists in both languages, the value from
+  Python will be returned. This can be worked around by accessing the Java name via
+  :any:`jclass`. For example, if both Java and Python have a class named `com.example.Class`,
+  then you can access them like this::
+
+    from com.example import Class as PythonClass
+    JavaClass = jclass("com.example.Class")
+
+* Relative package syntax is supported. For example, within a Python module called
+  `com.example.module`::
+
+    from . import Class                # Same as "from com.example import Class"
+    from ..other.package import Class  # Same as "from com.other.package import Class"
+
+.. autofunction:: java.set_import_enabled(enable)
+
+
 .. _python-inheriting:
 
 Inheriting Java classes
@@ -331,7 +331,6 @@ Python source code, there are some restrictions on the code's structure:
   supported. However, behaviour can still be shared between `static_proxy` classes by making
   them inherit from a common Python base class.
 
-
 Notes
 -----
 
@@ -362,6 +361,7 @@ The following notes apply to both types of proxy:
     `toString`, `equals` and `hashCode`, which will take effect in both Python and Java.
   * If you override any other special method, make sure to call through to the superclass
     implementation for any cases you don't handle.
+
 
 
 Exceptions

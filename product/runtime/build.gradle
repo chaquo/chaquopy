@@ -316,7 +316,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                         writer.println "export $key='${env.get(key)}'"
                     }
                     writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                    writer.println "winpty $pyPlusVersionExe"
+                    writer.println "winpty $pyPlusVersionExe " + '"$@"'
                     writer.close()
                 }
             }
