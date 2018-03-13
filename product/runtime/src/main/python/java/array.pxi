@@ -17,8 +17,16 @@ cpdef jarray(element_type):
     with class_lock:
         cls = jclass_cache.get(name)
         if not cls:
-            cls = new_class(name, (JavaArray, Cloneable, Serializable, JavaObject))
+            cls = ArrayClass(None, (JavaArray, Cloneable, Serializable, JavaObject),
+                             {"_chaquopy_name": name})
         return cls
+
+
+class ArrayClass(JavaClass):
+    def __call__(cls, *args, **kwargs):
+        self = JavaClass.__call__(cls, *args, **kwargs)
+        self._chaquopy_len = CQPEnv().GetArrayLength(self._chaquopy_this)
+        return self
 
 
 class JavaArray(object):
@@ -71,7 +79,7 @@ class JavaArray(object):
         if offset is None:
             offset = 0
         if length is None:
-            length = len(self) - offset
+            length = self._chaquopy_len - offset
 
         env = CQPEnv()
         elems = env.GetByteArrayElements(self._chaquopy_this)
@@ -80,29 +88,29 @@ class JavaArray(object):
         return result
 
     def __len__(self):
-        return CQPEnv().GetArrayLength(self._chaquopy_this)
+        return self._chaquopy_len
 
     def __getitem__(self, key):
         if isinstance(key, six.integer_types):
-            if not (0 <= key < len(self)):
+            if not (0 <= key < self._chaquopy_len):
                 raise IndexError(str(key))
             return array_get(self, key)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
-            # return [self[i] for i in range(key.indices(len(self)))]
+            # return [self[i] for i in range(key.indices(self._chaquopy_len))]
         else:
             raise TypeError(f"{type(key).__name__} object is not a valid index")
 
     def __setitem__(self, key, value):
         if isinstance(key, six.integer_types):
-            if not (0 <= key < len(self)):
+            if not (0 <= key < self._chaquopy_len):
                 raise IndexError(str(key))
             return array_set(self, key, value)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
-            # indices = range(key.indices(len(self)))
+            # indices = range(key.indices(self._chaquopy_len))
             # if len(indices) != len(value):
             #     raise IndexError(f"Can't set slice of length {len(indices)} "
             #                      f"from value of length {len(value)}")
@@ -113,7 +121,7 @@ class JavaArray(object):
 
     def __eq__(self, other):
         try:
-            return ((len(self) == len(other)) and
+            return ((self._chaquopy_len == len(other)) and
                     all([s == o for s, o in six.moves.zip(self, other)]))
         except TypeError:
             # `other` may be an array cast to Object, in which case returning NotImplemented

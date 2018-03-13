@@ -18,9 +18,10 @@ cdef instance_cache = WeakValueDictionary()
 # also important for performance.
 cdef set special_attrs = set(dir(type) +                        # Special Python attributes
                              ["_chaquopy_j_klass",              # Chaquopy class attributes
-                              "_chaquopy_reflector"] +          #
-                             ["_chaquopy_this",                 # Chaquopy instance attributes
-                              "_chaquopy_real_obj"])            #
+                              "_chaquopy_reflector",            #
+                              "_chaquopy_this",                 # Chaquopy instance attributes
+                              "_chaquopy_real_obj",             #
+                              "_chaquopy_len"])                 # Chaquopy array attributes
 
 
 cpdef jclass(clsname, cls_dict=None):
@@ -63,7 +64,7 @@ cdef new_class(cls_name, bases, cls_dict=None):
 # It might be possible to make this a cdef class, but then we wouldn't be able to use it with
 # six.with_metaclass anymore.
 class JavaClass(type):
-    def __new__(metacls, cls_name, bases, cls_dict, internal_call=False):
+    def __new__(metacls, cls_name, bases, cls_dict):
         java_name = cls_dict.pop("_chaquopy_name", None)
         if not java_name:
             raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
