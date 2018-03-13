@@ -14,6 +14,14 @@ cdef dict jclass_cache = {}
 cdef instance_cache = WeakValueDictionary()
 # class_lock also protects none_casts in utils.pxi.
 
+# Attributes which will never be looked up as Java members. This prevents infinite recursion, and is
+# also important for performance.
+cdef set special_attrs = set(dir(type) +                        # Special Python attributes
+                             ["_chaquopy_j_klass",              # Chaquopy class attributes
+                              "_chaquopy_reflector"] +          #
+                             ["_chaquopy_this",                 # Chaquopy instance attributes
+                              "_chaquopy_real_obj"])            #
+
 
 cpdef jclass(clsname, cls_dict=None):
     """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
@@ -52,6 +60,8 @@ cdef new_class(cls_name, bases, cls_dict=None):
     return JavaClass(None, bases, cls_dict)
 
 
+# It might be possible to make this a cdef class, but then we wouldn't be able to use it with
+# six.with_metaclass anymore.
 class JavaClass(type):
     def __new__(metacls, cls_name, bases, cls_dict, internal_call=False):
         java_name = cls_dict.pop("_chaquopy_name", None)
@@ -111,13 +121,14 @@ class JavaClass(type):
         return self
 
     def __getattribute__(cls, str name):
-        if name != "__dict__":  # Optimization
+        if not (name in special_attrs or name in type_dict(cls)):
             reflect_member(cls, name)
         return type.__getattribute__(cls, name)
 
     # Override to allow static field set (type.__setattr__ would simply overwrite the class dict)
-    def __setattr__(cls, name, value):
-        reflect_member(cls, name)
+    def __setattr__(cls, str name, value):
+        if not (name in special_attrs or name in type_dict(cls)):
+            reflect_member(cls, name)
         member = type_lookup(cls, name)
         if isinstance(member, JavaMember):
             member.__set__(None, value)
@@ -149,6 +160,9 @@ cdef get_bases(klass):
 
 
 cdef setup_object_class():
+    # We probably can't make this a cdef class, because we need (Java) Throwable to inherit from
+    # both JavaObject and (Python) Exception, which is *also* a native class. Multiple inheritance
+    # from two native classes would give a "multiple bases have instance lay-out conflict" error.
     global JavaObject
     class JavaObject(six.with_metaclass(JavaClass, object)):
         _chaquopy_name = "java.lang.Object"
@@ -166,8 +180,9 @@ cdef setup_object_class():
             set_this(self, constructor.__get__(self, type(self))(*args))
 
         def __getattribute__(self, str name):
-            if name != "__dict__":  # Optimization
-                reflect_member(type(self), name)
+            cls = type(self)
+            if not (name in special_attrs or name in type_dict(cls)):
+                reflect_member(cls, name)
             try:
                 return object.__getattribute__(self, name)
             except AttributeError:
@@ -177,8 +192,11 @@ cdef setup_object_class():
                 else:
                     raise
 
-        def __setattr__(self, name, value):
-            reflect_member(type(self), name)
+        def __setattr__(self, str name, value):
+            cls = type(self)
+            if not (name in special_attrs or name in type_dict(cls)):
+                reflect_member(cls, name)
+
             # We can't use __slots__ to prevent adding attributes, because Throwable inherits
             # from the (Python) Exception class, which causes two problems:
             #   * Exception is a native class, so multiple inheritance with anything which has
@@ -310,14 +328,14 @@ cdef setup_bootstrap_classes():
 
 cdef bootstrap_method(cls, name, signature, static=False):
     member = JavaMethod(cls, name, signature, static=static)
-    type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
+    type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is blocked.
 
 
+# If the class has a declared or inherited Java member of the given name, this function ensures it's
+# in cls.__dict__, and then returns it. Otherwise it returns None.
 cdef reflect_member(cls, str name, bint inherit=True):
-    if hasattr(object, name) or name.startswith("_chaquopy"):
-        return None
     try:
-        return cls.__dict__[name]
+        return type_dict(cls)[name]
     except KeyError: pass
 
     inherited = None
@@ -337,7 +355,9 @@ cdef reflect_member(cls, str name, bint inherit=True):
     else:
         member = find_member(cls, name, inherited)
     if member:
-        type.__setattr__(cls, name, member)  # Direct modification of cls.__dict__ is not allowed.
+        # Direct modification of cls.__dict__ is blocked, and we can't set via type_dict either: see
+        # comment there.
+        type.__setattr__(cls, name, member)
         return member
 
     # As recommended by PEP 8, members whose names are reserved words are available through dot
@@ -609,7 +629,7 @@ cdef class JavaMethod(JavaSimpleMember):
     cdef reflected  # See call_proxy_method
     cdef jmethodID j_method
     cdef basestring return_sig
-    cdef tuple args_sig
+    cdef tuple args_sig  # Can't be a list: it's used as a set key in apply_overrides.
     cdef bint is_constructor
     cdef bint is_abstract
     cdef bint is_varargs
@@ -657,7 +677,8 @@ cdef class JavaMethod(JavaSimpleMember):
     #     obj is None.
     #   * When the method is got via a super() object. Unfortunately I don't think there's any
     #     way to detect this: objtype is set to the first parameter of super(), which in the
-    #     common case is just type(obj).
+    #     common case is just type(obj). (TODO: this comment is out of date, since we don't
+    #     support super() anymore except in constructors.)
     #
     # So we have to take the opposite approach and consider when methods *must* be called
     # virtually. The only case I can think of is when we're using cast() to hide overloads

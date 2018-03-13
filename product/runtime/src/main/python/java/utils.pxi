@@ -1,3 +1,5 @@
+from cpython.object cimport PyTypeObject
+from cpython.type cimport PyType_Check
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport abort
 
@@ -100,6 +102,14 @@ cpdef native_str(s):
     else:
         assert isinstance(s, bytes)
         return s if six.PY2 else s.decode("utf-8")
+
+
+# Fast equivalent of cls.__dict__. The result should be considered unmodifiable: I tried modifying
+# it in reflect_member, but it caused a crash in threading tests on Python 3.6 for unknown reasons.
+@cython.profile(False)
+cdef dict type_dict(cls):
+    assert PyType_Check(cls)
+    return <object> (<PyTypeObject*>cls).tp_dict
 
 
 # Trigger a simple native crash, for use when testing logging. Also called by license enforcement,
