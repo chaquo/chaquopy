@@ -44,9 +44,6 @@ cdef class CQPEnv(object):
             return FindClass_cache[name]
         except KeyError: pass
 
-        if name.startswith("L") and name.endswith(";"):
-            name = name[1:-1]
-
         global ClassNotFoundException, NoClassDefFoundError
         try:
             if not mid_forName:    # Bootstrap not complete (see set_jvm)
@@ -57,8 +54,9 @@ cdef class CQPEnv(object):
             FindClass_cache[name] = result_gr
             return result_gr
         except Exception as e:
-            # Putting ClassNotFoundException directly in an `except` clause would cause any
-            # other exception to be hidden by a NameError if bootstrap isn't complete.
+            # We want to convert ClassNotFoundException to NoClassDefFoundError so our users
+            # don't have to catch both. However, putting ClassNotFoundException directly in an
+            # `except` clause won't work if bootstrap isn't complete.
             if (ClassNotFoundException is not None) and isinstance(e, ClassNotFoundException):
                 ncdfe = NoClassDefFoundError(e.getMessage())
                 ncdfe.setStackTrace(e.getStackTrace())
@@ -69,7 +67,11 @@ cdef class CQPEnv(object):
     # Java SE 8 throws NoClassDefFoundError like the JNI spec says, but Android 6 throws
     # ClassNotFoundException.
     cdef LocalRef FindClass_JNI(self, name):
-        result = self.j_env[0].FindClass(self.j_env, str_for_c(name.replace(".", "/")))
+        if name.startswith("L") and name.endswith(";"):  # If refactoring, consider the cache.
+            name = name[1:-1]
+        name = name.replace(".", "/")
+
+        result = self.j_env[0].FindClass(self.j_env, str_for_c(name))
         if result:
             return self.adopt(result)
         else:
@@ -77,7 +79,11 @@ cdef class CQPEnv(object):
 
     # Throws ClassNotFoundException
     cdef LocalRef FindClass_ClassLoader(self, name):
-        j_name = p2j_string(self.j_env, name.replace("/", "."))
+        if name.startswith("L") and name.endswith(";"):  # If refactoring, consider the cache.
+            name = name[1:-1]
+        name = name.replace("/", ".")
+
+        j_name = p2j_string(self.j_env, name)
         cdef jvalue j_args[3]
         j_args[0].l = j_name.obj
         j_args[1].z = JNI_FALSE
