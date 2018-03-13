@@ -1,4 +1,14 @@
 #cython: binding=True, nonecheck=False, profile=False
+#
+# `binding=True` because we assign some methods to a class dictionary, e.g. Throwable_str.
+# (This currently affects profiling results: see https://github.com/cython/cython/issues/2137.)
+#
+# `nonecheck` may catch some programming errors which would otherwise cause a native crash, but
+# is too expensive to leave on all the time.
+#
+# `profile` reports entry and exit of all Cython functions to the Python profiling system, but
+# is too expensive to leave on all the time.
+
 
 from __future__ import absolute_import, division, print_function
 
