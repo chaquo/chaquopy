@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 2.0.0 (2018-03-15)
+
+* Remove READ_LOGS permission: this was only needed on API level 15, and its Google Play
+  description is too scary.
+
 ## 1.4.0 (2018-03-05)
 
 * Increase target API level from 23 to 26.
