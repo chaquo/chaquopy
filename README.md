@@ -30,8 +30,9 @@ Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are
 the generated .jar to other supported workstation OSs and do the same there.
 
 Test pkgtest app for both Python 2 and 3 on:
+* minSdkVersion emulator
 * targetSdkVersion emulator
-* Phone
+* Any ARM device
 
 On one of these devices, test on both Python 2 and 3 that the license notification and enforcement
 works correctly.
@@ -54,10 +55,12 @@ repository as necessary.
 
 * minSdkVersion emulator
 * targetSdkVersion emulator
-* Phone
+* Any ARM device
 
 Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
-SDK changes. Release apps on Google Play, updating description and screenshots if necessary.
+SDK changes.
+
+Release apps on Google Play, updating description and screenshots if necessary.
 
 Copy APKs to Maven repository.
 
@@ -68,8 +71,9 @@ If sphinx or javadoc have changed:
 
 * Adjust VERSION.txt temporarily if rebuilding docs for an old version.
 * Build and upload to server.
-* If major.minor version number has changed, update "current" symlink and add link on WordPress
-  documentation page.
+* If major.minor version number has changed:
+  * Update "current" symlink.
+  * Add link on WordPress documentation page.
 
 
 ## Source control

@@ -1,6 +1,17 @@
 Change log
 ##########
 
+
+2.0.0 (2018-03-15)
+==================
+
+* [**BACKWARD INCOMPATIBLE**] The import hook now only looks up names in Java if they failed to
+  import from Python. This significantly speeds up import of large Python packages. However, it
+  means that importing a name which exists in both languages is no longer reported as an error:
+  instead, the value from Python will be returned.
+* General performance improvements: the Python unit tests now run about 25% faster.
+* Fix a crash on API level 15 caused by the license notification.
+
 1.4.0 (2018-03-05)
 ==================
 

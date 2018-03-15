@@ -282,7 +282,7 @@ class TestAndroidStdlib(unittest.TestCase):
                              dirname(f.name))
 
 
-@unittest.skipIf(API_LEVEL < 16,
+@unittest.skipIf(API_LEVEL and API_LEVEL < 16,
                  "logcat command requires READ_LOGS permission on this API level, which we "
                  "don't request because Google Play describes it as giving access to 'browsing "
                  "history and bookmarks'.")

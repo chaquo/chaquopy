@@ -56,7 +56,7 @@ Type conversion::
     import sys                                        PyObject sys = py.getModule("sys");
     ms = sys.maxsize                                  int ms = sys.get("maxsize").toJava(int.class);
 
-    plat = sys.platform                               String platform = sys.get("platform").toJava(String.class);
+    platform = sys.platform                           String platform = sys.get("platform").toJava(String.class);
                                                       // or simply:                        .toString();
 
 
