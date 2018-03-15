@@ -2,18 +2,20 @@ from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
 import distutils.util
-from jproperties import Properties
 import json
-from kwonly_args import kwonly_defaults
 import os
 from os.path import abspath, dirname, join
 import re
-import rsa
 import shutil
 import subprocess
 import sys
 from unittest import skip, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+
+from jproperties import Properties
+from kwonly_args import kwonly_defaults
+import rsa
+
 
 integration_dir = abspath(dirname(__file__))
 repo_root = abspath(join(integration_dir, "../../../../.."))
@@ -483,20 +485,30 @@ del StaticProxy
 
 
 class License(GradleTestCase):
-    def test_empty_key(self):
-        run = self.RunGradle("base", key="", succeed=False)
-        self.assertInLong("Chaquopy license verification failed", run.stderr)
+    def test_app_key(self):
+        DEMO_KEY = "BBfoCXBWFxWgyFaO8ATfwievD0WqRKCPiz1WgCzhifWV"
+        DEMO3_KEY = "BNzb-z7UV1drJRdiO-6OVvrcUUPRYp7WL7n_Lzp-0vbz"
 
-        run.apply_layers("License/demo")
+        run = self.RunGradle("base", "License/demo")
+
+        run.apply_key(DEMO_KEY)
         run.rerun(licensed_id="com.chaquo.python.demo")
 
-        run.apply_layers("base")
+        run.apply_key(DEMO3_KEY)
         run.rerun(succeed=False)
+        self.assertInLong("Chaquopy license verification failed", run.stderr)
+
+        run.apply_layers("License/demo3")
+        run.rerun(licensed_id="com.chaquo.python.demo3")
+
+        run.apply_key("")  # Before 2.0.0, the single-app license was used with an empty key.
+        run.rerun(succeed=False)
+        self.assertInLong("Chaquopy license verification failed", run.stderr)
 
         run.apply_key(None)
         run.rerun(licensed_id=None)
 
-    def test_key(self):
+    def test_standard_key(self):
         run = self.RunGradle("base")
 
         run.apply_key("invalid")

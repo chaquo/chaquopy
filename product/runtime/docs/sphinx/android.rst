@@ -369,6 +369,11 @@ An unlicensed SDK is fully-functional, but apps built with it will display a not
 startup, and are limited to a run-time of 5 minutes. To remove these restrictions, a license is
 required. All licenses are perpetual and include upgrades to all future versions.
 
+Once you have a license key, activate it by adding the following line to the project’s
+`local.properties` file::
+
+    chaquopy.license=<license key>
+
 Standard license
 ----------------
 
@@ -377,11 +382,6 @@ A standard license allows unlimited use of Chaquopy in any number of apps. Pleas
 
 * A summary of what your app is, and how Chaquopy will be used in it.
 * How many developers on your project will be using Chaquopy.
-
-Once you have a key, activate it by adding the following line to the project’s `local.properties`
-file::
-
-    chaquopy.license=<license key>
 
 Open-source license
 -------------------
@@ -392,8 +392,3 @@ For open-source apps, Chaquopy will always be free of charge. Please `contact us
 * The app ID (package name)
 * Where the app is distributed (e.g. Google Play)
 * Where the app's source code is available
-
-Once the app ID is activated on our server, anyone will be able to use Chaquopy to build that
-app by adding the following line to the project's `local.properties` file::
-
-    chaquopy.license=
