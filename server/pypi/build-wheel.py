@@ -35,10 +35,10 @@ import shlex
 import subprocess
 import sys
 import sysconfig
-from wheel.archive import archive_wheelfile
-from wheel.bdist_wheel import bdist_wheel
 
 import attr
+from wheel.archive import archive_wheelfile
+from wheel.bdist_wheel import bdist_wheel
 
 
 PROGRAM_NAME = basename(__file__)
@@ -58,8 +58,8 @@ class Abi:
 
 ABIS = {abi.name: abi for abi in [
     Abi("armeabi-v7a", "arm", "arm-linux-androideabi", "arm-linux-androideabi",
-        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16",  # See standalone_toolchain
-        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),               #   above
+        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
+        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
     Abi("x86", "x86", "x86", "i686-linux-android"),
 ]}
 
@@ -67,19 +67,20 @@ ABIS = {abi.name: abi for abi in [
 def main():
     try:
         args = parse_args()
-        package_dir = join(PYPI_DIR, "packages", args.package)
-        if not exists(package_dir):
-            raise CommandError(f"{package_dir} does not exist (package name is case-sensitive)")
+        args.package_dir = join(PYPI_DIR, "packages", args.package)
+        if not exists(args.package_dir):
+            raise CommandError(f"{args.package_dir} does not exist (package name is "
+                               f"case-sensitive)")
         if not args.version:
-            with open(f"{package_dir}/version.txt") as version_file:
+            with open(f"{args.package_dir}/version.txt") as version_file:
                 args.version = version_file.read().strip()
 
-        build_dir = join(package_dir, "build")
+        build_dir = join(args.package_dir, "build")
         ensure_dir(build_dir)
         cd(build_dir)
-        sdist_dir = unpack_sdist(args)
-        cd(sdist_dir)
-        apply_patches()
+        build_subdir = unpack_sdist(args)
+        cd(build_subdir)
+        apply_patches(args)
         wheel_filename = build_wheel(args)
         fix_wheel(args, wheel_filename)
 
@@ -92,24 +93,17 @@ def parse_args():
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("--help", action="help", help=argparse.SUPPRESS)
     ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
-    ap.add_argument("--ndk", metavar="DIR", help="Path to NDK (default: $ANDROID_HOME/ndk-bundle)")
+    ap.add_argument("--ndk", metavar="DIR", required=True)
     ap.add_argument("--python", metavar="DIR", required=True,
-                    help="Path to target Python files. Must follow Crystax 'sources/python' "
-                    "subdirectory layout, containing 'include' and 'libs'.")
+                    help="Path to target Python files. Must follow Crystax sources/python/X.Y "
+                    "layout, containing include and libs subdirectories.")
     ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                     help="Choices: %(choices)s")
-    ap.add_argument("--api-level", metavar="N", default="15", help="Default: %(default)s")
+    ap.add_argument("--api-level", metavar="N", type=int, default=15, help="Default: %(default)s")
+    ap.add_argument("--build-tag", metavar="N", type=int, default=0, help="Default: %(default)s")
     ap.add_argument("package")
-    ap.add_argument("version", nargs="?", help="Default: given by version.txt")
+    ap.add_argument("version", nargs="?", help="Default: given by packages/<package>/version.txt")
     args = ap.parse_args()
-
-    if not args.ndk:
-        android_home = os.environ.get("ANDROID_HOME")
-        if not android_home:
-            raise CommandError("Can't find NDK: either pass --ndk or set $ANDROID_HOME")
-        args.ndk = join(android_home, "ndk-bundle")
-    if not exists(args.ndk):
-        raise CommandError(f"Can't find NDK: {args.ndk} does not exist")
 
     args.python_lib_dir = f"{args.python}/libs/{args.abi}"
     assert_isdir(args.python_lib_dir)
@@ -120,7 +114,9 @@ def parse_args():
             args.python_version = re.sub(r"[a-z]*$", "", args.python_lib_version)
 
             # We require the build and target Python versions to be the same, because many native
-            # build scripts check sys.version, especially to distinguish between Python 2 and 3.
+            # build scripts check sys.version, especially to distinguish between Python 2 and 3. To
+            # install multiple Python versions in one virtualenv, simply run mkvirtualenv again
+            # with a different -p argument.
             args.pip = "pip" + args.python_version
             break
     else:
@@ -130,36 +126,39 @@ def parse_args():
 
 
 def unpack_sdist(args):
-    sdist_dir = f"{args.package}-{args.version}"
-    if exists(sdist_dir):
-        run(f"rm -rf {sdist_dir}")
-
-    sdist_filename = find_sdist(sdist_dir)
+    sdist_filename = find_sdist(args)
     if sdist_filename:
-        log(f"Found existing sdist")
+        log(f"Using existing sdist")
     else:
-        run(f"{args.pip} download --no-deps --no-binary :all: {args.package}=={args.version}")
-        sdist_filename = find_sdist(sdist_dir)
+        run(f"{args.pip} download{' -v' if args.verbose else ''} --no-deps "
+            f"--no-binary :all: {args.package}=={args.version}")
+        sdist_filename = find_sdist(args)
         if not sdist_filename:
             raise CommandError("Can't find downloaded sdist: maybe it has an unknown filename "
                                "extension")
 
+    build_subdir_parent = f"{args.python_version}/{args.abi}"
+    ensure_dir(build_subdir_parent)
+    build_subdir = f"{build_subdir_parent}/{args.package}-{args.version}"
+    if exists(build_subdir):
+        run(f"rm -rf {build_subdir}")
+
     if sdist_filename.endswith("zip"):
-        run(f"unzip -q {sdist_filename}")
+        run(f"unzip -d {build_subdir_parent} -q {sdist_filename}")
     else:
-        run(f"tar -xf {sdist_filename}")
-    return sdist_dir
+        run(f"tar -C {build_subdir_parent} -xf {sdist_filename}")
+    return build_subdir
 
 
-def find_sdist(sdist_dir):
+def find_sdist(args):
     for ext in ["zip", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz"]:
-        filename = f"{sdist_dir}.{ext}"
+        filename = f"{args.package}-{args.version}.{ext}"
         if exists(filename):
             return filename
 
 
-def apply_patches():
-    patches_dir = "../../patches"
+def apply_patches(args):
+    patches_dir = f"{args.package_dir}/patches"
     if exists(patches_dir):
         for patch_filename in os.listdir(patches_dir):
             run(f"patch -t -p1 -i {patches_dir}/{patch_filename}")
@@ -190,51 +189,46 @@ def build_wheel(args):
 # We also define some common variables like LD and STRIP which aren't used by distutils, but might
 # be used by custom build scripts.
 def get_env(args):
-    env = {}
     abi = ABIS[args.abi]
+    toolchain_dir = f"{PYPI_DIR}/toolchains/{platform_tag(args)}"
+    if exists(toolchain_dir):
+        log(f"Using existing toolchain {platform_tag(args)}")
+    else:
+        run(f"{args.ndk}/build/tools/make-standalone-toolchain.sh "
+            f"--toolchain={abi.toolchain}-{GCC_VERSION} "
+            f"--platform=android-{args.api_level} "
+            f"--install-dir={toolchain_dir}")
 
-    tool_dir = f"{args.ndk}/toolchains/{abi.toolchain}-{GCC_VERSION}/prebuilt/{HOST_PLATFORM}/bin"
+    env = {}
     for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"), "ld", "nm", "ranlib",
                  "readelf", "strip"]:
         var, suffix = (tool, tool) if isinstance(tool, str) else tool
-        filename = f"{tool_dir}/{abi.tool_prefix}-{suffix}"
+        filename = f"{toolchain_dir}/bin/{abi.tool_prefix}-{suffix}"
         assert_exists(filename)
         env[var.upper()] = filename
 
-    # CFLAGS are built into CC because NumPy runs CC without CFLAGS as a basic compiler test, which
-    # will fail if the compiler can't find its sysroot. The proper way of solving this would be to
-    # use make_standalone_toolchain.py. This would add an an extra phase to this script, but would
-    # allow us to remove the -isysroot, -isystem and --sysroot arguments.
-    #
     # TODO: distutils adds -I arguments for the build Python's include directory (and virtualenv
     # include directory if applicable). They're at the end of the command line so they should be
     # overridden, but may still cause problems if they happen to have a header which isn't present
     # in the target Python include directory. The only way I can see to avoid this is to set CC to
     # a wrapper script.
-    #
-    # Includes are in order of priority (https://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html)
     ipython = f"{args.python}/include/python"
-    isystem = f"{args.ndk}/sysroot/usr/include/{abi.tool_prefix}"
-    isysroot = f"{args.ndk}/sysroot"                                                # includes
-    idirafter = f"{PYPI_DIR}/idirafter"
-    sysroot = f"{args.ndk}/platforms/android-{args.api_level}/arch-{abi.platform}"  # libs
-    for dir_name in [ipython, isystem, isysroot, idirafter, sysroot]:
-        assert_isdir(dir_name)
+    assert_isdir(ipython)
     cflags = (f"-fPIC "  # See standalone_toolchain above, and note below about -pie
-              f"-I{ipython} -isystem {isystem} -isysroot {isysroot} -idirafter {idirafter} "
-              f"--sysroot {sysroot} "
-              f"-D__ANDROID_API__={args.api_level} "
-              f"{abi.cflags}")
+              f"-I{ipython} "
+              f"-Werror=implicit-function-declaration "  # Many libc symbols are missing on old API
+              f"{abi.cflags}")                           #   levels: using one should be an error.
     cc = env["CC"]
     env["CC"] = f"{cc} {cflags}"
     env["LDSHARED"] = f"{cc} -shared {cflags}"
 
-    # Not including -pie despite recommendation in standalone_toolchain, because it causes the
+    # Not including -pie despite recommendation in standalone toolchain docs, because it causes the
     # linker to forget it's supposed to be building a shared library
     # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
     env["LDFLAGS"] = (f"-L{args.python_lib_dir} -lpython{args.python_lib_version} "
                       f"-lm "  # Many packages get away with omitting this on standard Linux.
-                      f"{abi.ldflags}")
+                      f"-Wl,--no-undefined "  # See implicit-function-declaration note above: this
+                      f"{abi.ldflags}")       #   does a similar thing for the linker.
 
     env["ARFLAGS"] = "rc"
 
@@ -247,10 +241,10 @@ def get_env(args):
     return env
 
 
-# The bdist_wheel command only has limited ability to set the compatibility tags, so we have to fix
-# things up afterwards.
+# The wheel build system doesn't really support cross-compilation, so some things need to be fixed
+# up manually.
 def fix_wheel(args, in_filename):
-    out_dir = "../../dist"
+    out_dir = f"{args.package_dir}/dist"
     ensure_dir(out_dir)
 
     if "none-any" in in_filename:
@@ -260,22 +254,26 @@ def fix_wheel(args, in_filename):
         tmp_dir = "build/fix_wheel"
         run(f"mkdir {tmp_dir}")
         run(f"unzip -q {in_filename} -d {tmp_dir}")
-        log("Changing compatibility tags")
-        abi_tag = "cp" + args.python_lib_version.replace(".", "")
-        python_tag = "cp" + args.python_version.replace(".", "")
-        platform_tag = re.sub(r"[-.]", "_", f"android_{args.api_level}_{args.abi}")
-        compatibility_tag = f"{python_tag}-{abi_tag}-{platform_tag}"
+        cd(tmp_dir)
 
+        log("Processing native modules")
         # Passing through parse_version normalizes the version, e.g. 2017.01.02 -> 2017.1.2
         dist_name = f"{args.package}-{parse_version(args.version)}"
-        dist_info_dir = f"{tmp_dir}/{dist_name}.dist-info"
+        dist_info_dir = f"{dist_name}.dist-info"
         host_soabi = sysconfig.get_config_var("SOABI")
         suffix_re = fr"(\.{host_soabi})?\.(so|a)$"  # NumPy bundles a .a file.
         target_suffix = fr".{args.abi}.\2"
         for original_path, _, _ in csv.reader(open(f"{dist_info_dir}/RECORD")):
             fixed_path = re.sub(suffix_re, target_suffix, original_path)
             if fixed_path != original_path:
-                os.rename(join(tmp_dir, original_path), join(tmp_dir, fixed_path))
+                run(f"mv {original_path} {fixed_path}")
+                # https://www.technovelty.org/linux/stripping-shared-libraries.html
+                run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
+
+        log("Changing compatibility tags")
+        abi_tag = "cp" + args.python_lib_version.replace(".", "")
+        python_tag = "cp" + args.python_version.replace(".", "")
+        compatibility_tag = f"{python_tag}-{abi_tag}-{platform_tag(args)}"
 
         wheel_info = email.parser.Parser().parse(open(f"{dist_info_dir}/WHEEL"))
         del wheel_info["Tag"]  # Removes *all* tags.
@@ -283,10 +281,18 @@ def fix_wheel(args, in_filename):
         email.generator.Generator(open(f"{dist_info_dir}/WHEEL", "w"),
                                   maxheaderlen=0).flatten(wheel_info)
 
-        bdist_wheel.write_record(None, tmp_dir, dist_info_dir)
-        out_filename = archive_wheelfile(f"{out_dir}/{dist_name}-{compatibility_tag}", tmp_dir)
+        bdist_wheel.write_record(None, ".", dist_info_dir)
+
+        out_filename = archive_wheelfile(
+            f"{out_dir}/{dist_name}-{args.build_tag}-{compatibility_tag}",
+            ".")
+        cd("../..")
+
     log(f"Wrote {out_filename}")
 
+
+def platform_tag(args):
+    return re.sub(r"[-.]", "_", f"android_{args.api_level}_{args.abi}")
 
 def run(command):
     log(command)
@@ -298,7 +304,7 @@ def run(command):
 
 def ensure_dir(dir_name):
     if not exists(dir_name):
-        run(f"mkdir {dir_name}")
+        run(f"mkdir -p {dir_name}")
 
 def assert_isdir(filename):
     assert_exists(filename)
