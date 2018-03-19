@@ -68,6 +68,7 @@ class PipInstall(object):
             if is_pure_str != "true":
                 native_reqs.append("{}=={}".format(pkg_name, pkg_ver))
 
+            mismatches = []
             for path, hash_str, size in csv.reader(open(join(dist_info_dir, "RECORD"))):
                 if not normpath(join(abi_dir, path)).startswith(normpath(abi_dir)):
                     # pip's gone and installed something outside of abi_dir.
@@ -79,7 +80,7 @@ class PipInstall(object):
                 existing_info = self.dist_info.get(path)
                 if existing_info:
                     if existing_info != new_info:
-                        raise CommandError(
+                        mismatches.append(
                             "file '{}' from ABIs {!r} {} does not match copy from '{}' {}"
                             .format(path, self.abis_installed, existing_info, abi, new_info))
                 else:
@@ -88,6 +89,9 @@ class PipInstall(object):
                         os.makedirs(target_dir)
                     shutil.copy(join(abi_dir, path), target_dir)
                     self.dist_info[path] = new_info
+
+            if mismatches:
+                raise CommandError("\n".join(mismatches))
 
         return native_reqs
 

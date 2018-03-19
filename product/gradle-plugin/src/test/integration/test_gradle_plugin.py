@@ -396,6 +396,12 @@ class PythonReqs(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
+    # This will at some point be a standard pip feature, but we had to add it manually (see
+    # commit on 2018-03-19).
+    def test_wheel_build_tag(self):
+        self.RunGradle("base", "PythonReqs/build_tag",
+                       requirements=["build2"])
+
     def test_sdist_index(self):
         # This test has an sdist for version 0.2 and a wheel for version 0.1, to test that pip
         # ignores the sdist.
