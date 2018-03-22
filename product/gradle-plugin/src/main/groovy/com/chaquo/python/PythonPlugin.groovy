@@ -293,6 +293,7 @@ class PythonPlugin implements Plugin<Project> {
                         args reqsArgs
                         args "--"
                         args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
+                        args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
                         args "--extra-index-url", "https://chaquo.com/pypi"
                         args "--only-binary", ":all:"
