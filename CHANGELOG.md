@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 2.0.1 (2018-03-22)
+
+* No changes except for the SDK update.
+
 ## 2.0.0 (2018-03-15)
 
 * Remove READ_LOGS permission: this was only needed on API level 15, and its Google Play
@@ -43,7 +47,8 @@ This file only records changes to the demo app. For changes to the Chaquopy SDK 
 
 ## 0.6.1 (2017-12-11)
 
-* Fix garbage collection tests on API levels 17-19 ([#17](https://github.com/chaquo/chaquopy/issues/17)).
+* Fix garbage collection tests on API levels 17-19
+  ([#17](https://github.com/chaquo/chaquopy/issues/17)).
 * Fix most flake8 warnings.
 * Rearrange Python package structure.
 
