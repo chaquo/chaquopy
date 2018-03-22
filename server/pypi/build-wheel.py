@@ -75,6 +75,7 @@ def main():
             with open(f"{args.package_dir}/version.txt") as version_file:
                 args.version = version_file.read().strip()
 
+        update_env(args)
         build_dir = join(args.package_dir, "build")
         ensure_dir(build_dir)
         cd(build_dir)
@@ -93,7 +94,8 @@ def parse_args():
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("--help", action="help", help=argparse.SUPPRESS)
     ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
-    ap.add_argument("--ndk", metavar="DIR", required=True)
+    ap.add_argument("--ndk", metavar="DIR", help="Build toolchain from given NDK (optional if "
+                    "toolchain already exists)")
     ap.add_argument("--python", metavar="DIR", required=True,
                     help="Path to target Python files. Must follow Crystax sources/python/X.Y "
                     "layout, containing include and libs subdirectories.")
@@ -165,12 +167,6 @@ def apply_patches(args):
 
 
 def build_wheel(args):
-    env = get_env(args)
-    if args.verbose:
-        log("Environment set as follows:\n" +
-            "\n".join(f"export {name}='{env[name]}'" for name in sorted(env.keys())))
-    os.environ.update(env)
-
     # We can't run "setup.py bdist_wheel" directly, because that would only work with
     # setuptools-aware setup.py files.
     run(f"{args.pip} wheel{' -v' if args.verbose else ''} --no-deps "
@@ -188,18 +184,10 @@ def build_wheel(args):
 # values for all the overridable variables, but some are not overridable in Python 3.6 (e.g. OPT).
 # We also define some common variables like LD and STRIP which aren't used by distutils, but might
 # be used by custom build scripts.
-def get_env(args):
-    abi = ABIS[args.abi]
-    toolchain_dir = f"{PYPI_DIR}/toolchains/{platform_tag(args)}"
-    if exists(toolchain_dir):
-        log(f"Using existing toolchain {platform_tag(args)}")
-    else:
-        run(f"{args.ndk}/build/tools/make-standalone-toolchain.sh "
-            f"--toolchain={abi.toolchain}-{GCC_VERSION} "
-            f"--platform=android-{args.api_level} "
-            f"--install-dir={toolchain_dir}")
-
+def update_env(args):
     env = {}
+    abi = ABIS[args.abi]
+    toolchain_dir = get_toolchain(args, abi)
     for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"), "ld", "nm", "ranlib",
                  "readelf", "strip"]:
         var, suffix = (tool, tool) if isinstance(tool, str) else tool
@@ -214,31 +202,56 @@ def get_env(args):
     # a wrapper script.
     ipython = f"{args.python}/include/python"
     assert_isdir(ipython)
-    cflags = (f"-fPIC "  # See standalone_toolchain above, and note below about -pie
-              f"-I{ipython} "
-              f"-Werror=implicit-function-declaration "  # Many libc symbols are missing on old API
-              f"{abi.cflags}")                           #   levels: using one should be an error.
-    cc = env["CC"]
-    env["CC"] = f"{cc} {cflags}"
-    env["LDSHARED"] = f"{cc} -shared {cflags}"
+    env["CFLAGS"] = (  # Will be added to CC and LDSHARED commands.
+        f"-fPIC "  # See standalone_toolchain above, and note below about -pie
+        f"-I{ipython} "
+        f"-Werror=implicit-function-declaration "  # Many libc symbols are missing on old API
+        f"{abi.cflags}")                           #   levels: using one should be an error.
+    env["LDSHARED"] = f"{env['CC']} -shared "
 
     # Not including -pie despite recommendation in standalone toolchain docs, because it causes the
     # linker to forget it's supposed to be building a shared library
     # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
-    env["LDFLAGS"] = (f"-L{args.python_lib_dir} -lpython{args.python_lib_version} "
-                      f"-lm "  # Many packages get away with omitting this on standard Linux.
-                      f"-Wl,--no-undefined "  # See implicit-function-declaration note above: this
-                      f"{abi.ldflags}")       #   does a similar thing for the linker.
+    env["LDFLAGS"] = (  # Will be added to LDSHARED commands.
+        f"-L{args.python_lib_dir} -lpython{args.python_lib_version} "
+        f"-lm "  # Many packages get away with omitting this on standard Linux.
+        f"-Wl,--no-undefined "  # See implicit-function-declaration note above: this
+        f"{abi.ldflags}")       #   does a similar thing for the linker.
 
     env["ARFLAGS"] = "rc"
 
-    # Clear all unused overridable variables to prevent the host Python values (if any) from taking
-    # effect.
-    for var in ["CFLAGS", "CPPFLAGS", "CXXFLAGS"]:
+    # Set all unused overridable variables to the empty string to prevent the host Python
+    # values (if any) from taking effect.
+    for var in ["CPPFLAGS", "CXXFLAGS"]:
         assert var not in env, var
         env[var] = ""
 
-    return env
+    if args.verbose:
+        log("Environment set as follows:\n" +
+            "\n".join(f"export {name}='{env[name]}'" for name in sorted(env.keys())))
+    os.environ.update(env)
+
+
+def get_toolchain(args, abi):
+    platform = platform_tag(args)
+    toolchain_dir = f"{PYPI_DIR}/toolchains/{platform}"
+    if args.ndk:
+        if exists(toolchain_dir):
+            log(f"Rebuilding toolchain {platform}")
+            run(f"rm -rf {toolchain_dir}")
+        else:
+            log(f"Building new toolchain {platform}")
+        run(f"{args.ndk}/build/tools/make-standalone-toolchain.sh "
+            f"--toolchain={abi.toolchain}-{GCC_VERSION} "
+            f"--platform=android-{args.api_level} "
+            f"--install-dir={toolchain_dir}")
+    else:
+        if exists(toolchain_dir):
+            log(f"Using existing toolchain {platform}")
+        else:
+            raise CommandError(f"No existing toolchain for {platform}: pass --ndk to build it.")
+
+    return toolchain_dir
 
 
 # The wheel build system doesn't really support cross-compilation, so some things need to be fixed
@@ -248,6 +261,7 @@ def fix_wheel(args, in_filename):
     ensure_dir(out_dir)
 
     if "none-any" in in_filename:
+        # No need yet to support build tag for pure-Python wheels.
         run(f"cp {in_filename} {out_dir}/{in_filename}")
         out_filename = abspath(f"{out_dir}/{in_filename}")
     else:
