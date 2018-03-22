@@ -66,8 +66,9 @@ For example::
         }
     }
 
-.. note:: The following obsolete versions are still available, but should not be used for new
-          projects:
+.. note:: The following obsolete Python version is still available, but it does not contain all
+          current bug fixes either for Chaquopy or for Python itself. Projects using this
+          version should upgrade as soon as possible.
 
           * 2.7.10
 

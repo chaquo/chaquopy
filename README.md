@@ -44,12 +44,12 @@ Run `gradlew gradle-plugin:writePom`.
 
 Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
 
-Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
-
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
 files which require manual merging (e.g. build.gradle), examine them and update the public
 repository as necessary.
+
+Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
 "Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on:
 

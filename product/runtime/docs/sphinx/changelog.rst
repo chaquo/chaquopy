@@ -1,6 +1,14 @@
 Change log
 ##########
 
+2.0.1 (2018-03-22)
+==================
+
+* Fix a crash reported on various devices, especially Samsung Galaxy J series phones.
+* Fix NumPy dependency on libc functions not present in API level 17 and earlier.
+* Remove debugging information from native modules. All native packages benefit from this, but
+  especially NumPy, which is now smaller by 4 MB per ABI.
+* Disable upgrade notification from bundled copy of pip.
 
 2.0.0 (2018-03-15)
 ==================
