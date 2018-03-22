@@ -23,8 +23,8 @@ public class Common {
     public static final Map<String,String> PYTHON_BUILD_NUMBERS = new HashMap<>();
     static {
         PYTHON_BUILD_NUMBERS.put("2.7.10", "2");
-        PYTHON_BUILD_NUMBERS.put("2.7.14", "1");
-        PYTHON_BUILD_NUMBERS.put("3.6.3", "2");
+        PYTHON_BUILD_NUMBERS.put("2.7.14", "2");
+        PYTHON_BUILD_NUMBERS.put("3.6.3", "3");
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.
