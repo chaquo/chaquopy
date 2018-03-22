@@ -1,4 +1,30 @@
-Extract Crystax 10.3.2 to $CRYSTAX_DIR
+## Crystax NDK
+
+Extract Crystax 10.3.2 to $CRYSTAX_DIR.
+
+Rename all the libcrystax.* files under $CRYSTAX_DIR/sources/crystax to libcrystax.*.original.
+
+Clone the following Crystax repositories:
+
+    vendor/dlmalloc
+    vendor/freebsd
+    vendor/libkqueue
+    vendor/libpwq
+    platform/bionic
+    platform/ndk
+    platform/system/core
+    toolchain/llvm-3.6/compiler-rt
+
+Check them all out on the branch crystax-r10.
+
+cd platform/ndk
+
+Apply 5372.patch for issue #5372 (Crystax issue #1455).
+
+cd sources/crystax
+NDK=$CRYSTAX_DIR ABIS=armeabi-v7a,x86 make
+
+Copy the resulting libcrystax.* files to $CRYSTAX_DIR/sources/crystax.
 
 
 ## OpenSSL build

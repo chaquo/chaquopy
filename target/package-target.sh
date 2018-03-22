@@ -1,13 +1,19 @@
 #/bin/bash
+#
+# $1: Python major.minor version, e.g. "2.7"
+# $2: Python micro-build version, e.g. "14-2" (see Common.java)
+# $3: Target directory, e.g. /var/www/chaquo/maven/com/chaquo/python/target
+
 set -eu
 
 crystax=~/crystax-ndk-10.3.2
 ndk="$ANDROID_HOME/ndk-bundle"
 
-short_ver="${1:?}"      # e.g. "2.7"
-minor_build="${2:?}"    # e.g. "10-2" (see Common.java)
-full_ver="$short_ver.$minor_build"
-target_dir="$(cd ${3:?}; pwd)"
+short_ver="${1:?}"
+micro_build="${2:?}"
+full_ver="$short_ver.$micro_build"
+target_dir="$(cd ${3:?}; pwd)/$full_ver"
+mkdir "$target_dir"  # Error if already exists: don't want to overwrite existing files.
 target_prefix="$target_dir/target-$full_ver"
 
 tmp_dir="/tmp/package-target-$$"
@@ -19,22 +25,24 @@ for abi in armeabi-v7a x86; do
     mkdir "$abi"
     cd "$abi"
 
+    gcc_abi=$abi
+    libcrystax_abi=$abi
+    if [[ $abi == "arm64-v8a" ]]; then
+        gcc_abi="aarch64"
+    elif [[ $abi == "armeabi"* ]]; then
+        gcc_abi="arm"
+        libcrystax_abi="armeabi-v7a/thumb"
+    fi
+
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
     cp -a "$crystax/sources/python/$short_ver/libs/$abi/libpython${short_ver}"*.so "$jniLibs_dir"
-    cp -a "$crystax/sources/crystax/libs/$abi/libcrystax.so" "$jniLibs_dir"
+    cp -a "$crystax/sources/crystax/libs/$libcrystax_abi/libcrystax.so" "$jniLibs_dir"
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
     cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
 
-    if [[ $abi == "arm64-v8a" ]]; then
-        gcc_abi="aarch64"
-    elif [[ $abi == "armeabi"* ]]; then
-        gcc_abi="arm"
-    else
-        gcc_abi=$abi
-    fi
     $ndk/toolchains/$gcc_abi-*/prebuilt/*/*/bin/strip $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
