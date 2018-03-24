@@ -14,4 +14,4 @@ Run build-wheel.py once for each desired combination of package version, Python 
 
 Copy the resulting wheels from packages/*/dist to the package repository.
 
-Test on all platforms using the pkgtest app.
+Test on all Python versions and ABIs using the pkgtest app.

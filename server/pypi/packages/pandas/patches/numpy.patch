@@ -1,0 +1,49 @@
+--- a/setup.py	2018-03-23 18:17:41.117447368 +0000
++++ b/setup.py	2018-03-24 10:46:30.817433983 +0000
+@@ -53,7 +53,6 @@
+                          'install_requires': ['python-dateutil >= 2',
+                                               'pytz >= 2011k',
+                                               'numpy >= %s' % min_numpy_ver],
+-                         'setup_requires': ['numpy >= %s' % min_numpy_ver],
+                          }
+     if not _have_setuptools:
+         sys.exit("need setuptools/distribute for Py3k"
+@@ -64,7 +63,6 @@
+         'install_requires': ['python-dateutil',
+                             'pytz >= 2011k',
+                              'numpy >= %s' % min_numpy_ver],
+-        'setup_requires': ['numpy >= %s' % min_numpy_ver],
+         'zip_safe': False,
+     }
+ 
+@@ -153,7 +151,29 @@
+                 with open(outfile, "w") as f:
+                     f.write(pyxcontent)
+ 
+-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
++        numpy_filename = "{}-{}.whl".format(os.environ["CHAQUOPY_NUMPY_PREFIX"],
++                                            os.environ["CHAQUOPY_COMPAT_TAG"])
++        wheel_file_re = re.compile(     # From pip/wheel.py
++            r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))
++            ((-(?P<build>\d[^-]*?))?-(?P<pyver>.+?)-(?P<abi>.+?)-(?P<plat>.+?)
++            \.whl|\.dist-info)$""",
++            re.VERBOSE)
++        numpy_info = wheel_file_re.match(numpy_filename)
++        if not numpy_info:
++            raise ValueError("%s is not a valid wheel filename." % filename)
++        if LooseVersion(numpy_info.group('ver')) < LooseVersion(min_numpy_ver):
++            raise ValueError("NUMPY_WHEEL must be version {} or newer".format(min_numpy_ver))
++
++        from zipfile import ZipFile
++        numpy_zf = ZipFile(numpy_filename)
++        build_dir = os.path.join(os.path.dirname(__file__), "build")
++        numpy_dir = os.path.join(build_dir, "numpy")
++        if os.path.exists(numpy_dir):
++            shutil.rmtree(numpy_dir)
++        os.makedirs(numpy_dir)
++        numpy_zf.extractall(build_dir, [name for name in numpy_zf.namelist()
++                                        if name.startswith("numpy/core/include")])
++        numpy_incl = os.path.join(numpy_dir, 'core/include')
+ 
+         for ext in self.extensions:
+             if hasattr(ext, 'include_dirs') and not numpy_incl in ext.include_dirs:

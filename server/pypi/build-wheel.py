@@ -186,6 +186,8 @@ def build_wheel(args):
 # be used by custom build scripts.
 def update_env(args):
     env = {}
+    env["CHAQUOPY_COMPAT_TAG"] = compatibility_tag(args)  # Used by pandas.
+
     abi = ABIS[args.abi]
     toolchain_dir = get_toolchain(args, abi)
     for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"), "ld", "nm", "ranlib",
@@ -285,24 +287,26 @@ def fix_wheel(args, in_filename):
                 run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
         log("Changing compatibility tags")
-        abi_tag = "cp" + args.python_lib_version.replace(".", "")
-        python_tag = "cp" + args.python_version.replace(".", "")
-        compatibility_tag = f"{python_tag}-{abi_tag}-{platform_tag(args)}"
-
         wheel_info = email.parser.Parser().parse(open(f"{dist_info_dir}/WHEEL"))
         del wheel_info["Tag"]  # Removes *all* tags.
-        wheel_info["Tag"] = compatibility_tag
+        wheel_info["Tag"] = compatibility_tag(args)
         email.generator.Generator(open(f"{dist_info_dir}/WHEEL", "w"),
                                   maxheaderlen=0).flatten(wheel_info)
 
         bdist_wheel.write_record(None, ".", dist_info_dir)
 
         out_filename = archive_wheelfile(
-            f"{out_dir}/{dist_name}-{args.build_tag}-{compatibility_tag}",
+            f"{out_dir}/{dist_name}-{args.build_tag}-{compatibility_tag(args)}",
             ".")
         cd("../..")
 
     log(f"Wrote {out_filename}")
+
+
+def compatibility_tag(args):
+    abi_tag = "cp" + args.python_lib_version.replace(".", "")
+    python_tag = "cp" + args.python_version.replace(".", "")
+    return f"{python_tag}-{abi_tag}-{platform_tag(args)}"
 
 
 def platform_tag(args):
