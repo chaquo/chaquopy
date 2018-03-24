@@ -73,15 +73,20 @@ android {
 
     flavorDimensions "pyVersion"
     productFlavors {
-        py2 {
-            dimension "pyVersion"
-            applicationId "com.chaquo.python.demo"
-            python { version "2.7.14" }
+        // Allow temporary single-version testing just by editing Common.java.
+        if (Common.PYTHON_VERSIONS.contains("2.7.14")) {
+            py2 {
+                dimension "pyVersion"
+                applicationId "com.chaquo.python.demo"
+                python { version "2.7.14" }
+            }
         }
-        py3 {
-            dimension "pyVersion"
-            applicationId "com.chaquo.python.demo3"
-            python { version "3.6.3" }
+        if (Common.PYTHON_VERSIONS.contains("3.6.3")) {
+            py3 {
+                dimension "pyVersion"
+                applicationId "com.chaquo.python.demo3"
+                python { version "3.6.3" }
+            }
         }
     }
 
