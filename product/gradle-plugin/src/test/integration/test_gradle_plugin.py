@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import traceback
 from unittest import skip, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
@@ -45,6 +46,10 @@ class GradleTestCase(TestCase):
             msg = self._formatMessage(msg, "{}'{}' not found in:\n{}".format
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg)
+
+    def assertZipContents(self, zip_file, files):
+        self.assertEqual(sorted(files), sorted(name for name in zip_file.namelist()
+                                               if not name.endswith("/")))
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -294,14 +299,14 @@ class Pyc(GradleTestCase):
 
 class BuildPython(GradleTestCase):
     def test_change(self):
-        run = self.RunGradle("base", "BuildPython/default", requirements=["apple"])
+        run = self.RunGradle("base", "BuildPython/default", requirements=["apple/__init__.py"])
         run.apply_layers("BuildPython/invalid")
         run.rerun(succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant",
-                             requirements=["apple"], variants=["good-debug"])
+                             requirements=["apple/__init__.py"], variants=["good-debug"])
         run.rerun(variants=["bad-debug"], succeed=False)
         self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
 
@@ -334,43 +339,50 @@ class PythonReqs(GradleTestCase):
     def test_change(self):
         run = self.RunGradle("base")                               # No reqs
         run.apply_layers("PythonReqs/1a")                          # Add one req
-        run.rerun(requirements=["apple"])
+        run.rerun(requirements=["apple/__init__.py"])
         run.apply_layers("PythonReqs/1")                           # Replace with a req which has a
-        run.rerun(requirements=["alpha", "alpha_dep"])             #   transitive dependency
+        run.rerun(requirements=["alpha/__init__.py",               #   transitive dependency
+                                "alpha_dep/__init__.py"])
         run.apply_layers("PythonReqs/2")                           # Add another req
-        run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
+        run.rerun(requirements=["alpha/__init__.py",
+                                "alpha_dep/__init__.py",
+                                "bravo/__init__.py"])
         run.apply_layers("base")                                   # Remove all
         run.rerun()
 
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
-                       variants={"red-debug":  {"requirements": ["apple"]},
-                                 "blue-debug": {"requirements": ["bravo"]}})
+                       variants={"red-debug":  {"requirements": ["apple/__init__.py"]},
+                                 "blue-debug": {"requirements": ["bravo/__init__.py"]}})
 
     def test_install_variant_merge(self):
         self.RunGradle("base", "PythonReqs/install_variant_merge",
-                       variants={"red-debug":  {"requirements": ["apple"]},
-                                 "blue-debug": {"requirements": ["apple", "bravo"]}})
+                       variants={"red-debug":  {"requirements": ["apple/__init__.py"]},
+                                 "blue-debug": {"requirements": ["apple/__init__.py",
+                                                                 "bravo/__init__.py"]}})
 
     def test_options_variant(self):
         self.RunGradle("base", "PythonReqs/options_variant",
-                       variants={"red-debug":  {"requirements": ["apple"]},
-                                 "blue-debug": {"requirements": ["apple_local"]}})
+                       variants={"red-debug":  {"requirements": ["apple/__init__.py"]},
+                                 "blue-debug": {"requirements": ["apple_local/__init__.py"]}})
 
     def test_options_variant_merge(self):
         self.RunGradle("base", "PythonReqs/options_variant_merge",
-                       variants={"red-debug":  {"requirements": ["alpha", "alpha_dep"]},
-                                 "blue-debug": {"requirements": ["alpha"]}})
+                       variants={"red-debug":  {"requirements": ["alpha/__init__.py",
+                                                                 "alpha_dep/__init__.py"]},
+                                 "blue-debug": {"requirements": ["alpha/__init__.py"]}})
 
     def test_reqs_file(self):
-        run = self.RunGradle("base", "PythonReqs/reqs_file", requirements=["apple", "bravo"])
+        run = self.RunGradle("base", "PythonReqs/reqs_file",
+                             requirements=["apple/__init__.py", "bravo/__init__.py"])
         run.apply_layers("PythonReqs/reqs_file_2")
-        run.rerun(requirements=["alpha", "alpha_dep", "bravo"])
+        run.rerun(requirements=["alpha/__init__.py", "alpha_dep/__init__.py",
+                                "bravo/__init__.py"])
 
     def test_wheel_file(self):
-        run = self.RunGradle("base", "PythonReqs/wheel_file", requirements=["apple"])
+        run = self.RunGradle("base", "PythonReqs/wheel_file", requirements=["apple/__init__.py"])
         run.apply_layers("PythonReqs/wheel_file_2")
-        run.rerun(requirements=["apple2"])
+        run.rerun(requirements=["apple2/__init__.py"])
 
     def test_sdist_file(self):
         run = self.RunGradle("base", "PythonReqs/sdist_file", succeed=False)
@@ -389,7 +401,7 @@ class PythonReqs(GradleTestCase):
         # This test has build platform wheels for version 0.2, and an Android wheel for version
         # 0.1, to test that pip always picks the target platform, not the workstation platform.
         run = self.RunGradle("base", "PythonReqs/wheel_index_1",
-                             requirements=["native1_android_15_x86"])
+                             requirements=["native1_android_15_x86/__init__.py"])
 
         # This test only has build platform wheels.
         run.apply_layers("PythonReqs/wheel_index_2")
@@ -400,13 +412,13 @@ class PythonReqs(GradleTestCase):
     # commit on 2018-03-19).
     def test_wheel_build_tag(self):
         self.RunGradle("base", "PythonReqs/build_tag",
-                       requirements=["build2"])
+                       requirements=["build2/__init__.py"])
 
     def test_sdist_index(self):
         # This test has an sdist for version 0.2 and a wheel for version 0.1, to test that pip
         # ignores the sdist.
         run = self.RunGradle("base", "PythonReqs/sdist_index_1",
-                             requirements=["native3_android_15_x86"])
+                             requirements=["native3_android_15_x86/__init__.py"])
 
         # This test has only an sdist.
         run.apply_layers("PythonReqs/sdist_index_2")
@@ -418,23 +430,37 @@ class PythonReqs(GradleTestCase):
         # This is not the same as the filename pattern used in our real wheels, but the point
         # is to test that the multi-ABI merging works correctly.
         self.RunGradle("base", "PythonReqs/multi_abi_1", abis=["armeabi-v7a", "x86"],
-                       requirements=["apple",             # Pure Python requirement
-                                     "multi_abi_1_pure",  # Identical content in both ABIs
-                                     "multi_abi_1_armeabi_v7a.pyd", "multi_abi_1_x86.pyd"])
+                       requirements=["apple/__init__.py",              # Pure Python requirement.
+                                     "common/__init__.py",             # Identical in both ABIs.
+                                     "module_armeabi_v7a.pyd",         # Different filenames in
+                                     "module_x86.pyd",                 #   each ABI.
+                                     "pkg/__init__.py",                # Different filenames
+                                     "pkg/submodule_armeabi_v7a.pyd",  #   in each ABI, within
+                                     "pkg/submodule_x86.pyd"])         #   a package.
 
     def test_multi_abi_variant(self):
         variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
-                                          "requirements": ["apple", "multi_abi_1_pure",
-                                                           "multi_abi_1_armeabi_v7a.pyd"]},
+                                          "requirements": ["apple/__init__.py",
+                                                           "common/__init__.py",
+                                                           "module_armeabi_v7a.pyd",
+                                                           "pkg/__init__.py",
+                                                           "pkg/submodule_armeabi_v7a.pyd"]},
                     "x86-debug":         {"abis": ["x86"],
-                                          "requirements": ["apple", "multi_abi_1_pure",
-                                                           "multi_abi_1_x86.pyd"]}}
+                                          "requirements": ["apple/__init__.py",
+                                                           "common/__init__.py",
+                                                           "module_x86.pyd",
+                                                           "pkg/__init__.py",
+                                                           "pkg/submodule_x86.pyd"]}}
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
     def test_multi_abi_clash(self):
         run = self.RunGradle("base", "PythonReqs/multi_abi_clash", succeed=False)
-        self.assertInLong("file 'multi_abi_1_pure/__init__.py' from ABIs \['armeabi-v7a'\] .* "
-                          "does not match copy from 'x86'", run.stderr, re=True)
+        self.assertInLong("multi-abi-clash-0.1: "
+                          "file 'multi_abi_1_pure/__init__.py' from ABIs ['armeabi-v7a'] "
+                          "(sha256=zBFelO98Zy0piQtegLvt9BJGvmKWuNLlHpNCl8hX-s4, 38) "
+                          "does not match copy from ABI 'x86' "
+                          "(sha256=-mO-W79egZomqhoJtk_dTJEDHHPrG1c2CQyavCZmfow, 30)",
+                          run.stderr)
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
@@ -442,13 +468,14 @@ class PythonReqs(GradleTestCase):
         # armeabi-v7a will install a pure-Python wheel, so the requirement will not be
         # installed again for x86, even though an x86 wheel is available.
         run = self.RunGradle("base", "PythonReqs/multi_abi_order_1", abis=["armeabi-v7a", "x86"],
-                             requirements=["multi_abi_order_pure"])
+                             requirements=["multi_abi_order_pure/__init__.py"])
 
         # armeabi-v7a will install a native wheel, so the requirement will be installed again
         # for x86, which will select the pure-Python wheel.
         run.apply_layers("PythonReqs/multi_abi_order_2")
         run.rerun(abis=["armeabi-v7a", "x86"],
-                  requirements=["multi_abi_order_armeabi_v7a.pyd", "multi_abi_order_pure"])
+                  requirements=["multi_abi_order_armeabi_v7a.pyd",
+                                "multi_abi_order_pure/__init__.py"])
 
 class PythonReqs2(PythonReqs, BuildPython2):
     pass
@@ -458,12 +485,14 @@ del PythonReqs
 
 
 class StaticProxy(GradleTestCase):
+    reqs = ["chaquopy_test/__init__.py", "chaquopy_test/a.py", "chaquopy_test/b.py"]
+
     def test_change(self):
-        run = self.RunGradle("base", "StaticProxy/reqs", requirements=["chaquopy_test"],
+        run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
                              classes=["a.ReqsA1", "b.ReqsB1"])
         app = ["chaquopy_test/__init__.py", "chaquopy_test/a.py"]
         run.apply_layers("StaticProxy/src_1")       # Src should take priority over reqs.
-        run.rerun(requirements=["chaquopy_test"], app=app, classes=["a.SrcA1", "b.ReqsB1"])
+        run.rerun(requirements=self.reqs, app=app, classes=["a.SrcA1", "b.ReqsB1"])
         run.apply_layers("StaticProxy/src_only")    # Remove reqs
         run.rerun(app=app, classes=["a.SrcA1"])
         run.apply_layers("StaticProxy/src_2")       # Change source code
@@ -473,13 +502,13 @@ class StaticProxy(GradleTestCase):
 
     def test_variant(self):
         self.RunGradle("base", "StaticProxy/variant",
-                       requirements=["chaquopy_test"],
+                       requirements=self.reqs,
                        variants={"red-debug":  {"classes": ["a.ReqsA1"]},
                                  "blue-debug": {"classes": ["b.ReqsB1"]}})
 
     def test_variant_merge(self):
         self.RunGradle("base", "StaticProxy/variant_merge",
-                       requirements=["chaquopy_test"],
+                       requirements=self.reqs,
                        variants={"red-debug":  {"classes": ["a.ReqsA1"]},
                                  "blue-debug": {"classes": ["a.ReqsA1", "b.ReqsB1"]}})
 
@@ -608,7 +637,14 @@ class RunGradle(object):
                 merged_kwargs = kwargs.copy()
                 if isinstance(variants, dict):
                     merged_kwargs.update(variants[variant])
-                self.check_apk(apk_zip, apk_dir, **merged_kwargs)
+                try:
+                    self.check_apk(apk_zip, apk_dir, **merged_kwargs)
+                except Exception:
+                    msg = "check_apk failed"
+                    if sys.version_info[0] < 3:
+                        # In Python 3, exception chaining will do this automatically.
+                        msg += "\n" + traceback.format_exc()
+                    self.dump_run(msg)
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
@@ -660,17 +696,14 @@ class RunGradle(object):
 
         # Python source
         app_zip = ZipFile(join(asset_dir, "app.zip"))
-        # If app/src/main/python didn't already exist, the plugin should have created it.
-        self.test.assertEqual(sorted(app), sorted(name for name in app_zip.namelist()
-                                                  if not name.endswith("/")))
+        self.test.assertZipContents(app_zip, app)
         if isinstance(app, dict):
             for name, text in app.items():
                 self.test.assertEqual(text, app_zip.read(name).decode().strip())
 
         # Python requirements
         reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
-        self.test.assertEqual(set(requirements),
-                              set(path.partition("/")[0] for path in reqs_zip.namelist()))
+        self.test.assertZipContents(reqs_zip, requirements)
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")

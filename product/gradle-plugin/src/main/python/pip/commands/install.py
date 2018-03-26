@@ -264,7 +264,7 @@ class InstallCommand(RequirementCommand):
         temp_target_dir = None
         if options.target_dir:
             options.ignore_installed = True
-            temp_target_dir = tempfile.mkdtemp()
+            temp_target_dir = options.target_dir  # Chaquopy modified: was tempfile.mkdtemp()
             options.target_dir = os.path.abspath(options.target_dir)
             if (os.path.exists(options.target_dir) and not
                     os.path.isdir(options.target_dir)):
@@ -395,7 +395,7 @@ class InstallCommand(RequirementCommand):
                     if not options.no_clean:
                         requirement_set.cleanup_files()
 
-        if options.target_dir:
+        if options.target_dir and False:  # Chaquopy disabled
             ensure_dir(options.target_dir)
 
             # Checking both purelib and platlib directories for installed

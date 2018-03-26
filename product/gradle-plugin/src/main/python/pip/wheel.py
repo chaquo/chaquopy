@@ -28,7 +28,7 @@ from pip.compat import expanduser
 from pip.download import path_to_url, unpack_url
 from pip.exceptions import (
     InstallationError, InvalidWheelFilename, UnsupportedWheel)
-from pip.locations import distutils_scheme, PIP_DELETE_MARKER_FILENAME
+from pip.locations import distutils_scheme, PIP_DELETE_MARKER_FILENAME, CHAQUOPY_SCHEME_KEYS
 from pip import pep425tags
 from pip.utils import (
     call_subprocess, ensure_dir, captured_stdout, rmtree, read_chunks,
@@ -370,9 +370,9 @@ def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None,
         fixer = None
         filter = None
         for subdir in os.listdir(os.path.join(wheeldir, datadir)):
-            # Chaquopy added
-            if subdir not in ["purelib", "platlib"]:
-                continue  # Other subdirs would be installed outside the target dir.
+            # Chaquopy added (see locations.py)
+            if subdir not in CHAQUOPY_SCHEME_KEYS:
+                continue
 
             fixer = None
             if subdir == 'scripts':
@@ -523,7 +523,7 @@ if __name__ == '__main__':
             for row in reader:
                 # Chaquopy modified
                 row[0] = installed.pop(row[0], None)
-                if not row[0]:  # Excluded .data subdir (see other Chaquopy edit above)
+                if not row[0]:  # We didn't install this subdir of .data (see above)
                     continue
 
                 if row[0] in changed:

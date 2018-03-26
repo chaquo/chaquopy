@@ -4,5 +4,8 @@ setup(
     name="multi_abi_1",
     version="0.1",
     packages=find_packages(),
-    ext_modules=[Extension("multi_abi_1_armeabi_v7a", ["multi_abi_1_armeabi_v7a.c"])],
+
+    # We use ext_modules so that the wheel will have "Root-Is-Purelib: false".
+    ext_modules=[Extension("module_armeabi_v7a", ["module_armeabi_v7a.c"]),
+                 Extension("pkg.submodule_armeabi_v7a", ["pkg/submodule_armeabi_v7a.c"])],
 )

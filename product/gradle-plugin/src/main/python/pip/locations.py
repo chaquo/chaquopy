@@ -121,14 +121,20 @@ site_config_files = [
 ]
 
 
+# These are the scheme types which should go in the python libs directory: we've had no use for
+# the others so far.
+CHAQUOPY_SCHEME_KEYS = ["purelib", "platlib", "data"]
+
 def distutils_scheme(dist_name, user=False, home=None, root=None,
                      isolated=False, prefix=None):
     """
     Return a distutils install scheme
     """
     from distutils.dist import Distribution
-
-    scheme = {}
+    scheme = { key: home if key in CHAQUOPY_SCHEME_KEYS else None
+               for key in SCHEME_KEYS }
+    return scheme
+    # Chaquopy disabled the rest
 
     if isolated:
         extra_dist_args = {"script_args": ["--no-user-cfg"]}
