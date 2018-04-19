@@ -1,0 +1,11 @@
+package:
+  name: pandas
+  version: 0.22.0
+
+build:
+  number: 3
+
+requirements:
+  host:
+    - chaquopy-gnustl 4.9.3
+    - numpy 1.14.2

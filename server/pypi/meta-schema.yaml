@@ -1,0 +1,48 @@
+type: object
+required: [package]
+
+properties:
+
+  package:
+    type: object
+    required: [name, version]
+    properties:
+      name:             # Must be in its original form, as used in sdist filenames. However, the
+        type: string    # containing directory name must be in PyPI normalized form (PEP 503).
+      version:
+        type: [string, number]
+    additionalProperties: false
+
+  source:
+    default: pypi
+    oneOf:
+      - type: "null"
+      - type: string
+        const: pypi
+      - type: object
+        properties:
+          url:
+            type: string
+        additionalProperties: false
+
+  build:
+    type: object
+    default: {}
+    properties:
+      number:           # Used as the wheel build tag.
+        type: integer
+        default: 0
+    additionalProperties: false
+
+  requirements:
+    type: object
+    default: {}
+    properties:
+      host:             # Each element must be in the form "<package> <version>". A compatible
+        type: array     # wheel file for this version must exist in packages/<package>/dist, and
+        default: []     # will be extracted into $SRC_DIR/../requirements before the build is run.
+        items:          # A requirement specification for >= this version will be added to the
+          type: string  # final wheel.
+    additionalProperties: false
+
+additionalProperties: false

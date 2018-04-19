@@ -1,0 +1,6 @@
+package:
+  name: PyYAML
+  version: 3.11
+
+build:
+  number: 2

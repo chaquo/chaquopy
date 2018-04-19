@@ -1,0 +1,6 @@
+package:
+  name: MarkupSafe
+  version: 1.0
+
+build:
+  number: 2
