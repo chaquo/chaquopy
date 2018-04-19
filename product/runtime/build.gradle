@@ -140,7 +140,7 @@ cythonTask("cythonJava", group: "build") {
 def sdkCmakeParentDir = new File(sdkDir, "cmake")
 def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 
-def androidJar = "$sdkDir/platforms/android-$Common.MIN_SDK_VERSION/android.jar"
+def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
 
 dependencies {
     compileOnly files(androidJar)

@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division, print_function
 
 from calendar import timegm
+import ctypes
 from functools import partial
 import imp
 import io
@@ -19,15 +20,20 @@ from traceback import format_exc
 from types import ModuleType
 from zipfile import ZipFile
 
+from java._vendor.elftools.elf.elffile import ELFFile
+from java._vendor import six
+
 from android.content.res import AssetManager
-from android.os import Build
 from com.chaquo.python import Common
+from com.chaquo.python.android import AndroidPlatform
 from java import jarray, jbyte
 from java.lang import Integer
-from java._vendor import six
 
 if six.PY3:
     from tokenize import detect_encoding
+
+
+ASSET_PREFIX = "/android_asset"
 
 
 def initialize(context, build_json, app_path):
@@ -36,7 +42,7 @@ def initialize(context, build_json, app_path):
 
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     for i, path in enumerate(app_path):
-        sys.path.insert(i, join("/android_asset", Common.ASSET_DIR, path))
+        sys.path.insert(i, join(ASSET_PREFIX, Common.ASSET_DIR, path))
 
 
 class AssetFinder(object):
@@ -44,7 +50,16 @@ class AssetFinder(object):
         try:
             self.context = context
             self.extract_packages = extract_packages
+
             self.path = path
+            multi_path_abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
+            multi_path_match = re.search(r"^(.*)-({}|{})\.zip$".format(*multi_path_abis), path)
+            if multi_path_match:
+                self.package_path = ["{}-{}.zip".format(multi_path_match.group(1), abi)
+                                     for abi in multi_path_abis]
+            else:
+                self.package_path = [path]
+
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
                                      "AssetFinder", basename(path))
@@ -75,7 +90,7 @@ class AssetFinder(object):
                     continue
 
                 if infix == "/__init__" and mod_name in self.extract_packages:
-                    return ExtractLoader(mod_name, self.extract_package(prefix))
+                    return ExtractLoader(self, mod_name, self.extract_package(prefix))
                 else:
                     return loader(self, mod_name, zip_info)
 
@@ -85,16 +100,16 @@ class AssetFinder(object):
             shutil.rmtree(package_dir)  # Just do it the easy way for now.
         for info in self.zip_file.infolist():
             if info.filename.startswith(package_subdir):
-                self.extract(info, self.extract_root)
+                self.extract(info)
         return package_dir
 
-    def extract(self, *args, **kwargs):
+    def extract(self, name_or_info):
         with self.lock:
-            return self.zip_file.extract(*args, **kwargs)
+            return self.zip_file.extract(name_or_info, self.extract_root)
 
-    def read(self, *args, **kwargs):
+    def read(self, name_or_info):
         with self.lock:
-            return self.zip_file.read(*args, **kwargs)
+            return self.zip_file.read(name_or_info)
 
 
 # This is used to load packages listed in extractPackages. It causes the package and everything
@@ -102,14 +117,18 @@ class AssetFinder(object):
 # __loader__ set accordingly. (In Python 3 we could have achieved this by deferring to the
 # default finder, but in Python 2 there is no such thing.)
 class ExtractLoader(object):
-    def __init__(self, mod_name, package_dir):
+    def __init__(self, finder, mod_name, package_dir):
+        self.finder = finder
         self.mod_name = mod_name
         self.package_dir = package_dir
 
     def load_module(self, mod_name):
         assert mod_name == self.mod_name
         imp.load_module(mod_name, None, self.package_dir, ("", "", imp.PKG_DIRECTORY))
-        return sys.modules[mod_name]
+        mod = sys.modules[mod_name]
+        if hasattr(mod, "__path__"):
+            mod.__path__ += [p for p in self.finder.package_path if p != self.finder.path]
+        return mod
 
 
 class AssetLoader(object):
@@ -136,7 +155,7 @@ class AssetLoader(object):
         mod.__file__ = self.get_filename(self.mod_name)
         if self.is_package(self.mod_name):
             mod.__package__ = self.mod_name
-            mod.__path__ = [self.finder.path]
+            mod.__path__ = self.finder.package_path
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
         mod.__loader__ = self
@@ -238,40 +257,74 @@ class SourceFileLoader(AssetLoader):
 
 
 class ExtensionFileLoader(AssetLoader):
+    needed_lock = RLock()
+    needed = {}
+
     def load_module_impl(self):
         if self.mod_name in sys.modules:
             raise ImportError("'{}': cannot reload a native module".format(self.mod_name))
+        out_filename = self.extract_if_changed(self.zip_info)
 
-        out_filename = join(self.finder.extract_root, self.zip_info.filename)
-        if exists(out_filename):
-            existing_stat = os.stat(out_filename)
-            need_extract = (existing_stat.st_size != self.zip_info.file_size or
-                            existing_stat.st_mtime != timegm(self.zip_info.date_time))
-        else:
-            need_extract = True
-        if need_extract:
-            self.finder.extract(self.zip_info, self.finder.extract_root)
-            os.utime(out_filename, (time.time(), timegm(self.zip_info.date_time)))
-
+        with self.needed_lock:
+            self.load_needed(out_filename)
         mod = imp.load_dynamic(self.mod_name, out_filename)
         sys.modules[self.mod_name] = mod
         self.set_mod_attrs(mod)
 
+    # Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
+    # directories, so we need to load them manually in dependency order (#5323).
+    def load_needed(self, filename):
+        ef = ELFFile(open(filename, "rb"))
+        dynamic = ef.get_section_by_name(".dynamic")
+        if not dynamic:
+            return
 
-SUPPORTED_ABIS = list(getattr(Build, "SUPPORTED_ABIS", [Build.CPU_ABI, Build.CPU_ABI2]))
-for abi in SUPPORTED_ABIS:
-    if abi in Common.ABIS.toArray():
-        break
-else:
-    raise Exception("couldn't identify ABI: supported={}".format(SUPPORTED_ABIS))
+        for tag in dynamic.iter_tags():
+            if tag.entry.d_tag == "DT_NEEDED":
+                soname = tag.needed
+                if soname in self.needed:
+                    continue
+
+                try:
+                    zip_info = self.finder.zip_file.getinfo("chaquopy/lib/" + soname)
+                except KeyError:
+                    # Maybe it's a system library, or one of the libraries loaded by
+                    # AndroidPlatform.loadNativeLibs.
+                    continue
+                needed_filename = self.extract_if_changed(zip_info)
+                self.load_needed(needed_filename)
+
+                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+                # ignored. From API 23, RTLD_LOCAL is available and the default, just like in
+                # Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+                # available to subsequently-loaded libraries.
+                dll = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+
+                # It doesn't look like the library is closed when the CDLL object is garbage
+                # collected, but this isn't documented, so keep a reference for safety.
+                self.needed[soname] = dll
+
+    def extract_if_changed(self, zip_info):
+        out_filename = join(self.finder.extract_root, zip_info.filename)
+        if exists(out_filename):
+            existing_stat = os.stat(out_filename)
+            need_extract = (existing_stat.st_size != zip_info.file_size or
+                            existing_stat.st_mtime != timegm(zip_info.date_time))
+        else:
+            need_extract = True
+
+        if need_extract:
+            self.finder.extract(zip_info)
+            os.utime(out_filename, (time.time(), timegm(zip_info.date_time)))
+
+        return out_filename
 
 
 # These class names are based on the standard Python 3 loaders from importlib.machinery, though
 # their interfaces are somewhat different.
 LOADERS = [
     (".py", SourceFileLoader),
-    (".{}.so".format(abi), ExtensionFileLoader),    # For requirements.zip
-    (".so".format(abi), ExtensionFileLoader),       # For stdlib-native/<abi>.zip
+    (".so", ExtensionFileLoader),
     # No current need for a SourcelessFileLoader, since we exclude .pyc files from app.zip and
     # requirements.zip. To support this fully for both Python 2 and 3 would be non-trivial due
     # to the variation in bytecode file names and locations. However, we could select one
@@ -281,9 +334,9 @@ LOADERS = [
 
 class AssetFile(object):
     def __init__(self, asset_manager, path):
-        match = re.search(r"^/android_asset/(.+)$", path)
+        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
         if not match:
-            raise InvalidAssetPathError("not an android_asset path: '{}'".format(path))
+            raise InvalidAssetPathError("not an {} path: '{}'".format(ASSET_PREFIX, path))
         self.name = path
         self.stream = asset_manager.open(match.group(1), AssetManager.ACCESS_RANDOM)
         self.stream.mark(Integer.MAX_VALUE)

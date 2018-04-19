@@ -11,6 +11,7 @@ public class Common {
     // probably support API level 14 as well, but it's too awkward to test because it doesn't have
     // an x86 emulator image.
     public static final int MIN_SDK_VERSION = 15;
+    public static final int COMPILE_SDK_VERSION = 21;  // For Build.SUPPORTED_ABIS
 
     public static final List<String> PYTHON_VERSIONS = Arrays.asList
         ("2.7.10", "2.7.14", "3.6.3");
@@ -55,11 +56,15 @@ public class Common {
     public static final String ASSET_APP = "app.zip";
     public static final String ASSET_BOOTSTRAP = "bootstrap.zip";
     public static final String ASSET_BOOTSTRAP_NATIVE = "bootstrap-native";
-    public static final String ASSET_REQUIREMENTS = "requirements.zip";
+    public static String ASSET_REQUIREMENTS(String suffix) {
+        return "requirements-" + suffix + ".zip";
+    }
     public static final String ASSET_STDLIB = "stdlib.zip";
     public static final String ASSET_STDLIB_NATIVE = "stdlib-native";
 
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";
     public static final String ASSET_TICKET = "ticket.txt";
+
+    public static final String ABI_COMMON = "common";
 }

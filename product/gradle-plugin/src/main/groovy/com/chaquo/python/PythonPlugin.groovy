@@ -92,10 +92,12 @@ class PythonPlugin implements Plugin<Project> {
 
         def originalSet = ao.getClass().getMethod("noCompress", [String[].class] as Class[])
         def newSet = {String... nc ->
-            def mergedNc = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP, Common.ASSET_REQUIREMENTS,
+            def mergedNc = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP,
+                            Common.ASSET_REQUIREMENTS(Common.ABI_COMMON),
                             Common.ASSET_STDLIB]
             for (abi in Common.ABIS) {
-                mergedNc.add("${abi}.zip")
+                mergedNc.add(Common.ASSET_REQUIREMENTS(abi))
+                mergedNc.add("${abi}.zip")  // stdlib-native
             }
             mergedNc.addAll(nc)
             originalSet.invoke(ao, [mergedNc as String[]] as Object[])
@@ -295,7 +297,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
-                        args "--extra-index-url", "https://chaquo.com/pypi"
+                        args "--extra-index-url", "https://chaquo.com/pypi-2.1"
                         args "--only-binary", ":all:"
                         args "--implementation", pythonAbi.substring(0, 2)
                         args "--python-version", pythonAbi.substring(2, 4)
@@ -447,9 +449,10 @@ class PythonPlugin implements Plugin<Project> {
                 def excludes = "**/*.pyc **/*.pyo"
                 project.ant.zip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
                                 destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
-                project.ant.zip(basedir: reqsTask.destinationDir, excludes: excludes,
-                                destfile: "$assetDir/$Common.ASSET_REQUIREMENTS", whenempty: "create")
-
+                for (subdir in reqsTask.destinationDir.listFiles()) {
+                    project.ant.zip(basedir: subdir, excludes: excludes, whenempty: "create",
+                                    destfile: "$assetDir/${Common.ASSET_REQUIREMENTS(subdir.name)}")
+                }
                 project.copy {
                     from stdlibConfig
                     into assetDir

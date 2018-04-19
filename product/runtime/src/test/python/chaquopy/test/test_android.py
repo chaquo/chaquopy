@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from importlib import import_module
 import marshal
 import os
-from os.path import dirname, exists, isdir, isfile, join
+from os.path import dirname, exists, isfile, join
 import platform
 import shlex
 import sqlite3
@@ -28,10 +28,6 @@ else:
     unicode = str
 
 
-APP_ZIP = "app.zip"
-REQS_ZIP = "requirements.zip"
-APP_PATH, REQS_PATH = (join("/android_asset/chaquopy", zip) for zip in [APP_ZIP, REQS_ZIP])
-
 try:
     from android.os import Build
 except ImportError:
@@ -40,8 +36,11 @@ else:
     API_LEVEL = Build.VERSION.SDK_INT
     from java.android import importer
     context = __loader__.finder.context  # noqa: F821
-    REQS_CACHE = join(context.getCacheDir().toString(), "chaquopy/AssetFinder", REQS_ZIP)
 
+    from com.chaquo.python.android import AndroidPlatform
+    APP_ZIP = "app.zip"
+    REQS_COMMON_ZIP = "requirements-common.zip"
+    REQS_ABI_ZIP = "requirements-{}.zip".format(AndroidPlatform.ABI)
 
 def setUpModule():
     if API_LEVEL is None:
@@ -51,17 +50,17 @@ def setUpModule():
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
-        self.check_module("markupsafe", REQS_PATH + "/markupsafe/__init__.py",
-                          package_path=[REQS_PATH],
+        self.check_module("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
+                          package_path=[asset_path(REQS_COMMON_ZIP), asset_path(REQS_ABI_ZIP)],
                           source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
 
     def test_py(self):
         # Despite its name, this is a pure Python module.
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
-        cache_filename = join(REQS_CACHE, filename + "c")
+        cache_filename = asset_cache(REQS_COMMON_ZIP, filename)
         mod = self.check_module(
-            mod_name, join(REQS_PATH, filename), cache_filename=cache_filename,
+            mod_name, REQS_COMMON_ZIP, filename,
             source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
 
         mod.foo = 1
@@ -104,10 +103,9 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_so(self):
         mod_name = "markupsafe._speedups"
-        filename = "markupsafe/_speedups.{}.so".format(importer.abi)
-        cache_filename = join(REQS_CACHE, filename)
-        mod = self.check_module(mod_name, join(REQS_PATH, filename), cache_filename=cache_filename)
-
+        filename = "markupsafe/_speedups.so"
+        cache_filename = asset_cache(REQS_ABI_ZIP, filename)
+        mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
         with self.assertRaisesRegexp(ImportError,
                                      "'{}': cannot reload a native module".format(mod_name)):
             reload(mod)
@@ -140,12 +138,11 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNot(new_mod, mod)
         return new_mod
 
-    def check_module(self, mod_name, filename, cache_filename=None, package_path=None,
-                     source_head=None):
-        if cache_filename:
-            if exists(cache_filename):
-                os.remove(cache_filename)
-            sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
+    def check_module(self, mod_name, zip_name, filename, package_path=None, source_head=None):
+        cache_filename = asset_cache(zip_name, filename)
+        if exists(cache_filename):
+            os.remove(cache_filename)
+        sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
 
         mod = import_module(mod_name)
         if cache_filename:
@@ -153,7 +150,7 @@ class TestAndroidImport(unittest.TestCase):
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
-        self.assertEqual(filename, mod.__file__)
+        self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
         if package_path:
             self.assertEqual(package_path, mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
@@ -164,14 +161,15 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsInstance(loader, importer.AssetLoader)
 
         # Optional loader methods
-        data = loader.get_data(REQS_PATH + "/markupsafe/_constants.py")
-        self.assertTrue(data.startswith(
-            b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
+        if zip_name == REQS_COMMON_ZIP:
+            data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
+            self.assertTrue(data.startswith(
+                b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
         with self.assertRaisesRegexp(IOError, "loader for '{}' can't access '/invalid.py'"
-                                     .format(REQS_PATH)):
+                                     .format(asset_path(zip_name))):
             loader.get_data("/invalid.py")
         with self.assertRaisesRegexp(IOError, "There is no item named 'invalid.py' in the archive"):
-            loader.get_data(REQS_PATH + "/invalid.py")
+            loader.get_data(asset_path(zip_name, "invalid.py"))
 
         self.assertEqual(bool(package_path), loader.is_package(mod_name))
         self.assertIsNone(loader.get_code(mod_name))
@@ -180,7 +178,7 @@ class TestAndroidImport(unittest.TestCase):
             self.assertTrue(source.startswith(source_head), repr(source))
         else:
             self.assertIsNone(source)
-        self.assertEqual(filename, loader.get_filename(mod_name))
+        self.assertEqual(mod.__file__, loader.get_filename(mod_name))
 
         return mod
 
@@ -197,7 +195,7 @@ class TestAndroidImport(unittest.TestCase):
                 r'File "{}/package1/syntax_error.py", line 1\n'
                 r'    one two\n'
                 r'          \^\n'
-                r'SyntaxError: invalid syntax\n$'.format(APP_PATH))
+                r'SyntaxError: invalid syntax\n$'.format(asset_path(APP_ZIP)))
         else:
             self.fail()
 
@@ -210,7 +208,7 @@ class TestAndroidImport(unittest.TestCase):
                 s,
                 r'File "{}/package1/recursive_import_error.py", line 1, in <module>\n'
                 r'    from os import nonexistent\n'
-                r"ImportError: cannot import name '?nonexistent'?\n$".format(APP_PATH))
+                r"ImportError: cannot import name '?nonexistent'?\n$".format(asset_path(APP_ZIP)))
         else:
             self.fail()
 
@@ -224,9 +222,10 @@ class TestAndroidImport(unittest.TestCase):
             s = format_exc()
             self.assertRegexpMatches(
                 s,
-                r'File "{}/markupsafe/_native.py", line 21, in escape\n'
+                r'File "{}/markupsafe/_native.py", line 21, in escape\n'.format(
+                    asset_path(REQS_COMMON_ZIP)) +
                 r'    return s.__html__\(\)\n'
-                r"TypeError: 'NoneType' object is not callable\n$".format(REQS_PATH))
+                r"TypeError: 'NoneType' object is not callable\n$")
         else:
             self.fail()
 
@@ -234,8 +233,8 @@ class TestAndroidImport(unittest.TestCase):
         import certifi
         self.assertTrue(isfile(certifi.__file__))
         self.assertRegexpMatches(certifi.__file__, r"/certifi/__init__.py$")
-        self.assertEqual(1, len(certifi.__path__))
-        self.assertTrue(isdir(certifi.__path__[0]))
+        self.assertEqual([dirname(certifi.__file__), asset_path(REQS_ABI_ZIP)],
+                         certifi.__path__)
         self.assertRegexpMatches(certifi.core.__file__, r"^" + certifi.__path__[0])
 
         self.assertTrue(isfile(certifi.core.__file__))
@@ -247,6 +246,15 @@ class TestAndroidImport(unittest.TestCase):
                 self.assertFalse(hasattr(mod, "__loader__"))
             else:
                 self.assertIsInstance(mod.__loader__, importlib.machinery.SourceFileLoader)
+
+def asset_path(*paths):
+    return join("/android_asset/chaquopy", *paths)
+
+def asset_cache(*paths):
+    result = join(context.getCacheDir().toString(), "chaquopy/AssetFinder", *paths)
+    if result.endswith(".py"):
+        result += "c"
+    return result
 
 
 class TestAndroidStdlib(unittest.TestCase):
@@ -274,6 +282,8 @@ class TestAndroidStdlib(unittest.TestCase):
     def test_sys(self):
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
+        for p in sys.path:
+            self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):

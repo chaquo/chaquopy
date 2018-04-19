@@ -3,7 +3,7 @@ package com.chaquo.python.android;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
-import android.util.*;
+import android.text.*;
 import com.chaquo.python.*;
 import java.io.*;
 import java.util.*;
@@ -13,12 +13,33 @@ import org.json.*;
 /** Platform for Chaquopy on Android. */
 @SuppressWarnings("deprecation")
 public class AndroidPlatform extends Python.Platform {
-    
+
+    public static String ABI;  // Can't be final because it's assigned in a loop.
+    static {
+        String[] SUPPORTED_ABIS;
+        if (Build.VERSION.SDK_INT >= 21) {
+            SUPPORTED_ABIS = Build.SUPPORTED_ABIS;
+        } else {
+            SUPPORTED_ABIS = new String[] { Build.CPU_ABI, Build.CPU_ABI2 };
+        }
+        for (String abi : SUPPORTED_ABIS) {
+            if (Common.ABIS.contains(abi)) {
+                ABI = abi;
+                break;
+            }
+        }
+        if (ABI == null) {
+            throw new RuntimeException("Couldn't identify ABI from list [" +
+                                       TextUtils.join(", ", SUPPORTED_ABIS) + "]");
+        }
+    }
+
+    // These assets will be extracted to <data-dir>/files/chaquopy before starting Python.
     private static final List<String> BOOTSTRAP_PATH = new ArrayList<>();
     static {
         BOOTSTRAP_PATH.add(Common.ASSET_STDLIB);
         BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP);
-        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP_NATIVE + "/" + Build.CPU_ABI);
+        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP_NATIVE + "/" + ABI);
     }
 
     private static final List<String> EXTRACT_ASSETS = new ArrayList<>();
@@ -28,12 +49,14 @@ public class AndroidPlatform extends Python.Platform {
         EXTRACT_ASSETS.add(Common.ASSET_TICKET);
     }
 
-    // The final path will be APP_PATH then BOOTSTRAP_PATH, in that order.
+    // These assets will be extracted on demand using an /android_asset path.
+    // The final sys.path will be APP_PATH then BOOTSTRAP_PATH, in that order.
     private static final List<String> APP_PATH = new ArrayList<>();
     static {
         APP_PATH.add(Common.ASSET_APP);
-        APP_PATH.add(Common.ASSET_REQUIREMENTS);
-        APP_PATH.add(Common.ASSET_STDLIB_NATIVE + "/" + Build.CPU_ABI + ".zip");
+        APP_PATH.add(Common.ASSET_REQUIREMENTS(Common.ABI_COMMON));
+        APP_PATH.add(Common.ASSET_REQUIREMENTS(ABI));
+        APP_PATH.add(Common.ASSET_STDLIB_NATIVE + "/" + ABI + ".zip");
     }
 
     private static final String[] OBSOLETE_FILES = {
@@ -56,6 +79,10 @@ public class AndroidPlatform extends Python.Platform {
         // Renamed back to .zip in 1.1.0 (these are directories, not files)
         "AssetFinder/app.mp3",
         "AssetFinder/requirements.mp3",
+
+        // Split into requirements-common.zip and requirements-<abi>.zip in 2.1.0. This is a
+        // directory, not a file.
+        "AssetFinder/requirements.zip",
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
@@ -194,8 +221,7 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs(String pyVersionShort) {
-        // Libraries must be loaded in reverse dependency order before API level 18: see
-        // https://developer.android.com/ndk/guides/cpp-support.html
+        // Libraries must be loaded in dependency order before API level 18 (#5323).
         System.loadLibrary("crystax");
         System.loadLibrary("python" + Common.PYTHON_SUFFIXES.get(pyVersionShort));
         System.loadLibrary("chaquopy_java");

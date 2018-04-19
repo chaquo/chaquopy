@@ -34,6 +34,12 @@ def initialize_stdlib(context):
         traceback.print_exc()
         sys.executable = ""
 
+    # Remove default paths (#5410).
+    invalid_paths = [p for p in sys.path
+                     if not (exists(p) or p.startswith(importer.ASSET_PREFIX))]
+    for p in invalid_paths:
+        sys.path.remove(p)
+
     # tempfile
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
     if not exists(tmpdir):
