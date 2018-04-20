@@ -1,0 +1,6 @@
+package:
+  name: chaquopy-libzmq
+  version: 4.1.6  # See buildutils/bundle.py in pyzmq
+
+source:
+  url: https://github.com/zeromq/zeromq4-1/releases/download/v4.1.6/zeromq-4.1.6.tar.gz

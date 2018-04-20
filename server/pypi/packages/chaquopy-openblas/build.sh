@@ -2,7 +2,7 @@
 set -eu
 
 export CROSS="1"
-export CROSS_SUFFIX=$(echo $CC | sed 's/gcc.*//')  # Actually a prefix
+export CROSS_SUFFIX=$(echo $CC | sed 's/gcc$//')  # Actually a prefix
 export HOSTCC="gcc"
 
 # "If your application is already multi-threaded, it will conflict with OpenBLAS
@@ -71,7 +71,7 @@ esac
 
 make -j "$CPU_COUNT"
 
-make install
+make install  # The PREFIX environment variable will be respected.
 cd $PREFIX/lib
 rm *.a
 find -type l | xargs rm

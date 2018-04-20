@@ -1,0 +1,14 @@
+--- src-original/buildutils/detect.py	2018-04-20 19:16:15.953841396 +0000
++++ src/buildutils/detect.py	2018-04-20 19:14:14.301548643 +0000
+@@ -36,6 +36,11 @@
+     efile, ext = os.path.splitext(cfile)
+ 
+     cpreargs = lpreargs = []
++
++    # Chaquopy: without this, armeabi-v7a fails in detect_zmq below with the error:
++    # gcc-4.9/libgcc/unwind-arm-common.inc:855: error: undefined reference to '__cxa_call_unexpected'
++    lpreargs.append("-lcrystax")
++
+     if sys.platform == 'darwin':
+         # use appropriate arch for compiler
+         if platform.architecture()[0]=='32bit':

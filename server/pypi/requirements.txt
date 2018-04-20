@@ -4,6 +4,7 @@
 # The following requirements must all be present for build-wheel.py itself:
 attrs==17.2.0
 jsonschema==2.6.0
+pyelftools==0.24
 pyyaml==3.12
 
 # Additionally, the following requirements must be present in the host Python environment

@@ -42,6 +42,7 @@ import sysconfig
 import tempfile
 
 import attr
+from elftools.elf.elffile import ELFFile
 from wheel.archive import archive_wheelfile
 from wheel.bdist_wheel import bdist_wheel
 import yaml
@@ -52,6 +53,20 @@ PYPI_DIR = abspath(dirname(__file__))
 
 HOST_PLATFORM = "linux-x86_64"
 GCC_VERSION = "4.9"
+
+
+STANDARD_LIBS = {
+    # Android-provided libraries
+    "libc.so", "libdl.so", "libm.so", "libz.so",
+
+    # Chaquopy-provided libraries (libpythonX.Y.so is added below)
+    "libcrystax.so",
+}
+
+COMPILER_LIBS = {
+    "libgfortran.so.3": ("chaquopy-libgfortran", GCC_VERSION),
+    "libgnustl_shared.so": ("chaquopy-gnustl", GCC_VERSION),
+}
 
 
 @attr.s
@@ -152,6 +167,7 @@ class BuildWheel:
             for name in os.listdir(self.python_lib_dir):
                 match = re.match(r"libpython(.*).so", name)
                 if match:
+                    STANDARD_LIBS.add(name)
                     self.python_lib_version = match.group(1)
                     self.python_version = re.sub(r"[a-z]*$", "", self.python_lib_version)
 
@@ -160,7 +176,7 @@ class BuildWheel:
                     # distinguish between Python 2 and 3. To install multiple Python versions
                     # in one virtualenv, simply run mkvirtualenv again with a different -p
                     # argument.
-                    self.pip = "pip" + self.python_version
+                    self.pip = f"pip{self.python_version} --disable-pip-version-check"
                     break
             else:
                 raise CommandError(f"Can't find libpython*.so in {self.python_lib_dir}")
@@ -241,12 +257,13 @@ class BuildWheel:
             return self.build_with_pip()  # Assume it's a Python source tree.
 
     def extract_requirements(self):
+        self.reqs_dir = f"{self.build_dir}/requirements"
+        ensure_empty(self.reqs_dir)
+        ensure_empty(f"{self.reqs_dir}/chaquopy/lib")  # Used in check_requirements below.
         reqs = self.host_requirements()
         if not reqs:
             return
 
-        reqs_dir = f"{self.build_dir}/requirements"
-        ensure_empty(reqs_dir)
         for package, version in reqs:
             wheel_prefix = (f"{package_dir(package)}/dist/{normalize_name_wheel(package)}-"
                             f"{normalize_version(version)}-*")  # '*' matches the build tag.
@@ -262,7 +279,7 @@ class BuildWheel:
                                        f"the ones you don't want to use.")
             if not wheel_filename:
                 raise CommandError(f"Couldn't find requirement {package} {version}")
-            run(f"unzip -d {reqs_dir} -q {wheel_filename}")
+            run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -321,27 +338,29 @@ class BuildWheel:
             filename = f"{toolchain_dir}/bin/{abi.tool_prefix}-{suffix}"
             assert_exists(filename)
             env[var.upper()] = filename
-
-        env["CFLAGS"] = (  # Will be added to CC and LDSHARED commands.
-            f"-fPIC "  # See standalone toolchain docs, and note below about -pie
-            f"-Werror=implicit-function-declaration "  # Many libc symbols are missing on old API
-            f"{abi.cflags}")                           #   levels: using one should be an error.
         env["LDSHARED"] = f"{env['CC']} -shared"
 
+        # The following will be added to CC, CXX and LDSHARED commands.
+        env["CFLAGS"] = " ".join([
+            "-fPIC",  # See standalone toolchain docs, and note below about -pie
+            abi.cflags])
+
+        # The following will be added to LDSHARED commands.
         # Not including -pie despite recommendation in standalone toolchain docs, because it
         # causes the linker to forget it's supposed to be building a shared library
         # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
-        env["LDFLAGS"] = (  # Will be added to LDSHARED commands.
-            f"-lm "  # Many packages get away with omitting this on standard Linux.
-            f"-Wl,--no-undefined "  # Many libc symbols are missing on old API levels: using
-            f"{abi.ldflags}")       #   does a similar thing for the linker.
+        env["LDFLAGS"] = " ".join([
+            # Catch attempts to use missing libc symbols on old API levels. I tried catching
+            # this earlier by adding -Werror=implicit-function-declaration to CFLAGS, but that
+            # breaks too many things (e.g. `has_function` in distutils.ccompiler).
+            "-Wl,--no-undefined",
+            abi.ldflags])
 
         env["ARFLAGS"] = "rc"
 
         # Set all unused overridable variables to the empty string to prevent the host Python
         # values (if any) from taking effect.
         for var in ["CPPFLAGS", "CXXFLAGS"]:
-            assert var not in env, var
             env[var] = ""
 
         if self.needs_python:
@@ -411,6 +430,7 @@ class BuildWheel:
                                     "Tag": expand_compat_tag(self.compat_tag)})
         write_message(info_wheel, f"{info_dir}/WHEEL")
 
+        reqs = set()
         if not is_pure:
             log("Processing native libraries")
             host_soabi = sysconfig.get_config_var("SOABI")
@@ -421,13 +441,15 @@ class BuildWheel:
                     fixed_path = re.sub(fr"\.{host_soabi}\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
+                    if fixed_path.endswith(".so"):
+                        reqs.update(self.check_requirements(fixed_path))
 
                     # https://www.technovelty.org/linux/stripping-shared-libraries.html
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
-        reqs = self.host_requirements()
+        reqs.update(self.host_requirements())
         if reqs:
-            log("Adding extra requirements")
+            log(f"Adding extra requirements: {reqs}")
             info_metadata = read_message(f"{info_dir}/METADATA")
             update_message(info_metadata, {"Requires-Dist": [f"{package} (>={version})"
                                                              for package, version in reqs]},
@@ -454,6 +476,26 @@ class BuildWheel:
                 str(self.meta["build"]["number"]),
                 self.compat_tag]),
             in_dir)
+
+    def check_requirements(self, filename):
+        reqs = []
+        ef = ELFFile(open(filename, "rb"))
+        dynamic = ef.get_section_by_name(".dynamic")
+        if not dynamic:
+            return
+        available_libs = STANDARD_LIBS.union(
+            os.listdir(f"{self.reqs_dir}/chaquopy/lib"))
+        for tag in dynamic.iter_tags():
+            if tag.entry.d_tag == "DT_NEEDED":
+                req = COMPILER_LIBS.get(tag.needed)
+                if req:
+                    reqs.append(req)
+                elif tag.needed in available_libs:
+                    pass
+                else:
+                    raise CommandError(f"{filename} is linked against unknown library "
+                                       f"'{tag.needed}'.")
+        return reqs
 
     def host_requirements(self):
         reqs = []
