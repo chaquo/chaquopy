@@ -67,28 +67,26 @@ android {
 
 def PY_INPUT_DIR = "../../packages"
 def PY_OUTPUT_DIR = "src/main/python/chaquopy/test"
-def INCLUDE_PACKAGES = []
-def EXCLUDE_PACKAGES = []
+def packages = []
+if (packages.isEmpty()) {
+    packages.addAll(file(PY_INPUT_DIR).listFiles().findAll {
+        it.isDirectory() && (!EXCLUDE_PACKAGES.contains(it))
+    })
+}
 
 delete(PY_OUTPUT_DIR)
 String suiteSrc = ""
-for (def inDir : file(PY_INPUT_DIR).listFiles().findAll { it.isDirectory() }) {
-    def pkgName = inDir.name
-    if ((!INCLUDE_PACKAGES.isEmpty() && !INCLUDE_PACKAGES.contains(pkgName)) ||
-        EXCLUDE_PACKAGES.contains(pkgName)) {
-        continue
+for (def pkgName : packages) {
+    android.defaultConfig.python.pip { install pkgName }
+    def inFilename = "$PY_INPUT_DIR/$pkgName/test.py"
+    if (file(inFilename).exists()) {
+        copy {
+            from inFilename
+            into PY_OUTPUT_DIR
+            rename "test.py", "${pkgName}.py"
+        }
+        suiteSrc += "from .${pkgName} import *\n"
     }
-
-    def pkgVer = file("$inDir/version.txt").text.trim()
-    android.defaultConfig.python.pip { install "$pkgName==$pkgVer" }
-    def inFilename = "$inDir/test.py"
-    assert file(inFilename).exists()
-    copy {
-        from inFilename
-        into PY_OUTPUT_DIR
-        rename "test.py", "${pkgName}.py"
-    }
-    suiteSrc += "from .${pkgName} import *\n"
 }
 file("$PY_OUTPUT_DIR/__init__.py").text = suiteSrc
 
