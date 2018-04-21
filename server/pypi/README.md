@@ -1,17 +1,60 @@
+# GCC build
+
+If building OpenBLAS or SciPy, the Crystax GCC toolchain must be rebuilt to add support for
+Fortran.
+
+Clone the following Crystax repositories (those marked with * have Chaquopy-specific changes
+and *must* be cloned from chaquo.com):
+
+    * platform/development
+    * platform/ndk
+      toolchain/binutils
+    * toolchain/build
+      toolchain/cloog
+    * toolchain/gcc/gcc-4.9
+      toolchain/gdb/gdb-7.10
+      toolchain/gmp
+      toolchain/isl
+      toolchain/mpc
+      toolchain/mpfr
+      toolchain/ppl
+      toolchain/sed
+
+Check them all out on the branch crystax-r10.
+
+Install the following prerequisites on the build machine:
+
+    bison
+    flex
+    m4
+    texinfo
+
+Run the following commands:
+
+    cd platform/ndk
+    ./build/tools/build-host-prebuilts.sh --verbose --systems=linux-x86_64 --arch=arm,x86 ../../toolchain
+
+Rename the toolchains in your Crystax installation, and replace them with the toolchains just
+built in platform/ndk/toolchains.
+
+
 # Adding a new package
 
-Create a new subdirectory in packages/. Its capitalization must exactly match the package's
-canonical capitalization on PyPI.
+Create a new subdirectory in `packages`, containing the following:
 
-In the package subdirectory:
-
-* Create a test.py file to run on a target installation. This should contain a
-  unittest.TestCase subclass which imports the package and does some basic sanity checks.
-* If necessary, add a `patches` subdirectory containing patch files.
-* Create a version.txt file to specify which version number should be tested by the pkgtest app.
+* A `meta.yaml` file. This supports a subset of Conda syntax, defined in meta-schema.yaml.
+* A `test.py` file to run on a target installation. This should contain a unittest.TestCase
+  subclass which imports the package and does some basic sanity checks.
+* For non-Python packages, a `build.sh` script. See build-wheel.py for environment variables
+  which are available to it.
+* If necessary, a `patches` subdirectory containing patch files.
 
 Run build-wheel.py once for each desired combination of package version, Python version and ABI.
 
-Copy the resulting wheels from packages/*/dist to the package repository.
+Copy the resulting wheels from packages/*/dist to a private package repository.
 
 Test on all Python versions and ABIs using the pkgtest app.
+
+Once everything's working, move the wheels to the public package repository.
+
+Update GitHub if necessary, and email anyone who was interested in the package.

@@ -313,8 +313,9 @@ class BuildWheel:
 
     def build_with_pip(self):
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
-        # setuptools-aware setup.py files.
-        run(f"{self.pip} wheel{' -v' if self.verbose else ''} --no-deps "
+        # setuptools-aware setup.py files. We pass -v unconditionally, because we always want
+        # to see the build process output.
+        run(f"{self.pip} wheel -v --no-deps "
             f"--no-clean --build-option --keep-temp "  # Makes diagnosing problems easier
             f"--build-option --universal "
             f"-e .")
