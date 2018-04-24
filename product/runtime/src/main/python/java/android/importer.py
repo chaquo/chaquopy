@@ -52,13 +52,16 @@ class AssetFinder(object):
             self.extract_packages = extract_packages
 
             self.path = path
-            multi_path_abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
-            multi_path_match = re.search(r"^(.*)-({}|{})\.zip$".format(*multi_path_abis), path)
-            if multi_path_match:
-                self.package_path = ["{}-{}.zip".format(multi_path_match.group(1), abi)
-                                     for abi in multi_path_abis]
-            else:
-                self.package_path = [path]
+            self.package_path = [path]
+            self.other_zips = []
+            abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
+            abi_match = re.search(r"^(.*)-({})\.zip$".format("|".join(abis)), path)
+            if abi_match:
+                for abi in abis:
+                    abi_path = "{}-{}.zip".format(abi_match.group(1), abi)
+                    if abi_path != self.path:
+                        self.package_path.append(abi_path)
+                        self.other_zips.append(ZipFile(AssetFile(context.getAssets(), abi_path)))
 
             self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
@@ -72,7 +75,7 @@ class AssetFinder(object):
             self.lock = RLock()
 
         # If we raise ImportError, the finder is silently skipped. This is what we want only if
-        # the path entry isn't an asset path: all other errors should abort the import,
+        # the path entry isn't an /android_asset path: all other errors should abort the import,
         # including when the asset doesn't exist.
         except InvalidAssetPathError:
             raise ImportError(format_exc())
@@ -90,45 +93,31 @@ class AssetFinder(object):
                     continue
 
                 if infix == "/__init__" and mod_name in self.extract_packages:
-                    return ExtractLoader(self, mod_name, self.extract_package(prefix))
-                else:
-                    return loader(self, mod_name, zip_info)
+                    self.extract_package(prefix)
+                return loader(self, mod_name, zip_info)
 
-    def extract_package(self, package_subdir):
-        package_dir = join(self.extract_root, package_subdir)
+    def extract_package(self, package_rel_dir):
+        package_dir = join(self.extract_root, package_rel_dir)
         if exists(package_dir):
             shutil.rmtree(package_dir)  # Just do it the easy way for now.
-        for info in self.zip_file.infolist():
-            if info.filename.startswith(package_subdir):
-                self.extract(info)
-        return package_dir
-
-    def extract(self, name_or_info):
         with self.lock:
-            return self.zip_file.extract(name_or_info, self.extract_root)
+            for zf in [self.zip_file] + self.other_zips:
+                for info in zf.infolist():
+                    if info.filename.startswith(package_rel_dir):
+                        self.extract(info, zf)
+
+    def extract(self, zip_info, zip_file=None):
+        if zip_file is None:
+            zip_file = self.zip_file
+        with self.lock:
+            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170).
+            out_filename = zip_file.extract(zip_info, self.extract_root)
+            os.utime(out_filename, (time.time(), timegm(zip_info.date_time)))
+        return out_filename
 
     def read(self, name_or_info):
         with self.lock:
             return self.zip_file.read(name_or_info)
-
-
-# This is used to load packages listed in extractPackages. It causes the package and everything
-# in it to be loaded using the default filesystem mechanism and have __file__, __path__ and
-# __loader__ set accordingly. (In Python 3 we could have achieved this by deferring to the
-# default finder, but in Python 2 there is no such thing.)
-class ExtractLoader(object):
-    def __init__(self, finder, mod_name, package_dir):
-        self.finder = finder
-        self.mod_name = mod_name
-        self.package_dir = package_dir
-
-    def load_module(self, mod_name):
-        assert mod_name == self.mod_name
-        imp.load_module(mod_name, None, self.package_dir, ("", "", imp.PKG_DIRECTORY))
-        mod = sys.modules[mod_name]
-        if hasattr(mod, "__path__"):
-            mod.__path__ += [p for p in self.finder.package_path if p != self.finder.path]
-        return mod
 
 
 class AssetLoader(object):
@@ -184,7 +173,13 @@ class AssetLoader(object):
 
     def get_filename(self, mod_name):
         assert mod_name == self.mod_name
-        return join(self.finder.path, self.zip_info.filename)
+        for ep in self.finder.extract_packages:
+            if mod_name.startswith(ep):
+                root = self.finder.extract_root
+                break
+        else:
+            root = self.finder.path
+        return join(root, self.zip_info.filename)
 
 
 # Irrespective of the Python version, we use the Python 3.6 .pyc layout (with size field).
@@ -286,6 +281,8 @@ class ExtensionFileLoader(AssetLoader):
                     continue
 
                 try:
+                    # We don't need to worry about other_zips because all native modules and
+                    # libraries for a given ABI will always end up in the same ZIP.
                     zip_info = self.finder.zip_file.getinfo("chaquopy/lib/" + soname)
                 except KeyError:
                     # Maybe it's a system library, or one of the libraries loaded by
@@ -315,8 +312,6 @@ class ExtensionFileLoader(AssetLoader):
 
         if need_extract:
             self.finder.extract(zip_info)
-            os.utime(out_filename, (time.time(), timegm(zip_info.date_time)))
-
         return out_filename
 
 

@@ -1,5 +1,5 @@
-"""This file tests internal details of AndroidPlatform. These are not part of the public API
-and should not be accessed by user code.
+"""This file tests internal details of AndroidPlatform. These are not part of the public API,
+and should not be accessed or relied upon by user code.
 """
 
 from __future__ import absolute_import, division, print_function
@@ -22,7 +22,6 @@ if sys.version_info[0] < 3:
     from urllib2 import urlopen
     bytes = str
 else:
-    import importlib.machinery
     from importlib import reload
     from urllib.request import urlopen
     unicode = str
@@ -58,7 +57,7 @@ class TestAndroidImport(unittest.TestCase):
         # Despite its name, this is a pure Python module.
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
-        cache_filename = asset_cache(REQS_COMMON_ZIP, filename)
+        cache_filename = asset_cache(REQS_COMMON_ZIP, filename + "c")
         mod = self.check_module(
             mod_name, REQS_COMMON_ZIP, filename,
             source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
@@ -140,17 +139,18 @@ class TestAndroidImport(unittest.TestCase):
 
     def check_module(self, mod_name, zip_name, filename, package_path=None, source_head=None):
         cache_filename = asset_cache(zip_name, filename)
+        if cache_filename.endswith(".py"):
+            cache_filename += "c"
         if exists(cache_filename):
             os.remove(cache_filename)
         sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
-
         mod = import_module(mod_name)
-        if cache_filename:
-            self.assertTrue(exists(cache_filename))
+        self.assertTrue(exists(cache_filename))
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
+        self.assertFalse(isfile(mod.__file__))
         if package_path:
             self.assertEqual(package_path, mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
@@ -230,31 +230,33 @@ class TestAndroidImport(unittest.TestCase):
             self.fail()
 
     def test_extract_package(self):
+        self.check_extracted_module("certifi", REQS_COMMON_ZIP, "certifi/__init__.py",
+                                    package_path=[asset_path(REQS_COMMON_ZIP),
+                                                  asset_path(REQS_ABI_ZIP)])
+        self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
+
         import certifi
-        self.assertTrue(isfile(certifi.__file__))
-        self.assertRegexpMatches(certifi.__file__, r"/certifi/__init__.py$")
-        self.assertEqual([dirname(certifi.__file__), asset_path(REQS_ABI_ZIP)],
-                         certifi.__path__)
-        self.assertRegexpMatches(certifi.core.__file__, r"^" + certifi.__path__[0])
+        self.assertTrue(isfile(join(dirname(certifi.__file__), "cacert.pem")))
 
-        self.assertTrue(isfile(certifi.core.__file__))
-        self.assertRegexpMatches(certifi.core.__file__, r"/certifi/core.py$")
-        self.assertFalse(hasattr(certifi.core, "__path__"))
+    def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
+        mod = import_module(mod_name)
+        self.assertEqual(mod_name, mod.__name__)
+        self.assertEqual(asset_cache(zip_name, filename), mod.__file__)
+        self.assertTrue(isfile(mod.__file__))
+        if package_path:
+            self.assertEqual(package_path, mod.__path__)
+            self.assertEqual(mod_name, mod.__package__)
+        else:
+            self.assertFalse(hasattr(mod, "__path__"))
+            self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
+        self.assertIsInstance(mod.__loader__, importer.AssetLoader)
 
-        for mod in [certifi, certifi.core]:
-            if sys.version_info[0] < 3:
-                self.assertFalse(hasattr(mod, "__loader__"))
-            else:
-                self.assertIsInstance(mod.__loader__, importlib.machinery.SourceFileLoader)
 
 def asset_path(*paths):
     return join("/android_asset/chaquopy", *paths)
 
 def asset_cache(*paths):
-    result = join(context.getCacheDir().toString(), "chaquopy/AssetFinder", *paths)
-    if result.endswith(".py"):
-        result += "c"
-    return result
+    return join(context.getCacheDir().toString(), "chaquopy/AssetFinder", *paths)
 
 
 class TestAndroidStdlib(unittest.TestCase):

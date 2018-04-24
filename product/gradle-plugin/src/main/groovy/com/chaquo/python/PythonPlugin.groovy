@@ -601,6 +601,8 @@ class PythonPlugin implements Plugin<Project> {
 
 
 class PythonExtension extends BaseExtension {
+    static final def DEFAULT_EXTRACT_PACKAGES = ["certifi", "sklearn.datasets"]
+
     String version
     String buildPython
     Set<String> staticProxy = new TreeSet<>()
@@ -611,7 +613,7 @@ class PythonExtension extends BaseExtension {
     void setDefaults() {
         // There is no default version: the user must specify it.
         buildPython = "python"
-        extractPackages.addAll(["certifi"])
+        extractPackages.addAll(DEFAULT_EXTRACT_PACKAGES)
         pip.setDefaults()
         pyc.setDefaults()
     }
