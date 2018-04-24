@@ -581,9 +581,11 @@ class RunGradle(object):
     @kwonly_defaults
     def __init__(self, test, run=True, key=None, *layers, **kwargs):
         self.test = test
+        self.agp_version = os.environ["AGP_VERSION"]
 
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
-        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration", cls, func)
+        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
+                            self.agp_version, cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
 
@@ -599,7 +601,7 @@ class RunGradle(object):
             copy_tree(join(integration_dir, "data", layer), self.project_dir,
                       preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
             if layer == "base":
-                self.apply_layers("base-" + os.environ["AGP_VERSION"])
+                self.apply_layers("base-" + self.agp_version)
 
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
@@ -666,6 +668,7 @@ class RunGradle(object):
 
     def run_gradle(self, variants):
         os.chdir(self.project_dir)
+        os.environ["integration_dir"] = integration_dir
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1"
         #   error on Windows.
@@ -690,8 +693,9 @@ class RunGradle(object):
 
         asset_dir = join(apk_dir, "assets/chaquopy")
         self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",
-                               "cacert.pem", "requirements.zip", "stdlib-native", "stdlib.zip",
-                               "ticket.txt"],
+                               "cacert.pem"] +
+                              ["requirements-{}.zip".format(abi) for abi in ["common"] + abis] +
+                              ["stdlib-native", "stdlib.zip", "ticket.txt"],
                               sorted(os.listdir(asset_dir)))
 
         # Python source
@@ -702,7 +706,9 @@ class RunGradle(object):
                 self.test.assertEqual(text, app_zip.read(name).decode().strip())
 
         # Python requirements
-        reqs_zip = ZipFile(join(asset_dir, "requirements.zip"))
+        # TODO: should put each file in the correct ZIP, irrespective of whether different ABIs
+        # contain different or the same filenames.
+        reqs_zip = ZipFile(join(asset_dir, "requirements-common.zip"))
         self.test.assertZipContents(reqs_zip, requirements)
 
         # Python bootstrap
@@ -743,7 +749,7 @@ class RunGradle(object):
                               sorted(c for c in actual_classes if c.startswith("chaquopy_test")))
 
         # build.json
-        DEFAULT_EXTRACT_PACKAGES = ["certifi"]
+        DEFAULT_EXTRACT_PACKAGES = ["certifi", "sklearn.datasets"]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
         self.test.assertEqual(["assets", "extractPackages", "version"], sorted(build_json))

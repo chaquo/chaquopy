@@ -285,13 +285,20 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                if (! reqsArgs.isEmpty()) {
+                def abis = getAbis(variant)
+                if (reqsArgs.isEmpty()) {
+                    // Subdirectories must exist, or their ZIPs won't be created.
+                    project.mkdir("$destinationDir/common")
+                    for (abi in abis) {
+                        project.mkdir("$destinationDir/$abi")
+                    }
+                } else {
                     def pythonAbi = Common.PYTHON_ABIS.get(python.versionShort)
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args "--android-abis"
-                        args getAbis(variant)
+                        args abis
                         args reqsArgs
                         args "--"
                         args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
@@ -374,7 +381,8 @@ class PythonPlugin implements Plugin<Project> {
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.static_proxy"
                         args "--path", (mergeSrcTask.destinationDir.toString() +
-                                        File.pathSeparator + reqsTask.destinationDir)
+                                        File.pathSeparator +
+                                        "$reqsTask.destinationDir/common")
                         args "--java", destinationDir
                         args python.staticProxy
                     }

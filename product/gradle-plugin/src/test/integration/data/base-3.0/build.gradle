@@ -1,5 +1,5 @@
 buildscript {
-    version = file("../../../../../../../../VERSION.txt").text.trim()
+    version = file("${System.getenv('integration_dir')}/../../../../../VERSION.txt").text.trim()
 
     repositories {
         google()
@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.0.1'
-        classpath files("../../../../../libs/gradle-${version}.jar")
+        classpath files("${System.getenv('integration_dir')}/../../../build/libs/gradle-${version}.jar")
         classpath "org.json:json:20160810"
     }
 }
