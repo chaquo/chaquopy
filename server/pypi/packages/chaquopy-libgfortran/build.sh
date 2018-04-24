@@ -1,10 +1,8 @@
 #!/bin/bash
-set -eu
+set -eux
 
 mkdir -p $PREFIX/lib
-TOOLCHAIN_LIB=$(dirname $CC)/../*/lib
-
-cp $TOOLCHAIN_LIB/libgfortran.so.3 $PREFIX/lib
+cp $(dirname $CC)/../*/lib/$CHAQUOPY_ABI_VARIANT/libgfortran.so.3 $PREFIX/lib
 
 # The most recently-released version of patchelf (0.9) rearranges the file in ways that break
 # some other tools, including strip (https://github.com/NixOS/patchelf/issues/10). Stripping

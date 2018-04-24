@@ -64,7 +64,7 @@ case $CHAQUOPY_ABI in
         ;;
 
     *)
-        echo "Unknown ABI '$ABI'"
+        echo "Unknown ABI '$CHAQUOPY_ABI'"
         exit 1
         ;;
 esac

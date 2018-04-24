@@ -4,3 +4,6 @@ package:
 
 source:
   url: https://github.com/zeromq/zeromq4-1/releases/download/v4.1.6/zeromq-4.1.6.tar.gz
+
+build:
+  number: 1

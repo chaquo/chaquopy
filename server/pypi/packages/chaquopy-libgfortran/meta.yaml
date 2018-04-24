@@ -3,6 +3,6 @@ package:
   version: 4.9.3  # gcc version number: see Crystax gcc repository log
 
 build:
-  number: 5
+  number: 6
 
 source: null

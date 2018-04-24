@@ -1,0 +1,76 @@
+--- requirements-original/scipy/__init__.py	2018-04-23 21:09:35.058314536 +0000
++++ requirements/scipy/__init__.py	2018-04-22 20:24:42.869152699 +0000
+@@ -58,32 +58,6 @@
+ 
+ __all__ = ['test']
+ 
+-from numpy import show_config as show_numpy_config
+-if show_numpy_config is None:
+-    raise ImportError(
+-        "Cannot import scipy when running from numpy source directory.")
+-from numpy import __version__ as __numpy_version__
+-
+-# Import numpy symbols to scipy name space
+-import numpy as _num
+-linalg = None
+-from numpy import *
+-from numpy.random import rand, randn
+-from numpy.fft import fft, ifft
+-from numpy.lib.scimath import *
+-
+-# Allow distributors to run custom init code
+-from . import _distributor_init
+-
+-__all__ += _num.__all__
+-__all__ += ['randn', 'rand', 'fft', 'ifft']
+-
+-del _num
+-# Remove the linalg imported from numpy so that the scipy.linalg package can be
+-# imported.
+-del linalg
+-__all__.remove('linalg')
+-
+ # We first need to detect if we're being called as part of the scipy
+ # setup procedure itself in a reliable manner.
+ try:
+@@ -96,7 +70,40 @@
+     import sys as _sys
+     _sys.stderr.write('Running from scipy source directory.\n')
+     del _sys
++
++    # Chaquopy: the module namespace was originally empty in this mode, but the following
++    # things are neded by the scikit-learn build.
++    from scipy.version import version as __version__
++
+ else:
++    # Chaquopy: BEGIN section moved from top level
++    from numpy import show_config as show_numpy_config
++    if show_numpy_config is None:
++        raise ImportError(
++            "Cannot import scipy when running from numpy source directory.")
++    from numpy import __version__ as __numpy_version__
++
++    # Import numpy symbols to scipy name space
++    import numpy as _num
++    linalg = None
++    from numpy import *
++    from numpy.random import rand, randn
++    from numpy.fft import fft, ifft
++    from numpy.lib.scimath import *
++
++    # Allow distributors to run custom init code
++    from . import _distributor_init
++
++    __all__ += _num.__all__
++    __all__ += ['randn', 'rand', 'fft', 'ifft']
++
++    del _num
++    # Remove the linalg imported from numpy so that the scipy.linalg package can be
++    # imported.
++    del linalg
++    __all__.remove('linalg')
++    # Chaquopy: END section moved from top level
++
+     try:
+         from scipy.__config__ import show as show_config
+     except ImportError:

@@ -1,28 +1,4 @@
 #!/usr/bin/env python3
-#
-# This script was based on the following:
-#   - Kivy's python-for-android, especially archs.py and recipe.py
-#   - https://developer.android.com/ndk/guides/standalone_toolchain.html
-
-# Always built as pure Python, but pure Python wheels aren't on PyPI:
-#     pycparser
-#
-# Optionally built as pure Python, but pure Python wheels aren't on PyPI:
-#     pyyaml (can use external library, and still reports itself as non-pure even when not using it)
-#     MarkupSafe (self-contained)
-#
-# Requires external library:
-#     libffi: cffi
-#     libzmq: pyzml
-#     openssl: cryptography, pycrypto, scrypt (OpenSSL is statically linked into the Python ssl
-#         module, so to support these packages, we simply need to distribute that as a shared
-#         library instead.
-#
-# Self-contained:
-#     numpy
-#     regex
-#     twisted
-#     ujson
 
 import argparse
 from copy import deepcopy
@@ -75,11 +51,13 @@ class Abi:
     default_api_level = attr.ib()
     toolchain = attr.ib()
     tool_prefix = attr.ib()
+    variant = attr.ib(default="")  # Toolchain lib subdirectory
     cflags = attr.ib(default="")
     ldflags = attr.ib(default="")
 
 ABIS = {abi.name: abi for abi in [
     Abi("armeabi-v7a", 15, "arm-linux-androideabi", "arm-linux-androideabi",
+        variant="armv7-a/thumb",
         cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
         ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
     Abi("x86", 15, "x86", "i686-linux-android"),
@@ -115,6 +93,11 @@ class BuildWheel:
             if self.no_build:
                 log("Skipping build due to --no-build")
             else:
+                self.reqs_dir = f"{self.build_dir}/requirements"  # Used in check_requirements.
+                if self.no_reqs:
+                    log("Skipping requirements extraction due to --no-reqs")
+                else:
+                    self.extract_requirements()
                 self.update_env()
                 cd(f"{self.build_dir}/src")
                 wheel_filename = self.build_wheel()
@@ -131,10 +114,12 @@ class BuildWheel:
 
         skip_group = ap.add_mutually_exclusive_group()
         skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                                "(requires source to already be unpacked in expected location)")
+                                "(any existing 'src' directory will be left alone)")
         skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
                                 "skip build")
 
+        ap.add_argument("--no-reqs", action="store_true", help="Do not extract requirements "
+                        "(any existing 'requirements' directory will be left alone)")
         ap.add_argument("--build-toolchain", metavar="DIR", help="Build standalone toolchain "
                         "from given NDK (optional if toolchain already exists)")
         ap.add_argument("--python", metavar="DIR", help="Path to target Python files. Required "
@@ -249,7 +234,6 @@ class BuildWheel:
                 run(f"patch -t -p1 -i {patches_dir}/{patch_filename}")
 
     def build_wheel(self):
-        self.extract_requirements()
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
@@ -257,28 +241,25 @@ class BuildWheel:
             return self.build_with_pip()  # Assume it's a Python source tree.
 
     def extract_requirements(self):
-        self.reqs_dir = f"{self.build_dir}/requirements"
         ensure_empty(self.reqs_dir)
-        ensure_empty(f"{self.reqs_dir}/chaquopy/lib")  # Used in check_requirements below.
         reqs = self.host_requirements()
         if not reqs:
             return
 
         for package, version in reqs:
-            wheel_prefix = (f"{package_dir(package)}/dist/{normalize_name_wheel(package)}-"
-                            f"{normalize_version(version)}-*")  # '*' matches the build tag.
-            wheel_filename = None
-            for compat_tag in [self.compat_tag, f"py2.py3-none-{self.platform_tag}"]:
-                pattern = f"{wheel_prefix}-{compat_tag}.whl"
-                wheels = glob(pattern)
-                if len(wheels) == 1:
-                    wheel_filename = wheels[0]
-                    break
-                elif len(wheels) > 1:
-                    raise CommandError(f"Found multiple wheels matching {pattern}: please remove "
-                                       f"the ones you don't want to use.")
-            if not wheel_filename:
+            dist_dir = f"{package_dir(package)}/dist"
+            matches = []
+            for filename in os.listdir(dist_dir):
+                match = re.search(fr"^{normalize_name_wheel(package)}-"
+                                  fr"{normalize_version(version)}-(?P<build_num>\d+)-"
+                                  fr"({self.compat_tag}|py2.py3-none-{self.platform_tag})"
+                                  fr"\.whl$", filename)
+                if match:
+                    matches.append(match)
+            if not matches:
                 raise CommandError(f"Couldn't find requirement {package} {version}")
+            matches.sort(key=lambda match: int(match.group("build_num")))
+            wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
     def build_with_script(self, build_script):
@@ -286,6 +267,7 @@ class BuildWheel:
         ensure_empty(f"{prefix_dir}/chaquopy")
         os.environ.update({  # Use CHAQUOPY prefix for variables not used by conda.
             "CHAQUOPY_ABI": self.abi,
+            "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
             "CPU_COUNT": str(multiprocessing.cpu_count()),
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": os.getcwd(),
@@ -333,7 +315,7 @@ class BuildWheel:
         toolchain_dir = self.get_toolchain(abi)
         for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"),
                      ("fc", "gfortran"),   # Used by openblas
-                     ("f90", "gfortran"),  # Used by numpy.distutils
+                     ("f77", "gfortran"), ("f90", "gfortran"),  # Used by numpy.distutils
                      "ld", "nm", "ranlib", "readelf", "strip"]:
             var, suffix = (tool, tool) if isinstance(tool, str) else tool
             filename = f"{toolchain_dir}/bin/{abi.tool_prefix}-{suffix}"
@@ -341,12 +323,12 @@ class BuildWheel:
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
-        # The following will be added to CC, CXX and LDSHARED commands.
-        env["CFLAGS"] = " ".join([
+        # Non-language-specific GCC flags.
+        gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
             abi.cflags])
+        env["CFLAGS"] = env["FARCH"] = gcc_flags  # FARCH is used by numpy.distutils.fcompiler.
 
-        # The following will be added to LDSHARED commands.
         # Not including -pie despite recommendation in standalone toolchain docs, because it
         # causes the linker to forget it's supposed to be building a shared library
         # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
@@ -399,8 +381,12 @@ class BuildWheel:
             # given at https://developer.android.com/ndk/guides/cpp-support.html. So we'll
             # rename the shared library as well. (Its SONAME is still libgnustl_shared.so, so
             # that's the filename expected at runtime.)
-            lib_dir = f"{toolchain_dir}/{abi.tool_prefix}/lib"
-            run(f"mv {lib_dir}/libgnustl_shared.so {lib_dir}/libstdc++.so")
+            #
+            # Some ABIs (e.g. armeabi-v7a) contain multiple sets of libraries in
+            # subdirectories: we want to process them all.
+            for lib_dir, _, _ in os.walk(f"{toolchain_dir}/{abi.tool_prefix}/lib"):
+                if not lib_dir.endswith("ldscripts"):
+                    run(f"mv {lib_dir}/libgnustl_shared.so {lib_dir}/libstdc++.so")
 
         else:
             if exists(toolchain_dir):
@@ -457,7 +443,7 @@ class BuildWheel:
                            replace=False)
             write_message(info_metadata, f"{info_dir}/METADATA")
 
-            # Remove the JSON copy to save us from having to update it too.
+            # Remove the optional JSON copy to save us from having to update it too.
             info_metadata_json = f"{info_dir}/metadata.json"
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
@@ -483,9 +469,13 @@ class BuildWheel:
         ef = ELFFile(open(filename, "rb"))
         dynamic = ef.get_section_by_name(".dynamic")
         if not dynamic:
-            return
-        available_libs = STANDARD_LIBS.union(
-            os.listdir(f"{self.reqs_dir}/chaquopy/lib"))
+            raise CommandError(f"{filename} has no .dynamic section")
+
+        available_libs = set(STANDARD_LIBS)
+        reqs_libs_dir = f"{self.reqs_dir}/chaquopy/lib"
+        if exists(reqs_libs_dir):
+            available_libs.update(os.listdir(reqs_libs_dir))
+
         for tag in dynamic.iter_tags():
             if tag.entry.d_tag == "DT_NEEDED":
                 req = COMPILER_LIBS.get(tag.needed)

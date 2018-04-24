@@ -1,6 +1,6 @@
 package:
-  name: numpy
-  version: 1.14.2
+  name: scipy
+  version: 1.0.1
 
 build:
   number: 1
@@ -8,3 +8,4 @@ build:
 requirements:
   host:
     - chaquopy-openblas 0.2.20
+    - numpy 1.14.2
