@@ -571,14 +571,15 @@ class License(GradleTestCase):
         run.rerun(licensed_id=None)
 
     def test_stolen_ticket(self):
-        with self.assertRaisesRegexp(ValueError, "License is for 'com.chaquo.python.demo', "
+        with self.assertRaisesRegexp(AssertionError,
+                                     "ValueError: License is for 'com.chaquo.python.demo', "
                                      "but this app is 'com.chaquo.python.test'"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
                            ticket_filename=join(integration_dir,
                                                 "data/License/tickets/demo.txt"))
 
     def test_invalid_ticket(self):
-        with self.assertRaisesRegexp(rsa.VerificationError, "Verification failed"):
+        with self.assertRaisesRegexp(AssertionError, "VerificationError: Verification failed"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
                            ticket_filename=join(integration_dir,
                                                 "data/License/tickets/invalid.txt"))
