@@ -22,8 +22,7 @@ class PipInstall(object):
 
     def main(self):
         self.parse_args()
-        os.chdir(self.target)
-        os.mkdir("common")
+        os.mkdir(join(self.target, "common"))
         self.installed_files = {}
         try:
             native_reqs = self.pip_install(self.android_abis[0], self.reqs)
@@ -37,7 +36,8 @@ class PipInstall(object):
 
     def pip_install(self, abi, reqs):
         log("Installing for", abi)
-        os.mkdir(abi)
+        abi_dir = join(self.target, abi)
+        os.mkdir(abi_dir)
         if not reqs:
             return
 
@@ -47,7 +47,7 @@ class PipInstall(object):
             # altered its behaviour (in pip/commands/install.py) so it now just merges any
             # existing directories, and silently overwrites any existing files.
             subprocess.check_call([sys.executable, "-m", "pip", "install",
-                                   "--target", abi,
+                                   "--target", abi_dir,
                                    "--platform", self.platform_tag(abi)] +
                                   self.pip_options + reqs)
         except subprocess.CalledProcessError as e:
@@ -55,8 +55,7 @@ class PipInstall(object):
 
         native_reqs = []
         self.installed_files[abi] = {}
-        abi_abs = abspath(abi)
-        for dist_info_dir in glob(join(abspath(abi), "*.dist-info")):
+        for dist_info_dir in glob(join(abi_dir, "*.dist-info")):
             dist = InstalledDistribution(dist_info_dir)
             wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
             is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
@@ -64,8 +63,8 @@ class PipInstall(object):
                 native_reqs.append("{}=={}".format(dist.name, dist.version))
 
             for path, hash_str, size in dist.list_installed_files():
-                path_abs = abspath(join(abi, path))
-                if not path_abs.startswith(abi_abs):
+                path_abs = abspath(join(abi_dir, path))
+                if not path_abs.startswith(abi_dir):
                     # pip's gone and installed something outside of the target directory.
                     raise CommandError("{}-{}: invalid path in RECORD: '{}'"
                                        .format(dist.name, dist.version, path))
@@ -82,11 +81,11 @@ class PipInstall(object):
 
     def merge_common(self):
         for filename, info in six.iteritems(self.installed_files[self.android_abis[0]]):
-            if all(self.installed_files[abi][filename] == info
+            if all(self.installed_files[abi].get(filename) == info
                    for abi in self.android_abis[1:]):
                 self.move_to_common(self.android_abis[0], filename)
                 for abi in self.android_abis[1:]:
-                    abi_filename = join(abi, filename)
+                    abi_filename = join(self.target, abi, filename)
                     os.remove(abi_filename)
                     try:
                         os.removedirs(dirname(abi_filename))
@@ -95,11 +94,12 @@ class PipInstall(object):
 
         # If an ABI directory ended up empty, removedirs will have deleted it.
         for abi in self.android_abis:
-            if not exists(abi):
-                os.mkdir(abi)
+            abi_dir = join(self.target, abi)
+            if not exists(abi_dir):
+                os.mkdir(abi_dir)
 
     def move_to_common(self, abi, filename):
-        os.renames(join(abi, filename), join("common", filename))
+        os.renames(join(self.target, abi, filename), join(self.target, "common", filename))
 
     def platform_tag(self, abi):
         return "android_15_" + re.sub(r"[-.]", "_", abi)

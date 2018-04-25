@@ -47,9 +47,16 @@ class GradleTestCase(TestCase):
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg)
 
+    # Each element of `files` must be either a filename, or a (filename, contents) tuple. ZIP
+    # file entries representing directories are ignored, and must not be included in `files`.
     def assertZipContents(self, zip_file, files):
-        self.assertEqual(sorted(files), sorted(name for name in zip_file.namelist()
-                                               if not name.endswith("/")))
+        self.assertEqual(sorted([f[0] if isinstance(f, tuple) else f
+                                 for f in files]),
+                         sorted(name for name in zip_file.namelist()
+                                if not name.endswith("/")))
+        for f in files:
+            if isinstance(f, tuple):
+                self.assertEqual(f[1], zip_file.read(f[0]).decode("UTF-8").strip())
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -203,22 +210,20 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/empty")
 
         run.apply_layers("PythonSrc/1")                                 # Add
-        run.rerun(app={"one.py": "one", "package/submodule.py": "submodule"})
+        run.rerun(app=[("one.py", "one"), "package/submodule.py"])
         run.apply_layers("PythonSrc/2")                                 # Modify
-        run.rerun(app={"one.py": "one modified", "package/submodule.py": "submodule"})
+        run.rerun(app=[("one.py", "one modified"), "package/submodule.py"])
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
-        run.rerun(app={"package/submodule.py": "submodule"})
+        run.rerun(app=["package/submodule.py"])
 
     def test_variant(self):
         self.RunGradle("base", "PythonSrc/variant",
-                       variants={"red-debug": dict(app={"common.py": "common",
-                                                        "color.py": "red"}),
-                                 "blue-debug": dict(app={"common.py": "common",
-                                                         "color.py": "blue"})})
+                       variants={"red-debug": dict(app=["common.py", ("color.py", "red")]),
+                                 "blue-debug": dict(app=["common.py", ("color.py", "blue")])})
 
     def test_conflict(self):
-        variants = {"red-debug": dict(app={"common.py": "common main", "color.py": "red"}),
-                    "blue-debug": dict(app={"common.py": "common main", "color.py": "blue"})}
+        variants = {"red-debug": dict(app=["common.py", ("color.py", "red")]),
+                    "blue-debug": dict(app=["common.py", ("color.py", "blue")])}
         run = self.RunGradle("base", "PythonSrc/conflict", variants=variants, succeed=False)
         self.assertInLong('(?s)mergeBlueDebugPythonSources.*Encountered duplicate path "common.py"',
                           run.stderr, re=True)
@@ -252,7 +257,7 @@ class PythonSrc(GradleTestCase):
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
-        self.RunGradle("base", "PythonSrc/set_root", app={"one.py": "one main2"},
+        self.RunGradle("base", "PythonSrc/set_root", app=[("one.py", "one main2")],
                        classes=["One", "One$Main2"])
 
 
@@ -428,15 +433,22 @@ class PythonReqs(GradleTestCase):
 
     def test_multi_abi(self):
         # This is not the same as the filename pattern used in our real wheels, but the point
-        # is to test that the multi-ABI merging works correctly.
-        self.RunGradle("base", "PythonReqs/multi_abi_1", abis=["armeabi-v7a", "x86"],
-                       requirements=["apple/__init__.py",              # Pure Python requirement.
-                                     "common/__init__.py",             # Identical in both ABIs.
-                                     "module_armeabi_v7a.pyd",         # Different filenames in
-                                     "module_x86.pyd",                 #   each ABI.
-                                     "pkg/__init__.py",                # Different filenames
-                                     "pkg/submodule_armeabi_v7a.pyd",  #   in each ABI, within
-                                     "pkg/submodule_x86.pyd"])         #   a package.
+        # is to test that the multi-ABI packaging works correctly.
+        self.RunGradle(
+            "base", "PythonReqs/multi_abi_1", abis=["armeabi-v7a", "x86"],
+            requirements={"common": ["apple/__init__.py",  # Pure Python requirement.
+
+                                     # Same filenames, same content in both ABIs. (Same
+                                     # filenames with different content is covered by
+                                     # test_multi_abi_clash below.)
+                                     "common/__init__.py",
+                                     "pkg/__init__.py"],
+
+                          # Different filenames in both ABIs.
+                          "armeabi-v7a": ["module_armeabi_v7a.pyd",
+                                          "pkg/submodule_armeabi_v7a.pyd"],
+                          "x86": ["module_x86.pyd",
+                                  "pkg/submodule_x86.pyd"]})
 
     def test_multi_abi_variant(self):
         variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
@@ -454,13 +466,15 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
     def test_multi_abi_clash(self):
-        run = self.RunGradle("base", "PythonReqs/multi_abi_clash", succeed=False)
-        self.assertInLong("multi-abi-clash-0.1: "
-                          "file 'multi_abi_1_pure/__init__.py' from ABIs ['armeabi-v7a'] "
-                          "(sha256=zBFelO98Zy0piQtegLvt9BJGvmKWuNLlHpNCl8hX-s4, 38) "
-                          "does not match copy from ABI 'x86' "
-                          "(sha256=-mO-W79egZomqhoJtk_dTJEDHHPrG1c2CQyavCZmfow, 30)",
-                          run.stderr)
+        self.RunGradle(
+            "base", "PythonReqs/multi_abi_clash", abis=["armeabi-v7a", "x86"],
+            requirements={"common": [],
+                          "armeabi-v7a": ["multi_abi_1_armeabi_v7a.pyd",
+                                          ("multi_abi_1_pure/__init__.py",
+                                           "# Clashing module (armeabi-v7a copy)")],
+                          "x86": ["multi_abi_1_x86.pyd",
+                                  ("multi_abi_1_pure/__init__.py",
+                                   "# Clashing module (x86 copy)")]})
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
@@ -692,24 +706,28 @@ class RunGradle(object):
                 self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
 
         asset_dir = join(apk_dir, "assets/chaquopy")
+        reqs_suffixes = sorted(["common"] + abis)
         self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",
                                "cacert.pem"] +
-                              ["requirements-{}.zip".format(abi) for abi in ["common"] + abis] +
+                              ["requirements-{}.zip".format(suffix) for suffix in reqs_suffixes] +
                               ["stdlib-native", "stdlib.zip", "ticket.txt"],
                               sorted(os.listdir(asset_dir)))
 
         # Python source
         app_zip = ZipFile(join(asset_dir, "app.zip"))
         self.test.assertZipContents(app_zip, app)
-        if isinstance(app, dict):
-            for name, text in app.items():
-                self.test.assertEqual(text, app_zip.read(name).decode().strip())
 
         # Python requirements
-        # TODO: should put each file in the correct ZIP, irrespective of whether different ABIs
-        # contain different or the same filenames.
-        reqs_zip = ZipFile(join(asset_dir, "requirements-common.zip"))
-        self.test.assertZipContents(reqs_zip, requirements)
+        for suffix in reqs_suffixes:
+            if isinstance(requirements, dict):
+                files = requirements[suffix]
+            else:
+                if suffix == "common":
+                    files = requirements
+                else:
+                    files = []
+        reqs_zip = ZipFile(join(asset_dir, "requirements-{}.zip".format(suffix)))
+        self.test.assertZipContents(reqs_zip, files)
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")

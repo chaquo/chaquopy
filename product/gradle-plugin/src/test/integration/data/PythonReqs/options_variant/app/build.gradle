@@ -28,7 +28,7 @@ android {
         red {
             dimension "color"
             python.pip {
-                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
             }
 
         }

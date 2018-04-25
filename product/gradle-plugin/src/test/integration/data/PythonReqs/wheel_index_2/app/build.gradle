@@ -15,7 +15,7 @@ android {
             version "2.7.14"
             pip {
                 options "--no-index"
-                options "--find-links", "../../../../../../../src/test/integration/packages/dist"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
                 install "native2"
             }
         }
