@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 2.1.0 (2018-04-26)
+
+* No changes except for the SDK update.
+
 ## 2.0.1 (2018-03-22)
 
 * No changes except for the SDK update.
