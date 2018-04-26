@@ -1,0 +1,10 @@
+package:
+  name: python_speech_features
+  version: 0.6
+
+build:
+  number: 1
+
+requirements:
+  host:
+    - scipy 1.0.1  # setup.py fails to include any install_requires line.
