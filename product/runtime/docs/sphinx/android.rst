@@ -92,8 +92,9 @@ During development you will probably want to enable them both::
 There's no need to actually install the Android native development kit (NDK), as Chaquopy will
 download pre-compiled CPython binaries for the selected ABIs.
 
-.. note:: Each ABI will add several MB to the size of the app. Because some of the native
-          components are stored as assets, the `split APK
+.. note:: Each ABI will add several MB to the size of the app, plus the size of any native
+          :ref:`requirements <android-requirements>`. It will also make the app take longer to
+          build. Because some of the native components are stored as assets, the `split APK
           <https://developer.android.com/studio/build/configure-apk-splits.html>`_ feature
           cannot be used to mitigate this. If you want to build separate APKs for each ABI,
           this can instead be done using a `product flavor dimension
@@ -102,7 +103,7 @@ download pre-compiled CPython binaries for the selected ABIs.
               android {
                   flavorDimensions "abi"
                   productFlavors {
-                      armeabi_v7a {
+                      arm {
                           dimension "abi"
                           ndk { abiFilters "armeabi-v7a" }
                       }
@@ -238,7 +239,7 @@ Examples::
           as pure-Python packages which aren't available from PyPI in wheel format.
 
           To see which packages and versions are currently available, you can `browse the
-          repository here <https://chaquo.com/pypi/>`_. To request a package to be added or
+          repository here <https://chaquo.com/pypi-2.1/>`_. To request a package to be added or
           updated, please visit our `issue tracker
           <https://github.com/chaquo/chaquopy/issues>`_.
 

@@ -26,11 +26,13 @@ Run `gradlew runtime:check`.
 
 ## Gradle plugin
 
-Run `gradlew -P cmakeBuildType=Release gradle-plugin:check`. While the tests are running, copy
-the generated .jar to other supported workstation OSs and do the same there.
+On each supported workstation OS, run the following tasks with `gradlew -P
+cmakeBuildType=Release`:
+* `gradle-plugin:testPython`
+* `gradle-plugin:testIntegration-X.Y` for each supported Android Studio version.
 
-Test pkgtest app for both Python 2 and 3 on:
-* minSdkVersion emulator
+Remove any license key from pkgtest app, then test it for both Python 2 and 3 on:
+* API 18 emulator (earlier versions give "too many libraries" error (#5316)).
 * targetSdkVersion emulator
 * Any ARM device
 
@@ -52,7 +54,6 @@ repository as necessary.
 Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
 "Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on:
-
 * minSdkVersion emulator
 * targetSdkVersion emulator
 * Any ARM device

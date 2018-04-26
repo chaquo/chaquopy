@@ -2,11 +2,15 @@
 
 Chaquopy contains parts of the following open-source software:
 
-PyJNIus (https://github.com/kivy/pyjnius/)
-Copyright (c) 2010-2017 Kivy Team and other contributors
-
 pip (https://github.com/pypa/pip/)
 Copyright (c) 2008-2016 The pip developers
+
+pyelftools (https://github.com/eliben/pyelftools)
+Public domain by Eli Bendersky
+Includes construct (Copyright (c) 2009 Tomer Filiba, 2010-2011 Corbin Simpson)
+
+PyJNIus (https://github.com/kivy/pyjnius/)
+Copyright (c) 2010-2017 Kivy Team and other contributors
 """
 
 from __future__ import absolute_import, division, print_function

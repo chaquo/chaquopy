@@ -53,7 +53,10 @@ Run build-wheel.py once for each desired combination of package version, Python 
 
 Copy the resulting wheels from packages/*/dist to a private package repository.
 
-Test on all Python versions and ABIs using the pkgtest app.
+Test with pkgtest app for both Python 2 and 3 on:
+* minSdkVersion emulator, or API 18 if "too many libraries" error occurs (#5316).
+* targetSdkVersion emulator
+* Any ARM device
 
 Once everything's working, move the wheels to the public package repository.
 

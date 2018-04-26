@@ -1,6 +1,13 @@
 Change log
 ##########
 
+2.1.0 (2018-04-26)
+==================
+
+* Add ability to load native library dependencies. This is required by the newly-added packages
+  for PyZMQ and SciPy.
+* Improve pip install performance.
+
 2.0.1 (2018-03-22)
 ==================
 
