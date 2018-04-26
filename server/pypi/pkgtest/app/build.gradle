@@ -21,7 +21,7 @@ android {
         }
     }
 
-    flavorDimensions "pyVersion"
+    flavorDimensions "pyVersion", "packages"
     productFlavors {
         // Allow temporary single-version testing just by editing Common.java.
         if (Common.PYTHON_VERSIONS.contains("2.7.14")) {
@@ -37,6 +37,11 @@ android {
                 applicationId "com.chaquo.python.pkgtest3"
                 python { version "3.6.3" }
             }
+        }
+
+        allPackages {  // Can't call a flavor "all" (https://stackoverflow.com/a/30236690).
+            dimension "packages"
+            addPackages(delegate)
         }
     }
 
@@ -59,36 +64,46 @@ android {
             python { srcDir "$demoSrc/main/python" }
             res { srcDirs = ["$demoSrc/main/res"] }
         }
-        py2.res { srcDir "$demoSrc/py2/res" }
-        py3.res { srcDir "$demoSrc/py3/res" }
     }
 }
 
 
-def PY_INPUT_DIR = "../../packages"
-def PY_OUTPUT_DIR = "src/main/python/chaquopy/test"
-def packages = []
-if (packages.isEmpty()) {
-    packages.addAll(file(PY_INPUT_DIR).listFiles().findAll {
-        it.isDirectory() && (!EXCLUDE_PACKAGES.contains(it))
-    })
+def addPackages(flavor) {
+    addPackages([:], flavor)
 }
 
-delete(PY_OUTPUT_DIR)
-String suiteSrc = ""
-for (def pkgName : packages) {
-    android.defaultConfig.python.pip { install pkgName }
-    def inFilename = "$PY_INPUT_DIR/$pkgName/test.py"
-    if (file(inFilename).exists()) {
-        copy {
-            from inFilename
-            into PY_OUTPUT_DIR
-            rename "test.py", "${pkgName}.py"
+def addPackages(Map kwargs, flavor) {
+    def inputDir = "../../packages"
+    List packages = kwargs.getOrDefault("include", [])
+    if (packages.isEmpty()) {
+        for (f in file(inputDir).listFiles()) {
+            if (f.isDirectory()) {
+                packages.add(f.name)
+            }
         }
-        suiteSrc += "from .${pkgName} import *\n"
     }
+    List exclude = kwargs.getOrDefault("exclude", [])
+    packages.removeIf({ exclude.contains(it) })
+
+    def outputDir = "src/$flavor.name/python/chaquopy/test"
+    delete(outputDir)
+    mkdir(outputDir)
+    String suiteSrc = ""
+    for (pkgName in packages) {
+        flavor.python.pip.install pkgName
+        def inFilename = "$inputDir/$pkgName/test.py"
+        if (file(inFilename).exists()) {
+            def pkgModule = pkgName.replace('-', '_')
+            copy {
+                from inFilename
+                into outputDir
+                rename "test.py", "${pkgModule}.py"
+            }
+            suiteSrc += "from .${pkgModule} import *\n"
+        }
+    }
+    file("$outputDir/__init__.py").text = suiteSrc
 }
-file("$PY_OUTPUT_DIR/__init__.py").text = suiteSrc
 
 
 dependencies {
