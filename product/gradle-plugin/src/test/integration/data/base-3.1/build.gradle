@@ -6,7 +6,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.2.0-alpha12'
+        classpath 'com.android.tools.build:gradle:3.1.2'
         classpath files("${System.getenv('integration_dir')}/../../../build/libs/gradle-${version}.jar")
         classpath "org.json:json:20160810"
     }

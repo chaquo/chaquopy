@@ -84,8 +84,8 @@ class AndroidPlugin(GradleTestCase):
 
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",
-                             succeed=None)  # 3.1.0-alpha01 fails on Linux, don't know why.
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.0.1",
+                             succeed=None)  # We don't care whether it succeeds.
+        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.1.2",
                           run.stdout)
 
     @skip("no incompatible new versions are currently known")
