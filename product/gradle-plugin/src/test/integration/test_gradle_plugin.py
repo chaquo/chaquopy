@@ -99,18 +99,18 @@ class AndroidPlugin(GradleTestCase):
 # We test both 1 and 2-argument calls because of the way the overloads are defined.
 class NoCompress(GradleTestCase):
     def test_1(self):
-        self.RunGradle("base", "Basic/nocompress_1",
+        self.RunGradle("base", "NoCompress/nocompress_1",
                        compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_DEFLATED,
                                           charlie=ZIP_DEFLATED))
 
     def test_2(self):
-        self.RunGradle("base", "Basic/nocompress_2",
+        self.RunGradle("base", "NoCompress/nocompress_2",
                        compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_STORED,
                                           charlie=ZIP_DEFLATED))
 
     def test_assign(self):
         with self.assertRaisesRegexp(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
-            run = self.RunGradle("base", "Basic/nocompress_assign", run=False)
+            run = self.RunGradle("base", "NoCompress/nocompress_assign", run=False)
             run.rerun()
         self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
 
