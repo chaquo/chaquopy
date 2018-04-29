@@ -53,7 +53,7 @@ class PythonPlugin implements Plugin<Project> {
                                               "$MIN_ANDROID_PLUGIN_VER or later (current version is " +
                                               "$depVer). Please edit the buildscript block.")
                 }
-                /* Not currently applicable: re-enable test "AndroidPlugin/old" if this changes.
+                /* Not currently applicable: re-enable AndroidPlugin.test_new if this changes.
                 if (depVer >= MAX_ANDROID_PLUGIN_VER) {
                     throw new GradleException("Chaquopy does not work with Android Gradle plugin " +
                                     "version $MAX_ANDROID_PLUGIN_VER or later (current version is " +

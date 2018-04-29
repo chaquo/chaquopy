@@ -93,3 +93,5 @@ Increment python/VERSION.txt for next version number.
 Post blog entry to website and Facebook.
 
 Update GitHub issues if necessary.
+
+Email users if necessary.
