@@ -22,11 +22,6 @@ afterEvaluate {
 android {
     compileSdkVersion 26
 
-    // Android Gradle plugin version 3.0 no longer requires this directive, but if it is
-    // specified then it will be ignored unless it's this version or higher. Older versions of
-    // the plugin do require this directive, and seem to work fine with this version.
-    buildToolsVersion '26.0.2'
-
     defaultConfig {
         minSdkVersion 15
         targetSdkVersion 26

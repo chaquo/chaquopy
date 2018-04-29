@@ -16,6 +16,10 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
+        // Enable this for testing, but don't commit it.
+        // Once a package is ready to be released, remember to move it to the public repository!
+        // python.pip.options "--extra-index-url", "https://chaquo.com/pypi-test/"
+
         ndk {
             abiFilters Common.ABIS.toArray()
         }
@@ -41,7 +45,7 @@ android {
 
         allPackages {  // Can't call a flavor "all" (https://stackoverflow.com/a/30236690).
             dimension "packages"
-            addPackages(delegate)
+            addPackages(delegate, include: [])
         }
     }
 

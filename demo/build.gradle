@@ -9,7 +9,7 @@ buildscript {
         maven { url "https://chaquo.com/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.1.2'
 
         // *** Replace in public repository ***********************************
         classpath files("../product/gradle-plugin/build/libs/gradle-${version}.jar")
