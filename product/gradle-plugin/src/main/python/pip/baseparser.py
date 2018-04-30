@@ -157,11 +157,13 @@ class ConfigOptionParser(CustomOptionParser):
         if config_file == os.devnull:
             return []
 
-        # at the base we have any site-wide configuration
-        files = list(site_config_files)
-
-        # per-user configuration next
+        # Chaquopy: made --isolated apply to ALL configuration files.
+        files = []
         if not self.isolated:
+            # at the base we have any site-wide configuration
+            files += list(site_config_files)
+
+            # per-user configuration next
             if config_file and os.path.exists(config_file):
                 files.append(config_file)
             else:
@@ -178,14 +180,14 @@ class ConfigOptionParser(CustomOptionParser):
                     )
                 )
 
-        # finally virtualenv configuration first trumping others
-        if running_under_virtualenv():
-            venv_config_file = os.path.join(
-                sys.prefix,
-                config_basename,
-            )
-            if os.path.exists(venv_config_file):
-                files.append(venv_config_file)
+            # finally virtualenv configuration first trumping others
+            if running_under_virtualenv():
+                venv_config_file = os.path.join(
+                    sys.prefix,
+                    config_basename,
+                )
+                if os.path.exists(venv_config_file):
+                    files.append(venv_config_file)
 
         return files
 
