@@ -29,7 +29,7 @@ PYPI_DIR = abspath(dirname(__file__))
 
 HOST_PLATFORM = "linux-x86_64"
 GCC_VERSION = "4.9"
-
+PYTHON_VERSIONS = ["2.7", "3.6"]
 
 STANDARD_LIBS = {
     # Android-provided libraries
@@ -75,37 +75,63 @@ class BuildWheel:
             self.meta = load_meta(self.package_dir)
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
-            self.find_python()
 
-            version_dir = f"{self.package_dir}/build/{self.version}"
-            ensure_dir(version_dir)
-            cd(version_dir)
-            self.build_dir = f"{version_dir}/{self.compat_tag}"
+            # For now we're assuming that non-PyPI packages don't require Python. If this ever
+            # changes, we can indicate it by adding "python" as a host requirement and changing
+            # build-wheel to handle that.
+            self.needs_python = (self.meta["source"] == "pypi")
+            if not self.needs_python:
+                self.compat_tag = f"py2.py3-none-{self.platform_tag}"
 
-            if self.no_unpack:
-                log("Skipping download and unpack due to --no-unpack")
-                assert_isdir(self.build_dir)
+            if self.needs_python and (self.python == "all"):
+                wheels = []
+                for ver in PYTHON_VERSIONS:
+                    log(f"Building for Python {ver}")
+                    self.python = ver
+                    wheel = self.unpack_and_build()
+                    if wheel:
+                        if "py2.py3-none-any" in wheel:
+                            log("Universal wheel produced: no need to build other versions")
+                            break
+                        wheels.append(wheel)
+                if wheels:
+                    self.compare_wheels(wheels)
             else:
-                ensure_empty(self.build_dir)
-                self.unpack_source()
-                self.apply_patches()
-
-            if self.no_build:
-                log("Skipping build due to --no-build")
-            else:
-                self.reqs_dir = f"{self.build_dir}/requirements"  # Used in check_requirements.
-                if self.no_reqs:
-                    log("Skipping requirements extraction due to --no-reqs")
-                else:
-                    self.extract_requirements()
-                self.update_env()
-                cd(f"{self.build_dir}/src")
-                wheel_filename = self.build_wheel()
-                self.fix_wheel(wheel_filename)
+                self.unpack_and_build()
 
         except CommandError as e:
             log(str(e))
             sys.exit(1)
+
+    def unpack_and_build(self):
+        if self.needs_python:
+            self.find_python()  # Sets self.compat_tag.
+
+        self.version_dir = f"{self.package_dir}/build/{self.version}"
+        ensure_dir(self.version_dir)
+        cd(self.version_dir)
+        self.build_dir = f"{self.version_dir}/{self.compat_tag}"
+
+        if self.no_unpack:
+            log("Skipping download and unpack due to --no-unpack")
+            assert_isdir(self.build_dir)
+        else:
+            ensure_empty(self.build_dir)
+            self.unpack_source()
+            self.apply_patches()
+
+        if self.no_build:
+            log("Skipping build due to --no-build")
+        else:
+            self.reqs_dir = f"{self.build_dir}/requirements"  # Used in check_requirements.
+            if self.no_reqs:
+                log("Skipping requirements extraction due to --no-reqs")
+            else:
+                self.extract_requirements()
+            self.update_env()
+            cd(f"{self.build_dir}/src")
+            wheel_filename = self.build_wheel()
+            return self.fix_wheel(wheel_filename)
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -114,17 +140,17 @@ class BuildWheel:
 
         skip_group = ap.add_mutually_exclusive_group()
         skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                                "(any existing 'src' directory will be left alone)")
+                                "(any existing 'src' directory will be reused)")
         skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
                                 "skip build")
 
-        ap.add_argument("--no-reqs", action="store_true", help="Do not extract requirements "
-                        "(any existing 'requirements' directory will be left alone)")
-        ap.add_argument("--build-toolchain", metavar="DIR", help="Build standalone toolchain "
-                        "from given NDK (optional if toolchain already exists)")
-        ap.add_argument("--python", metavar="DIR", help="Path to target Python files. Required "
-                        "if package contains Python code. Must follow Crystax sources/python/X.Y "
-                        "layout, containing include and libs subdirectories.")
+        ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
+                        "(any existing 'requirements' directory will be reused)")
+        ap.add_argument("--ndk", metavar="DIR", required=True, help="Path to Crystax NDK")
+        ap.add_argument("--build-toolchain", action="store_true", help="Build standalone "
+                        "toolchain. Required if toolchain doesn't already exist,")
+        ap.add_argument("--python", metavar="VERSION", choices=(PYTHON_VERSIONS + ["all"]),
+                        default="all", help="Choices: %(choices)s. Default: %(default)s.")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                         help="Choices: %(choices)s")
         ap.add_argument("--api-level", metavar="N", type=int,
@@ -139,38 +165,31 @@ class BuildWheel:
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
 
     def find_python(self):
-        # For now we're assuming that non-PyPI packages don't require Python. If this ever
-        # changes, we can indicate it by adding "python" as a host requirement and changing
-        # build-wheel to handle that.
-        self.needs_python = (self.meta["source"] == "pypi")
-        if self.needs_python:
-            if not self.python:
-                raise CommandError("This package contains Python code: the --python option is "
-                                   "required.")
-            self.python_lib_dir = f"{self.python}/libs/{self.abi}"
-            assert_isdir(self.python_lib_dir)
-            for name in os.listdir(self.python_lib_dir):
-                match = re.match(r"libpython(.*).so", name)
-                if match:
-                    STANDARD_LIBS.add(name)
-                    self.python_lib_version = match.group(1)
-                    self.python_version = re.sub(r"[a-z]*$", "", self.python_lib_version)
+        python_dir = f"{self.ndk}/sources/python/{self.python}"
+        self.python_include_dir = f"{python_dir}/include/python"
+        assert_isdir(self.python_include_dir)
 
-                    # We require the build and target Python versions to be the same, because
-                    # many native build scripts are affected by sys.version, especially to
-                    # distinguish between Python 2 and 3. To install multiple Python versions
-                    # in one virtualenv, simply run mkvirtualenv again with a different -p
-                    # argument.
-                    self.pip = f"pip{self.python_version} --disable-pip-version-check"
-                    break
-            else:
-                raise CommandError(f"Can't find libpython*.so in {self.python_lib_dir}")
+        self.python_lib_dir = f"{python_dir}/libs/{self.abi}"
+        assert_isdir(self.python_lib_dir)
+        for name in os.listdir(self.python_lib_dir):
+            match = re.match(r"libpython(.*)\.so", name)
+            if match:
+                STANDARD_LIBS.add(name)
+                self.python_lib_version = match.group(1)
 
-            self.compat_tag = (f"cp{self.python_version.replace('.', '')}-"
-                               f"cp{self.python_lib_version.replace('.', '')}-"
-                               f"{self.platform_tag}")
+                # We require the build and target Python versions to be the same, because
+                # many native build scripts are affected by sys.version, especially to
+                # distinguish between Python 2 and 3. To install multiple Python versions
+                # in one virtualenv, simply run mkvirtualenv again with a different -p
+                # argument.
+                self.pip = f"pip{self.python} --disable-pip-version-check"
+                break
         else:
-            self.compat_tag = f"py2.py3-none-{self.platform_tag}"
+            raise CommandError(f"Can't find libpython*.so in {self.python_lib_dir}")
+
+        self.compat_tag = (f"cp{self.python.replace('.', '')}-"
+                           f"cp{self.python_lib_version.replace('.', '')}-"
+                           f"{self.platform_tag}")
 
     def unpack_source(self):
         src_dir = f"{self.build_dir}/src"
@@ -275,7 +294,7 @@ class BuildWheel:
         })
         run(build_script)
 
-        info_dir = f"{prefix_dir}/{self.package}-{self.version}.dist-info"
+        info_dir = f"{prefix_dir}/{self.dist_info()}"
         ensure_dir(info_dir)
 
         info_wheel = message.Message()
@@ -299,7 +318,6 @@ class BuildWheel:
         # to see the build process output.
         run(f"{self.pip} wheel -v --no-deps "
             f"--no-clean --build-option --keep-temp "  # Makes diagnosing problems easier
-            f"--build-option --universal "
             f"-e .")
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)
@@ -352,9 +370,7 @@ class BuildWheel:
             # line so they should be overridden, but may still cause problems if they happen to
             # have a header which isn't present in the target Python include directory. The
             # only way I can see to avoid this is to set CC to a wrapper script.
-            ipython = f"{self.python}/include/python"
-            assert_isdir(ipython)
-            env["CFLAGS"] += f" -I{ipython}"
+            env["CFLAGS"] += f" -I{self.python_include_dir}"
             env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{self.python_lib_version}"
 
         if self.verbose:
@@ -370,7 +386,7 @@ class BuildWheel:
                 run(f"rm -rf {toolchain_dir}")
             else:
                 log(f"Building new toolchain {self.platform_tag}")
-            run(f"{self.build_toolchain}/build/tools/make-standalone-toolchain.sh "
+            run(f"{self.ndk}/build/tools/make-standalone-toolchain.sh "
                 f"--toolchain={abi.toolchain}-{GCC_VERSION} "
                 f"--platform=android-{self.api_level} "
                 f"--install-dir={toolchain_dir}")
@@ -398,17 +414,17 @@ class BuildWheel:
         return toolchain_dir
 
     def fix_wheel(self, in_filename):
-        if "py2.py3-none-any" in in_filename:
+        pure_match = re.search(r"^(.+?)-(.+?)-(.+-none-any)\.whl$", basename(in_filename))
+        if pure_match:
             is_pure = True
-            self.compat_tag = "py2.py3-none-any"
+            self.compat_tag = pure_match.group(3)
         else:
             is_pure = False
 
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
-        cd(tmp_dir)
-        run(f"unzip -q {in_filename}")
-        info_dir, = glob("*.dist-info")  # Note comma
+        run(f"unzip -d {tmp_dir} -q {in_filename}")
+        info_dir = f"{tmp_dir}/{self.dist_info()}"
 
         log("Updating WHEEL file")
         info_wheel = read_message(f"{info_dir}/WHEEL")
@@ -425,6 +441,7 @@ class BuildWheel:
                 if re.search(r"\.(so(\..*)?|a)$", original_path):
                     # On Python 3, native modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
+                    original_path = join(tmp_dir, original_path)
                     fixed_path = re.sub(fr"\.{host_soabi}\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
@@ -452,6 +469,37 @@ class BuildWheel:
         ensure_dir(out_dir)
         out_filename = self.package_wheel(tmp_dir, out_dir)
         log(f"Wrote {out_filename}")
+        return out_filename
+
+    # Compares Python 2 and Python 3 wheels, and merges them into a py2.py3 wheel if they have
+    # identical content.
+    def compare_wheels(self, wheels):
+        log("Comparing wheels")
+        tmp_dir = ensure_empty(f"{self.version_dir}/compare_wheels")
+        record_filename = f"{self.dist_info()}/RECORD"
+        wheel_data = []
+        for wheel in wheels:
+            run(f"unzip -d {tmp_dir} -q {wheel} {record_filename}")
+            wheel_data.append({
+                path: data
+                for path, *data in csv.reader(open(f"{tmp_dir}/{record_filename}"))
+                if path != f"{self.dist_info()}/WHEEL"})
+            run(f"mv {tmp_dir}/{record_filename} "  # For manual diffing.
+                f"{tmp_dir}/{basename(wheel).replace('.whl', '.record')}")
+
+        if all(wd == wheel_data[0] for wd in wheel_data[1:]):
+            log("Wheel content is identical: producing a universal wheel")
+            new_filename = join(dirname(wheels[0]),
+                                re.sub(r"^(.+?)-(.+?)-(.+)\.whl$",
+                                       r"\1-\2-py2.py3-none-any.whl",
+                                       basename(wheels[0])))
+            run(f"mv {wheels[0]} {new_filename}")
+            for wheel in wheels[1:]:
+                run(f"rm {wheel}")
+            self.fix_wheel(new_filename)
+        else:
+            log("Wheel content differs: not producing a universal wheel")
+            log(f"To see differences, run `diff -u {tmp_dir}/*record`")
 
     def package_wheel(self, in_dir, out_dir):
         info_dir, = glob(f"{in_dir}/*.dist-info")  # Note comma
@@ -495,6 +543,9 @@ class BuildWheel:
             package = load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
+
+    def dist_info(self):
+        return f"{self.package}-{normalize_version(self.version)}.dist-info"
 
 
 def read_message(filename):
@@ -575,16 +626,18 @@ def run(command):
 def ensure_empty(dir_name):
     if exists(dir_name):
         run(f"rm -rf {dir_name}")
-    ensure_dir(dir_name)
+    return ensure_dir(dir_name)
 
 def ensure_dir(dir_name):
     if not exists(dir_name):
         run(f"mkdir -p {dir_name}")
+    return dir_name
 
 def assert_isdir(filename):
     assert_exists(filename)
     if not isdir(filename):
         raise CommandError(f"{filename} is not a directory")
+    return filename
 
 def assert_exists(filename):
     if not exists(filename):
