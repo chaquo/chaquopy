@@ -413,14 +413,10 @@ class PythonPlugin implements Plugin<Project> {
         propsStream.close()  // Otherwise the Gradle daemon may keep the file in use indefinitely.
         def key = localProps.getProperty("chaquopy.license")
 
-        return project.task(taskName("generate", variant, "ticket")) {
-            ext.destinationDir = variantGenDir(variant, "license")
+        return assetTask(variant, "license") {
             inputs.property("app", variant.applicationId)
             inputs.property("key", key)
-            outputs.dir(destinationDir)
             doLast {
-                project.delete(destinationDir)
-                project.mkdir(destinationDir)
                 def ticket = "";
                 if (key != null) {
                     final def TIMEOUT = 10000
@@ -436,32 +432,35 @@ class PythonPlugin implements Plugin<Project> {
                         throw new GradleException(connection.getErrorStream().getText())
                     }
                 }
-                project.file("$destinationDir/$Common.ASSET_TICKET").write(ticket);
+                project.file("$assetDir/$Common.ASSET_TICKET").write(ticket);
             }
         }
     }
 
     void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask, Task ticketTask) {
-        def assetBaseDir = variantGenDir(variant, "assets")
-        def assetDir = new File(assetBaseDir, Common.ASSET_DIR)
-        def stdlibConfig = getConfig(variant, "targetStdlib")
-        def abiConfig = getConfig(variant, "targetAbis")
-        def genTask = project.task(taskName("generate", variant, "assets")) {
-            inputs.property("python", python.serialize())
-            inputs.files(reqsTask, mergeSrcTask, ticketTask)
-            inputs.files(stdlibConfig, abiConfig)
-            outputs.dir(assetBaseDir)
-            doLast {
-                project.delete(assetBaseDir)
-                project.mkdir(assetDir)
+        def excludes = "**/*.pyc **/*.pyo"
 
-                def excludes = "**/*.pyc **/*.pyo"
+        def appAssetsTask = assetTask(variant, "app") {
+            inputs.files(mergeSrcTask)
+            doLast {
                 project.ant.zip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
                                 destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
+            }
+        }
+        def reqsAssetsTask = assetTask(variant, "requirements") {
+            inputs.files(reqsTask)
+            doLast {
                 for (subdir in reqsTask.destinationDir.listFiles()) {
                     project.ant.zip(basedir: subdir, excludes: excludes, whenempty: "create",
                                     destfile: "$assetDir/${Common.ASSET_REQUIREMENTS(subdir.name)}")
                 }
+            }
+        }
+        def miscAssetsTask = assetTask(variant, "misc") {
+            def stdlibConfig = getConfig(variant, "targetStdlib")
+            def abiConfig = getConfig(variant, "targetAbis")
+            inputs.files(stdlibConfig, abiConfig)
+            doLast {
                 project.copy {
                     from stdlibConfig
                     into assetDir
@@ -482,7 +481,7 @@ class PythonPlugin implements Plugin<Project> {
                     project.ant.zip(basedir: "$assetDir/lib-dynload/$abi",
                                     destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
                                     excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "), whenempty: "fail")
-                    
+
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
                     extractResource("runtime/lib-dynload/$python.versionShort/$abi/java/chaquopy.so",
@@ -494,31 +493,48 @@ class PythonPlugin implements Plugin<Project> {
                         into bootstrapDir
                         include BOOTSTRAP_NATIVE_STDLIB
                     }
-
                     project.delete("$assetDir/lib-dynload")
                 }
-                
                 extractResource(Common.ASSET_CACERT, assetDir)
-
-                project.copy {
-                    from ticketTask.destinationDir
-                    into assetDir
-                }
-
+            }
+        }
+        assetTask(variant, "build") {
+            inputs.property("python", python.serialize())
+            inputs.files(ticketTask, appAssetsTask, reqsAssetsTask, miscAssetsTask)
+            doLast {
                 def buildJson = new JSONObject()
                 buildJson.put("version", python.version)
-                buildJson.put("assets", hashAssets(assetDir))
+                buildJson.put("assets", hashAssets(ticketTask, appAssetsTask, reqsAssetsTask,
+                                                   miscAssetsTask))
                 buildJson.put("extractPackages", new JSONArray(python.extractPackages))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
-        extendMergeTask(variant.getMergeAssets(), genTask)
     }
 
-    JSONObject hashAssets(File assetDir) {
+    Task assetTask(variant, String name, Closure closure) {
+        def assetBaseDir = variantGenDir(variant, "assets")
+        def t = project.task(taskName("generate", variant, "${name}Assets")) {
+            ext.destinationDir = "$assetBaseDir/$name"
+            ext.assetDir = "$destinationDir/$Common.ASSET_DIR"
+            outputs.dir(destinationDir)
+            doLast {
+                project.delete(destinationDir)
+                project.mkdir(assetDir)
+            }
+        }
+        closure.delegate = t
+        closure()
+        extendMergeTask(variant.getMergeAssets(), t)
+        return t
+    }
+
+    JSONObject hashAssets(Task... tasks) {
         def assetsJson = new JSONObject()
         def digest = MessageDigest.getInstance("SHA-1")
-        hashAssets(assetsJson, digest, assetDir, "")
+        for (t in tasks) {
+            hashAssets(assetsJson, digest, project.file(t.destinationDir), "")
+        }
         return assetsJson
     }
 

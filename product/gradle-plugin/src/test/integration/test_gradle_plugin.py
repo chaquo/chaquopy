@@ -671,9 +671,10 @@ class RunGradle(object):
             self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout,
                                    msg=first_msg)
             for variant in variants:
-                for verb, obj in [("generate", "Requirements"), ("merge", "Sources"),
-                                  ("generate", "Proxies"), ("generate", "Ticket"),
-                                  ("generate", "Assets"), ("generate", "JniLibs")]:
+                for verb, obj in [("generate", "AppAssets"), ("generate", "BuildAssets"),
+                                  ("generate", "JniLibs"),  ("generate", "LicenseAssets"),
+                                  ("generate", "MiscAssets"), ("generate", "Proxies"),
+                                  ("generate", "Requirements"), ("generate", "RequirementsAssets")]:
                     msg = task_name(verb, variant, "Python" + obj) + " UP-TO-DATE"
                     self.test.assertInLong(msg, self.stdout, msg=first_msg)
 
