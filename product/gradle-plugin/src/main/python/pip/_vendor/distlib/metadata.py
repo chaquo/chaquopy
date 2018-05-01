@@ -507,9 +507,10 @@ class LegacyMetadata(object):
             msg = 'missing required metadata: %s' % ', '.join(missing)
             raise MetadataMissingError(msg)
 
-        for attr in ('Home-page', 'Author'):
-            if attr not in self:
-                missing.append(attr)
+        # Chaquopy disabled: no point logging a warning for things which aren't required.
+        # for attr in ('Home-page', 'Author'):
+        #     if attr not in self:
+        #         missing.append(attr)
 
         # checking metadata 1.2 (XXX needs to check 1.1, 1.0)
         if self['Metadata-Version'] != '1.2':

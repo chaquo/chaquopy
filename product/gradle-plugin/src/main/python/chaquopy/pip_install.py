@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 import argparse
 import email.parser
 from glob import glob
+import logging
 import os
 from os.path import abspath, dirname, exists, join
 import re
@@ -18,10 +19,20 @@ from pip.utils import rmtree
 import six
 
 
+logger = logging.getLogger(__name__)
+
 class PipInstall(object):
 
     def main(self):
+        # This matches pip's own logging setup in pip/basecommand.py.
         self.parse_args()
+        verbose = ("-v" in self.pip_options) or ("--verbose" in self.pip_options)
+        logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO,
+                            stream=sys.stdout,
+                            format=("%(asctime)s Chaquopy: %(message)s" if verbose
+                                    else "Chaquopy: %(message)s"),
+                            datefmt="%H:%M:%S")
+
         os.mkdir(join(self.target, "common"))
         self.installed_files = {}
         try:
@@ -30,12 +41,13 @@ class PipInstall(object):
             for abi in self.android_abis[1:]:
                 self.pip_install(abi, native_reqs)
             self.merge_common()
+            logger.debug("Finished")
         except CommandError as e:
-            log(e, file=sys.stderr)
+            logger.error(str(e))
             sys.exit(1)
 
     def pip_install(self, abi, reqs):
-        log("Installing for", abi)
+        logger.info("Installing for " + abi)
         abi_dir = join(self.target, abi)
         os.mkdir(abi_dir)
         if not reqs:
@@ -53,6 +65,7 @@ class PipInstall(object):
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
+        logger.debug("Checking install")
         native_reqs = []
         self.installed_files[abi] = {}
         for dist_info_dir in glob(join(abi_dir, "*.dist-info")):
@@ -80,6 +93,7 @@ class PipInstall(object):
         return native_reqs
 
     def merge_common(self):
+        logger.debug("Merging ABIs")
         for filename, info in six.iteritems(self.installed_files[self.android_abis[0]]):
             if all(self.installed_files[abi].get(filename) == info
                    for abi in self.android_abis[1:]):
@@ -127,13 +141,6 @@ class ReqFileAppend(argparse.Action):
 
 class CommandError(Exception):
     pass
-
-
-def log(*args, **kwargs):
-    print(*args, **kwargs)
-    # Need to flush, otherwise output appears in the wrong order relative to pip output, when
-    # passing through MSYS2 Python -> Gradle -> Android Studio.
-    kwargs.get("file", sys.stdout).flush()
 
 
 if __name__ == "__main__":
