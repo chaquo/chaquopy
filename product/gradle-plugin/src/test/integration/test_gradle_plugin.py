@@ -17,6 +17,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 from jproperties import Properties
 from kwonly_args import kwonly_defaults
 import rsa
+import six
 
 
 integration_dir = abspath(dirname(__file__))
@@ -59,9 +60,15 @@ class GradleTestCase(TestCase):
                          msg=zip_file.filename)
         for f in files:
             if isinstance(f, tuple):
-                filename, content = f
-                self.assertEqual(content, zip_file.read(filename).decode("UTF-8").strip(),
-                                 msg="{}/{}".format(zip_file.filename, filename))
+                filename, attrs = f
+                msg = join(zip_file.filename, filename)
+                zip_info = zip_file.getinfo(filename)
+                content_expected = attrs.pop("content", None)
+                if content_expected is not None:
+                    content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
+                    self.assertEqual(content_expected, content_actual, msg)
+                for key, value in six.iteritems(attrs):
+                    self.assertEqual(value, getattr(zip_info, key), msg)
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -215,20 +222,21 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/empty")
 
         run.apply_layers("PythonSrc/1")                                 # Add
-        run.rerun(app=[("one.py", "one"), "package/submodule.py"])
+        run.rerun(app=[("one.py", {"content": "one"}), "package/submodule.py"])
         run.apply_layers("PythonSrc/2")                                 # Modify
-        run.rerun(app=[("one.py", "one modified"), "package/submodule.py"])
+        run.rerun(app=[("one.py", {"content": "one modified"}), "package/submodule.py"])
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun(app=["package/submodule.py"])
 
     def test_variant(self):
-        self.RunGradle("base", "PythonSrc/variant",
-                       variants={"red-debug": dict(app=["common.py", ("color.py", "red")]),
-                                 "blue-debug": dict(app=["common.py", ("color.py", "blue")])})
+        self.RunGradle(
+            "base", "PythonSrc/variant",
+            variants={"red-debug": dict(app=["common.py", ("color.py", {"content": "red"})]),
+                      "blue-debug": dict(app=["common.py", ("color.py", {"content": "blue"})])})
 
     def test_conflict(self):
-        variants = {"red-debug": dict(app=["common.py", ("color.py", "red")]),
-                    "blue-debug": dict(app=["common.py", ("color.py", "blue")])}
+        variants = {"red-debug": dict(app=["common.py", ("color.py", {"content": "red"})]),
+                    "blue-debug": dict(app=["common.py", ("color.py", {"content": "blue"})])}
         run = self.RunGradle("base", "PythonSrc/conflict", variants=variants, succeed=False)
         self.assertInLong('(?s)mergeBlueDebugPythonSources.*Encountered duplicate path "common.py"',
                           run.stderr, re=True)
@@ -262,7 +270,7 @@ class PythonSrc(GradleTestCase):
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
-        self.RunGradle("base", "PythonSrc/set_root", app=[("one.py", "one main2")],
+        self.RunGradle("base", "PythonSrc/set_root", app=[("one.py", {"content": "one main2"})],
                        classes=["One", "One$Main2"])
 
 
@@ -471,15 +479,23 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
     def test_multi_abi_clash(self):
+        # Timestamps matter because the runtime uses them to decide whether to re-extract
+        # things. The zipfile module returns the timestamps as given below, with no timezone
+        # adjustment, but Windows Explorer's ZIP viewer may adjust the displayed timestamp
+        # depending on the current timezone and DST.
         self.RunGradle(
             "base", "PythonReqs/multi_abi_clash", abis=["armeabi-v7a", "x86"],
             requirements={"common": [],
-                          "armeabi-v7a": ["multi_abi_1_armeabi_v7a.pyd",
+                          "armeabi-v7a": [("multi_abi_1_armeabi_v7a.pyd",
+                                           {"date_time": (2017, 12, 9, 14, 29, 30)}),
                                           ("multi_abi_1_pure/__init__.py",
-                                           "# Clashing module (armeabi-v7a copy)")],
-                          "x86": ["multi_abi_1_x86.pyd",
+                                           {"content": "# Clashing module (armeabi-v7a copy)",
+                                            "date_time": (2017, 12, 9, 14, 27, 48)})],
+                          "x86": [("multi_abi_1_x86.pyd",
+                                   {"date_time": (2017, 12, 9, 14, 29, 24)}),
                                   ("multi_abi_1_pure/__init__.py",
-                                   "# Clashing module (x86 copy)")]})
+                                   {"content": "# Clashing module (x86 copy)",
+                                    "date_time": (2017, 12, 9, 14, 28, 12)})]})
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
@@ -709,10 +725,12 @@ class RunGradle(object):
         kwargs_wrapped = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs_wrapped)
 
+        # All ZIP assets should be stored uncompressed, whether top-level or not.
         for info in apk_zip.infolist():
             if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
                 self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
 
+        # Top-level assets
         asset_dir = join(apk_dir, "assets/chaquopy")
         reqs_suffixes = sorted(["common"] + abis)
         self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",

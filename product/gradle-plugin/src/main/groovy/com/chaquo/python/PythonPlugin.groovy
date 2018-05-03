@@ -456,6 +456,7 @@ class PythonPlugin implements Plugin<Project> {
                 }
             }
         }
+        // TODO: Use same filename pattern for stdlib and bootstrap as we do for requirements.
         def miscAssetsTask = assetTask(variant, "misc") {
             def stdlibConfig = getConfig(variant, "targetStdlib")
             def abiConfig = getConfig(variant, "targetAbis")
