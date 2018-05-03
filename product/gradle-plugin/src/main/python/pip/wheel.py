@@ -317,27 +317,8 @@ def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None,
                 # uninstalled.
                 ensure_dir(destdir)
 
-                # We use copyfile (not move, copy, or copy2) to be extra sure
-                # that we are not moving directories over (copyfile fails for
-                # directories) as well as to ensure that we are not copying
-                # over any metadata because we want more control over what
-                # metadata we actually copy over.
-                shutil.copyfile(srcfile, destfile)
-
-                # Copy over the metadata for the file, currently this only
-                # includes the atime and mtime.
-                st = os.stat(srcfile)
-                if hasattr(os, "utime"):
-                    os.utime(destfile, (st.st_atime, st.st_mtime))
-
-                # If our file is executable, then make our destination file
-                # executable.
-                if os.access(srcfile, os.X_OK):
-                    st = os.stat(srcfile)
-                    permissions = (
-                        st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-                    )
-                    os.chmod(destfile, permissions)
+                # Chaquopy: for performance, move rather than copy.
+                shutil.move(srcfile, destfile)
 
                 changed = False
                 if fixer:

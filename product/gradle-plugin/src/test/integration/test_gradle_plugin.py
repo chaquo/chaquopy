@@ -53,10 +53,13 @@ class GradleTestCase(TestCase):
         self.assertEqual(sorted([f[0] if isinstance(f, tuple) else f
                                  for f in files]),
                          sorted(name for name in zip_file.namelist()
-                                if not name.endswith("/")))
+                                if not name.endswith("/")),
+                         msg=zip_file.filename)
         for f in files:
             if isinstance(f, tuple):
-                self.assertEqual(f[1], zip_file.read(f[0]).decode("UTF-8").strip())
+                filename, content = f
+                self.assertEqual(content, zip_file.read(filename).decode("UTF-8").strip(),
+                                 msg="{}/{}".format(zip_file.filename, filename))
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -488,8 +491,9 @@ class PythonReqs(GradleTestCase):
         # for x86, which will select the pure-Python wheel.
         run.apply_layers("PythonReqs/multi_abi_order_2")
         run.rerun(abis=["armeabi-v7a", "x86"],
-                  requirements=["multi_abi_order_armeabi_v7a.pyd",
-                                "multi_abi_order_pure/__init__.py"])
+                  requirements={"common": [],
+                                "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
+                                "x86": ["multi_abi_order_pure/__init__.py"]})
 
 class PythonReqs2(PythonReqs, BuildPython2):
     pass
@@ -728,8 +732,8 @@ class RunGradle(object):
                     files = requirements
                 else:
                     files = []
-        reqs_zip = ZipFile(join(asset_dir, "requirements-{}.zip".format(suffix)))
-        self.test.assertZipContents(reqs_zip, files)
+            reqs_zip = ZipFile(join(asset_dir, "requirements-{}.zip".format(suffix)))
+            self.test.assertZipContents(reqs_zip, files)
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")

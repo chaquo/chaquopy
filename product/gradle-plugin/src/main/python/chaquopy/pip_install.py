@@ -5,11 +5,12 @@
 from __future__ import absolute_import, division, print_function
 
 import argparse
+from copy import deepcopy
 import email.parser
 from glob import glob
 import logging
 import os
-from os.path import abspath, dirname, exists, join
+from os.path import abspath, dirname, exists, isdir, join
 import re
 import subprocess
 import sys
@@ -34,13 +35,15 @@ class PipInstall(object):
                             datefmt="%H:%M:%S")
 
         os.mkdir(join(self.target, "common"))
-        self.installed_files = {}
+        abi_trees = {}
         try:
-            native_reqs = self.pip_install(self.android_abis[0], self.reqs)
+            abi = self.android_abis[0]
+            pure_reqs, native_reqs, abi_trees[abi] = self.pip_install(abi, self.reqs)
+            self.move_pure(pure_reqs, abi, abi_trees[abi])
             self.pip_options.append("--no-deps")
             for abi in self.android_abis[1:]:
-                self.pip_install(abi, native_reqs)
-            self.merge_common()
+                _, _, abi_trees[abi] = self.pip_install(abi, list(native_reqs))
+            self.merge_common(abi_trees)
             logger.debug("Finished")
         except CommandError as e:
             logger.error(str(e))
@@ -51,7 +54,7 @@ class PipInstall(object):
         abi_dir = join(self.target, abi)
         os.mkdir(abi_dir)
         if not reqs:
-            return
+            return {}, {}, {}
 
         try:
             # Warning: `pip install --target` is very simple-minded: see
@@ -65,48 +68,55 @@ class PipInstall(object):
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
-        logger.debug("Checking install")
-        native_reqs = []
-        self.installed_files[abi] = {}
+        logger.debug("Reading dist-info")
+        pure_reqs = {}
+        native_reqs = {}
+        abi_tree = {}
         for dist_info_dir in glob(join(abi_dir, "*.dist-info")):
             dist = InstalledDistribution(dist_info_dir)
-            wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
-            is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
-            if not is_pure:
-                native_reqs.append("{}=={}".format(dist.name, dist.version))
-
+            req_tree = {}
             for path, hash_str, size in dist.list_installed_files():
                 path_abs = abspath(join(abi_dir, path))
                 if not path_abs.startswith(abi_dir):
                     # pip's gone and installed something outside of the target directory.
                     raise CommandError("{}-{}: invalid path in RECORD: '{}'"
                                        .format(dist.name, dist.version, path))
-                if path_abs.startswith(dist_info_dir):
-                    continue
-                if is_pure:
-                    self.move_to_common(abi, path)
-                else:
-                    self.installed_files[abi][path] = (hash_str, size)
+                if not path_abs.startswith(dist_info_dir):
+                    tree_add_path(req_tree, path, (hash_str, size))
+            tree_merge_from(abi_tree, req_tree)
 
-            rmtree(dist_info_dir)  # It may no longer reflect reality.
+            wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
+            is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
+            req_spec = "{}=={}".format(dist.name, dist.version)
+            (pure_reqs if is_pure else native_reqs)[req_spec] = req_tree
 
-        return native_reqs
+            rmtree(dist_info_dir)
 
-    def merge_common(self):
+        return pure_reqs, native_reqs, abi_tree
+
+    def move_pure(self, pure_reqs, abi, abi_tree):
+        logger.debug("Moving pure requirements")
+        for req_tree in six.itervalues(pure_reqs):
+            for path in common_paths(abi_tree, req_tree):
+                self.move_to_common(abi, path)
+                tree_remove_path(abi_tree, path)
+
+    def merge_common(self, abi_trees):
         logger.debug("Merging ABIs")
-        for filename, info in six.iteritems(self.installed_files[self.android_abis[0]]):
-            if all(self.installed_files[abi].get(filename) == info
-                   for abi in self.android_abis[1:]):
-                self.move_to_common(self.android_abis[0], filename)
-                for abi in self.android_abis[1:]:
-                    abi_filename = join(self.target, abi, filename)
-                    os.remove(abi_filename)
-                    try:
-                        os.removedirs(dirname(abi_filename))
-                    except OSError:
-                        pass  # Directory is not empty.
+        for path in common_paths(*abi_trees.values()):
+            self.move_to_common(self.android_abis[0], path)
+            for abi in self.android_abis[1:]:
+                abi_path = join(self.target, abi, path)
+                if isdir(abi_path):
+                    rmtree(abi_path)
+                else:
+                    os.remove(abi_path)
+                try:
+                    os.removedirs(dirname(abi_path))
+                except OSError:
+                    pass  # Directory is not empty.
 
-        # If an ABI directory ended up empty, removedirs will have deleted it.
+        # If an ABI directory ended up empty, os.removedirs or os.renames will have deleted it.
         for abi in self.android_abis:
             abi_dir = join(self.target, abi)
             if not exists(abi_dir):
@@ -132,6 +142,59 @@ class PipInstall(object):
 
         ap.add_argument("pip_options", nargs="*")
         ap.parse_args(namespace=self)
+
+
+def tree_add_path(tree, path, value):
+    dir_name, base_name = os.path.split(path)
+    subtree = tree
+    if dir_name:
+        for name in dir_name.split("/"):
+            subtree = subtree.setdefault(name, {})
+            assert isinstance(subtree, dict), path  # If `name` exists, it must be a directory.
+    set_value = subtree.setdefault(base_name, value)
+    assert (set_value is value), path  # `path` must not already exist.
+
+
+def tree_remove_path(tree, path):
+    dir_name, base_name = os.path.split(path)
+    subtree = tree
+    if dir_name:
+        for name in dir_name.split("/"):
+            try:
+                subtree = subtree[name]
+            except KeyError:
+                raise ValueError("Directory not found: '{}' in '{}'".format(name, path))
+    try:
+        del subtree[base_name]
+    except KeyError:
+        raise ValueError("Path not found: " + path)
+
+
+def tree_merge_from(dst_tree, src_tree):
+    assert isinstance(src_tree, dict), src_tree  # Prevent overwriting a file, or merging a
+    assert isinstance(dst_tree, dict), dst_tree  # file with a directory,
+    for name, src_value in six.iteritems(src_tree):
+        dst_value = dst_tree.get(name)
+        if dst_value is None:
+            # Need to copy, otherwise later changes to one tree would also affect the other.
+            dst_tree[name] = deepcopy(src_value)
+        else:
+            tree_merge_from(dst_value, src_value)
+
+
+# Returns a list of paths which are recursively identical in all trees.
+def common_paths(*trees):
+    def process_subtrees(subtrees, prefix):
+        for name in subtrees[0]:
+            values = [t.get(name) for t in subtrees]
+            if all(values[0] == v for v in values[1:]):
+                result.append(join(prefix, name))
+            elif all(isinstance(v, dict) for v in values):
+                process_subtrees(values, join(prefix, name))
+
+    result = []
+    process_subtrees(trees, "")
+    return result
 
 
 class ReqFileAppend(argparse.Action):
