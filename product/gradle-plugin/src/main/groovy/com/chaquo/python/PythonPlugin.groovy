@@ -533,7 +533,7 @@ class PythonPlugin implements Plugin<Project> {
         def assetsJson = new JSONObject()
         def digest = MessageDigest.getInstance("SHA-1")
         for (t in tasks) {
-            hashAssets(assetsJson, digest, project.file(t.destinationDir), "")
+            hashAssets(assetsJson, digest, project.file("$t.destinationDir/$Common.ASSET_DIR"), "")
         }
         return assetsJson
     }

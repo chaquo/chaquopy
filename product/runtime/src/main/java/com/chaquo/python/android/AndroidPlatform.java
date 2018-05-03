@@ -141,15 +141,20 @@ public class AndroidPlatform extends Python.Platform {
 
         // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so we'll
         // avoid using it.
+        Set<String> unextracted = new HashSet<>(EXTRACT_ASSETS);
         SharedPreferences.Editor spe = sp.edit();
         for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
             String path = (String) i.next();
             for (String ea : EXTRACT_ASSETS) {
                 if (path.equals(ea) || path.startsWith(ea + "/")) {
                     extractAsset(assets, assetsJson, spe, path);
+                    unextracted.remove(ea);
                     break;
                 }
             }
+        }
+        if (! unextracted.isEmpty()) {
+            throw new RuntimeException("Failed to extract assets: " + unextracted);
         }
         spe.apply();
     }

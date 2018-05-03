@@ -2,9 +2,10 @@ from __future__ import absolute_import, division, print_function
 
 from distutils.dir_util import copy_tree
 import distutils.util
+import hashlib
 import json
 import os
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname, join, relpath
 import re
 import shutil
 import subprocess
@@ -31,6 +32,7 @@ with open(join(repo_root, "server/license/public.pem")) as pub_key_file:
 
 class GradleTestCase(TestCase):
     longMessage = True
+    maxDiff = None
 
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
@@ -780,6 +782,14 @@ class RunGradle(object):
         self.test.assertEqual(version, build_json["version"])
         self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
                               sorted(build_json["extractPackages"]))
+        asset_list = []
+        for dirpath, dirnames, filenames in os.walk(asset_dir):
+            asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
+                           for f in filenames]
+        self.test.assertEqual(
+            {filename: hashlib.sha1(open(join(asset_dir, filename), "rb").read()).hexdigest()
+             for filename in asset_list if filename != "build.json"},
+            build_json["assets"])
 
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
