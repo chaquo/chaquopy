@@ -75,6 +75,8 @@ class BuildWheel:
             self.meta = load_meta(self.package_dir)
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
+            self.dist_info = (f"{normalize_name_wheel(self.package)}-"
+                              f"{normalize_version(self.version)}.dist-info")
 
             # For now we're assuming that non-PyPI packages don't require Python. If this ever
             # changes, we can indicate it by adding "python" as a host requirement and changing
@@ -294,7 +296,7 @@ class BuildWheel:
         })
         run(build_script)
 
-        info_dir = f"{prefix_dir}/{self.dist_info()}"
+        info_dir = f"{prefix_dir}/{self.dist_info}"
         ensure_dir(info_dir)
 
         info_wheel = message.Message()
@@ -424,7 +426,7 @@ class BuildWheel:
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
         run(f"unzip -d {tmp_dir} -q {in_filename}")
-        info_dir = f"{tmp_dir}/{self.dist_info()}"
+        info_dir = f"{tmp_dir}/{self.dist_info}"
 
         log("Updating WHEEL file")
         info_wheel = read_message(f"{info_dir}/WHEEL")
@@ -476,14 +478,14 @@ class BuildWheel:
     def compare_wheels(self, wheels):
         log("Comparing wheels")
         tmp_dir = ensure_empty(f"{self.version_dir}/compare_wheels")
-        record_filename = f"{self.dist_info()}/RECORD"
+        record_filename = f"{self.dist_info}/RECORD"
         wheel_data = []
         for wheel in wheels:
             run(f"unzip -d {tmp_dir} -q {wheel} {record_filename}")
             wheel_data.append({
                 path: data
                 for path, *data in csv.reader(open(f"{tmp_dir}/{record_filename}"))
-                if path != f"{self.dist_info()}/WHEEL"})
+                if path != f"{self.dist_info}/WHEEL"})
             run(f"mv {tmp_dir}/{record_filename} "  # For manual diffing.
                 f"{tmp_dir}/{basename(wheel).replace('.whl', '.record')}")
 
@@ -502,7 +504,7 @@ class BuildWheel:
             log(f"To see differences, run `diff -u {tmp_dir}/*record`")
 
     def package_wheel(self, in_dir, out_dir):
-        info_dir, = glob(f"{in_dir}/*.dist-info")  # Note comma
+        info_dir = f"{in_dir}/{self.dist_info}"
         bdist_wheel.write_record(None, in_dir, info_dir)
         return archive_wheelfile(
             "-".join([
@@ -543,9 +545,6 @@ class BuildWheel:
             package = load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
-
-    def dist_info(self):
-        return f"{self.package}-{normalize_version(self.version)}.dist-info"
 
 
 def read_message(filename):
@@ -596,9 +595,10 @@ def package_dir(package):
 def normalize_name_pypi(name):
     return re.sub(r"[-_.]+", "-", name).lower()
 
-# See PEP 427.
+# This is what bdist_wheel does both for wheel filenames and .dist-info directory names.
+# NOTE: this is not entirely equivalent to the specifications in PEP 427 and PEP 376.
 def normalize_name_wheel(name):
-    return re.sub(r"[-_.]+", "_", name)
+    return re.sub(r"[^A-Za-z0-9.]+", '_', name)
 
 #  e.g. "2017.01.02" -> "2017.1.2"
 def normalize_version(version):
