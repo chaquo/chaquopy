@@ -2,14 +2,13 @@ from __future__ import absolute_import
 
 import sys
 
-import pip
-from pip.compat import stdlib_pkgs
-from pip.basecommand import Command
-from pip.operations.freeze import freeze
-from pip.wheel import WheelCache
+from pip._internal import index
+from pip._internal.basecommand import Command
+from pip._internal.cache import WheelCache
+from pip._internal.compat import stdlib_pkgs
+from pip._internal.operations.freeze import freeze
 
-
-DEV_PKGS = ('pip', 'setuptools', 'distribute', 'wheel')
+DEV_PKGS = {'pip', 'setuptools', 'distribute', 'wheel'}
 
 
 class FreezeCommand(Command):
@@ -63,11 +62,16 @@ class FreezeCommand(Command):
             action='store_true',
             help='Do not skip these packages in the output:'
                  ' %s' % ', '.join(DEV_PKGS))
+        self.cmd_opts.add_option(
+            '--exclude-editable',
+            dest='exclude_editable',
+            action='store_true',
+            help='Exclude editable package from output.')
 
         self.parser.insert_option_group(0, self.cmd_opts)
 
     def run(self, options, args):
-        format_control = pip.index.FormatControl(set(), set())
+        format_control = index.FormatControl(set(), set())
         wheel_cache = WheelCache(options.cache_dir, format_control)
         skip = set(stdlib_pkgs)
         if not options.freeze_all:
@@ -81,7 +85,12 @@ class FreezeCommand(Command):
             skip_regex=options.skip_requirements_regex,
             isolated=options.isolated_mode,
             wheel_cache=wheel_cache,
-            skip=skip)
+            skip=skip,
+            exclude_editable=options.exclude_editable,
+        )
 
-        for line in freeze(**freeze_kwargs):
-            sys.stdout.write(line + '\n')
+        try:
+            for line in freeze(**freeze_kwargs):
+                sys.stdout.write(line + '\n')
+        finally:
+            wheel_cache.cleanup()

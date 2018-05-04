@@ -1,6 +1,7 @@
 """Handles all VCS (version control) support"""
 from __future__ import absolute_import
 
+import copy
 import errno
 import logging
 import os
@@ -9,10 +10,15 @@ import sys
 
 from pip._vendor.six.moves.urllib import parse as urllib_parse
 
-from pip.exceptions import BadCommand
-from pip.utils import (display_path, backup_dir, call_subprocess,
-                       rmtree, ask_path_exists)
+from pip._internal.exceptions import BadCommand
+from pip._internal.utils.misc import (
+    display_path, backup_dir, call_subprocess, rmtree, ask_path_exists,
+)
+from pip._internal.utils.typing import MYPY_CHECK_RUNNING
 
+if MYPY_CHECK_RUNNING:
+    from typing import Dict, Optional, Tuple
+    from pip._internal.basecommand import Command
 
 __all__ = ['vcs', 'get_src_requirement']
 
@@ -20,8 +26,69 @@ __all__ = ['vcs', 'get_src_requirement']
 logger = logging.getLogger(__name__)
 
 
+class RevOptions(object):
+
+    """
+    Encapsulates a VCS-specific revision to install, along with any VCS
+    install options.
+
+    Instances of this class should be treated as if immutable.
+    """
+
+    def __init__(self, vcs, rev=None, extra_args=None):
+        """
+        Args:
+          vcs: a VersionControl object.
+          rev: the name of the revision to install.
+          extra_args: a list of extra options.
+        """
+        if extra_args is None:
+            extra_args = []
+
+        self.extra_args = extra_args
+        self.rev = rev
+        self.vcs = vcs
+
+    def __repr__(self):
+        return '<RevOptions {}: rev={!r}>'.format(self.vcs.name, self.rev)
+
+    @property
+    def arg_rev(self):
+        if self.rev is None:
+            return self.vcs.default_arg_rev
+
+        return self.rev
+
+    def to_args(self):
+        """
+        Return the VCS-specific command arguments.
+        """
+        args = []
+        rev = self.arg_rev
+        if rev is not None:
+            args += self.vcs.get_base_rev_args(rev)
+        args += self.extra_args
+
+        return args
+
+    def to_display(self):
+        if not self.rev:
+            return ''
+
+        return ' (to revision {})'.format(self.rev)
+
+    def make_new(self, rev):
+        """
+        Make a copy of the current instance, but with a new rev.
+
+        Args:
+          rev: the name of the revision for the new object.
+        """
+        return self.vcs.make_rev_options(rev, extra_args=self.extra_args)
+
+
 class VcsSupport(object):
-    _registry = {}
+    _registry = {}  # type: Dict[str, Command]
     schemes = ['ssh', 'git', 'hg', 'bzr', 'sftp', 'svn']
 
     def __init__(self):
@@ -98,11 +165,33 @@ class VersionControl(object):
     name = ''
     dirname = ''
     # List of supported schemes for this Version Control
-    schemes = ()
+    schemes = ()  # type: Tuple[str, ...]
+    # Iterable of environment variable names to pass to call_subprocess().
+    unset_environ = ()  # type: Tuple[str, ...]
+    default_arg_rev = None  # type: Optional[str]
 
     def __init__(self, url=None, *args, **kwargs):
         self.url = url
         super(VersionControl, self).__init__(*args, **kwargs)
+
+    def get_base_rev_args(self, rev):
+        """
+        Return the base revision arguments for a vcs command.
+
+        Args:
+          rev: the name of a revision to install.  Cannot be None.
+        """
+        raise NotImplementedError
+
+    def make_rev_options(self, rev=None, extra_args=None):
+        """
+        Return a RevOptions object.
+
+        Args:
+          rev: the name of a revision to install.
+          extra_args: a list of extra options.
+        """
+        return RevOptions(self, rev, extra_args=extra_args)
 
     def _is_local_repository(self, repo):
         """
@@ -175,31 +264,44 @@ class VersionControl(object):
     def switch(self, dest, url, rev_options):
         """
         Switch the repo at ``dest`` to point to ``URL``.
+
+        Args:
+          rev_options: a RevOptions object.
         """
         raise NotImplementedError
 
     def update(self, dest, rev_options):
         """
         Update an already-existing repo to the given ``rev_options``.
+
+        Args:
+          rev_options: a RevOptions object.
         """
         raise NotImplementedError
 
-    def check_version(self, dest, rev_options):
+    def is_commit_id_equal(self, dest, name):
         """
-        Return True if the version is identical to what exists and
-        doesn't need to be updated.
+        Return whether the id of the current commit equals the given name.
+
+        Args:
+          dest: the repository directory.
+          name: a string name.
         """
         raise NotImplementedError
 
-    def check_destination(self, dest, url, rev_options, rev_display):
+    def check_destination(self, dest, url, rev_options):
         """
         Prepare a location to receive a checkout/clone.
 
         Return True if the location is ready for (and requires) a
         checkout/clone, False otherwise.
+
+        Args:
+          rev_options: a RevOptions object.
         """
         checkout = True
         prompt = False
+        rev_display = rev_options.to_display()
         if os.path.exists(dest):
             checkout = False
             if os.path.exists(os.path.join(dest, self.dirname)):
@@ -211,7 +313,7 @@ class VersionControl(object):
                         display_path(dest),
                         url,
                     )
-                    if not self.check_version(dest, rev_options):
+                    if not self.is_commit_id_equal(dest, rev_options.rev):
                         logger.info(
                             'Updating %s %s%s',
                             display_path(dest),
@@ -303,8 +405,7 @@ class VersionControl(object):
 
     def get_revision(self, location):
         """
-        Return the current revision of the files at location
-        Used in get_info
+        Return the current commit id of the files at the given location.
         """
         raise NotImplementedError
 
@@ -322,12 +423,16 @@ class VersionControl(object):
             return call_subprocess(cmd, show_stdout, cwd,
                                    on_returncode,
                                    command_desc, extra_environ,
-                                   spinner)
+                                   unset_environ=self.unset_environ,
+                                   spinner=spinner)
         except OSError as e:
             # errno.ENOENT = no such file or directory
             # In other words, the VCS executable isn't available
             if e.errno == errno.ENOENT:
-                raise BadCommand('Cannot find command %r' % self.name)
+                raise BadCommand(
+                    'Cannot find command %r - do you have '
+                    '%r installed and in your '
+                    'PATH?' % (self.name, self.name))
             else:
                 raise  # re-raise exception if a different error occurred
 

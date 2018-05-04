@@ -2,13 +2,13 @@ from __future__ import absolute_import
 
 import logging
 import os
-import tempfile
 
-from pip.utils import display_path, rmtree
-from pip.vcs import vcs, VersionControl
-from pip.download import path_to_url
 from pip._vendor.six.moves import configparser
 
+from pip._internal.download import path_to_url
+from pip._internal.utils.misc import display_path
+from pip._internal.utils.temp_dir import TempDirectory
+from pip._internal.vcs import VersionControl, vcs
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +19,17 @@ class Mercurial(VersionControl):
     repo_name = 'clone'
     schemes = ('hg', 'hg+http', 'hg+https', 'hg+ssh', 'hg+static-http')
 
+    def get_base_rev_args(self, rev):
+        return [rev]
+
     def export(self, location):
         """Export the Hg repository at the url to the destination location"""
-        temp_dir = tempfile.mkdtemp('-export', 'pip-')
-        self.unpack(temp_dir)
-        try:
+        with TempDirectory(kind="export") as temp_dir:
+            self.unpack(temp_dir.path)
+
             self.run_command(
-                ['archive', location], show_stdout=False, cwd=temp_dir)
-        finally:
-            rmtree(temp_dir)
+                ['archive', location], show_stdout=False, cwd=temp_dir.path
+            )
 
     def switch(self, dest, url, rev_options):
         repo_config = os.path.join(dest, self.dirname, 'hgrc')
@@ -42,21 +44,19 @@ class Mercurial(VersionControl):
                 'Could not switch Mercurial repository to %s: %s', url, exc,
             )
         else:
-            self.run_command(['update', '-q'] + rev_options, cwd=dest)
+            cmd_args = ['update', '-q'] + rev_options.to_args()
+            self.run_command(cmd_args, cwd=dest)
 
     def update(self, dest, rev_options):
         self.run_command(['pull', '-q'], cwd=dest)
-        self.run_command(['update', '-q'] + rev_options, cwd=dest)
+        cmd_args = ['update', '-q'] + rev_options.to_args()
+        self.run_command(cmd_args, cwd=dest)
 
     def obtain(self, dest):
         url, rev = self.get_url_rev()
-        if rev:
-            rev_options = [rev]
-            rev_display = ' (to revision %s)' % rev
-        else:
-            rev_options = []
-            rev_display = ''
-        if self.check_destination(dest, url, rev_options, rev_display):
+        rev_options = self.make_rev_options(rev)
+        if self.check_destination(dest, url, rev_options):
+            rev_display = rev_options.to_display()
             logger.info(
                 'Cloning hg %s%s to %s',
                 url,
@@ -64,7 +64,8 @@ class Mercurial(VersionControl):
                 display_path(dest),
             )
             self.run_command(['clone', '--noupdate', '-q', url, dest])
-            self.run_command(['update', '-q'] + rev_options, cwd=dest)
+            cmd_args = ['update', '-q'] + rev_options.to_args()
+            self.run_command(cmd_args, cwd=dest)
 
     def get_url(self, location):
         url = self.run_command(
@@ -96,8 +97,9 @@ class Mercurial(VersionControl):
         current_rev_hash = self.get_revision_hash(location)
         return '%s@%s#egg=%s' % (repo, current_rev_hash, egg_project_name)
 
-    def check_version(self, dest, rev_options):
+    def is_commit_id_equal(self, dest, name):
         """Always assume the versions don't match"""
         return False
+
 
 vcs.register(Mercurial)

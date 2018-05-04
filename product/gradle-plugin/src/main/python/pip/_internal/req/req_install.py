@@ -5,49 +5,46 @@ import os
 import re
 import shutil
 import sys
-import tempfile
+import sysconfig
 import traceback
 import warnings
 import zipfile
-
-from distutils import sysconfig
 from distutils.util import change_root
-from email.parser import FeedParser
+from email.parser import FeedParser  # type: ignore
 
-from pip._vendor import pkg_resources, six
+from pip._vendor import pkg_resources, pytoml, six
 from pip._vendor.packaging import specifiers
 from pip._vendor.packaging.markers import Marker
 from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
 from pip._vendor.packaging.utils import canonicalize_name
-from pip._vendor.packaging.version import Version, parse as parse_version
-from pip._vendor.six.moves import configparser
+from pip._vendor.packaging.version import parse as parse_version
+from pip._vendor.packaging.version import Version
+from pip._vendor.pkg_resources import RequirementParseError, parse_requirements
 
-import pip.wheel
-
-from pip.compat import native_str, get_stdlib, WINDOWS
-from pip.download import is_url, url_to_path, path_to_url, is_archive_file
-from pip.exceptions import (
-    InstallationError, UninstallationError,
+from pip._internal import wheel
+from pip._internal.build_env import BuildEnvironment
+from pip._internal.compat import native_str
+from pip._internal.download import (
+    is_archive_file, is_url, path_to_url, url_to_path,
 )
-from pip.locations import (
-    bin_py, running_under_virtualenv, PIP_DELETE_MARKER_FILENAME, bin_user,
+from pip._internal.exceptions import InstallationError, UninstallationError
+from pip._internal.locations import (
+    PIP_DELETE_MARKER_FILENAME, running_under_virtualenv,
 )
-from pip.utils import (
-    display_path, rmtree, ask_path_exists, backup_dir, is_installable_dir,
-    dist_in_usersite, dist_in_site_packages, egg_link_path,
-    call_subprocess, read_text_file, FakeFile, _make_build_dir, ensure_dir,
-    get_installed_version, normalize_path, dist_is_local,
+from pip._internal.req.req_uninstall import UninstallPathSet
+from pip._internal.utils.deprecation import RemovedInPip11Warning
+from pip._internal.utils.hashes import Hashes
+from pip._internal.utils.logging import indent_log
+from pip._internal.utils.misc import (
+    _make_build_dir, ask_path_exists, backup_dir, call_subprocess,
+    display_path, dist_in_site_packages, dist_in_usersite, ensure_dir,
+    get_installed_version, is_installable_dir, read_text_file, rmtree,
 )
-
-from pip.utils.hashes import Hashes
-from pip.utils.deprecation import RemovedInPip10Warning
-from pip.utils.logging import indent_log
-from pip.utils.setuptools_build import SETUPTOOLS_SHIM
-from pip.utils.ui import open_spinner
-from pip.req.req_uninstall import UninstallPathSet
-from pip.vcs import vcs
-from pip.wheel import move_wheel_files, Wheel
-
+from pip._internal.utils.setuptools_build import SETUPTOOLS_SHIM
+from pip._internal.utils.temp_dir import TempDirectory
+from pip._internal.utils.ui import open_spinner
+from pip._internal.vcs import vcs
+from pip._internal.wheel import Wheel, move_wheel_files
 
 logger = logging.getLogger(__name__)
 
@@ -66,40 +63,42 @@ def _strip_extras(path):
     return path_no_extras, extras
 
 
-def _safe_extras(extras):
-    return set(pkg_resources.safe_extra(extra) for extra in extras)
-
-
 class InstallRequirement(object):
+    """
+    Represents something that may be installed later on, may have information
+    about where to fetch the relavant requirement and also contains logic for
+    installing the said requirement.
+    """
 
     def __init__(self, req, comes_from, source_dir=None, editable=False,
-                 link=None, as_egg=False, update=True,
-                 pycompile=True, markers=None, isolated=False, options=None,
-                 wheel_cache=None, constraint=False):
-        self.extras = ()
-        if isinstance(req, six.string_types):
-            try:
-                req = Requirement(req)
-            except InvalidRequirement:
-                if os.path.sep in req:
-                    add_msg = "It looks like a path. Does it exist ?"
-                elif '=' in req and not any(op in req for op in operators):
-                    add_msg = "= is not a valid operator. Did you mean == ?"
-                else:
-                    add_msg = traceback.format_exc()
-                raise InstallationError(
-                    "Invalid requirement: '%s'\n%s" % (req, add_msg))
-            self.extras = _safe_extras(req.extras)
-
+                 link=None, update=True, markers=None,
+                 isolated=False, options=None, wheel_cache=None,
+                 constraint=False, extras=()):
+        assert req is None or isinstance(req, Requirement), req
         self.req = req
         self.comes_from = comes_from
         self.constraint = constraint
-        self.source_dir = source_dir
+        if source_dir is not None:
+            self.source_dir = os.path.normpath(os.path.abspath(source_dir))
+        else:
+            self.source_dir = None
         self.editable = editable
 
         self._wheel_cache = wheel_cache
-        self.link = self.original_link = link
-        self.as_egg = as_egg
+        if link is not None:
+            self.link = self.original_link = link
+        else:
+            from pip._internal.index import Link
+            self.link = self.original_link = req and req.url and Link(req.url)
+
+        if extras:
+            self.extras = extras
+        elif req:
+            self.extras = {
+                pkg_resources.safe_extra(extra) for extra in req.extras
+            }
+        else:
+            self.extras = set()
         if markers is not None:
             self.markers = markers
         else:
@@ -112,7 +111,7 @@ class InstallRequirement(object):
         # conflicts with another installed distribution:
         self.conflicts_with = None
         # Temporary build location
-        self._temp_build_dir = None
+        self._temp_build_dir = TempDirectory(kind="req-build")
         # Used to store the global directory where the _temp_build_dir should
         # have been created. Cf _correct_build_location method.
         self._ideal_build_dir = None
@@ -121,44 +120,56 @@ class InstallRequirement(object):
         # Set to True after successful installation
         self.install_succeeded = None
         # UninstallPathSet of uninstalled distribution (for possible rollback)
-        self.uninstalled = None
-        # Set True if a legitimate do-nothing-on-uninstall has happened - e.g.
-        # system site packages, stdlib packages.
-        self.nothing_to_uninstall = False
-        self.use_user_site = False
-        self.target_dir = None
+        self.uninstalled_pathset = None
         self.options = options if options else {}
-        self.pycompile = pycompile
         # Set to True after successful preparation of this requirement
         self.prepared = False
+        self.is_direct = False
 
         self.isolated = isolated
+        self.build_env = BuildEnvironment(no_clean=True)
 
     @classmethod
-    def from_editable(cls, editable_req, comes_from=None, default_vcs=None,
-                      isolated=False, options=None, wheel_cache=None,
-                      constraint=False):
-        from pip.index import Link
+    def from_editable(cls, editable_req, comes_from=None, isolated=False,
+                      options=None, wheel_cache=None, constraint=False):
+        from pip._internal.index import Link
 
-        name, url, extras_override = parse_editable(
-            editable_req, default_vcs)
+        name, url, extras_override = parse_editable(editable_req)
         if url.startswith('file:'):
             source_dir = url_to_path(url)
         else:
             source_dir = None
 
-        res = cls(name, comes_from, source_dir=source_dir,
-                  editable=True,
-                  link=Link(url),
-                  constraint=constraint,
-                  isolated=isolated,
-                  options=options if options else {},
-                  wheel_cache=wheel_cache)
+        if name is not None:
+            try:
+                req = Requirement(name)
+            except InvalidRequirement:
+                raise InstallationError("Invalid requirement: '%s'" % name)
+        else:
+            req = None
+        return cls(
+            req, comes_from, source_dir=source_dir,
+            editable=True,
+            link=Link(url),
+            constraint=constraint,
+            isolated=isolated,
+            options=options if options else {},
+            wheel_cache=wheel_cache,
+            extras=extras_override or (),
+        )
 
-        if extras_override is not None:
-            res.extras = _safe_extras(extras_override)
-
-        return res
+    @classmethod
+    def from_req(cls, req, comes_from=None, isolated=False, wheel_cache=None):
+        try:
+            req = Requirement(req)
+        except InvalidRequirement:
+            raise InstallationError("Invalid requirement: '%s'" % req)
+        if req.url:
+            raise InstallationError(
+                "Direct url requirement (like %s) are not allowed for "
+                "dependencies" % req
+            )
+        return cls(req, comes_from, isolated=isolated, wheel_cache=wheel_cache)
 
     @classmethod
     def from_line(
@@ -167,7 +178,7 @@ class InstallRequirement(object):
         """Creates an InstallRequirement from a name, which might be a
         requirement, directory containing 'setup.py', filename, or URL.
         """
-        from pip.index import Link
+        from pip._internal.index import Link
 
         if is_url(name):
             marker_sep = '; '
@@ -192,9 +203,12 @@ class InstallRequirement(object):
             link = Link(name)
         else:
             p, extras = _strip_extras(path)
-            if (os.path.isdir(p) and
-                    (os.path.sep in name or name.startswith('.'))):
-
+            looks_like_dir = os.path.isdir(p) and (
+                os.path.sep in name or
+                (os.path.altsep is not None and os.path.altsep in name) or
+                name.startswith('.')
+            )
+            if looks_like_dir:
                 if not is_installable_dir(p):
                     raise InstallationError(
                         "Directory %r is not installable. File 'setup.py' "
@@ -229,16 +243,31 @@ class InstallRequirement(object):
         else:
             req = name
 
-        options = options if options else {}
-        res = cls(req, comes_from, link=link, markers=markers,
-                  isolated=isolated, options=options,
-                  wheel_cache=wheel_cache, constraint=constraint)
-
         if extras:
-            res.extras = _safe_extras(
-                Requirement('placeholder' + extras).extras)
-
-        return res
+            extras = Requirement("placeholder" + extras.lower()).extras
+        else:
+            extras = ()
+        if req is not None:
+            try:
+                req = Requirement(req)
+            except InvalidRequirement:
+                if os.path.sep in req:
+                    add_msg = "It looks like a path."
+                    add_msg += deduce_helpful_msg(req)
+                elif '=' in req and not any(op in req for op in operators):
+                    add_msg = "= is not a valid operator. Did you mean == ?"
+                else:
+                    add_msg = traceback.format_exc()
+                raise InstallationError(
+                    "Invalid requirement: '%s'\n%s" % (req, add_msg))
+        return cls(
+            req, comes_from, link=link, markers=markers,
+            isolated=isolated,
+            options=options if options else {},
+            wheel_cache=wheel_cache,
+            constraint=constraint,
+            extras=extras,
+        )
 
     def __str__(self):
         if self.req:
@@ -278,7 +307,7 @@ class InstallRequirement(object):
             self.link = finder.find_requirement(self, upgrade)
         if self._wheel_cache is not None and not require_hashes:
             old_link = self.link
-            self.link = self._wheel_cache.cached_wheel(self.link, self.name)
+            self.link = self._wheel_cache.get(self.link, self.name)
             if old_link != self.link:
                 logger.debug('Using cached wheel link: %s', self.link)
 
@@ -294,7 +323,7 @@ class InstallRequirement(object):
         """
         specifiers = self.specifier
         return (len(specifiers) == 1 and
-                next(iter(specifiers)).operator in ('==', '==='))
+                next(iter(specifiers)).operator in {'==', '==='})
 
     def from_path(self):
         if self.req is None:
@@ -310,8 +339,9 @@ class InstallRequirement(object):
         return s
 
     def build_location(self, build_dir):
-        if self._temp_build_dir is not None:
-            return self._temp_build_dir
+        assert build_dir is not None
+        if self._temp_build_dir.path is not None:
+            return self._temp_build_dir.path
         if self.req is None:
             # for requirement via a path to a directory: the name of the
             # package is not available yet so we create a temp directory
@@ -320,11 +350,10 @@ class InstallRequirement(object):
             # Some systems have /tmp as a symlink which confuses custom
             # builds (such as numpy). Thus, we ensure that the real path
             # is returned.
-            self._temp_build_dir = os.path.realpath(
-                tempfile.mkdtemp('-build', 'pip-')
-            )
+            self._temp_build_dir.create()
             self._ideal_build_dir = build_dir
-            return self._temp_build_dir
+
+            return self._temp_build_dir.path
         if self.editable:
             name = self.name.lower()
         else:
@@ -349,10 +378,11 @@ class InstallRequirement(object):
         if self.source_dir is not None:
             return
         assert self.req is not None
-        assert self._temp_build_dir
-        assert self._ideal_build_dir
-        old_location = self._temp_build_dir
-        self._temp_build_dir = None
+        assert self._temp_build_dir.path
+        assert self._ideal_build_dir.path
+        old_location = self._temp_build_dir.path
+        self._temp_build_dir.path = None
+
         new_location = self.build_location(self._ideal_build_dir)
         if os.path.exists(new_location):
             raise InstallationError(
@@ -363,9 +393,9 @@ class InstallRequirement(object):
             self, display_path(old_location), display_path(new_location),
         )
         shutil.move(old_location, new_location)
-        self._temp_build_dir = new_location
+        self._temp_build_dir.path = new_location
         self._ideal_build_dir = None
-        self.source_dir = new_location
+        self.source_dir = os.path.normpath(os.path.abspath(new_location))
         self._egg_info_path = None
 
     @property
@@ -383,18 +413,6 @@ class InstallRequirement(object):
     @property
     def setup_py(self):
         assert self.source_dir, "No source dir for %s" % self
-        try:
-            import setuptools  # noqa
-        except ImportError:
-            if get_installed_version('setuptools') is None:
-                add_msg = "Please install setuptools."
-            else:
-                add_msg = traceback.format_exc()
-            # Setuptools is not available
-            raise InstallationError(
-                "Could not import setuptools which is required to "
-                "install from a source distribution.\n%s" % add_msg
-            )
 
         setup_py = os.path.join(self.setup_py_dir, 'setup.py')
 
@@ -403,6 +421,34 @@ class InstallRequirement(object):
             setup_py = setup_py.encode(sys.getfilesystemencoding())
 
         return setup_py
+
+    @property
+    def pyproject_toml(self):
+        assert self.source_dir, "No source dir for %s" % self
+
+        pp_toml = os.path.join(self.setup_py_dir, 'pyproject.toml')
+
+        # Python2 __file__ should not be unicode
+        if six.PY2 and isinstance(pp_toml, six.text_type):
+            pp_toml = pp_toml.encode(sys.getfilesystemencoding())
+
+        return pp_toml
+
+    def get_pep_518_info(self):
+        """Get a list of the packages required to build the project, if any,
+        and a flag indicating whether pyproject.toml is present, indicating
+        that the build should be isolated.
+
+        Build requirements can be specified in a pyproject.toml, as described
+        in PEP 518. If this file exists but doesn't specify build
+        requirements, pip will default to installing setuptools and wheel.
+        """
+        if os.path.isfile(self.pyproject_toml):
+            with open(self.pyproject_toml) as f:
+                pp_toml = pytoml.load(f)
+            build_sys = pp_toml.get('build-system', {})
+            return (build_sys.get('requires', ['setuptools', 'wheel']), True)
+        return (['setuptools', 'wheel'], False)
 
     def run_egg_info(self):
         assert self.source_dir
@@ -432,11 +478,12 @@ class InstallRequirement(object):
                 egg_info_dir = os.path.join(self.setup_py_dir, 'pip-egg-info')
                 ensure_dir(egg_info_dir)
                 egg_base_option = ['--egg-base', 'pip-egg-info']
-            call_subprocess(
-                egg_info_cmd + egg_base_option,
-                cwd=self.setup_py_dir,
-                show_stdout=False,
-                command_desc='python setup.py egg_info')
+            with self.build_env:
+                call_subprocess(
+                    egg_info_cmd + egg_base_option,
+                    cwd=self.setup_py_dir,
+                    show_stdout=False,
+                    command_desc='python setup.py egg_info')
 
         if not self.req:
             if isinstance(parse_version(self.pkg_info()["Version"]), Version):
@@ -507,7 +554,7 @@ class InstallRequirement(object):
                         elif dir == 'test' or dir == 'tests':
                             dirs.remove(dir)
                     filenames.extend([os.path.join(root, dir)
-                                     for dir in dirs])
+                                      for dir in dirs])
                 filenames = [f for f in filenames if f.endswith('.egg-info')]
 
             if not filenames:
@@ -552,7 +599,7 @@ class InstallRequirement(object):
             logger.warning(
                 'Requested %s, but installing version %s',
                 self,
-                self.installed_version,
+                version,
             )
         else:
             logger.debug(
@@ -591,7 +638,8 @@ class InstallRequirement(object):
                 'Unexpected version control type (in %s): %s'
                 % (self.link, vc_type))
 
-    def uninstall(self, auto_confirm=False):
+    def uninstall(self, auto_confirm=False, verbose=False,
+                  use_user_site=False):
         """
         Uninstall the distribution currently satisfying this requirement.
 
@@ -604,171 +652,14 @@ class InstallRequirement(object):
         linked to global site-packages.
 
         """
-        if not self.check_if_exists():
-            raise UninstallationError(
-                "Cannot uninstall requirement %s, not installed" % (self.name,)
-            )
+        if not self.check_if_exists(use_user_site):
+            logger.warning("Skipping %s as it is not installed.", self.name)
+            return
         dist = self.satisfied_by or self.conflicts_with
 
-        dist_path = normalize_path(dist.location)
-        if not dist_is_local(dist):
-            logger.info(
-                "Not uninstalling %s at %s, outside environment %s",
-                dist.key,
-                dist_path,
-                sys.prefix,
-            )
-            self.nothing_to_uninstall = True
-            return
-
-        if dist_path in get_stdlib():
-            logger.info(
-                "Not uninstalling %s at %s, as it is in the standard library.",
-                dist.key,
-                dist_path,
-            )
-            self.nothing_to_uninstall = True
-            return
-
-        paths_to_remove = UninstallPathSet(dist)
-        develop_egg_link = egg_link_path(dist)
-        develop_egg_link_egg_info = '{0}.egg-info'.format(
-            pkg_resources.to_filename(dist.project_name))
-        egg_info_exists = dist.egg_info and os.path.exists(dist.egg_info)
-        # Special case for distutils installed package
-        distutils_egg_info = getattr(dist._provider, 'path', None)
-
-        # Uninstall cases order do matter as in the case of 2 installs of the
-        # same package, pip needs to uninstall the currently detected version
-        if (egg_info_exists and dist.egg_info.endswith('.egg-info') and
-                not dist.egg_info.endswith(develop_egg_link_egg_info)):
-            # if dist.egg_info.endswith(develop_egg_link_egg_info), we
-            # are in fact in the develop_egg_link case
-            paths_to_remove.add(dist.egg_info)
-            if dist.has_metadata('installed-files.txt'):
-                for installed_file in dist.get_metadata(
-                        'installed-files.txt').splitlines():
-                    path = os.path.normpath(
-                        os.path.join(dist.egg_info, installed_file)
-                    )
-                    paths_to_remove.add(path)
-            # FIXME: need a test for this elif block
-            # occurs with --single-version-externally-managed/--record outside
-            # of pip
-            elif dist.has_metadata('top_level.txt'):
-                if dist.has_metadata('namespace_packages.txt'):
-                    namespaces = dist.get_metadata('namespace_packages.txt')
-                else:
-                    namespaces = []
-                for top_level_pkg in [
-                        p for p
-                        in dist.get_metadata('top_level.txt').splitlines()
-                        if p and p not in namespaces]:
-                    path = os.path.join(dist.location, top_level_pkg)
-                    paths_to_remove.add(path)
-                    paths_to_remove.add(path + '.py')
-                    paths_to_remove.add(path + '.pyc')
-                    paths_to_remove.add(path + '.pyo')
-
-        elif distutils_egg_info:
-            warnings.warn(
-                "Uninstalling a distutils installed project ({0}) has been "
-                "deprecated and will be removed in a future version. This is "
-                "due to the fact that uninstalling a distutils project will "
-                "only partially uninstall the project.".format(self.name),
-                RemovedInPip10Warning,
-            )
-            paths_to_remove.add(distutils_egg_info)
-
-        elif dist.location.endswith('.egg'):
-            # package installed by easy_install
-            # We cannot match on dist.egg_name because it can slightly vary
-            # i.e. setuptools-0.6c11-py2.6.egg vs setuptools-0.6rc11-py2.6.egg
-            paths_to_remove.add(dist.location)
-            easy_install_egg = os.path.split(dist.location)[1]
-            easy_install_pth = os.path.join(os.path.dirname(dist.location),
-                                            'easy-install.pth')
-            paths_to_remove.add_pth(easy_install_pth, './' + easy_install_egg)
-
-        elif egg_info_exists and dist.egg_info.endswith('.dist-info'):
-            for path in pip.wheel.uninstallation_paths(dist):
-                paths_to_remove.add(path)
-
-        elif develop_egg_link:
-            # develop egg
-            with open(develop_egg_link, 'r') as fh:
-                link_pointer = os.path.normcase(fh.readline().strip())
-            assert (link_pointer == dist.location), (
-                'Egg-link %s does not match installed location of %s '
-                '(at %s)' % (link_pointer, self.name, dist.location)
-            )
-            paths_to_remove.add(develop_egg_link)
-            easy_install_pth = os.path.join(os.path.dirname(develop_egg_link),
-                                            'easy-install.pth')
-            paths_to_remove.add_pth(easy_install_pth, dist.location)
-
-        else:
-            logger.debug(
-                'Not sure how to uninstall: %s - Check: %s',
-                dist, dist.location)
-
-        # find distutils scripts= scripts
-        if dist.has_metadata('scripts') and dist.metadata_isdir('scripts'):
-            for script in dist.metadata_listdir('scripts'):
-                if dist_in_usersite(dist):
-                    bin_dir = bin_user
-                else:
-                    bin_dir = bin_py
-                paths_to_remove.add(os.path.join(bin_dir, script))
-                if WINDOWS:
-                    paths_to_remove.add(os.path.join(bin_dir, script) + '.bat')
-
-        # find console_scripts
-        if dist.has_metadata('entry_points.txt'):
-            if six.PY2:
-                options = {}
-            else:
-                options = {"delimiters": ('=', )}
-            config = configparser.SafeConfigParser(**options)
-            config.readfp(
-                FakeFile(dist.get_metadata_lines('entry_points.txt'))
-            )
-            if config.has_section('console_scripts'):
-                for name, value in config.items('console_scripts'):
-                    if dist_in_usersite(dist):
-                        bin_dir = bin_user
-                    else:
-                        bin_dir = bin_py
-                    paths_to_remove.add(os.path.join(bin_dir, name))
-                    if WINDOWS:
-                        paths_to_remove.add(
-                            os.path.join(bin_dir, name) + '.exe'
-                        )
-                        paths_to_remove.add(
-                            os.path.join(bin_dir, name) + '.exe.manifest'
-                        )
-                        paths_to_remove.add(
-                            os.path.join(bin_dir, name) + '-script.py'
-                        )
-
-        paths_to_remove.remove(auto_confirm)
-        self.uninstalled = paths_to_remove
-
-    def rollback_uninstall(self):
-        if self.uninstalled:
-            self.uninstalled.rollback()
-        else:
-            logger.error(
-                "Can't rollback %s, nothing uninstalled.", self.name,
-            )
-
-    def commit_uninstall(self):
-        if self.uninstalled:
-            self.uninstalled.commit()
-        elif not self.nothing_to_uninstall:
-            logger.error(
-                "Can't commit %s, nothing uninstalled.", self.name,
-            )
+        uninstalled_pathset = UninstallPathSet.from_dist(dist)
+        uninstalled_pathset.remove(auto_confirm, verbose)
+        return uninstalled_pathset
 
     def archive(self, build_dir):
         assert self.source_dir
@@ -838,17 +729,24 @@ class InstallRequirement(object):
         else:
             return True
 
-    def install(self, install_options, global_options=[], root=None,
-                prefix=None):
+    def install(self, install_options, global_options=None, root=None,
+                home=None, prefix=None, warn_script_location=True,
+                use_user_site=False, pycompile=True):
+        global_options = global_options if global_options is not None else []
         if self.editable:
             self.install_editable(
-                install_options, global_options, prefix=prefix)
+                install_options, global_options, prefix=prefix,
+            )
             return
         if self.is_wheel:
-            version = pip.wheel.wheel_version(self.source_dir)
-            pip.wheel.check_compatibility(version, self.name)
+            version = wheel.wheel_version(self.source_dir)
+            wheel.check_compatibility(version, self.name)
 
-            self.move_wheel_files(self.source_dir, root=root, prefix=prefix)
+            self.move_wheel_files(
+                self.source_dir, root=root, prefix=prefix, home=home,
+                warn_script_location=warn_script_location,
+                use_user_site=use_user_site, pycompile=pycompile,
+            )
             self.install_succeeded = True
             return
 
@@ -857,35 +755,34 @@ class InstallRequirement(object):
         # Options specified in requirements file override those
         # specified on the command line, since the last option given
         # to setup.py is the one that is used.
-        global_options += self.options.get('global_options', [])
-        install_options += self.options.get('install_options', [])
+        global_options = list(global_options) + \
+            self.options.get('global_options', [])
+        install_options = list(install_options) + \
+            self.options.get('install_options', [])
 
         if self.isolated:
-            global_options = list(global_options) + ["--no-user-cfg"]
+            global_options = global_options + ["--no-user-cfg"]
 
-        temp_location = tempfile.mkdtemp('-record', 'pip-')
-        record_filename = os.path.join(temp_location, 'install-record.txt')
-        try:
+        with TempDirectory(kind="record") as temp_dir:
+            record_filename = os.path.join(temp_dir.path, 'install-record.txt')
             install_args = self.get_install_args(
-                global_options, record_filename, root, prefix)
+                global_options, record_filename, root, prefix, pycompile,
+            )
             msg = 'Running setup.py install for %s' % (self.name,)
             with open_spinner(msg) as spinner:
                 with indent_log():
-                    call_subprocess(
-                        install_args + install_options,
-                        cwd=self.setup_py_dir,
-                        show_stdout=False,
-                        spinner=spinner,
-                    )
+                    with self.build_env:
+                        call_subprocess(
+                            install_args + install_options,
+                            cwd=self.setup_py_dir,
+                            show_stdout=False,
+                            spinner=spinner,
+                        )
 
             if not os.path.exists(record_filename):
                 logger.debug('Record file %s not found', record_filename)
                 return
             self.install_succeeded = True
-            if self.as_egg:
-                # there's no --always-unzip option we can pass to install
-                # command so we unable to save the installed-files.txt
-                return
 
             def prepend_root(path):
                 if root is None or not os.path.isabs(path):
@@ -915,16 +812,13 @@ class InstallRequirement(object):
                     if os.path.isdir(filename):
                         filename += os.path.sep
                     new_lines.append(
-                        os.path.relpath(
-                            prepend_root(filename), egg_info_dir)
+                        os.path.relpath(prepend_root(filename), egg_info_dir)
                     )
+            new_lines.sort()
+            ensure_dir(egg_info_dir)
             inst_files_path = os.path.join(egg_info_dir, 'installed-files.txt')
             with open(inst_files_path, 'w') as f:
                 f.write('\n'.join(new_lines) + '\n')
-        finally:
-            if os.path.exists(record_filename):
-                os.remove(record_filename)
-            rmtree(temp_location)
 
     def ensure_has_source_dir(self, parent_dir):
         """Ensure that a source_dir is set.
@@ -940,22 +834,21 @@ class InstallRequirement(object):
             self.source_dir = self.build_location(parent_dir)
         return self.source_dir
 
-    def get_install_args(self, global_options, record_filename, root, prefix):
+    def get_install_args(self, global_options, record_filename, root, prefix,
+                         pycompile):
         install_args = [sys.executable, "-u"]
         install_args.append('-c')
         install_args.append(SETUPTOOLS_SHIM % self.setup_py)
         install_args += list(global_options) + \
             ['install', '--record', record_filename]
-
-        if not self.as_egg:
-            install_args += ['--single-version-externally-managed']
+        install_args += ['--single-version-externally-managed']
 
         if root is not None:
             install_args += ['--root', root]
         if prefix is not None:
             install_args += ['--prefix', prefix]
 
-        if self.pycompile:
+        if pycompile:
             install_args += ["--compile"]
         else:
             install_args += ["--no-compile"]
@@ -976,9 +869,8 @@ class InstallRequirement(object):
             logger.debug('Removing source in %s', self.source_dir)
             rmtree(self.source_dir)
         self.source_dir = None
-        if self._temp_build_dir and os.path.exists(self._temp_build_dir):
-            rmtree(self._temp_build_dir)
-        self._temp_build_dir = None
+        self._temp_build_dir.cleanup()
+        self.build_env.cleanup()
 
     def install_editable(self, install_options,
                          global_options=(), prefix=None):
@@ -988,27 +880,29 @@ class InstallRequirement(object):
             global_options = list(global_options) + ["--no-user-cfg"]
 
         if prefix:
-            prefix_param = ['--prefix={0}'.format(prefix)]
+            prefix_param = ['--prefix={}'.format(prefix)]
             install_options = list(install_options) + prefix_param
 
         with indent_log():
             # FIXME: should we do --install-headers here too?
-            call_subprocess(
-                [
-                    sys.executable,
-                    '-c',
-                    SETUPTOOLS_SHIM % self.setup_py
-                ] +
-                list(global_options) +
-                ['develop', '--no-deps'] +
-                list(install_options),
+            with self.build_env:
+                call_subprocess(
+                    [
+                        sys.executable,
+                        '-c',
+                        SETUPTOOLS_SHIM % self.setup_py
+                    ] +
+                    list(global_options) +
+                    ['develop', '--no-deps'] +
+                    list(install_options),
 
-                cwd=self.setup_py_dir,
-                show_stdout=False)
+                    cwd=self.setup_py_dir,
+                    show_stdout=False,
+                )
 
         self.install_succeeded = True
 
-    def check_if_exists(self):
+    def check_if_exists(self, use_user_site):
         """Find an installed distribution that satisfies or conflicts
         with this requirement, and set self.satisfied_by or
         self.conflicts_with appropriately.
@@ -1035,7 +929,7 @@ class InstallRequirement(object):
             existing_dist = pkg_resources.get_distribution(
                 self.req.name
             )
-            if self.use_user_site:
+            if use_user_site:
                 if dist_in_usersite(existing_dist):
                     self.conflicts_with = existing_dist
                 elif (running_under_virtualenv() and
@@ -1053,27 +947,31 @@ class InstallRequirement(object):
     def is_wheel(self):
         return self.link and self.link.is_wheel
 
-    def move_wheel_files(self, wheeldir, root=None, prefix=None):
+    def move_wheel_files(self, wheeldir, root=None, home=None, prefix=None,
+                         warn_script_location=True, use_user_site=False,
+                         pycompile=True):
         move_wheel_files(
             self.name, self.req, wheeldir,
-            user=self.use_user_site,
-            home=self.target_dir,
+            user=use_user_site,
+            home=home,
             root=root,
             prefix=prefix,
-            pycompile=self.pycompile,
+            pycompile=pycompile,
             isolated=self.isolated,
+            warn_script_location=warn_script_location,
         )
 
     def get_dist(self):
         """Return a pkg_resources.Distribution built from self.egg_info_path"""
-        egg_info = self.egg_info_path('').rstrip('/')
+        egg_info = self.egg_info_path('').rstrip(os.path.sep)
         base_dir = os.path.dirname(egg_info)
         metadata = pkg_resources.PathMetadata(base_dir, egg_info)
         dist_name = os.path.splitext(os.path.basename(egg_info))[0]
         return pkg_resources.Distribution(
             os.path.dirname(egg_info),
             project_name=dist_name,
-            metadata=metadata)
+            metadata=metadata,
+        )
 
     @property
     def has_hash_options(self):
@@ -1115,11 +1013,15 @@ def _strip_postfix(req):
     match = re.search(r'^(.*?)(?:-dev|-\d.*)$', req)
     if match:
         # Strip off -dev, -0.2, etc.
+        warnings.warn(
+            "#egg cleanup for editable urls will be dropped in the future",
+            RemovedInPip11Warning,
+        )
         req = match.group(1)
     return req
 
 
-def parse_editable(editable_req, default_vcs=None):
+def parse_editable(editable_req):
     """Parses an editable requirement into:
         - a requirement name
         - an URL
@@ -1130,18 +1032,12 @@ def parse_editable(editable_req, default_vcs=None):
         .[some_extra]
     """
 
-    from pip.index import Link
+    from pip._internal.index import Link
 
     url = editable_req
-    extras = None
 
     # If a file path is specified with extras, strip off the extras.
-    m = re.match(r'^(.+)(\[[^\]]+\])$', url)
-    if m:
-        url_no_extras = m.group(1)
-        extras = m.group(2)
-    else:
-        url_no_extras = url
+    url_no_extras, extras = _strip_extras(url)
 
     if os.path.isdir(url_no_extras):
         if not os.path.exists(os.path.join(url_no_extras, 'setup.py')):
@@ -1169,19 +1065,11 @@ def parse_editable(editable_req, default_vcs=None):
             break
 
     if '+' not in url:
-        if default_vcs:
-            warnings.warn(
-                "--default-vcs has been deprecated and will be removed in "
-                "the future.",
-                RemovedInPip10Warning,
-            )
-            url = default_vcs + '+' + url
-        else:
-            raise InstallationError(
-                '%s should either be a path to a local project or a VCS url '
-                'beginning with svn+, git+, hg+, or bzr+' %
-                editable_req
-            )
+        raise InstallationError(
+            '%s should either be a path to a local project or a VCS url '
+            'beginning with svn+, git+, hg+, or bzr+' %
+            editable_req
+        )
 
     vc_type = url.split('+', 1)[0].lower()
 
@@ -1194,11 +1082,34 @@ def parse_editable(editable_req, default_vcs=None):
     package_name = Link(url).egg_fragment
     if not package_name:
         raise InstallationError(
-            "Could not detect requirement name, please specify one with #egg="
-        )
-    if not package_name:
-        raise InstallationError(
-            '--editable=%s is not the right format; it must have '
-            '#egg=Package' % editable_req
+            "Could not detect requirement name for '%s', please specify one "
+            "with #egg=your_package_name" % editable_req
         )
     return _strip_postfix(package_name), url, None
+
+
+def deduce_helpful_msg(req):
+    """Returns helpful msg in case requirements file does not exist,
+    or cannot be parsed.
+
+    :params req: Requirements file path
+    """
+    msg = ""
+    if os.path.exists(req):
+        msg = " It does exist."
+        # Try to parse and check if it is a requirements file.
+        try:
+            with open(req, 'r') as fp:
+                # parse first line only
+                next(parse_requirements(fp.read()))
+                msg += " The argument you provided " + \
+                    "(%s) appears to be a" % (req) + \
+                    " requirements file. If that is the" + \
+                    " case, use the '-r' flag to install" + \
+                    " the packages specified within it."
+        except RequirementParseError:
+            logger.debug("Cannot parse '%s' as requirements \
+            file" % (req), exc_info=1)
+    else:
+        msg += " File '%s' does not exist." % (req)
+    return msg

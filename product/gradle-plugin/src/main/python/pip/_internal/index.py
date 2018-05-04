@@ -1,42 +1,42 @@
 """Routines related to PyPI, indexes"""
 from __future__ import absolute_import
 
-import logging
 import cgi
-from collections import namedtuple
 import itertools
-import sys
-import os
-import re
+import logging
 import mimetypes
+import os
 import posixpath
+import re
+import sys
 import warnings
+from collections import namedtuple
 
+from pip._vendor import html5lib, requests, six
+from pip._vendor.distlib.compat import unescape
+from pip._vendor.packaging import specifiers
+from pip._vendor.packaging.utils import canonicalize_name
+from pip._vendor.packaging.version import parse as parse_version
+from pip._vendor.requests.exceptions import SSLError
 from pip._vendor.six.moves.urllib import parse as urllib_parse
 from pip._vendor.six.moves.urllib import request as urllib_request
 
-from pip.compat import ipaddress
-from pip.utils import (
-    cached_property, splitext, normalize_path,
-    ARCHIVE_EXTENSIONS, SUPPORTED_EXTENSIONS,
-)
-from pip.utils.deprecation import RemovedInPip10Warning
-from pip.utils.logging import indent_log
-from pip.utils.packaging import check_requires_python
-from pip.exceptions import (
-    DistributionNotFound, BestVersionAlreadyInstalled, InvalidWheelFilename,
+from pip._internal.compat import ipaddress
+from pip._internal.download import HAS_TLS, is_url, path_to_url, url_to_path
+from pip._internal.exceptions import (
+    BestVersionAlreadyInstalled, DistributionNotFound, InvalidWheelFilename,
     UnsupportedWheel,
 )
-from pip.download import HAS_TLS, is_url, path_to_url, url_to_path
-from pip.wheel import Wheel, wheel_ext
-from pip.pep425tags import get_supported
-from pip._vendor import html5lib, requests, six
-from pip._vendor.packaging.version import parse as parse_version
-from pip._vendor.packaging.utils import canonicalize_name
-from pip._vendor.packaging import specifiers
-from pip._vendor.requests.exceptions import SSLError
-from pip._vendor.distlib.compat import unescape
-
+from pip._internal.models import PyPI
+from pip._internal.pep425tags import get_supported
+from pip._internal.utils.deprecation import RemovedInPip11Warning
+from pip._internal.utils.logging import indent_log
+from pip._internal.utils.misc import (
+    ARCHIVE_EXTENSIONS, SUPPORTED_EXTENSIONS, cached_property, normalize_path,
+    splitext,
+)
+from pip._internal.utils.packaging import check_requires_python
+from pip._internal.wheel import Wheel, wheel_ext
 
 __all__ = ['FormatControl', 'fmt_ctl_handle_mutual_exclude', 'PackageFinder']
 
@@ -66,7 +66,7 @@ class InstallationCandidate(object):
         self._key = (self.project, self.version, self.location)
 
     def __repr__(self):
-        return "<InstallationCandidate({0!r}, {1!r}, {2!r})>".format(
+        return "<InstallationCandidate({!r}, {!r}, {!r})>".format(
             self.project, self.version, self.location,
         )
 
@@ -189,6 +189,18 @@ class PackageFinder(object):
                     )
                     break
 
+    def get_formatted_locations(self):
+        lines = []
+        if self.index_urls and self.index_urls != [PyPI.simple_url]:
+            lines.append(
+                "Looking in indexes: {}".format(", ".join(self.index_urls))
+            )
+        if self.find_links:
+            lines.append(
+                "Looking in links: {}".format(", ".join(self.find_links))
+            )
+        return "\n".join(lines)
+
     def add_dependency_links(self, links):
         # # FIXME: this shouldn't be global list this, it should only
         # # apply to requirements of the package that specifies the
@@ -198,7 +210,7 @@ class PackageFinder(object):
             warnings.warn(
                 "Dependency Links processing has been deprecated and will be "
                 "removed in a future release.",
-                RemovedInPip10Warning,
+                RemovedInPip11Warning,
             )
             self.dependency_links.extend(links)
 
@@ -241,14 +253,16 @@ class PackageFinder(object):
                 else:
                     logger.warning(
                         "Url '%s' is ignored: it is neither a file "
-                        "nor a directory.", url)
+                        "nor a directory.", url,
+                    )
             elif is_url(url):
                 # Only add url with clear scheme
                 urls.append(url)
             else:
                 logger.warning(
                     "Url '%s' is ignored. It is either a non-existing "
-                    "path or lacks a specific scheme.", url)
+                    "path or lacks a specific scheme.", url,
+                )
 
         return files, urls
 
@@ -266,6 +280,7 @@ class PackageFinder(object):
               with the same version, would have to be considered equal
         """
         support_num = len(self.valid_tags)
+        build_tag = tuple()
         if candidate.location.is_wheel:
             # can raise InvalidWheelFilename
             wheel = Wheel(candidate.location.filename)
@@ -275,9 +290,13 @@ class PackageFinder(object):
                     "can't be sorted." % wheel.filename
                 )
             pri = -(wheel.support_index_min(self.valid_tags))
+            if wheel.build_tag is not None:
+                match = re.match(r'^(\d+)(.*)$', wheel.build_tag)
+                build_tag_groups = match.groups()
+                build_tag = (int(build_tag_groups[0]), build_tag_groups[1])
         else:  # sdist
             pri = -(support_num)
-        return (candidate.version, pri)
+        return (candidate.version, build_tag, pri)
 
     def _validate_secure_origin(self, logger, location):
         # Determine if this url used a secure transport mechanism
@@ -341,9 +360,9 @@ class PackageFinder(object):
         # log a warning that we are ignoring it.
         logger.warning(
             "The repository located at %s is not a trusted or secure host and "
-            "is being ignored. If this repository is available via HTTPS it "
-            "is recommended to use HTTPS instead, otherwise you may silence "
-            "this warning and allow it anyways with '--trusted-host %s'.",
+            "is being ignored. If this repository is available via HTTPS we "
+            "recommend you use HTTPS instead, otherwise you may silence "
+            "this warning and allow it anyway with '--trusted-host %s'.",
             parsed.hostname,
             parsed.hostname,
         )
@@ -383,13 +402,13 @@ class PackageFinder(object):
         index_locations = self._get_index_urls_locations(project_name)
         index_file_loc, index_url_loc = self._sort_locations(index_locations)
         fl_file_loc, fl_url_loc = self._sort_locations(
-            self.find_links, expand_dir=True)
+            self.find_links, expand_dir=True,
+        )
         dep_file_loc, dep_url_loc = self._sort_locations(self.dependency_links)
 
-        file_locations = (
-            Link(url) for url in itertools.chain(
-                index_file_loc, fl_file_loc, dep_file_loc)
-        )
+        file_locations = (Link(url) for url in itertools.chain(
+            index_file_loc, fl_file_loc, dep_file_loc,
+        ))
 
         # We trust every url that the user has given us whether it was given
         #   via --index-url or --find-links
@@ -504,7 +523,7 @@ class PackageFinder(object):
                 req,
                 ', '.join(
                     sorted(
-                        set(str(c.version) for c in all_candidates),
+                        {str(c.version) for c in all_candidates},
                         key=parse_version,
                     )
                 )
@@ -615,11 +634,13 @@ class PackageFinder(object):
                 return
             if ext not in SUPPORTED_EXTENSIONS:
                 self._log_skipped_link(
-                    link, 'unsupported archive format: %s' % ext)
+                    link, 'unsupported archive format: %s' % ext,
+                )
                 return
             if "binary" not in search.formats and ext == wheel_ext:
                 self._log_skipped_link(
-                    link, 'No binaries permitted for %s' % search.supplied)
+                    link, 'No binaries permitted for %s' % search.supplied,
+                )
                 return
             if "macosx10" in link.path and ext == '.zip':
                 self._log_skipped_link(link, 'macosx10 one')
@@ -645,7 +666,8 @@ class PackageFinder(object):
         # This should be up by the search.ok_binary check, but see issue 2700.
         if "source" not in search.formats and ext != wheel_ext:
             self._log_skipped_link(
-                link, 'No sources permitted for %s' % search.supplied)
+                link, 'No sources permitted for %s' % search.supplied,
+            )
             return
 
         if not version:
@@ -747,7 +769,7 @@ class HTMLPage(object):
         url = url.split('#', 1)[0]
 
         # Check for VCS schemes that do not support lookup as web pages.
-        from pip.vcs import VcsSupport
+        from pip._internal.vcs import VcsSupport
         for scheme in VcsSupport.schemes:
             if url.lower().startswith(scheme) and url[len(scheme)] in '+:':
                 logger.debug('Cannot look at %s URL %s', scheme, link)
@@ -812,8 +834,8 @@ class HTMLPage(object):
         except requests.HTTPError as exc:
             cls._handle_fail(link, exc, url)
         except SSLError as exc:
-            reason = ("There was a problem confirming the ssl certificate: "
-                      "%s" % exc)
+            reason = "There was a problem confirming the ssl certificate: "
+            reason += str(exc)
             cls._handle_fail(link, reason, url, meth=logger.info)
         except requests.ConnectionError as exc:
             cls._handle_fail(link, "connection error: %s" % exc, url)
@@ -833,7 +855,7 @@ class HTMLPage(object):
     def _get_content_type(url, session):
         """Get the Content-Type of the given url, using a HEAD request"""
         scheme, netloc, path, query, fragment = urllib_parse.urlsplit(url)
-        if scheme not in ('http', 'https'):
+        if scheme not in {'http', 'https'}:
             # FIXME: some warning or something?
             # assertion error?
             return ''
@@ -881,7 +903,7 @@ class Link(object):
 
     def __init__(self, url, comes_from=None, requires_python=None):
         """
-        Object representing a parsed link from https://pypi.python.org/simple/*
+        Object representing a parsed link from https://pypi.org/simple/*
 
         url:
             url of the resource pointed to (href of the link)
@@ -1029,7 +1051,7 @@ class Link(object):
         Determines if this points to an actual artifact (e.g. a tarball) or if
         it points to an "abstract" thing like a path or a VCS location.
         """
-        from pip.vcs import vcs
+        from pip._internal.vcs import vcs
 
         if self.scheme in vcs.all_schemes:
             return False
@@ -1067,7 +1089,7 @@ def fmt_ctl_handle_mutual_exclude(value, target, other):
 
 
 def fmt_ctl_formats(fmt_ctl, canonical_name):
-    result = set(["binary", "source"])
+    result = {"binary", "source"}
     if canonical_name in fmt_ctl.only_binary:
         result.discard('source')
     elif canonical_name in fmt_ctl.no_binary:
@@ -1081,15 +1103,8 @@ def fmt_ctl_formats(fmt_ctl, canonical_name):
 
 def fmt_ctl_no_binary(fmt_ctl):
     fmt_ctl_handle_mutual_exclude(
-        ':all:', fmt_ctl.no_binary, fmt_ctl.only_binary)
-
-
-def fmt_ctl_no_use_wheel(fmt_ctl):
-    fmt_ctl_no_binary(fmt_ctl)
-    warnings.warn(
-        '--no-use-wheel is deprecated and will be removed in the future. '
-        ' Please use --no-binary :all: instead.', RemovedInPip10Warning,
-        stacklevel=2)
+        ':all:', fmt_ctl.no_binary, fmt_ctl.only_binary,
+    )
 
 
 Search = namedtuple('Search', 'supplied canonical formats')

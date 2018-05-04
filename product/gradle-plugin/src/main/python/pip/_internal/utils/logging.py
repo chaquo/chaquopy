@@ -5,13 +5,14 @@ import logging
 import logging.handlers
 import os
 
+from pip._internal.compat import WINDOWS
+from pip._internal.utils.misc import ensure_dir
+
 try:
     import threading
 except ImportError:
-    import dummy_threading as threading
+    import dummy_threading as threading  # type: ignore
 
-from pip.compat import WINDOWS
-from pip.utils import ensure_dir
 
 try:
     from pip._vendor import colorama
@@ -75,15 +76,16 @@ class ColorizedStreamHandler(logging.StreamHandler):
     else:
         COLORS = []
 
-    def __init__(self, stream=None):
+    def __init__(self, stream=None, no_color=None):
         logging.StreamHandler.__init__(self, stream)
+        self._no_color = no_color
 
         if WINDOWS and colorama:
             self.stream = colorama.AnsiToWin32(self.stream)
 
     def should_color(self):
-        # Don't colorize things if we do not have colorama
-        if not colorama:
+        # Don't colorize things if we do not have colorama or if told not to
+        if not colorama or self._no_color:
             return False
 
         real_stream = (

@@ -10,6 +10,10 @@ class PipError(Exception):
     """Base pip exception"""
 
 
+class ConfigurationError(PipError):
+    """General exception in configuration"""
+
+
 class InstallationError(PipError):
     """General exception during installation"""
 
@@ -158,7 +162,8 @@ class HashMissing(HashError):
         self.gotten_hash = gotten_hash
 
     def body(self):
-        from pip.utils.hashes import FAVORITE_HASH  # Dodge circular import.
+        # Dodge circular import.
+        from pip._internal.utils.hashes import FAVORITE_HASH
 
         package = None
         if self.req:

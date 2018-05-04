@@ -3,17 +3,16 @@ from __future__ import absolute_import
 
 import logging
 import os
-import warnings
 
-from pip.basecommand import RequirementCommand
-from pip.exceptions import CommandError, PreviousBuildDirError
-from pip.req import RequirementSet
-from pip.utils import import_or_raise
-from pip.utils.build import BuildDirectory
-from pip.utils.deprecation import RemovedInPip10Warning
-from pip.wheel import WheelCache, WheelBuilder
-from pip import cmdoptions
-
+from pip._internal import cmdoptions
+from pip._internal.basecommand import RequirementCommand
+from pip._internal.cache import WheelCache
+from pip._internal.exceptions import CommandError, PreviousBuildDirError
+from pip._internal.operations.prepare import RequirementPreparer
+from pip._internal.req import RequirementSet
+from pip._internal.resolve import Resolver
+from pip._internal.utils.temp_dir import TempDirectory
+from pip._internal.wheel import WheelBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +55,6 @@ class WheelCommand(RequirementCommand):
             help=("Build wheels into <dir>, where the default is the "
                   "current working directory."),
         )
-        cmd_opts.add_option(cmdoptions.use_wheel())
-        cmd_opts.add_option(cmdoptions.no_use_wheel())
         cmd_opts.add_option(cmdoptions.no_binary())
         cmd_opts.add_option(cmdoptions.only_binary())
         cmd_opts.add_option(
@@ -65,7 +62,9 @@ class WheelCommand(RequirementCommand):
             dest='build_options',
             metavar='options',
             action='append',
-            help="Extra arguments to be supplied to 'setup.py bdist_wheel'.")
+            help="Extra arguments to be supplied to 'setup.py bdist_wheel'.",
+        )
+        cmd_opts.add_option(cmdoptions.no_build_isolation())
         cmd_opts.add_option(cmdoptions.constraints())
         cmd_opts.add_option(cmdoptions.editable())
         cmd_opts.add_option(cmdoptions.requirements())
@@ -73,6 +72,7 @@ class WheelCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.ignore_requires_python())
         cmd_opts.add_option(cmdoptions.no_deps())
         cmd_opts.add_option(cmdoptions.build_dir())
+        cmd_opts.add_option(cmdoptions.progress_bar())
 
         cmd_opts.add_option(
             '--global-option',
@@ -101,54 +101,8 @@ class WheelCommand(RequirementCommand):
         self.parser.insert_option_group(0, index_opts)
         self.parser.insert_option_group(0, cmd_opts)
 
-    def check_required_packages(self):
-        import_or_raise(
-            'wheel.bdist_wheel',
-            CommandError,
-            "'pip wheel' requires the 'wheel' package. To fix this, run: "
-            "pip install wheel"
-        )
-        pkg_resources = import_or_raise(
-            'pkg_resources',
-            CommandError,
-            "'pip wheel' requires setuptools >= 0.8 for dist-info support."
-            " To fix this, run: pip install --upgrade setuptools"
-        )
-        if not hasattr(pkg_resources, 'DistInfoDistribution'):
-            raise CommandError(
-                "'pip wheel' requires setuptools >= 0.8 for dist-info "
-                "support. To fix this, run: pip install --upgrade "
-                "setuptools"
-            )
-
     def run(self, options, args):
-        self.check_required_packages()
-        cmdoptions.resolve_wheel_no_use_binary(options)
         cmdoptions.check_install_build_global(options)
-
-        if options.allow_external:
-            warnings.warn(
-                "--allow-external has been deprecated and will be removed in "
-                "the future. Due to changes in the repository protocol, it no "
-                "longer has any effect.",
-                RemovedInPip10Warning,
-            )
-
-        if options.allow_all_external:
-            warnings.warn(
-                "--allow-all-external has been deprecated and will be removed "
-                "in the future. Due to changes in the repository protocol, it "
-                "no longer has any effect.",
-                RemovedInPip10Warning,
-            )
-
-        if options.allow_unverified:
-            warnings.warn(
-                "--allow-unverified has been deprecated and will be removed "
-                "in the future. Due to changes in the repository protocol, it "
-                "no longer has any effect.",
-                RemovedInPip10Warning,
-            )
 
         index_urls = [options.index_url] + options.extra_index_urls
         if options.no_index:
@@ -164,39 +118,55 @@ class WheelCommand(RequirementCommand):
             finder = self._build_package_finder(options, session)
             build_delete = (not (options.no_clean or options.build_dir))
             wheel_cache = WheelCache(options.cache_dir, options.format_control)
-            with BuildDirectory(options.build_dir,
-                                delete=build_delete) as build_dir:
+
+            with TempDirectory(
+                options.build_dir, delete=build_delete, kind="wheel"
+            ) as directory:
                 requirement_set = RequirementSet(
-                    build_dir=build_dir,
-                    src_dir=options.src_dir,
-                    download_dir=None,
-                    ignore_dependencies=options.ignore_dependencies,
-                    ignore_installed=True,
-                    ignore_requires_python=options.ignore_requires_python,
-                    isolated=options.isolated_mode,
-                    session=session,
-                    wheel_cache=wheel_cache,
-                    wheel_download_dir=options.wheel_dir,
-                    require_hashes=options.require_hashes
+                    require_hashes=options.require_hashes,
                 )
-
-                self.populate_requirement_set(
-                    requirement_set, args, options, finder, session, self.name,
-                    wheel_cache
-                )
-
-                if not requirement_set.has_requirements:
-                    return
 
                 try:
+                    self.populate_requirement_set(
+                        requirement_set, args, options, finder, session,
+                        self.name, wheel_cache
+                    )
+
+                    preparer = RequirementPreparer(
+                        build_dir=directory.path,
+                        src_dir=options.src_dir,
+                        download_dir=None,
+                        wheel_download_dir=options.wheel_dir,
+                        progress_bar=options.progress_bar,
+                        build_isolation=options.build_isolation,
+                    )
+
+                    resolver = Resolver(
+                        preparer=preparer,
+                        finder=finder,
+                        session=session,
+                        wheel_cache=wheel_cache,
+                        use_user_site=False,
+                        upgrade_strategy="to-satisfy-only",
+                        force_reinstall=False,
+                        ignore_dependencies=options.ignore_dependencies,
+                        ignore_requires_python=options.ignore_requires_python,
+                        ignore_installed=True,
+                        isolated=options.isolated_mode,
+                    )
+                    resolver.resolve(requirement_set)
+
                     # build wheels
                     wb = WheelBuilder(
-                        requirement_set,
-                        finder,
+                        finder, preparer, wheel_cache,
                         build_options=options.build_options or [],
                         global_options=options.global_options or [],
+                        no_clean=options.no_clean,
                     )
-                    if not wb.build():
+                    wheels_built_successfully = wb.build(
+                        requirement_set.requirements.values(), session=session,
+                    )
+                    if not wheels_built_successfully:
                         raise CommandError(
                             "Failed to build one or more wheels"
                         )
@@ -206,3 +176,4 @@ class WheelCommand(RequirementCommand):
                 finally:
                     if not options.no_clean:
                         requirement_set.cleanup_files()
+                        wheel_cache.cleanup()

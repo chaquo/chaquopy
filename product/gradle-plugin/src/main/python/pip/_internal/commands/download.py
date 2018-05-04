@@ -3,15 +3,16 @@ from __future__ import absolute_import
 import logging
 import os
 
-from pip.exceptions import CommandError
-from pip.index import FormatControl
-from pip.req import RequirementSet
-from pip.basecommand import RequirementCommand
-from pip import cmdoptions
-from pip.utils import ensure_dir, normalize_path
-from pip.utils.build import BuildDirectory
-from pip.utils.filesystem import check_path_owner
-
+from pip._internal import cmdoptions
+from pip._internal.basecommand import RequirementCommand
+from pip._internal.exceptions import CommandError
+from pip._internal.index import FormatControl
+from pip._internal.operations.prepare import RequirementPreparer
+from pip._internal.req import RequirementSet
+from pip._internal.resolve import Resolver
+from pip._internal.utils.filesystem import check_path_owner
+from pip._internal.utils.misc import ensure_dir, normalize_path
+from pip._internal.utils.temp_dir import TempDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ class DownloadCommand(RequirementCommand):
     usage = """
       %prog [options] <requirement specifier> [package-index-options] ...
       %prog [options] -r <requirements file> [package-index-options] ...
-      %prog [options] [-e] <vcs project url> ...
-      %prog [options] [-e] <local project path> ...
+      %prog [options] <vcs project url> ...
+      %prog [options] <local project path> ...
       %prog [options] <archive url/path> ..."""
 
     summary = 'Download packages.'
@@ -45,7 +46,6 @@ class DownloadCommand(RequirementCommand):
         cmd_opts = self.cmd_opts
 
         cmd_opts.add_option(cmdoptions.constraints())
-        cmd_opts.add_option(cmdoptions.editable())
         cmd_opts.add_option(cmdoptions.requirements())
         cmd_opts.add_option(cmdoptions.build_dir())
         cmd_opts.add_option(cmdoptions.no_deps())
@@ -56,6 +56,8 @@ class DownloadCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.pre())
         cmd_opts.add_option(cmdoptions.no_clean())
         cmd_opts.add_option(cmdoptions.require_hashes())
+        cmd_opts.add_option(cmdoptions.progress_bar())
+        cmd_opts.add_option(cmdoptions.no_build_isolation())
 
         cmd_opts.add_option(
             '-d', '--dest', '--destination-dir', '--destination-directory',
@@ -113,7 +115,7 @@ class DownloadCommand(RequirementCommand):
         )
 
         index_opts = cmdoptions.make_option_group(
-            cmdoptions.non_deprecated_index_group,
+            cmdoptions.index_group,
             self.parser,
         )
 
@@ -122,6 +124,9 @@ class DownloadCommand(RequirementCommand):
 
     def run(self, options, args):
         options.ignore_installed = True
+        # editable doesn't really make sense for `pip download`, but the bowels
+        # of the RequirementSet code require that property.
+        options.editables = []
 
         if options.python_version:
             python_versions = [options.python_version]
@@ -134,13 +139,18 @@ class DownloadCommand(RequirementCommand):
             options.abi,
             options.implementation,
         ])
-        binary_only = FormatControl(set(), set([':all:']))
-        if dist_restriction_set and options.format_control != binary_only:
+        binary_only = FormatControl(set(), {':all:'})
+        no_sdist_dependencies = (
+            options.format_control != binary_only and
+            not options.ignore_dependencies
+        )
+        if dist_restriction_set and no_sdist_dependencies:
             raise CommandError(
-                "--only-binary=:all: must be set and --no-binary must not "
-                "be set (or must be set to :none:) when restricting platform "
-                "and interpreter constraints using --python-version, "
-                "--platform, --abi, or --implementation."
+                "When restricting platform and interpreter constraints using "
+                "--python-version, --platform, --abi, or --implementation, "
+                "either --no-deps must be set, or --only-binary=:all: must be "
+                "set and --no-binary must not be set (or must be set to "
+                ":none:)."
             )
 
         options.src_dir = os.path.abspath(options.src_dir)
@@ -169,18 +179,12 @@ class DownloadCommand(RequirementCommand):
                 )
                 options.cache_dir = None
 
-            with BuildDirectory(options.build_dir,
-                                delete=build_delete) as build_dir:
+            with TempDirectory(
+                options.build_dir, delete=build_delete, kind="download"
+            ) as directory:
 
                 requirement_set = RequirementSet(
-                    build_dir=build_dir,
-                    src_dir=options.src_dir,
-                    download_dir=options.download_dir,
-                    ignore_installed=True,
-                    ignore_dependencies=options.ignore_dependencies,
-                    session=session,
-                    isolated=options.isolated_mode,
-                    require_hashes=options.require_hashes
+                    require_hashes=options.require_hashes,
                 )
                 self.populate_requirement_set(
                     requirement_set,
@@ -192,18 +196,35 @@ class DownloadCommand(RequirementCommand):
                     None
                 )
 
-                if not requirement_set.has_requirements:
-                    return
+                preparer = RequirementPreparer(
+                    build_dir=directory.path,
+                    src_dir=options.src_dir,
+                    download_dir=options.download_dir,
+                    wheel_download_dir=None,
+                    progress_bar=options.progress_bar,
+                    build_isolation=options.build_isolation,
+                )
 
-                requirement_set.prepare_files(finder)
+                resolver = Resolver(
+                    preparer=preparer,
+                    finder=finder,
+                    session=session,
+                    wheel_cache=None,
+                    use_user_site=False,
+                    upgrade_strategy="to-satisfy-only",
+                    force_reinstall=False,
+                    ignore_dependencies=options.ignore_dependencies,
+                    ignore_requires_python=False,
+                    ignore_installed=True,
+                    isolated=options.isolated_mode,
+                )
+                resolver.resolve(requirement_set)
 
                 downloaded = ' '.join([
                     req.name for req in requirement_set.successfully_downloaded
                 ])
                 if downloaded:
-                    logger.info(
-                        'Successfully downloaded %s', downloaded
-                    )
+                    logger.info('Successfully downloaded %s', downloaded)
 
                 # Clean up
                 if not options.no_clean:

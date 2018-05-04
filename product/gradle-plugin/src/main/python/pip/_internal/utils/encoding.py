@@ -1,7 +1,7 @@
 import codecs
 import locale
 import re
-
+import sys
 
 BOMS = [
     (codecs.BOM_UTF8, 'utf8'),
@@ -13,7 +13,7 @@ BOMS = [
     (codecs.BOM_UTF32_LE, 'utf32-le'),
 ]
 
-ENCODING_RE = re.compile(b'coding[:=]\s*([-\w.]+)')
+ENCODING_RE = re.compile(br'coding[:=]\s*([-\w.]+)')
 
 
 def auto_decode(data):
@@ -28,4 +28,6 @@ def auto_decode(data):
         if line[0:1] == b'#' and ENCODING_RE.search(line):
             encoding = ENCODING_RE.search(line).groups()[0].decode('ascii')
             return data.decode(encoding)
-    return data.decode(locale.getpreferredencoding(False))
+    return data.decode(
+        locale.getpreferredencoding(False) or sys.getdefaultencoding(),
+    )

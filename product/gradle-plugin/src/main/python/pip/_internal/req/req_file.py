@@ -4,27 +4,30 @@ Requirements file parsing
 
 from __future__ import absolute_import
 
+import optparse
 import os
 import re
 import shlex
 import sys
-import optparse
-import warnings
 
-from pip._vendor.six.moves.urllib import parse as urllib_parse
 from pip._vendor.six.moves import filterfalse
+from pip._vendor.six.moves.urllib import parse as urllib_parse
 
-import pip
-from pip.download import get_file_content
-from pip.req.req_install import InstallRequirement
-from pip.exceptions import (RequirementsFileParseError)
-from pip.utils.deprecation import RemovedInPip10Warning
-from pip import cmdoptions
+from pip._internal import cmdoptions
+from pip._internal.download import get_file_content
+from pip._internal.exceptions import RequirementsFileParseError
+from pip._internal.req.req_install import InstallRequirement
 
 __all__ = ['parse_requirements']
 
 SCHEME_RE = re.compile(r'^(http|https|file):', re.I)
 COMMENT_RE = re.compile(r'(^|\s)+#.*$')
+
+# Matches environment variable-style values in '${MY_VARIABLE_1}' with the
+# variable name consisting of only uppercase letters, digits or the '_'
+# (underscore). This follows the POSIX standard defined in IEEE Std 1003.1,
+# 2013 Edition.
+ENV_VAR_RE = re.compile(r'(?P<var>\$\{(?P<name>[A-Z0-9_]+)\})')
 
 SUPPORTED_OPTIONS = [
     cmdoptions.constraints,
@@ -34,13 +37,6 @@ SUPPORTED_OPTIONS = [
     cmdoptions.index_url,
     cmdoptions.find_links,
     cmdoptions.extra_index_url,
-    cmdoptions.allow_external,
-    cmdoptions.allow_all_external,
-    cmdoptions.no_allow_external,
-    cmdoptions.allow_unsafe,
-    cmdoptions.no_allow_unsafe,
-    cmdoptions.use_wheel,
-    cmdoptions.no_use_wheel,
     cmdoptions.always_unzip,
     cmdoptions.no_binary,
     cmdoptions.only_binary,
@@ -104,6 +100,7 @@ def preprocess(content, options):
     lines_enum = join_lines(lines_enum)
     lines_enum = ignore_comments(lines_enum)
     lines_enum = skip_regex(lines_enum, options)
+    lines_enum = expand_env_variables(lines_enum)
     return lines_enum
 
 
@@ -127,7 +124,7 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
     :param constraint: If True, parsing a constraints file.
     :param options: OptionParser options that we may update
     """
-    parser = build_parser()
+    parser = build_parser(line)
     defaults = parser.get_default_values()
     defaults.index_url = None
     if finder:
@@ -141,7 +138,8 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
 
     # preserve for the nested code path
     line_comes_from = '%s %s (line %s)' % (
-        '-c' if constraint else '-r', filename, line_number)
+        '-c' if constraint else '-r', filename, line_number,
+    )
 
     # yield a line requirement
     if args_str:
@@ -161,11 +159,9 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
     # yield an editable requirement
     elif opts.editables:
         isolated = options.isolated_mode if options else False
-        default_vcs = options.default_vcs if options else None
         yield InstallRequirement.from_editable(
             opts.editables[0], comes_from=line_comes_from,
-            constraint=constraint, default_vcs=default_vcs, isolated=isolated,
-            wheel_cache=wheel_cache
+            constraint=constraint, isolated=isolated, wheel_cache=wheel_cache
         )
 
     # parse a nested requirements file
@@ -198,35 +194,8 @@ def process_line(line, filename, line_number, finder=None, comes_from=None,
 
     # set finder options
     elif finder:
-        if opts.allow_external:
-            warnings.warn(
-                "--allow-external has been deprecated and will be removed in "
-                "the future. Due to changes in the repository protocol, it no "
-                "longer has any effect.",
-                RemovedInPip10Warning,
-            )
-
-        if opts.allow_all_external:
-            warnings.warn(
-                "--allow-all-external has been deprecated and will be removed "
-                "in the future. Due to changes in the repository protocol, it "
-                "no longer has any effect.",
-                RemovedInPip10Warning,
-            )
-
-        if opts.allow_unverified:
-            warnings.warn(
-                "--allow-unverified has been deprecated and will be removed "
-                "in the future. Due to changes in the repository protocol, it "
-                "no longer has any effect.",
-                RemovedInPip10Warning,
-            )
-
         if opts.index_url:
             finder.index_urls = [opts.index_url]
-        if opts.use_wheel is False:
-            finder.use_wheel = False
-            pip.index.fmt_ctl_no_use_wheel(finder.format_control)
         if opts.no_index is True:
             finder.index_urls = []
         if opts.extra_index_urls:
@@ -267,7 +236,7 @@ def break_args_options(line):
     return ' '.join(args), ' '.join(options)
 
 
-def build_parser():
+def build_parser(line):
     """
     Return a parser for parsing requirement lines
     """
@@ -281,6 +250,8 @@ def build_parser():
     # By default optparse sys.exits on parsing errors. We want to wrap
     # that in our own exception.
     def parser_exit(self, msg):
+        # add offending line
+        msg = 'Invalid requirement: %s\n%s' % (line, msg)
         raise RequirementsFileParseError(msg)
     parser.exit = parser_exit
 
@@ -336,7 +307,32 @@ def skip_regex(lines_enum, options):
     skip_regex = options.skip_requirements_regex if options else None
     if skip_regex:
         pattern = re.compile(skip_regex)
-        lines_enum = filterfalse(
-            lambda e: pattern.search(e[1]),
-            lines_enum)
+        lines_enum = filterfalse(lambda e: pattern.search(e[1]), lines_enum)
     return lines_enum
+
+
+def expand_env_variables(lines_enum):
+    """Replace all environment variables that can be retrieved via `os.getenv`.
+
+    The only allowed format for environment variables defined in the
+    requirement file is `${MY_VARIABLE_1}` to ensure two things:
+
+    1. Strings that contain a `$` aren't accidentally (partially) expanded.
+    2. Ensure consistency across platforms for requirement files.
+
+    These points are the result of a discusssion on the `github pull
+    request #3514 <https://github.com/pypa/pip/pull/3514>`_.
+
+    Valid characters in variable names follow the `POSIX standard
+    <http://pubs.opengroup.org/onlinepubs/9699919799/>`_ and are limited
+    to uppercase letter, digits and the `_` (underscore).
+    """
+    for line_number, line in lines_enum:
+        for env_var, var_name in ENV_VAR_RE.findall(line):
+            value = os.getenv(var_name)
+            if not value:
+                continue
+
+            line = line.replace(env_var, value)
+
+        yield line_number, line

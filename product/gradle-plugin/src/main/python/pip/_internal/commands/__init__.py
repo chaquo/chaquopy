@@ -3,35 +3,25 @@ Package containing all pip commands
 """
 from __future__ import absolute_import
 
-from pip.commands.completion import CompletionCommand
-from pip.commands.download import DownloadCommand
-from pip.commands.freeze import FreezeCommand
-from pip.commands.hash import HashCommand
-from pip.commands.help import HelpCommand
-from pip.commands.list import ListCommand
-from pip.commands.check import CheckCommand
-from pip.commands.search import SearchCommand
-from pip.commands.show import ShowCommand
-from pip.commands.install import InstallCommand
-from pip.commands.uninstall import UninstallCommand
-from pip.commands.wheel import WheelCommand
+from pip._internal.commands.completion import CompletionCommand
+from pip._internal.commands.configuration import ConfigurationCommand
+from pip._internal.commands.download import DownloadCommand
+from pip._internal.commands.freeze import FreezeCommand
+from pip._internal.commands.hash import HashCommand
+from pip._internal.commands.help import HelpCommand
+from pip._internal.commands.list import ListCommand
+from pip._internal.commands.check import CheckCommand
+from pip._internal.commands.search import SearchCommand
+from pip._internal.commands.show import ShowCommand
+from pip._internal.commands.install import InstallCommand
+from pip._internal.commands.uninstall import UninstallCommand
+from pip._internal.commands.wheel import WheelCommand
 
+from pip._internal.utils.typing import MYPY_CHECK_RUNNING
 
-commands_dict = {
-    CompletionCommand.name: CompletionCommand,
-    FreezeCommand.name: FreezeCommand,
-    HashCommand.name: HashCommand,
-    HelpCommand.name: HelpCommand,
-    SearchCommand.name: SearchCommand,
-    ShowCommand.name: ShowCommand,
-    InstallCommand.name: InstallCommand,
-    UninstallCommand.name: UninstallCommand,
-    DownloadCommand.name: DownloadCommand,
-    ListCommand.name: ListCommand,
-    CheckCommand.name: CheckCommand,
-    WheelCommand.name: WheelCommand,
-}
-
+if MYPY_CHECK_RUNNING:
+    from typing import List, Type
+    from pip._internal.basecommand import Command
 
 commands_order = [
     InstallCommand,
@@ -41,12 +31,15 @@ commands_order = [
     ListCommand,
     ShowCommand,
     CheckCommand,
+    ConfigurationCommand,
     SearchCommand,
     WheelCommand,
     HashCommand,
     CompletionCommand,
     HelpCommand,
-]
+]  # type: List[Type[Command]]
+
+commands_dict = {c.name: c for c in commands_order}
 
 
 def get_summaries(ordered=True):

@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
-from pip.basecommand import Command, SUCCESS
-from pip.exceptions import CommandError
+from pip._internal.basecommand import SUCCESS, Command
+from pip._internal.exceptions import CommandError
 
 
 class HelpCommand(Command):
@@ -10,9 +10,10 @@ class HelpCommand(Command):
     usage = """
       %prog <command>"""
     summary = 'Show help for commands.'
+    ignore_require_venv = True
 
     def run(self, options, args):
-        from pip.commands import commands_dict, get_similar_commands
+        from pip._internal.commands import commands_dict, get_similar_commands
 
         try:
             # 'pip help' with no args is handled by pip.__init__.parseopt()

@@ -11,44 +11,49 @@ import platform
 import re
 import shutil
 import sys
-import tempfile
 
-try:
-    import ssl  # noqa
-    HAS_TLS = True
-except ImportError:
-    HAS_TLS = False
-
-from pip._vendor.six.moves.urllib import parse as urllib_parse
-from pip._vendor.six.moves.urllib import request as urllib_request
-
-import pip
-
-from pip.exceptions import InstallationError, HashMismatch
-from pip.models import PyPI
-from pip.utils import (splitext, rmtree, format_size, display_path,
-                       backup_dir, ask_path_exists, unpack_file,
-                       ARCHIVE_EXTENSIONS, consume, call_subprocess)
-from pip.utils.encoding import auto_decode
-from pip.utils.filesystem import check_path_owner
-from pip.utils.logging import indent_log
-from pip.utils.setuptools_build import SETUPTOOLS_SHIM
-from pip.utils.glibc import libc_ver
-from pip.utils.ui import DownloadProgressBar, DownloadProgressSpinner
-from pip.locations import write_delete_marker_file
-from pip.vcs import vcs
-from pip._vendor import requests, six
-from pip._vendor.requests.adapters import BaseAdapter, HTTPAdapter
-from pip._vendor.requests.auth import AuthBase, HTTPBasicAuth
-from pip._vendor.requests.models import CONTENT_CHUNK_SIZE, Response
-from pip._vendor.requests.utils import get_netrc_auth
-from pip._vendor.requests.structures import CaseInsensitiveDict
-from pip._vendor.requests.packages import urllib3
+from pip._vendor import requests, six, urllib3
 from pip._vendor.cachecontrol import CacheControlAdapter
 from pip._vendor.cachecontrol.caches import FileCache
 from pip._vendor.lockfile import LockError
-from pip._vendor.six.moves import xmlrpc_client
+from pip._vendor.requests.adapters import BaseAdapter, HTTPAdapter
+from pip._vendor.requests.auth import AuthBase, HTTPBasicAuth
+from pip._vendor.requests.models import CONTENT_CHUNK_SIZE, Response
+from pip._vendor.requests.structures import CaseInsensitiveDict
+from pip._vendor.requests.utils import get_netrc_auth
+# NOTE: XMLRPC Client is not annotated in typeshed as on 2017-07-17, which is
+#       why we ignore the type on this import
+from pip._vendor.six.moves import xmlrpc_client  # type: ignore
+from pip._vendor.six.moves.urllib import parse as urllib_parse
+from pip._vendor.six.moves.urllib import request as urllib_request
+from pip._vendor.six.moves.urllib.parse import unquote as urllib_unquote
+from pip._vendor.urllib3.util import IS_PYOPENSSL
 
+import pip
+from pip._internal.compat import WINDOWS
+from pip._internal.exceptions import HashMismatch, InstallationError
+from pip._internal.locations import write_delete_marker_file
+from pip._internal.models import PyPI
+from pip._internal.utils.encoding import auto_decode
+from pip._internal.utils.filesystem import check_path_owner
+from pip._internal.utils.glibc import libc_ver
+from pip._internal.utils.logging import indent_log
+from pip._internal.utils.misc import (
+    ARCHIVE_EXTENSIONS, ask_path_exists, backup_dir, call_subprocess, consume,
+    display_path, format_size, get_installed_version, rmtree, splitext,
+    unpack_file,
+)
+from pip._internal.utils.setuptools_build import SETUPTOOLS_SHIM
+from pip._internal.utils.temp_dir import TempDirectory
+from pip._internal.utils.ui import DownloadProgressProvider
+from pip._internal.vcs import vcs
+
+try:
+    import ssl  # noqa
+except ImportError:
+    ssl = None
+
+HAS_TLS = (ssl is not None) or IS_PYOPENSSL
 
 __all__ = ['get_file_content',
            'is_url', 'url_to_path', 'path_to_url',
@@ -116,9 +121,12 @@ def user_agent():
     if platform.machine():
         data["cpu"] = platform.machine()
 
-    # Python 2.6 doesn't have ssl.OPENSSL_VERSION.
-    if HAS_TLS and sys.version_info[:2] > (2, 6):
+    if HAS_TLS:
         data["openssl_version"] = ssl.OPENSSL_VERSION
+
+    setuptools_version = get_installed_version("setuptools")
+    if setuptools_version is not None:
+        data["setuptools_version"] = setuptools_version
 
     return "{data[installer][name]}/{data[installer][version]} {json}".format(
         data=data,
@@ -203,8 +211,9 @@ class MultiDomainBasicAuth(AuthBase):
         if "@" in netloc:
             userinfo = netloc.rsplit("@", 1)[0]
             if ":" in userinfo:
-                return userinfo.split(":", 1)
-            return userinfo, None
+                user, pwd = userinfo.split(":", 1)
+                return (urllib_unquote(user), urllib_unquote(pwd))
+            return urllib_unquote(userinfo), None
         return None, None
 
 
@@ -342,7 +351,9 @@ class PipSession(requests.Session):
             # connection got interrupted in some way. A 503 error in general
             # is typically considered a transient error so we'll go ahead and
             # retry it.
-            status_forcelist=[503],
+            # A 500 may indicate transient error in Amazon S3
+            # A 520 or 527 - may indicate transient error in CloudFlare
+            status_forcelist=[500, 503, 520, 527],
 
             # Add a small amount of back off between failed requests in
             # order to prevent hammering the service.
@@ -376,7 +387,7 @@ class PipSession(requests.Session):
         # We want to use a non-validating adapter for any requests which are
         # deemed insecure.
         for host in insecure_hosts:
-            self.mount("https://{0}/".format(host), insecure_adapter)
+            self.mount("https://{}/".format(host), insecure_adapter)
 
     def request(self, method, url, *args, **kwargs):
         # Allow setting a default timeout on a session
@@ -388,7 +399,12 @@ class PipSession(requests.Session):
 
 def get_file_content(url, comes_from=None, session=None):
     """Gets the content of a file; it may be a filename, file: URL, or
-    http: URL.  Returns (location, content).  Content is unicode."""
+    http: URL.  Returns (location, content).  Content is unicode.
+
+    :param url:         File path or url.
+    :param comes_from:  Origin description of requirements.
+    :param session:     Instance of pip.download.PipSession.
+    """
     if session is None:
         raise TypeError(
             "get_file_content() missing 1 required keyword argument: 'session'"
@@ -509,14 +525,13 @@ def _progress_indicator(iterable, *args, **kwargs):
     return iterable
 
 
-def _download_url(resp, link, content_file, hashes):
+def _download_url(resp, link, content_file, hashes, progress_bar):
     try:
         total_length = int(resp.headers['content-length'])
     except (ValueError, KeyError, TypeError):
         total_length = 0
 
     cached_resp = getattr(resp, "from_cache", False)
-
     if logger.getEffectiveLevel() > logging.INFO:
         show_progress = False
     elif cached_resp:
@@ -580,12 +595,12 @@ def _download_url(resp, link, content_file, hashes):
         url = link.url_without_fragment
 
     if show_progress:  # We don't show progress on cached responses
+        progress_indicator = DownloadProgressProvider(progress_bar,
+                                                      max=total_length)
         if total_length:
             logger.info("Downloading %s (%s)", url, format_size(total_length))
-            progress_indicator = DownloadProgressBar(max=total_length).iter
         else:
             logger.info("Downloading %s", url)
-            progress_indicator = DownloadProgressSpinner().iter
     elif cached_resp:
         logger.info("Using cached %s", url)
     else:
@@ -633,42 +648,41 @@ def _copy_file(filename, location, link):
 
 
 def unpack_http_url(link, location, download_dir=None,
-                    session=None, hashes=None):
+                    session=None, hashes=None, progress_bar="on"):
     if session is None:
         raise TypeError(
             "unpack_http_url() missing 1 required keyword argument: 'session'"
         )
 
-    temp_dir = tempfile.mkdtemp('-unpack', 'pip-')
+    with TempDirectory(kind="unpack") as temp_dir:
+        # If a download dir is specified, is the file already downloaded there?
+        already_downloaded_path = None
+        if download_dir:
+            already_downloaded_path = _check_download_dir(link,
+                                                          download_dir,
+                                                          hashes)
 
-    # If a download dir is specified, is the file already downloaded there?
-    already_downloaded_path = None
-    if download_dir:
-        already_downloaded_path = _check_download_dir(link,
-                                                      download_dir,
-                                                      hashes)
+        if already_downloaded_path:
+            from_path = already_downloaded_path
+            content_type = mimetypes.guess_type(from_path)[0]
+        else:
+            # let's download to a tmp dir
+            from_path, content_type = _download_http_url(link,
+                                                         session,
+                                                         temp_dir.path,
+                                                         hashes,
+                                                         progress_bar)
 
-    if already_downloaded_path:
-        from_path = already_downloaded_path
-        content_type = mimetypes.guess_type(from_path)[0]
-    else:
-        # let's download to a tmp dir
-        from_path, content_type = _download_http_url(link,
-                                                     session,
-                                                     temp_dir,
-                                                     hashes)
+        # unpack the archive to the build dir location. even when only
+        # downloading archives, they have to be unpacked to parse dependencies
+        unpack_file(from_path, location, content_type, link)
 
-    # unpack the archive to the build dir location. even when only downloading
-    # archives, they have to be unpacked to parse dependencies
-    unpack_file(from_path, location, content_type, link)
+        # a download dir is specified; let's copy the archive there
+        if download_dir and not already_downloaded_path:
+            _copy_file(from_path, download_dir, link)
 
-    # a download dir is specified; let's copy the archive there
-    if download_dir and not already_downloaded_path:
-        _copy_file(from_path, download_dir, link)
-
-    if not already_downloaded_path:
-        os.unlink(from_path)
-    rmtree(temp_dir)
+        if not already_downloaded_path:
+            os.unlink(from_path)
 
 
 def unpack_file_url(link, location, download_dir=None, hashes=None):
@@ -785,7 +799,8 @@ class PipXmlrpcTransport(xmlrpc_client.Transport):
 
 
 def unpack_url(link, location, download_dir=None,
-               only_download=False, session=None, hashes=None):
+               only_download=False, session=None, hashes=None,
+               progress_bar="on"):
     """Unpack link.
        If link is a VCS link:
          if only_download, export into download_dir and ignore location
@@ -818,13 +833,14 @@ def unpack_url(link, location, download_dir=None,
             location,
             download_dir,
             session,
-            hashes=hashes
+            hashes=hashes,
+            progress_bar=progress_bar
         )
     if only_download:
         write_delete_marker_file(location)
 
 
-def _download_http_url(link, session, temp_dir, hashes):
+def _download_http_url(link, session, temp_dir, hashes, progress_bar):
     """Download link url into temp_dir using provided session"""
     target_url = link.url.split('#', 1)[0]
     try:
@@ -879,7 +895,7 @@ def _download_http_url(link, session, temp_dir, hashes):
             filename += ext
     file_path = os.path.join(temp_dir, filename)
     with open(file_path, 'wb') as content_file:
-        _download_url(resp, link, content_file, hashes)
+        _download_url(resp, link, content_file, hashes, progress_bar)
     return file_path, content_type
 
 

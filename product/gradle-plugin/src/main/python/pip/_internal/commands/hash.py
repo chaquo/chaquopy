@@ -4,11 +4,10 @@ import hashlib
 import logging
 import sys
 
-from pip.basecommand import Command
-from pip.status_codes import ERROR
-from pip.utils import read_chunks
-from pip.utils.hashes import FAVORITE_HASH, STRONG_HASHES
-
+from pip._internal.basecommand import Command
+from pip._internal.status_codes import ERROR
+from pip._internal.utils.hashes import FAVORITE_HASH, STRONG_HASHES
+from pip._internal.utils.misc import read_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,7 @@ class HashCommand(Command):
     name = 'hash'
     usage = '%prog [options] <file> ...'
     summary = 'Compute hashes of package archives.'
+    ignore_require_venv = True
 
     def __init__(self, *args, **kw):
         super(HashCommand, self).__init__(*args, **kw)

@@ -6,6 +6,11 @@ from __future__ import absolute_import
 import logging
 import warnings
 
+from pip._internal.utils.typing import MYPY_CHECK_RUNNING
+
+if MYPY_CHECK_RUNNING:
+    from typing import Any
+
 
 class PipDeprecationWarning(Warning):
     pass
@@ -15,22 +20,18 @@ class Pending(object):
     pass
 
 
-class RemovedInPip10Warning(PipDeprecationWarning):
+class RemovedInPip11Warning(PipDeprecationWarning):
     pass
 
 
-class RemovedInPip11Warning(PipDeprecationWarning, Pending):
-    pass
-
-
-class Python26DeprecationWarning(PipDeprecationWarning):
+class RemovedInPip12Warning(PipDeprecationWarning, Pending):
     pass
 
 
 # Warnings <-> Logging Integration
 
 
-_warnings_showwarning = None
+_warnings_showwarning = None  # type: Any
 
 
 def _showwarning(message, category, filename, lineno, file=None, line=None):
@@ -43,7 +44,7 @@ def _showwarning(message, category, filename, lineno, file=None, line=None):
         if issubclass(category, PipDeprecationWarning):
             # We use a specially named logger which will handle all of the
             # deprecation messages for pip.
-            logger = logging.getLogger("pip.deprecations")
+            logger = logging.getLogger("pip._internal.deprecations")
 
             # This is purposely using the % formatter here instead of letting
             # the logging module handle the interpolation. This is because we

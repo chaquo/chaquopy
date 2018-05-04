@@ -3,15 +3,15 @@ from __future__ import absolute_import
 
 import os
 import os.path
+import platform
 import site
 import sys
+import sysconfig
+from distutils import sysconfig as distutils_sysconfig
+from distutils.command.install import SCHEME_KEYS, install  # type: ignore
 
-from distutils import sysconfig
-from distutils.command.install import install, SCHEME_KEYS  # noqa
-
-from pip.compat import WINDOWS, expanduser
-from pip.utils import appdirs
-
+from pip._internal.compat import WINDOWS, expanduser
+from pip._internal.utils import appdirs
 
 # Application Directories
 USER_CACHE_DIR = appdirs.user_cache_dir("pip")
@@ -80,8 +80,18 @@ src_prefix = os.path.abspath(src_prefix)
 
 # FIXME doesn't account for venv linked to global site-packages
 
-site_packages = sysconfig.get_python_lib()
-user_site = site.USER_SITE
+site_packages = sysconfig.get_path("purelib")
+# This is because of a bug in PyPy's sysconfig module, see
+# https://bitbucket.org/pypy/pypy/issues/2506/sysconfig-returns-incorrect-paths
+# for more information.
+if platform.python_implementation().lower() == "pypy":
+    site_packages = distutils_sysconfig.get_python_lib()
+try:
+    # Use getusersitepackages if this is present, as it ensures that the
+    # value is initialised properly.
+    user_site = site.getusersitepackages()
+except AttributeError:
+    user_site = site.USER_SITE
 user_dir = expanduser('~')
 if WINDOWS:
     bin_py = os.path.join(sys.prefix, 'Scripts')
@@ -109,7 +119,6 @@ else:
         legacy_storage_dir,
         config_basename,
     )
-
     # Forcing to use /usr/local/bin for standard macOS framework installs
     # Also log to ~/Library/Logs/ for use with the Console.app log viewer
     if sys.platform[:6] == 'darwin' and sys.prefix[:16] == '/System/Library/':
@@ -119,6 +128,9 @@ site_config_files = [
     os.path.join(path, config_basename)
     for path in appdirs.site_config_dirs('pip')
 ]
+
+venv_config_file = os.path.join(sys.prefix, config_basename)
+new_config_file = os.path.join(appdirs.user_config_dir("pip"), config_basename)
 
 
 def distutils_scheme(dist_name, user=False, home=None, root=None,
@@ -143,7 +155,7 @@ def distutils_scheme(dist_name, user=False, home=None, root=None,
     # NOTE: setting user or home has the side-effect of creating the home dir
     # or user base for installations during finalize_options()
     # ideally, we'd prefer a scheme class that has no side-effects.
-    assert not (user and prefix), "user={0} prefix={1}".format(user, prefix)
+    assert not (user and prefix), "user={} prefix={}".format(user, prefix)
     i.user = user or i.user
     if user:
         i.prefix = ""
