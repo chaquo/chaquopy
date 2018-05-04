@@ -590,7 +590,7 @@ def _download_url(resp, link, content_file, hashes, progress_bar):
     progress_indicator = _progress_indicator
 
     if link.netloc == PyPI.netloc:
-        url = show_url
+         url = show_url
     else:
         url = link.url_without_fragment
 

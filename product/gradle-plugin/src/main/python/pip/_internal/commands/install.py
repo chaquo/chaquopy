@@ -187,6 +187,12 @@ class InstallCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.require_hashes())
         cmd_opts.add_option(cmdoptions.progress_bar())
 
+         # Chaquopy added
+        cmd_opts.add_option(cmdoptions.platform())
+        cmd_opts.add_option(cmdoptions.python_version())
+        cmd_opts.add_option(cmdoptions.implementation())
+        cmd_opts.add_option(cmdoptions.abi())
+
         index_opts = cmdoptions.make_option_group(
             cmdoptions.index_group,
             self.parser,
@@ -197,6 +203,7 @@ class InstallCommand(RequirementCommand):
 
     def run(self, options, args):
         cmdoptions.check_install_build_global(options)
+        cmdoptions.apply_dist_restrictions(options)  # Chaquopy added
 
         upgrade_strategy = "to-satisfy-only"
         if options.upgrade:
@@ -221,7 +228,13 @@ class InstallCommand(RequirementCommand):
             install_options.append('--user')
             install_options.append('--prefix=')
 
-        target_temp_dir = TempDirectory(kind="target")
+        # Chaquopy: don't create a temp directory, install directly to target_dir.
+        class FakeTempDirectory(object):
+            path = options.target_dir
+            def create(self):
+                pass
+
+        target_temp_dir = FakeTempDirectory()
         if options.target_dir:
             options.ignore_installed = True
             options.target_dir = os.path.abspath(options.target_dir)
@@ -239,7 +252,11 @@ class InstallCommand(RequirementCommand):
         global_options = options.global_options or []
 
         with self._build_session(options) as session:
-            finder = self._build_package_finder(options, session)
+            # Chaquopy modified
+            dist_restrictions = dict(
+                platform=options.platform, abi=options.abi, implementation=options.implementation,
+                python_versions=[options.python_version] if options.python_version else None)
+            finder = self._build_package_finder(options, session, **dist_restrictions)
             build_delete = (not (options.no_clean or options.build_dir))
             wheel_cache = WheelCache(options.cache_dir, options.format_control)
 
@@ -376,7 +393,7 @@ class InstallCommand(RequirementCommand):
                         requirement_set.cleanup_files()
                         wheel_cache.cleanup()
 
-        if options.target_dir:
+        if options.target_dir and False:  # Chaquopy disabled
             self._handle_target_dir(
                 options.target_dir, target_temp_dir, options.upgrade
             )

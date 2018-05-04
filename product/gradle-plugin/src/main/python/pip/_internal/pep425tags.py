@@ -259,6 +259,10 @@ def get_supported(versions=None, noarch=False, platform=None,
     """
     supported = []
 
+    # Chaquopy added
+    if versions is platform is impl is abi is None:
+        return supported_tags_noarch if noarch else supported_tags
+
     # Versions must be given with respect to the preference
     if versions is None:
         versions = [get_impl_ver()]
@@ -344,11 +348,11 @@ def get_supported(versions=None, noarch=False, platform=None,
     return supported
 
 
-# Chaquopy addition
+# Chaquopy added
 def set_supported(versions, platform, impl, abi):
     global supported_tags, supported_tags_noarch, implementation_tag
     supported_tags = get_supported(versions=versions, noarch=False, platform=platform,
                                    impl=impl, abi=abi)
     supported_tags_noarch = get_supported(versions=versions, noarch=True, platform=platform,
                                           impl=impl, abi=abi)
-    implementation_tag = impl + versions[0]
+    implementation_tag = impl + versions[0]  # Used in wheel.py

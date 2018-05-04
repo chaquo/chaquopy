@@ -15,8 +15,8 @@ import re
 import subprocess
 import sys
 
+from pip._internal.utils.misc import rmtree
 from pip._vendor.distlib.database import InstalledDistribution
-from pip.utils import rmtree
 import six
 
 
