@@ -53,7 +53,8 @@ repository as necessary.
 
 Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
-"Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on:
+"Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on the
+following devices, with at least one app on each device being a clean install:
 * minSdkVersion emulator
 * targetSdkVersion emulator
 * Any ARM device

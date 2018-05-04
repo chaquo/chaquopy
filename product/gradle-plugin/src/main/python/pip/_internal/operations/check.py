@@ -86,7 +86,7 @@ def check_install_conflicts(to_install):
     installing given requirements
     """
     # Start from the current state
-    state = create_package_set_from_installed()
+    state = {}  # Chaquopy: was `create_package_set_from_installed()`.
     _simulate_installation_of(to_install, state)
     return state, check_package_set(state)
 
