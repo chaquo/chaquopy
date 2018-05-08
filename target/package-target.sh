@@ -16,7 +16,7 @@ target_dir="$(cd ${3:?}; pwd)/$full_ver"
 mkdir "$target_dir"  # Error if already exists: don't want to overwrite existing files.
 target_prefix="$target_dir/target-$full_ver"
 
-tmp_dir="/tmp/package-target-$$"
+tmp_dir="$target_dir/tmp"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
@@ -36,13 +36,24 @@ for abi in armeabi-v7a x86; do
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp -a "$crystax/sources/python/$short_ver/libs/$abi/libpython${short_ver}"*.so "$jniLibs_dir"
-    cp -a "$crystax/sources/crystax/libs/$libcrystax_abi/libcrystax.so" "$jniLibs_dir"
+    cp "$crystax/sources/python/$short_ver/libs/$abi/libpython${short_ver}"*.so "$jniLibs_dir"
+    cp "$crystax/sources/crystax/libs/$libcrystax_abi/libcrystax.so" "$jniLibs_dir"
+    cp "$crystax/sources/sqlite/3/libs/$abi/libsqlite3.so" "$jniLibs_dir"
+
+    for openssl_lib in crypto ssl; do
+        src_filename=$(echo $crystax/sources/openssl/*/libs/$abi/lib${openssl_lib}.so)
+        if [ $(echo "$src_filename" | wc -w) != "1" ]; then
+            echo "Found multiple copies of lib${openssl_lib}: delete the ones you don't want to use"
+            exit 1
+        fi
+        cp "$src_filename" "$jniLibs_dir"
+    done
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
     cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
 
+    chmod u+w $(find -name *.so)
     $ndk/toolchains/$gcc_abi-*/prebuilt/*/*/bin/strip $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
