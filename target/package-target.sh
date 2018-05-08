@@ -43,7 +43,7 @@ for abi in armeabi-v7a x86; do
     for openssl_lib in crypto ssl; do
         src_filename=$(echo $crystax/sources/openssl/*/libs/$abi/lib${openssl_lib}.so)
         if [ $(echo "$src_filename" | wc -w) != "1" ]; then
-            echo "Found multiple copies of lib${openssl_lib}: delete the ones you don't want to use"
+            echo "Found multiple versions of OpenSSL in Crystax NDK: delete the ones you don't want to use"
             exit 1
         fi
         cp "$src_filename" "$jniLibs_dir"
@@ -80,7 +80,7 @@ fi
 stdlib_pyc_zip="$target_prefix-stdlib-pyc.zip"
 rm -f "$stdlib_pyc_zip"
 cd stdlib
-zip -q -i '*.pyc' -r "$stdlib_pyc_zip" .
+zip -q -i '*.pyc' '*.pickle' -r "$stdlib_pyc_zip" .
 cd ..
 
 rm -rf "$tmp_dir"
