@@ -1,0 +1,26 @@
+diff -ur src-original/src/_cffi_src/openssl/callbacks.py src/src/_cffi_src/openssl/callbacks.py
+--- src-original/src/_cffi_src/openssl/callbacks.py	2018-03-27 14:12:05.000000000 +0000
++++ src/src/_cffi_src/openssl/callbacks.py	2018-05-08 15:45:20.118920403 +0000
+@@ -127,7 +127,10 @@
+         init_mutexes();
+         CRYPTO_set_locking_callback(_ssl_thread_locking_function);
+ #ifndef _WIN32
++        /* Chaquopy: disabled because Crystax's implementation of pthread_atfork is in crtbegin_so.c,
++         * which the linker apparently doesn't check when we use -Wl,--no-undefined.
+         pthread_atfork(NULL, NULL, &init_mutexes);
++        */
+ #endif
+     }
+     return 1;
+diff -ur src-original/src/_cffi_src/openssl/src/osrandom_engine.h src/src/_cffi_src/openssl/src/osrandom_engine.h
+--- src-original/src/_cffi_src/openssl/src/osrandom_engine.h	2018-05-08 15:25:46.752144486 +0000
++++ src/src/_cffi_src/openssl/src/osrandom_engine.h	2018-05-08 15:45:31.958947786 +0000
+@@ -40,7 +40,7 @@
+     /* OpenBSD 5.6+ & macOS with SYS_getentropy defined, although < 10.12 will fallback
+      * to urandom */
+     #define CRYPTOGRAPHY_OSRANDOM_ENGINE CRYPTOGRAPHY_OSRANDOM_ENGINE_GETENTROPY
+-  #elif defined(__linux__) && defined(SYS_getrandom)
++  #elif defined(__linux__) && defined(SYS_getrandom) && !defined(__ANDROID__)  /* Chaquopy: disabled on Android */
+     /* Linux 3.4.17+ */
+     #define CRYPTOGRAPHY_OSRANDOM_ENGINE CRYPTOGRAPHY_OSRANDOM_ENGINE_GETRANDOM
+   #else
