@@ -37,7 +37,7 @@ STANDARD_LIBS = {
     "libc.so", "libdl.so", "libm.so", "libz.so",
 
     # Chaquopy-provided libraries (libpythonX.Y.so is added below)
-    "libcrystax.so", "libcrypto.so", "libsqlite3.so", "libssl.so",
+    "libcrystax.so", "libcrypto_chaquopy.so", "libsqlite3.so", "libssl_chaquopy.so",
 }
 
 COMPILER_LIBS = {

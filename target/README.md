@@ -4,20 +4,25 @@ Install Crystax 10.3.2. Let its location be $CRYSTAX_DIR.
 
 In the following, $ABIS is a comma-separated list of Android ABIs, e.g. "armeabi-v7a,x86".
 
+Clone the following Crystax repository from the Chaquo fork:
+
+      platform/ndk
+
+Check it out on the branch crystax-r10. Wherever `platform/ndk` appears below, use this
+directory.
+
 
 # libcrystax
 
 libcrystax must be rebuilt to fix issue #5372 (Crystax issue #1455).
 
-Clone the following Crystax repositories (those marked with * have Chaquopy-specific changes
-and must be cloned from the Chaquo fork):
+Clone the following Crystax repositories into the same directory structure as platform/ndk:
 
       vendor/dlmalloc
       vendor/freebsd
       vendor/libkqueue
       vendor/libpwq
       platform/bionic
-    * platform/ndk
       platform/system/core
       toolchain/llvm-3.6/compiler-rt
 
@@ -36,14 +41,12 @@ files just built in platform/ndk/sources/crystax/libs.
 
 # OpenSSL
 
-Crystax doesn't supply a pre-built OpenSSL, so we have to build it ourselves.
+Download and extract OpenSSL source, of the version specified in
+platform/ndk/build/tools/dev-defaults.sh. Let its location be $OPENSSL_DIR. Then run this
+script:
 
-Download and extract OpenSSL source of the version specified in the Chaquo fork of
-platform/ndk/build/tools/dev-defaults.sh. Let its location be $OPENSSL_DIR.
-
-Then run this script:
-
-    $CRYSTAX_DIR/build/tools/build-target-openssl.sh --verbose --abis=$ABIS $OPENSSL_DIR
+    platform/ndk/build/tools/build-target-openssl.sh --verbose --ndk-dir=$CRYSTAX_DIR \
+        --abis=$ABIS $OPENSSL_DIR
 
 The OpenSSL libraries and includes will now be in $CRYSTAX_DIR/sources/openssl/<version>. Copy the
 Android.mk from sources/openssl/1.0.1p to this subdirectory.
@@ -56,13 +59,7 @@ Crystax's pre-built library is used. No action is required.
 
 # Python
 
-Download and extract Python source. Let its location be $PYTHON_DIR.
-
-Clone the following Crystax repository from the Chaquo fork:
-
-    platform/ndk
-
-Check it out on the branch crystax-r10, then run the following:
+Download and extract Python source. Let its location be $PYTHON_DIR. Then run this script:
 
     platform/ndk/build-target-python.sh --verbose --ndk-dir=$CRYSTAX_DIR --abis=$ABIS $PYTHON_DIR
 
@@ -71,7 +68,7 @@ The Python libraries and includes will now be in $CRYSTAX_DIR/sources/python.
 
 # Packaging and distribution
 
-Run package-target.sh.
+Run package-target.sh. (TODO: more detailed instructions required)
 
 If adding a new Python x.y version, Python libraries and includes will also need to be copied
-to any other machines where Chaquopy itself is built.
+to any other machines where Chaquopy itself is built. (TODO: more detailed instructions required)

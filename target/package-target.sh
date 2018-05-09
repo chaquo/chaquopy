@@ -46,7 +46,10 @@ for abi in armeabi-v7a x86; do
             echo "Found multiple versions of OpenSSL in Crystax NDK: delete the ones you don't want to use"
             exit 1
         fi
-        cp "$src_filename" "$jniLibs_dir"
+        # build-target-openssl.sh changes the SONAMEs to avoid clashing with the system copies.
+        # This isn't necessary for SQLite because the system copy is just "libsqlite.so", with
+        # no "3".
+        cp "$src_filename" "$jniLibs_dir/lib${openssl_lib}_chaquopy.so"
     done
 
     mkdir lib-dynload
