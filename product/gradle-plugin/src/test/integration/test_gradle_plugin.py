@@ -76,6 +76,12 @@ class GradleTestCase(TestCase):
     def post_check(self, apk_zip, apk_dir, kwargs):
         pass
 
+    # stdlib and libs changed at this point. Anything which calls this method will be exercised
+    # by PythonVersion.test_old_new.
+    def post_201805(self, version):
+        version_info = tuple(map(int, version.split(".")))
+        return ((2, 7, 15) <= version_info < (3, 0, 0)) or (version_info >= (3, 6, 5))
+
 
 class Basic(GradleTestCase):
     def test_base(self):
@@ -156,8 +162,22 @@ class PythonVersion(GradleTestCase):
 
     def test_invalid(self):
         run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
-        self.assertInLong("debug: invalid Python version '2.7.99'. Available versions are "
-                          "[2.7.10, 2.7.14, 3.6.3]", run.stderr)
+        self.assertInLong("debug: invalid python.version '2.7.99'. Current versions are "
+                          "[2.7.15, 3.6.5].", run.stderr)
+
+    def test_old_new(self):
+        excerpt = "does not contain all current Chaquopy features and bug fixes"
+        run = self.RunGradle("base", run=False)
+        for old, new in [("2.7.14", "2.7.15"), ("3.6.3", "3.6.5")]:
+            major = old[0]
+            run.apply_layers("PythonVersion/old_" + major)
+            run.rerun(version=old)
+            self.assertInLong("Warning: debug: python.version {} {}. Please switch to one of "
+                              "the following versions as soon as possible: [2.7.15, 3.6.5]."
+                              .format(old, excerpt), run.stdout)
+            run.apply_layers("PythonVersion/new_" + major)
+            run.rerun(version=new)
+            self.assertNotIn(excerpt, run.stdout)
 
     def test_variant(self):
         self.RunGradle("base", "PythonVersion/variant",
@@ -309,10 +329,16 @@ class Pyc(GradleTestCase):
 
     def post_check(self, apk_zip, apk_dir, kwargs):
         pyc = kwargs["pyc"]
+        version = kwargs["version"]
 
         stdlib_files = set(ZipFile(join(apk_dir, "assets/chaquopy/stdlib.zip")).namelist())
         self.assertEqual(pyc["stdlib"],    "argparse.pyc" in stdlib_files)
         self.assertNotEqual(pyc["stdlib"], "argparse.py" in stdlib_files)
+        if self.post_201805(version):
+            # See build_stdlib.py in crystax/platform/ndk.
+            for grammar_stem in ["Grammar", "PatternGrammar"]:
+                self.assertIn("lib2to3/{}{}.final.0.pickle".format(grammar_stem, version),
+                              stdlib_files)
 
 
 class BuildPython(GradleTestCase):
@@ -652,8 +678,10 @@ class RunGradle(object):
 
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
-        status, self.stdout, self.stderr = self.run_gradle(variants)
+        for k, v in six.iteritems({"version": "2.7.14"}):  # Also used in Pyc.post_check.
+            kwargs.setdefault(k, v)
 
+        status, self.stdout, self.stderr = self.run_gradle(variants)
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
@@ -718,12 +746,12 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
-    # post_check.
+    # post_check. See also `setdefault` loop at top of rerun().
     @kwonly_defaults
-    def check_apk(self, apk_zip, apk_dir, abis=["x86"], version="2.7.14", classes=[], app=[],
+    def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
                   requirements=[], extract_packages=[], licensed_id=None, **kwargs):
-        kwargs_wrapped = KwargsWrapper(kwargs)
-        self.test.pre_check(apk_zip, apk_dir, kwargs_wrapped)
+        kwargs = KwargsWrapper(kwargs)
+        self.test.pre_check(apk_zip, apk_dir, kwargs)
 
         # All ZIP assets should be stored uncompressed, whether top-level or not.
         for info in apk_zip.infolist():
@@ -774,14 +802,18 @@ class RunGradle(object):
                                    "_ssl.so", "pyexpat.so", "unicodedata.so"],
                                   sorted(stdlib_native_zip.namelist()))
 
-        # JNI libs
+        # libs
         self.test.assertEqual(sorted(abis), sorted(os.listdir(join(apk_dir, "lib"))))
+        version = kwargs["version"]
         ver_suffix = version.rpartition(".")[0]
         if ver_suffix.startswith("3"):
             ver_suffix += "m"
         for abi in abis:
-            self.test.assertEqual(["libchaquopy_java.so", "libcrystax.so",
-                                   "libpython{}.so".format(ver_suffix)],
+            libs = ["libchaquopy_java.so", "libcrystax.so",
+                    "libpython{}.so".format(ver_suffix)]
+            if self.test.post_201805(version):
+                libs += ["libcrypto_chaquopy.so", "libssl_chaquopy.so", "libsqlite3.so"]
+            self.test.assertEqual(sorted(libs),
                                   sorted(os.listdir(join(apk_dir, "lib", abi))))
 
         # Chaquopy runtime library
@@ -816,8 +848,8 @@ class RunGradle(object):
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
-        self.test.post_check(apk_zip, apk_dir, kwargs_wrapped)
-        self.test.assertFalse(kwargs_wrapped.unused_kwargs)
+        self.test.post_check(apk_zip, apk_dir, kwargs)
+        self.test.assertFalse(kwargs.unused_kwargs)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

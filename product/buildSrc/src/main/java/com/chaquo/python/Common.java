@@ -14,7 +14,10 @@ public class Common {
     public static final int COMPILE_SDK_VERSION = 21;  // For Build.SUPPORTED_ABIS
 
     public static final List<String> PYTHON_VERSIONS = Arrays.asList
-        ("2.7.10", "2.7.14", "3.6.3");
+        ("2.7.10", "2.7.14", "2.7.15", "3.6.3", "3.6.5");
+
+    public static final List<String> CURRENT_PYTHON_VERSIONS = Arrays.asList
+        ("2.7.15", "3.6.5");
 
     public static String pyVersionShort(String version) {
         return version.substring(0, version.lastIndexOf('.'));
@@ -25,7 +28,9 @@ public class Common {
     static {
         PYTHON_BUILD_NUMBERS.put("2.7.10", "2");
         PYTHON_BUILD_NUMBERS.put("2.7.14", "2");
+        PYTHON_BUILD_NUMBERS.put("2.7.15", "2");
         PYTHON_BUILD_NUMBERS.put("3.6.3", "3");
+        PYTHON_BUILD_NUMBERS.put("3.6.5", "3");
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.

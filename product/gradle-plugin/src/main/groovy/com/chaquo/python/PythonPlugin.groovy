@@ -178,8 +178,14 @@ class PythonPlugin implements Plugin<Project> {
                                           "add it to defaultConfig.")
             }
             if (! Common.PYTHON_VERSIONS.contains(python.version)) {
-                throw new GradleException("$variant.name: invalid Python version '${python.version}'. " +
-                                          "Available versions are ${Common.PYTHON_VERSIONS}.")
+                throw new GradleException("$variant.name: invalid python.version '${python.version}'. " +
+                                          "Current versions are ${Common.CURRENT_PYTHON_VERSIONS}.")
+            }
+            if (! Common.CURRENT_PYTHON_VERSIONS.contains(python.version)) {
+                println("Warning: $variant.name: python.version ${python.version} does not " +
+                        "contain all current Chaquopy features and bug fixes. Please switch to " +
+                        "one of the following versions as soon as possible: " +
+                        "${Common.CURRENT_PYTHON_VERSIONS}.")
             }
 
             createConfigs(variant, python)

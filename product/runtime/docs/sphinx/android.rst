@@ -55,22 +55,24 @@ With the plugin applied, you can now add a `python` block within `android.defaul
 only required setting in this block is the Python version, and the currently available versions
 are:
 
-* 2.7.14
-* 3.6.3
+* 2.7.15
+* 3.6.5
 
 For example::
 
     defaultConfig {
         python {
-            version "3.6.3"
+            version "3.6.5"
         }
     }
 
-.. note:: The following obsolete Python version is still available, but it does not contain all
-          current bug fixes either for Chaquopy or for Python itself. Projects using this
-          version should upgrade as soon as possible.
+.. note:: The following obsolete Python versions are still available, but they do not contain all
+          current features and bug fixes either for Chaquopy or for Python itself. Projects using
+          these versions should upgrade as soon as possible.
 
           * 2.7.10
+          * 2.7.14
+          * 3.6.3
 
 ABI selection
 -------------
@@ -343,7 +345,7 @@ ssl
 
 Because of inconsistencies in the system certificate authority store formats of different Android
 versions, the `ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://github.com/certifi/python-certifi/>`_. The current version is from certifi 2017.11.05.
+<https://github.com/certifi/python-certifi/>`_. The current version is from certifi 2018.01.18.
 
 sys
 ---
