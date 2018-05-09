@@ -1,0 +1,7 @@
+package:
+  name: cffi
+  version: 1.11.5
+
+requirements:
+  host:
+    - chaquopy-libffi 3.2.1

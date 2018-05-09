@@ -3,12 +3,13 @@
 
 # The following requirements must all be present for build-wheel.py itself:
 attrs==17.2.0
+jinja2==2.10
 jsonschema==2.6.0
 pyelftools==0.24
 pyyaml==3.12
 
 # Additionally, the following requirements must be present in the host Python environment
 # corresponding to the target Python version:
-pip==9.0.1
+pip==10.0.1
 setuptools==37.0.0
 wheel==0.30.0   # We use undocumented internal APIs

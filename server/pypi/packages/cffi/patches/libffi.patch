@@ -1,0 +1,33 @@
+diff -ur src-original/cffi.egg-info/SOURCES.txt src/cffi.egg-info/SOURCES.txt
+--- src-original/cffi.egg-info/SOURCES.txt	2018-02-27 18:15:52.000000000 +0000
++++ src/cffi.egg-info/SOURCES.txt	2018-05-08 23:28:35.588543490 +0000
+@@ -2,6 +2,7 @@
+ LICENSE
+ MANIFEST.in
+ README.md
++setup.cfg
+ setup.py
+ setup_base.py
+ c/_cffi_backend.c
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-02-27 18:15:41.000000000 +0000
++++ src/setup.py	2018-05-08 23:01:46.812824736 +0000
+@@ -9,8 +9,7 @@
+ 
+ sources = ['c/_cffi_backend.c']
+ libraries = ['ffi']
+-include_dirs = ['/usr/include/ffi',
+-                '/usr/include/libffi']    # may be changed by pkg-config
++include_dirs = []    # Chaquopy: removed /usr/include paths
+ define_macros = []
+ library_dirs = []
+ extra_compile_args = []
+@@ -138,7 +137,7 @@
+     sources.extend(os.path.join(COMPILE_LIBFFI, filename)
+                    for filename in _filenames)
+ else:
+-    use_pkg_config()
++    # use_pkg_config()  # Chaquopy: disabled
+     ask_supports_thread()
+     ask_supports_sync_synchronize()
+ 

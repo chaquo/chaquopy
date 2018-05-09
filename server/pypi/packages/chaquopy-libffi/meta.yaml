@@ -1,0 +1,8 @@
+{% set version = "3.2.1" %}
+
+package:
+  name: chaquopy-libffi
+  version: {{ version }}
+
+source:
+  url: ftp://sourceware.org/pub/libffi/libffi-{{ version }}.tar.gz

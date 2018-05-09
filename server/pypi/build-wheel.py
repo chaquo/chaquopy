@@ -19,6 +19,7 @@ import tempfile
 
 import attr
 from elftools.elf.elffile import ELFFile
+import jinja2
 from wheel.archive import archive_wheelfile
 from wheel.bdist_wheel import bdist_wheel
 import yaml
@@ -36,7 +37,7 @@ STANDARD_LIBS = {
     "libc.so", "libdl.so", "libm.so", "libz.so",
 
     # Chaquopy-provided libraries (libpythonX.Y.so is added below)
-    "libcrystax.so",
+    "libcrystax.so", "libcrypto.so", "libsqlite3.so", "libssl.so",
 }
 
 COMPILER_LIBS = {
@@ -107,7 +108,12 @@ class BuildWheel:
 
     def unpack_and_build(self):
         if self.needs_python:
-            self.find_python()  # Sets self.compat_tag.
+            self.find_python()
+
+        build_reqs = self.get_requirements("build")
+        if build_reqs:
+            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
+                " ".join(f"{name}=={version}" for name, version in build_reqs))
 
         self.version_dir = f"{self.package_dir}/build/{self.version}"
         ensure_dir(self.version_dir)
@@ -125,7 +131,7 @@ class BuildWheel:
         if self.no_build:
             log("Skipping build due to --no-build")
         else:
-            self.reqs_dir = f"{self.build_dir}/requirements"  # Used in check_requirements.
+            self.reqs_dir = f"{self.build_dir}/requirements"
             if self.no_reqs:
                 log("Skipping requirements extraction due to --no-reqs")
             else:
@@ -252,7 +258,7 @@ class BuildWheel:
         if exists(patches_dir):
             cd(f"{self.build_dir}/src")
             for patch_filename in os.listdir(patches_dir):
-                run(f"patch -t -p1 -i {patches_dir}/{patch_filename}")
+                run(f"patch -p1 -i {patches_dir}/{patch_filename}")
 
     def build_wheel(self):
         build_script = f"{self.package_dir}/build.sh"
@@ -263,7 +269,7 @@ class BuildWheel:
 
     def extract_requirements(self):
         ensure_empty(self.reqs_dir)
-        reqs = self.host_requirements()
+        reqs = self.get_requirements("host")
         if not reqs:
             return
 
@@ -282,6 +288,16 @@ class BuildWheel:
             matches.sort(key=lambda match: int(match.group("build_num")))
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
+
+        # There is an extension to allow ZIP files to contain symlnks, but the zipfile module
+        # doesn't support it, and the links wouldn't survive on Windows anyway. So the wheel
+        # files only include external shared libraries under their SONAMEs.
+        reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
+        if exists(reqs_lib_dir):
+            for filename in os.listdir(reqs_lib_dir):
+                match = re.search(r"^(.*\.so)\..*$", filename)
+                if match:
+                    run(f"ln -s {filename} {reqs_lib_dir}/{match.group(1)}")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -343,11 +359,20 @@ class BuildWheel:
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
+        sqlite_root = f"{self.ndk}/sources/sqlite/3"
+        openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
+        openssl_root = dirname(openssl_include)
+
         # Non-language-specific GCC flags.
         gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
             abi.cflags])
-        env["CFLAGS"] = env["FARCH"] = gcc_flags  # FARCH is used by numpy.distutils.fcompiler.
+
+        env["CFLAGS"] = gcc_flags + f" -I{openssl_root}/include -I{sqlite_root}/include"
+        if exists(f"{self.reqs_dir}/chaquopy/include"):
+            env["CFLAGS"] += f" -I{self.reqs_dir}/chaquopy/include"
+
+        env["FARCH"] = gcc_flags  # Used by numpy.distutils Fortran compilation.
 
         # Not including -pie despite recommendation in standalone toolchain docs, because it
         # causes the linker to forget it's supposed to be building a shared library
@@ -357,7 +382,10 @@ class BuildWheel:
             # this earlier by adding -Werror=implicit-function-declaration to CFLAGS, but that
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
-            abi.ldflags])
+            abi.ldflags,
+            f"-L{openssl_root}/libs/{self.abi}", f"-L{sqlite_root}/libs/{self.abi}"])
+        if exists(f"{self.reqs_dir}/chaquopy/lib"):
+            env["LDFLAGS"] += f" -L{self.reqs_dir}/chaquopy/lib"
 
         env["ARFLAGS"] = "rc"
 
@@ -444,7 +472,7 @@ class BuildWheel:
                     # On Python 3, native modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
                     original_path = join(tmp_dir, original_path)
-                    fixed_path = re.sub(fr"\.{host_soabi}\.so$", ".so", original_path)
+                    fixed_path = re.sub(fr"\.({host_soabi}|abi\d+)\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
                     if fixed_path.endswith(".so"):
@@ -453,7 +481,7 @@ class BuildWheel:
                     # https://www.technovelty.org/linux/stripping-shared-libraries.html
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
-        reqs.update(self.host_requirements())
+        reqs.update(self.get_requirements("host"))
         if reqs:
             log(f"Adding extra requirements: {reqs}")
             info_metadata = read_message(f"{info_dir}/METADATA")
@@ -538,11 +566,12 @@ class BuildWheel:
                                        f"'{tag.needed}'.")
         return reqs
 
-    def host_requirements(self):
+    def get_requirements(self, req_type):
         reqs = []
-        for req in self.meta["requirements"]["host"]:
+        for req in self.meta["requirements"][req_type]:
             package, version = req.split()
-            package = load_meta(package)["package"]["name"]
+            if req_type == "host":
+                package = load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
 
@@ -582,7 +611,8 @@ def load_meta(package):
     Validator = jsonschema.Draft4Validator
     schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
     Validator.check_schema(schema)
-    meta = yaml.safe_load(open(f"{package_dir(package)}/meta.yaml"))
+    meta_str = jinja2.Template(open(f"{package_dir(package)}/meta.yaml").read()).render()
+    meta = yaml.safe_load(meta_str)
     with_defaults(Validator)(schema).validate(meta)
     return meta
 
