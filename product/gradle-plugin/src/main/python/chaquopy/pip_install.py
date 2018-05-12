@@ -73,24 +73,28 @@ class PipInstall(object):
         native_reqs = {}
         abi_tree = {}
         for dist_info_dir in glob(join(abi_dir, "*.dist-info")):
-            dist = InstalledDistribution(dist_info_dir)
-            req_tree = {}
-            for path, hash_str, size in dist.list_installed_files():
-                path_abs = abspath(join(abi_dir, path))
-                if not path_abs.startswith(abi_dir):
-                    # pip's gone and installed something outside of the target directory.
-                    raise CommandError("{}-{}: invalid path in RECORD: '{}'"
-                                       .format(dist.name, dist.version, path))
-                if not path_abs.startswith(dist_info_dir):
-                    tree_add_path(req_tree, path, (hash_str, size))
-            tree_merge_from(abi_tree, req_tree)
+            try:
+                dist = InstalledDistribution(dist_info_dir)
+                req_tree = {}
+                for path, hash_str, size in dist.list_installed_files():
+                    path_abs = abspath(join(abi_dir, path))
+                    if not path_abs.startswith(abi_dir):
+                        # pip's gone and installed something outside of the target directory.
+                        raise ValueError("invalid path in RECORD: '{}'".format(path))
+                    if not path_abs.startswith(dist_info_dir):
+                        tree_add_path(req_tree, path, (hash_str, size))
+                tree_merge_from(abi_tree, req_tree)
 
-            wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
-            is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
-            req_spec = "{}=={}".format(dist.name, dist.version)
-            (pure_reqs if is_pure else native_reqs)[req_spec] = req_tree
+                wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
+                is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
+                req_spec = "{}=={}".format(dist.name, dist.version)
+                (pure_reqs if is_pure else native_reqs)[req_spec] = req_tree
 
-            rmtree(dist_info_dir)
+                rmtree(dist_info_dir)
+
+            except Exception:
+                logger.error("Failed to process " + dist_info_dir)
+                raise
 
         return pure_reqs, native_reqs, abi_tree
 
