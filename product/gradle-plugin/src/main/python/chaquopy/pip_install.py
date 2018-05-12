@@ -17,6 +17,7 @@ import sys
 
 from pip._internal.utils.misc import rmtree
 from pip._vendor.distlib.database import InstalledDistribution
+from pip._vendor.retrying import retry
 import six
 
 
@@ -127,7 +128,13 @@ class PipInstall(object):
                 os.mkdir(abi_dir)
 
     def move_to_common(self, abi, filename):
-        os.renames(join(self.target, abi, filename), join(self.target, "common", filename))
+        abi_filename, common_filename = [join(self.target, subdir, filename)
+                                         for subdir in [abi, "common"]]
+        try:
+            renames(abi_filename, common_filename)
+        except OSError:
+            logger.error("Failed to rename '{}' to '{}'".format(abi_filename, common_filename))
+            raise  # Exception message doesn't contain any filenames.
 
     def platform_tag(self, abi):
         return "android_15_" + re.sub(r"[-.]", "_", abi)
@@ -199,6 +206,13 @@ def common_paths(*trees):
     result = []
     process_subtrees(trees, "")
     return result
+
+
+# Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as
+# pip does for rmtree.
+@retry(wait_fixed=500, stop_max_delay=3000)
+def renames(src, dst):
+    os.renames(src, dst)
 
 
 class ReqFileAppend(argparse.Action):
