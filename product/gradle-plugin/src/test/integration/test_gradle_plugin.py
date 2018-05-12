@@ -623,21 +623,26 @@ class License(GradleTestCase):
                                      "ValueError: License is for 'com.chaquo.python.demo', "
                                      "but this app is 'com.chaquo.python.test'"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
-                           ticket_filename=join(integration_dir,
-                                                "data/License/tickets/demo.txt"))
+                           bad_ticket=join(integration_dir,
+                                           "data/License/tickets/demo.txt"))
 
     def test_invalid_ticket(self):
         with self.assertRaisesRegexp(AssertionError, "VerificationError: Verification failed"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
-                           ticket_filename=join(integration_dir,
-                                                "data/License/tickets/invalid.txt"))
+                           bad_ticket=join(integration_dir,
+                                           "data/License/tickets/invalid.txt"))
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
-        try:
-            shutil.copy(kwargs["ticket_filename"],
-                        join(apk_dir, "assets/chaquopy/ticket.txt"))
-        except KeyError:
-            pass
+        bad_ticket = kwargs.get("bad_ticket")
+        if bad_ticket:
+            asset_dir = join(apk_dir, "assets/chaquopy")
+            shutil.copy(bad_ticket, join(asset_dir, "ticket.txt"))
+            build_json_filename = join(asset_dir, "build.json")
+            with open(build_json_filename) as build_json_file:
+                build_json = json.load(build_json_file)
+            build_json["assets"]["ticket.txt"] = asset_hash(bad_ticket)
+            with open(build_json_filename, "w") as build_json_file:
+                json.dump(build_json, build_json_file)
 
 
 class RunGradle(object):
@@ -837,7 +842,7 @@ class RunGradle(object):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
                            for f in filenames]
         self.test.assertEqual(
-            {filename: hashlib.sha1(open(join(asset_dir, filename), "rb").read()).hexdigest()
+            {filename: asset_hash(join(asset_dir, filename))
              for filename in asset_list if filename != "build.json"},
             build_json["assets"])
 
@@ -855,6 +860,10 @@ class RunGradle(object):
         self.test.fail(msg + "\n" +
                        "=== STDOUT ===\n" + self.stdout +
                        "=== STDERR ===\n" + self.stderr)
+
+
+def asset_hash(filename):
+    return hashlib.sha1(open(filename, "rb").read()).hexdigest()
 
 
 class KwargsWrapper(object):
