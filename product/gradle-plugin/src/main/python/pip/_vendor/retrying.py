@@ -18,6 +18,10 @@ import sys
 import time
 import traceback
 
+# Chaquopy added
+import logging
+logger = logging.getLogger(__name__)
+
 
 # sys.maxint / 2, since Python 3.2 doesn't have a sys.maxint...
 MAX_WAIT = 1073741823
@@ -201,6 +205,7 @@ class Retrying(object):
             except:
                 tb = sys.exc_info()
                 attempt = Attempt(tb, attempt_number, True)
+                logger.debug(str(attempt))  # Chaquopy added
 
             if not self.should_reject(attempt):
                 return attempt.get(self._wrap_exception)
@@ -250,7 +255,8 @@ class Attempt(object):
 
     def __repr__(self):
         if self.has_exception:
-            return "Attempts: {0}, Error:\n{1}".format(self.attempt_number, "".join(traceback.format_tb(self.value[2])))
+            # Chaquopy: edited to return full exception info and not just traceback.
+            return "Attempts: {0}, Error:\n{1}".format(self.attempt_number, "".join(traceback.format_exception(*self.value)))
         else:
             return "Attempts: {0}, Value: {1}".format(self.attempt_number, self.value)
 

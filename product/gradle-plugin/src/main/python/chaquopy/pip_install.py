@@ -210,7 +210,7 @@ def common_paths(*trees):
 
 # Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as
 # pip does for rmtree.
-@retry(wait_fixed=500, stop_max_delay=3000)
+@retry(wait_fixed=50, stop_max_delay=3000)
 def renames(src, dst):
     os.renames(src, dst)
 

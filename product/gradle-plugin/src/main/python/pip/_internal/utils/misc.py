@@ -101,13 +101,12 @@ def get_prog():
     return 'pip'
 
 
-# Retry every half second for up to 3 seconds
-@retry(stop_max_delay=3000, wait_fixed=500)
 def rmtree(dir, ignore_errors=False):
     shutil.rmtree(dir, ignore_errors=ignore_errors,
                   onerror=rmtree_errorhandler)
 
-
+# Chaquopy: moved @retry from top-level rmtree to here, and reduced wait time from 500 ms to 50.
+@retry(wait_fixed=50, stop_max_delay=3000)
 def rmtree_errorhandler(func, path, exc_info):
     """On Windows, the files in .svn are read-only, so when rmtree() tries to
     remove them, an exception is thrown.  We catch that here, remove the
@@ -116,11 +115,9 @@ def rmtree_errorhandler(func, path, exc_info):
     if os.stat(path).st_mode & stat.S_IREAD:
         # convert to read/write
         os.chmod(path, stat.S_IWRITE)
-        # use the original function to repeat the operation
-        func(path)
-        return
-    else:
-        raise
+    # Chaquopy: retry even if we didn't change the mode.
+    # use the original function to repeat the operation
+    func(path)
 
 
 def display_path(path):
