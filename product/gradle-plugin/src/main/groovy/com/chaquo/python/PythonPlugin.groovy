@@ -15,9 +15,8 @@ import static java.nio.file.StandardCopyOption.*
 
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.2.0")  // First version to use the current ndk {} syntax.
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("2.3.0")
     static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.2")
-    // static final def MAX_ANDROID_PLUGIN_VER = VersionNumber.parse("9.9.9-alpha1")  // Not currently applicable
 
     Project project
     Object android
@@ -43,27 +42,21 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void checkAndroidPluginVersion() {
+        final def ADVICE = "please edit com.android.tools.build:gradle in the buildscript block."
         def depVer = null
         for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
                 .getAllDependencies()) {
             if (dep.group == "com.android.tools.build"  &&  dep.name == "gradle") {
                 depVer = VersionNumber.parse(dep.version)
                 if (depVer < MIN_ANDROID_PLUGIN_VER) {
-                    throw new GradleException("Chaquopy requires Android Gradle plugin version " +
-                                              "$MIN_ANDROID_PLUGIN_VER or later (current version is " +
-                                              "$depVer). Please edit the buildscript block.")
+                    throw new GradleException("This version of Chaquopy requires Android Gradle " +
+                                              "plugin version $MIN_ANDROID_PLUGIN_VER or later: " +
+                                              ADVICE)
                 }
-                /* Not currently applicable: re-enable AndroidPlugin.test_new if this changes.
-                if (depVer >= MAX_ANDROID_PLUGIN_VER) {
-                    throw new GradleException("Chaquopy does not work with Android Gradle plugin " +
-                                    "version $MAX_ANDROID_PLUGIN_VER or later (current version is " +
-                                    "$depVer). Please edit the buildscript block.")
-                } */
                 if (depVer > MAX_TESTED_ANDROID_PLUGIN_VER) {
-                    println("Warning: Chaquopy has not been tested with Android Gradle plugin " +
-                            "versions beyond $MAX_TESTED_ANDROID_PLUGIN_VER (current version is " +
-                            "$depVer). If you experience problems, try editing the " +
-                            "buildscript block.")
+                    println("Warning: This version of Chaquopy has not been tested with Android " +
+                            "Gradle plugin versions beyond $MAX_TESTED_ANDROID_PLUGIN_VER. If you " +
+                            "experience problems, " + ADVICE)
                 }
                 break;
             }
@@ -72,7 +65,7 @@ class PythonPlugin implements Plugin<Project> {
             println("Warning: Chaquopy was unable to determine the Android Gradle plugin " +
                     "version. Supported versions are $MIN_ANDROID_PLUGIN_VER to " +
                     "$MAX_TESTED_ANDROID_PLUGIN_VER. If you experience problems with a different " +
-                    "version, try editing the buildscript block.")
+                    "version, " + ADVICE)
         }
     }
 

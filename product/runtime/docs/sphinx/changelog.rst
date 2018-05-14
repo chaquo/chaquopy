@@ -1,6 +1,13 @@
 Change log
 ##########
 
+3.0.0 (2018-05-15)
+==================
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 2.2 is no longer supported. If
+  you're still using Android Studio 2.2, then we highly recommend that you upgrade to the
+  current version 3.1. Our testing shows that it builds apps more than twice as fast, whether
+  you're using Chaquopy or not.
+
 2.1.0 (2018-04-26)
 ==================
 

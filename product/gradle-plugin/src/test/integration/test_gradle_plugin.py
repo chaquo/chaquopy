@@ -98,19 +98,13 @@ class AndroidPlugin(GradleTestCase):
 
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong("requires Android Gradle plugin version 2.2.0", run.stderr)
+        self.assertInLong("requires Android Gradle plugin version 2.3.0", run.stderr)
 
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",
                              succeed=None)  # We don't care whether it succeeds.
         self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.1.2",
                           run.stdout)
-
-    @skip("no incompatible new versions are currently known")
-    def test_new(self):
-        run = self.RunGradle("base", "AndroidPlugin/new", succeed=False)
-        self.assertInLong("does not work with Android Gradle plugin version 9.9.9-alpha1",
-                          run.stderr)
 
 
 # Verify that the user can use noCompress without interfering with our use of it.
