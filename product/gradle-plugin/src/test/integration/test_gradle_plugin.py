@@ -394,6 +394,12 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("base")                                   # Remove all
         run.rerun()
 
+    def test_download(self):
+        self.RunGradle("base", "PythonReqs/download", abis=["armeabi-v7a", "x86"],
+                       requirements={"common": ["_regex_core.py", "regex.py", "test_regex.py",
+                                                "six.py"],
+                                     "armeabi-v7a": ["_regex.so"], "x86": ["_regex.so"]})
+
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
                        variants={"red-debug":  {"requirements": ["apple/__init__.py"]},

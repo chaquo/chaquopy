@@ -1,0 +1,25 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "27.0.3"
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            buildPython System.getenv("buildPython")
+            version "2.7.14"
+            pip {
+                install "six"    // From PyPI
+                install "regex"  // From chaquo.com
+            }
+        }
+        ndk {
+            abiFilters "armeabi-v7a", "x86"
+        }
+    }
+}

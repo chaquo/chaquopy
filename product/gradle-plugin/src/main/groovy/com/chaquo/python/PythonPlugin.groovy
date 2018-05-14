@@ -256,11 +256,14 @@ class PythonPlugin implements Plugin<Project> {
         // and then deal with auto-generated pyc files complicating the up-to-date checks.
         return project.task("extractPythonBuildPackages") {
             ext.buildPackagesZip = "$genDir/build-packages.zip"
-            def cacertRelPath = "pip/_vendor/requests/cacert.pem"
+            def cacertRelPath = "pip/_vendor/certifi/cacert.pem"
             ext.cacertPem = "$genDir/$cacertRelPath"
             outputs.files(buildPackagesZip, cacertPem)
             doLast {
                 extractResource("gradle/build-packages.zip", genDir)
+                // Remove existing directory, otherwise failure to extract will go unnoticed if a
+                // previous file still exists.
+                project.delete("$genDir/${cacertRelPath.split("/")[0]}")
                 project.copy {
                     from project.zipTree(buildPackagesZip)
                     include cacertRelPath
