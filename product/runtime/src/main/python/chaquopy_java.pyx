@@ -48,7 +48,8 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 # We're running in a Java process, so start the Python VM.
 cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path):
     # Enable the following lines to help debug low-level startup failures. Requires
-    # WRITE_EXTERNAL_STORAGE permission. /sdcard is not guaranteed to be the correct path for
+    # WRITE_EXTERNAL_STORAGE permission, and on API 23 and higher, this permission must have
+    # been activated by the user. /sdcard is not guaranteed to be the correct path for
     # external storage, so this may have to be changed for some devices. Any failure in the
     # redirection process will be silent.
     # redirect(STDOUT_FILENO, "/sdcard/stdout.txt")

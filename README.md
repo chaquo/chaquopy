@@ -48,12 +48,12 @@ Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
 
 Run "demo/update_public.sh <since-commit>", where <since-commit> is the commit or label in
 *this* repository from which the public repository was last updated. If the script reports any
-files which require manual merging (e.g. build.gradle), examine them and update the public
-repository as necessary.
+files which require manual copying or merging (e.g. build.gradle), examine them and update the
+public repository as necessary.
 
 Update version numbers in public/demo/build.gradle and public/demo/app/build.gradle.
 
-"Generate Signed APK" in Android Studio for both Python 2 and 3, and test all features on the
+"Clean Project", then "Generate Signed APK" for both Python 2 and 3, and test all features on the
 following devices, with at least one app on each device being a clean install:
 * minSdkVersion emulator
 * targetSdkVersion emulator
@@ -82,7 +82,8 @@ If sphinx or javadoc have changed:
 
 Commit public/demo and repository, and push to chaquo.com and GitHub.
 
-Do the same if necessary for public/hello and public/console.
+If this release includes important changes, update public/console and public/hello, and push
+them as well.
 
 Commit python repository, add version number tag, and push.
 

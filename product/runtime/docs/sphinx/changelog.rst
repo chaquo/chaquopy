@@ -3,10 +3,17 @@ Change log
 
 3.0.0 (2018-05-15)
 ==================
+* Android Gradle plugin version 3.1 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 2.2 is no longer supported. If
   you're still using Android Studio 2.2, then we highly recommend that you upgrade to the
   current version 3.1. Our testing shows that it builds apps more than twice as fast, whether
   you're using Chaquopy or not.
+* Add Python versions 2.7.15 and 3.6.5, and fix a few lesser-used standard library modules.
+* Update to pip version 10.0.1.
+* Build reliability fixes, including one for `over-strict metadata parsing
+  <https://github.com/dateutil/dateutil/issues/720>`_.
+* Further build speed improvements.
+* Improve app startup speed where a requirement is reinstalled at the same version as before.
 
 2.1.0 (2018-04-26)
 ==================
@@ -27,11 +34,11 @@ Change log
 2.0.0 (2018-03-15)
 ==================
 
+* General performance improvements: the Python unit tests now run about 25% faster.
 * [**BACKWARD INCOMPATIBLE**] The import hook now only looks up names in Java if they failed to
   import from Python. This significantly speeds up import of large Python packages. However, it
   means that importing a name which exists in both languages is no longer reported as an error:
   instead, the value from Python will be returned.
-* General performance improvements: the Python unit tests now run about 25% faster.
 * Fix a crash on API level 15 caused by the license notification.
 
 1.4.0 (2018-03-05)

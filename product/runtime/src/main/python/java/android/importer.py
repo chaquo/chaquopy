@@ -82,6 +82,9 @@ class AssetFinder(object):
         except ImportError:
             raise Exception(format_exc())
 
+    # find_module was deprecated in favor of find_loader in Python 3.3, which was then itself
+    # deprecated in favor of find_spec in Python 3.4. However, it's the only API which works
+    # with Python 2.7, and Python 3.3+ will fall back on it if the others aren't implemented.
     def find_module(self, mod_name):
         prefix = mod_name.replace(".", "/")
         # Packages take priority over modules (https://stackoverflow.com/questions/4092395/)
@@ -262,6 +265,7 @@ class ExtensionFileLoader(AssetLoader):
 
         with self.needed_lock:
             self.load_needed(out_filename)
+        # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
         mod = imp.load_dynamic(self.mod_name, out_filename)
         sys.modules[self.mod_name] = mod
         self.set_mod_attrs(mod)
