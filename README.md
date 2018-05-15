@@ -13,8 +13,8 @@ The app includes:
 * An example of how to use a Python library installed from PyPI in a normal Java activity.
 * The SDK's complete unit test suite.
 
-The project currently targets Android Studio 3.0, but should also be buildable with versions
-2.2 and 2.3.
+The project currently targets Android Studio 3.1, but should also be buildable with versions
+2.3 and 3.0.
 
 Please use the GitHub issue tracker to report issues with both the demo app and the SDK itself.
 

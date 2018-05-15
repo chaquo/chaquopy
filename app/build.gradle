@@ -19,15 +19,15 @@ android {
     compileSdkVersion 26
 
     // Android Gradle plugin version 3.0 no longer requires this directive, but if it is
-    // specified then it will be ignored unless it's this version or higher. Older versions of
-    // the plugin do require this directive, and seem to work fine with this version.
-    buildToolsVersion "26.0.2"
+    // used then it will be ignored unless it specifies a compatible version. Older versions
+    // of the plugin do require this directive, and seem to work fine with this version.
+    buildToolsVersion "27.0.3"
 
     defaultConfig {
         minSdkVersion 15
         targetSdkVersion 26
 
-        versionName "2.1.0"
+        versionName "3.0.0"
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
@@ -45,7 +45,7 @@ android {
             // Python unit tests
             pip {
                 install "MarkupSafe==1.0"
-                install "certifi==2017.11.5"  // This is in the default extractPackages list.
+                install "certifi==2018.01.18"  // This is in the default extractPackages list.
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
@@ -68,12 +68,12 @@ android {
         py2 {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo"
-            python { version "2.7.14" }
+            python { version "2.7.15" }
         }
         py3 {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo3"
-            python { version "3.6.3" }
+            python { version "3.6.5" }
         }
     }
 

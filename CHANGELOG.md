@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 3.0.0 (2018-05-15)
+
+* Target Android Studio 3.1, and update to Python 2.7.15 and 3.6.5.
+
 ## 2.1.0 (2018-04-26)
 
 * No changes except for the SDK update.

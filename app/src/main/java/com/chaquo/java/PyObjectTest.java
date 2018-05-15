@@ -562,6 +562,7 @@ public class PyObjectTest {
         DT.callAttr("reset");
         PyObject dt = DT.call();
         DT.callAttr("assertTriggered", test, false);
+        dt.toString();  // Prevent Android Studio 3.1 release build from nulling dt prematurely.
         dt = null;
         DT.callAttr("assertTriggered", test, true);
     }
