@@ -261,6 +261,10 @@ def asset_cache(*paths):
 
 class TestAndroidStdlib(unittest.TestCase):
 
+    def test_lib2to3(self):
+        # Will fail unless grammar files are available in stdlib zip.
+        from lib2to3 import pygram  # noqa: F401
+
     def test_os(self):
         self.assertEqual("posix", os.name)
 
