@@ -18,7 +18,7 @@ import time
 from threading import RLock
 from traceback import format_exc
 from types import ModuleType
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
 from java._vendor import six
@@ -27,6 +27,7 @@ from android.content.res import AssetManager
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 from java import jarray, jbyte
+from java.io import IOException
 from java.lang import Integer
 
 if six.PY3:
@@ -46,33 +47,39 @@ def initialize(context, build_json, app_path):
 
 
 class AssetFinder(object):
+    zip_file_lock = RLock()
+    zip_file_cache = {}
+
     def __init__(self, context, extract_packages, path):
         try:
-            self.context = context
+            self.context = context  # Also used in tests.
             self.extract_packages = extract_packages
-
             self.path = path
+
+            self.archive = path  # These two attributes have the same meaning as in zipimport.
+            self.prefix = ""     #
+            while True:  # Will be terminated by InvalidAssetPathError.
+                try:
+                    self.zip_file = self.get_zip_file(self.archive)
+                    break
+                except IOException:
+                    self.prefix = join(basename(self.archive), self.prefix)
+                    self.archive = dirname(self.archive)
+
             self.package_path = [path]
             self.other_zips = []
             abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
-            abi_match = re.search(r"^(.*)-({})\.zip$".format("|".join(abis)), path)
+            abi_match = re.search(r"^(.*)-({})\.zip$".format("|".join(abis)),
+                                  self.archive)
             if abi_match:
                 for abi in abis:
-                    abi_path = "{}-{}.zip".format(abi_match.group(1), abi)
-                    if abi_path != self.path:
-                        self.package_path.append(abi_path)
-                        self.other_zips.append(ZipFile(AssetFile(context.getAssets(), abi_path)))
+                    abi_archive = "{}-{}.zip".format(abi_match.group(1), abi)
+                    if abi_archive != self.archive:
+                        self.package_path.append(join(abi_archive, self.prefix))
+                        self.other_zips.append(self.get_zip_file(abi_archive))
 
-            self.zip_file = ZipFile(AssetFile(context.getAssets(), path))
             self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
-                                     "AssetFinder", basename(path))
-
-            # Python guarantees that a given module will only be imported in one thread at a time.
-            # `getinfo` and `infolist` are thread-safe, because the ZipFile index is completely
-            # read during construction. However, while actually reading or extracting a file from
-            # the .zip, the AssetFile will be seeked, so we can only do this in one thread at a time
-            # per .zip.
-            self.lock = RLock()
+                                     "AssetFinder", basename(self.archive))
 
         # If we raise ImportError, the finder is silently skipped. This is what we want only if
         # the path entry isn't an /android_asset path: all other errors should abort the import,
@@ -82,45 +89,45 @@ class AssetFinder(object):
         except ImportError:
             raise Exception(format_exc())
 
+    def __repr__(self):
+        return "<AssetFinder('{}')>".format(self.path)
+
+    def get_zip_file(self, path):
+        with self.zip_file_lock:
+            zip_file = self.zip_file_cache.get(path)
+            if not zip_file:
+                zip_file = ConcurrentZipFile(AssetFile(self.context.getAssets(), path))
+                self.zip_file_cache[path] = zip_file
+            return zip_file
+
     # find_module was deprecated in favor of find_loader in Python 3.3, which was then itself
     # deprecated in favor of find_spec in Python 3.4. However, it's the only API which works
     # with Python 2.7, and Python 3.3+ will fall back on it if the others aren't implemented.
     def find_module(self, mod_name):
-        prefix = mod_name.replace(".", "/")
+        # It may seem weird to ignore all but the last word of mod_name, but that's what the
+        # standard Python 3 finder does too.
+        prefix = join(self.prefix, mod_name.rpartition(".")[2])
         # Packages take priority over modules (https://stackoverflow.com/questions/4092395/)
         for infix in ["/__init__", ""]:
-            for suffix, loader in LOADERS:
+            for suffix, loader_cls in LOADERS:
                 try:
                     zip_info = self.zip_file.getinfo(prefix + infix + suffix)
                 except KeyError:
                     continue
-
                 if infix == "/__init__" and mod_name in self.extract_packages:
                     self.extract_package(prefix)
-                return loader(self, mod_name, zip_info)
+                return loader_cls(self, mod_name, zip_info)
+
+        return None
 
     def extract_package(self, package_rel_dir):
         package_dir = join(self.extract_root, package_rel_dir)
         if exists(package_dir):
             shutil.rmtree(package_dir)  # Just do it the easy way for now.
-        with self.lock:
-            for zf in [self.zip_file] + self.other_zips:
-                for info in zf.infolist():
-                    if info.filename.startswith(package_rel_dir):
-                        self.extract(info, zf)
-
-    def extract(self, zip_info, zip_file=None):
-        if zip_file is None:
-            zip_file = self.zip_file
-        with self.lock:
-            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170).
-            out_filename = zip_file.extract(zip_info, self.extract_root)
-            os.utime(out_filename, (time.time(), timegm(zip_info.date_time)))
-        return out_filename
-
-    def read(self, name_or_info):
-        with self.lock:
-            return self.zip_file.read(name_or_info)
+        for zf in [self.zip_file] + self.other_zips:
+            for info in zf.infolist():
+                if info.filename.startswith(package_rel_dir):
+                    zf.extract(info, self.extract_root)
 
 
 class AssetLoader(object):
@@ -147,19 +154,22 @@ class AssetLoader(object):
         mod.__file__ = self.get_filename(self.mod_name)
         if self.is_package(self.mod_name):
             mod.__package__ = self.mod_name
-            mod.__path__ = self.finder.package_path
+            base_name = self.mod_name.rpartition(".")[2]
+            mod.__path__ = [join(entry, base_name) for entry in self.finder.package_path]
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
         mod.__loader__ = self
 
+    # IOError became an alias for OSError in Python 3.4, and the get_data specification was
+    # changed accordingly.
     def get_data(self, path):
-        match = re.search(r"^{}/(.+)$".format(self.finder.path), path)
+        match = re.search(r"^{}/(.+)$".format(self.finder.archive), path)
         if not match:
-            raise IOError("loader for '{}' can't access '{}'".format(self.finder.path, path))
+            raise IOError("{} can't access '{}'".format(self.finder, path))
         try:
-            return self.finder.read(match.group(1))
+            return self.finder.zip_file.read(match.group(1))
         except KeyError as e:
-            raise IOError(str(e))
+            raise IOError(str(e))  # "There is no item named '{}' in the archive"
 
     def is_package(self, mod_name):
         assert mod_name == self.mod_name
@@ -181,7 +191,7 @@ class AssetLoader(object):
                 root = self.finder.extract_root
                 break
         else:
-            root = self.finder.path
+            root = self.finder.archive
         return join(root, self.zip_info.filename)
 
 
@@ -221,13 +231,14 @@ class SourceFileLoader(AssetLoader):
                 source_bytes.decode(encoding))
 
     def get_source_bytes(self):
-        return self.finder.read(self.zip_info)
+        return self.finder.zip_file.read(self.zip_info)
 
     def write_pyc(self, filename, code):
         pyc_dirname = dirname(filename)
-        with self.finder.lock:  # Avoid race
-            if not exists(pyc_dirname):
-                os.makedirs(pyc_dirname)
+        try:
+            os.makedirs(pyc_dirname)
+        except OSError:
+            assert exists(pyc_dirname)
         with open(filename, "wb") as pyc_file:
             # Write header last, so read_pyc doesn't try to load an incomplete file.
             header = self.pyc_header()
@@ -315,7 +326,7 @@ class ExtensionFileLoader(AssetLoader):
             need_extract = True
 
         if need_extract:
-            self.finder.extract(zip_info)
+            self.finder.zip_file.extract(zip_info, self.finder.extract_root)
         return out_filename
 
 
@@ -331,7 +342,32 @@ LOADERS = [
 ]
 
 
+# Protects `extract` and `read` with locks, because they seek the underlying file object.
+# `getinfo` and `infolist` are already thread-safe, because the ZIP index is completely read
+# during construction. However, `open` cannot be made thread-safe without a lot of work, so it
+# should not be used except via `extract` or `read`.
+class ConcurrentZipFile(ZipFile):
+    def __init__(self, *args, **kwargs):
+        ZipFile.__init__(self, *args, **kwargs)
+        self.lock = RLock()
+
+    def extract(self, member, target_dir):
+        if not isinstance(member, ZipInfo):
+            member = self.getinfo(member)
+        with self.lock:
+            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170).
+            out_filename = ZipFile.extract(self, member, target_dir)
+            os.utime(out_filename, (time.time(), timegm(member.date_time)))
+        return out_filename
+
+    def read(self, member):
+        with self.lock:
+            return ZipFile.read(self, member)
+
+
 class AssetFile(object):
+    # Raises InvalidAssetPathError if the path is not an asset path, or IOException if the
+    # asset does not exist.
     def __init__(self, asset_manager, path):
         match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
         if not match:

@@ -50,7 +50,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
         self.check_module("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
-                          package_path=[asset_path(REQS_COMMON_ZIP), asset_path(REQS_ABI_ZIP)],
+                          package_path=[asset_path(zip, "markupsafe")
+                                        for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]],
                           source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
 
     def test_py(self):
@@ -165,8 +166,8 @@ class TestAndroidImport(unittest.TestCase):
             data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
             self.assertTrue(data.startswith(
                 b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
-        with self.assertRaisesRegexp(IOError, "loader for '{}' can't access '/invalid.py'"
-                                     .format(asset_path(zip_name))):
+        with self.assertRaisesRegexp(IOError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
+                                     .format(asset_path(zip_name, *mod_name.split(".")[:-1]))):
             loader.get_data("/invalid.py")
         with self.assertRaisesRegexp(IOError, "There is no item named 'invalid.py' in the archive"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
@@ -231,8 +232,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_extract_package(self):
         self.check_extracted_module("certifi", REQS_COMMON_ZIP, "certifi/__init__.py",
-                                    package_path=[asset_path(REQS_COMMON_ZIP),
-                                                  asset_path(REQS_ABI_ZIP)])
+                                    package_path=[asset_path(zip, "certifi")
+                                                  for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]])
         self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
 
         import certifi
