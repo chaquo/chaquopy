@@ -35,6 +35,7 @@ if six.PY3:
 
 
 ASSET_PREFIX = "/android_asset"
+PATHNAME_PREFIX = "<chaquopy>/"
 
 
 def initialize(context, build_json, app_path):
@@ -44,6 +45,89 @@ def initialize(context, build_json, app_path):
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     for i, path in enumerate(app_path):
         sys.path.insert(i, join(ASSET_PREFIX, Common.ASSET_DIR, path))
+
+    # In both Python 2 and 3, the standard implementations of imp.{find,load}_module do not use
+    # the PEP 302 import system. They are therefore only capable of loading from directory
+    # trees and built-in modules, and will ignore both our path_hook and the standard one for
+    # zipimport. To accommodate code which uses these functions, we provide these replacements.
+    global find_module_original, load_module_original
+    find_module_original = imp.find_module
+    load_module_original = imp.load_module
+    imp.find_module = find_module_override
+    imp.load_module = load_module_override
+
+
+# Unlike the other APIs in this file, find_module does not take names containing dots.
+def find_module_override(base_name, path=None):
+    try:
+        return find_module_original(base_name, path)
+    except Exception:
+        pass
+
+    if path is None:
+        path = sys.path
+    for entry in path:
+        finder = get_finder(entry)
+        if finder is not None and hasattr(finder, "prefix"):
+            real_name = join(finder.prefix, base_name).replace("/", ".")
+            loader = finder.find_module(real_name)
+            if loader is not None:
+                if loader.is_package(real_name):
+                    mod_type = imp.PKG_DIRECTORY
+                else:
+                    filename = loader.get_filename(real_name)
+                    for suffix, mode, mod_type in imp.get_suffixes():
+                        if filename.endswith(suffix):
+                            break
+                    else:
+                        raise ValueError("Couldn't determine type of module '{}' from '{}'"
+                                         .format(real_name, filename))
+
+                # The documentation says the returned pathname should be the empty string when
+                # a module isn't a package and "does not live in a file". However, neither
+                # Python 2 or 3 actually do this for built-in modules (see test_android).
+                # Anyway, the only thing the user can do with this value is pass it to
+                # load_module, so we should be safe to set it to any string we want.
+                pathname = PATHNAME_PREFIX + join(entry, base_name)
+                return (None, pathname, ("", "", mod_type))
+
+    raise ImportError("No module named '{}' found in {}".format(base_name, path))
+
+
+def load_module_override(load_name, file, pathname, description):
+    # In Python 2, load_module_original will return an empty module when asked to load a
+    # directory that doesn't exist. It may have other undesirable behaviour as well, so avoid
+    # calling it unless our parameters came from find_module_original.
+    if (pathname is None) or (not pathname.startswith(PATHNAME_PREFIX)):
+        return load_module_original(load_name, file, pathname, description)
+    else:
+        entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
+        finder = get_finder(entry)
+        real_name = join(finder.prefix, base_name).replace("/", ".")
+        loader = finder.find_module(real_name)
+        if real_name == load_name:
+            return loader.load_module(real_name)
+        else:
+            if not isinstance(loader, AssetLoader):
+                raise ImportError(
+                    "{} does not support loading module '{}' under a different name '{}'"
+                    .format(type(loader).__name__, real_name, load_name))
+            return loader.load_module(real_name, load_name=load_name)
+
+
+def get_finder(entry):
+    try:
+        return sys.path_importer_cache[entry]
+    except KeyError:
+        for hook in sys.path_hooks:
+            try:
+                finder = hook(entry)
+            except ImportError:
+                continue
+            sys.path_importer_cache[entry] = finder
+            return finder
+
+        return None
 
 
 class AssetFinder(object):
@@ -90,7 +174,7 @@ class AssetFinder(object):
             raise Exception(format_exc())
 
     def __repr__(self):
-        return "<AssetFinder('{}')>".format(self.path)
+        return "<AssetFinder({!r})>".format(self.path)
 
     def get_zip_file(self, path):
         with self.zip_file_lock:
@@ -131,22 +215,27 @@ class AssetFinder(object):
 
 
 class AssetLoader(object):
-    def __init__(self, finder, mod_name, zip_info):
+    def __init__(self, finder, real_name, zip_info):
         self.finder = finder
-        self.mod_name = mod_name
+        self.mod_name = self.real_name = real_name
         self.zip_info = zip_info
 
-    def load_module(self, mod_name):
-        assert mod_name == self.mod_name
-        is_reload = mod_name in sys.modules
+    def __repr__(self):
+        return ("<{}.{}({}, {!r})>"  # Distinguish from standard loaders with the same names.
+                .format(__name__, type(self).__name__, self.finder, self.real_name))
+
+    def load_module(self, real_name, load_name=None):
+        assert real_name == self.real_name
+        self.mod_name = load_name or real_name
+        is_reload = self.mod_name in sys.modules
         try:
             self.load_module_impl()
             # The module that ends up in sys.modules is not necessarily the one we just created
             # (e.g. see bottom of pygments/formatters/__init__.py).
-            return sys.modules[mod_name]
+            return sys.modules[self.mod_name]
         except Exception:
             if not is_reload:
-                sys.modules.pop(mod_name, None)
+                sys.modules.pop(self.mod_name, None)  # Don't leave a part-initialized module.
             raise
 
     def set_mod_attrs(self, mod):
@@ -154,7 +243,7 @@ class AssetLoader(object):
         mod.__file__ = self.get_filename(self.mod_name)
         if self.is_package(self.mod_name):
             mod.__package__ = self.mod_name
-            base_name = self.mod_name.rpartition(".")[2]
+            base_name = self.real_name.rpartition(".")[2]
             mod.__path__ = [join(entry, base_name) for entry in self.finder.package_path]
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
@@ -172,16 +261,13 @@ class AssetLoader(object):
             raise IOError(str(e))  # "There is no item named '{}' in the archive"
 
     def is_package(self, mod_name):
-        assert mod_name == self.mod_name
-        return basename(self.zip_info.filename).startswith("__init__.")
+        return basename(self.get_filename(mod_name)).startswith("__init__.")
 
     def get_code(self, mod_name):
-        assert mod_name == self.mod_name
-        return None  # Not implemented
+        return None  # Not implemented, but required for importlib.abc.InspectLoader.
 
     # Overridden in SourceFileLoader
     def get_source(self, mod_name):
-        assert mod_name == self.mod_name
         return None
 
     def get_filename(self, mod_name):
@@ -270,10 +356,7 @@ class ExtensionFileLoader(AssetLoader):
     needed = {}
 
     def load_module_impl(self):
-        if self.mod_name in sys.modules:
-            raise ImportError("'{}': cannot reload a native module".format(self.mod_name))
         out_filename = self.extract_if_changed(self.zip_info)
-
         with self.needed_lock:
             self.load_needed(out_filename)
         # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
