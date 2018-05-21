@@ -108,6 +108,13 @@ check.dependsOn(testIntegration)
 group = "com.chaquo.python"
 version = file("../../VERSION.txt").text.trim()
 
+jar {
+    manifest {
+        // Used to generate pip --chaquopy option.
+        attributes 'Implementation-Version': version
+    }
+}
+
 task writePom {
     doLast {
         pom {

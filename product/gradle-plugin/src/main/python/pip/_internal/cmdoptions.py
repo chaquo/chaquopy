@@ -66,10 +66,12 @@ def check_install_build_global(options, check_options=None):
 # options #
 ###########
 
+# Even if we didn't need the Chaquopy version number for the HTTP user agent string, using this
+# option would also cause us to fail fast if we run the system copy of pip by mistake.
 chaquopy = partial(
     Option,
     '--chaquopy',
-    action='store_true')
+    help="Chaquopy version number")
 
 help_ = partial(
     Option,

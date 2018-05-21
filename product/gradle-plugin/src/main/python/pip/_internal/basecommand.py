@@ -73,6 +73,7 @@ class Command(object):
 
     def _build_session(self, options, retries=None, timeout=None):
         session = PipSession(
+            options=options,  # Chaquopy: added
             cache=(
                 normalize_path(os.path.join(options.cache_dir, "http"))
                 if options.cache_dir else None

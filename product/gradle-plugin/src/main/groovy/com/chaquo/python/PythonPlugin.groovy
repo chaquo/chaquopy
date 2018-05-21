@@ -303,7 +303,7 @@ class PythonPlugin implements Plugin<Project> {
                         args abis
                         args reqsArgs
                         args "--"
-                        args "--chaquopy"  // Ensure we never run the system copy of pip by mistake.
+                        args "--chaquopy", getClass().getPackage().getImplementationVersion()
                         args "--isolated"
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
