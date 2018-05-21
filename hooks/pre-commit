@@ -1,10 +1,10 @@
 #!/bin/bash
 # On Unix:      ln -s ../../hooks/pre-commit .git/hooks/pre-commit
-# On Windows:   mklink /H .git\hooks\pre-commit hooks\pre-commit
+# On Windows:   mklink ..\..\hooks\pre-commit hooks\pre-commit [requires admin shell]
 
 result=0
 
-exclude_re='^(hooks/pre-commit)|(product/gradle-plugin/src/main/python/pip/)'
+exclude_re='^(hooks/pre-commit)|(product/gradle-plugin/src/main/python/(pip|pkg_resources|setuptools|wheel)/)'
 files=$(git diff --cached --diff-filter=d --name-only | egrep -v "$exclude_re")
 
 if [ -n "$files" ]; then
