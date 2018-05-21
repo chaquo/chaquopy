@@ -396,11 +396,30 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
-        project.exec {
-            environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
-            executable python.buildPython
-            closure.delegate = delegate
-            closure()
+        try {
+            project.exec {
+                environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
+                executable python.buildPython
+                closure.delegate = delegate
+                closure()
+            }
+        } catch (Exception e) {
+            // A failed build in Android Studio 2.3 or 3.0 brings up the Messages window, which
+            // shows only the stderr output of the task.
+            //
+            // Android Studio 3.1 brings up the Build window, which, if in tree mode (the default),
+            // initially has the root node focused. This displays only the message of the lowest-
+            // level exception in the chain, which will be something like "Process 'command
+            // 'python'' finished with non-zero exit value 1".
+            //
+            // Either way, we need to tell the user how to see the full pip output. Don't change the
+            // message depending on the Android Gradle plugin version, because that isn't
+            // necessarily the same as the Android Studio version.
+            throw new GradleException(
+                "buildPython failed ($e). For full details:\n" +
+                "* In Android Studio 3.1 and later, open the 'Build' window and switch to text " +
+                "mode with the 'ab' button on the left.\n" +
+                 "* In Android Studio 3.0 and earlier, open the 'Gradle Console' window.")
         }
     }
 
