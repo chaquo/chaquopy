@@ -598,9 +598,10 @@ class License(GradleTestCase):
         run.apply_layers("License/demo3")
         run.rerun(licensed_id="com.chaquo.python.demo3")
 
-        run.apply_key("")  # Before 2.0.0, the single-app license was used with an empty key.
-        run.rerun(succeed=False)
-        self.assertInLong("Chaquopy license verification failed", run.stderr)
+        # Before 2.0.0, a single-app license was indicated by an empty key, but that is now
+        # interpreted as meaning "no license".
+        run.apply_key("")
+        run.rerun(licensed_id=None)
 
         run.apply_key(None)
         run.rerun(licensed_id=None)

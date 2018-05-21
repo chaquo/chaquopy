@@ -432,14 +432,17 @@ class PythonPlugin implements Plugin<Project> {
         def propsStream = project.rootProject.file('local.properties').newInputStream()
         localProps.load(propsStream)
         propsStream.close()  // Otherwise the Gradle daemon may keep the file in use indefinitely.
-        def key = localProps.getProperty("chaquopy.license")
+
+        // null input properties give a warning in Gradle 4.4 (Android Studio 3.1). Luckily we're
+        // no longer using the empty string to mean anything special.
+        def key = localProps.getProperty("chaquopy.license", "")
 
         return assetTask(variant, "license") {
             inputs.property("app", variant.applicationId)
             inputs.property("key", key)
             doLast {
                 def ticket = "";
-                if (key != null) {
+                if (key.length() > 0) {
                     final def TIMEOUT = 10000
                     def url = ("https://chaquo.com/license/get_ticket" +
                                "?app=$variant.applicationId&key=$key")
