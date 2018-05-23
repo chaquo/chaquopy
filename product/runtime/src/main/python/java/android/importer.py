@@ -10,6 +10,7 @@ import io
 import marshal
 import os
 from os.path import basename, dirname, exists, join
+import pkgutil
 import re
 import shutil
 import struct
@@ -67,7 +68,7 @@ def find_module_override(base_name, path=None):
     if path is None:
         path = sys.path
     for entry in path:
-        finder = get_finder(entry)
+        finder = pkgutil.get_importer(entry)
         if finder is not None and hasattr(finder, "prefix"):
             real_name = join(finder.prefix, base_name).replace("/", ".")
             loader = finder.find_module(real_name)
@@ -102,7 +103,7 @@ def load_module_override(load_name, file, pathname, description):
         return load_module_original(load_name, file, pathname, description)
     else:
         entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
-        finder = get_finder(entry)
+        finder = pkgutil.get_importer(entry)
         real_name = join(finder.prefix, base_name).replace("/", ".")
         loader = finder.find_module(real_name)
         if real_name == load_name:
@@ -113,21 +114,6 @@ def load_module_override(load_name, file, pathname, description):
                     "{} does not support loading module '{}' under a different name '{}'"
                     .format(type(loader).__name__, real_name, load_name))
             return loader.load_module(real_name, load_name=load_name)
-
-
-def get_finder(entry):
-    try:
-        return sys.path_importer_cache[entry]
-    except KeyError:
-        for hook in sys.path_hooks:
-            try:
-                finder = hook(entry)
-            except ImportError:
-                continue
-            sys.path_importer_cache[entry] = finder
-            return finder
-
-        return None
 
 
 class AssetFinder(object):
