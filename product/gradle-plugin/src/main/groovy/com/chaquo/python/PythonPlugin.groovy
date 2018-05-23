@@ -4,6 +4,7 @@ import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.plugins.*
+import org.gradle.process.ExecResult
 import org.gradle.util.*
 import org.json.*
 
@@ -396,13 +397,34 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
+        final def ADVICE = "set python.buildPython to your Python executable path."
+        ExecResult execResult = null
         try {
-            project.exec {
+            execResult = project.exec {
                 environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
-                executable python.buildPython
+                python.buildPython.split(/\s+/).eachWithIndex { word, i ->
+                    if (i == 0) {
+                        executable word
+                    } else {
+                        args word
+                    }
+                }
+                args "-S"  // Disable site-packages: all we need is buildPackagesZip and the stdlib.
+                ignoreExitValue true  // A missing executable will still throw an exception.
                 closure.delegate = delegate
                 closure()
             }
+        } catch (Exception e) {
+            throw new GradleException("'$python.buildPython' failed to start ($e). Please " + ADVICE)
+        }
+        if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
+            // Before Python 3.6, stderr from the `py` command was lost
+            // (https://bugs.python.org/issue25789). This is the only likely error.
+            throw new GradleException("'$python.buildPython': could not find the requested " +
+                                      "version of Python. Please either install it, or " + ADVICE);
+        }
+        try {
+            execResult.assertNormalExitValue()
         } catch (Exception e) {
             // A failed build in Android Studio 2.3 or 3.0 brings up the Messages window, which
             // shows only the stderr output of the task.
@@ -661,8 +683,8 @@ class PythonExtension extends BaseExtension {
     PycExtension pyc = new PycExtension()
 
     void setDefaults() {
-        // There is no default version: the user must specify it.
-        buildPython = "python"
+        // `version` has no default: the user must specify it.
+        // `buildPython`'s default depends on the OS and the value of `version`.
         extractPackages.addAll(DEFAULT_EXTRACT_PACKAGES)
         pip.setDefaults()
         pyc.setDefaults()
@@ -670,6 +692,20 @@ class PythonExtension extends BaseExtension {
 
     String getVersionShort() {
         return Common.pyVersionShort(version)
+    }
+
+    String getBuildPython() {
+        if (this.@buildPython != null) {
+            return this.@buildPython
+        }
+        def targetMajorVer = version.substring(0, 1)
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            // See PEP 397. After running the official Windows installer with default settings, this
+            // will be the only Python thing on the PATH.
+            return "py -$targetMajorVer"
+        } else {
+            return "python$targetMajorVer"  // See PEP 394.
+        }
     }
 
     void version(String v)                      { version = v }
@@ -681,7 +717,7 @@ class PythonExtension extends BaseExtension {
 
     void mergeFrom(PythonExtension overlay) {
         version = chooseNotNull(overlay.version, version)
-        buildPython = chooseNotNull(overlay.buildPython, buildPython)
+        buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
         staticProxy.addAll(overlay.staticProxy)
         extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)

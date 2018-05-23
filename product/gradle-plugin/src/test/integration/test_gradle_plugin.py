@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 import traceback
-from unittest import skip, TestCase
+from unittest import skip, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 from jproperties import Properties
@@ -340,20 +340,25 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", "BuildPython/default", requirements=["apple/__init__.py"])
         run.apply_layers("BuildPython/invalid")
         run.rerun(succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+        self.assertInLong("'pythoninvalid' failed to start", run.stderr)
+
+    @skipUnless(os.name == "nt", "Windows-specific")
+    def test_py_not_found(self):
+        run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
+        self.assertInLong("'py -2.8': could not find the requested version of Python", run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant",
                              requirements=["apple/__init__.py"], variants=["good-debug"])
         run.rerun(variants=["bad-debug"], succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'pythoninvalid''", run.stderr)
+        self.assertInLong("'pythoninvalid' failed to start", run.stderr)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'python-red''", run.stderr)
+        self.assertInLong("'python-red' failed to start", run.stderr)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong("problem occurred starting process 'command 'python-blue''", run.stderr)
+        self.assertInLong("'python-blue' failed to start", run.stderr)
 
 
 # Use these as mixins to run a set of tests once each for python2 and python3.
