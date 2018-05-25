@@ -11,25 +11,15 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
+            version "2.7.14"
             pip {
-                install "buildpython_default-0.0.1.tar.gz"
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "apple"
             }
         }
         ndk {
             abiFilters "x86"
         }
     }
-
-    flavorDimensions "pyVersion"
-    productFlavors {
-        py2 {
-            dimension "pyVersion"
-            python { version "2.7.15" }
-        }
-        py3 {
-            dimension "pyVersion"
-            python { version "3.6.5" }
-        }
-    }
-
 }
