@@ -63,9 +63,16 @@ processResources {
     }
 }
 
-Task testTask(String name, Closure closure) {
+Task testTask(String name, String version, Closure closure) {
     def t = task(name, "type": Exec, "group": "verification") {
-        executable "python"
+        if (System.properties['os.name'].toLowerCase().contains('windows')) {
+            executable "py"
+            if (! version.isEmpty()) {
+                args "-$version"
+            }
+        } else {
+            executable("python$version")
+        }
         args "-m", "unittest"
         if (project.hasProperty("testPythonArgs")) {
             args project.testPythonArgs.split(" ")
@@ -79,8 +86,7 @@ Task testTask(String name, Closure closure) {
 }
 
 Task testPythonTask(String version) {
-    return testTask("testPython-$version") {
-        executable "python$version"
+    return testTask("testPython-$version", version) {
         workingDir "$projectDir/src/test/python"
     }
 }
@@ -92,7 +98,7 @@ check.dependsOn(testPython)
 /** @param version Android Gradle plugin version (corresponds to directory
  *  test/integration/data/base-$version) */
 Task testIntegrationTask(String version) {
-    return testTask("testIntegration-$version") {
+    return testTask("testIntegration-$version", "") {
         dependsOn assemble
         workingDir "$projectDir/src/test/integration"
         environment "AGP_VERSION", version

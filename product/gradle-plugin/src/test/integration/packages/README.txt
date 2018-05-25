@@ -4,4 +4,6 @@ commands in the src/ subdirectories:
     python setup.py bdist_wheel --universal
     python setup.py sdist
 
+Some of the scripts require extra arguments: see comments.
+
 Some of the packages were then renamed to meet the needs of the tests.

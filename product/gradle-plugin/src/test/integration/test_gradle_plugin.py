@@ -452,7 +452,7 @@ class PythonReqs(GradleTestCase):
     def test_wheel_index(self):
         # If testing on another platform, add it to the list below, and add corresponding
         # wheels to packages/dist.
-        self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "mingw"])
+        self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "win-amd64"])
 
         # This test has build platform wheels for version 0.2, and an Android wheel for version
         # 0.1, to test that pip always picks the target platform, not the workstation platform.
