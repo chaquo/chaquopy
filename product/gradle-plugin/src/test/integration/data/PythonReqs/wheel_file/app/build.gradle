@@ -11,8 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython System.getenv("buildPython")
-            version "2.7.14"
+            version System.getenv("python_version")
             pip {
                 options "--no-index"
                 install "packages/apple-0.0.1-py2.py3-none-any.whl"

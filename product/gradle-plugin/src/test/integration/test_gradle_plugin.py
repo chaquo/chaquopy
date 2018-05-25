@@ -372,17 +372,17 @@ class BuildPython(GradleTestCase):
 class BuildPythonCase(TestCase):
     def setUp(self):
         super(BuildPythonCase, self).setUp()
-        os.environ["buildPython"] = self.buildPython
+        os.environ["python_version"] = self.python_version
 
     def tearDown(self):
-        del os.environ["buildPython"]
+        del os.environ["python_version"]
         super(BuildPythonCase, self).tearDown()
 
 class BuildPython2(BuildPythonCase):
-    buildPython = "python2"
+    python_version = "2.7.15"
 
 class BuildPython3(BuildPythonCase):
-    buildPython = "python3"
+    python_version = "3.6.5"
 
 
 class PythonReqs(GradleTestCase):
@@ -696,7 +696,8 @@ class RunGradle(object):
 
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
-        for k, v in six.iteritems({"version": "2.7.14"}):  # Also used in Pyc.post_check.
+        # "version" is also used in Pyc.post_check.
+        for k, v in six.iteritems({"version": getattr(self.test, "python_version", "2.7.14")}):
             kwargs.setdefault(k, v)
 
         status, self.stdout, self.stderr = self.run_gradle(variants)
