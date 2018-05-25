@@ -34,6 +34,8 @@ class PipInstall(object):
                             format=("%(asctime)s Chaquopy: %(message)s" if verbose
                                     else "Chaquopy: %(message)s"),
                             datefmt="%H:%M:%S")
+        if verbose:
+            os.environ["DISTUTILS_DEBUG"] = "1"
 
         os.mkdir(join(self.target, "common"))
         abi_trees = {}
@@ -62,7 +64,10 @@ class PipInstall(object):
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
             # altered its behaviour (in pip/commands/install.py) so it now just merges any
             # existing directories, and silently overwrites any existing files.
-            subprocess.check_call([sys.executable, "-m", "pip", "install",
+            subprocess.check_call([sys.executable,
+                                   "-S",  # Avoid interference from system/user site-packages
+                                          # (this is not inherited by subprocesses).
+                                   "-m", "pip", "install",
                                    "--target", abi_dir,
                                    "--platform", self.platform_tag(abi)] +
                                   self.pip_options + reqs)
