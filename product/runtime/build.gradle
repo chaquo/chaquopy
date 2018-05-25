@@ -21,7 +21,10 @@ sourceCompatibility = 7
 archivesBaseName = "chaquopy_java"
 
 task("zipPython", type: Zip, group: "build") {
-    from fileTree("src/main/python") { include "**/*.py" }
+    from fileTree("src/main/python") {
+        include "**/*.py"
+        include "**/*.dist-info/*"  // For license files.
+    }
     destinationDir buildDir
     archiveName Common.ASSET_BOOTSTRAP
 }
