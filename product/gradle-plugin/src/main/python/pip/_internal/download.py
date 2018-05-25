@@ -130,8 +130,10 @@ def user_agent(options):
     if setuptools_version is not None:
         data["setuptools_version"] = setuptools_version
 
-    return "{data[installer][name]}/{data[installer][version]} {json}".format(
-        data=data,
+    # Chaquopy: user agent must still start with pip/<version>, otherwise the JSON won't be
+    # parsed (see linehaul project).
+    return "pip/{} {json}".format(
+        pip.__version__,
         json=json.dumps(data, separators=(",", ":"), sort_keys=True),
     )
 
