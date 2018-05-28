@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from distutils.dir_util import copy_tree
 import distutils.util
 import hashlib
@@ -14,10 +12,9 @@ import traceback
 from unittest import skip, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
-from jproperties import Properties
+import javaproperties
 from kwonly_args import kwonly_defaults
 import rsa
-import six
 
 
 integration_dir = abspath(dirname(__file__))
@@ -67,7 +64,7 @@ class GradleTestCase(TestCase):
                 if content_expected is not None:
                     content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
                     self.assertEqual(content_expected, content_actual, msg)
-                for key, value in six.iteritems(attrs):
+                for key, value in attrs.items():
                     self.assertEqual(value, getattr(zip_info, key), msg)
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
@@ -697,7 +694,7 @@ class RunGradle(object):
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
         # "version" is also used in Pyc.post_check.
-        for k, v in six.iteritems({"version": getattr(self.test, "python_version", "2.7.14")}):
+        for k, v in [("version", getattr(self.test, "python_version", "2.7.14"))]:
             kwargs.setdefault(k, v)
 
         status, self.stdout, self.stderr = self.run_gradle(variants)
@@ -760,7 +757,8 @@ class RunGradle(object):
         gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
         process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
                                    [task_name("assemble", v) for v in variants],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   universal_newlines=True)
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
@@ -877,7 +875,8 @@ class RunGradle(object):
 
 
 def asset_hash(filename):
-    return hashlib.sha1(open(filename, "rb").read()).hexdigest()
+    with open(filename, "rb") as f:
+        return hashlib.sha1(f.read()).hexdigest()
 
 
 class KwargsWrapper(object):
@@ -897,12 +896,12 @@ class KwargsWrapper(object):
 def dex_classes(dex_filename):
     # The following properties file should be created manually. It's also used in
     # runtime/build.gradle.
-    props = Properties()
-    props.load(open(join(repo_root, "product/local.properties")))
-    build_tools_dir = join(props["sdk.dir"].data, "build-tools")
+    with open(join(repo_root, "product/local.properties")) as props_file:
+        props = javaproperties.load(props_file)
+    build_tools_dir = join(props["sdk.dir"], "build-tools")
     newest_ver = sorted(os.listdir(build_tools_dir))[-1]
     dexdump = subprocess.check_output([join(build_tools_dir, newest_ver, "dexdump"),
-                                       dex_filename])
+                                       dex_filename], universal_newlines=True)
     classes = []
     for line in dexdump.splitlines():
         match = re.search(r"Class descriptor *: *'L(.*);'", line)

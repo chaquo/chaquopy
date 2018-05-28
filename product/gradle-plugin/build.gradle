@@ -98,7 +98,7 @@ check.dependsOn(testPython)
 /** @param version Android Gradle plugin version (corresponds to directory
  *  test/integration/data/base-$version) */
 Task testIntegrationTask(String version) {
-    return testTask("testIntegration-$version", "") {
+    return testTask("testIntegration-$version", "3") {
         dependsOn assemble
         workingDir "$projectDir/src/test/integration"
         environment "AGP_VERSION", version
