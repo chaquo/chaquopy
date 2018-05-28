@@ -270,14 +270,7 @@ class PackageFinder(object):
         """
         Function used to generate link sort key for link tuples.
         The greater the return value, the more preferred it is.
-        If not finding wheels, then sorted by version only.
-        If finding wheels, then the sort order is by version, then:
-          1. existing installs
-          2. wheels ordered via Wheel.support_index_min(self.valid_tags)
-          3. source archives
-        Note: it was considered to embed this logic into the Link
-              comparison operators, but then different sdist links
-              with the same version, would have to be considered equal
+        Chaquopy: altered sort key to prefer older wheels to newer sdists.
         """
         support_num = len(self.valid_tags)
         build_tag = tuple()
@@ -296,7 +289,7 @@ class PackageFinder(object):
                 build_tag = (int(build_tag_groups[0]), build_tag_groups[1])
         else:  # sdist
             pri = -(support_num)
-        return (candidate.version, build_tag, pri)
+        return (candidate.location.is_wheel, candidate.version, build_tag, pri)
 
     def _validate_secure_origin(self, logger, location):
         # Determine if this url used a secure transport mechanism
@@ -530,8 +523,7 @@ class PackageFinder(object):
             )
 
             raise DistributionNotFound(
-                'No matching distribution found for %s '
-                '(NOTE: Chaquopy only supports wheels, not sdist packages)' % req
+                'No matching distribution found for %s' % req
             )
 
         best_installed = False
@@ -567,11 +559,21 @@ class PackageFinder(object):
             )
             raise BestVersionAlreadyInstalled
 
+        # Chaquopy: changed "newest of" to "compatible", since we prefer wheels over sdists
+        # irrespective of version.
         logger.debug(
-            'Using version %s (newest of versions: %s)',
+            'Using version %s (compatible versions: %s)',
             best_candidate.version,
             ', '.join(sorted(compatible_versions, key=parse_version))
         )
+
+        newest_version = max(compatible_versions, key=parse_version)
+        if str(best_candidate.version) != newest_version:
+            logger.info("Using version %s (newest version is %s, but Chaquopy prefers wheels "
+                        "over sdists)", best_candidate.version, newest_version)
+
+        # Chaquopy: save this so we can give a better message in req_install.py.
+        best_candidate.location.chaquopy_candidates = all_candidates
         return best_candidate.location
 
     def _get_pages(self, locations, project_name):

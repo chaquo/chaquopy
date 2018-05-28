@@ -237,10 +237,6 @@ class InstallRequirement(object):
                 wheel = Wheel(link.filename)  # can raise InvalidWheelFilename
                 req = "%s==%s" % (wheel.name, wheel.version)
             else:
-                # --only-binary prevents pip selecting sdists from indexes, but we must also
-                # prevent it installing sdists from directly-specified filenames.
-                raise InstallationError(p + ": Chaquopy does not support sdist packages")
-
                 # set the req to the egg fragment.  when it's not there, this
                 # will become an 'unnamed' requirement
                 req = link.egg_fragment
@@ -279,9 +275,10 @@ class InstallRequirement(object):
         if self.req:
             s = str(self.req)
             if self.link:
-                s += ' from %s' % self.link.url
+                # Removed fragment to make chaquopy_setup_py_failed message more readable.
+                s += ' from %s' % self.link.url_without_fragment
         else:
-            s = self.link.url if self.link else None
+            s = self.link.url_without_fragment if self.link else None
         if self.satisfied_by is not None:
             s += ' in %s' % display_path(self.satisfied_by.location)
         if self.comes_from:
@@ -485,11 +482,14 @@ class InstallRequirement(object):
                 ensure_dir(egg_info_dir)
                 egg_base_option = ['--egg-base', 'pip-egg-info']
             with self.build_env:
-                call_subprocess(
-                    egg_info_cmd + egg_base_option,
-                    cwd=self.setup_py_dir,
-                    show_stdout=False,
-                    command_desc='python setup.py egg_info')
+                try:
+                    call_subprocess(
+                        egg_info_cmd + egg_base_option,
+                        cwd=self.setup_py_dir,
+                        show_stdout=False,
+                        command_desc='python setup.py egg_info')
+                except InstallationError as exc:
+                    self.chaquopy_setup_py_failed(exc)
 
         if not self.req:
             if isinstance(parse_version(self.pkg_info()["Version"]), Version):
@@ -756,6 +756,11 @@ class InstallRequirement(object):
             self.install_succeeded = True
             return
 
+        # If we failed to build a wheel, we should already have terminated: see bdist_wheel in
+        # wheel.py.
+        raise CommandError("Chaquopy: can't happen: requirement {} is still not a wheel."
+                           .format(self))
+
         # Extend the list of global and install options passed on to
         # the setup.py call with the ones from the requirements file.
         # Options specified in requirements file override those
@@ -825,6 +830,21 @@ class InstallRequirement(object):
             inst_files_path = os.path.join(egg_info_dir, 'installed-files.txt')
             with open(inst_files_path, 'w') as f:
                 f.write('\n'.join(new_lines) + '\n')
+
+    def chaquopy_setup_py_failed(self, exc):
+        from pip._internal.exceptions import CommandError
+        message = ("Failed to install {}. For assistance, please raise an issue "
+                   "at https://github.com/chaquo/chaquopy/issues.".format(self))
+        if hasattr(self.link, "chaquopy_candidates"):
+            wheel_versions = [str(ver) for ver in
+                              sorted(candidate.version
+                                     for candidate in self.link.chaquopy_candidates
+                                     if candidate.location.is_wheel)]
+            if wheel_versions:
+                message += (" Or try using one of the following versions, which are available "
+                            "as pre-built wheels: {}.".format(wheel_versions))
+        logger.critical(str(exc))
+        raise CommandError(message)
 
     def ensure_has_source_dir(self, parent_dir):
         """Ensure that a source_dir is set.

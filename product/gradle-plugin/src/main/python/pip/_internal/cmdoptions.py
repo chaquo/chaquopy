@@ -415,7 +415,8 @@ def only_binary():
     )
 
 
-# Chaquopy: BEGIN compatibility tag options shared between download and install commands.
+# Chaquopy: BEGIN compatibility tag options shared between download and install commands (moved
+# from download.py).
 
 python_version = partial(
     Option,
@@ -470,27 +471,20 @@ abi = partial(
 
 
 def apply_dist_restrictions(options):
-    dist_restriction_set = any([
-        options.python_version,
-        options.platform,
-        options.abi,
-        options.implementation,
-    ])
-    binary_only = FormatControl(set(), {':all:'})
-    no_sdist_dependencies = (
-        options.format_control != binary_only and
-        not options.ignore_dependencies
-    )
-    if dist_restriction_set and no_sdist_dependencies:
-        raise CommandError(
-            "When restricting platform and interpreter constraints using "
-            "--python-version, --platform, --abi, or --implementation, "
-            "either --no-deps must be set, or --only-binary=:all: must be "
-            "set and --no-binary must not be set (or must be set to "
-            ":none:)."
-        )
-    pep425tags.set_supported([options.python_version] if options.python_version else None,
-                             options.platform, options.implementation, options.abi)
+    import sys
+    build_major_ver = sys.version_info[0]
+    target_major_ver = int(options.python_version[0])
+    if build_major_ver != target_major_ver:
+        # See note in pep425tags for why this matters. This can only happen if the user has
+        # already modified buildPython, so there's no need to tell them how to do that.
+        raise CommandError("buildPython major version ({}) does not match app Python major "
+                           "version ({})".format(build_major_ver, target_major_ver))
+
+    # Chaquopy: removed requirement that either --no-deps or --only-binary=:all: is set: this was
+    # intended to ensure that `pip download` would never execute sdist code on an incompatible
+    # platform, but for our `pip install` use case we have no choice but to try.
+    pep425tags.set_supported([options.python_version], options.platform, options.implementation,
+                             options.abi)
 
 # Chaquopy: END compatibility tag options shared between download and install commands.
 

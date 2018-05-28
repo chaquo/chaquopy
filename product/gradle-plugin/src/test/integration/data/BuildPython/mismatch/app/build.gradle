@@ -11,9 +11,12 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("python_version")
+            buildPython System.getProperty("os.name").startsWith("Windows") ? "py -2" : "python2"
+            version "3.6.5"
             pip {
-                install "-e", "src"
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "apple"
             }
         }
         ndk {

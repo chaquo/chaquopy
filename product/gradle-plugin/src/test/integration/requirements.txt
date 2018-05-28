@@ -2,3 +2,4 @@
 javaproperties==0.4.0
 kwonly-args==1.0.10
 rsa==3.4.2
+wheel==0.31.1  # For manually generating test files.

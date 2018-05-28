@@ -307,16 +307,15 @@ class InstallCommand(RequirementCommand):
                     )
                     resolver.resolve(requirement_set)
 
-                    # If caching is disabled or wheel is not installed don't
-                    # try to build wheels.
-                    if wheel and options.cache_dir:
+                    # Chaquopy: always try to build wheels, because we've disabled installing
+                    # via `setup.py install`: see bdist_wheel in wheel.py.
+                    if True:
                         # build wheels before install.
                         wb = WheelBuilder(
                             finder, preparer, wheel_cache,
                             build_options=[], global_options=[],
                         )
-                        # Ignore the result: a failed wheel will be
-                        # installed from the sdist/vcs whatever.
+                        # Chaquopy: this will raise a CommandError if any wheel fails.
                         wb.build(
                             requirement_set.requirements.values(),
                             session=session, autobuilding=True

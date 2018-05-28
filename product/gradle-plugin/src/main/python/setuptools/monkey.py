@@ -100,7 +100,20 @@ def patch_all():
             setuptools.extension.Extension
         )
 
-    patch_for_msvc_specialized_compiler()
+    # Chaquopy: removed MSVC patch, which raises an exception on MSYS2 Python because it isn't
+    # built with MSVC. Instead we try to completely disable the compiler class, for packages
+    # like NumPy which access it without going through build_ext or build_clib.
+    class DisabledCCompiler(object):
+        def __init__(self, *args, **kwargs):
+            chaquopy_block_native()
+    from distutils import ccompiler
+    ccompiler.CCompiler = DisabledCCompiler
+
+
+def chaquopy_block_native():
+    # No need to give any more advice here: that will come from the higher-level code in pip.
+    from distutils.errors import DistutilsPlatformError
+    raise DistutilsPlatformError("Chaquopy cannot compile native code")
 
 
 def _patch_distribution_metadata_write_pkg_file():

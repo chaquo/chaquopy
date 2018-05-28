@@ -13,7 +13,9 @@ android {
         python {
             version System.getenv("python_version")
             pip {
-                install "-e", "src"
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "native3==2.0"
             }
         }
         ndk {

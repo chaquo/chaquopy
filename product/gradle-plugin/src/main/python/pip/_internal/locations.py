@@ -13,8 +13,8 @@ from distutils.command.install import SCHEME_KEYS, install  # type: ignore
 from pip._internal.compat import WINDOWS, expanduser
 from pip._internal.utils import appdirs
 
-# Application Directories
-USER_CACHE_DIR = appdirs.user_cache_dir("pip")
+# Chaquopy: use a separate directory in case of incompatiblity with the system version of pip.
+USER_CACHE_DIR = appdirs.user_cache_dir("chaquopy/pip")
 
 
 DELETE_MARKER_MESSAGE = '''\

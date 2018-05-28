@@ -74,6 +74,10 @@ def get_abi3_suffix():
 class build_ext(_build_ext):
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
+
+        from setuptools.monkey import chaquopy_block_native
+        chaquopy_block_native()
+
         old_inplace, self.inplace = self.inplace, 0
         _build_ext.run(self)
         self.inplace = old_inplace

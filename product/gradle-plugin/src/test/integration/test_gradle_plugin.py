@@ -1,3 +1,5 @@
+# This file requires Python 3.6 or later.
+
 from distutils.dir_util import copy_tree
 import distutils.util
 import hashlib
@@ -8,7 +10,6 @@ import re
 import shutil
 import subprocess
 import sys
-import traceback
 from unittest import skip, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
@@ -39,13 +40,14 @@ class GradleTestCase(TestCase):
     def assertInLong(self, a, b, re=False, msg=None):
         try:
             if re:
-                self.assertRegexpMatches(b, a)
+                import re as re_mod
+                self.assertRegex(b, re_mod.compile(a, re_mod.MULTILINE))
             else:
                 self.assertIn(a, b)
         except self.failureException:
             msg = self._formatMessage(msg, "{}'{}' not found in:\n{}".format
                                       ("regex " if re else "", a, b))
-            raise self.failureException(msg)
+            raise self.failureException(msg) from None
 
     # Each element of `files` must be either a filename, or a (filename, contents) tuple. ZIP
     # file entries representing directories are ignored, and must not be included in `files`.
@@ -346,6 +348,11 @@ class BuildPython(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("'pythoninvalid' failed to start", run.stderr)
 
+    def test_mismatch(self):
+        run = self.RunGradle("base", "BuildPython/mismatch", succeed=False)
+        self.assertInLong("buildPython major version (2) does not match app Python major "
+                          "version (3)", run.stderr)
+
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):
         run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
@@ -438,9 +445,26 @@ class PythonReqs(GradleTestCase):
         run.rerun(requirements=["apple2/__init__.py"])
 
     def test_sdist_file(self):
-        run = self.RunGradle("base", "PythonReqs/sdist_file", succeed=False)
-        self.assertInLong("alpha_dep-0.0.1.tar.gz: Chaquopy does not support sdist packages",
-                          run.stderr)
+        self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
+
+    def test_sdist_native(self):
+        run = self.RunGradle("base", run=False)
+        for name in ["sdist_native_ext", "sdist_native_clib", "sdist_native_compiler"]:
+            with self.subTest(name=name):
+                run.apply_layers(f"PythonReqs/{name}")
+                run.rerun(succeed=False)
+                self.assertInLong("Chaquopy cannot compile native code", run.stdout)
+                url = fr"file:.*app/{name}-1.0.tar.gz"
+                if name == "sdist_native_compiler":
+                    # This test fails at the egg_info stage, so the name and version are
+                    # unavailable.
+                    req_str = url
+                else:
+                    # The other tests fail at the bdist_wheel stage, so the name and version
+                    # have been obtained from egg_info.
+                    req_str = f"{name.replace('_', '-')}==1.0 from {url}"
+                self.assertInLong(fr"Failed to install {req_str}." +
+                                  self.tracker_advice() + r"$", run.stderr, re=True)
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
@@ -461,23 +485,36 @@ class PythonReqs(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
-    # This will at some point be a standard pip feature, but we had to add it manually (see
-    # commit on 2018-03-19).
+    # Even though this is now a standard pip feature, we should still test it because we've
+    # modified the index preference order.
     def test_wheel_build_tag(self):
         self.RunGradle("base", "PythonReqs/build_tag",
                        requirements=["build2/__init__.py"])
 
     def test_sdist_index(self):
-        # This test has an sdist for version 0.2 and a wheel for version 0.1, to test that pip
-        # ignores the sdist.
-        run = self.RunGradle("base", "PythonReqs/sdist_index_1",
-                             requirements=["native3_android_15_x86/__init__.py"])
+        # This package has an sdist for version 2.0, compatible wheels for version 1.0 and
+        # 1.3, and an incompatible wheel for version 1.6.
+        run = self.RunGradle("base", "PythonReqs/sdist_index_1a",
+                             requirements=[("native3_android_15_x86/__init__.py",
+                                            {"content": "# Version 1.3"})])
+        self.assertInLong("Using version 1.3 (newest version is 2.0, but Chaquopy prefers "
+                          "wheels over sdists", run.stdout)
 
-        # This test has only an sdist.
+        # Now we force version 2.0 to be selected, but it will fail at the egg_info stage.
+        # (Failure at later stages is covered by test_sdist_native.)
+        run.apply_layers("PythonReqs/sdist_index_1b")
+        run.rerun(succeed=False)
+        self.assertInLong(r"Failed to install native3==2.0 from "
+                          r"file:.*dist/native3-2.0.tar.gz." + self.tracker_advice() +
+                          self.wheel_advice("1.0", "1.3") + r"$",
+                          run.stderr, re=True)
+
+        # This test has only an sdist, which will fail in the same way.
         run.apply_layers("PythonReqs/sdist_index_2")
         run.rerun(succeed=False)
-        self.assertInLong("No matching distribution found for native4 "
-                          "(NOTE: Chaquopy only supports wheels, not sdist packages)", run.stderr)
+        self.assertInLong(r"Failed to install native4 from file:.*dist/native4-0.2.tar.gz." +
+                          self.tracker_advice() + r"$",
+                          run.stderr, re=True)
 
     def test_multi_abi(self):
         # This is not the same as the filename pattern used in our real wheels, but the point
@@ -547,6 +584,15 @@ class PythonReqs(GradleTestCase):
                   requirements={"common": [],
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
                                 "x86": ["multi_abi_order_pure/__init__.py"]})
+
+    def tracker_advice(self):
+        return (" For assistance, please raise an issue at "
+                "https://github.com/chaquo/chaquopy/issues.")
+
+    def wheel_advice(self, *versions):
+        return (r" Or try using one of the following versions, which are available as pre-built "
+                r"wheels: \[{}\].".format(", ".join("'{}'".format(v) for v in versions)))
+
 
 class PythonReqs2(PythonReqs, BuildPython2):
     pass
@@ -723,18 +769,15 @@ class RunGradle(object):
                 try:
                     self.check_apk(apk_zip, apk_dir, **merged_kwargs)
                 except Exception:
-                    msg = "check_apk failed"
-                    if sys.version_info[0] < 3:
-                        # In Python 3, exception chaining will do this automatically.
-                        msg += "\n" + traceback.format_exc()
-                    self.dump_run(msg)
+                    self.dump_run("check_apk failed")
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
-            status, self.stdout, self.stderr = self.run_gradle(variants)
+            status, second_stdout, second_stderr = self.run_gradle(variants)
             if status != 0:
-                self.dump_run("exit status {}".format(status))
-            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", self.stdout,
+                self.stdout, self.stderr = second_stdout, second_stderr
+                self.dump_run("Second run: exit status {}".format(status))
+            self.test.assertInLong(":app:extractPythonBuildPackages UP-TO-DATE", second_stdout,
                                    msg=first_msg)
             for variant in variants:
                 for verb, obj in [("generate", "AppAssets"), ("generate", "BuildAssets"),
@@ -742,7 +785,7 @@ class RunGradle(object):
                                   ("generate", "MiscAssets"), ("generate", "Proxies"),
                                   ("generate", "Requirements"), ("generate", "RequirementsAssets")]:
                     msg = task_name(verb, variant, "Python" + obj) + " UP-TO-DATE"
-                    self.test.assertInLong(msg, self.stdout, msg=first_msg)
+                    self.test.assertInLong(msg, second_stdout, msg=first_msg)
 
         else:
             if succeed:

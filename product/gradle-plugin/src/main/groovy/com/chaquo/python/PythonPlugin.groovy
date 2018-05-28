@@ -309,7 +309,6 @@ class PythonPlugin implements Plugin<Project> {
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
                         args "--extra-index-url", "https://chaquo.com/pypi-2.1"
-                        args "--only-binary", ":all:"
                         args "--implementation", pythonAbi.substring(0, 2)
                         args "--python-version", pythonAbi.substring(2, 4)
                         args "--abi", pythonAbi
@@ -409,7 +408,8 @@ class PythonPlugin implements Plugin<Project> {
                         args word
                     }
                 }
-                args "-S"  // Disable site-packages: all we need is buildPackagesZip and the stdlib.
+                args "-S"  // Avoid interference from system/user site-packages
+                           // (this is not inherited by subprocesses).
                 ignoreExitValue true  // A missing executable will still throw an exception.
                 closure.delegate = delegate
                 closure()

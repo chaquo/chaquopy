@@ -666,10 +666,16 @@ class WheelBuilder(object):
                 call_subprocess(wheel_args, cwd=req.setup_py_dir,
                                 show_stdout=False, spinner=spinner)
                 return True
-            except:
+            except InstallationError as exc:
                 spinner.finish("error")
-                logger.error('Failed building wheel for %s', req.name)
-                return False
+                # Chaquopy: `bdist_wheel` runs `install` internally, so if it fails, trying to
+                # run `install` directly (as standard pip does) is probably a waste of time.
+                # I've never seen a case where it would have succeeded.
+                #
+                # Also, `install` has complications which we don't want to deal with: instead
+                # of installing directly into <target> and creating a .dist-info subdir, it
+                # installs into <target>/lib/python and generates a .egg-info directory.
+                req.chaquopy_setup_py_failed(exc)
 
     def _clean_one(self, req):
         base_args = self._base_setup_args(req)
@@ -692,10 +698,9 @@ class WheelBuilder(object):
         """
         from pip._internal import index
 
-        building_is_possible = self._wheel_dir or (
-            autobuilding and self.wheel_cache.cache_dir
-        )
-        assert building_is_possible
+        # Chaquopy: this method used to require that self.wheel_cache.cache_dir was set, but
+        # since we still want to install via wheels even with --no-cache-dir (see note at
+        # bdist_wheel above), we've changed it to use the ephemeral cache in that case.
 
         buildset = []
         for req in requirements:
@@ -720,6 +725,8 @@ class WheelBuilder(object):
                     base, ext = link.splitext()
                     if index.egg_info_matches(base, None, link) is None:
                         # E.g. local directory. Build wheel just for this run.
+                        ephem_cache = True
+                    elif not self.wheel_cache.cache_dir:  # Chaquopy: see note above.
                         ephem_cache = True
                     if "binary" not in index.fmt_ctl_formats(
                             self.finder.format_control,

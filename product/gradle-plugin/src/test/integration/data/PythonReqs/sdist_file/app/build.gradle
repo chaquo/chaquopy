@@ -13,7 +13,7 @@ android {
         python {
             version System.getenv("python_version")
             pip {
-                options "--no-index"
+                options "--no-cache-dir"  // Make tests repeatable.
                 install "packages/alpha_dep-0.0.1.tar.gz"
             }
         }

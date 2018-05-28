@@ -611,7 +611,9 @@ class WorkingSet(object):
         """
         self.entry_keys.setdefault(entry, [])
         self.entries.append(entry)
-        for dist in find_distributions(entry, True):
+        # Chaquopy: edited next line to remove only=True, which was intended for egg zips,
+        # whereas we need it to work for build-packages.zip.
+        for dist in find_distributions(entry):
             self.add(dist, entry, False)
 
     def __contains__(self, dist):
@@ -1602,13 +1604,15 @@ class ZipProvider(EggProvider):
 
     def __init__(self, module):
         EggProvider.__init__(self, module)
-        self.zip_pre = self.loader.archive + os.sep
+        # Chaquopy: added normpath to normalize backslashes.
+        self.zip_pre = os.path.normpath(self.loader.archive) + os.sep
 
     def _zipinfo_name(self, fspath):
         # Convert a virtual filename (full path to file) into a zipfile subpath
         # usable with the zipimport directory cache for our target archive
-        fspath = fspath.rstrip(os.sep)
-        if fspath == self.loader.archive:
+        # Chaquopy: added normpath to normalize backslashes.
+        fspath = os.path.normpath(fspath)
+        if fspath == os.path.normpath(self.loader.archive):
             return ''
         if fspath.startswith(self.zip_pre):
             return fspath[len(self.zip_pre):]
@@ -1839,7 +1843,8 @@ class EggMetadata(ZipProvider):
     def __init__(self, importer):
         """Create a metadata provider from a zipimporter"""
 
-        self.zip_pre = importer.archive + os.sep
+        # Chaquopy: added normpath to normalize backslashes.
+        self.zip_pre = os.path.normpath(importer.archive) + os.sep
         self.loader = importer
         if importer.prefix:
             self.module_path = os.path.join(importer.archive, importer.prefix)

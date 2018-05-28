@@ -351,8 +351,16 @@ def get_supported(versions=None, noarch=False, platform=None,
 # Chaquopy added
 def set_supported(versions, platform, impl, abi):
     global supported_tags, supported_tags_noarch, implementation_tag
+
+    # These two globals were added by Chaquopy.
     supported_tags = get_supported(versions=versions, noarch=False, platform=platform,
                                    impl=impl, abi=abi)
     supported_tags_noarch = get_supported(versions=versions, noarch=True, platform=platform,
                                           impl=impl, abi=abi)
-    implementation_tag = impl + versions[0]  # Used in wheel.py
+
+    # This global was already present: it's used in wheel.py to name cached wheel files. We
+    # include the major version because some pure-Python packages install different things for
+    # different Python versions (e.g. `future`). We don't include the minor version as well,
+    # because I've never seen a pure-Python package where it makes a difference, and we don't
+    # want to require the build Python to have the same minor version as the target.
+    implementation_tag = "py" + versions[0][0]

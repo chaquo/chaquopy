@@ -13,7 +13,6 @@ android {
         python {
             version System.getenv("python_version")
             pip {
-                options "--no-index"
                 install "packages/apple-0.0.1-py2.py3-none-any.whl"
             }
         }

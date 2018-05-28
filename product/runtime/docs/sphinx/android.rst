@@ -11,14 +11,24 @@ Prerequisites:
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
+
+.. (extra space for consistency)
+
 * `minSdkVersion` must be 15 or higher.
-* Some features require a Python interpreter (version 2.7 or 3.3+) to be available on the build
-  machine. Chaquopy will by default look for `python` on your `PATH`, but this can be
-  configured with the `buildPython` setting. For example, a typical Windows installation of
-  Python would look like this::
+
+.. _buildPython:
+
+* Some features require Python to be available on the build machine. Supported versions are
+  2.7, 3.3 and later.
+
+  By default, Chaquopy will build with the same Python major version as the :ref:`app itself
+  <python-version>`, i.e. `python2` / `python3` on Linux and Mac, or `py -2` / `py -3` on
+  Windows. To change this, use the `buildPython` setting. For example, on Windows you might use
+  one of the following::
 
       python {
-          buildPython "C:/Python27/python.exe"
+          buildPython "py -3.5"
+          buildPython "C:/Python36/python.exe"
       }
 
 
@@ -43,10 +53,13 @@ the end of the existing `repositories` and `dependencies` blocks:
         }
     }
 
-Then, in the app's *module-level* `build.gradle` file, apply the Chaquopy plugin at the top of
-the file, but *after* the Android plugin::
+Then, in the *module-level* `build.gradle` file (usually in the `app` directory), apply the
+Chaquopy plugin at the top of the file, but *after* the Android plugin::
 
-   apply plugin: "com.chaquo.python"    // Must come after com.android.application
+   apply plugin: 'com.android.application'
+   apply plugin: 'com.chaquo.python'        // Add this line
+
+.. _python-version:
 
 Python version
 --------------
@@ -56,7 +69,7 @@ only required setting in this block is the Python version, and the currently ava
 are:
 
 * 2.7.15
-* 3.6.5
+* 3.6.5 (recommended)
 
 For example::
 
@@ -66,7 +79,7 @@ For example::
         }
     }
 
-.. note:: The following obsolete Python versions are still available, but they do not contain all
+.. note:: The following obsolete Python versions are also available, but they do not contain all
           current features and bug fixes either for Chaquopy or for Python itself. Projects using
           these versions should upgrade as soon as possible.
 
@@ -214,13 +227,17 @@ attempting to run Python code. There are two basic ways to achieve this:
 Requirements
 ------------
 
+.. note:: This feature requires Python on the build machine. If you configure this with the
+          :ref:`buildPython <buildPython>` setting, the buildPython *must* have the same Python
+          major version as the :ref:`app itself <python-version>`.
+
 External Python packages may be built into the app by adding a `python.pip` block to
 `build.gradle`. Within this block, add `install` lines, each specifying a package in one of the
 following forms:
 
 * A `pip requirement specifier
   <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
-* A local wheel filename (relative to the project directory).
+* A local sdist or wheel filename (relative to the project directory).
 * `"-r"` followed by a local `requirements filename
   <https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format>`_ (relative
   to the project directory).
@@ -230,24 +247,20 @@ Examples::
     python {
         pip {
             install "six==1.10.0"
+            install "scipy==1.0.1"
             install "LocalPackage-1.2.3-py2.py3-none-any.whl"
             install "-r", "requirements.txt"
         }
     }
 
-.. note:: Chaquopy can only install wheel files, not sdist packages. As well as `PyPI
-          <https://pypi.python.org/pypi>`_, Chaquopy also searches for wheels in its own
-          package repository, which contains Android builds of certain native packages, as well
-          as pure-Python packages which aren't available from PyPI in wheel format.
+Chaquopy can install all pure-Python packages, plus a constantly-growing selection of packages
+with native components. To see which native packages and versions are currently available, you
+can `browse the repository here <https://chaquo.com/pypi-2.1/>`_. To request a package to be
+added or updated, or for any other problem with installing requirements, please visit our
+`issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
 
-          To see which packages and versions are currently available, you can `browse the
-          repository here <https://chaquo.com/pypi-2.1/>`_. To request a package to be added or
-          updated, please visit our `issue tracker
-          <https://github.com/chaquo/chaquopy/issues>`_.
-
-To pass options to `pip install
-<https://pip.readthedocs.io/en/stable/reference/pip_install/>`_, give them as a comma-separated
-list to the `options` property. For example::
+To pass options to `pip install`, give them as a comma-separated list to the `options` setting.
+For example::
 
     python {
         pip {
@@ -256,17 +269,18 @@ list to the `options` property. For example::
         }
     }
 
-There may be multiple `options` lines: the options will be combined in the order given. Any
-`pip install` options may be used, except the following:
-
-* Target environment options, such as `--target` and `--user`.
-* Installation format options, such as `-e` and `--egg`.
-* Package type options, such as `--no-binary`.
+Any options in the `pip documentation
+<https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ may be used, except for those
+which relate to the target environment, such as `--target`, `--user` or `-e`. If there are
+multiple `options` lines, they will be combined in the order given.
 
 .. _static-proxy-generator:
 
 Static proxy generator
 ----------------------
+
+.. note:: This feature requires Python on the build machine, which can be configured with the
+          :ref:`buildPython <buildPython>` setting.
 
 In order for a Python class to extend a Java class, or to be referenced by name in Java code or
 in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
