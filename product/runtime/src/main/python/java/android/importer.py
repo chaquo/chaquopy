@@ -170,9 +170,24 @@ class AssetFinder(object):
                 self.zip_file_cache[path] = zip_file
             return zip_file
 
-    # find_module was deprecated in favor of find_loader in Python 3.3, which was then itself
-    # deprecated in favor of find_spec in Python 3.4. However, it's the only API which works
-    # with Python 2.7, and Python 3.3+ will fall back on it if the others aren't implemented.
+    # This method will be called by Python 3.
+    def find_loader(self, mod_name):
+        loader = self.find_module(mod_name)
+        path = []
+        if loader:
+            if loader.is_package(mod_name):
+                path = self._get_path(mod_name)
+        else:
+            base_name = mod_name.rpartition(".")[2]
+            if self.zip_file.has_dir(join(self.prefix, base_name)):
+                path = self._get_path(mod_name)
+        return (loader, path)
+
+    def _get_path(self, mod_name):
+        base_name = mod_name.rpartition(".")[2]
+        return [join(entry, base_name) for entry in self.package_path]
+
+    # This method will be called by Python 2.
     def find_module(self, mod_name):
         # It may seem weird to ignore all but the last word of mod_name, but that's what the
         # standard Python 3 finder does too.
@@ -229,8 +244,7 @@ class AssetLoader(object):
         mod.__file__ = self.get_filename(self.mod_name)
         if self.is_package(self.mod_name):
             mod.__package__ = self.mod_name
-            base_name = self.real_name.rpartition(".")[2]
-            mod.__path__ = [join(entry, base_name) for entry in self.finder.package_path]
+            mod.__path__ = self.finder._get_path(self.real_name)
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
         mod.__loader__ = self
@@ -420,6 +434,10 @@ class ConcurrentZipFile(ZipFile):
         ZipFile.__init__(self, *args, **kwargs)
         self.lock = RLock()
 
+        # ZIP files *may* have individual entries for directories, but we shouldn't rely on it.
+        self.dir_set = set(dirname(zip_info.filename) for zip_info in self.infolist())
+        self.dir_set.discard("")
+
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
@@ -433,6 +451,8 @@ class ConcurrentZipFile(ZipFile):
         with self.lock:
             return ZipFile.read(self, member)
 
+    def has_dir(self, dir_name):
+        return (dir_name in self.dir_set)
 
 class AssetFile(object):
     # Raises InvalidAssetPathError if the path is not an asset path, or IOException if the
