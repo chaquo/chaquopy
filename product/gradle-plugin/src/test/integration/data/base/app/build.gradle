@@ -16,7 +16,8 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "2.7.14"
+            // See test_gradle_plugin.RunGradle.rerun.
+            version System.getenv("python_version") ?: "2.7.14"
         }
         ndk {
             abiFilters "x86"

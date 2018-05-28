@@ -740,6 +740,9 @@ class RunGradle(object):
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
         # "version" is also used in Pyc.post_check.
+        #
+        # TODO: edit test files to replace as many explicit Python version numbers as possible
+        # with an environment variable, as we already have in BuildPythonCase subclasses.
         for k, v in [("version", getattr(self.test, "python_version", "2.7.14"))]:
             kwargs.setdefault(k, v)
 
