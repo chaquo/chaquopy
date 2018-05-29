@@ -29,14 +29,16 @@ android {
     productFlavors {
         // Allow temporary single-version testing just by editing Common.java.
         if (Common.PYTHON_VERSIONS.contains("2.7.15")) {
-            py2 {
+            // Using words rather than numbers so that "three" comes first alphabetically and is
+            // therefore the default (https://issuetracker.google.com/issues/36988145).
+            two {
                 dimension "pyVersion"
                 applicationId "com.chaquo.python.pkgtest2"
                 python { version "2.7.15" }
             }
         }
         if (Common.PYTHON_VERSIONS.contains("3.6.5")) {
-            py3 {
+            three {
                 dimension "pyVersion"
                 applicationId "com.chaquo.python.pkgtest3"
                 python { version "3.6.5" }
