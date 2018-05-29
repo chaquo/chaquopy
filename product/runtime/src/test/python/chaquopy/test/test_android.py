@@ -353,6 +353,16 @@ class TestAndroidImport(unittest.TestCase):
         # __import__, but it's not important enough to investigate just now.)
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
 
+    # See src/test/python/test.pth.
+    def test_pth(self):
+        import chaquopy
+        import pth_generated
+        self.assertEqual([re.sub(r"/chaquopy$", "/pth_generated", entry)
+                          for entry in chaquopy.__path__],
+                         pth_generated.__path__)
+        for entry in sys.path:
+            self.assertNotIn("nonexistent", entry)
+
 
 def asset_path(*paths):
     return join("/android_asset/chaquopy", *paths)
@@ -395,9 +405,10 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):
+        expected_dir = join(str(context.getCacheDir()), "chaquopy/tmp")
+        self.assertEqual(expected_dir, tempfile.gettempdir())
         with tempfile.NamedTemporaryFile() as f:
-            self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
-                             dirname(f.name))
+            self.assertEqual(expected_dir, dirname(f.name))
 
 
 @unittest.skipIf(API_LEVEL and API_LEVEL < 16,

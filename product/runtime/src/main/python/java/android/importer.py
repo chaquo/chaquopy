@@ -8,7 +8,7 @@ from functools import partial
 import imp
 import io
 import marshal
-import os
+import os.path
 from os.path import basename, dirname, exists, join
 import pkgutil
 import re
@@ -43,10 +43,6 @@ def initialize(context, build_json, app_path):
     ep_json = build_json.get("extractPackages")
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
 
-    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
-    for i, path in enumerate(app_path):
-        sys.path.insert(i, join(ASSET_PREFIX, Common.ASSET_DIR, path))
-
     # In both Python 2 and 3, the standard implementations of imp.{find,load}_module do not use
     # the PEP 302 import system. They are therefore only capable of loading from directory
     # trees and built-in modules, and will ignore both our path_hook and the standard one for
@@ -56,6 +52,43 @@ def initialize(context, build_json, app_path):
     load_module_original = imp.load_module
     imp.find_module = find_module_override
     imp.load_module = load_module_override
+
+    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
+    asset_finders = []
+    for i, asset_name in enumerate(app_path):
+        entry = join(ASSET_PREFIX, Common.ASSET_DIR, asset_name)
+        sys.path.insert(i, entry)
+        finder = pkgutil.get_importer(entry)
+        assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
+                                                 .format(entry, type(finder).__name__))
+        asset_finders.append(finder)
+
+    # We do this here because .pth files may contain executable code which imports modules. If
+    # we processed each zip's .pth files in AssetFinder.__init__, the finder itself wouldn't
+    # be available to the system for imports yet.
+    #
+    # This is based on site.addpackage, which we can't use directly because we need to set the
+    # local variable `sitedir` to accommodate the trick used by protobuf (see test_android).
+    for finder in asset_finders:
+        sitedir = finder.path  # noqa: F841 (see note above)
+        for pth_filename in finder.zip_file.pth_files:
+            pth_content = finder.zip_file.read(pth_filename).decode("UTF-8")
+            for line_no, line in enumerate(pth_content.splitlines(), start=1):
+                try:
+                    line = line.strip()
+                    if (not line) or line.startswith("#"):
+                        pass
+                    elif line.startswith(("import ", "import\t")):
+                        exec(line, {})
+                    else:
+                        # We don't add anything to sys.path: there's no way it could possibly work.
+                        pass
+                except Exception:
+                    print("Error processing line {} of {}/{}: {}"
+                          .format(line_no, finder.path, pth_filename, format_exc()),
+                          file=sys.stderr)
+                    print("Remainder of file ignored", file=sys.stderr)
+                    break
 
 
 # Unlike the other APIs in this file, find_module does not take names containing dots.
@@ -160,7 +193,7 @@ class AssetFinder(object):
             raise Exception(format_exc())
 
     def __repr__(self):
-        return "<AssetFinder({!r})>".format(self.path)
+        return "<AssetFinder('{}')>".format(self.path)
 
     def get_zip_file(self, path):
         with self.zip_file_lock:
@@ -434,9 +467,14 @@ class ConcurrentZipFile(ZipFile):
         ZipFile.__init__(self, *args, **kwargs)
         self.lock = RLock()
 
-        # ZIP files *may* have individual entries for directories, but we shouldn't rely on it.
-        self.dir_set = set(dirname(zip_info.filename) for zip_info in self.infolist())
-        self.dir_set.discard("")
+        self.dir_set = set()
+        self.pth_files = []
+        for name in self.namelist():
+            dir_name, base_name = os.path.split(name)
+            if dir_name:
+                self.dir_set.add(dir_name)
+            if (not dir_name) and base_name.endswith(".pth"):
+                self.pth_files.append(base_name)
 
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
@@ -451,6 +489,8 @@ class ConcurrentZipFile(ZipFile):
         with self.lock:
             return ZipFile.read(self, member)
 
+    # ZIP files *may* have individual entries for directories, but we shouldn't rely on it, so
+    # we build a directory set in __init__.
     def has_dir(self, dir_name):
         return (dir_name in self.dir_set)
 
