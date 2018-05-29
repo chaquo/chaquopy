@@ -120,7 +120,7 @@ class NoCompress(GradleTestCase):
                                           charlie=ZIP_DEFLATED))
 
     def test_assign(self):
-        with self.assertRaisesRegexp(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
+        with self.assertRaisesRegex(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
             run = self.RunGradle("base", "NoCompress/nocompress_assign", run=False)
             run.rerun()
         self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
@@ -675,15 +675,15 @@ class License(GradleTestCase):
         run.rerun(licensed_id=None)
 
     def test_stolen_ticket(self):
-        with self.assertRaisesRegexp(AssertionError,
-                                     "ValueError: License is for 'com.chaquo.python.demo', "
-                                     "but this app is 'com.chaquo.python.test'"):
+        with self.assertRaisesRegex(AssertionError,
+                                    "ValueError: License is for 'com.chaquo.python.demo', "
+                                    "but this app is 'com.chaquo.python.test'"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
                            bad_ticket=join(integration_dir,
                                            "data/License/tickets/demo.txt"))
 
     def test_invalid_ticket(self):
-        with self.assertRaisesRegexp(AssertionError, "VerificationError: Verification failed"):
+        with self.assertRaisesRegex(AssertionError, "VerificationError: Verification failed"):
             self.RunGradle("base", licensed_id="com.chaquo.python.test",
                            bad_ticket=join(integration_dir,
                                            "data/License/tickets/invalid.txt"))
@@ -771,8 +771,8 @@ class RunGradle(object):
                     merged_kwargs.update(variants[variant])
                 try:
                     self.check_apk(apk_zip, apk_dir, **merged_kwargs)
-                except Exception:
-                    self.dump_run("check_apk failed")
+                except Exception as e:
+                    self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
@@ -907,7 +907,8 @@ class RunGradle(object):
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
         if licensed_id:
-            check_ticket(open(ticket_filename).read(), pub_key, licensed_id)
+            with open(ticket_filename) as ticket_file:
+                check_ticket(ticket_file.read(), pub_key, licensed_id)
         else:
             self.test.assertEqual(os.stat(ticket_filename).st_size, 0)
 
