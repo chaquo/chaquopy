@@ -8,7 +8,7 @@ since_commit=${1:?"Usage: update_public.sh <since-commit>"}
 echo -n "demo: "
 private_src_dir="demo/app/src"
 public_src_dir="../public/demo/app/src"
-for source_set in main py2 py3; do
+for source_set in main two three; do
     rm -rf "$public_src_dir/$source_set"
     cp -a "$private_src_dir/$source_set" "$public_src_dir"
 done

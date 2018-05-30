@@ -80,7 +80,7 @@ If sphinx or javadoc have changed:
 
 ## Source control
 
-Commit public/demo and repository, and push to chaquo.com and GitHub.
+Commit public/demo repository, and push to chaquo.com and GitHub.
 
 If this release includes important changes, update public/console and public/hello, and push
 them as well.

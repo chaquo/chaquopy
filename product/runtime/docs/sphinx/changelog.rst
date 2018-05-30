@@ -1,6 +1,25 @@
 Change log
 ##########
 
+3.1.0 (2018-05-30)
+==================
+
+* Add support for installing pure-Python sdists. This means that all pure-Python packages on
+  PyPI should now work with Chaquopy, whether they have wheels available or not. If you have
+  any difficulty installing a package, please report it at our `issue tracker
+  <https://github.com/chaquo/chaquopy/issues>`_.
+
+  * Because of this change, the Python major version of :ref:`buildPython <buildPython>` is now
+    required to be the same as that of the :ref:`app itself <python-version>` when using pip,
+    and the default value of `buildPython` has been changed accordingly.
+
+* Fix :any:`imp.find_module` and :any:`imp.load_module`.
+* Implement implicit namespace packages on Python 3 (:pep:`420`).
+* Add partial support for :any:`.pth files <site>`. Only the execution of lines starting with
+  `import` is currently implemented: all other lines are ignored.
+* Add message explaining how to show full pip output in Android Studio 3.1's new Build window.
+* Fix "registering invalid inputs" warning in Android Studio 3.1.
+
 3.0.0 (2018-05-15)
 ==================
 * Android Gradle plugin version 3.1 is now supported.
