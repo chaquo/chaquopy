@@ -1,9 +1,22 @@
 package com.chaquo.python.demo;
 
 import android.app.*;
+import android.os.*;
+import android.text.*;
+import android.widget.*;
 import com.chaquo.python.utils.*;
 
 public class ReplActivity extends PythonConsoleActivity {
+
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // VISIBLE_PASSWORD is necessary to prevent some versions of the Google keyboard from
+        // displaying the suggestion bar.
+        ((TextView) findViewById(resId("id", "etInput"))).setInputType(
+            InputType.TYPE_CLASS_TEXT +
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS +
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+    }
 
     @Override protected Class<? extends Task> getTaskClass() {
         return Task.class;
