@@ -5,11 +5,13 @@ and should not be accessed or relied upon by user code.
 from __future__ import absolute_import, division, print_function
 
 from contextlib import contextmanager
+import imp
 from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
 import platform
+import re
 import shlex
 import sqlite3
 from subprocess import check_output
@@ -50,7 +52,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
         self.check_module("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
-                          package_path=[asset_path(REQS_COMMON_ZIP), asset_path(REQS_ABI_ZIP)],
+                          package_path=[asset_path(zip, "markupsafe")
+                                        for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]],
                           source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
 
     def test_py(self):
@@ -105,9 +108,12 @@ class TestAndroidImport(unittest.TestCase):
         filename = "markupsafe/_speedups.so"
         cache_filename = asset_cache(REQS_ABI_ZIP, filename)
         mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
-        with self.assertRaisesRegexp(ImportError,
-                                     "'{}': cannot reload a native module".format(mod_name)):
-            reload(mod)
+
+        mod.foo = 1
+        delattr(mod, "escape")
+        reload(mod)
+        self.assertEqual(1, mod.foo)
+        self.assertTrue(hasattr(mod, "escape"))
 
         # A valid file should not be extracted again.
         with self.set_mode(cache_filename, "444"):
@@ -150,7 +156,7 @@ class TestAndroidImport(unittest.TestCase):
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
-        self.assertFalse(isfile(mod.__file__))
+        self.assertFalse(exists(mod.__file__))
         if package_path:
             self.assertEqual(package_path, mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
@@ -165,8 +171,8 @@ class TestAndroidImport(unittest.TestCase):
             data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
             self.assertTrue(data.startswith(
                 b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
-        with self.assertRaisesRegexp(IOError, "loader for '{}' can't access '/invalid.py'"
-                                     .format(asset_path(zip_name))):
+        with self.assertRaisesRegexp(IOError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
+                                     .format(asset_path(zip_name, *mod_name.split(".")[:-1]))):
             loader.get_data("/invalid.py")
         with self.assertRaisesRegexp(IOError, "There is no item named 'invalid.py' in the archive"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
@@ -231,8 +237,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_extract_package(self):
         self.check_extracted_module("certifi", REQS_COMMON_ZIP, "certifi/__init__.py",
-                                    package_path=[asset_path(REQS_COMMON_ZIP),
-                                                  asset_path(REQS_ABI_ZIP)])
+                                    package_path=[asset_path(zip, "certifi")
+                                                  for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]])
         self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
 
         import certifi
@@ -250,6 +256,112 @@ class TestAndroidImport(unittest.TestCase):
             self.assertFalse(hasattr(mod, "__path__"))
             self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
         self.assertIsInstance(mod.__loader__, importer.AssetLoader)
+
+    def test_imp(self):
+        with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent' found in " +
+                                     re.escape(str(sys.path))):
+            imp.find_module("nonexistent")
+
+        # If any of the below modules already exist, they will be reloaded. This may have
+        # side-effects, e.g. if we'd included sys, then sys.executable would be reset and
+        # test_sys below would fail.
+        for mod_name, expected_type in [
+                ("email", imp.PKG_DIRECTORY),                   # stdlib
+                ("argparse", imp.PY_COMPILED),                  #
+                ("select", imp.C_EXTENSION),                    #
+                ("errno", imp.C_BUILTIN),                       #
+                ("markupsafe", imp.PKG_DIRECTORY),              # requirements
+                ("markupsafe._native", imp.PY_SOURCE),          #
+                ("markupsafe._speedups", imp.C_EXTENSION),      #
+                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app
+                ("chaquopy.utils.console", imp.PY_SOURCE)]:     #
+            path = None
+            prefix = ""
+            words = mod_name.split(".")
+            for i, word in enumerate(words):
+                prefix += word
+                file, pathname, description = imp.find_module(word, path)
+                suffix, mode, actual_type = description
+                mod = imp.load_module(prefix, file, pathname, description)
+                self.assertEqual(prefix, mod.__name__)
+                prefix += "."
+
+                # Except for built-in modules, we consider `file`, `pathname`, `suffix` and
+                # `mode` to be opaque and don't check them (see note in find_module_override).
+                if actual_type == imp.C_BUILTIN:
+                    # This isn't documented, but it's what the current versions of CPython do.
+                    if sys.version_info[0] < 3:
+                        self.assertEqual(mod_name, pathname)
+                    else:
+                        self.assertIsNone(pathname)
+                    self.assertEqual("", suffix)
+                    self.assertEqual("", mode)
+
+                if i < len(words) - 1:
+                    self.assertEqual(imp.PKG_DIRECTORY, actual_type)
+                    path = mod.__path__
+                else:
+                    self.assertEqual(expected_type, actual_type)
+
+    def test_imp_rename(self):
+        # Renames in stdlib are not currently supported.
+        with self.assertRaisesRegexp(ImportError, "zipimporter does not support loading module "
+                                     "'json' under a different name 'jason'"):
+            imp.load_module("jason", *imp.find_module("json"))
+
+        def check_top_level(real_name, load_name, id):
+            mod_renamed = imp.load_module(load_name, *imp.find_module(real_name))
+            self.assertEqual(load_name, mod_renamed.__name__)
+            self.assertEqual(id, mod_renamed.ID)
+            self.assertIs(mod_renamed, import_module(load_name))
+
+            mod_original = import_module(real_name)
+            self.assertEqual(real_name, mod_original.__name__)
+            self.assertIsNot(mod_renamed, mod_original)
+            self.assertEqual(mod_renamed.ID, mod_original.ID)
+            self.assertEqual(mod_renamed.__file__, mod_original.__file__)
+
+        check_top_level("imp_rename_one", "imp_rename_1", "1")  # Module
+        check_top_level("imp_rename_two", "imp_rename_2", "2")  # Package
+
+        import imp_rename_two  # Original
+        import imp_rename_2    # Renamed
+        path = [asset_path(APP_ZIP, "imp_rename_two")]
+        self.assertEqual(path, imp_rename_two.__path__)
+        self.assertEqual(path, imp_rename_2.__path__)
+
+        # Non-renamed sub-modules
+        from imp_rename_2 import mod_one, pkg_two
+        for mod, name, id in [(mod_one, "mod_one", "21"), (pkg_two, "pkg_two", "22")]:
+            self.assertFalse(hasattr(imp_rename_two, name), name)
+            mod_attr = getattr(imp_rename_2, name)
+            self.assertIs(mod_attr, mod)
+            self.assertEqual("imp_rename_2." + name, mod.__name__)
+            self.assertEqual(id, mod.ID)
+        self.assertEqual([asset_path(APP_ZIP, "imp_rename_two/pkg_two")], pkg_two.__path__)
+
+        # Renamed sub-modules
+        mod_3 = imp.load_module("imp_rename_2.mod_3",
+                                *imp.find_module("mod_three", imp_rename_two.__path__))
+        self.assertEqual("imp_rename_2.mod_3", mod_3.__name__)
+        self.assertEqual("23", mod_3.ID)
+        self.assertIs(sys.modules["imp_rename_2.mod_3"], mod_3)
+
+        # The standard load_module implementation doesn't add a sub-module as an attribute of
+        # its package. (Despite this, in Python 3 only, it can still be imported under its new
+        # name using `from ... import`. This seems to contradict the documentation of
+        # __import__, but it's not important enough to investigate just now.)
+        self.assertFalse(hasattr(imp_rename_2, "mod_3"))
+
+    # See src/test/python/test.pth.
+    def test_pth(self):
+        import chaquopy
+        import pth_generated
+        self.assertEqual([re.sub(r"/chaquopy$", "/pth_generated", entry)
+                          for entry in chaquopy.__path__],
+                         pth_generated.__path__)
+        for entry in sys.path:
+            self.assertNotIn("nonexistent", entry)
 
 
 def asset_path(*paths):
@@ -293,9 +405,10 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):
+        expected_dir = join(str(context.getCacheDir()), "chaquopy/tmp")
+        self.assertEqual(expected_dir, tempfile.gettempdir())
         with tempfile.NamedTemporaryFile() as f:
-            self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
-                             dirname(f.name))
+            self.assertEqual(expected_dir, dirname(f.name))
 
 
 @unittest.skipIf(API_LEVEL and API_LEVEL < 16,

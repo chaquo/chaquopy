@@ -110,8 +110,12 @@ class TestImport(FilterWarningsCase):
         from package1.package11 import test_relative
         test_relative(self)
 
-    @unittest.skipIf(sys.version_info[0] >= 3,
-                     "Implicit relative imports were removed in Python 3")
+    @unittest.skipUnless(sys.version_info[0] == 2, "Python 2 only")
     def test_relative_implicit(self):
         from package1 import test_relative_implicit
         test_relative_implicit(self)
+
+    @unittest.skipUnless(sys.version_info[0] >= 3, "Python 3 only")
+    def test_namespace(self):
+        from namespace import mod1
+        self.assertEqual("Module within an implicit namespace package", mod1.x)

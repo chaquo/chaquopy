@@ -1,0 +1,7 @@
+# See test_android.TestAndroidImport.test_pth.
+
+# This kind of trick is used by the protobuf wheel.
+import sys, types; m = sys.modules.setdefault("pth_generated", types.ModuleType("pth_generated")); m.__path__ = [sys._getframe(1).f_locals['sitedir'] + "/pth_generated"]
+
+# Should have no effect.
+nonexistent

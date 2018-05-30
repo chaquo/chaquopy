@@ -7,7 +7,6 @@
     android:layout_height="match_parent"
     tools:context="com.chaquo.python.demo.ConsoleActivity">
 
-    <!-- textVisiblePassword prevents Google keyboard from displaying suggestion bar -->
     <EditText
         android:id="@+id/etInput"
         android:visibility="gone"
@@ -20,7 +19,7 @@
         android:layout_marginStart="8dp"
         android:ems="10"
         android:imeOptions="actionDone|flagNoFullscreen"
-        android:inputType="textNoSuggestions|textVisiblePassword"
+        android:singleLine="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintLeft_toLeftOf="parent"

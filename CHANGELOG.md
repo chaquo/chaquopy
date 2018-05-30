@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 3.1.0 (2018-05-30)
+
+* Make Python 3 the default flavor.
+* Don't suppress keyboard predictions in ConsoleActivity base class.
+
 ## 3.0.0 (2018-05-15)
 
 * Target Android Studio 3.1, and update to Python 2.7.15 and 3.6.5.

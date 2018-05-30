@@ -27,13 +27,13 @@ android {
         minSdkVersion 15
         targetSdkVersion 26
 
-        versionName "3.0.0"
+        versionName "3.1.0"
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
         python {
-            // If "python" is not on your PATH, enable and edit the following line to point to
-            // a Python 2.7 or 3.3+ executable.
+            // If Chaquopy fails to find Python on your build machine, enable and edit the
+            // following line to point to a Python 2.7 or 3.3+ executable.
             // buildPython "C:/Python27/python.exe"
 
             // Android UI demo
@@ -65,12 +65,14 @@ android {
 
     flavorDimensions "pyVersion"
     productFlavors {
-        py2 {
+        // Using words rather than numbers so that "three" comes first alphabetically and is
+        // therefore the default (https://issuetracker.google.com/issues/36988145).
+        two {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo"
             python { version "2.7.15" }
         }
-        py3 {
+        three {
             dimension "pyVersion"
             applicationId "com.chaquo.python.demo3"
             python { version "3.6.5" }
@@ -92,6 +94,8 @@ android {
 }
 
 dependencies {
+    // Using "compile" to maintain compatibility with Android Studio 2.3. When targeting versions
+    // 3.0 or later, this should be changed to "implementation".
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile "android.arch.lifecycle:extensions:1.1.0"
     compile 'com.android.support:appcompat-v7:26.1.0'
