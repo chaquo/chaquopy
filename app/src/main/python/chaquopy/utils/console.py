@@ -2,11 +2,16 @@ from __future__ import absolute_import, division, print_function
 
 from io import TextIOBase
 import sys
+import threading
 
 if sys.version_info[0] < 3:
     from Queue import Queue
 else:
     from queue import Queue
+
+
+def start_thread(runnable):
+    threading.Thread(target=lambda: runnable.run()).start()
 
 
 class ConsoleInputStream(TextIOBase):

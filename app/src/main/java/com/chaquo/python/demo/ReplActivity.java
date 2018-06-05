@@ -25,7 +25,7 @@ public class ReplActivity extends PythonConsoleActivity {
     // Maintain REPL state unless the loop has been terminated, e.g. by typing `exit()`. Requires
     // the activity to be in its own task (see AndroidManifest).
     @Override public void onBackPressed() {
-        if (task.thread.isAlive()) {
+        if (task.getState() == Thread.State.RUNNABLE) {
             moveTaskToBack(true);
         } else {
             super.onBackPressed();
