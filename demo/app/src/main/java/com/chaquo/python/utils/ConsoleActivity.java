@@ -117,7 +117,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
 
     @Override protected void onRestoreInstanceState(Bundle savedInstanceState) {
         // Don't restore the UI state unless we have the non-UI state as well.
-        if (task.thread.getState() != Thread.State.NEW) {
+        if (task.getState() != Thread.State.NEW) {
             super.onRestoreInstanceState(savedInstanceState);
         }
     }
@@ -126,8 +126,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         super.onResume();
         // Needs to be in onResume rather than onStart because onRestoreInstanceState runs
         // between them.
-        if (task.thread.getState() == Thread.State.NEW) {
-            task.thread.start();
+        if (task.getState() == Thread.State.NEW) {
+            task.start();
         }
     }
 
@@ -324,16 +324,28 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
 
     public static abstract class Task extends AndroidViewModel {
 
-        public Thread thread = new Thread(getClass().getName()) {
-            @Override public void run() {
-                try {
-                    Task.this.run();
-                    output(spanColor("[Finished]", resId("color", "console_meta")));
-                } finally {
-                    inputEnabled.postValue(false);
+        private Thread.State state = Thread.State.NEW;
+
+        public void start() {
+            startThread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        Task.this.run();
+                        output(spanColor("[Finished]", resId("color", "console_meta")));
+                    } finally {
+                        inputEnabled.postValue(false);
+                        state = Thread.State.TERMINATED;
+                    }
                 }
-            }
-        };
+            });
+            state = Thread.State.RUNNABLE;
+        }
+
+        protected void startThread(Runnable runnable) {
+            new Thread(runnable).start();
+        }
+
+        public Thread.State getState() { return state; }
 
         public MutableLiveData<Boolean> inputEnabled = new MutableLiveData<>();
         public BufferedLiveEvent<CharSequence> output = new BufferedLiveEvent<>();

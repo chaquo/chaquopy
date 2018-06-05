@@ -64,6 +64,13 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
             stderr = console.callAttr("ConsoleOutputStream", this, "outputError", realStderr);
         }
 
+        /** Create the thread from Python rather than Java, otherwise user code may be surprised
+         * to find its Python Thread object marked as "dummy" and "daemon". */
+        @Override protected void startThread(Runnable runnable) {
+            PyObject console = py.getModule("chaquopy.utils.console");
+            console.callAttr("start_thread", runnable);
+        }
+
         public void resumeStreams() {
             if (stdin != null) {
                 sys.put("stdin", stdin);
