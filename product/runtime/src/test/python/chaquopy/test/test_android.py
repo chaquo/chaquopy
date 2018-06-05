@@ -259,6 +259,7 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsInstance(mod.__loader__, importer.AssetLoader)
 
     def test_imp(self):
+        self.longMessage = True
         with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent' found in " +
                                      re.escape(str(sys.path))):
             imp.find_module("nonexistent")
@@ -274,8 +275,8 @@ class TestAndroidImport(unittest.TestCase):
                 ("markupsafe", imp.PKG_DIRECTORY),              # requirements
                 ("markupsafe._native", imp.PY_SOURCE),          #
                 ("markupsafe._speedups", imp.C_EXTENSION),      #
-                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app
-                ("chaquopy.utils.console", imp.PY_SOURCE)]:     #
+                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
+                ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
             path = None
             prefix = ""
             words = mod_name.split(".")
@@ -285,7 +286,15 @@ class TestAndroidImport(unittest.TestCase):
                 suffix, mode, actual_type = description
                 mod = imp.load_module(prefix, file, pathname, description)
                 self.assertEqual(prefix, mod.__name__)
-                prefix += "."
+                self.assertEqual(actual_type == imp.PKG_DIRECTORY,
+                                 hasattr(mod, "__path__"), prefix)
+
+                if sys.version_info[0] < 3:
+                    self.assertFalse(hasattr(mod, "__spec__"), prefix)
+                else:
+                    self.assertTrue(hasattr(mod, "__spec__"), prefix)
+                    self.assertIsNotNone(mod.__spec__, prefix)
+                    self.assertEqual(mod.__name__, mod.__spec__.name)
 
                 # Except for built-in modules, we consider `file`, `pathname`, `suffix` and
                 # `mode` to be opaque and don't check them (see note in find_module_override).
@@ -294,15 +303,18 @@ class TestAndroidImport(unittest.TestCase):
                     if sys.version_info[0] < 3:
                         self.assertEqual(mod_name, pathname)
                     else:
-                        self.assertIsNone(pathname)
-                    self.assertEqual("", suffix)
-                    self.assertEqual("", mode)
+                        self.assertIsNone(pathname, prefix)
+                    self.assertEqual("", suffix, prefix)
+                    self.assertEqual("", mode, prefix)
+                else:
+                    self.assertTrue(hasattr(mod, "__file__"), prefix)
 
                 if i < len(words) - 1:
-                    self.assertEqual(imp.PKG_DIRECTORY, actual_type)
+                    self.assertEqual(imp.PKG_DIRECTORY, actual_type, prefix)
+                    prefix += "."
                     path = mod.__path__
                 else:
-                    self.assertEqual(expected_type, actual_type)
+                    self.assertEqual(expected_type, actual_type, prefix)
 
     def test_imp_rename(self):
         # Renames in stdlib are not currently supported.
@@ -402,6 +414,7 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
+            self.assertIsInstance(p, str)
             self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
 

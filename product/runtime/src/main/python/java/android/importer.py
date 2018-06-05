@@ -56,7 +56,7 @@ def initialize(context, build_json, app_path):
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     asset_finders = []
     for i, asset_name in enumerate(app_path):
-        entry = join(ASSET_PREFIX, Common.ASSET_DIR, asset_name)
+        entry = str(join(ASSET_PREFIX, Common.ASSET_DIR, asset_name))
         sys.path.insert(i, entry)
         finder = pkgutil.get_importer(entry)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
@@ -193,7 +193,7 @@ class AssetFinder(object):
             raise Exception(format_exc())
 
     def __repr__(self):
-        return "<AssetFinder('{}')>".format(self.path)
+        return "<AssetFinder({!r})>".format(self.path)
 
     def get_zip_file(self, path):
         with self.zip_file_lock:
@@ -281,6 +281,11 @@ class AssetLoader(object):
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
         mod.__loader__ = self
+        if sys.version_info[0] >= 3:
+            # The import system sets __spec__ when using the import statement, but not when
+            # load_module is called directly.
+            import importlib.util
+            mod.__spec__ = importlib.util.spec_from_loader(self.mod_name, self)
 
     # IOError became an alias for OSError in Python 3.4, and the get_data specification was
     # changed accordingly.
