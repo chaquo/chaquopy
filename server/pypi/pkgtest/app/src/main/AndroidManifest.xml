@@ -1,6 +1,8 @@
 <manifest package="com.chaquo.python.demo"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- For debugging startup failures (see startNativeJava) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
