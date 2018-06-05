@@ -33,6 +33,11 @@ public class PythonTest {
     }
 
     @Test
+    public void getPlatform() {
+        assertNotNull(Python.getPlatform());
+    }
+
+    @Test
     public void isStarted() {
         assertTrue(Python.isStarted());
     }

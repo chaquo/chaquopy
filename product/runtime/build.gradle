@@ -147,6 +147,7 @@ def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.
 
 dependencies {
     compileOnly files(androidJar)
+    testCompileOnly files(androidJar)
 
     // This is a library project, so use "+" notation for external dependencies.
     // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.

@@ -1,5 +1,6 @@
 package com.chaquo.python.android;
 
+import android.app.*;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
@@ -86,18 +87,20 @@ public class AndroidPlatform extends Python.Platform {
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
-    public Context mContext;
+    public Application mContext;
     private SharedPreferences sp;
     private JSONObject buildJson;
 
-    /** The given context must be an {@link android.app.Activity}, {@link android.app.Service} or
-     * {@link android.app.Application} object from your app. The context is used only for
-     * initialization, and does not need to remain valid after {@link Python#start Python.start()}
-     * is called. */
-    // TODO #5201 Remove reference once no longer required
+    /** Uses the {@link android.app.Application} context of the given context to initialize
+     * Python. */
     public AndroidPlatform(Context context) {
-        mContext = context.getApplicationContext();
+        mContext = (Application) context.getApplicationContext();
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
+    }
+
+    /** Returns the Application context of the context which was passed to the contructor. */
+    public Application getApplication() {
+        return mContext;
     }
 
     @Override

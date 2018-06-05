@@ -16,7 +16,7 @@ public class Python {
         public void onStart(Python py) {}
     }
 
-    private static boolean started;
+    private static Platform platform;
     private static boolean failed;
     private static Python instance = new Python();
 
@@ -24,7 +24,7 @@ public class Python {
      * {@link #start start()} has not yet been called, it will be called with a new
      * {@link GenericPlatform}. */
     public static synchronized Python getInstance() {
-        if (!started) {
+        if (! isStarted()) {
             start(new GenericPlatform());
         }
         return instance;
@@ -39,7 +39,7 @@ public class Python {
      * to customize the Python startup process.
      **/
     public static synchronized void start(Platform platform) {
-        if (started) {
+        if (isStarted()) {
             throw new IllegalStateException("Python already started");
         }
         if (failed) {
@@ -49,16 +49,22 @@ public class Python {
         try {
             startNative(platform, platform.getPath());
             platform.onStart(instance);
-            started = true;
+            Python.platform = platform;
         } catch (Throwable e) {
             failed = true;
             throw e;
         }
     }
 
+    /** Returns the Platform object which was used to start Python, or `null` if Python has not
+     * yet been started. */
+    public static synchronized Platform getPlatform() {
+        return platform;
+    }
+
     /** Return whether the Python virtual machine is running */
     public static synchronized boolean isStarted() {
-        return started;
+        return (platform != null);
     }
 
     /** There is no stop() method, because Py_Finalize does not guarantee an orderly or complete
