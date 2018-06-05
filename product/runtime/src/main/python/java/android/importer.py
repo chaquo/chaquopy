@@ -400,37 +400,38 @@ class ExtensionFileLoader(AssetLoader):
     # Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
     # directories, so we need to load them manually in dependency order (#5323).
     def load_needed(self, filename):
-        ef = ELFFile(open(filename, "rb"))
-        dynamic = ef.get_section_by_name(".dynamic")
-        if not dynamic:
-            return
+        with open(filename, "rb") as so_file:
+            ef = ELFFile(so_file)
+            dynamic = ef.get_section_by_name(".dynamic")
+            if not dynamic:
+                return
 
-        for tag in dynamic.iter_tags():
-            if tag.entry.d_tag == "DT_NEEDED":
-                soname = tag.needed
-                if soname in self.needed:
-                    continue
+            for tag in dynamic.iter_tags():
+                if tag.entry.d_tag == "DT_NEEDED":
+                    soname = tag.needed
+                    if soname in self.needed:
+                        continue
 
-                try:
-                    # We don't need to worry about other_zips because all native modules and
-                    # libraries for a given ABI will always end up in the same ZIP.
-                    zip_info = self.finder.zip_file.getinfo("chaquopy/lib/" + soname)
-                except KeyError:
-                    # Maybe it's a system library, or one of the libraries loaded by
-                    # AndroidPlatform.loadNativeLibs.
-                    continue
-                needed_filename = self.extract_if_changed(zip_info)
-                self.load_needed(needed_filename)
+                    try:
+                        # We don't need to worry about other_zips because all native modules
+                        # and libraries for a given ABI will always end up in the same ZIP.
+                        zip_info = self.finder.zip_file.getinfo("chaquopy/lib/" + soname)
+                    except KeyError:
+                        # Maybe it's a system library, or one of the libraries loaded by
+                        # AndroidPlatform.loadNativeLibs.
+                        continue
+                    needed_filename = self.extract_if_changed(zip_info)
+                    self.load_needed(needed_filename)
 
-                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-                # ignored. From API 23, RTLD_LOCAL is available and the default, just like in
-                # Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-                # available to subsequently-loaded libraries.
-                dll = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+                    # ignored. From API 23, RTLD_LOCAL is available and the default, just like
+                    # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+                    # available to subsequently-loaded libraries.
+                    dll = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
 
-                # It doesn't look like the library is closed when the CDLL object is garbage
-                # collected, but this isn't documented, so keep a reference for safety.
-                self.needed[soname] = dll
+                    # The library isn't currently closed when the CDLL object is garbage
+                    # collected, but this isn't documented, so keep a reference for safety.
+                    self.needed[soname] = dll
 
     def extract_if_changed(self, zip_info):
         out_filename = join(self.finder.extract_root, zip_info.filename)

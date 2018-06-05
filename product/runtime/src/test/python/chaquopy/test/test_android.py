@@ -96,7 +96,8 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(header, self.read_pyc_header(cache_filename))
 
     def read_pyc_header(self, filename):
-        return open(filename, "rb").read(12)
+        with open(filename, "rb") as pyc_file:
+            return pyc_file.read(12)
 
     def write_pyc_header(self, filename, header):
         with open(filename, "r+b") as pyc_file:
