@@ -241,6 +241,11 @@ class PythonSrc(GradleTestCase):
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun(app=["package/submodule.py"])
 
+    def test_filter(self):
+        run = self.RunGradle("base", "PythonSrc/filter_1", app=["one.py"])
+        run.apply_layers("PythonSrc/filter_2")
+        run.rerun(app=["two.py"])
+
     def test_variant(self):
         self.RunGradle(
             "base", "PythonSrc/variant",

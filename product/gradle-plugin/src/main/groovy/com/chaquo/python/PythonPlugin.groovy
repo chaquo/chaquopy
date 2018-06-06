@@ -338,7 +338,7 @@ class PythonPlugin implements Plugin<Project> {
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
             ext.destinationDir = needMerge ? mergeDir : dirSets[0].srcDirs.asList()[0]
-            inputs.files(dirSets.collect { it.srcDirs })
+            inputs.files(dirSets.collect { it.sourceFiles })
             outputs.dir(destinationDir)
             doLast {
                 project.delete(mergeDir)
