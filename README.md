@@ -26,12 +26,16 @@ Run `gradlew runtime:check`.
 
 ## Gradle plugin
 
+Free up RAM if necessary. If restarting Android Studio, do it before starting the tests, as
+this may kill the Gradle daemon.
+
 On each supported workstation OS, run the following tasks with `gradlew -P
 cmakeBuildType=Release`:
 * `gradle-plugin:testPython`
 * `gradle-plugin:testIntegration-X.Y` for each supported Android Studio version.
 
-Remove any license key from pkgtest app, then test it for both Python 2 and 3 on:
+Remove any license key from pkgtest app, then test it for both Python 2 and 3 on the following
+devices, with at least one app on each device being a clean install:
 * API 18 emulator (earlier versions give "too many libraries" error (#5316)).
 * targetSdkVersion emulator
 * Any ARM device
