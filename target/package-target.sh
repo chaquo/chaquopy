@@ -7,7 +7,6 @@
 set -eu
 
 crystax=~/crystax-ndk-10.3.2
-ndk="$ANDROID_HOME/ndk-bundle"
 
 short_ver="${1:?}"
 micro_build="${2:?}"
@@ -57,7 +56,7 @@ for abi in armeabi-v7a x86; do
     cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
 
     chmod u+w $(find -name *.so)
-    $ndk/toolchains/$gcc_abi-*/prebuilt/*/*/bin/strip $(find -name *.so)
+    $crystax/toolchains/$gcc_abi-*4.9/prebuilt/*/*/bin/strip $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"

@@ -61,7 +61,8 @@ Crystax's pre-built library is used. No action is required.
 
 Download and extract Python source. Let its location be $PYTHON_DIR. Then run this script:
 
-    platform/ndk/build-target-python.sh --verbose --ndk-dir=$CRYSTAX_DIR --abis=$ABIS $PYTHON_DIR
+    platform/ndk/build/tools/build-target-python.sh --verbose --ndk-dir=$CRYSTAX_DIR \
+        --abis=$ABIS $PYTHON_DIR
 
 The Python libraries and includes will now be in $CRYSTAX_DIR/sources/python.
 
