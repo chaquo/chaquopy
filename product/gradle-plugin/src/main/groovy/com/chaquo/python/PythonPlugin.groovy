@@ -219,7 +219,7 @@ class PythonPlugin implements Plugin<Project> {
         return "com.chaquo.python:target:$version-$buildNo:$classifier@zip"
     }
 
-    String[] getAbis(variant) {
+    List<String> getAbis(variant) {
         // variant.getMergedFlavor returns a DefaultProductFlavor base class object, which, perhaps
         // by an oversight, doesn't contain the NDK options.
         def abis = new TreeSet<String>()
@@ -240,7 +240,7 @@ class PythonPlugin implements Plugin<Project> {
             throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: " +
                                        "you may want to add it to defaultConfig.")
         }
-        return abis.toArray()
+        return new ArrayList(abis)
     }
 
     Task createBuildPackagesTask() {
@@ -269,10 +269,13 @@ class PythonPlugin implements Plugin<Project> {
 
     Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
         return project.task(taskName("generate", variant, "requirements")) {
+            def abis = getAbis(variant)
             ext.destinationDir = variantGenDir(variant, "requirements")
             dependsOn buildPackagesTask
-            inputs.property("python", python.serialize())
-            inputs.files(getConfig(variant, "targetAbis"))
+            inputs.property("abis", abis)
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("pip", python.pip.serialize())
+            inputs.property("version", python.version)
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
@@ -288,7 +291,6 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                def abis = getAbis(variant)
                 if (reqsArgs.isEmpty()) {
                     // Subdirectories must exist, or their ZIPs won't be created.
                     project.mkdir("$destinationDir/common")
@@ -375,7 +377,8 @@ class PythonPlugin implements Plugin<Project> {
         File destinationDir = variantGenDir(variant, "proxies")
         Task proxyTask = project.task(taskName("generate", variant, "proxies")) {
             inputs.files(buildPackagesTask, reqsTask, mergeSrcTask)
-            inputs.property("python", python.serialize())
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("staticProxy", python.staticProxy)
             outputs.dir(destinationDir)
             doLast {
                 project.delete(destinationDir)
@@ -546,7 +549,8 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         assetTask(variant, "build") {
-            inputs.property("python", python.serialize())
+            inputs.property("extractPackages", python.extractPackages)
+            inputs.property("version", python.version)
             inputs.files(ticketTask, appAssetsTask, reqsAssetsTask, miscAssetsTask)
             doLast {
                 def buildJson = new JSONObject()

@@ -628,10 +628,10 @@ class StaticProxy(GradleTestCase):
         app = ["chaquopy_test/__init__.py", "chaquopy_test/a.py"]
         run.apply_layers("StaticProxy/src_1")       # Src should take priority over reqs.
         run.rerun(requirements=self.reqs, app=app, classes=["a.SrcA1", "b.ReqsB1"])
-        run.apply_layers("StaticProxy/src_only")    # Remove reqs
-        run.rerun(app=app, classes=["a.SrcA1"])
+        run.apply_layers("StaticProxy/src_only")    # Change staticProxy setting
+        run.rerun(app=app, requirements=self.reqs, classes=["a.SrcA1"])
         run.apply_layers("StaticProxy/src_2")       # Change source code
-        run.rerun(app=app, classes=["a.SrcA2"])
+        run.rerun(app=app, requirements=self.reqs, classes=["a.SrcA2"])
         run.apply_layers("base")                    # Remove all
         run.rerun(app=app)
 
