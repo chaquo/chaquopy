@@ -10,22 +10,17 @@ from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
-import platform
 import re
 import shlex
-import sqlite3
 from subprocess import check_output
 import sys
-import tempfile
 from traceback import format_exc
 import unittest
 
 if sys.version_info[0] < 3:
-    from urllib2 import urlopen
     bytes = str
 else:
     from importlib import reload
-    from urllib.request import urlopen
     unicode = str
 
 
@@ -387,18 +382,28 @@ def asset_cache(*paths):
 class TestAndroidStdlib(unittest.TestCase):
 
     def test_lib2to3(self):
-        # Will fail unless grammar files are available in stdlib zip.
+        # Requires grammar files to be available in stdlib zip.
         from lib2to3 import pygram  # noqa: F401
+
+    def test_hashlib(self):
+        # Requires the OpenSSL interface in `_hashlib`.
+        import hashlib
+        self.assertEqual("37f332f68db77bd9d7edd4969571ad671cf9dd3b",
+                         hashlib.new("ripemd160",
+                                     b"The quick brown fox jumps over the lazy dog")
+                         .hexdigest())
 
     def test_os(self):
         self.assertEqual("posix", os.name)
 
     def test_platform(self):
-        # This depends on sys.executable existing.
+        # Requires sys.executable to exist.
+        import platform
         p = platform.platform()
         self.assertRegexpMatches(p, r"^Linux")
 
     def test_sqlite(self):
+        import sqlite3
         conn = sqlite3.connect(":memory:")
         conn.execute("create table test (a text, b text)")
         conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
@@ -406,6 +411,10 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
+        if sys.version_info[0] < 3:
+            from urllib2 import urlopen
+        else:
+            from urllib.request import urlopen
         resp = urlopen("https://chaquo.com/chaquopy/")
         self.assertEqual(200, resp.getcode())
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
@@ -419,6 +428,7 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):
+        import tempfile
         expected_dir = join(str(context.getCacheDir()), "chaquopy/tmp")
         self.assertEqual(expected_dir, tempfile.gettempdir())
         with tempfile.NamedTemporaryFile() as f:

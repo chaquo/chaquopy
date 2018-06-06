@@ -869,18 +869,21 @@ class RunGradle(object):
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
         # Python stdlib
+        version = kwargs["version"]
         stdlib_native_dir = join(asset_dir, "stdlib-native")
         self.test.assertEqual([abi + ".zip" for abi in sorted(abis)],
                               sorted(os.listdir(stdlib_native_dir)))
         for abi in abis:
             stdlib_native_zip = ZipFile(join(stdlib_native_dir, abi + ".zip"))
-            self.test.assertEqual(["_multiprocessing.so", "_socket.so", "_sqlite3.so",
-                                   "_ssl.so", "pyexpat.so", "unicodedata.so"],
+            expected_modules = ["_multiprocessing.so", "_socket.so", "_sqlite3.so",
+                                "_ssl.so", "pyexpat.so", "unicodedata.so"]
+            if self.test.post_201805(version):
+                expected_modules.append("_hashlib.so")
+            self.test.assertEqual(sorted(expected_modules),
                                   sorted(stdlib_native_zip.namelist()))
 
         # libs
         self.test.assertEqual(sorted(abis), sorted(os.listdir(join(apk_dir, "lib"))))
-        version = kwargs["version"]
         ver_suffix = version.rpartition(".")[0]
         if ver_suffix.startswith("3"):
             ver_suffix += "m"

@@ -8,19 +8,22 @@ import sys
 import traceback
 from . import stream, importer
 
+from java._vendor import six
+
 
 def initialize(context, build_json, app_path):
     stream.initialize()
-    initialize_stdlib(context)
     importer.initialize(context, build_json, app_path)
+    initialize_stdlib(context)
 
 
 def initialize_stdlib(context):
-    # OpenSSL actually does know the location of the system CA store on Android, but
-    # unfortunately there are multiple incompatible formats of that location, so we can't rely
-    # on it (https://blog.kylemanna.com/android/android-ca-certificates/).
-    os.environ["SSL_CERT_FILE"] = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
+    initialize_sys(context)
+    initialize_tempfile(context)
+    initialize_ssl(context)
 
+
+def initialize_sys(context):
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
 
@@ -40,8 +43,21 @@ def initialize_stdlib(context):
     for p in invalid_paths:
         sys.path.remove(p)
 
-    # tempfile
+
+def initialize_tempfile(context):
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
     if not exists(tmpdir):
         os.makedirs(tmpdir)
     os.environ["TMPDIR"] = tmpdir
+
+
+def initialize_ssl(context):
+    # OpenSSL actually does know the location of the system CA store on Android, but
+    # unfortunately there are multiple incompatible formats of that location, so we can't rely
+    # on it (https://blog.kylemanna.com/android/android-ca-certificates/).
+    os.environ["SSL_CERT_FILE"] = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
+
+    # hashlib may already have been imported during bootstrap: reload it now that the the
+    # OpenSSL interface in `_hashlib` is on sys.path.
+    import hashlib
+    six.moves.reload_module(hashlib)
