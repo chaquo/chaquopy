@@ -10,22 +10,17 @@ from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
-import platform
 import re
 import shlex
-import sqlite3
 from subprocess import check_output
 import sys
-import tempfile
 from traceback import format_exc
 import unittest
 
 if sys.version_info[0] < 3:
-    from urllib2 import urlopen
     bytes = str
 else:
     from importlib import reload
-    from urllib.request import urlopen
     unicode = str
 
 
@@ -96,7 +91,8 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(header, self.read_pyc_header(cache_filename))
 
     def read_pyc_header(self, filename):
-        return open(filename, "rb").read(12)
+        with open(filename, "rb") as pyc_file:
+            return pyc_file.read(12)
 
     def write_pyc_header(self, filename, header):
         with open(filename, "r+b") as pyc_file:
@@ -258,6 +254,7 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsInstance(mod.__loader__, importer.AssetLoader)
 
     def test_imp(self):
+        self.longMessage = True
         with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent' found in " +
                                      re.escape(str(sys.path))):
             imp.find_module("nonexistent")
@@ -273,8 +270,8 @@ class TestAndroidImport(unittest.TestCase):
                 ("markupsafe", imp.PKG_DIRECTORY),              # requirements
                 ("markupsafe._native", imp.PY_SOURCE),          #
                 ("markupsafe._speedups", imp.C_EXTENSION),      #
-                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app
-                ("chaquopy.utils.console", imp.PY_SOURCE)]:     #
+                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
+                ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
             path = None
             prefix = ""
             words = mod_name.split(".")
@@ -284,7 +281,15 @@ class TestAndroidImport(unittest.TestCase):
                 suffix, mode, actual_type = description
                 mod = imp.load_module(prefix, file, pathname, description)
                 self.assertEqual(prefix, mod.__name__)
-                prefix += "."
+                self.assertEqual(actual_type == imp.PKG_DIRECTORY,
+                                 hasattr(mod, "__path__"), prefix)
+
+                if sys.version_info[0] < 3:
+                    self.assertFalse(hasattr(mod, "__spec__"), prefix)
+                else:
+                    self.assertTrue(hasattr(mod, "__spec__"), prefix)
+                    self.assertIsNotNone(mod.__spec__, prefix)
+                    self.assertEqual(mod.__name__, mod.__spec__.name)
 
                 # Except for built-in modules, we consider `file`, `pathname`, `suffix` and
                 # `mode` to be opaque and don't check them (see note in find_module_override).
@@ -293,15 +298,18 @@ class TestAndroidImport(unittest.TestCase):
                     if sys.version_info[0] < 3:
                         self.assertEqual(mod_name, pathname)
                     else:
-                        self.assertIsNone(pathname)
-                    self.assertEqual("", suffix)
-                    self.assertEqual("", mode)
+                        self.assertIsNone(pathname, prefix)
+                    self.assertEqual("", suffix, prefix)
+                    self.assertEqual("", mode, prefix)
+                else:
+                    self.assertTrue(hasattr(mod, "__file__"), prefix)
 
                 if i < len(words) - 1:
-                    self.assertEqual(imp.PKG_DIRECTORY, actual_type)
+                    self.assertEqual(imp.PKG_DIRECTORY, actual_type, prefix)
+                    prefix += "."
                     path = mod.__path__
                 else:
-                    self.assertEqual(expected_type, actual_type)
+                    self.assertEqual(expected_type, actual_type, prefix)
 
     def test_imp_rename(self):
         # Renames in stdlib are not currently supported.
@@ -374,18 +382,28 @@ def asset_cache(*paths):
 class TestAndroidStdlib(unittest.TestCase):
 
     def test_lib2to3(self):
-        # Will fail unless grammar files are available in stdlib zip.
+        # Requires grammar files to be available in stdlib zip.
         from lib2to3 import pygram  # noqa: F401
+
+    def test_hashlib(self):
+        # Requires the OpenSSL interface in `_hashlib`.
+        import hashlib
+        self.assertEqual("37f332f68db77bd9d7edd4969571ad671cf9dd3b",
+                         hashlib.new("ripemd160",
+                                     b"The quick brown fox jumps over the lazy dog")
+                         .hexdigest())
 
     def test_os(self):
         self.assertEqual("posix", os.name)
 
     def test_platform(self):
-        # This depends on sys.executable existing.
+        # Requires sys.executable to exist.
+        import platform
         p = platform.platform()
         self.assertRegexpMatches(p, r"^Linux")
 
     def test_sqlite(self):
+        import sqlite3
         conn = sqlite3.connect(":memory:")
         conn.execute("create table test (a text, b text)")
         conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
@@ -393,6 +411,10 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
+        if sys.version_info[0] < 3:
+            from urllib2 import urlopen
+        else:
+            from urllib.request import urlopen
         resp = urlopen("https://chaquo.com/chaquopy/")
         self.assertEqual(200, resp.getcode())
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
@@ -401,10 +423,12 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
+            self.assertIsInstance(p, str)
             self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_tempfile(self):
+        import tempfile
         expected_dir = join(str(context.getCacheDir()), "chaquopy/tmp")
         self.assertEqual(expected_dir, tempfile.gettempdir())
         with tempfile.NamedTemporaryFile() as f:

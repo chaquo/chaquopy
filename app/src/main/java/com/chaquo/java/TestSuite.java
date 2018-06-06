@@ -5,6 +5,7 @@ import org.junit.runners.*;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
+    AndroidPlatformTest.class,
     GenericPlatformTest.class,
     PyObjectTest.class,
     PythonTest.class,
