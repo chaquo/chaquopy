@@ -491,10 +491,10 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/build_tag",
                        requirements=["build2/__init__.py"])
 
-    def test_sdist_index(self):
+    def test_mixed_index(self):
         # This package has an sdist for version 2.0, compatible wheels for version 1.0 and
         # 1.3, and an incompatible wheel for version 1.6.
-        run = self.RunGradle("base", "PythonReqs/sdist_index_1a",
+        run = self.RunGradle("base", "PythonReqs/mixed_index_1",
                              requirements=[("native3_android_15_x86/__init__.py",
                                             {"content": "# Version 1.3"})])
         self.assertInLong("Using version 1.3 (newest version is 2.0, but Chaquopy prefers "
@@ -502,16 +502,29 @@ class PythonReqs(GradleTestCase):
 
         # Now we force version 2.0 to be selected, but it will fail at the egg_info stage.
         # (Failure at later stages is covered by test_sdist_native.)
-        run.apply_layers("PythonReqs/sdist_index_1b")
+        run.apply_layers("PythonReqs/mixed_index_2")
         run.rerun(succeed=False)
         self.assertInLong(r"Failed to install native3==2.0 from "
                           r"file:.*dist/native3-2.0.tar.gz." + self.tracker_advice() +
                           self.wheel_advice("1.0", "1.3") + r"$",
                           run.stderr, re=True)
 
-        # This test has only an sdist, which will fail in the same way.
-        run.apply_layers("PythonReqs/sdist_index_2")
-        run.rerun(succeed=False)
+    def test_no_binary_fail(self):
+        # This is the same as mixed_index_2, except the wheels are excluded from consideration
+        # using --no-binary, so the wheel advice won't appear.
+        run = self.RunGradle("base", "PythonReqs/no_binary_fail", succeed=False)
+        self.assertInLong(r"Failed to install native3 from file:.*dist/native3-2.0.tar.gz." +
+                          self.tracker_advice() + r"$",
+                          run.stderr, re=True)
+
+    def test_no_binary_succeed(self):
+        self.RunGradle("base", "PythonReqs/no_binary_succeed",
+                       requirements=["no_binary_sdist/__init__.py"])
+
+    def test_sdist_index(self):
+        # This test has only an sdist, which will fail at the egg_info stage as in
+        # test_mixed_index.
+        run = self.RunGradle("base", "PythonReqs/sdist_index", succeed=False)
         self.assertInLong(r"Failed to install native4 from file:.*dist/native4-0.2.tar.gz." +
                           self.tracker_advice() + r"$",
                           run.stderr, re=True)

@@ -27,7 +27,7 @@ from pip._internal.compat import native_str
 from pip._internal.download import (
     is_archive_file, is_url, path_to_url, url_to_path,
 )
-from pip._internal.exceptions import InstallationError, UninstallationError
+from pip._internal.exceptions import CommandError, InstallationError, UninstallationError
 from pip._internal.locations import (
     PIP_DELETE_MARKER_FILENAME, running_under_virtualenv,
 )
@@ -832,7 +832,6 @@ class InstallRequirement(object):
                 f.write('\n'.join(new_lines) + '\n')
 
     def chaquopy_setup_py_failed(self, exc):
-        from pip._internal.exceptions import CommandError
         message = ("Failed to install {}. For assistance, please raise an issue "
                    "at https://github.com/chaquo/chaquopy/issues.".format(self))
         if hasattr(self.link, "chaquopy_candidates"):

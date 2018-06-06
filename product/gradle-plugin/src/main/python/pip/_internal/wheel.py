@@ -728,14 +728,15 @@ class WheelBuilder(object):
                         ephem_cache = True
                     elif not self.wheel_cache.cache_dir:  # Chaquopy: see note above.
                         ephem_cache = True
-                    if "binary" not in index.fmt_ctl_formats(
-                            self.finder.format_control,
-                            canonicalize_name(req.name)):
-                        logger.info(
-                            "Skipping bdist_wheel for %s, due to binaries "
-                            "being disabled for it.", req.name,
-                        )
-                        continue
+                    if False:  # Chaquopy: see note at bdist_wheel above.
+                        if "binary" not in index.fmt_ctl_formats(
+                                self.finder.format_control,
+                                canonicalize_name(req.name)):
+                            logger.info(
+                                "Skipping bdist_wheel for %s, due to binaries "
+                                "being disabled for it.", req.name,
+                            )
+                            continue
                 buildset.append((req, ephem_cache))
 
         if not buildset:
