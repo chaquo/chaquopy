@@ -98,6 +98,6 @@ Increment python/VERSION.txt for next version number.
 
 Post blog entry to website and Facebook.
 
-Update GitHub issues if necessary.
+Update any GitHub issues.
 
-Email users if necessary.
+Email any affected users, including those who gave a thumbs up to an issue but didn't comment.

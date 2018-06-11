@@ -60,4 +60,6 @@ Test with pkgtest app for both Python 2 and 3 on:
 
 Once everything's working, move the wheels to the public package repository.
 
-Update GitHub if necessary, and email anyone who was interested in the package.
+Update any GitHub issues.
+
+Email any affected users, including those who gave a thumbs up to an issue but didn't comment.
