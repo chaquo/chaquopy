@@ -8,7 +8,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.2'
+        classpath 'com.android.tools.build:gradle:3.1.3'
 
         classpath files("../../../product/gradle-plugin/build/libs/gradle-${version}.jar")
         classpath "org.json:json:20160810"
