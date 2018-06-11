@@ -603,6 +603,16 @@ class PythonReqs(GradleTestCase):
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
                                 "x86": ["multi_abi_order_pure/__init__.py"]})
 
+    def test_file_clash_identical(self):
+        self.RunGradle("base", "PythonReqs/file_clash_identical",
+                       requirements=["dir_clash/a.py", "dir_clash/b.py",
+                                     "dir_clash/file_clash.py"])
+
+    def test_file_clash_different(self):
+        run = self.RunGradle("base", "PythonReqs/file_clash_different", succeed=False)
+        self.assertInLong("Found multiple different copies of " +
+                          join("dir_clash", "file_clash.py"), run.stderr)
+
     def tracker_advice(self):
         return (" For assistance, please raise an issue at "
                 "https://github.com/chaquo/chaquopy/issues.")

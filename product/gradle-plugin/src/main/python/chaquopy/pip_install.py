@@ -8,7 +8,7 @@ import argparse
 from copy import deepcopy
 import email.parser
 from glob import glob
-import logging
+import logging.config
 import os
 from os.path import abspath, dirname, exists, isdir, join
 import re
@@ -29,11 +29,7 @@ class PipInstall(object):
         # This matches pip's own logging setup in pip/basecommand.py.
         self.parse_args()
         verbose = ("-v" in self.pip_options) or ("--verbose" in self.pip_options)
-        logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO,
-                            stream=sys.stdout,
-                            format=("%(asctime)s Chaquopy: %(message)s" if verbose
-                                    else "Chaquopy: %(message)s"),
-                            datefmt="%H:%M:%S")
+        config_logging(verbose)
         if verbose:
             os.environ["DISTUTILS_DEBUG"] = "1"
 
@@ -106,10 +102,16 @@ class PipInstall(object):
 
     def move_pure(self, pure_reqs, abi, abi_tree):
         logger.debug("Moving pure requirements")
+        merged_pure = dict()
         for req_tree in six.itervalues(pure_reqs):
-            for path in common_paths(abi_tree, req_tree):
-                self.move_to_common(abi, path)
+            tree_merge_from(merged_pure, req_tree)
+        for path in common_paths(merged_pure, abi_tree):
+            self.move_to_common(abi, path)
+            while path:  # move_to_common also removes empty ancestor directories.
+                if exists(join(self.target, abi, path)):
+                    break
                 tree_remove_path(abi_tree, path)
+                path = dirname(path)
 
     def merge_common(self, abi_trees):
         logger.debug("Merging ABIs")
@@ -138,13 +140,19 @@ class PipInstall(object):
         try:
             renames(abi_filename, common_filename)
         except OSError:
+            # Depending on the OS and Python version, the exception message may not contain any
+            # filenames.
             logger.error("Failed to rename '{}' to '{}'".format(abi_filename, common_filename))
-            raise  # Exception message doesn't contain any filenames.
+            raise
 
     def platform_tag(self, abi):
         return "android_15_" + re.sub(r"[-.]", "_", abi)
 
     def parse_args(self):
+        class ReqFileAppend(argparse.Action):
+            def __call__(self, parser, namespace, value, option_string=None):
+                getattr(namespace, self.dest).extend(["-r", value])
+
         ap = argparse.ArgumentParser()
         ap.add_argument("--target", metavar="DIR", type=abspath, required=True)
         ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
@@ -168,7 +176,7 @@ def tree_add_path(tree, path, value):
             subtree = subtree.setdefault(name, {})
             assert isinstance(subtree, dict), path  # If `name` exists, it must be a directory.
     set_value = subtree.setdefault(base_name, value)
-    assert (set_value is value), path  # `path` must not already exist.
+    assert (set_value == value), path  # If `path` exists, it must have the same value.
 
 
 def tree_remove_path(tree, path):
@@ -186,16 +194,20 @@ def tree_remove_path(tree, path):
         raise ValueError("Path not found: " + path)
 
 
-def tree_merge_from(dst_tree, src_tree):
-    assert isinstance(src_tree, dict), src_tree  # Prevent overwriting a file, or merging a
-    assert isinstance(dst_tree, dict), dst_tree  # file with a directory,
-    for name, src_value in six.iteritems(src_tree):
-        dst_value = dst_tree.get(name)
-        if dst_value is None:
-            # Need to copy, otherwise later changes to one tree would also affect the other.
-            dst_tree[name] = deepcopy(src_value)
-        else:
-            tree_merge_from(dst_value, src_value)
+def tree_merge_from(dst_tree, src_tree, prefix=""):
+    if type(dst_tree) != type(src_tree):
+        raise CommandError("Cannot merge directory with file: " + prefix)
+    if isinstance(dst_tree, dict):
+        for name, src_value in six.iteritems(src_tree):
+            dst_value = dst_tree.get(name)
+            if dst_value is None:
+                # Need to copy, otherwise later changes to one tree would also affect the other.
+                dst_tree[name] = deepcopy(src_value)
+            else:
+                tree_merge_from(dst_value, src_value, join(prefix, name))
+    else:
+        if dst_tree != src_tree:
+            raise CommandError("Found multiple different copies of " + prefix)
 
 
 # Returns a list of paths which are recursively identical in all trees.
@@ -220,9 +232,42 @@ def renames(src, dst):
     os.renames(src, dst)
 
 
-class ReqFileAppend(argparse.Action):
-    def __call__(self, parser, namespace, value, option_string=None):
-        getattr(namespace, self.dest).extend(["-r", value])
+def config_logging(verbose):
+    STDERR_THRESHOLD = logging.ERROR
+    class StdoutFilter(object):
+        def filter(self, record):
+            return record.levelno < STDERR_THRESHOLD
+
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "root": {
+            "level": logging.NOTSET,
+            "handlers": ["stdout", "stderr"]
+        },
+        "handlers": {
+            "stdout": {
+                "class": "logging.StreamHandler",
+                "level": logging.DEBUG if verbose else logging.INFO, "filters": ["stdout"],
+                "stream": sys.stdout, "formatter": "fmt"
+            },
+            "stderr": {
+                "class": "logging.StreamHandler",
+                "level": STDERR_THRESHOLD,
+                "stream": sys.stderr, "formatter": "fmt"
+            }
+        },
+        "filters": {
+            "stdout": {"()": StdoutFilter}
+        },
+        "formatters": {
+            "fmt": {
+                "format": ("%(asctime)s Chaquopy: %(message)s" if verbose
+                           else "Chaquopy: %(message)s"),
+                "datefmt": "%H:%M:%S"
+            }
+        },
+    })
 
 
 class CommandError(Exception):
