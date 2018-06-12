@@ -1,6 +1,3 @@
 package:
   name: PyYAML
-  version: 3.11
-
-build:
-  number: 2
+  version: 3.12
