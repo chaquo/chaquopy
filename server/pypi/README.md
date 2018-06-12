@@ -43,8 +43,8 @@ built in platform/ndk/toolchains.
 Create a new subdirectory in `packages`, containing the following:
 
 * A `meta.yaml` file. This supports a subset of Conda syntax, defined in meta-schema.yaml.
-* A `test.py` file to run on a target installation. This should contain a unittest.TestCase
-  subclass which imports the package and does some basic sanity checks.
+* A `test.py` file (or `test` package), to run on a target installation. This should contain a
+  unittest.TestCase subclass which imports the package and does some basic checks.
 * For non-Python packages, a `build.sh` script. See build-wheel.py for environment variables
   which are available to it.
 * If necessary, a `patches` subdirectory containing patch files.

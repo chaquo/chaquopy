@@ -52,6 +52,12 @@ android {
         everything {  // Can't call a flavor "all" (https://stackoverflow.com/a/30236690).
             dimension "packages"
             addPackages(delegate, include: [])
+
+            python.pip {
+                // Required by grpcio tests.
+                install "protobuf"
+                install "futures; python_version < '3.2'"
+            }
         }
     }
 
@@ -78,10 +84,6 @@ android {
 }
 
 
-def addPackages(flavor) {
-    addPackages([:], flavor)
-}
-
 def addPackages(Map kwargs, flavor) {
     def inputDir = "../../packages"
     List packages = kwargs.getOrDefault("include", [])
@@ -101,15 +103,20 @@ def addPackages(Map kwargs, flavor) {
     String suiteSrc = ""
     for (pkgName in packages) {
         flavor.python.pip.install pkgName
-        def inFilename = "$inputDir/$pkgName/test.py"
-        if (file(inFilename).exists()) {
-            def pkgModule = pkgName.replace('-', '_')
-            copy {
-                from inFilename
-                into outputDir
-                rename "test.py", "${pkgModule}.py"
+        def testPaths = ["test.py", "test"].collect { file("$inputDir/$pkgName/$it") }
+        for (testPath in testPaths) {
+            if (testPath.exists()) {
+                def pkgModule = pkgName.replace('-', '_')
+                copy {
+                    from testPath.parentFile
+                    include "${testPath.name}/**"
+                    into outputDir
+                }
+                file("$outputDir/$testPath.name").renameTo(
+                    file("$outputDir/${testPath.name.replace('test', pkgModule)}"))
+                suiteSrc += "from .${pkgModule} import *\n"
+                break
             }
-            suiteSrc += "from .${pkgModule} import *\n"
         }
     }
     file("$outputDir/__init__.py").text = suiteSrc
