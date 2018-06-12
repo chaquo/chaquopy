@@ -106,14 +106,14 @@ def patch_all():
     from distutils import ccompiler
     class DisabledCCompiler(ccompiler.CCompiler):
         def __init__(self, *args, **kwargs):
-            chaquopy_block_native()
+            chaquopy_block_native("CCompiler.__init__")
     ccompiler.CCompiler = DisabledCCompiler
 
 
-def chaquopy_block_native():
+def chaquopy_block_native(prefix):
     # No need to give any more advice here: that will come from the higher-level code in pip.
     from distutils.errors import DistutilsPlatformError
-    raise DistutilsPlatformError("Chaquopy cannot compile native code")
+    raise DistutilsPlatformError("{}: Chaquopy cannot compile native code".format(prefix))
 
 
 def _patch_distribution_metadata_write_pkg_file():

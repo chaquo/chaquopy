@@ -75,8 +75,9 @@ class build_ext(_build_ext):
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
 
+        # Second line of defense in case a script bypasses Distribution.run_command.
         from setuptools.monkey import chaquopy_block_native
-        chaquopy_block_native()
+        chaquopy_block_native("build_ext.run")
 
         old_inplace, self.inplace = self.inplace, 0
         _build_ext.run(self)
