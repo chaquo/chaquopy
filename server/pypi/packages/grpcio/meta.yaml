@@ -1,0 +1,6 @@
+package:
+  name: grpcio
+  version: 1.12.1
+
+build:
+  number: 1

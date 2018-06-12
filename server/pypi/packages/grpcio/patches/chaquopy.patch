@@ -1,0 +1,77 @@
+diff -ru src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-06-01 23:53:55.000000000 +0000
++++ src/setup.py	2018-06-12 16:22:58.376096174 +0000
+@@ -40,14 +40,7 @@
+ CARES_INCLUDE = (
+     os.path.join('third_party', 'cares'),
+     os.path.join('third_party', 'cares', 'cares'),)
+-if 'darwin' in sys.platform:
+-  CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_darwin'),)
+-if 'freebsd' in sys.platform:
+-  CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_freebsd'),)
+-if 'linux' in sys.platform:
+-  CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_linux'),)
+-if 'openbsd' in sys.platform:
+-  CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_openbsd'),)
++CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_android'),)  # Chaquopy
+ ADDRESS_SORTING_INCLUDE = (os.path.join('third_party', 'address_sorting', 'include'),)
+ README = os.path.join(PYTHON_STEM, 'README.rst')
+ 
+@@ -123,17 +116,9 @@
+ 
+ if EXTRA_ENV_LINK_ARGS is None:
+   EXTRA_ENV_LINK_ARGS = ''
+-  if "linux" in sys.platform or "darwin" in sys.platform:
+-    EXTRA_ENV_LINK_ARGS += ' -lpthread'
+-  elif "win32" in sys.platform and sys.version_info < (3, 5):
+-    msvcr = cygwinccompiler.get_msvcr()[0]
+-    # TODO(atash) sift through the GCC specs to see if libstdc++ can have any
+-    # influence on the linkage outcome on MinGW for non-C++ programs.
+-    EXTRA_ENV_LINK_ARGS += (
+-        ' -static-libgcc -static-libstdc++ -mcrtdll={msvcr} '
+-        '-static'.format(msvcr=msvcr))
+-  if "linux" in sys.platform:
+-    EXTRA_ENV_LINK_ARGS += ' -Wl,-wrap,memcpy  -static-libgcc'
++  # Chaquopy: these are the arguments for Linux, minus -lpthread, which is part of libc on
++  # Android.
++  EXTRA_ENV_LINK_ARGS += ' -Wl,-wrap,memcpy  -static-libgcc'
+ 
+ EXTRA_COMPILE_ARGS = shlex.split(EXTRA_ENV_COMPILE_ARGS)
+ EXTRA_LINK_ARGS = shlex.split(EXTRA_ENV_LINK_ARGS)
+@@ -153,12 +138,7 @@
+     CARES_INCLUDE + ADDRESS_SORTING_INCLUDE)
+ 
+ EXTENSION_LIBRARIES = ()
+-if "linux" in sys.platform:
+-  EXTENSION_LIBRARIES += ('rt',)
+-if not "win32" in sys.platform:
+-  EXTENSION_LIBRARIES += ('m',)
+-if "win32" in sys.platform:
+-  EXTENSION_LIBRARIES += ('advapi32', 'ws2_32',)
++EXTENSION_LIBRARIES += ('log',)  # Chaquopy
+ 
+ DEFINE_MACROS = (
+     ('OPENSSL_NO_ASM', 1), ('_WIN32_WINNT', 0x600),
+@@ -239,6 +219,9 @@
+ 
+ INSTALL_REQUIRES = (
+     'six>=1.5.2',
++
++    # Chaquopy: pkg_resources is imported by src/python/grpcio/grpc/_cython/cygrpc.pyx.
++    'setuptools'
+ )
+ 
+ if not PY3:
+diff -ru src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
+--- src-original/third_party/cares/config_android/ares_config.h	2018-06-01 23:53:55.000000000 +0000
++++ src/third_party/cares/config_android/ares_config.h	2018-06-12 15:34:29.194597780 +0000
+@@ -52,7 +52,8 @@
+ #define HAVE_ARPA_INET_H
+ 
+ /* Define to 1 if you have the <arpa/nameser_compat.h> header file. */
+-#define HAVE_ARPA_NAMESER_COMPAT_H
++/* Chaquopy: Crystax doesn't have this file until API level 21. */
++/* #undef HAVE_ARPA_NAMESER_COMPAT_H */
+ 
+ /* Define to 1 if you have the <arpa/nameser.h> header file. */
+ #define HAVE_ARPA_NAMESER_H

@@ -33,8 +33,11 @@ GCC_VERSION = "4.9"
 PYTHON_VERSIONS = ["2.7", "3.6"]
 
 STANDARD_LIBS = {
-    # Android-provided libraries
-    "libc.so", "libdl.so", "libm.so", "libz.so",
+    # Android-provided libraries up to API level 15
+    # (https://developer.android.com/ndk/guides/stable_apis).
+    "libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so",
+    "libjnigraphics.so", "liblog.so", "libm.so", "libOpenMAXAL.so", "libOpenSLES.so",
+    "libz.so",
 
     # Chaquopy-provided libraries (libpythonX.Y.so is added below)
     "libcrystax.so", "libcrypto_chaquopy.so", "libsqlite3.so", "libssl_chaquopy.so",
@@ -103,7 +106,7 @@ class BuildWheel:
                 self.unpack_and_build()
 
         except CommandError as e:
-            log(str(e))
+            log("Error: " + str(e))
             sys.exit(1)
 
     def unpack_and_build(self):
@@ -368,7 +371,9 @@ class BuildWheel:
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
             abi.cflags])
 
-        env["CFLAGS"] = gcc_flags + f" -I{openssl_root}/include -I{sqlite_root}/include"
+        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
+        env["CFLAGS"] = (gcc_flags + f" -idirafter {openssl_root}/include" +
+                         f" -idirafter {sqlite_root}/include")
         if exists(f"{self.reqs_dir}/chaquopy/include"):
             env["CFLAGS"] += f" -I{self.reqs_dir}/chaquopy/include"
 
