@@ -75,7 +75,11 @@ class build_ext(_build_ext):
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
 
-        # Second line of defense in case a script bypasses Distribution.run_command.
+        # Blocking the command name in Distribution.run_command would produce a faster failure
+        # if the setup.py overrides the command without calling the base class run() method
+        # (e.g. pynacl). However, this would break packages which specifically check for run()
+        # throwing an exception and then fall back on a pure-Python alternative (e.g.
+        # sqlalchemy and wrapt).
         from setuptools.monkey import chaquopy_block_native
         chaquopy_block_native("build_ext.run")
 

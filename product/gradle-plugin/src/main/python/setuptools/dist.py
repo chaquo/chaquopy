@@ -643,13 +643,6 @@ class Distribution(Distribution_parse_config_files, _Distribution):
                 self.cmdclass[ep.name] = cmdclass
         return _Distribution.get_command_list(self)
 
-    def run_command(self, cmd_name):
-        from setuptools.monkey import chaquopy_block_native
-        if cmd_name in ["build_clib", "build_ext"]:
-            chaquopy_block_native(cmd_name)
-        else:
-            return _Distribution.run_command(self, cmd_name)
-
     def _set_feature(self, name, status):
         """Set feature's inclusion status"""
         setattr(self, self._feature_attrname(name), status)

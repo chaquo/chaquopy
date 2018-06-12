@@ -20,7 +20,7 @@ class build_clib(orig.build_clib):
                      the compiler.
     """
 
-    # Second line of defense in case a script bypasses Distribution.run_command.
+    # See comment at build_ext.run.
     def run(self):
         from setuptools.monkey import chaquopy_block_native
         chaquopy_block_native("build_clib.run")
