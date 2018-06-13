@@ -73,7 +73,6 @@ class Command(object):
 
     def _build_session(self, options, retries=None, timeout=None):
         session = PipSession(
-            options=options,  # Chaquopy: added
             cache=(
                 normalize_path(os.path.join(options.cache_dir, "http"))
                 if options.cache_dir else None
@@ -114,7 +113,12 @@ class Command(object):
 
     def main(self, args):
         options, args = self.parse_args(args)
-        assert options.chaquopy
+        assert options.chaquopy, "Chaquopy pip called without --chaquopy"
+
+        # Chaquopy: this will cause far fewer merge conflicts than constructing new routes
+        # through the code to pass options to the places that need them.
+        import pip
+        pip.options = options
 
         # Set verbosity so that it can be used elsewhere.
         self.verbosity = options.verbose - options.quiet

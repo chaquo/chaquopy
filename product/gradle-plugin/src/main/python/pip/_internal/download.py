@@ -67,12 +67,12 @@ logger = logging.getLogger(__name__)
 
 # Chaquopy: changed to report a different user agent, to prevent our changes to pip confusing
 # the PyPI statistics.
-def user_agent(options):
+def user_agent():
     """
     Return a string representing the user agent.
     """
     data = {
-        "installer": {"name": "chaquopy", "version": options.chaquopy},
+        "installer": {"name": "chaquopy", "version": pip.options.chaquopy},
         "python": platform.python_version(),
         "implementation": {
             "name": platform.python_implementation(),
@@ -332,7 +332,6 @@ class PipSession(requests.Session):
     timeout = None
 
     def __init__(self, *args, **kwargs):
-        options = kwargs.pop("options")  # Chaquopy: added so it can be passed to user_agent.
         retries = kwargs.pop("retries", 0)
         cache = kwargs.pop("cache", None)
         insecure_hosts = kwargs.pop("insecure_hosts", [])
@@ -340,7 +339,7 @@ class PipSession(requests.Session):
         super(PipSession, self).__init__(*args, **kwargs)
 
         # Attach our User Agent to the request
-        self.headers["User-Agent"] = user_agent(options)
+        self.headers["User-Agent"] = user_agent()
 
         # Attach our Authentication handler to the session
         self.auth = MultiDomainBasicAuth()
@@ -831,9 +830,7 @@ def unpack_url(link, location, download_dir=None,
     # http urls
     else:
         if session is None:
-            # Chaquopy: removed creation of a temporary session object, since we now require an
-            # options object in order to do so.
-            raise Exception("session is required")
+            session = PipSession()
 
         unpack_http_url(
             link,

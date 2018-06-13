@@ -470,7 +470,11 @@ abi = partial(
 )
 
 
+# Chaquopy added
 def apply_dist_restrictions(options):
+    if not options.python_version:  # We're in a pip subprocess for pyproject.toml.
+        return
+
     import sys
     build_major_ver = sys.version_info[0]
     target_major_ver = int(options.python_version[0])
@@ -480,7 +484,7 @@ def apply_dist_restrictions(options):
         raise CommandError("buildPython major version ({}) does not match app Python major "
                            "version ({})".format(build_major_ver, target_major_ver))
 
-    # Chaquopy: removed requirement that either --no-deps or --only-binary=:all: is set: this was
+    # Removed requirement that either --no-deps or --only-binary=:all: is set: this was
     # intended to ensure that `pip download` would never execute sdist code on an incompatible
     # platform, but for our `pip install` use case we have no choice but to try.
     pep425tags.set_supported([options.python_version], options.platform, options.implementation,

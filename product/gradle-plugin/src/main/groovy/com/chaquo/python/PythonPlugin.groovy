@@ -307,7 +307,11 @@ class PythonPlugin implements Plugin<Project> {
                         args reqsArgs
                         args "--"
                         args "--chaquopy", getClass().getPackage().getImplementationVersion()
-                        args "--isolated"
+                        args "--isolated"  // Disables config files and environment variables.
+                        args "--no-build-isolation"  // I've not yet seen a package which requires
+                                                     // this, and it would also require altering
+                                                     // build_env.py to keep our modified copy of
+                                                     // setuptools on the PYTHONPATH.
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
                         args "--extra-index-url", "https://chaquo.com/pypi-2.1"
