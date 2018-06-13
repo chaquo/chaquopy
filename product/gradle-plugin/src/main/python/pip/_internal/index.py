@@ -674,7 +674,8 @@ class PackageFinder(object):
             return
 
         if not version:
-            version = egg_info_matches(egg_info, search.supplied, link)
+            # Chaquopy: replaced search.supplied with search.canonical.
+            version = egg_info_matches(egg_info, search.canonical, link)
         if version is None:
             self._log_skipped_link(
                 link, 'wrong project name (not %s)' % search.supplied)
@@ -726,9 +727,8 @@ def egg_info_matches(
     if search_name is None:
         full_match = match.group(0)
         return full_match[full_match.index('-'):]
-    name = match.group(0).lower()
-    # To match the "safe" name that pkg_resources creates:
-    name = name.replace('_', '-')
+    # Chaquopy: used canonicalize_name directly rather than an incomplete reimplementation.
+    name = canonicalize_name(match.group(0))
     # project name and version must be separated by a dash
     look_for = search_name.lower() + "-"
     if name.startswith(look_for):
