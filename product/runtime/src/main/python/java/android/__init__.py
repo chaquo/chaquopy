@@ -21,6 +21,7 @@ def initialize_stdlib(context):
     initialize_sys(context)
     initialize_tempfile(context)
     initialize_ssl(context)
+    initialize_ctypes(context)
 
 
 def initialize_sys(context):
@@ -61,3 +62,21 @@ def initialize_ssl(context):
     # OpenSSL interface in `_hashlib` is on sys.path.
     import hashlib
     six.moves.reload_module(hashlib)
+
+
+def initialize_ctypes(context):
+    # The standard implementation of find_library requires external tools, so will always fail
+    # on Android. I can't see any easy way of finding the absolute library pathname ourselves
+    # (there is no LD_LIBRARY_PATH on Android), but we can at least support the case where the
+    # user passes the return value of find_library to CDLL().
+    import ctypes.util
+    def find_library_override(name):
+        filename = "lib{}.so".format(name)
+        try:
+            ctypes.CDLL(filename)
+        except OSError:
+            return None
+        else:
+            return filename
+
+    ctypes.util.find_library = find_library_override

@@ -381,6 +381,12 @@ def asset_cache(*paths):
 
 class TestAndroidStdlib(unittest.TestCase):
 
+    def test_ctypes(self):
+        from ctypes.util import find_library
+        self.assertEqual("libc.so", find_library("c"))
+        self.assertEqual("liblog.so", find_library("log"))
+        self.assertIsNone(find_library("nonexistent"))
+
     def test_lib2to3(self):
         # Requires grammar files to be available in stdlib zip.
         from lib2to3 import pygram  # noqa: F401
