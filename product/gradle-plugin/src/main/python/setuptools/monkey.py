@@ -109,11 +109,19 @@ def patch_all():
             chaquopy_block_native("CCompiler.__init__")
     ccompiler.CCompiler = DisabledCCompiler
 
+    # Try to disable native builds for packages which don't use the distutils native build
+    # system at all (e.g. uwsgi).
+    import os
+    for tool in ["as", "cc", "cxx"]:
+        os.environ[tool.upper()] = CHAQUOPY_NATIVE_ERROR.replace(" ", "_")
+
+
+CHAQUOPY_NATIVE_ERROR = "Chaquopy cannot compile native code"
 
 def chaquopy_block_native(prefix):
     # No need to give any more advice here: that will come from the higher-level code in pip.
     from distutils.errors import DistutilsPlatformError
-    raise DistutilsPlatformError("{}: Chaquopy cannot compile native code".format(prefix))
+    raise DistutilsPlatformError("{}: {}".format(prefix, CHAQUOPY_NATIVE_ERROR))
 
 
 def _patch_distribution_metadata_write_pkg_file():
