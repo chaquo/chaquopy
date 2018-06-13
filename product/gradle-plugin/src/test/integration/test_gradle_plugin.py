@@ -454,18 +454,25 @@ class PythonReqs(GradleTestCase):
 
     def test_sdist_native(self):
         run = self.RunGradle("base", run=False)
-        for name in ["sdist_native_ext", "sdist_native_clib", "sdist_native_compiler"]:
+        for name in ["sdist_native_ext", "sdist_native_clib", "sdist_native_compiler",
+                     "sdist_native_cc"]:
             with self.subTest(name=name):
                 run.apply_layers(f"PythonReqs/{name}")
                 run.rerun(succeed=False)
-                self.assertInLong("Chaquopy cannot compile native code", run.stdout)
+
+                if name == "sdist_native_cc":
+                    setup_error = "Failed to run Chaquopy_cannot_compile_native_code"
+                else:
+                    setup_error = "Chaquopy cannot compile native code"
+                self.assertInLong(setup_error, run.stdout)
+
                 url = fr"file:.*app/{name}-1.0.tar.gz"
-                if name == "sdist_native_compiler":
-                    # This test fails at the egg_info stage, so the name and version are
+                if name in ["sdist_native_compiler", "sdist_native_cc"]:
+                    # These tests fail at the egg_info stage, so the name and version are
                     # unavailable.
                     req_str = url
                 else:
-                    # The other tests fail at the bdist_wheel stage, so the name and version
+                    # These tests fail at the bdist_wheel stage, so the name and version
                     # have been obtained from egg_info.
                     req_str = f"{name.replace('_', '-')}==1.0 from {url}"
                 self.assertInLong(fr"Failed to install {req_str}." +
