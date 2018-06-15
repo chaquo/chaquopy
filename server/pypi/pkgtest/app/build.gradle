@@ -51,12 +51,14 @@ android {
 
         everything {  // Can't call a flavor "all" (https://stackoverflow.com/a/30236690).
             dimension "packages"
-            addPackages(delegate, include: [])
-
-            python.pip {
-                // Required by grpcio tests.
-                install "protobuf"
-                install "futures; python_version < '3.2'"
+            def PACKAGES = []
+            addPackages(delegate, include: PACKAGES)
+            if ("grpcio" in PACKAGES) {
+                python.pip {
+                    // Required by grpcio tests.
+                    install "protobuf"
+                    install "futures; python_version < '3.2'"
+                }
             }
         }
     }
