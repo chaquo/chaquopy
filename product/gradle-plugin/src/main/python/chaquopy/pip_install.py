@@ -6,7 +6,6 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 from collections import namedtuple
-from copy import deepcopy
 import email.parser
 from glob import glob
 import hashlib
@@ -20,7 +19,6 @@ import sys
 from pip._internal.utils.misc import rmtree
 from pip._vendor.distlib.database import InstalledDistribution
 from pip._vendor.retrying import retry
-import six
 from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
 
@@ -128,20 +126,10 @@ class PipInstall(object):
 
     def move_pure(self, pure_trees, abi, abi_tree):
         logger.debug("Moving pure requirements")
-        # Where multiple pure requirements share a directory, if we moved each requirement
-        # separately, the last one would return that directory from common_paths, and try to
-        # move it to a target directory which already exists. So instead we merge all the
-        # requirement trees together and move the directory in a single operation.
-        merged_pure = dict()
         for req_tree in pure_trees:
-            tree_merge_from(merged_pure, req_tree)
-        for path in common_paths(merged_pure, abi_tree):
-            self.move_to_common(abi, path)
-            while path:  # move_to_common also removes empty ancestor directories.
-                if exists(join(self.target, abi, path)):
-                    break
+            for path in common_paths(abi_tree, req_tree):
+                self.move_to_common(abi, path)
                 tree_remove_path(abi_tree, path)
-                path = dirname(path)
 
     def merge_common(self, abi_trees):
         logger.debug("Merging ABIs")
@@ -167,13 +155,20 @@ class PipInstall(object):
     def move_to_common(self, abi, filename):
         abi_filename, common_filename = [join(self.target, subdir, filename)
                                          for subdir in [abi, "common"]]
-        try:
-            renames(abi_filename, common_filename)
-        except OSError:
-            # Depending on the OS and Python version, the exception message may not contain any
-            # filenames.
-            logger.error("Failed to rename '{}' to '{}'".format(abi_filename, common_filename))
-            raise
+        if exists(common_filename):
+            if isdir(common_filename):
+                for sub_name in os.listdir(abi_filename):
+                    self.move_to_common(abi, join(filename, sub_name))
+            else:
+                raise ValueError("File already exists: '{}'".format(common_filename))
+        else:
+            try:
+                renames(abi_filename, common_filename)
+            except OSError:
+                # Depending on the OS and Python version, the exception message may not contain any
+                # filenames.
+                logger.error("Failed to rename '{}' to '{}'".format(abi_filename, common_filename))
+                raise
 
     def platform_tag(self, abi):
         return "android_15_" + re.sub(r"[-.]", "_", abi)
@@ -229,22 +224,6 @@ def tree_remove_path(tree, path, ignore_missing=False):
     except KeyError:
         if not ignore_missing:
             raise ValueError("Path not found: " + path)
-
-
-def tree_merge_from(dst, src, prefix=""):
-    if type(dst) != type(src):
-        raise CommandError("Cannot merge directory with file: " + prefix)
-    if isinstance(dst, dict):
-        for name, src_value in six.iteritems(src):
-            dst_value = dst.get(name)
-            if dst_value is None:
-                # Need to copy, otherwise later changes to one tree would also affect the other.
-                dst[name] = deepcopy(src_value)
-            else:
-                tree_merge_from(dst_value, src_value, join(prefix, name))
-    else:
-        if dst != src:
-            raise PathExistsError(prefix, dst)
 
 
 # Returns a list of paths which are recursively identical in all trees.
