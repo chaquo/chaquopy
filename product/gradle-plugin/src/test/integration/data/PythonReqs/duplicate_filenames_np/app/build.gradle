@@ -15,12 +15,12 @@ android {
             pip {
                 options "--no-index"
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
-                install "file_clash_identical_a"
-                install "file_clash_identical_b"
+                install "duplicate_filenames_native"
+                install "duplicate_filenames_pure"
             }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "armeabi-v7a", "x86"
         }
     }
 }

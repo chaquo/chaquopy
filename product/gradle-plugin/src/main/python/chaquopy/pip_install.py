@@ -5,9 +5,11 @@
 from __future__ import absolute_import, division, print_function
 
 import argparse
+from collections import namedtuple
 from copy import deepcopy
 import email.parser
 from glob import glob
+import hashlib
 import logging.config
 import os
 from os.path import abspath, dirname, exists, isdir, join
@@ -19,6 +21,7 @@ from pip._internal.utils.misc import rmtree
 from pip._vendor.distlib.database import InstalledDistribution
 from pip._vendor.retrying import retry
 import six
+from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
 
 logger = logging.getLogger(__name__)
@@ -37,29 +40,45 @@ class PipInstall(object):
         abi_trees = {}
         try:
             abi = self.android_abis[0]
-            pure_reqs, native_reqs, abi_trees[abi] = self.pip_install(abi, self.reqs)
-            self.move_pure(pure_reqs, abi, abi_trees[abi])
+            req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)
+            self.move_pure([ri.tree for ri in req_infos if ri.is_pure], abi, abi_trees[abi])
+
+            native_reqs = ["{}=={}".format(ri.dist.name, ri.dist.version)
+                           for ri in req_infos if not ri.is_pure]
             self.pip_options.append("--no-deps")
             for abi in self.android_abis[1:]:
-                _, _, abi_trees[abi] = self.pip_install(abi, list(native_reqs))
+                _, abi_trees[abi] = self.pip_install(abi, native_reqs)
             self.merge_common(abi_trees)
             logger.debug("Finished")
+
         except CommandError as e:
             logger.error(str(e))
             sys.exit(1)
 
+    # pip makes no attempt to check for multiple packages providing the same filename, so the
+    # version we end up with will be the one that pip installed last. We therefore treat a
+    # duplicate filename as being owned by the package whose RECORD matches it. If more than
+    # one package matches, priority is given to non-pure packages, so that all ABI trees will
+    # end up with their own copies of the file. Beyond that, it doesn't matter which ReqInfo
+    # the file ends up in.
+    #
+    # In any case, if all the ABI trees end up with identical copies of the file, then
+    # merge_common will merge them. There is one awkward case: if a non-pure package has a file
+    # overwritten by a different version from a pure package, the file will be moved to common
+    # by move_pure, and will therefore only exist in the ABI trees of the second and subsequent
+    # ABIs. This shouldn't cause runtime inconsistency between ABIs, because the common tree
+    # still comes first in the runtime sys.path.
     def pip_install(self, abi, reqs):
         logger.info("Installing for " + abi)
         abi_dir = join(self.target, abi)
         os.mkdir(abi_dir)
         if not reqs:
-            return {}, {}, {}
+            return [], {}
 
         try:
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
-            # altered its behaviour (in pip/commands/install.py) so it now just merges any
-            # existing directories, and silently overwrites any existing files.
+            # altered its behaviour somewhat for performance: see commands/install.py.
             subprocess.check_call([sys.executable,
                                    "-S",  # Avoid interference from system/user site-packages
                                           # (this is not inherited by subprocesses).
@@ -71,39 +90,50 @@ class PipInstall(object):
             raise CommandError("Exit status {}".format(e.returncode))
 
         logger.debug("Reading dist-info")
-        pure_reqs = {}
-        native_reqs = {}
+        req_infos = []
         abi_tree = {}
-        for dist_info_dir in glob(join(abi_dir, "*.dist-info")):
+        for dist_info_dir in sorted(glob(join(abi_dir, "*.dist-info"))):
             try:
                 dist = InstalledDistribution(dist_info_dir)
+                wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
+                is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
                 req_tree = {}
-                for path, hash_str, size in dist.list_installed_files():
+                for path, hash_str, size_str in dist.list_installed_files():
                     path_abs = abspath(join(abi_dir, path))
                     if not path_abs.startswith(abi_dir):
                         # pip's gone and installed something outside of the target directory.
                         raise ValueError("invalid path in RECORD: '{}'".format(path))
                     if not path_abs.startswith(dist_info_dir):
-                        tree_add_path(req_tree, path, (hash_str, size))
-                tree_merge_from(abi_tree, req_tree)
+                        value = (hash_str, int(size_str))
+                        try:
+                            tree_add_path(abi_tree, path, value)
+                        except PathExistsError as e:  # Duplicate filename: see note above.
+                            if file_matches_record(join(abi_dir, path), *value) and \
+                               ((e.existing_value != value) or (not is_pure)):
+                                for ri in req_infos:
+                                    tree_remove_path(ri.tree, path, ignore_missing=True)
+                                tree_add_path(abi_tree, path, value, force=True)
+                            else:
+                                continue
+                        tree_add_path(req_tree, path, value)
 
-                wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
-                is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
-                req_spec = "{}=={}".format(dist.name, dist.version)
-                (pure_reqs if is_pure else native_reqs)[req_spec] = req_tree
-
+                req_infos.append(ReqInfo(dist, req_tree, is_pure))
                 rmtree(dist_info_dir)
 
             except Exception:
                 logger.error("Failed to process " + dist_info_dir)
                 raise
 
-        return pure_reqs, native_reqs, abi_tree
+        return req_infos, abi_tree
 
-    def move_pure(self, pure_reqs, abi, abi_tree):
+    def move_pure(self, pure_trees, abi, abi_tree):
         logger.debug("Moving pure requirements")
+        # Where multiple pure requirements share a directory, if we moved each requirement
+        # separately, the last one would return that directory from common_paths, and try to
+        # move it to a target directory which already exists. So instead we merge all the
+        # requirement trees together and move the directory in a single operation.
         merged_pure = dict()
-        for req_tree in six.itervalues(pure_reqs):
+        for req_tree in pure_trees:
             tree_merge_from(merged_pure, req_tree)
         for path in common_paths(merged_pure, abi_tree):
             self.move_to_common(abi, path)
@@ -168,18 +198,24 @@ class PipInstall(object):
         ap.parse_args(namespace=self)
 
 
-def tree_add_path(tree, path, value):
+ReqInfo = namedtuple("ReqInfo", ["dist", "tree", "is_pure"])
+
+
+def tree_add_path(tree, path, value, force=False):
     dir_name, base_name = os.path.split(path)
     subtree = tree
     if dir_name:
         for name in dir_name.split("/"):
             subtree = subtree.setdefault(name, {})
             assert isinstance(subtree, dict), path  # If `name` exists, it must be a directory.
-    set_value = subtree.setdefault(base_name, value)
-    assert (set_value == value), path  # If `path` exists, it must have the same value.
+    if not force:
+        existing_value = subtree.get(base_name)
+        if existing_value is not None:
+            raise PathExistsError(path, existing_value)
+    subtree[base_name] = value
 
 
-def tree_remove_path(tree, path):
+def tree_remove_path(tree, path, ignore_missing=False):
     dir_name, base_name = os.path.split(path)
     subtree = tree
     if dir_name:
@@ -191,23 +227,24 @@ def tree_remove_path(tree, path):
     try:
         del subtree[base_name]
     except KeyError:
-        raise ValueError("Path not found: " + path)
+        if not ignore_missing:
+            raise ValueError("Path not found: " + path)
 
 
-def tree_merge_from(dst_tree, src_tree, prefix=""):
-    if type(dst_tree) != type(src_tree):
+def tree_merge_from(dst, src, prefix=""):
+    if type(dst) != type(src):
         raise CommandError("Cannot merge directory with file: " + prefix)
-    if isinstance(dst_tree, dict):
-        for name, src_value in six.iteritems(src_tree):
-            dst_value = dst_tree.get(name)
+    if isinstance(dst, dict):
+        for name, src_value in six.iteritems(src):
+            dst_value = dst.get(name)
             if dst_value is None:
                 # Need to copy, otherwise later changes to one tree would also affect the other.
-                dst_tree[name] = deepcopy(src_value)
+                dst[name] = deepcopy(src_value)
             else:
                 tree_merge_from(dst_value, src_value, join(prefix, name))
     else:
-        if dst_tree != src_tree:
-            raise CommandError("Found multiple different copies of " + prefix)
+        if dst != src:
+            raise PathExistsError(prefix, dst)
 
 
 # Returns a list of paths which are recursively identical in all trees.
@@ -223,6 +260,16 @@ def common_paths(*trees):
     result = []
     process_subtrees(trees, "")
     return result
+
+
+def file_matches_record(filename, hash_str, size):
+    if os.stat(filename).st_size != size:
+        return False
+    hash_algo, hash_expected = hash_str.split("=")
+    with open(filename, "rb") as f:
+        hash_actual = (urlsafe_b64encode(hashlib.new(hash_algo, f.read()).digest())
+                       .decode("ASCII"))
+    return hash_actual == hash_expected
 
 
 # Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as
@@ -268,6 +315,13 @@ def config_logging(verbose):
             }
         },
     })
+
+
+class PathExistsError(ValueError):
+    def __init__(self, path, value):
+        ValueError.__init__(self, "{} with value {}".format(path, value))
+        self.path = path
+        self.existing_value = value
 
 
 class CommandError(Exception):

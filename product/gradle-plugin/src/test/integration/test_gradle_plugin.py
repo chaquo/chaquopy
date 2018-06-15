@@ -49,8 +49,11 @@ class GradleTestCase(TestCase):
                                       ("regex " if re else "", a, b))
             raise self.failureException(msg) from None
 
-    # Each element of `files` must be either a filename, or a (filename, contents) tuple. ZIP
-    # file entries representing directories are ignored, and must not be included in `files`.
+    # Asserts that the given ZipFile contains exactly the given files. ZIP file entries
+    # representing directories are ignored, and must not be included in `files`.
+    #
+    # Each element of `files` must be either a filename, or a (filename, dict) tuple. The dict
+    # items must either be attributes of ZipInfo, or a "content" string.
     def assertZipContents(self, zip_file, files):
         self.assertEqual(sorted([f[0] if isinstance(f, tuple) else f
                                  for f in files]),
@@ -610,15 +613,42 @@ class PythonReqs(GradleTestCase):
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
                                 "x86": ["multi_abi_order_pure/__init__.py"]})
 
-    def test_file_clash_identical(self):
-        self.RunGradle("base", "PythonReqs/file_clash_identical",
-                       requirements=["dir_clash/a.py", "dir_clash/b.py",
-                                     "dir_clash/file_clash.py"])
+    # See comment in pip_install.py. The file naming scheme is "d" for different and "i" for
+    # identical content, where the things being compared are:
+    #     First character: pure vs armeabi-v7a.
+    #     Second character: armeabi-v7a and x86.
+    #
+    # All versions of dd.py are padded out to the same length to verify that the hash is being
+    # checked and not just the length.
+    def test_duplicate_filenames(self):
+        run = self.RunGradle(
+            "base", "PythonReqs/duplicate_filenames_np",  # Native, then pure.
+            abis=["armeabi-v7a", "x86"],
+            requirements={
+                "common":       ["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
+                                 ("pkg/dd.py", {"content": "# pure #############"}),
+                                 ("pkg/di.py", {"content": "# pure"}),
+                                 ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"})],
+                "armeabi-v7a":  ["native_armeabi_v7a.pyd",
+                                 ("pkg/id.py", {"content": "# pure and armeabi-v7a"})],
+                "x86":          ["native_x86.pyd",
+                                 ("pkg/dd.py", {"content": "# x86 ##############"}),
+                                 ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
+                                 ("pkg/id.py", {"content": "# x86"})]})
 
-    def test_file_clash_different(self):
-        run = self.RunGradle("base", "PythonReqs/file_clash_different", succeed=False)
-        self.assertInLong("Found multiple different copies of " +
-                          join("dir_clash", "file_clash.py"), run.stderr)
+        run.apply_layers("PythonReqs/duplicate_filenames_pn")  # Pure, then native.
+        run.rerun(
+            abis=["armeabi-v7a", "x86"],
+            requirements={
+                "common":       ["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
+                                 ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
+                                 ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"})],
+                "armeabi-v7a":  ["native_armeabi_v7a.pyd",
+                                 ("pkg/dd.py", {"content": "# armeabi-v7a ######"}),
+                                 ("pkg/id.py", {"content": "# pure and armeabi-v7a"})],
+                "x86":          ["native_x86.pyd",
+                                 ("pkg/dd.py", {"content": "# x86 ##############"}),
+                                 ("pkg/id.py", {"content": "# x86"})]})
 
     def tracker_advice(self):
         return (" For assistance, please raise an issue at "
@@ -807,7 +837,7 @@ class RunGradle(object):
                 try:
                     self.check_apk(apk_zip, apk_dir, **merged_kwargs)
                 except Exception as e:
-                    self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
+                    self.dump_run(f"check_apk failed")
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
