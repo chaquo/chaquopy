@@ -249,12 +249,19 @@ class PythonPlugin implements Plugin<Project> {
         // directly from the ZIP and extract the cacert file, than it is to extract the entire ZIP
         // and then deal with auto-generated pyc files complicating the up-to-date checks.
         return project.task("extractPythonBuildPackages") {
-            ext.buildPackagesZip = "$genDir/build-packages.zip"
+            // With Python 2.7 on Windows, zipimport has a maximum path length of about 256
+            // characters, including the path of the ZIP file itself. The longest path within
+            // the ZIP is currently 66 characters, which means the maximum ZIP file path length
+            // is about 190. The integration tests with the longest names get quite close to that,
+            // so make the filename as short as possible.
+            ext.buildPackagesZip = "$genDir/bp.zip"
             def cacertRelPath = "pip/_vendor/certifi/cacert.pem"
             ext.cacertPem = "$genDir/$cacertRelPath"
             outputs.files(buildPackagesZip, cacertPem)
             doLast {
                 extractResource("gradle/build-packages.zip", genDir)
+                project.file("$genDir/build-packages.zip").renameTo(buildPackagesZip)
+
                 // Remove existing directory, otherwise failure to extract will go unnoticed if a
                 // previous file still exists.
                 project.delete("$genDir/${cacertRelPath.split("/")[0]}")
