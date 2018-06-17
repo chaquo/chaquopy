@@ -673,15 +673,29 @@ class PythonReqs(GradleTestCase):
     # With a single ABI, everything should end up in common, but in two phases: first files
     # from the pure package will be moved, then all the rest. Check that this doesn't cause
     # any problems like trying to overwrite the target directory.
+    #
+    # This test also installs 4 additional single_file packages: one each at the beginning and
+    # end of the alphabet, both before and after the duplicate_filenames packages. This
+    # exercises the .dist-info processing a bit more (see commit on 2018-06-17).
     def test_duplicate_filenames_single_abi(self):
-        self.RunGradle(
-            "base", "PythonReqs/duplicate_filenames_pn_single_abi",
+        run = self.RunGradle(
+            "base", "PythonReqs/duplicate_filenames_single_abi_pn",
             requirements=["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
                           "native_x86.pyd",
                           ("pkg/dd.py", {"content": "# x86 ##############"}),
                           ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
                           ("pkg/id.py", {"content": "# x86"}),
-                          ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"})])
+                          ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
+                          "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"])
+
+        run.apply_layers("PythonReqs/duplicate_filenames_single_abi_np")
+        run.rerun(requirements=["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
+                                "native_x86.pyd",
+                                ("pkg/dd.py", {"content": "# pure #############"}),
+                                ("pkg/di.py", {"content": "# pure"}),
+                                ("pkg/id.py", {"content": "# pure and armeabi-v7a"}),
+                                ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
+                                "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"])
 
     def test_environment(self):
         self.RunGradle("base", "PythonReqs/environment",

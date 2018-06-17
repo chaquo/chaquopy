@@ -213,13 +213,10 @@ def tree_add_path(tree, path, value, force=False):
 def tree_remove_path(tree, path, ignore_missing=False):
     dir_name, base_name = os.path.split(path)
     subtree = tree
-    if dir_name:
-        for name in dir_name.split("/"):
-            try:
-                subtree = subtree[name]
-            except KeyError:
-                raise ValueError("Directory not found: '{}' in '{}'".format(name, path))
     try:
+        if dir_name:
+            for name in dir_name.split("/"):
+                subtree = subtree[name]
         del subtree[base_name]
     except KeyError:
         if not ignore_missing:

@@ -1,0 +1,30 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "27.0.3"
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 15
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            version System.getenv("python_version")
+            pip {
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "aa_before-1.0-py2.py3-none-any.whl"
+                install "zz_before-1.0-py2.py3-none-any.whl"
+                install "duplicate_filenames_pure"
+                install "duplicate_filenames_native"
+                install "aa_after-1.0-py2.py3-none-any.whl"
+                install "zz_after-1.0-py2.py3-none-any.whl"
+            }
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+}
