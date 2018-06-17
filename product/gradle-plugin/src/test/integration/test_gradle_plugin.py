@@ -10,7 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
-from unittest import skip, skipUnless, TestCase
+from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 import javaproperties
@@ -91,6 +91,26 @@ class Basic(GradleTestCase):
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
+
+
+# Test that new versions of build-packages.zip are correctly extracted and used.
+class ChaquopyPlugin(GradleTestCase):
+    # Since this version, the extracted copy of build-packages.zip has been renamed to bp.zip.
+    # We distinguish the old version by its inability to install sdists.
+    def test_upgrade_3_1_0(self):
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_1_0", succeed=False)
+        self.assertInLong("Chaquopy does not support sdist packages", run.stderr)
+        run.apply_layers("ChaquopyPlugin/upgrade_current")
+        run.rerun(requirements=["alpha_dep/__init__.py"])
+
+    # Since this version, there has been no change in the build-packages.zip filename. We
+    # distinguish the old version by it setting environment markers from the build platform
+    # rather than the target platform.
+    @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
+    def test_upgrade_3_2_1(self):
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", requirements=[])
+        run.apply_layers("ChaquopyPlugin/upgrade_current")
+        run.rerun(requirements=["six.py"])
 
 
 class AndroidPlugin(GradleTestCase):

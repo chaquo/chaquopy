@@ -1,6 +1,10 @@
 Change log
 ##########
 
+..
+   3.2.1 was a non-public relesae to enable the integration test
+   ChaquopyPlugin.test_upgrade_3_2_1.
+
 3.2.0 (2018-06-06)
 ==================
 

@@ -254,13 +254,13 @@ class PythonPlugin implements Plugin<Project> {
             // the ZIP is currently 66 characters, which means the maximum ZIP file path length
             // is about 190. The integration tests with the longest names get quite close to that,
             // so make the filename as short as possible.
-            ext.buildPackagesZip = "$genDir/bp.zip"
+            def zipName = "bp.zip"
+            ext.buildPackagesZip = "$genDir/$zipName"
             def cacertRelPath = "pip/_vendor/certifi/cacert.pem"
             ext.cacertPem = "$genDir/$cacertRelPath"
             outputs.files(buildPackagesZip, cacertPem)
             doLast {
-                extractResource("gradle/build-packages.zip", genDir)
-                project.file("$genDir/build-packages.zip").renameTo(buildPackagesZip)
+                extractResource("gradle/build-packages.zip", genDir, zipName)
 
                 // Remove existing directory, otherwise failure to extract will go unnoticed if a
                 // previous file still exists.
@@ -682,8 +682,12 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void extractResource(String name, targetDir) {
+        extractResource(name, targetDir, new File(name).name)
+    }
+
+    void extractResource(String name, targetDir, String targetName) {
         project.mkdir(targetDir)
-        def outFile = new File(targetDir, new File(name).name)
+        def outFile = new File(targetDir, targetName)
         def tmpFile = new File("${outFile.path}.tmp")
         InputStream is = getClass().getResourceAsStream(name)
         if (is == null) {
