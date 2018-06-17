@@ -246,26 +246,22 @@ def format_full_version(info):
     return version
 
 
+# Chaquopy: changed to use markers of the target platform rather than the build platform.
 def default_environment():
-    if hasattr(sys, 'implementation'):
-        iver = format_full_version(sys.implementation.version)
-        implementation_name = sys.implementation.name
-    else:
-        iver = '0'
-        implementation_name = ''
-
+    import pip
+    python_version = pip.options.python_full_version
     return {
-        "implementation_name": implementation_name,
-        "implementation_version": iver,
-        "os_name": os.name,
-        "platform_machine": platform.machine(),
-        "platform_release": platform.release(),
-        "platform_system": platform.system(),
-        "platform_version": platform.version(),
-        "python_full_version": platform.python_version(),
-        "platform_python_implementation": platform.python_implementation(),
-        "python_version": platform.python_version()[:3],
-        "sys_platform": sys.platform,
+        "implementation_name": "cpython",
+        "implementation_version": python_version,
+        "os_name": "posix",
+        "platform_machine": "",
+        "platform_release": "",
+        "platform_system": "Linux",
+        "platform_version": "",
+        "python_full_version": python_version,
+        "platform_python_implementation": "CPython",
+        "python_version": python_version[:3],
+        "sys_platform": "linux2" if python_version.startswith("2.") else "linux",
     }
 
 

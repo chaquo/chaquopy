@@ -663,6 +663,10 @@ class PythonReqs(GradleTestCase):
                           ("pkg/id.py", {"content": "# x86"}),
                           ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"})])
 
+    def test_environment(self):
+        self.RunGradle("base", "PythonReqs/environment",
+                       requirements=["linux.py", "pyver{}.py".format(self.python_version[0])])
+
     def tracker_advice(self):
         return (" For assistance, please raise an issue at "
                 "https://github.com/chaquo/chaquopy/issues.")

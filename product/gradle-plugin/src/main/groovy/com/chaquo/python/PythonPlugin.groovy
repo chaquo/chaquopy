@@ -286,8 +286,19 @@ class PythonPlugin implements Plugin<Project> {
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
-                if (project.file(req).exists()) {
-                    inputs.files(req)
+                def semicolonIndex = req.indexOf(";")  // Environment markers
+                if (semicolonIndex == -1) {
+                    semicolonIndex = req.length()
+                }
+                def baseReq = req.substring(0, semicolonIndex)
+                def reqIsFile = false
+                try {  // project.file may throw on an invalid filename.
+                    if (project.file(baseReq).exists()) {
+                        reqIsFile = true
+                    }
+                } catch (Exception e) {}
+                if (reqIsFile) {
+                    inputs.files(baseReq)
                 }
             }
             for (reqFile in python.pip.reqFiles) {
@@ -323,7 +334,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "--cert", buildPackagesTask.cacertPem
                         args "--extra-index-url", "https://chaquo.com/pypi-2.1"
                         args "--implementation", pythonAbi.substring(0, 2)
-                        args "--python-version", pythonAbi.substring(2, 4)
+                        args "--python-version", python.version
                         args "--abi", pythonAbi
                         args "--no-compile"
                         args python.pip.options

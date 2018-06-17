@@ -203,7 +203,9 @@ class InstallCommand(RequirementCommand):
 
     def run(self, options, args):
         cmdoptions.check_install_build_global(options)
-        cmdoptions.apply_dist_restrictions(options)  # Chaquopy added
+
+        # Chaquopy added (alters options.python_version).
+        cmdoptions.apply_dist_restrictions(options)
 
         upgrade_strategy = "to-satisfy-only"
         if options.upgrade:

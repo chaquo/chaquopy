@@ -87,13 +87,13 @@ class DownloadCommand(RequirementCommand):
         # of the RequirementSet code require that property.
         options.editables = []
 
+        # Chaquopy: moved to cmdoptions.py so it can be shared with install command.
+        cmdoptions.apply_dist_restrictions(options)  # Alters options.python_version.
+
         if options.python_version:
             python_versions = [options.python_version]
         else:
             python_versions = None
-
-        # Chaquopy: moved to cmdoptions.py so it can be shared with install command.
-        cmdoptions.apply_dist_restrictions(options)
 
         options.src_dir = os.path.abspath(options.src_dir)
         options.download_dir = normalize_path(options.download_dir)

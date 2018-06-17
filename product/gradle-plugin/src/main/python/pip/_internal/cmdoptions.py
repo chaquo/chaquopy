@@ -424,12 +424,9 @@ python_version = partial(
     dest='python_version',
     metavar='python_version',
     default=None,
-    help=("Only download wheels compatible with Python "
-          "interpreter version <version>. If not specified, then the "
-          "current system interpreter minor version is used. A major "
-          "version (e.g. '2') can be specified to match all "
-          "minor revs of that major version.  A minor version "
-          "(e.g. '34') can also be specified."),
+    help=("Chaquopy: changed to take full Python version in the form 'X.Y.Z', but "
+          "apply_dist_restrictions will move that value to python_full_version, and set "
+          "python_version to 'XY' as the existing code expects."),
 )
 
 platform = partial(
@@ -474,15 +471,16 @@ abi = partial(
 def apply_dist_restrictions(options):
     if not options.python_version:  # We're in a pip subprocess for pyproject.toml.
         return
+    options.python_full_version = options.python_version  # Also used by packaging/markers.py.
+    target_version_info = [int(x) for x in options.python_full_version.split(".")]
+    options.python_version = "".join(str(x) for x in target_version_info[:2])
 
     import sys
-    build_major_ver = sys.version_info[0]
-    target_major_ver = int(options.python_version[0])
-    if build_major_ver != target_major_ver:
+    if sys.version_info[0] != target_version_info[0]:
         # See note in pep425tags for why this matters. This can only happen if the user has
         # already modified buildPython, so there's no need to tell them how to do that.
         raise CommandError("buildPython major version ({}) does not match app Python major "
-                           "version ({})".format(build_major_ver, target_major_ver))
+                           "version ({})".format(sys.version_info[0], target_version_info[0]))
 
     # Removed requirement that either --no-deps or --only-binary=:all: is set: this was
     # intended to ensure that `pip download` would never execute sdist code on an incompatible
