@@ -11,6 +11,8 @@ import sys
 
 
 ap = argparse.ArgumentParser()
+ap.add_argument("--version", default="1.0")
+ap.add_argument("--comment")
 ap.add_argument("name")
 args = ap.parse_args()
 sys.argv[1:] = ["bdist_wheel", "--universal"]
@@ -22,10 +24,10 @@ for filename in os.listdir(src_dir):
         (shutil.rmtree if isdir(abs_filename) else os.remove)(abs_filename)
 
 with open(args.name + ".py", "w") as py_file:
-    print("#", args.name, file=py_file)
+    print("#", args.comment or args.name, file=py_file)
 
 setup(
     name=args.name,
-    version="1.0",
+    version=args.version,
     py_modules=[args.name],
 )

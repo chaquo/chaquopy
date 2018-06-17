@@ -28,7 +28,9 @@ def check_requires_python(requires_python):
     requires_python_specifier = specifiers.SpecifierSet(requires_python)
 
     # We only use major.minor.micro
-    python_version = version.parse('.'.join(map(str, sys.version_info[:3])))
+    # Chaquopy: use version from target Python rather than build Python.
+    import pip
+    python_version = version.parse(pip.options.python_full_version)
     return python_version in requires_python_specifier
 
 

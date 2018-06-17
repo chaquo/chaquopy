@@ -556,6 +556,30 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/no_binary_succeed",
                        requirements=["no_binary_sdist/__init__.py"])
 
+    def test_requires_python(self):
+        if os.name == "nt":
+            build_python = ["py", "-" + self.python_version[0]]
+        else:
+            build_python = ["python" + self.python_version[0]]
+        version_proc = subprocess.run(build_python + ["--version"], stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, universal_newlines=True)
+        _, build_version = version_proc.stdout.split()
+
+        # Make sure the build version and the target version are different: it's the target
+        # version which should be matched against the data-requires-python attribute.
+        if build_version == self.python_version:
+            if self.python_version == "2.7.15":
+                self.python_version = "2.7.14"
+            elif self.python_version == "3.6.5":
+                self.python_version = "3.6.3"
+            else:
+                raise Exception("Unknown default python_version")
+            os.environ["python_version"] = self.python_version
+
+        self.RunGradle(
+            "base", "PythonReqs/requires_python",
+            requirements=[("pyver.py", {"content": "# " + self.python_version})])
+
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
         # test_mixed_index.
