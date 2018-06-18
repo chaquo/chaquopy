@@ -270,10 +270,24 @@ class PackageFinder(object):
         """
         Function used to generate link sort key for link tuples.
         The greater the return value, the more preferred it is.
-        Chaquopy: altered sort key to prefer older wheels to newer sdists.
+
+        Chaquopy: altered sort key to prefer older native wheels over newer packages of other
+        types. Used to simply prefer wheels over sdists, but then I came across a couple of
+        pure-Python packages on PyPI which have wheels for old versions (sometimes years old)
+        but only sdists for newer ones.
+
+        Older native wheels must also be preferred over newer pure-Python wheels. For example,
+        consider an index with native 1.5, pure 1.6 and sdist 1.7. If pure 1.6 is preferred
+        over native 1.5, and native 1.5 is preferred over sdist 1.7, then for the ordering to
+        be consistent, pure 1.6 must be preferred over sdist 1.7, which was exactly the
+        situation we wanted to avoid.
+
+        This could be inconvenient if a native package in our repository releases a new
+        pure-Python version, but hopefully that'll be a rare situation.
         """
         support_num = len(self.valid_tags)
         build_tag = tuple()
+        is_native_wheel = False
         if candidate.location.is_wheel:
             # can raise InvalidWheelFilename
             wheel = Wheel(candidate.location.filename)
@@ -287,9 +301,10 @@ class PackageFinder(object):
                 match = re.match(r'^(\d+)(.*)$', wheel.build_tag)
                 build_tag_groups = match.groups()
                 build_tag = (int(build_tag_groups[0]), build_tag_groups[1])
+            is_native_wheel = (wheel.plats != ["any"])
         else:  # sdist
             pri = -(support_num)
-        return (candidate.location.is_wheel, candidate.version, build_tag, pri)
+        return (is_native_wheel, candidate.version, build_tag, pri)
 
     def _validate_secure_origin(self, logger, location):
         # Determine if this url used a secure transport mechanism
@@ -569,8 +584,8 @@ class PackageFinder(object):
 
         newest_version = max(compatible_versions, key=parse_version)
         if str(best_candidate.version) != newest_version:
-            logger.info("Using version %s (newest version is %s, but Chaquopy prefers wheels "
-                        "over sdists)", best_candidate.version, newest_version)
+            logger.info("Using version %s (newest version is %s, but Chaquopy prefers native "
+                        "wheels)", best_candidate.version, newest_version)
 
         # Chaquopy: save this so we can give a better message in req_install.py.
         best_candidate.location.chaquopy_candidates = all_candidates

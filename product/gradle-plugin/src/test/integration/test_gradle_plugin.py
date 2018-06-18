@@ -526,20 +526,25 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/build_tag",
                        requirements=["build2/__init__.py"])
 
+    # This package has the following versions:
+    #   1.0: pure wheel
+    #   1.3: compatible native wheel
+    #   1.6: incompatible native wheel (should be ignored)
+    #   2.0: sdist
     def test_mixed_index(self):
-        # This package has an sdist for version 2.0, compatible wheels for version 1.0 and
-        # 1.3, and an incompatible wheel for version 1.6.
+        # With no version restriction, the compatible native wheel is preferred over the sdist,
+        # despite having a lower version.
         run = self.RunGradle("base", "PythonReqs/mixed_index_1",
                              requirements=[("native3_android_15_x86/__init__.py",
                                             {"content": "# Version 1.3"})])
         self.assertInLong("Using version 1.3 (newest version is 2.0, but Chaquopy prefers "
-                          "wheels over sdists", run.stdout)
+                          "native wheels", run.stdout)
 
-        # Now we force version 2.0 to be selected, but it will fail at the egg_info stage.
+        # With "!=1.3", the sdist is selected, but it will fail at the egg_info stage.
         # (Failure at later stages is covered by test_sdist_native.)
         run.apply_layers("PythonReqs/mixed_index_2")
         run.rerun(succeed=False)
-        self.assertInLong(r"Failed to install native3==2.0 from "
+        self.assertInLong(r"Failed to install native3!=1.3 from "
                           r"file:.*dist/native3-2.0.tar.gz." + self.tracker_advice() +
                           self.wheel_advice("1.0", "1.3") + r"$",
                           run.stderr, re=True)
