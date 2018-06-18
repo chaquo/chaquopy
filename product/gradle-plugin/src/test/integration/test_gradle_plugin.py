@@ -657,6 +657,13 @@ class PythonReqs(GradleTestCase):
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
                                 "x86": ["multi_abi_order_pure/__init__.py"]})
 
+    def test_namespace_packages(self):
+        self.RunGradle("base", "PythonReqs/namespace_packages",
+                       requirements=["pkg1/a.py", "pkg1/b.py",
+                                     "pkg2/a.py", "pkg2/b.py",
+                                     "pkg2/pkg21/a.py", "pkg2/pkg21/b.py",
+                                     "pkg3/pkg31/a.py", "pkg3/pkg31/b.py"])
+
     # See comment in pip_install.py. The file naming scheme is "d" for different and "i" for
     # identical content, where the things being compared are:
     #     First character: pure vs armeabi-v7a.

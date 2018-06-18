@@ -200,7 +200,7 @@ def tree_add_path(tree, path, value, force=False):
     dir_name, base_name = os.path.split(path)
     subtree = tree
     if dir_name:
-        for name in dir_name.split("/"):
+        for name in re.split(r"[\\/]", dir_name):
             subtree = subtree.setdefault(name, {})
             assert isinstance(subtree, dict), path  # If `name` exists, it must be a directory.
     if not force:
@@ -215,7 +215,7 @@ def tree_remove_path(tree, path, ignore_missing=False):
     subtree = tree
     try:
         if dir_name:
-            for name in dir_name.split("/"):
+            for name in re.split(r"[\\/]", dir_name):
                 subtree = subtree[name]
         del subtree[base_name]
     except KeyError:
