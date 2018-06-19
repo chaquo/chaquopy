@@ -97,8 +97,8 @@ class Basic(GradleTestCase):
 class ChaquopyPlugin(GradleTestCase):
     # Since this version, the extracted copy of build-packages.zip has been renamed to bp.zip.
     # We distinguish the old version by its inability to install sdists.
-    def test_upgrade_3_1_0(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_1_0", succeed=False)
+    def test_upgrade_3_0_0(self):
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_0_0", succeed=False)
         self.assertInLong("Chaquopy does not support sdist packages", run.stderr)
         run.apply_layers("ChaquopyPlugin/upgrade_current")
         run.rerun(requirements=["alpha_dep/__init__.py"])
@@ -125,7 +125,7 @@ class AndroidPlugin(GradleTestCase):
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",
                              succeed=None)  # We don't care whether it succeeds.
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.1.2",
+        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.1.3",
                           run.stdout)
 
 
@@ -924,7 +924,9 @@ class RunGradle(object):
                 try:
                     self.check_apk(apk_zip, apk_dir, **merged_kwargs)
                 except Exception as e:
-                    self.dump_run(f"check_apk failed")
+                    # Some tests check the cause type and message: search for
+                    # `assertRaisesRegex(AssertionError`.
+                    self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
