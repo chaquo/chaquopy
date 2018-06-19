@@ -399,6 +399,10 @@ cdef class CQPEnv(object):
         self.check_exception()
         return result
 
+    cdef SetByteArrayRegion(self, JNIRef array, jint start, jint length, const jbyte *buf):
+        self.j_env[0].SetByteArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+
     # The primitive type Set...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
     cdef SetBooleanArrayElement(self, JNIRef array, jint index, value):

@@ -22,8 +22,8 @@ Data types are converted between Python and Java as follows:
 * When Java code uses a "boxed" type, auto-boxing is done when converting from Python to Java,
   and auto-unboxing when converting from Java to Python.
 
-* Java `String` and `char` both correspond to a Python Unicode string. (In Python 2, a byte
-  string is also accepted, as long as it only contains ASCII characters.)
+* Java `String` and `char` both correspond to a Python Unicode string. (The Python 2 `str` is
+  also accepted for Python-to-Java conversions, as long as it only contains ASCII characters.)
 
 * A Java object is represented as a :any:`jclass` object.
 
@@ -142,7 +142,7 @@ For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then callin
 .. autofunction:: java.jarray(element_type)
 
 A `jarray` class can be instantiated to create a new Java array. The constructor takes
-a single parameter, which must be either:
+a single parameter, which must be one of the following:
 
 * An integer, to create an array filled with zero, `false` or `null`::
 
@@ -156,6 +156,10 @@ a single parameter, which must be either:
     jarray(jarray(jint))([[1, 2], [3, 4]])        new int[][]{{1, 2}, {3, 4}}
     jarray(String)(["Hello", "world"])            new String[]{"Hello", "world"}
     jarray(jchar)("hello")                        new char[] {'h', 'e', 'l', 'l', 'o'}
+
+* `byte[]` arrays can be initialized from Python :any:`bytes` and :any:`bytearray` objects.
+  (The Python 2 `str` is also accepted.) This does an unsigned-to-signed conversion: Python
+  values 128 to 255 will be mapped to Java values -128 to -1.
 
 Array objects support the standard Python sequence protocol:
 
@@ -175,6 +179,12 @@ useful, so the equivalent Python operations are defined as follows:
   another Java array).
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
+
+`byte[]` arrays can be passed to the Python 3 :any:`bytes` function. (In Python 2, call the
+:any:`__bytes__ <object.__bytes__>` method directly.) This does a signed-to-unsigned
+conversion: Java values -128 to -1 will be mapped to Python values 128 to 255. Direct
+conversion to a :any:`bytearray` is not currently supported: use `bytearray(bytes(...))`
+instead.
 
 Casting
 -------
@@ -356,12 +366,12 @@ The following notes apply to both types of proxy:
   * If you override `__init__`, you *must* call through to the superclass `__init__` with zero
     arguments. Until this is done, the object cannot be used as a Java object. Supplying
     arguments to the superclass constructor is not currently possible.
-  * If you override `__str__`, `__eq__` or `__hash__`, they will only be called when an object
-    is accessed from Python. It's usually better to override the equivalent Java methods
-    `toString`, `equals` and `hashCode`, which will take effect in both Python and Java.
+  * If you override :any:`__str__ <object.__str__>`, :any:`__eq__ <object.__eq__>` or
+    :any:`__hash__ <object.__hash__>`, they will only be called when an object is accessed from
+    Python. It's usually better to override the equivalent Java methods `toString`, `equals`
+    and `hashCode`, which will take effect in both Python and Java.
   * If you override any other special method, make sure to call through to the superclass
     implementation for any cases you don't handle.
-
 
 
 Exceptions

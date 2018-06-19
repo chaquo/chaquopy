@@ -61,7 +61,20 @@ class JavaArray(object):
             raise ValueError(f"Invalid signature '{element_sig}'")
         set_this(self, this.global_ref())
 
-        if value is not None:
+        cdef const uint8_t[:] bytes_view
+        if value is not None and length > 0:
+            if r == "B":
+                try:
+                    bytes_view = value
+                except Exception:
+                    pass
+                else:
+                    # This does an unsigned-to-signed conversion: Python values 128 to 255 will
+                    # be mapped to Java values -128 to -1.
+                    env.SetByteArrayRegion(self._chaquopy_this, 0, length,
+                                           <jbyte*>&bytes_view[0])
+                    return
+
             for i, v in enumerate(value):
                 array_set(self, i, v)
 
@@ -72,6 +85,8 @@ class JavaArray(object):
     def __str__(self):
         return repr(self)
 
+    # This does a signed-to-unsigned conversion: Java values -128 to -1 will be mapped to
+    # Python values 128 to 255.
     def __bytes__(self, offset=None, length=None):
         signature = type(self).__name__
         if signature != "[B":
@@ -84,7 +99,7 @@ class JavaArray(object):
         env = CQPEnv()
         elems = env.GetByteArrayElements(self._chaquopy_this)
         result = elems[offset : offset+length]
-        env.ReleaseByteArrayElements(self._chaquopy_this, elems, 0)
+        env.ReleaseByteArrayElements(self._chaquopy_this, elems, JNI_ABORT)
         return result
 
     def __len__(self):

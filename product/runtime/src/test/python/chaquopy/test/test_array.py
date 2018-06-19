@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function
 
 import ctypes
+import sys
 from java import cast, jarray, jboolean, jbyte, jchar, jclass, jint
 
 from .test_utils import FilterWarningsCase
@@ -157,16 +158,41 @@ class TestArray(FilterWarningsCase):
             self.assertEqual("jarray('[Z')([[True], [False, True]])",
                              func(jarray(jarray(jboolean))([[True], [False, True]])))
 
-    # __bytes__ is not part of the public API and is subject to change.
     def test_bytes(self):
+        self.verify_bytes([], b"")
+        self.verify_bytes([-128, -127, -2, -1, 0, 1, 2, 126, 127],
+                          b"\x80\x81\xFE\xFF\x00\x01\x02\x7E\x7F")
+
+        # These optional arguments are not part of the public API and are subject to change.
         array_B = jarray(jbyte)([0, 102, 111, 111, 127, -1, -128])
         self.assertEqual(b"\x00foo\x7F\xFF\x80", array_B.__bytes__())
         self.assertEqual(b"foo", array_B.__bytes__(1, 3))
         self.assertEqual(b"\xFF\x80", array_B.__bytes__(5))
         self.assertEqual(b"\x00foo", array_B.__bytes__(length=4))
 
-        with self.assertRaisesRegexp(TypeError, "Cannot call __bytes__ on char[], only on byte[]"):
-            jarray(jchar)("hello").__bytes__()
+    def verify_bytes(self, jbyte_values, b):
+        arrayB_from_list = jarray(jbyte)(jbyte_values)
+        self.assertEqual(jbyte_values, arrayB_from_list)
+
+        to_bytes = (bytes if sys.version_info[0] >= 3
+                    else lambda x: x.__bytes__())
+        array_bytes = to_bytes(arrayB_from_list)
+        self.assertIsInstance(array_bytes, bytes)
+        self.assertEqual(b, array_bytes)
+        # TODO #5231: use `bytearray(bytes(...))` instead.
+        # array_bytearray = bytearray(arrayB_from_list)
+        # self.assertEqual(b, array_bytearray)
+
+        arrayB_from_bytes = jarray(jbyte)(b)
+        self.assertEqual(jbyte_values, arrayB_from_bytes)
+        arrayB_from_bytearray = jarray(jbyte)(bytearray(b))
+        self.assertEqual(jbyte_values, arrayB_from_bytearray)
+
+        b_as_ints = b if (sys.version_info[0] >= 3) else map(ord, b)
+        arrayI_from_bytes = jarray(jint)(b_as_ints)
+        self.assertEqual(b_as_ints, arrayI_from_bytes)
+        with self.assertRaisesRegexp(TypeError, "Cannot call __bytes__ on int[], only on byte[]"):
+            to_bytes(arrayI_from_bytes)
 
     def test_eq(self):
         tf = jarray(jboolean)([True, False])
