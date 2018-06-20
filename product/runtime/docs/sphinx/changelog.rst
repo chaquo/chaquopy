@@ -1,6 +1,17 @@
 Change log
 ##########
 
+3.3.0 (2018-06-20)
+==================
+
+* Add fast conversions between Python `bytes`/`bytearray` and Java `byte[]`.
+* Make pip evaluate environment markers (:pep:`508`) and `data-requires-python` attributes
+  (:pep:`503`) against the target platform rather than the build platform.
+* Make pip only prioritize native wheels (not pure-Python wheels) over sdists of a newer
+  version.
+* Fix pip issues when multiple packages provide the same directory or filename.
+* Improve pip error messages when packages attempt to build native code.
+
 ..
    3.2.1 was a non-public relesae to enable the integration test
    ChaquopyPlugin.test_upgrade_3_2_1.

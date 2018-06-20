@@ -62,4 +62,5 @@ Once everything's working, move the wheels to the public package repository.
 
 Update any GitHub issues.
 
-Email any affected users, including those who gave a thumbs up to an issue but didn't comment.
+Email any affected users, including anyone who commented or gave a thumbs up to a related issue
+either on our tracker or Kivy's.
