@@ -1,13 +1,25 @@
 #!/bin/bash
 set -e
 
-cd "$(dirname "$0")/.."
-since_commit=${1:?"Usage: update_public.sh <since-commit>"}
+private_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$private_root"
+usage="Usage: update_public.sh OLD_VER NEW_VER"
+old_ver=${1:?"$usage"}
+new_ver=${2:?"$usage"}
+
+private_src_dir="demo/app/src"
+
+update_version() {
+    sed -i -E "s/python:gradle:[0-9.]+/python:gradle:${new_ver}/" "$1"
+}
 
 
 echo -n "demo: "
-private_src_dir="demo/app/src"
-public_src_dir="../public/demo/app/src"
+public_root="../public/demo"
+update_version "$public_root/build.gradle"
+sed -i "s/versionName .*/versionName '${new_ver}'/" "$public_root/app/build.gradle"
+
+public_src_dir="$public_root/app/src"
 for source_set in main two three; do
     rm -rf "$public_src_dir/$source_set"
     cp -a "$private_src_dir/$source_set" "$public_src_dir"
@@ -17,8 +29,11 @@ echo "done"
 
 
 echo -n "console: "
+public_root="../public/console"
+update_version "$public_root/build.gradle"
+
 private_main_dir="$private_src_dir/main"
-public_src_dir="../public/console/app/src"
+public_src_dir="$public_root/app/src"
 public_main_dir="$public_src_dir/main"
 for pattern in "java/com/chaquo/python/utils" \
                "python/chaquopy/__init__.py" "python/chaquopy/utils" \
@@ -38,8 +53,24 @@ cp -a "$private_src_dir/test" "$public_test_dir"
 echo "done"
 
 
+echo -n "hello: "
+cd "$private_root/../public/hello"
+git checkout master
+git reset --mixed as-3.1.3
+update_version build.gradle
+git add app/build.gradle app/src/main/AndroidManifest.xml app/src/main/python/hello.py build.gradle
+git rm app/src/main/java/com/chaquo/python/hello/MainActivity.java
+git commit -m "Port to Python"
+sed -i -E "s|commit/[0-9a-f]+|commit/$(git rev-parse HEAD)|" README.md
+git add .gitignore .idea/.gitignore docs/ISSUE_TEMPLATE.md LICENSE.txt README.md
+git commit -m "Add documentation"
+git branch "$new_ver"
+echo "done"
+
+
 echo "If there are files listed below, they may require manual merging."
-echo "Run 'git diff $since_commit -- <filename>' to check."
+echo "Run 'git diff $old_ver -- <filename>' to check."
 echo "If too many files are listed, this is probably because of end-of-line issues: "
 echo "run this script a second time and it should give the correct output."
-git diff --name-status "$since_commit" -- demo | grep -v "$private_src_dir"
+cd "$private_root"
+git diff --name-status "$old_ver" -- demo | grep -v "$private_src_dir"
