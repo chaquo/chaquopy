@@ -27,7 +27,7 @@ android {
         minSdkVersion 15
         targetSdkVersion 26
 
-        versionName "3.2.0"
+        versionName "3.3.0"
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 

@@ -175,9 +175,9 @@ class TestConversion(FilterWarningsCase):
                     u"\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
             self.verify_value(obj, name, val)
 
-        # Byte strings can be converted to Java Strings only on Python 2. However, if the
-        # target type is Object, Python 3 will fall back on the default conversion of a Python
-        # iterable to Object[].
+        # Byte strings can be implicitly converted to Java Strings only on Python 2. However,
+        # if the target type is Object, Python 3 will fall back on the default conversion of a
+        # Python iterable to Object[].
         context = verify = None
         if name == "Object":
             def verify(expected, actual):
