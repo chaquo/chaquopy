@@ -408,6 +408,7 @@ Open-source license
 For open-source apps, Chaquopy will always be free of charge. Please `contact us
 <https://chaquo.com/chaquopy/contact/>`_ with details of your app, including:
 
-* The app ID (package name)
-* Where the app is distributed (e.g. Google Play)
-* Where the app's source code is available
+* The `applicationId <https://developer.android.com/studio/build/application-id>`_ from your
+  `build.gradle`.
+* Where the app is distributed (e.g. Google Play).
+* Where the app's source code is available.

@@ -4,7 +4,8 @@ Change log
 3.3.0 (2018-06-20)
 ==================
 
-* Add fast conversions between Python `bytes`/`bytearray` and Java `byte[]`.
+* Add fast conversions between Python `bytes`/`bytearray` and Java `byte[]` (`#41
+  <https://github.com/chaquo/chaquopy/issues/41>`_).
 * Make pip evaluate environment markers (:pep:`508`) and `data-requires-python` attributes
   (:pep:`503`) against the target platform rather than the build platform.
 * Make pip only prioritize native wheels (not pure-Python wheels) over sdists of a newer
