@@ -74,15 +74,6 @@ def get_abi3_suffix():
 class build_ext(_build_ext):
     def run(self):
         """Build extensions in build directory, then copy if --inplace"""
-
-        # Blocking the command name in Distribution.run_command would produce a faster failure
-        # if the setup.py overrides the command without calling the base class run() method
-        # (e.g. pynacl). However, this would break packages which specifically check for run()
-        # throwing an exception and then fall back on a pure-Python alternative (e.g.
-        # sqlalchemy and wrapt).
-        from setuptools.monkey import chaquopy_block_native
-        chaquopy_block_native("build_ext.run")
-
         old_inplace, self.inplace = self.inplace, 0
         _build_ext.run(self)
         self.inplace = old_inplace

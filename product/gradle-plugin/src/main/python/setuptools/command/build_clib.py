@@ -20,11 +20,6 @@ class build_clib(orig.build_clib):
                      the compiler.
     """
 
-    # See comment at build_ext.run.
-    def run(self):
-        from setuptools.monkey import chaquopy_block_native
-        chaquopy_block_native("build_clib.run")
-
     def build_libraries(self, libraries):
         for (lib_name, build_info) in libraries:
             sources = build_info.get('sources')

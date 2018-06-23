@@ -100,19 +100,82 @@ def patch_all():
             setuptools.extension.Extension
         )
 
-    # Chaquopy: removed MSVC patch, which raises an exception on MSYS2 Python because it isn't
-    # built with MSVC. Instead we try to completely disable the compiler class, for packages
-    # like NumPy which access it without going through build_ext or build_clib.
+    # Chaquopy disabled: importing distutils.msvc9compiler causes exception "not supported by
+    # this module" on MSYS2 Python, because it isn't built with MSVC.
+    # patch_for_msvc_specialized_compiler()
+
+    disable_native()
+
+
+# Chaquopy: We want to cause a quick and comprehensible failure when a package attempts to
+# build native code, while still allowing a pure-Python fallback if available. This is tricky,
+# because different packages have different approaches to pure-Python fallbacks:
+#
+# * Some packages simply catch any distutils exception thrown by setup(), and then run it again
+#   with the native components removed.
+#
+# * Some (e.g. sqlalchemy, wrapt) extend the distutils build_ext or build_clib command and
+#   override its run() method to wrap it with an exception handler. This means we can't simply
+#   block the commands by name, e.g. by overriding Distribution.run_command.
+#
+# * Some (e.g. msgpack) go lower-level and catch exceptions in build_ext.build_extension. In
+#   Python 3, there's an `optional` keyword to Extension which has the same effect (used e.g.
+#   by websockets). Blocking build_ext.run, or CCompiler.__init__, would cause these builds to
+#   fail before build_extension is called, and the pure-Python fallback wouldn't happen.
+#
+# Creating a new compiler class with a new name minimizes the chance of code trying to do
+# things which will only work on the standard classses. For example,
+# distutils.sysconfig.customize_compiler does things with a "unix" compiler which will crash on
+# Windows because get_config_vars won't have certain settings.
+#
+# This is simpler than determining the regular compiler class and extending it. It avoids
+# interference from NumPy's widespread monkey-patching (including new_compiler, CCompiler and
+# its subclasses), which takes place after this code is run. It also avoids the default
+# behaviour on Windows when no compiler is installed, which is either to give the "Unable to
+# find vcvarsall.bat" error, or advice on how to install Visual C++, both of which will waste
+# the user's time.
+#
+# This approach will block builds of packages which require the compiler name to be in a known
+# list (e.g. minorminer, lz4), but the error messages from these packages aren't too bad, and
+# I've never seen one which has a pure-Python fallback.
+def disable_native():
     from distutils import ccompiler
-    class DisabledCCompiler(ccompiler.CCompiler):
-        def __init__(self, *args, **kwargs):
-            chaquopy_block_native("CCompiler.__init__")
-    ccompiler.CCompiler = DisabledCCompiler
+    from distutils.unixccompiler import UnixCCompiler
+    import os
+    import types
+
+    ccompiler.get_default_compiler = lambda *args, **kwargs: "disabled"
+    ccompiler.compiler_class["disabled"] = (
+        "disabledcompiler", "DisabledCompiler",
+        "Compiler disabled ({})".format(CHAQUOPY_NATIVE_ERROR))
+
+    class DisabledCompiler(ccompiler.CCompiler):
+        compiler_type = "disabled"
+        def preprocess(*args, **kwargs):
+            chaquopy_block_native("CCompiler.preprocess")
+        def compile(*args, **kwargs):
+            chaquopy_block_native("CCompiler.compile")
+        def create_static_lib(*args, **kwargs):
+            chaquopy_block_native("CCompiler.create_static_lib")
+        def link(*args, **kwargs):
+            chaquopy_block_native("CCompiler.link")
+
+    # To maximize the chance of the build getting as far as actually calling compile(), make
+    # sure the class has all of the expected attributes.
+    for name in ["src_extensions", "obj_extension", "static_lib_extension",
+                 "shared_lib_extension", "static_lib_format", "shared_lib_format",
+                 "exe_extension"]:
+        setattr(DisabledCompiler, name, getattr(UnixCCompiler, name))
+    DisabledCompiler.executables = {name: [CHAQUOPY_NATIVE_ERROR.replace(" ", "_")]
+                                    for name in UnixCCompiler.executables}
+
+    disabled_mod = types.ModuleType("distutils.disabledcompiler")
+    disabled_mod.DisabledCompiler = DisabledCompiler
+    sys.modules["distutils.disabledcompiler"] = disabled_mod
 
     # Try to disable native builds for packages which don't use the distutils native build
-    # system at all (e.g. uwsgi).
-    import os
-    for tool in ["as", "cc", "cxx"]:
+    # system at all (e.g. uwsgi), or only use it to wrap an external build script (e.g. pynacl).
+    for tool in ["ar", "as", "cc", "cxx", "ld"]:
         os.environ[tool.upper()] = CHAQUOPY_NATIVE_ERROR.replace(" ", "_")
 
 

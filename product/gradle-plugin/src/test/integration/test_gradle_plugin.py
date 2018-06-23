@@ -501,6 +501,13 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong(fr"Failed to install {req_str}." +
                                   self.tracker_advice() + r"$", run.stderr, re=True)
 
+    def test_sdist_native_optional(self):
+        run = self.RunGradle("base", run=False)
+        for name in ["sdist_native_optional_ext", "sdist_native_optional_compiler"]:
+            with self.subTest(name=name):
+                run.apply_layers(f"PythonReqs/{name}")
+                run.rerun(requirements=[f"{name}.py"])
+
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
