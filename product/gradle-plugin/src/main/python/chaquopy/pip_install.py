@@ -77,13 +77,15 @@ class PipInstall(object):
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
             # altered its behaviour somewhat for performance: see commands/install.py.
-            subprocess.check_call([sys.executable,
-                                   "-S",  # Avoid interference from system/user site-packages
-                                          # (this is not inherited by subprocesses).
-                                   "-m", "pip", "install",
-                                   "--target", abi_dir,
-                                   "--platform", self.platform_tag(abi)] +
-                                  self.pip_options + reqs)
+            cmdline = ([sys.executable,
+                       "-S",  # Avoid interference from system/user site-packages
+                              # (this is not inherited by subprocesses).
+                        "-m", "pip", "install",
+                        "--target", abi_dir,
+                        "--platform", self.platform_tag(abi)] +
+                       self.pip_options + reqs)
+            logger.debug("Running {}".format(cmdline))
+            subprocess.check_call(cmdline)
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
