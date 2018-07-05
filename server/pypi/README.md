@@ -1,4 +1,4 @@
-# GCC build
+# GCC
 
 If building OpenBLAS or SciPy, the Crystax GCC toolchain must be rebuilt to add support for
 Fortran.
@@ -36,6 +36,19 @@ Run the following commands:
 
 Rename the toolchains in your Crystax installation, and replace them with the toolchains just
 built in platform/ndk/toolchains.
+
+
+# libcrystax
+
+Note that when building armeabi-v7a, make-standalone-toolchain.sh also copies armeabi and
+armeabi-v7a-hard into the toolchain, in both thumb and non-thumb builds, for a total of 6
+variants. armeabi in particular is required for OpenBLAS: see notes in
+server/pypi/packages/openblas.
+
+This includes libcrystax, which we've made changes to. However, the changes shouldn't affect
+binary compatibility, so the armeabi and armeabi-v7a-hard libraries, which aren't present at
+runtime, probably don't need to be rebuilt. If we do need to rebuild them, the process is in
+target/README.md.
 
 
 # Adding a new package

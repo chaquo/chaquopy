@@ -1,17 +1,18 @@
 #/bin/bash
 #
-# $1: Python major.minor version, e.g. "2.7"
-# $2: Python micro-build version, e.g. "14-2" (see Common.java)
-# $3: Target directory, e.g. /var/www/chaquo/maven/com/chaquo/python/target
+# Positional arguments:
+#  * Path to Crystax NDK
+#  * Python major.minor version, e.g. "2.7"
+#  * Python micro-build version, e.g. "14-2" (see Common.java)
+#  * Target directory, e.g. /var/www/chaquo/maven/com/chaquo/python/target
 
 set -eu
 
-crystax=~/crystax-ndk-10.3.2
-
-short_ver="${1:?}"
-micro_build="${2:?}"
+crystax="${1:?}"
+short_ver="${2:?}"
+micro_build="${3:?}"
 full_ver="$short_ver.$micro_build"
-target_dir="$(cd ${3:?}; pwd)/$full_ver"
+target_dir="$(cd ${4:?}; pwd)/$full_ver"
 mkdir "$target_dir"  # Error if already exists: don't want to overwrite existing files.
 target_prefix="$target_dir/target-$full_ver"
 
