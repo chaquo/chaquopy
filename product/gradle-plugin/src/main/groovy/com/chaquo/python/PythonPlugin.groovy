@@ -144,8 +144,6 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void setupDependencies() {
-        project.repositories { maven { url "https://chaquo.com/maven" } }
-
         def filename = "chaquopy_java.jar"
         extractResource("runtime/$filename", genDir)
         project.dependencies {
@@ -193,25 +191,28 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createConfigs(variant, PythonExtension python) {
-        def stdlibConfig = configName(variant, "targetStdlib")
-        project.configurations.create(stdlibConfig)
-        project.dependencies.add(stdlibConfig,
-                                 targetDependency(python.version,
-                                                  python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
+        // Configurations are created in the buildscript context so they'll load the target
+        // dependencies from the same repository as the Gradle plugin itself.
+        def bs = project.rootProject.buildscript
 
-        def abiConfig = configName(variant, "targetAbis")
-        project.configurations.create(abiConfig)
+        def stdlibConfig = getConfig(variant, "targetStdlib")
+        bs.dependencies.add(stdlibConfig.name,
+                            targetDependency(python.version,
+                                             python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
+
+        def abiConfig = getConfig(variant, "targetAbis")
         for (abi in getAbis(variant)) {
             if (! Common.ABIS.contains(abi)) {
                 throw new GradleException("$variant.name: Chaquopy does not support the ABI '$abi'. " +
                                           "Supported ABIs are ${Common.ABIS}.")
             }
-            project.dependencies.add(abiConfig, targetDependency(python.version, abi))
+            bs.dependencies.add(abiConfig.name, targetDependency(python.version, abi))
         }
     }
 
-    Configuration getConfig(variant, name) {
-        return project.configurations.getByName(configName(variant, name))
+    Configuration getConfig(variant, String name) {
+        def configName = "$NAME${variant.name.capitalize()}${name.capitalize()}"
+        return project.rootProject.buildscript.configurations.maybeCreate(configName)
     }
 
     String targetDependency(String version, String classifier) {
@@ -671,10 +672,6 @@ class PythonPlugin implements Plugin<Project> {
 
     File variantGenDir(variant, String type) {
         return new File(genDir, "$type/$variant.dirName")
-    }
-
-    String configName(variant, String type) {
-        return "$NAME${variant.name.capitalize()}${type.capitalize()}"
     }
 
     String taskName(String verb, variant, String object) {
