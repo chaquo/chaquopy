@@ -1,6 +1,9 @@
 Change log
 ##########
 
+..
+   3.3.1 was a non-public release for Electron Cash.
+
 3.3.0 (2018-06-20)
 ==================
 
@@ -14,7 +17,7 @@ Change log
 * Improve pip error messages when packages attempt to build native code.
 
 ..
-   3.2.1 was a non-public relesae to enable the integration test
+   3.2.1 was a non-public release to enable the integration test
    ChaquopyPlugin.test_upgrade_3_2_1.
 
 3.2.0 (2018-06-06)
@@ -150,9 +153,9 @@ Change log
 ==================
 
 * Apps can now use certain native packages, including NumPy (`#14
-  <https://github.com/chaquo/chaquopy/issues/14>`_), as well as pure-Python packages which aren't
-  available from PyPI in wheel format. To support this, the `build.gradle` syntax for calling `pip
-  install` has been changed: please see :ref:`the documentation <android-requirements>`.
+  <https://github.com/chaquo/chaquopy/issues/14>`_), as well as some pure-Python packages which
+  aren't available from PyPI in wheel format. To support this, the `build.gradle` syntax for calling
+  `pip install` has been changed: please see :ref:`the documentation <android-requirements>`.
 * Zero-initialized Java arrays can now be created in Python, by passing an integer to the array
   constructor rather than a sequence.
 

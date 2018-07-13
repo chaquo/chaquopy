@@ -23,7 +23,8 @@ archivesBaseName = "chaquopy_java"
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") {
         include "**/*.py"
-        include "**/*.dist-info/*"  // For license files.
+        include "**/*.dist-info/**"  // For license files
+        includeEmptyDirs false
     }
     destinationDir buildDir
     archiveName Common.ASSET_BOOTSTRAP
@@ -52,16 +53,24 @@ tasks, their directories must be on the PATH. */
 
 // The following properties file should be created manually. It's also used in
 // test_gradle_plugin.py.
-def localProps = new Properties()
-localProps.load(project.rootProject.file('local.properties').newDataInputStream())
-def sdkDir = localProps.getProperty('sdk.dir')
-def ndkDir = localProps.getProperty('ndk.dir')
-def crystaxDir = localProps.getProperty('crystax.dir')
-def mingwDir = localProps.getProperty('mingw.dir')  // Windows only
+String requireProperty(String key) {
+    def localProps = new Properties()
+    localProps.load(project.rootProject.file('local.properties').newDataInputStream())
+    def result = localProps.getProperty(key)
+    if (result == null) {
+        throw new GradleException("'$key' is missing from local.properties")
+    }
+    return result
+}
+
+def sdkDir = requireProperty('sdk.dir')
+def ndkDir = requireProperty('ndk.dir')
+def crystaxDir = requireProperty('crystax.dir')
 
 def javaHome = System.getenv("JAVA_HOME")
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 def EXE_SUFFIX = windowsHost ? ".exe" : ""
+def mingwDir = windowsHost ? requireProperty('mingw.dir') : null
 
 
 // Affected by Markdown plugin above
@@ -86,20 +95,28 @@ def doc = task("doc", group: "documentation")
 doc.dependsOn(javadoc)
 
 
-def cythonTask = {Map taskArgs, String name, Closure closure ->
+def cythonTask(Map taskArgs=[:], String name, Closure closure) {
     taskArgs["type"] = Exec
+    taskArgs.putIfAbsent("group", "build")
+    def licensedId = taskArgs.remove("licensedId") ?: ""
+    def outDir = taskArgs.remove("cythonOutDir") ?: "$buildDir/cython"
+
     def t = task(taskArgs, name, closure)
     t.configure {
         def pyxFiles = inputs.files.findAll { it.name.endsWith(".pyx") }
         assert(pyxFiles.size() == 1)
         def inFile = pyxFiles.get(0)
         def stem = inFile.name.substring(0, inFile.name.length() - ".pyx".length())
-        def outFile = "$buildDir/cython/${stem}.c"
-
+        def outFile = "$outDir/${stem}.c"
         outputs.file outFile
+
+        doFirst {
+            file("$outDir/build.pxi").text = "DEF LICENSED_ID = \"$licensedId\""
+        }
         workingDir inFile.parent  // Reduce clutter in exception traces
         executable "cython"
-        args "-Wextra", "-Werror", inFile.name, "-o", outFile
+        args "-Wextra", "-Werror", inFile.name, "-I", outDir, "-o", outFile
+
         doLast {
             String[][] replacements = [
                 // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
@@ -128,13 +145,13 @@ def cythonTask = {Map taskArgs, String name, Closure closure ->
     return t
 }
 
-cythonTask("cythonPython", group: "build") {
+cythonTask("cythonPython") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
         include "*.pyx", "*.pxi", "*.pxd"
     }
     inputs.files "$projectDir/../../server/license/check_ticket.py"
 }
-cythonTask("cythonJava", group: "build") {
+cythonTask("cythonJava") {
     inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
     inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
 }
@@ -142,7 +159,6 @@ cythonTask("cythonJava", group: "build") {
 
 def sdkCmakeParentDir = new File(sdkDir, "cmake")
 def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
-
 def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
 
 dependencies {
@@ -336,4 +352,64 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
         }
     }
     prevPyVersion = pyVersion
+}
+
+
+// --- Electron Cash ----------------------------------------------------------
+
+def ecCythonTask(Map taskArgs=[:], String name, Closure closure) {
+    taskArgs.putIfAbsent("group", "ec")
+    taskArgs.putIfAbsent("licensedId", "org.electroncash.electroncash3")
+    taskArgs.putIfAbsent("cythonOutDir", "$buildDir/ec/cython")
+    def t = cythonTask(taskArgs, name, closure)
+    t.configure {
+        args "-X", "emit_code_comments=False"
+    }
+    return t
+}
+
+ecCythonTask("ecCythonPython") {
+    inputs.files fileTree("$projectDir/src/main/python/java") {
+        include "*.pyx", "*.pxi", "*.pxd"
+    }
+    // check_ticket.py is not included in this variant.
+}
+
+ecCythonTask("ecCythonJava") {
+    inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
+    inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
+}
+
+task("ecUpdate", group: "ec") {
+    dependsOn ecCythonJava, ecCythonPython
+    doLast {
+        def outRepo = "$projectDir/../../../../ec/chaquopy-ec-source"
+        copy {
+            from "$projectDir/../../VERSION.txt"
+            into outRepo
+        }
+
+        def outBuildSrc = "$outRepo/product/buildSrc"
+        delete outBuildSrc
+        copy {
+            from "$projectDir/../buildSrc"
+            into outBuildSrc
+            include "src/**"
+        }
+
+        def outMain = "$outRepo/product/runtime/src/main"
+        delete outMain
+        copy {
+            from "$projectDir/src/main"
+            into outMain
+            include "c/**", "java/**", "python/**/*.py", "python/java/_vendor/*.dist-info/**"
+            exclude "python/java/_vendor/rsa*"  // Not included in this variant
+            exclude "c/alloca.h"  // Only needed for MSYS2
+            includeEmptyDirs false
+        }
+        copy {
+            from ecCythonJava, ecCythonPython
+            into "$outMain/c"
+        }
+    }
 }

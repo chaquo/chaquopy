@@ -1,4 +1,6 @@
+import hashlib
 from types import ModuleType
+
 
 builtins = six.moves.builtins
 import_original = builtins.__import__
@@ -82,3 +84,7 @@ cdef resolve_name(name, globals, level):
 
     else:           # Absolute import (Python 2 implicit relative import is not attempted)
         return name
+
+
+ASSET_PREFIX = "/android_asset"
+

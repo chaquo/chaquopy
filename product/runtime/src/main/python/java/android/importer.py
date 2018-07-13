@@ -23,19 +23,16 @@ from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
 from java._vendor import six
+from java.chaquopy import ASSET_PREFIX, AssetFile, InvalidAssetPathError
 
-from android.content.res import AssetManager
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
-from java import jarray, jbyte
 from java.io import IOException
-from java.lang import Integer
 
 if six.PY3:
     from tokenize import detect_encoding
 
 
-ASSET_PREFIX = "/android_asset"
 PATHNAME_PREFIX = "<chaquopy>/"
 
 
@@ -199,7 +196,7 @@ class AssetFinder(object):
         with self.zip_file_lock:
             zip_file = self.zip_file_cache.get(path)
             if not zip_file:
-                zip_file = ConcurrentZipFile(AssetFile(self.context.getAssets(), path))
+                zip_file = ConcurrentZipFile(AssetFile(self.context, path))
                 self.zip_file_cache[path] = zip_file
             return zip_file
 
@@ -499,52 +496,3 @@ class ConcurrentZipFile(ZipFile):
     # we build a directory set in __init__.
     def has_dir(self, dir_name):
         return (dir_name in self.dir_set)
-
-class AssetFile(object):
-    # Raises InvalidAssetPathError if the path is not an asset path, or IOException if the
-    # asset does not exist.
-    def __init__(self, asset_manager, path):
-        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
-        if not match:
-            raise InvalidAssetPathError("not an {} path: '{}'".format(ASSET_PREFIX, path))
-        self.name = path
-        self.stream = asset_manager.open(match.group(1), AssetManager.ACCESS_RANDOM)
-        self.stream.mark(Integer.MAX_VALUE)
-        self.offset = 0
-        self.length = self.stream.available()
-
-    def read(self, size=None):
-        if size is None:
-            size = self.stream.available()
-        array = jarray(jbyte)(size)
-        read_len = self.stream.read(array)
-        if read_len == -1:
-            return b""
-        self.offset += read_len
-        return array.__bytes__(0, read_len)
-
-    def seek(self, offset, whence=os.SEEK_SET):
-        if whence == os.SEEK_SET:
-            pass
-        elif whence == os.SEEK_CUR:
-            offset = self.offset + offset
-        elif whence == os.SEEK_END:
-            offset = self.length + offset
-        else:
-            raise ValueError("unsupported whence: {}".format(whence))
-
-        self.stream.reset()
-        self.stream.skip(offset)
-        self.offset = offset
-        return offset   # Required in Python 3: Python 2 returns None.
-
-    def tell(self):
-        return self.offset
-
-    def close(self):
-        self.stream.close()
-        self.stream = None
-
-
-class InvalidAssetPathError(ValueError):
-    pass

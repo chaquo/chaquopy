@@ -4,9 +4,9 @@ apply plugin: 'maven'
 evaluationDependsOn ":runtime"
 
 configurations {
-    runtimeJava
-    runtimePython
-    runtimeJniLibs
+    runtimeJava         // There's probably a way to avoid this indirection, but when I tried
+    runtimePython       // project(":runtime).configurations.whatever, it always came back
+    runtimeJniLibs      // empty, even when contained within doLast {}.
     runtimeLibDynload
 }
 
@@ -46,14 +46,19 @@ processResources {
         into("runtime") {
             from(configurations.runtimeJava)
             from(configurations.runtimePython)
+
             into("jniLibs") {
                 for (file in configurations.runtimeJniLibs) {
-                    from(file) { into "$file.parentFile.parentFile.name/$file.parentFile.name" }
+                    from(file) {
+                        into "$file.parentFile.parentFile.name/$file.parentFile.name"
+                    }
                 }
             }
             into("lib-dynload") {
                 for (file in configurations.runtimeLibDynload) {
-                    from(file) { into "$file.parentFile.parentFile.name/$file.parentFile.name/java" }
+                    from(file) {
+                        into "$file.parentFile.parentFile.name/$file.parentFile.name/java"
+                    }
                 }
             }
         }
