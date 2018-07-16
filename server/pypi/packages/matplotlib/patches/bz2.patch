@@ -1,0 +1,21 @@
+diff -ur src-original/lib/matplotlib/cbook/__init__.py src/lib/matplotlib/cbook/__init__.py
+--- src-original/lib/matplotlib/cbook/__init__.py	2018-03-06 04:47:09.000000000 +0000
++++ src/lib/matplotlib/cbook/__init__.py	2018-07-16 16:22:40.576294394 +0000
+@@ -10,7 +10,7 @@
+
+ import six
+ from six.moves import xrange, zip
+-import bz2
++# import bz2  # Chaquopy: TODO (#5160)
+ import collections
+ import contextlib
+ import datetime
+@@ -601,7 +601,7 @@
+             # get rid of 'U' in flag for gzipped files.
+             flag = flag.replace('U', '')
+             fh = gzip.open(fname, flag)
+-        elif fname.endswith('.bz2'):
++        elif fname.endswith('.bz2') and False:  # Chaquopy: TODO (#5160)
+             # get rid of 'U' in flag for bz2 files
+             flag = flag.replace('U', '')
+             fh = bz2.BZ2File(fname, flag)

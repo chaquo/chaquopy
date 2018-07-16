@@ -293,14 +293,18 @@ class BuildWheel:
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
         # There is an extension to allow ZIP files to contain symlnks, but the zipfile module
-        # doesn't support it, and the links wouldn't survive on Windows anyway. So the wheel
-        # files only include external shared libraries under their SONAMEs.
+        # doesn't support it, and the links wouldn't survive on Windows anyway. So our library
+        # wheels include external shared libraries only under their versioned SONAMEs, and we
+        # need to create links from the unversioned names so the compiler can find them.
+        SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
+                           (r"^(lib.*?)\d+\.so$", r"\1.so")]
         reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
         if exists(reqs_lib_dir):
             for filename in os.listdir(reqs_lib_dir):
-                match = re.search(r"^(.*\.so)\..*$", filename)
-                if match:
-                    run(f"ln -s {filename} {reqs_lib_dir}/{match.group(1)}")
+                for pattern, repl in SONAME_PATTERNS:
+                    link_filename = re.sub(pattern, repl, filename)
+                    if link_filename != filename:
+                        run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"

@@ -1,0 +1,42 @@
+diff -ur src-original/setupext.py src/setupext.py
+--- src-original/setupext.py	2018-07-16 13:33:39.614688563 +0000
++++ src/setupext.py	2018-07-16 14:13:06.848027528 +0000
+@@ -160,6 +160,9 @@
+     """
+     Returns a list of standard base directories on this platform.
+     """
++    # Chaquopy
++    return [os.path.abspath("../requirements/chaquopy")]
++
+     if options['basedirlist']:
+         return options['basedirlist']
+ 
+@@ -933,6 +936,9 @@
+ 
+     @staticmethod
+     def include_dirs_hook():
++        # Chaquopy
++        return [os.path.abspath("../requirements/numpy/core/include")]
++
+         if PY3min:
+             import builtins
+             if hasattr(builtins, '__NUMPY_SETUP__'):
+@@ -986,7 +992,8 @@
+         ext.define_macros.append(('__STDC_FORMAT_MACROS', 1))
+ 
+     def get_setup_requires(self):
+-        return ['numpy>=1.7.1']
++        # Chaquopy: removed numpy
++        return []
+ 
+     def get_install_requires(self):
+         return ['numpy>=1.7.1']
+@@ -1039,7 +1046,7 @@
+         if options.get('local_freetype'):
+             return "Using local version for testing"
+ 
+-        if sys.platform == 'win32':
++        if True:  # Chaquopy: was `if sys.platform == 'win32':`
+             try:
+                 check_include_file(get_include_dirs(), 'ft2build.h', 'freetype')
+             except CheckFailed:
