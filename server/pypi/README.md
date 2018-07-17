@@ -73,7 +73,11 @@ Test with pkgtest app for both Python 2 and 3 on:
 
 Once everything's working, move the wheels to the public package repository.
 
+If this package was blocking others, retry those packages, and do the checks described at
+#5455 (comment #8) in case any new issues have been exposed.
+
 Update any GitHub issues.
 
-Email any affected users, including anyone who commented or gave a thumbs up to a related issue
-either on our tracker or Kivy's.
+Email any affected users, including anyone who commented or gave a thumbs up to a related
+issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
+potential users in the future.
