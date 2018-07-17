@@ -700,7 +700,14 @@ class PythonPlugin implements Plugin<Project> {
 
 
 class PythonExtension extends BaseExtension {
-    static final def DEFAULT_EXTRACT_PACKAGES = ["certifi", "sklearn.datasets"]
+    static final def DEFAULT_EXTRACT_PACKAGES = [
+        "certifi",
+        "matplotlib",       // Data (mostly fonts) is in a subdirectory "mpl-data", which is
+                            // not a valid package name, We could add a patch to rename it and
+                            // make this more specific, but it's probably not worth it because
+                            // it would still make up a large proportion of the wheel size.
+        "sklearn.datasets"
+    ]
 
     String version
     String buildPython

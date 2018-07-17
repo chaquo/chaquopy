@@ -81,7 +81,7 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(2, mod.foo)
         self.assertFalse(hasattr(mod, "escape"))
 
-        # A .pyc with mismatching header should be written again.
+        # A .pyc with mismatching header timestamp should be written again.
         new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
         self.write_pyc_header(cache_filename, new_header)
         with self.set_mode(cache_filename, "444"):
@@ -102,16 +102,16 @@ class TestAndroidImport(unittest.TestCase):
     def test_so(self):
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.so"
-        cache_filename = asset_cache(REQS_ABI_ZIP, filename)
         mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
-
         mod.foo = 1
         delattr(mod, "escape")
         reload(mod)
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
+        self.check_extract_if_changed(mod, asset_cache(REQS_ABI_ZIP, filename))
 
-        # A valid file should not be extracted again.
+    def check_extract_if_changed(self, mod, cache_filename):
+        # An unchanged file should not be extracted again.
         with self.set_mode(cache_filename, "444"):
             mod = self.clean_reload(mod)
 
@@ -238,7 +238,16 @@ class TestAndroidImport(unittest.TestCase):
         self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
 
         import certifi
-        self.assertTrue(isfile(join(dirname(certifi.__file__), "cacert.pem")))
+        certifi_dir = dirname(certifi.__file__)
+        cacert_filename = join(certifi_dir, "cacert.pem")
+        self.assertTrue(isfile(cacert_filename))
+
+        leftover_filename = join(certifi_dir, "leftover.txt")
+        with open(leftover_filename, "w"):
+            pass
+        self.assertTrue(exists(leftover_filename))
+        self.check_extract_if_changed(certifi, cacert_filename)
+        self.assertFalse(exists(leftover_filename))
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)

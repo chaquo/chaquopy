@@ -9,10 +9,9 @@ import imp
 import io
 import marshal
 import os.path
-from os.path import basename, dirname, exists, join
+from os.path import basename, dirname, exists, join, relpath
 import pkgutil
 import re
-import shutil
 import struct
 import sys
 import time
@@ -236,13 +235,21 @@ class AssetFinder(object):
         return None
 
     def extract_package(self, package_rel_dir):
-        package_dir = join(self.extract_root, package_rel_dir)
-        if exists(package_dir):
-            shutil.rmtree(package_dir)  # Just do it the easy way for now.
+        filenames_in_zip = set()
         for zf in [self.zip_file] + self.other_zips:
             for info in zf.infolist():
-                if info.filename.startswith(package_rel_dir):
-                    zf.extract(info, self.extract_root)
+                if info.filename.startswith(package_rel_dir) and \
+                   not info.filename.endswith("/"):
+                    filenames_in_zip.add(info.filename)
+                    zf.extract_if_changed(info, self.extract_root)
+
+        # Remove any leftover extracted files from previous versions of the app.
+        for dirpath, _, filenames in os.walk(join(self.extract_root, package_rel_dir)):
+            rel_dirpath = relpath(dirpath, self.extract_root)
+            for name in filenames:
+                if not name.endswith(".pyc") and \
+                   join(rel_dirpath, name) not in filenames_in_zip:
+                    os.remove(join(dirpath, name))
 
 
 class AssetLoader(object):
@@ -308,7 +315,7 @@ class AssetLoader(object):
     def get_filename(self, mod_name):
         assert mod_name == self.mod_name
         for ep in self.finder.extract_packages:
-            if mod_name.startswith(ep):
+            if (mod_name == ep) or mod_name.startswith(ep + "."):
                 root = self.finder.extract_root
                 break
         else:
@@ -435,18 +442,8 @@ class ExtensionFileLoader(AssetLoader):
                     # collected, but this isn't documented, so keep a reference for safety.
                     self.needed[soname] = dll
 
-    def extract_if_changed(self, zip_info):
-        out_filename = join(self.finder.extract_root, zip_info.filename)
-        if exists(out_filename):
-            existing_stat = os.stat(out_filename)
-            need_extract = (existing_stat.st_size != zip_info.file_size or
-                            existing_stat.st_mtime != timegm(zip_info.date_time))
-        else:
-            need_extract = True
-
-        if need_extract:
-            self.finder.zip_file.extract(zip_info, self.finder.extract_root)
-        return out_filename
+    def extract_if_changed(self, member):
+        return self.finder.zip_file.extract_if_changed(member, self.finder.extract_root)
 
 
 # These class names are based on the standard Python 3 loaders from importlib.machinery, though
@@ -486,6 +483,19 @@ class ConcurrentZipFile(ZipFile):
             # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170).
             out_filename = ZipFile.extract(self, member, target_dir)
             os.utime(out_filename, (time.time(), timegm(member.date_time)))
+        return out_filename
+
+    def extract_if_changed(self, member, target_dir):
+        if not isinstance(member, ZipInfo):
+            member = self.getinfo(member)
+        need_extract = True
+        out_filename = join(target_dir, member.filename)
+        if exists(out_filename):
+            existing_stat = os.stat(out_filename)
+            need_extract = (existing_stat.st_size != member.file_size or
+                            existing_stat.st_mtime != timegm(member.date_time))
+        if need_extract:
+            self.extract(member, target_dir)
         return out_filename
 
     def read(self, member):
