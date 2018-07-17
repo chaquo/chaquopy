@@ -546,10 +546,12 @@ class PythonPlugin implements Plugin<Project> {
                 def BOOTSTRAP_NATIVE_STDLIB = ["_ctypes.so", "select.so"]
                 for (art in abiConfig.resolvedConfiguration.resolvedArtifacts) {
                     def abi = art.classifier
-                    project.copy {
-                        from project.zipTree(art.file)
-                        include "lib-dynload/**"
-                        into assetDir
+                    // Using ant.unzip rather than project.zipTree because it preserves
+                    // timestamps, allowing importer.py to avoid asset extraction.
+                    project.ant.unzip(src: art.file, dest: assetDir) {
+                        patternset() {
+                            include(name: "lib-dynload/**")
+                        }
                     }
                     project.ant.zip(basedir: "$assetDir/lib-dynload/$abi",
                                     destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
