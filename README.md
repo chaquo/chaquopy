@@ -10,7 +10,7 @@ Install the following prerequisites:
    * Build Tools
    * CMake
    * NDK
-   * SDK Platform version corresponding to `MIN_SDK_VERSION` in
+   * SDK Platform version corresponding to `COMPILE_SDK_VERSION` in
      product/buildSrc/src/main/java/com/chaquo/python/Common.java.
 * Crystax NDK 10.3.2
 

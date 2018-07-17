@@ -14,7 +14,8 @@ Prerequisites:
 
 .. (extra space for consistency)
 
-* `minSdkVersion` must be 15 or higher.
+* `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
+  be at least 15 (Android 4.0.3).
 
 .. _buildPython:
 
