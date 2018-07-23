@@ -330,22 +330,44 @@ as separate files. Because of this, any code which depends upon :any:`__file__` 
 resource files will fail. There are two ways of dealing with this.
 
 The most efficient way is to change the code to use :any:`pkgutil.get_data` instead. For
-example, to load `some/package/subdir/README.txt` from within `some/package/module.py`:
+example, to read `package1/subdir/README.txt`:
 
 .. code-block:: python
 
-    readme = pkgutil.get_data(__name__, "subdir/README.txt")
-    # To read it like a file, use io.StringIO(readme.decode())
+    from pkgutil import get_data
 
-If this is not feasible (e.g. if the code is installed :ref:`using pip
-<android-requirements>`), then you can specify certain Python packages to extract at runtime
-using the `extractPackages` setting. For example::
+    # From any Python file directly within package1/:
+    readme_bytes = get_data(__name__, "subdir/README.txt")
+
+    # Or from elsewhere:
+    import package1
+    readme_bytes = get_data(package1.__name__, "subdir/README.txt")
+
+    # Then, to open it like a file:
+    import io
+    readme_file = io.StringIO(readme_bytes.decode())
+
+Alternatively, you can specify certain Python packages to extract at runtime using the
+`extractPackages` setting. For example::
 
     python {
-        extractPackages "somepackage", "some.subpackage"
+        extractPackages "package1"
     }
 
-Extracted packages will load slower and use more storage space, so you should specify the
+Then you can use :any:`__file__` in the normal way:
+
+.. code-block:: python
+
+    from os.path import dirname, join
+
+    # From any Python file directly within package1/:
+    readme_file = open(join(dirname(__file__), "subdir/README.txt"))
+
+    # Or from elsewhere:
+    import package1
+    readme_file = open(join(dirname(package1.__file__), "subdir/README.txt"))
+
+Extracted packages will load slower and use more storage space, so you should extract the
 deepest possible package which contains both the module on which `__file__` is looked up, and
 the files being loaded.
 
