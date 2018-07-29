@@ -28,9 +28,9 @@ public class Common {
     static {
         PYTHON_BUILD_NUMBERS.put("2.7.10", "2");
         PYTHON_BUILD_NUMBERS.put("2.7.14", "2");
-        PYTHON_BUILD_NUMBERS.put("2.7.15", "3");
+        PYTHON_BUILD_NUMBERS.put("2.7.15", "4");
         PYTHON_BUILD_NUMBERS.put("3.6.3", "3");
-        PYTHON_BUILD_NUMBERS.put("3.6.5", "4");
+        PYTHON_BUILD_NUMBERS.put("3.6.5", "5");
     }
 
     // This is trivial for Python 2, but for Python 3 it may contain flags from PEP 3149.
