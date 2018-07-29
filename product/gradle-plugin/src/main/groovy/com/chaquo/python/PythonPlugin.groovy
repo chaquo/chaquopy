@@ -704,6 +704,7 @@ class PythonPlugin implements Plugin<Project> {
 class PythonExtension extends BaseExtension {
     static final def DEFAULT_EXTRACT_PACKAGES = [
         "certifi",
+        "cv2.data",
         "matplotlib",       // Data (mostly fonts) is in a subdirectory "mpl-data", which is
                             // not a valid package name, We could add a patch to rename it and
                             // make this more specific, but it's probably not worth it because
