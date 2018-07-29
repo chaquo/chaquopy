@@ -1,0 +1,13 @@
+diff -ur src-original/configure src/configure
+--- src-original/configure	2017-12-14 04:39:05.000000000 +0000
++++ src/configure	2018-07-28 13:24:24.247915427 +0000
+@@ -12315,7 +12315,8 @@
+   need_lib_prefix=no
+   need_version=no
+   library_names_spec='$libname$release$shared_ext'
+-  soname_spec='$libname$release$shared_ext'
++  # Chaquopy: change SONAME to avoid clash with system copy of the library.
++  soname_spec='${libname}_chaquopy$shared_ext'
+   finish_cmds=
+   shlibpath_var=LD_LIBRARY_PATH
+   shlibpath_overrides_runpath=yes

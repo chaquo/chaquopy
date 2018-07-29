@@ -16,6 +16,7 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import textwrap
 
 import attr
 from elftools.elf.elffile import ELFFile
@@ -82,10 +83,16 @@ class BuildWheel:
             self.dist_info = (f"{normalize_name_wheel(self.package)}-"
                               f"{normalize_version(self.version)}.dist-info")
 
-            # For now we're assuming that non-PyPI packages don't require Python. If this ever
-            # changes, we can indicate it by adding "python" as a host requirement and changing
-            # build-wheel to handle that.
-            self.needs_python = (self.meta["source"] == "pypi")
+            self.needs_cmake = False
+            if "cmake" in self.meta["requirements"]["build"]:
+                self.meta["requirements"]["build"].remove("cmake")
+                self.needs_cmake = True
+
+            if "python" in self.meta["requirements"]["host"]:
+                self.meta["requirements"]["host"].remove("python")
+                self.needs_python = True
+            else:
+                self.needs_python = (self.meta["source"] == "pypi")
             if not self.needs_python:
                 self.compat_tag = f"py2.py3-none-{self.platform_tag}"
 
@@ -207,6 +214,11 @@ class BuildWheel:
         source = self.meta["source"]
         if not source:
             ensure_dir(src_dir)
+        elif "git_url" in source:
+            # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
+            # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
+            run(f"git clone -b {source['git_rev']} --depth 1 --recurse-submodules "
+                f"{source['git_url']} {src_dir}")
         else:
             source_filename = (self.download_pypi() if source == "pypi"
                                else self.download_url(source["url"]))
@@ -264,6 +276,11 @@ class BuildWheel:
                 run(f"patch -p1 -i {patches_dir}/{patch_filename}")
 
     def build_wheel(self):
+        os.environ.update({
+            "CHAQUOPY_ABI": self.abi,
+            "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
+            "CPU_COUNT": str(multiprocessing.cpu_count())  # Conda variable name.
+        })
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
@@ -294,10 +311,11 @@ class BuildWheel:
 
         # There is an extension to allow ZIP files to contain symlnks, but the zipfile module
         # doesn't support it, and the links wouldn't survive on Windows anyway. So our library
-        # wheels include external shared libraries only under their versioned SONAMEs, and we
-        # need to create links from the unversioned names so the compiler can find them.
+        # wheels include external shared libraries only under their SONAMEs, and we need to
+        # create links from the other names so the compiler can find them.
         SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
-                           (r"^(lib.*?)\d+\.so$", r"\1.so")]
+                           (r"^(lib.*?)\d+\.so$", r"\1.so"),
+                           (r"^(lib.*)_chaquopy\.so$", r"\1.so")]
         reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
         if exists(reqs_lib_dir):
             for filename in os.listdir(reqs_lib_dir):
@@ -309,10 +327,7 @@ class BuildWheel:
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(f"{prefix_dir}/chaquopy")
-        os.environ.update({  # Use CHAQUOPY prefix for variables not used by conda.
-            "CHAQUOPY_ABI": self.abi,
-            "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
-            "CPU_COUNT": str(multiprocessing.cpu_count()),
+        os.environ.update({  # Conda variable names, except those marked with CHAQUOPY_.
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": os.getcwd(),
             "PREFIX": f"{prefix_dir}/chaquopy",
@@ -341,16 +356,20 @@ class BuildWheel:
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
         # setuptools-aware setup.py files. We pass -v unconditionally, because we always want
         # to see the build process output.
+        #
+        # --no-clean doesn't currently work (https://github.com/pypa/pip/issues/5661). If this
+        # impedes debugging a build failure, you can temporarily disable the clean command by
+        # adding cmdclass={'clean': object} to setup().
         run(f"{self.pip} wheel -v --no-deps "
-            f"--no-clean --build-option --keep-temp "  # Makes diagnosing problems easier
+            f"--no-clean --build-option --keep-temp "  # Doesn't work: see above.
             f"-e .")
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)
 
     # The environment variables set in this function are used for native builds by
     # distutils.sysconfig.customize_compiler. To make builds as consistent as possible, we
-    # define values for all the overridable variables, but some are not overridable in Python
-    # 3.6 (e.g. OPT). We also define some common variables like LD and STRIP which aren't used
+    # define values for all environment variables used by distutils in any supported Python
+    # version. We also define some common variables like LD and STRIP which aren't used
     # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
@@ -416,6 +435,38 @@ class BuildWheel:
             log("Environment set as follows:\n" +
                 "\n".join(f"export {name}='{env[name]}'" for name in sorted(env.keys())))
         os.environ.update(env)
+
+        if self.needs_cmake:
+            self.generate_cmake_toolchain(toolchain_dir)
+
+    # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
+    # configure as much as possible via update_env.
+    def generate_cmake_toolchain(self, toolchain_dir):
+        CMAKE_PROCESSORS = {
+            "armeabi-v7a": "armv7-a",
+            "x86": "i686",
+        }
+
+        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
+        log(f"Generating {toolchain_filename}")
+        with open(toolchain_filename, "w") as toolchain_file:
+            print(textwrap.dedent(f"""\
+                set(ANDROID TRUE)
+                set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {toolchain_dir})
+
+                set(CMAKE_SYSTEM_NAME Android)
+                set(CMAKE_SYSTEM_VERSION {self.api_level})
+                set(CMAKE_SYSTEM_PROCESSOR {CMAKE_PROCESSORS[self.abi]})
+
+                # Our requirements dir comes before the sysroot, because the sysroot include
+                # directory contains headers for third-party libraries like libjpeg which may
+                # be of different versions to what we want to use.
+                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy {toolchain_dir}/sysroot)
+                set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+                set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+                """), file=toolchain_file)
 
     def get_toolchain(self, abi):
         toolchain_dir = f"{PYPI_DIR}/toolchains/{self.platform_tag}"

@@ -1,0 +1,24 @@
+# "Unofficial" PyPI releases in this repository use a sequence number as the Git tag, which is
+# also added as a fourth version number component on PyPI.
+
+package:
+  name: opencv-python
+  version: 3.4.2.16
+
+source:
+  # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43).
+  git_url: https://github.com/skvark/opencv-python.git
+  git_rev: 16
+
+build:
+  number: 2
+
+requirements:
+  build:
+    - cmake
+    - scikit-build 0.7.1
+  host:
+    - chaquopy-libpng 1.6.34
+    - chaquopy-libjpeg 1.5.3
+    - numpy 1.14.2
+    - python

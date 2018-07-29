@@ -25,9 +25,9 @@ class TestMatplotlib(unittest.TestCase):
         plt.savefig(bio, format="png")
         b = bio.getvalue()
 
-        # When this test was written, the above code produced a file of length 16782.
-        self.assertGreater(len(b), 10000)
-        self.assertLess(len(b), 20000)
+        EXPECTED_LEN = 16782
+        self.assertGreater(len(b), int(EXPECTED_LEN * 0.8))
+        self.assertLess(len(b), int(EXPECTED_LEN * 1.2))
 
         self.assertEqual(b"\x89PNG\r\n\x1a\n" +     # File header
                          b"\x00\x00\x00\rIHDR" +    # Header chunk header

@@ -1,0 +1,8 @@
+package:
+  name: Pillow
+  version: 5.2.0
+
+requirements:
+  host:
+    - chaquopy-libjpeg 1.5.3
+    # PNG support is internal: libpng is not used.

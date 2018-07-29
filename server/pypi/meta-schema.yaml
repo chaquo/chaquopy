@@ -1,3 +1,6 @@
+# A subset of conda syntax
+# (https://conda.io/docs/user-guide/tasks/build-packages/define-metadata.html).
+
 type: object
 required: [package]
 
@@ -20,9 +23,18 @@ properties:
       - type: string
         const: pypi
       - type: object
+        required: [url]
         properties:
           url:
             type: string
+        additionalProperties: false
+      - type: object
+        required: [git_url, git_rev]
+        properties:
+          git_url:
+            type: string
+          git_rev:
+            type: [string, number]
         additionalProperties: false
 
   build:
@@ -34,11 +46,21 @@ properties:
         default: 0
     additionalProperties: false
 
-  requirements:         # Each element must be in the form "<package> <version>".
+  # Normal requirements must be in the form `<package> <version>`. The following special
+  # requirement names are also recognized:
+  #
+  # * A `host` requirement of `python` indicates that this is a Python package. (This is
+  #   implied if `source` is `pypi` or unspecified.) Python includes and libraries will be
+  #   added to the CFLAGS and LDFLAGS, and the wheel build tag will be set accordingly.
+  #
+  # * A `build` requirement of `cmake` indicates that CMake is used in the build. A
+  #   `chaquopy.toolchain.cmake` file will be generated in the build directory for use with
+  #   `-DCMAKE_TOOLCHAIN_FILE`.
+  requirements:
     type: object
     default: {}
     properties:
-      build:            # pip requirements which must be installed in the build environment.
+      build:            # Requirements which must be installed in the build environment.
         type: array
         default: []
         items:

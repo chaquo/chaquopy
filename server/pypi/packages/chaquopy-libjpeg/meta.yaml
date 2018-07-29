@@ -1,0 +1,6 @@
+package:
+  name: chaquopy-libjpeg
+  version: 1.5.3
+
+source:
+  url: https://downloads.sourceforge.net/project/libjpeg-turbo/1.5.3/libjpeg-turbo-1.5.3.tar.gz

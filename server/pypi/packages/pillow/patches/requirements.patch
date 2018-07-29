@@ -1,0 +1,25 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-07-01 19:02:58.000000000 +0000
++++ src/setup.py	2018-07-28 15:26:06.995153492 +0000
+@@ -194,7 +194,7 @@
+     ]
+ 
+     def initialize_options(self):
+-        self.disable_platform_guessing = None
++        self.disable_platform_guessing = True  # Chaquopy: set to True
+         build_ext.initialize_options(self)
+         for x in self.feature:
+             setattr(self, 'disable_%s' % x, None)
+@@ -435,6 +435,12 @@
+                 _add_directory(include_dirs,
+                                os.path.join(best_path, 'include'))
+ 
++        # Chaquopy: added
++        sysroot_dir = os.path.abspath(os.path.join(os.path.dirname(os.environ["CC"]),
++                                                   "../sysroot/usr"))
++        _add_directory(library_dirs, os.path.join(sysroot_dir, "lib"))
++        _add_directory(include_dirs, os.path.join(sysroot_dir, "include"))
++
+         #
+         # insert new dirs *before* default libs, to avoid conflicts
+         # between Python PYD stub libs and real libraries
