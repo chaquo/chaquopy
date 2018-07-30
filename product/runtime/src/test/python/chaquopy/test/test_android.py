@@ -391,10 +391,14 @@ def asset_cache(*paths):
 class TestAndroidStdlib(unittest.TestCase):
 
     def test_ctypes(self):
+        import ctypes
         from ctypes.util import find_library
+
         self.assertEqual("libc.so", find_library("c"))
         self.assertEqual("liblog.so", find_library("log"))
         self.assertIsNone(find_library("nonexistent"))
+
+        self.assertTrue(ctypes.pythonapi.PyLong_FromString)
 
     def test_lib2to3(self):
         # Requires grammar files to be available in stdlib zip.
@@ -435,12 +439,26 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
 
     def test_sys(self):
+        if sys.version_info[0] < 3:
+            self.assertFalse(hasattr(sys, "abiflags"))
+        else:
+            self.assertEqual("m", sys.abiflags)
+
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
             self.assertIsInstance(p, str)
             self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
+
+    def test_sysconfig(self):
+        import distutils.sysconfig
+        import sysconfig
+        ldlibrary = "libpython{}.{}{}.so".format(
+            sys.version_info[0], sys.version_info[1],
+            "m" if (sys.version_info[0] >= 3) else "")
+        self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
+        self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
     def test_tempfile(self):
         import tempfile

@@ -19,12 +19,18 @@ def initialize(context, build_json, app_path):
 
 def initialize_stdlib(context):
     initialize_sys(context)
+    initialize_sysconfig(context)
     initialize_tempfile(context)
     initialize_ssl(context)
     initialize_ctypes(context)
 
 
 def initialize_sys(context):
+    import sysconfig
+
+    if sys.version_info[0] >= 3:
+        sys.abiflags = python_suffix()[len(sysconfig.get_python_version()):]
+
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
 
@@ -43,6 +49,24 @@ def initialize_sys(context):
                      if not (exists(p) or p.startswith(importer.ASSET_PREFIX))]
     for p in invalid_paths:
         sys.path.remove(p)
+
+
+def initialize_sysconfig(context):
+    # Put a few basic things in until the build process is fixed to generate this (#5160).
+    import sys
+    import _sysconfigdata
+    _sysconfigdata.build_time_vars.update({
+        "EXT_SUFFIX": ".so",
+        "LIBDIR": sys.prefix,
+        "LDLIBRARY": "libpython{}.so".format(python_suffix()),
+    })
+
+    if sys.version_info[0] >= 3:
+        # distutils.sysconfig expects this module to exist.
+        mod_name = '_sysconfigdata_{}_{}_{}'.format(
+            sys.abiflags, sys.platform,
+            getattr(sys.implementation, '_multiarch', ''))
+        sys.modules[mod_name] = _sysconfigdata
 
 
 def initialize_tempfile(context):
@@ -65,11 +89,12 @@ def initialize_ssl(context):
 
 
 def initialize_ctypes(context):
+    import ctypes.util
+
     # The standard implementation of find_library requires external tools, so will always fail
     # on Android. I can't see any easy way of finding the absolute library pathname ourselves
     # (there is no LD_LIBRARY_PATH on Android), but we can at least support the case where the
     # user passes the return value of find_library to CDLL().
-    import ctypes.util
     def find_library_override(name):
         filename = "lib{}.so".format(name)
         try:
@@ -78,5 +103,12 @@ def initialize_ctypes(context):
             return None
         else:
             return filename
-
     ctypes.util.find_library = find_library_override
+
+    ctypes.pythonapi = ctypes.PyDLL("libpython{}.so".format(python_suffix()))
+
+
+def python_suffix():
+    import sysconfig
+    from com.chaquo.python import Common
+    return Common.PYTHON_SUFFIXES.get(sysconfig.get_python_version())
