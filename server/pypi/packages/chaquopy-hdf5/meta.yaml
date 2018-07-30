@@ -1,0 +1,6 @@
+package:
+  name: chaquopy-hdf5
+  version: 1.10.2
+
+source:
+  url: https://github.com/live-clones/hdf5/archive/hdf5-1_10_2.tar.gz

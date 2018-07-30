@@ -1,0 +1,69 @@
+diff -ur src-original/configure src/configure
+--- src-original/configure	2018-05-04 21:37:14.000000000 +0000
++++ src/configure	2018-07-29 13:20:12.360734359 +0000
+@@ -6387,10 +6387,11 @@
+ 
+ _ACEOF
+         if test "$cross_compiling" = yes; then :
+-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+-as_fn_error $? "cannot run test program while cross compiling
+-See \`config.log' for more details" "$LINENO" 5; }
++  # Chaquopy: consistent with:
++  #   checking size of long double... 8 (on both ABIs)
++  #   checking size of __float128... 0 (16 on x86, but err on the side of caution)
++  LDBL_DIG=15
++  FLT_128_DIG=0
+ else
+   if ac_fn_c_try_run "$LINENO"; then :
+ 
+diff -ur src-original/src/Makefile.in src/src/Makefile.in
+--- src-original/src/Makefile.in	2018-05-04 21:37:14.000000000 +0000
++++ src/src/Makefile.in	2018-07-29 19:55:15.950999155 +0000
+@@ -1860,29 +1860,13 @@
+ help:
+ 	@$(top_srcdir)/bin/makehelp
+ 
+-# Number format detection
+-# The LD_LIBRARY_PATH setting is a kludge.
+-# Things should have been all set during H5detect making.
+-# Remove the generated .c file if errors occur unless HDF5_Make_Ignore
+-# is set to ignore the error.
++# Chaquopy: this file is created by build.sh.
+ H5Tinit.c: H5detect$(EXEEXT)
+-	LD_LIBRARY_PATH="$$LD_LIBRARY_PATH`echo $(LDFLAGS) |                  \
+-		sed -e 's/-L/:/g' -e 's/ //g'`"                               \
+-	$(RUNSERIAL) ./H5detect$(EXEEXT) > $@  ||                               \
+-	    (test $$HDF5_Make_Ignore && echo "*** Error ignored") ||          \
+-	    ($(RM) $@ ; exit 1)
++	touch -c $@
+ 
+-# Build configuration header file generation
+-# The LD_LIBRARY_PATH setting is a kludge.
+-# Things should have been all set during H5make_libsettings making.
+-# Remove the generated .c file if errors occur unless HDF5_Make_Ignore
+-# is set to ignore the error.
++# Chaquopy: this file is created by build.sh.
+ H5lib_settings.c: H5make_libsettings$(EXEEXT) libhdf5.settings
+-	LD_LIBRARY_PATH="$$LD_LIBRARY_PATH`echo $(LDFLAGS) |                  \
+-		sed -e 's/-L/:/g' -e 's/ //g'`"                               \
+-	$(RUNSERIAL) ./H5make_libsettings$(EXEEXT) > $@  ||                               \
+-	    (test $$HDF5_Make_Ignore && echo "*** Error ignored") ||          \
+-	    ($(RM) $@ ; exit 1)
++	touch -c $@
+ 
+ # Error header generation
+ #
+diff -ur src-original/tools/src/h5ls/h5ls.c src/tools/src/h5ls/h5ls.c
+--- src-original/tools/src/h5ls/h5ls.c	2018-05-04 21:37:14.000000000 +0000
++++ src/tools/src/h5ls/h5ls.c	2018-07-29 19:29:42.871977413 +0000
+@@ -17,6 +17,9 @@
+  */
+ 
+ 
++/* Chaquopy: added */
++#include <termios.h>
++
+ /*
+  * We include the private header file so we can get to the uniform
+  * programming environment it declares.  Other than that, h5ls only calls

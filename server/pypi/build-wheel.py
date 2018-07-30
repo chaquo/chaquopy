@@ -326,11 +326,11 @@ class BuildWheel:
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
-        ensure_empty(f"{prefix_dir}/chaquopy")
+        ensure_empty(prefix_dir)
         os.environ.update({  # Conda variable names, except those marked with CHAQUOPY_.
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": os.getcwd(),
-            "PREFIX": f"{prefix_dir}/chaquopy",
+            "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
         })
         run(build_script)
 
@@ -404,7 +404,8 @@ class BuildWheel:
 
         # Not including -pie despite recommendation in standalone toolchain docs, because it
         # causes the linker to forget it's supposed to be building a shared library
-        # (https://lists.debian.org/debian-devel/2016/05/msg00302.html)
+        # (https://lists.debian.org/debian-devel/2016/05/msg00302.html). It can be added
+        # manually for packages which require it (e.g. hdf5).
         env["LDFLAGS"] = " ".join([
             # Catch attempts to use missing libc symbols on old API levels. I tried catching
             # this earlier by adding -Werror=implicit-function-declaration to CFLAGS, but that
@@ -523,6 +524,11 @@ class BuildWheel:
                                     "Tag": expand_compat_tag(self.compat_tag)})
         write_message(info_wheel, f"{info_dir}/WHEEL")
 
+        available_libs = set(STANDARD_LIBS)
+        for libs_dir in [f"{self.reqs_dir}/chaquopy/lib", f"{tmp_dir}/chaquopy/lib"]:
+            if exists(libs_dir):
+                available_libs.update(os.listdir(libs_dir))
+
         reqs = set()
         if not is_pure:
             log("Processing native libraries")
@@ -536,7 +542,7 @@ class BuildWheel:
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
                     if fixed_path.endswith(".so"):
-                        reqs.update(self.check_requirements(fixed_path))
+                        reqs.update(self.check_requirements(fixed_path, available_libs))
 
                     # https://www.technovelty.org/linux/stripping-shared-libraries.html
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
@@ -602,18 +608,12 @@ class BuildWheel:
                 self.compat_tag]),
             in_dir)
 
-    def check_requirements(self, filename):
+    def check_requirements(self, filename, available_libs):
         reqs = []
         ef = ELFFile(open(filename, "rb"))
         dynamic = ef.get_section_by_name(".dynamic")
         if not dynamic:
             raise CommandError(f"{filename} has no .dynamic section")
-
-        available_libs = set(STANDARD_LIBS)
-        reqs_libs_dir = f"{self.reqs_dir}/chaquopy/lib"
-        if exists(reqs_libs_dir):
-            available_libs.update(os.listdir(reqs_libs_dir))
-
         for tag in dynamic.iter_tags():
             if tag.entry.d_tag == "DT_NEEDED":
                 req = COMPILER_LIBS.get(tag.needed)
