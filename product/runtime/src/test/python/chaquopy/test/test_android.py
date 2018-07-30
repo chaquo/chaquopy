@@ -10,6 +10,7 @@ from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
+import pkgutil
 import re
 import shlex
 from subprocess import check_output
@@ -242,12 +243,14 @@ class TestAndroidImport(unittest.TestCase):
         cacert_filename = join(certifi_dir, "cacert.pem")
         self.assertTrue(isfile(cacert_filename))
 
-        leftover_filename = join(certifi_dir, "leftover.txt")
-        with open(leftover_filename, "w"):
-            pass
-        self.assertTrue(exists(leftover_filename))
+        test_filename = join(certifi_dir, "test.txt")
+        TEST_BYTES = b"File not in source ZIP"
+        with open(test_filename, "wb") as test_file:
+            test_file.write(TEST_BYTES)
+        self.assertTrue(exists(test_filename))
+        self.assertEqual(TEST_BYTES, pkgutil.get_data(certifi.__name__, "test.txt"))
         self.check_extract_if_changed(certifi, cacert_filename)
-        self.assertFalse(exists(leftover_filename))
+        self.assertFalse(exists(test_filename))
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)

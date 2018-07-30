@@ -294,6 +294,10 @@ class AssetLoader(object):
     # IOError became an alias for OSError in Python 3.4, and the get_data specification was
     # changed accordingly.
     def get_data(self, path):
+        if exists(path):  # extractPackages is in effect.
+            with open(path, "rb") as f:
+                return f.read()
+
         match = re.search(r"^{}/(.+)$".format(self.finder.archive), path)
         if not match:
             raise IOError("{} can't access '{}'".format(self.finder, path))
