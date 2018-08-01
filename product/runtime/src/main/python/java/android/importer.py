@@ -402,13 +402,25 @@ class ExtensionFileLoader(AssetLoader):
     needed = {}
 
     def load_module_impl(self):
-        out_filename = self.extract_if_changed(self.zip_info)
+        out_filename = self.extract_so()
         with self.needed_lock:
             self.load_needed(out_filename)
         # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
         mod = imp.load_dynamic(self.mod_name, out_filename)
         sys.modules[self.mod_name] = mod
         self.set_mod_attrs(mod)
+
+    # In API level 22 and older, when asked to load a library with the same basename as one
+    # already loaded, the dynamic linker will return the existing library. Work around this by
+    # loading through a uniquely-named symlink.
+    def extract_so(self):
+        filename = self.extract_if_changed(self.zip_info)
+        linkname = join(dirname(filename), self.mod_name + ".so")
+        if linkname != filename:
+            if exists(linkname):
+                os.remove(linkname)
+            os.symlink(filename, linkname)
+        return linkname
 
     # Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
     # directories, so we need to load them manually in dependency order (#5323).
