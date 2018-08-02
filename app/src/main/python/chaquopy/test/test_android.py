@@ -10,6 +10,7 @@ from importlib import import_module
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
+import pkgutil
 import re
 import shlex
 from subprocess import check_output
@@ -81,7 +82,7 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(2, mod.foo)
         self.assertFalse(hasattr(mod, "escape"))
 
-        # A .pyc with mismatching header should be written again.
+        # A .pyc with mismatching header timestamp should be written again.
         new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
         self.write_pyc_header(cache_filename, new_header)
         with self.set_mode(cache_filename, "444"):
@@ -102,16 +103,16 @@ class TestAndroidImport(unittest.TestCase):
     def test_so(self):
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.so"
-        cache_filename = asset_cache(REQS_ABI_ZIP, filename)
         mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
-
         mod.foo = 1
         delattr(mod, "escape")
         reload(mod)
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
+        self.check_extract_if_changed(mod, asset_cache(REQS_ABI_ZIP, filename))
 
-        # A valid file should not be extracted again.
+    def check_extract_if_changed(self, mod, cache_filename):
+        # An unchanged file should not be extracted again.
         with self.set_mode(cache_filename, "444"):
             mod = self.clean_reload(mod)
 
@@ -238,7 +239,18 @@ class TestAndroidImport(unittest.TestCase):
         self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
 
         import certifi
-        self.assertTrue(isfile(join(dirname(certifi.__file__), "cacert.pem")))
+        certifi_dir = dirname(certifi.__file__)
+        cacert_filename = join(certifi_dir, "cacert.pem")
+        self.assertTrue(isfile(cacert_filename))
+
+        test_filename = join(certifi_dir, "test.txt")
+        TEST_BYTES = b"File not in source ZIP"
+        with open(test_filename, "wb") as test_file:
+            test_file.write(TEST_BYTES)
+        self.assertTrue(exists(test_filename))
+        self.assertEqual(TEST_BYTES, pkgutil.get_data(certifi.__name__, "test.txt"))
+        self.check_extract_if_changed(certifi, cacert_filename)
+        self.assertFalse(exists(test_filename))
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
@@ -382,10 +394,14 @@ def asset_cache(*paths):
 class TestAndroidStdlib(unittest.TestCase):
 
     def test_ctypes(self):
+        import ctypes
         from ctypes.util import find_library
+
         self.assertEqual("libc.so", find_library("c"))
         self.assertEqual("liblog.so", find_library("log"))
         self.assertIsNone(find_library("nonexistent"))
+
+        self.assertTrue(ctypes.pythonapi.PyLong_FromString)
 
     def test_lib2to3(self):
         # Requires grammar files to be available in stdlib zip.
@@ -426,12 +442,26 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
 
     def test_sys(self):
+        if sys.version_info[0] < 3:
+            self.assertFalse(hasattr(sys, "abiflags"))
+        else:
+            self.assertEqual("m", sys.abiflags)
+
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
             self.assertIsInstance(p, str)
             self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
+
+    def test_sysconfig(self):
+        import distutils.sysconfig
+        import sysconfig
+        ldlibrary = "libpython{}.{}{}.so".format(
+            sys.version_info[0], sys.version_info[1],
+            "m" if (sys.version_info[0] >= 3) else "")
+        self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
+        self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
     def test_tempfile(self):
         import tempfile

@@ -9,7 +9,7 @@ buildscript {
 
         // Newer versions may be available: please check here:
         // https://chaquo.com/chaquopy/doc/current/changelog.html
-        classpath "com.chaquo.python:gradle:3.3.0"
+        classpath "com.chaquo.python:gradle:3.3.2"
     }
 }
 
