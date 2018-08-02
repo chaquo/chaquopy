@@ -56,7 +56,7 @@ echo "done"
 echo -n "hello: "
 cd "$private_root/../public/hello"
 git checkout master
-git reset --mixed as-3.1.3
+git reset --mixed empty-activity
 update_version build.gradle
 git add app/build.gradle app/src/main/AndroidManifest.xml app/src/main/python/hello.py build.gradle
 git rm app/src/main/java/com/chaquo/python/hello/MainActivity.java

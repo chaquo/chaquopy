@@ -1,6 +1,20 @@
 Change log
 ##########
 
+3.3.2 (2018-08-01)
+==================
+
+* Fix pip issues involving packages with optional native components (e.g. `websockets
+  <https://pypi.org/project/websockets/>`_).
+* Work around inability of Android dynamic linker on API 22 and older to load multiple modules
+  with the same basename (`details here <https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md#correct-sonamepath-handling-available-in-api-level--23>`_).
+* Fix :any:`ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
+  :any:`sysconfig.get_config_vars`.
+* Fix native crash in `lrintf` / `feholdexcept` / `fegetenv` (Crystax issue `#1369
+  <https://tracker.crystax.net/issues/1369>`_).
+* Fix :any:`pkgutil.get_data` when used with :ref:`extractPackages <extractPackages>`, and
+  improve extractPackages performance.
+
 ..
    3.3.1 was a non-public release for Electron Cash.
 

@@ -107,3 +107,6 @@ Update any GitHub issues.
 
 Email any affected users, including anyone who commented or gave a thumbs up to a related
 issue.
+
+See the notes at the bottom of pypi/README.md if there are any packages whose announcement has
+been postponed until this release.

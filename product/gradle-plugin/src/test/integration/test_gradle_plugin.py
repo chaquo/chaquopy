@@ -108,7 +108,8 @@ class ChaquopyPlugin(GradleTestCase):
     # rather than the target platform.
     @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
     def test_upgrade_3_2_1(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", requirements=[])
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", requirements=[],
+                             extract_packages=None)
         run.apply_layers("ChaquopyPlugin/upgrade_current")
         run.rerun(requirements=["six.py"])
 
@@ -1059,8 +1060,9 @@ class RunGradle(object):
             build_json = json.load(build_json_file)
         self.test.assertEqual(["assets", "extractPackages", "version"], sorted(build_json))
         self.test.assertEqual(version, build_json["version"])
-        self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
-                              sorted(build_json["extractPackages"]))
+        if extract_packages is not None:
+            self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
+                                  sorted(build_json["extractPackages"]))
         asset_list = []
         for dirpath, dirnames, filenames in os.walk(asset_dir):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")

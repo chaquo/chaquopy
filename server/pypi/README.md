@@ -76,8 +76,10 @@ Once everything's working, move the wheels to the public package repository.
 If this package was blocking others, retry those packages, and do the checks described at
 #5455 (comment #8) in case any new issues have been exposed.
 
-Update any GitHub issues.
+If the package depended on extractPackages or other changes in the development version,
+postpone the remaining steps until that version is released:
 
-Email any affected users, including anyone who commented or gave a thumbs up to a related
-issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
-potential users in the future.
+* Update any GitHub issues.
+* Email any affected users, including anyone who commented or gave a thumbs up to a related
+  issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
+  potential users in the future.

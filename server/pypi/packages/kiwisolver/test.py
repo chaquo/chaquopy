@@ -5,6 +5,6 @@ import unittest
 
 class TestKiwisolver(unittest.TestCase):
 
-    # Minimal import test
+    # Minimal import test: we only added this package because it's a dependency of matplotlib.
     def test_basic(self):
         import kiwisolver  # noqa: F401

@@ -322,6 +322,8 @@ to disable it during development. The default settings are as follows::
         }
     }
 
+.. _extractPackages:
+
 Resource files
 --------------
 
