@@ -1,0 +1,87 @@
+[submodule "target/crystax/platform/ndk"]
+	path = target/crystax/platform/ndk
+	url = gitolite@chaquo.com:crystax-platform-ndk
+	branch = crystax-r10
+[submodule "target/crystax/platform/bionic"]
+	path = target/crystax/platform/bionic
+	url = https://github.com/crystax/android-platform-bionic.git
+	branch = crystax-r10
+[submodule "target/crystax/platform/development"]
+	path = target/crystax/platform/development
+	url = gitolite@chaquo.com:crystax-platform-development
+	branch = crystax-r10
+[submodule "target/crystax/platform/system/core"]
+	path = target/crystax/platform/system/core
+	url = https://github.com/crystax/android-platform-system-core.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/binutils"]
+	path = target/crystax/toolchain/binutils
+	url = https://github.com/crystax/android-toolchain-binutils.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/build"]
+	path = target/crystax/toolchain/build
+	url = gitolite@chaquo.com:crystax-toolchain-build
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/cloog"]
+	path = target/crystax/toolchain/cloog
+	url = https://github.com/crystax/android-toolchain-cloog.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/gcc/gcc-4.9"]
+	path = target/crystax/toolchain/gcc/gcc-4.9
+	url = gitolite@chaquo.com:crystax-toolchain-gcc-4-9
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/gdb/gdb-7.10"]
+	path = target/crystax/toolchain/gdb/gdb-7.10
+	url = https://github.com/crystax/android-toolchain-gdb-7-10.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/gmp"]
+	path = target/crystax/toolchain/gmp
+	url = https://github.com/crystax/android-toolchain-gmp.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/isl"]
+	path = target/crystax/toolchain/isl
+	url = https://github.com/crystax/android-toolchain-isl.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/llvm-3.6/compiler-rt"]
+	path = target/crystax/toolchain/llvm-3.6/compiler-rt
+	url = https://github.com/crystax/android-toolchain-compiler-rt-3-6.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/mpc"]
+	path = target/crystax/toolchain/mpc
+	url = https://github.com/crystax/android-toolchain-mpc.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/mpfr"]
+	path = target/crystax/toolchain/mpfr
+	url = https://github.com/crystax/android-toolchain-mpfr.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/ppl"]
+	path = target/crystax/toolchain/ppl
+	url = https://github.com/crystax/android-toolchain-ppl.git
+	branch = crystax-r10
+[submodule "target/crystax/toolchain/sed"]
+	path = target/crystax/toolchain/sed
+	url = https://github.com/crystax/android-toolchain-sed.git
+	branch = crystax-r10
+[submodule "target/crystax/vendor/dlmalloc"]
+	path = target/crystax/vendor/dlmalloc
+	url = https://github.com/crystax/android-vendor-dlmalloc.git
+	branch = crystax-r10
+[submodule "target/crystax/vendor/freebsd"]
+	path = target/crystax/vendor/freebsd
+	url = https://github.com/crystax/android-vendor-freebsd.git
+	branch = crystax-r10
+[submodule "target/crystax/vendor/libkqueue"]
+	path = target/crystax/vendor/libkqueue
+	url = https://github.com/crystax/android-vendor-libkqueue.git
+	branch = crystax-r10
+[submodule "target/crystax/vendor/libpwq"]
+	path = target/crystax/vendor/libpwq
+	url = https://github.com/crystax/android-vendor-libpwq.git
+	branch = crystax-r10
+[submodule "target/python"]
+	path = target/python
+	url = https://github.com/python/cpython.git
+	branch = 3.6
+[submodule "target/openssl"]
+	path = target/openssl
+	url = https://github.com/openssl/openssl.git
