@@ -3,7 +3,7 @@ set -e
 
 private_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$private_root"
-usage="Usage: update_public.sh OLD_VER NEW_VER"
+usage="Usage: release_public.sh OLD_VER NEW_VER"
 old_ver=${1:?"$usage"}
 new_ver=${2:?"$usage"}
 

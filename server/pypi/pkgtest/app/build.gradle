@@ -16,16 +16,27 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
-        // Enable this for testing, but don't commit it.
-        // Once a package is ready to be released, remember to move it to the public repository!
-        // python.pip.options "--extra-index-url", "https://chaquo.com/pypi-test/"
+        // To test only some packages, replace `null` with a list.
+        def PACKAGES = null
+        addPackages(delegate, include: PACKAGES)
+        python {
+            pip {
+                // After a package is tested, remember to move it to the public repository!
+                options "--extra-index-url", "https://chaquo.com/pypi-test/"
+                if (PACKAGES == null  ||  "grpcio" in PACKAGES) {
+                    // Required by grpcio tests.
+                    install "protobuf"
+                    install "futures; python_version < '3.2'"
+                }
+            }
+        }
 
         ndk {
             abiFilters Common.ABIS.toArray()
         }
     }
 
-    flavorDimensions "pyVersion", "packages"
+    flavorDimensions "pyVersion"
     productFlavors {
         // Allow temporary single-version testing just by editing Common.java.
         if (Common.PYTHON_VERSIONS.contains("2.7.15")) {
@@ -42,23 +53,6 @@ android {
                 dimension "pyVersion"
                 applicationId "com.chaquo.python.pkgtest3"
                 python { version "3.6.5" }
-            }
-        }
-
-        nothing {
-            dimension "packages"
-        }
-
-        everything {  // Can't call a flavor "all" (https://stackoverflow.com/a/30236690).
-            dimension "packages"
-            def PACKAGES = []
-            addPackages(delegate, include: PACKAGES)
-            if ("grpcio" in PACKAGES) {
-                python.pip {
-                    // Required by grpcio tests.
-                    install "protobuf"
-                    install "futures; python_version < '3.2'"
-                }
             }
         }
     }
@@ -88,8 +82,9 @@ android {
 
 def addPackages(Map kwargs, flavor) {
     def inputDir = "../../packages"
-    List packages = kwargs.getOrDefault("include", [])
-    if (packages.isEmpty()) {
+    List packages = kwargs.getOrDefault("include", null)
+    if (packages == null) {
+        packages = []
         for (f in file(inputDir).listFiles()) {
             if (f.isDirectory()) {
                 packages.add(f.name)

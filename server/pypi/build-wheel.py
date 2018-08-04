@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+#
+# This script requires Python 3.6 or later, and the requirements listed in requirements.txt.
 
 import argparse
 from copy import deepcopy

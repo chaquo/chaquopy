@@ -1,15 +1,12 @@
-# build-wheel.py requires Python 3.6, but it may also run other versions of Python to match the
-# target Python version.
+# build-wheel.py requires Python 3.6 or later, and the requirements listed below.
+#
+# build-wheel.py performs Python package builds by launching a Python subprocess of the version
+# specified by its --python argument. That version must have pip, setuptools and wheel
+# available (these are all installed by default in a new virtualenv).
 
-# The following requirements must all be present for build-wheel.py itself:
 attrs==17.2.0
 jinja2==2.10
 jsonschema==2.6.0
 pyelftools==0.24
 pyyaml==3.12
-
-# Additionally, the following requirements must be present in the host Python environment
-# corresponding to the target Python version:
-pip==10.0.1
-setuptools==37.0.0
-wheel==0.30.0   # We use undocumented internal APIs
+wheel==0.30.0
