@@ -1,4 +1,3 @@
-import hashlib
 from types import ModuleType
 
 
@@ -88,3 +87,59 @@ cdef resolve_name(name, globals, level):
 
 ASSET_PREFIX = "/android_asset"
 
+class AssetFile(object):
+    # Raises InvalidAssetPathError if the path is not an asset path, or IOException if the
+    # asset does not exist.
+    def __init__(self, context, path):
+        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
+        if not match:
+            raise InvalidAssetPathError("not an {} path: '{}'".format(ASSET_PREFIX, path))
+        self.name = path
+        self.stream = AssetFile_get_stream(context, match.group(1))
+        self.stream.mark(2**31 - 1)
+        self.offset = 0
+        self.length = self.stream.available()
+
+    def read(self, size=None):
+        if size is None:
+            size = self.stream.available()
+        array = jarray("B")(size)
+        read_len = self.stream.read(array)
+        if read_len == -1:
+            return b""
+        self.offset += read_len
+        return array.__bytes__(0, read_len)
+
+    def seek(self, offset, whence=os.SEEK_SET):
+        if whence == os.SEEK_SET:
+            pass
+        elif whence == os.SEEK_CUR:
+            offset = self.offset + offset
+        elif whence == os.SEEK_END:
+            offset = self.length + offset
+        else:
+            raise ValueError("unsupported whence: {}".format(whence))
+
+        self.stream.reset()
+        self.stream.skip(offset)
+        self.offset = offset
+        return offset   # Required in Python 3: Python 2 returns None.
+
+    def tell(self):
+        return self.offset
+
+    def close(self):
+        self.stream.close()
+        self.stream = None
+
+
+IF CHAQUOPY_LICENSE_MODE not in ["ec"]:
+    # Can't use the import statment in this function, or infinite recursion will happen during
+    # importer initialization.
+    def AssetFile_get_stream(context, s):
+        AssetManager = jclass("android.content.res.AssetManager")
+        return context.getAssets().open(s, AssetManager.ACCESS_RANDOM)
+
+
+class InvalidAssetPathError(ValueError):
+    pass

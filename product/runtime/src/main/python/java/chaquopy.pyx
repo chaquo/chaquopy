@@ -84,10 +84,14 @@ include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
 
-IF LICENSED_ID:
-    include "license_free.pxi"
-ELSE:
+IF CHAQUOPY_LICENSE_MODE == "":
     include "license.pxi"
+ELIF CHAQUOPY_LICENSE_MODE == "free":
+    include "license_free.pxi"
+ELIF CHAQUOPY_LICENSE_MODE == "ec":
+    include "license_ec.pxi"
+ELSE:
+    include "unknown_license_mode.pxi"
 
 def chaquopy_init():
     if "CHAQUOPY_PROCESS_TYPE" not in os.environ:  # See chaquopy_java.pyx
