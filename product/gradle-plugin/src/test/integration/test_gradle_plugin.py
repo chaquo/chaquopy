@@ -7,7 +7,6 @@ import json
 import os
 from os.path import abspath, dirname, join, relpath
 import re
-import shutil
 import subprocess
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
@@ -15,18 +14,10 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 import javaproperties
 from kwonly_args import kwonly_defaults
-import rsa
 
 
 integration_dir = abspath(dirname(__file__))
 repo_root = abspath(join(integration_dir, "../../../../.."))
-
-sys.path.append(join(repo_root, "server/license"))
-from check_ticket import check_ticket  # noqa: E402
-
-
-with open(join(repo_root, "server/license/public.pem")) as pub_key_file:
-    pub_key = rsa.PublicKey.load_pkcs1(pub_key_file.read(), "PEM")
 
 
 class GradleTestCase(TestCase):
@@ -796,71 +787,6 @@ class StaticProxy3(StaticProxy, BuildPython3):
 del StaticProxy
 
 
-class License(GradleTestCase):
-    def test_app_key(self):
-        DEMO_KEY = "BBfoCXBWFxWgyFaO8ATfwievD0WqRKCPiz1WgCzhifWV"
-        DEMO3_KEY = "BNzb-z7UV1drJRdiO-6OVvrcUUPRYp7WL7n_Lzp-0vbz"
-
-        run = self.RunGradle("base", "License/demo")
-
-        run.apply_key(DEMO_KEY)
-        run.rerun(licensed_id="com.chaquo.python.demo")
-
-        run.apply_key(DEMO3_KEY)
-        run.rerun(succeed=False)
-        self.assertInLong("Chaquopy license verification failed", run.stderr)
-
-        run.apply_layers("License/demo3")
-        run.rerun(licensed_id="com.chaquo.python.demo3")
-
-        # Before 2.0.0, a single-app license was indicated by an empty key, but that is now
-        # interpreted as meaning "no license".
-        run.apply_key("")
-        run.rerun(licensed_id=None)
-
-        run.apply_key(None)
-        run.rerun(licensed_id=None)
-
-    def test_standard_key(self):
-        run = self.RunGradle("base")
-
-        run.apply_key("invalid")
-        run.rerun(succeed=False)
-        self.assertInLong("Chaquopy license verification failed", run.stderr)
-
-        run.apply_key("AU5-6D8smj5fE6b53i9P7czOLV1L4Gf8W1L6RB_qkOQr")
-        run.rerun(licensed_id="com.chaquo.python.test")
-
-        run.apply_key(None)
-        run.rerun(licensed_id=None)
-
-    def test_stolen_ticket(self):
-        with self.assertRaisesRegex(AssertionError,
-                                    "ValueError: License is for 'com.chaquo.python.demo', "
-                                    "but this app is 'com.chaquo.python.test'"):
-            self.RunGradle("base", licensed_id="com.chaquo.python.test",
-                           bad_ticket=join(integration_dir,
-                                           "data/License/tickets/demo.txt"))
-
-    def test_invalid_ticket(self):
-        with self.assertRaisesRegex(AssertionError, "VerificationError: Verification failed"):
-            self.RunGradle("base", licensed_id="com.chaquo.python.test",
-                           bad_ticket=join(integration_dir,
-                                           "data/License/tickets/invalid.txt"))
-
-    def pre_check(self, apk_zip, apk_dir, kwargs):
-        bad_ticket = kwargs.get("bad_ticket")
-        if bad_ticket:
-            asset_dir = join(apk_dir, "assets/chaquopy")
-            shutil.copy(bad_ticket, join(asset_dir, "ticket.txt"))
-            build_json_filename = join(asset_dir, "build.json")
-            with open(build_json_filename) as build_json_file:
-                build_json = json.load(build_json_file)
-            build_json["assets"]["ticket.txt"] = asset_hash(bad_ticket)
-            with open(build_json_filename, "w") as build_json_file:
-                json.dump(build_json, build_json_file)
-
-
 class RunGradle(object):
     @kwonly_defaults
     def __init__(self, test, run=True, key=None, *layers, **kwargs):
@@ -1075,6 +1001,14 @@ class RunGradle(object):
         # Licensing
         ticket_filename = join(asset_dir, "ticket.txt")
         if licensed_id:
+            license_dir = join(repo_root, "server/license")
+            if license_dir not in sys.path:
+                sys.path.append(license_dir)
+            from check_ticket import check_ticket
+
+            with open(join(repo_root, "server/license/public.pem")) as pub_key_file:
+                import rsa
+                pub_key = rsa.PublicKey.load_pkcs1(pub_key_file.read(), "PEM")
             with open(ticket_filename) as ticket_file:
                 check_ticket(ticket_file.read(), pub_key, licensed_id)
         else:
