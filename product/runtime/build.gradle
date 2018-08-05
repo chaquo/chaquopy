@@ -32,25 +32,6 @@ task("zipPython", type: Zip, group: "build") {
 artifacts { chaquopyPython zipPython }
 
 
-/* My attempts to use Cygwin were not successful (see commit message of 2017-04-20), so there are two
-options for working on Windows:
-
-Use the official Python Windows build, in which case you must use the appropriate Microsoft compiler
-(https://wiki.python.org/moin/WindowsCompilers), because:
-* Native modules must be linked against a C library compatible with the one the Python interpreter
-  uses (https://bugs.python.org/issue4709#msg243605).
-* The supplied C headers depend on _MSC_VER and possibly other #defines not set by any other
-  compiler.
-
-Or (as this file currently does) use MSYS2, making sure to also use their Pacman packages of pip and
-setuptools and never install them from PyPI, because the standard versions assume that if you're on
-Windows you must be using the Microsoft compiler. For the MSYS2 compiler to be found by cmake,
-msys64/mingw64/bin should be on the PATH.
-
-In both cases, interactive use of Python requires either using a Windows console window, or the
-winpty program in mintty. And for the Python and Cython executables to be found by their Gradle
-tasks, their directories must be on the PATH. */
-
 // The following properties file should be created manually. It's also used in
 // test_gradle_plugin.py.
 String getLocalProperty(String key, String defaultValue = null) {
@@ -69,6 +50,10 @@ def crystaxDir = getLocalProperty('crystax.dir')
 def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
 def javaHome = System.getenv("JAVA_HOME")
+if (javaHome == null) {
+    throw new GradleException("Set the environment variable JAVA_HOME to a JDK location")
+}
+
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def mingwDir = windowsHost ? getLocalProperty('mingw.dir') : null
@@ -238,8 +223,9 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                     args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
                                                  "$javaHome/include;$javaHome/include/win32"
                 } else {
-                    // TODO #5184 untested
-                    args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion"
+                    // TODO #5482: support Mac
+                    args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion;" +
+                                                 "$javaHome/include;$javaHome/include/linux"
                 }
             } else {
                 def pyDir = "$crystaxDir/sources/python/$pyVersion"
@@ -290,11 +276,14 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             def testCommonConfig = {
                 dependsOn setupPythonPath, compileTestJava
                 environment "CLASSPATH", sourceSets.test.runtimeClasspath.asPath
-                // TODO #5184: PATH would be LD_LIBRARY_PATH on Linux. Can't use -Djava.library.path
-                // because we need something which also works for Python processes.
-                environment "PATH", "$cmakeBuildSubdir${File.pathSeparator}${System.getenv("PATH")}"
+
+                // Can't use -Djava.library.path because we need something which also works
+                // for Python processes.
+                def pathVar = windowsHost ? "PATH" : "LD_LIBRARY_PATH"
+                environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
+                                      System.getenv(pathVar))
                 environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
-                environment "PYTHONPATH", "$mainPythonDir${File.pathSeparator}$testPythonDir"
+                environment "PYTHONPATH", mainPythonDir + File.pathSeparator + testPythonDir
             }
 
             // For consistency with Android demo app, run via test suite rather than using
@@ -318,6 +307,17 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
             test.exclude "**"  // Disable the default test task
             def testJavaVer = task("testJava-$pyVersion", type: Test, group: "verification") {
                 outputs.upToDateWhen { false }
+                if (!windowsHost) {
+                    // libchaquopy_java.so is linked against libpython, but that doesn't add
+                    // the libpython symbols to the global scope, which is required in order to
+                    // load native modules like ctypes. Loading libpython with
+                    // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
+                    // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
+                    // the proper solution, but let's do it the easy way for now.
+                    //
+                    // TODO #5482: support Mac
+                    environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
+                }
                 testClassesDirs = sourceSets.test.output.classesDirs
                 scanForTestClasses = false
                 include "**/TestSuite.class"

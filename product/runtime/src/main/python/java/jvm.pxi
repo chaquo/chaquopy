@@ -93,11 +93,11 @@ cdef jvm_lib_path():
     else:
         jre_home = java_home
 
-    if sys.platform.startswith("darwin"):  # TODO #5184 untested
+    if sys.platform.startswith("darwin"):  # TODO #5482: untested
         return f"{jre_home}/lib/server/libjvm.dylib"
     elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
         return f"{jre_home}/bin/server/jvm.dll"
-    else:  # Probably Linux (TODO #5184 untested)
+    else:  # Assume Linux
         machine2cpu = {
             "amd64": "amd64",
             "x86_64": "amd64",
@@ -107,7 +107,7 @@ cdef jvm_lib_path():
             "i686": "i386",
             "x86": "i386",
         }
-        return f"{jre_home}lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
+        return f"{jre_home}/lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
 
 
 cpdef detach():
