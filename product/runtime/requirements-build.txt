@@ -1,3 +1,2 @@
-# Use fixed version numbers so old builds can be reproduced.
 Cython==0.28.3
 Sphinx==1.6.1
