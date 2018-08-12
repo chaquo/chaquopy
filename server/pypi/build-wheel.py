@@ -573,7 +573,7 @@ class BuildWheel:
     # identical content.
     def compare_wheels(self, wheels):
         log("Comparing wheels")
-        tmp_dir = ensure_empty(f"{self.version_dir}/compare_wheels")
+        tmp_dir = ensure_empty(f"{self.version_dir}/compare_{self.abi}")
         record_filename = f"{self.dist_info}/RECORD"
         wheel_data = []
         for wheel in wheels:

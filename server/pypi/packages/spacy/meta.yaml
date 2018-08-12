@@ -1,0 +1,10 @@
+package:
+  name: spacy
+  version: 2.0.12
+
+build:
+  number: 3
+
+requirements:
+  host:
+    - numpy 1.14.2

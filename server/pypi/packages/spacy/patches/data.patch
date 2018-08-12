@@ -1,0 +1,64 @@
+diff -ur src-original/spacy/cli/validate.py src/spacy/cli/validate.py
+--- src-original/spacy/cli/validate.py  2018-07-21 13:34:38.000000000 +0000
++++ src/spacy/cli/validate.py   2018-08-12 19:38:13.103433538 +0000
+@@ -1,7 +1,6 @@
+ # coding: utf8
+ from __future__ import unicode_literals, print_function
+
+-import pkg_resources
+ from pathlib import Path
+ import sys
+ import ujson
+@@ -83,7 +82,7 @@
+
+ def get_model_pkgs(compat, all_models):
+     pkgs = {}
+-    for pkg_name, pkg_data in pkg_resources.working_set.by_key.items():
++    for pkg_name, pkg_data in []:  # Chaquopy: removed pkg_resources: see util.py.
+         package = pkg_name.replace('-', '_')
+         if package in all_models:
+             version = pkg_data.version
+diff -ur src-original/spacy/util.py src/spacy/util.py
+--- src-original/spacy/util.py  2018-07-21 13:58:06.000000000 +0000
++++ src/spacy/util.py   2018-08-12 19:36:00.360936254 +0000
+@@ -3,7 +3,6 @@
+
+ import os
+ import ujson
+-import pkg_resources
+ import importlib
+ import regex as re
+ from pathlib import Path
+@@ -29,7 +28,12 @@
+
+
+ LANGUAGES = {}
+-_data_path = Path(__file__).parent / 'data'
++
++# Chaquopy: look up __file__ on spacy/data/__init__.py rather than spacy/util.py, so spacy/
++# doesn't all have to be extracted.
++from . import data
++_data_path = Path(data.__file__).parent
++
+ _PRINT_ENV = False
+
+
+@@ -198,12 +202,12 @@
+     name (unicode): Name of package.
+     RETURNS (bool): True if installed package, False if not.
+     """
+-    name = name.lower()  # compare package name against lowercase name
+-    packages = pkg_resources.working_set.by_key.keys()
+-    for package in packages:
+-        if package.lower().replace('-', '_') == name:
+-            return True
+-    return False
++    # Chaquopy: pkg_resources doesn't work (#5487): just try importing it.
++    try:
++        importlib.import_module(name)
++        return True
++    except ImportError:
++        return False
+
+
+ def get_package_path(name):
