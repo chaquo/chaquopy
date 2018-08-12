@@ -94,7 +94,7 @@ those packages, and do the checks described at #5455 (comment #8) in case any ne
 been exposed.
 
 If the package depended on extractPackages or other changes in the development version,
-postpone the remaining steps until that version is released:
+consider postponing the remaining steps until that version is released:
 
 * Update any GitHub issues.
 * Email any affected users, including anyone who emailed, commented or thumbed up a related

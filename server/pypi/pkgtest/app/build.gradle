@@ -4,6 +4,13 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
+// Extra dependencies required to run the tests.
+def TEST_PACKAGES = [
+    "grpcio": ["protobuf", "futures; python_version < '3.2'"],
+    "spacy": ["https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz"],
+]
+
+
 android {
     compileSdkVersion 26
     defaultConfig {
@@ -23,10 +30,10 @@ android {
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
-                if (PACKAGES == null  ||  "grpcio" in PACKAGES) {
-                    // Required by grpcio tests.
-                    install "protobuf"
-                    install "futures; python_version < '3.2'"
+                TEST_PACKAGES.each { name, extras ->
+                    if (PACKAGES == null || name in PACKAGES) {
+                        extras.each { install it }
+                    }
                 }
             }
         }

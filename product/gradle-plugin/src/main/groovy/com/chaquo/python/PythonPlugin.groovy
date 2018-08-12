@@ -709,7 +709,8 @@ class PythonExtension extends BaseExtension {
                             // not a valid package name, We could add a patch to rename it and
                             // make this more specific, but it's probably not worth it because
                             // it would still make up a large proportion of the wheel size.
-        "sklearn.datasets"
+        "sklearn.datasets",
+        "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
     ]
 
     String version
