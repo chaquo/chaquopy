@@ -76,10 +76,9 @@ class BuildWheel:
     def main(self):
         try:
             self.parse_args()
-            self.package_dir = package_dir(self.package)
-            assert_isdir(self.package_dir)
+            self.package_dir = self.find_package(self.package)
 
-            self.meta = load_meta(self.package_dir)
+            self.meta = self.load_meta(self.package)
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
             self.dist_info = (f"{normalize_name_wheel(self.package)}-"
@@ -160,15 +159,21 @@ class BuildWheel:
 
         skip_group = ap.add_mutually_exclusive_group()
         skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                                "(any existing 'src' directory will be reused)")
+                                "(an existing build/.../src directory must exist, and will be "
+                                "reused)")
         skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
                                 "skip build")
 
         ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
-                        "(any existing 'requirements' directory will be reused)")
+                        "(any existing build/.../requirements directory will be reused)")
+        ap.add_argument("--extra-packages", metavar="DIR", default=[], action="append",
+                        help="Extra directory to search for package information, in addition "
+                        "to packages/ in the same directory as this script. Can be used "
+                        "multiple times.")
         ap.add_argument("--ndk", metavar="DIR", required=True, help="Path to Crystax NDK")
         ap.add_argument("--build-toolchain", action="store_true", help="Build standalone "
-                        "toolchain. Required if toolchain doesn't already exist,")
+                        "toolchain. Required if toolchain doesn't already exist for this ABI "
+                        "and API level.")
         ap.add_argument("--python", metavar="VERSION", choices=(PYTHON_VERSIONS + ["all"]),
                         default="all", help="Choices: %(choices)s. Default: %(default)s.")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
@@ -177,7 +182,7 @@ class BuildWheel:
                         help="Android API level (default: {})".format(
                             ", ".join(f"{abi.name}:{abi.default_api_level}"
                                       for abi in ABIS.values())))
-        ap.add_argument("package")
+        ap.add_argument("package", help="Name of package to build")
         ap.parse_args(namespace=self)
 
         if not self.api_level:
@@ -296,7 +301,7 @@ class BuildWheel:
             return
 
         for package, version in reqs:
-            dist_dir = f"{package_dir(package)}/dist"
+            dist_dir = f"{self.find_package(package)}/dist"
             matches = []
             for filename in os.listdir(dist_dir):
                 match = re.search(fr"^{normalize_name_wheel(package)}-"
@@ -306,7 +311,7 @@ class BuildWheel:
                 if match:
                     matches.append(match)
             if not matches:
-                raise CommandError(f"Couldn't find requirement {package} {version}")
+                raise CommandError(f"Couldn't find wheel for requirement {package} {version}")
             matches.sort(key=lambda match: int(match.group("build_num")))
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
@@ -633,9 +638,41 @@ class BuildWheel:
         for req in self.meta["requirements"][req_type]:
             package, version = req.split()
             if req_type == "host":
-                package = load_meta(package)["package"]["name"]
+                package = self.load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
+
+    def load_meta(self, package):
+        # http://python-jsonschema.readthedocs.io/en/latest/faq/
+        def with_defaults(validator_cls):
+            def set_defaults(validator, properties, instance, schema):
+                for name, subschema in properties.items():
+                    if "default" in subschema:
+                        instance.setdefault(name, deepcopy(subschema["default"]))
+                yield from validator_cls.VALIDATORS["properties"](
+                    validator, properties, instance, schema)
+
+            return jsonschema.validators.extend(validator_cls, {"properties": set_defaults})
+
+        # Work around https://github.com/Julian/jsonschema/issues/367 by not enabling defaults
+        # during meta-schema validation.
+        Validator = jsonschema.Draft4Validator
+        schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
+        Validator.check_schema(schema)
+        meta_str = jinja2.Template(open(f"{self.find_package(package)}/meta.yaml").read()).render()
+        meta = yaml.safe_load(meta_str)
+        with_defaults(Validator)(schema).validate(meta)
+        return meta
+
+    def find_package(self, name):
+        name = normalize_name_pypi(name)
+        packages_dirs = [f"{PYPI_DIR}/packages"] + self.extra_packages
+        for packages_dir in packages_dirs:
+            package_dir = join(packages_dir, name)
+            if exists(package_dir):
+                return package_dir
+        else:
+            raise CommandError(f"Couldn't find '{name}' in {packages_dirs}")
 
 
 def read_message(filename):
@@ -654,33 +691,6 @@ def update_message(msg, d, replace=True):
 def write_message(msg, filename):
     # I don't know whether maxheaderlen is required, but it's used by bdist_wheel.
     generator.Generator(open(filename, "w"), maxheaderlen=0).flatten(msg)
-
-
-def load_meta(package):
-    # http://python-jsonschema.readthedocs.io/en/latest/faq/
-    def with_defaults(validator_cls):
-        def set_defaults(validator, properties, instance, schema):
-            for name, subschema in properties.items():
-                if "default" in subschema:
-                    instance.setdefault(name, deepcopy(subschema["default"]))
-            yield from validator_cls.VALIDATORS["properties"](
-                validator, properties, instance, schema)
-
-        return jsonschema.validators.extend(validator_cls, {"properties": set_defaults})
-
-    # Work around https://github.com/Julian/jsonschema/issues/367 by not enabling defaults
-    # during meta-schema validation.
-    Validator = jsonschema.Draft4Validator
-    schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
-    Validator.check_schema(schema)
-    meta_str = jinja2.Template(open(f"{package_dir(package)}/meta.yaml").read()).render()
-    meta = yaml.safe_load(meta_str)
-    with_defaults(Validator)(schema).validate(meta)
-    return meta
-
-
-def package_dir(package):
-    return join(PYPI_DIR, "packages", normalize_name_pypi(package))
 
 
 # See PEP 503.
