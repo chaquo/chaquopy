@@ -145,6 +145,7 @@ def load_module_override(load_name, file, pathname, description):
             return loader.load_module(real_name, load_name=load_name)
 
 
+# Not inheriting any base class: they aren't available in Python 2.
 class AssetFinder(object):
     zip_file_lock = RLock()
     zip_file_cache = {}
@@ -252,6 +253,7 @@ class AssetFinder(object):
                     os.remove(join(dirpath, name))
 
 
+# Not inheriting any base class: they aren't available in Python 2.
 class AssetLoader(object):
     def __init__(self, finder, real_name, zip_info):
         self.finder = finder
@@ -263,7 +265,7 @@ class AssetLoader(object):
                 .format(__name__, type(self).__name__, self.finder, self.real_name))
 
     def load_module(self, real_name, load_name=None):
-        assert real_name == self.real_name
+        self._check_name(real_name, self.real_name)
         self.mod_name = load_name or real_name
         is_reload = self.mod_name in sys.modules
         try:
@@ -309,15 +311,16 @@ class AssetLoader(object):
     def is_package(self, mod_name):
         return basename(self.get_filename(mod_name)).startswith("__init__.")
 
+    # Overridden in SourceFileLoader
     def get_code(self, mod_name):
-        return None  # Not implemented, but required for importlib.abc.InspectLoader.
+        return None
 
     # Overridden in SourceFileLoader
     def get_source(self, mod_name):
         return None
 
     def get_filename(self, mod_name):
-        assert mod_name == self.mod_name
+        self._check_name(mod_name)
         for ep in self.finder.extract_packages:
             if (mod_name == ep) or mod_name.startswith(ep + "."):
                 root = self.finder.extract_root
@@ -325,6 +328,15 @@ class AssetLoader(object):
         else:
             root = self.finder.archive
         return join(root, self.zip_info.filename)
+
+    # Most loader methods will only work for the loader's own module. However, always allow the
+    # name "__main__", which might be used by the runpy module.
+    def _check_name(self, actual_name, expected_name=None):
+        if expected_name is None:
+            expected_name = self.mod_name
+        if actual_name not in [expected_name, "__main__"]:
+            raise AssertionError("actual={!r}, expected={!r}"
+                                 .format(actual_name, expected_name))
 
 
 # Irrespective of the Python version, we use the Python 3.6 .pyc layout (with size field).
@@ -337,7 +349,10 @@ class SourceFileLoader(AssetLoader):
             mod = ModuleType(self.mod_name)
             self.set_mod_attrs(mod)
             sys.modules[self.mod_name] = mod
+        six.exec_(self.get_code(self.mod_name), mod.__dict__)
 
+    def get_code(self, mod_name):
+        self._check_name(mod_name)
         pyc_filename = join(self.finder.extract_root, self.zip_info.filename + "c")
         code = self.read_pyc(pyc_filename)
         if not code:
@@ -345,12 +360,12 @@ class SourceFileLoader(AssetLoader):
             code = compile(self.get_source_bytes(), self.get_filename(self.mod_name), "exec",
                            dont_inherit=True)
             self.write_pyc(pyc_filename, code)
-        six.exec_(code, mod.__dict__)
+        return code
 
     # Should return a bytes string in Python 2, or a unicode string in Python 3, in both cases
     # with newlines normalized to "\n".
     def get_source(self, mod_name):
-        assert mod_name == self.mod_name
+        self._check_name(mod_name)
         source_bytes = self.get_source_bytes()
         if six.PY2:
             # zipfile mode "rU" doesn't work with read() (https://bugs.python.org/issue6759),

@@ -19,6 +19,7 @@ def initialize(context, build_json, app_path):
 
 def initialize_stdlib(context):
     initialize_sys(context)
+    initialize_os(context)
     initialize_sysconfig(context)
     initialize_tempfile(context)
     initialize_ssl(context)
@@ -49,6 +50,12 @@ def initialize_sys(context):
                      if not (exists(p) or p.startswith(importer.ASSET_PREFIX))]
     for p in invalid_paths:
         sys.path.remove(p)
+
+
+def initialize_os(context):
+    # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
+    # Make it return something more usable.
+    os.environ.setdefault("HOME", str(context.getFilesDir()))
 
 
 def initialize_sysconfig(context):
