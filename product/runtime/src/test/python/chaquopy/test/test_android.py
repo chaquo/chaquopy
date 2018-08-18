@@ -427,6 +427,14 @@ class TestAndroidStdlib(unittest.TestCase):
         p = platform.platform()
         self.assertRegexpMatches(p, r"^Linux")
 
+    def test_select(self):
+        import select
+        self.assertFalse(hasattr(select, "kevent"))
+        self.assertFalse(hasattr(select, "kqueue"))
+        if sys.version_info[0] >= 3:
+            import selectors
+            self.assertIs(selectors.DefaultSelector, selectors.EpollSelector)
+
     def test_sqlite(self):
         import sqlite3
         conn = sqlite3.connect(":memory:")
