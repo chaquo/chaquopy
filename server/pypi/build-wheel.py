@@ -502,6 +502,10 @@ class BuildWheel:
                 if not lib_dir.endswith("ldscripts"):
                     run(f"mv {lib_dir}/libgnustl_shared.so {lib_dir}/libstdc++.so")
 
+            # The kevent API doesn't work properly: it gives a "bad address" error
+            # (https://tracker.crystax.net/issues/1433).
+            run(f"rm {toolchain_dir}/sysroot/usr/include/sys/event.h")
+
         else:
             if exists(toolchain_dir):
                 log(f"Using existing toolchain {self.platform_tag}")
