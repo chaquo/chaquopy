@@ -1,0 +1,104 @@
+diff -ur src-original/configure src/configure
+--- src-original/configure	2017-11-11 02:22:24.000000000 +0000
++++ src/configure	2018-08-20 17:35:47.485722685 +0000
+@@ -44156,7 +44156,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++# LIBS="-lpthread  $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+@@ -44190,18 +44190,18 @@
+   have_pthreads=yes
+ fi
+ 
+-	if test "$have_pthreads" = "yes" ; then
++# 	if test "$have_pthreads" = "yes" ; then
+ 
+ 
+-        if echo "$LIBS" | $FGREP -e "\<-lpthread\>" >/dev/null 2>&1; then :
+-  echo "LIBS(='$LIBS') contains '-lpthread', not prepending" >&5
+-else
+-  echo "LIBS(='$LIBS') does not contain '-lpthread', prepending" >&5
+-                LIBS="-lpthread $LIBS"
++#         if echo "$LIBS" | $FGREP -e "\<-lpthread\>" >/dev/null 2>&1; then :
++#   echo "LIBS(='$LIBS') contains '-lpthread', not prepending" >&5
++# else
++#   echo "LIBS(='$LIBS') does not contain '-lpthread', prepending" >&5
++#                 LIBS="-lpthread $LIBS"
+ 
+-fi
++# fi
+ 
+-	fi
++# 	fi
+ 
+         for ac_func in pthread_yield
+ do :
+diff -ur src-original/src/openpa/configure src/src/openpa/configure
+--- src-original/src/openpa/configure	2017-11-11 02:21:56.000000000 +0000
++++ src/src/openpa/configure	2018-08-20 17:25:37.088616818 +0000
+@@ -13376,7 +13376,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++# LIBS="-lpthread  $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+@@ -13411,7 +13411,7 @@
+ #define HAVE_LIBPTHREAD 1
+ _ACEOF
+ 
+-  LIBS="-lpthread $LIBS"
++#  LIBS="-lpthread $LIBS"
+ 
+ fi
+ 
+diff -ur src-original/src/pm/hydra/configure src/src/pm/hydra/configure
+--- src-original/src/pm/hydra/configure	2017-11-11 02:21:42.000000000 +0000
++++ src/src/pm/hydra/configure	2018-08-20 17:21:10.523623498 +0000
+@@ -25327,7 +25327,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++# LIBS="-lpthread  $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+@@ -25364,13 +25364,13 @@
+ if test "$have_pthreads" = "yes" ; then
+ 
+ 
+-        if echo "$LIBS" | $FGREP -e "\<-lpthread\>" >/dev/null 2>&1; then :
+-  echo "LIBS(='$LIBS') contains '-lpthread', not prepending" >&5
+-else
+-  echo "LIBS(='$LIBS') does not contain '-lpthread', prepending" >&5
+-                LIBS="-lpthread $LIBS"
++#         if echo "$LIBS" | $FGREP -e "\<-lpthread\>" >/dev/null 2>&1; then :
++#   echo "LIBS(='$LIBS') contains '-lpthread', not prepending" >&5
++# else
++#   echo "LIBS(='$LIBS') does not contain '-lpthread', prepending" >&5
++#                 LIBS="-lpthread $LIBS"
+ 
+-fi
++# fi
+ 
+ 
+ $as_echo "#define HAVE_PTHREADS 1" >>confdefs.h
+diff -ur src-original/src/pm/hydra/tools/topo/hwloc/hwloc/configure src/src/pm/hydra/tools/topo/hwloc/hwloc/configure
+--- src-original/src/pm/hydra/tools/topo/hwloc/hwloc/configure	2017-11-11 02:21:32.000000000 +0000
++++ src/src/pm/hydra/tools/topo/hwloc/hwloc/configure	2018-08-20 17:25:37.076616954 +0000
+@@ -16394,7 +16394,7 @@
+   $as_echo_n "(cached) " >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-lpthread  $LIBS"
++# LIBS="-lpthread  $LIBS"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
