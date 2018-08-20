@@ -2,7 +2,7 @@ Change log
 ##########
 
 ..
-   3.3.3 was a non-public release for ***REMOVED***.
+   3.3.3 and 3.3.4 were non-public releases for ***REMOVED***.
 
 3.3.2 (2018-08-01)
 ==================

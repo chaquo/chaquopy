@@ -705,10 +705,14 @@ class PythonExtension extends BaseExtension {
     static final def DEFAULT_EXTRACT_PACKAGES = [
         "certifi",
         "cv2.data",
+        "ipykernel",
+        "jedi.evaluate",
         "matplotlib",       // Data (mostly fonts) is in a subdirectory "mpl-data", which is
                             // not a valid package name, We could add a patch to rename it and
                             // make this more specific, but it's probably not worth it because
                             // it would still make up a large proportion of the wheel size.
+        "nbformat",
+        "notebook",
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
     ]
