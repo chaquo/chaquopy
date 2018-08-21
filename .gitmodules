@@ -68,7 +68,7 @@
 	branch = crystax-r10
 [submodule "target/crystax/vendor/freebsd"]
 	path = target/crystax/vendor/freebsd
-	url = https://github.com/crystax/android-vendor-freebsd.git
+	url = gitolite@chaquo.com:crystax-vendor-freebsd
 	branch = crystax-r10
 [submodule "target/crystax/vendor/libkqueue"]
 	path = target/crystax/vendor/libkqueue
