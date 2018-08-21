@@ -1,6 +1,0 @@
-package:
-  name: chaquopy-mpich
-  version: 3.2.1
-
-source:
-  url: http://www.mpich.org/static/downloads/3.2.1/mpich-3.2.1.tar.gz
