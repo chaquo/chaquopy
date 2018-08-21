@@ -110,7 +110,6 @@ Task testIntegrationTask(String version) {
     }
 }
 task("testIntegration", "group": "verification")
-testIntegration.dependsOn(testIntegrationTask("2.3"))
 testIntegration.dependsOn(testIntegrationTask("3.0"))
 testIntegration.dependsOn(testIntegrationTask("3.1"))
 check.dependsOn(testIntegration)

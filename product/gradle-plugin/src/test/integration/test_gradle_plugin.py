@@ -112,7 +112,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong("requires Android Gradle plugin version 2.3.0", run.stderr)
+        self.assertInLong("requires Android Gradle plugin version 3.0.0", run.stderr)
 
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",

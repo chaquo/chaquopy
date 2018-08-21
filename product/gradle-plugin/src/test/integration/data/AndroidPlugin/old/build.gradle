@@ -6,7 +6,7 @@ buildscript {
         maven { url "https://chaquo.com/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.2.0'
+        classpath 'com.android.tools.build:gradle:2.3.3'
         classpath files("${System.getenv('integration_dir')}/../../../build/libs/gradle-${version}.jar")
         classpath "org.json:json:20160810"
     }
