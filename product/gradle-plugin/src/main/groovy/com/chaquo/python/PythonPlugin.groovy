@@ -713,6 +713,7 @@ class PythonExtension extends BaseExtension {
                             // it would still make up a large proportion of the wheel size.
         "nbformat",
         "notebook",
+        "obspy",  // Has data directories in many packages.
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
     ]
