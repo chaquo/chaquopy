@@ -1,0 +1,8 @@
+package:
+  name: lxml
+  version: 4.2.4
+
+requirements:
+  host:
+    - chaquopy-libxml2 2.9.8
+    - chaquopy-libxslt 1.1.32

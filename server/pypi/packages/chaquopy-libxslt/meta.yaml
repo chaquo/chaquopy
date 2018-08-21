@@ -1,0 +1,10 @@
+package:
+  name: chaquopy-libxslt
+  version: 1.1.32
+
+source:
+  url: ftp://xmlsoft.org/libxslt/libxslt-1.1.32.tar.gz
+
+requirements:
+  host:
+    - chaquopy-libxml2 2.9.8

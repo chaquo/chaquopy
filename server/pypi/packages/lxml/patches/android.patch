@@ -1,0 +1,18 @@
+Only in src: build
+Only in src: lxml-4.2.4-cp36-cp36m-linux_x86_64.whl
+Binary files src-original/__pycache__/setupinfo.cpython-36.pyc and src/__pycache__/setupinfo.cpython-36.pyc differ
+diff -ur src-original/setupinfo.py src/setupinfo.py
+--- src-original/setupinfo.py	2018-08-03 16:47:16.000000000 +0000
++++ src/setupinfo.py	2018-08-21 13:03:12.205310776 +0000
+@@ -267,8 +267,9 @@
+ 
+ def libraries():
+     standard_libs = []
+-    if 'linux' in sys.platform:
+-        standard_libs.append('rt')
++    # Chaquopy: librt is built into libc on Android.
++    # if 'linux' in sys.platform:
++    #     standard_libs.append('rt')
+     if not OPTION_BUILD_LIBXML2XSLT:
+         standard_libs.append('z')
+     standard_libs.append('m')
