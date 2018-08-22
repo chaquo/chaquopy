@@ -17,10 +17,11 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0")
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.4")
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.2.0-beta05")
 
     Project project
     Object android
+    VersionNumber androidPluginVer
     File genDir
 
     public void apply(Project p) {
@@ -32,7 +33,7 @@ class PythonPlugin implements Plugin<Project> {
                                               "com.android.application before com.chaquo.python?")
         }
         android = project.android
-        checkAndroidPluginVersion()
+        androidPluginVer = getAndroidPluginVersion()
 
         extendAaptOptions()
         extendProductFlavor(android.defaultConfig).setDefaults()
@@ -42,7 +43,7 @@ class PythonPlugin implements Plugin<Project> {
         project.afterEvaluate { afterEvaluate() }
     }
 
-    void checkAndroidPluginVersion() {
+    VersionNumber getAndroidPluginVersion() {
         final def ADVICE = "please edit com.android.tools.build:gradle in the buildscript block."
         def depVer = null
         for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
@@ -68,6 +69,7 @@ class PythonPlugin implements Plugin<Project> {
                     "$MAX_TESTED_ANDROID_PLUGIN_VER. If you experience problems with a different " +
                     "version, " + ADVICE)
         }
+        return depVer
     }
 
     // For extraction performance, we want to avoid compressing our .zip files a second time,
@@ -132,8 +134,15 @@ class PythonPlugin implements Plugin<Project> {
     // TODO #5341: support setRoot
     void extendSourceSets() {
         android.sourceSets.all { sourceSet ->
-            sourceSet.metaClass.pyDirSet = sourceSet.java.getClass().newInstance(
-                [sourceSet.displayName + " Python source", project] as Object[])
+            def name = sourceSet.name + " Python source"
+            def javaSet = sourceSet.java
+            Object[] args = null
+            if (androidPluginVer < VersionNumber.parse("3.2.0-alpha01")) {
+                args = [name, project]
+            } else {
+                args = [name, project, javaSet.type, javaSet.dslScope]
+            }
+            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(args)
             sourceSet.metaClass.getPython = { return pyDirSet }
             sourceSet.metaClass.python = { closure ->
                 closure.delegate = pyDirSet

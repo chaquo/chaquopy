@@ -26,8 +26,11 @@ ABI.
 Copy the resulting wheels from `packages/<subdir>/dist` to a private package repository (edit
 `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
-Temporarily add the new package to `PACKAGES` in `pkgtest/app/build.gradle`. Then build and run
-the app for both Python 2 and 3 on:
+Temporarily add the new package to `PACKAGES` in `pkgtest/app/build.gradle`. If planning to
+release the package before the next version of the SDK, also temporarily edit
+`pkgtest/build.gradle` to test with the current released SDK.
+
+Then build and run the app for both Python 2 and 3 on:
 
 * minSdkVersion emulator, or API 18 if "too many libraries" error occurs.
 * targetSdkVersion emulator

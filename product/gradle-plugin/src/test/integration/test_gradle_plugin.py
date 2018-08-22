@@ -117,7 +117,7 @@ class AndroidPlugin(GradleTestCase):
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",
                              succeed=None)  # We don't care whether it succeeds.
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.1.3",
+        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.2.0-beta05",
                           run.stdout)
 
 
@@ -980,7 +980,8 @@ class RunGradle(object):
 
         # build.json
         DEFAULT_EXTRACT_PACKAGES = [  # See PythonPlugin.groovy
-            "certifi", "cv2.data", "matplotlib", "sklearn.datasets"
+            "certifi", "cv2.data", "ipykernel", "jedi.evaluate", "matplotlib", "nbformat",
+            "notebook", "obspy", "sklearn.datasets", "spacy.data",
         ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)

@@ -7,7 +7,7 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 2.3.x and 3.1.x. This is specified as
+* Android Gradle plugin version should be between 3.0.x and 3.2.x. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
@@ -110,10 +110,11 @@ download pre-compiled CPython binaries for the selected ABIs.
 
 .. note:: Each ABI will add several MB to the size of the app, plus the size of any native
           :ref:`requirements <android-requirements>`. It will also make the app take longer to
-          build. Because some of the native components are stored as assets, the `split APK
-          <https://developer.android.com/studio/build/configure-apk-splits.html>`_ feature
-          cannot be used to mitigate this. If you want to build separate APKs for each ABI,
-          this can instead be done using a `product flavor dimension
+          build. Because of the way the native components are packaged, the `split APK
+          <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app
+          bundle <https://developer.android.com/guide/app-bundle/>`_ features cannot currently
+          mitigate this. Instead, if your multi-ABI APKs are too large, try using a `product
+          flavor dimension
           <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_::
 
               android {
