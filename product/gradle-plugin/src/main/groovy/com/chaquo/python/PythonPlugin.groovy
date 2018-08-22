@@ -156,7 +156,7 @@ class PythonPlugin implements Plugin<Project> {
         def filename = "chaquopy_java.jar"
         extractResource("runtime/$filename", genDir)
         project.dependencies {
-            compile project.files("$genDir/$filename")
+            implementation project.files("$genDir/$filename")
         }
     }
 
