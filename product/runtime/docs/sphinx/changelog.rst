@@ -1,6 +1,20 @@
 Change log
 ##########
 
+
+4.0.0 (2018-08-22)
+==================
+* Android Gradle plugin version 3.2 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 2.3 is no longer supported.
+* Add :any:`resource` module.
+* Remove broken :any:`select.kevent`/:any:`select.kqueue` API. This affected `PyZMQ
+  <https://pypi.org/project/pyzmq/>`_, which should now work
+  (Crystax issue `#1433 <https://tracker.crystax.net/issues/1433>`_).
+* Set `HOME` environment variable if the system hasn't already done so, so
+  :any:`os.path.expanduser` can return a usable location.
+* Implement :any:`importlib.abc.InspectLoader.get_code`: this allows :any:`runpy.run_module` to
+  be used.
+
 ..
    3.3.3 and 3.3.4 were non-public releases for ***REMOVED***.
 

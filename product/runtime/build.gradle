@@ -48,7 +48,11 @@ def sdkDir = getLocalProperty('sdk.dir')
 def ndkDir = getLocalProperty('ndk.dir')
 def crystaxDir = getLocalProperty('crystax.dir')
 def licenseMode = getLocalProperty('chaquopy.license_mode', '')
+
 def javaHome = System.getProperty("java.home")
+if (javaHome.endsWith("jre")) {
+    javaHome += "/.."
+}
 
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 def EXE_SUFFIX = windowsHost ? ".exe" : ""

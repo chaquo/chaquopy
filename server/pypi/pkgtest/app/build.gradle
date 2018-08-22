@@ -4,8 +4,12 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
+// Packages not to include in regular pre-release testing because they're very large and not
+// that popular.
+ext.DEFAULT_EXCLUDE_PACKAGES = ["obspy", "spacy"]
+
 // Extra dependencies required to run the tests.
-def TEST_PACKAGES = [
+ext.TEST_PACKAGES = [
     "grpcio": ["protobuf", "futures; python_version < '3.2'"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz"],
 ]
@@ -24,17 +28,11 @@ android {
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
         // To test only some packages, replace `null` with a list.
-        def PACKAGES = null
-        addPackages(delegate, include: PACKAGES)
+        addPackages(delegate, include: null)
         python {
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
-                TEST_PACKAGES.each { name, extras ->
-                    if (PACKAGES == null || name in PACKAGES) {
-                        extras.each { install it }
-                    }
-                }
             }
         }
 
@@ -93,7 +91,7 @@ def addPackages(Map kwargs, flavor) {
     if (packages == null) {
         packages = []
         for (f in file(inputDir).listFiles()) {
-            if (f.isDirectory()) {
+            if (f.isDirectory() && !(f.name in DEFAULT_EXCLUDE_PACKAGES)) {
                 packages.add(f.name)
             }
         }
@@ -106,10 +104,13 @@ def addPackages(Map kwargs, flavor) {
     mkdir(outputDir)
     String suiteSrc = ""
     for (pkgName in packages) {
-        flavor.python.pip.install pkgName
         def testPaths = ["test.py", "test"].collect { file("$inputDir/$pkgName/$it") }
         for (testPath in testPaths) {
             if (testPath.exists()) {
+                flavor.python.pip {
+                    install pkgName
+                    TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
+                }
                 def pkgModule = pkgName.replace('-', '_')
                 copy {
                     from testPath.parentFile

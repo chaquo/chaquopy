@@ -38,8 +38,11 @@ from which the public repository was last updated. If the script reports any fil
 require manual copying or merging (e.g. build.gradle), examine them and update the public
 repository as necessary.
 
-"Clean Project", then "Generate Signed APK" for both Python 2 and 3, and test all features on the
-following devices, with at least one app on each device being a clean install:
+"Clean Project", then "Generate Signed APK" for both Python 2 and 3. To save time, start
+uploading them to Google Play now.
+
+Test all features on the following devices, with at least one app on each device being a clean
+install:
 
 * minSdkVersion emulator
 * targetSdkVersion emulator
