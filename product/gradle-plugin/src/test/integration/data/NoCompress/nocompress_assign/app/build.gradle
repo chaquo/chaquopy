@@ -4,11 +4,6 @@ apply plugin: 'com.chaquo.python'
 android {
     compileSdkVersion 23
 
-    // Android Gradle plugin version 3.1 no longer requires this directive, but if it is
-    // specified then it will be ignored unless it's this version or higher. Plugin versions 2.3
-    // and older do require this directive, and seem to work fine with this version.
-    buildToolsVersion "27.0.3"
-
     aaptOptions {
         noCompress = "alpha"
     }

@@ -3,7 +3,6 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "27.0.3"
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 14
