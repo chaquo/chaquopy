@@ -29,7 +29,7 @@
 
     <string name="java_demo">Java API demo</string>
     <string name="java_demo_summary">Demonstrates using a Python library from Java code</string>
-    <string name="java_demo_caption">This activity uses the Chaquopy Python API and the Python 
+    <string name="java_demo_caption">This activity uses the Chaquopy Java API and the Python
         Pygments library to format a copy of its own source code as HTML.</string>
 
     <string name="java_unit_test">Java unit tests</string>

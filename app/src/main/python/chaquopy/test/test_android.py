@@ -16,6 +16,7 @@ import shlex
 from subprocess import check_output
 import sys
 from traceback import format_exc
+import types
 import unittest
 
 if sys.version_info[0] < 3:
@@ -175,7 +176,8 @@ class TestAndroidImport(unittest.TestCase):
             loader.get_data(asset_path(zip_name, "invalid.py"))
 
         self.assertEqual(bool(package_path), loader.is_package(mod_name))
-        self.assertIsNone(loader.get_code(mod_name))
+        self.assertIsInstance(loader.get_code(mod_name),
+                              types.CodeType if filename.endswith(".py") else type(None))
         source = loader.get_source(mod_name)
         if source_head:
             self.assertTrue(source.startswith(source_head), repr(source))
@@ -417,12 +419,21 @@ class TestAndroidStdlib(unittest.TestCase):
 
     def test_os(self):
         self.assertEqual("posix", os.name)
+        self.assertEqual(str(context.getFilesDir()), os.path.expanduser("~"))
 
     def test_platform(self):
         # Requires sys.executable to exist.
         import platform
         p = platform.platform()
         self.assertRegexpMatches(p, r"^Linux")
+
+    def test_select(self):
+        import select
+        self.assertFalse(hasattr(select, "kevent"))
+        self.assertFalse(hasattr(select, "kqueue"))
+        if sys.version_info[0] >= 3:
+            import selectors
+            self.assertIs(selectors.DefaultSelector, selectors.EpollSelector)
 
     def test_sqlite(self):
         import sqlite3

@@ -22,7 +22,7 @@ public class App extends PyApplication {
 
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel channel = new NotificationChannel
-                (DEFAULT_CHANNEL, "Default", NotificationManager.IMPORTANCE_DEFAULT);
+                (DEFAULT_CHANNEL, "Default", NotificationManager.IMPORTANCE_LOW);
             ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
                 .createNotificationChannel(channel);
         }

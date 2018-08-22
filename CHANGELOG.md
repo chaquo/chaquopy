@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 4.0.0 (2018-08-22)
+
+* Target Android Studio 3.1.4.
+* Correct caption mistake.
+
 ## 3.3.2 (2018-08-01)
 
 * No changes except for the SDK update.
