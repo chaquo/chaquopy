@@ -7,7 +7,7 @@ used on any supported Android build platform (Windows, Linux or Mac).
 
 # Build prerequisites
 
-* JDK 8 or later with the environment variable `JAVA_HOME` set to its location.
+* JDK 8 or later.
 * Python requirements in `runtime/requirements-build.txt`.
 * Android SDK, including the following packages (names for the command-line `sdkmanager` are in
   parentheses).
