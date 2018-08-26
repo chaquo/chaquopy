@@ -1,5 +1,3 @@
-Only in src: build
-Only in src: cmake_example-0.0.1-cp36-cp36m-linux_x86_64.whl
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-08-26 13:00:28.012674587 +0000
 +++ src/setup.py	2018-08-26 13:52:26.893666837 +0000

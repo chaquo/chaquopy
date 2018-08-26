@@ -477,11 +477,11 @@ class BuildWheel:
                 """), file=toolchain_file)
 
             if self.needs_python:
-                python_lib = f"{self.python_lib_dir}/libpython{self.python_lib_version}.so"
                 print(dedent(f"""\
-                    # Variables used by pybind11:
+                    # Variables used by pybind11
                     SET(PYTHONLIBS_FOUND TRUE)
-                    SET(PYTHON_LIBRARIES {python_lib})
+                    SET(PYTHON_LIBRARIES
+                        {self.python_lib_dir}/libpython{self.python_lib_version}.so)
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
