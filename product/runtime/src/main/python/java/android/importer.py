@@ -10,7 +10,7 @@ import io
 import marshal
 import os.path
 from os.path import basename, dirname, exists, join, relpath
-import pkgutil
+from pkgutil import get_importer
 import re
 import struct
 import sys
@@ -54,7 +54,7 @@ def initialize(context, build_json, app_path):
     for i, asset_name in enumerate(app_path):
         entry = str(join(ASSET_PREFIX, Common.ASSET_DIR, asset_name))
         sys.path.insert(i, entry)
-        finder = pkgutil.get_importer(entry)
+        finder = get_importer(entry)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
         asset_finders.append(finder)
@@ -97,8 +97,9 @@ def find_module_override(base_name, path=None):
     if path is None:
         path = sys.path
     for entry in path:
-        finder = pkgutil.get_importer(entry)
-        if finder is not None and hasattr(finder, "prefix"):
+        finder = get_importer(entry)
+        if finder is not None and \
+           hasattr(finder, "prefix"):  # AssetFinder and zipimport both have this attribute.
             real_name = join(finder.prefix, base_name).replace("/", ".")
             loader = finder.find_module(real_name)
             if loader is not None:
@@ -132,7 +133,7 @@ def load_module_override(load_name, file, pathname, description):
         return load_module_original(load_name, file, pathname, description)
     else:
         entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
-        finder = pkgutil.get_importer(entry)
+        finder = get_importer(entry)
         real_name = join(finder.prefix, base_name).replace("/", ".")
         loader = finder.find_module(real_name)
         if real_name == load_name:
@@ -242,7 +243,7 @@ class AssetFinder(object):
                 if info.filename.startswith(package_rel_dir) and \
                    not info.filename.endswith("/"):
                     filenames_in_zip.add(info.filename)
-                    zf.extract_if_changed(info, self.extract_root)
+                    self.extract_if_changed(info, zip_file=zf)
 
         # Remove any leftover extracted files from previous versions of the app.
         for dirpath, _, filenames in os.walk(join(self.extract_root, package_rel_dir)):
@@ -251,6 +252,11 @@ class AssetFinder(object):
                 if not name.endswith(".pyc") and \
                    join(rel_dirpath, name) not in filenames_in_zip:
                     os.remove(join(dirpath, name))
+
+    def extract_if_changed(self, member, zip_file=None):
+        if zip_file is None:
+            zip_file = self.zip_file
+        return self.zip_file.extract_if_changed(member, self.extract_root)
 
 
 # Not inheriting any base class: they aren't available in Python 2.
@@ -413,13 +419,9 @@ class SourceFileLoader(AssetLoader):
 
 
 class ExtensionFileLoader(AssetLoader):
-    needed_lock = RLock()
-    needed = {}
-
     def load_module_impl(self):
         out_filename = self.extract_so()
-        with self.needed_lock:
-            self.load_needed(out_filename)
+        load_needed(out_filename)
         # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
         mod = imp.load_dynamic(self.mod_name, out_filename)
         sys.modules[self.mod_name] = mod
@@ -429,7 +431,7 @@ class ExtensionFileLoader(AssetLoader):
     # already loaded, the dynamic linker will return the existing library. Work around this by
     # loading through a uniquely-named symlink.
     def extract_so(self):
-        filename = self.extract_if_changed(self.zip_info)
+        filename = self.finder.extract_if_changed(self.zip_info)
         linkname = join(dirname(filename), self.mod_name + ".so")
         if linkname != filename:
             if exists(linkname):
@@ -437,44 +439,49 @@ class ExtensionFileLoader(AssetLoader):
             os.symlink(filename, linkname)
         return linkname
 
-    # Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
-    # directories, so we need to load them manually in dependency order (#5323).
-    def load_needed(self, filename):
-        with open(filename, "rb") as so_file:
-            ef = ELFFile(so_file)
-            dynamic = ef.get_section_by_name(".dynamic")
-            if not dynamic:
-                return
 
-            for tag in dynamic.iter_tags():
-                if tag.entry.d_tag == "DT_NEEDED":
-                    soname = tag.needed
-                    if soname in self.needed:
-                        continue
+needed_lock = RLock()
+needed_loaded = {}
 
-                    try:
-                        # We don't need to worry about other_zips because all native modules
-                        # and libraries for a given ABI will always end up in the same ZIP.
-                        zip_info = self.finder.zip_file.getinfo("chaquopy/lib/" + soname)
-                    except KeyError:
-                        # Maybe it's a system library, or one of the libraries loaded by
-                        # AndroidPlatform.loadNativeLibs.
-                        continue
-                    needed_filename = self.extract_if_changed(zip_info)
-                    self.load_needed(needed_filename)
+# Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
+# directories, so we need to load them manually in dependency order (#5323).
+#
+# It's not an error if we don't find a library: maybe it's a system library, or one of the
+# libraries loaded by AndroidPlatform.loadNativeLibs.
+def load_needed(filename):
+    with needed_lock, open(filename, "rb") as so_file:
+        ef = ELFFile(so_file)
+        dynamic = ef.get_section_by_name(".dynamic")
+        if not dynamic:
+            raise Exception(filename + " has no .dynamic section")
 
-                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-                    # ignored. From API 23, RTLD_LOCAL is available and the default, just like
-                    # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-                    # available to subsequently-loaded libraries.
-                    dll = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+        for tag in dynamic.iter_tags():
+            if tag.entry.d_tag != "DT_NEEDED":
+                continue
+            soname = tag.needed
+            if soname in needed_loaded:
+                continue
 
-                    # The library isn't currently closed when the CDLL object is garbage
-                    # collected, but this isn't documented, so keep a reference for safety.
-                    self.needed[soname] = dll
+            for entry in sys.path:
+                finder = get_importer(entry)
+                if not isinstance(finder, AssetFinder):
+                    continue
+                try:
+                    zip_info = finder.zip_file.getinfo("chaquopy/lib/" + soname)
+                except KeyError:
+                    continue
+                needed_filename = finder.extract_if_changed(zip_info)
+                load_needed(needed_filename)
 
-    def extract_if_changed(self, member):
-        return self.finder.zip_file.extract_if_changed(member, self.finder.extract_root)
+                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+                # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
+                # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+                # available to subsequently-loaded libraries.
+                #
+                # It doesn't look like the library is closed when the CDLL object is garbage
+                # collected, but this isn't documented, so keep a reference for safety.
+                needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+                break
 
 
 # These class names are based on the standard Python 3 loaders from importlib.machinery, though
