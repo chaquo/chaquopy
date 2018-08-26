@@ -18,7 +18,7 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
-import textwrap
+from textwrap import dedent
 
 import attr
 from elftools.elf.elffile import ELFFile
@@ -458,7 +458,7 @@ class BuildWheel:
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
         log(f"Generating {toolchain_filename}")
         with open(toolchain_filename, "w") as toolchain_file:
-            print(textwrap.dedent(f"""\
+            print(dedent(f"""\
                 set(ANDROID TRUE)
                 set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {toolchain_dir})
 
@@ -475,6 +475,16 @@ class BuildWheel:
                 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
                 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
                 """), file=toolchain_file)
+
+            if self.needs_python:
+                python_lib = f"{self.python_lib_dir}/libpython{self.python_lib_version}.so"
+                print(dedent(f"""\
+                    # Variables used by pybind11:
+                    SET(PYTHONLIBS_FOUND TRUE)
+                    SET(PYTHON_LIBRARIES {python_lib})
+                    SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
+                    SET(PYTHON_MODULE_EXTENSION .so)
+                    """), file=toolchain_file)
 
     def get_toolchain(self, abi):
         toolchain_dir = f"{PYPI_DIR}/toolchains/{self.platform_tag}"

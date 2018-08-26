@@ -6,7 +6,8 @@ package:
   version: 3.4.2.16
 
 source:
-  # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43).
+  # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43), and
+  # we can't use the GitHub-generated archive files because they don't contain submodules.
   git_url: https://github.com/skvark/opencv-python.git
   git_rev: 16
 

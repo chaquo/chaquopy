@@ -1,0 +1,13 @@
+package:
+  name: cmake_example
+  version: 0.0.1
+
+source:
+  git_url: https://github.com/pybind/cmake_example.git
+  git_rev: master
+
+requirements:
+  build:
+    - cmake
+  host:
+    - python
