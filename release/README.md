@@ -93,8 +93,7 @@ release procedure below.
 # Package release procedure
 
 If this package was blocking others, use the pkgtest script (separate repository) to retry
-those packages, and do the checks described at #5455 (comment #8) in case any new issues have
-been exposed.
+those packages and check whether any new issues have been exposed.
 
 If the package depended on extractPackages or other changes in the development version,
 consider postponing the remaining steps until that version is released:

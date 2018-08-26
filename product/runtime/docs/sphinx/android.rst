@@ -9,7 +9,10 @@ Prerequisites:
 
 * Android Gradle plugin version should be between 3.0.x and 3.2.x. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
-  usually be the same as your Android Studio version. Newer versions may also work, but have
+  usually be the same as your Android Studio version.
+
+  Older versions as far back as 2.2.x are supported by older versions of Chaquopy: search for
+  "Gradle plugin" in the :doc:`change log <../changelog>`. Newer versions may work, but have
   not been tested with this version of Chaquopy.
 
 .. (extra space for consistency)
