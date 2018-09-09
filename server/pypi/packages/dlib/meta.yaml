@@ -1,7 +1,0 @@
-package:
-  name: dlib
-  version: 19.15.0
-
-requirements:
-  build:
-    - cmake
