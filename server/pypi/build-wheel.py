@@ -89,11 +89,16 @@ class BuildWheel:
                 self.meta["requirements"]["build"].remove("cmake")
                 self.needs_cmake = True
 
-            if "python" in self.meta["requirements"]["host"]:
-                self.meta["requirements"]["host"].remove("python")
-                self.needs_python = True
-            else:
-                self.needs_python = (self.meta["source"] == "pypi")
+            self.needs_python = (self.meta["source"] == "pypi")
+            self.bundled_reqs = []
+            for name in ["openssl", "python", "sqlite"]:
+                if name in self.meta["requirements"]["host"]:
+                    self.meta["requirements"]["host"].remove(name)
+                    if name == "python":
+                        self.needs_python = True
+                    else:
+                        self.bundled_reqs.append(name)
+
             if not self.needs_python:
                 self.compat_tag = f"py2.py3-none-{self.platform_tag}"
 
@@ -334,7 +339,7 @@ class BuildWheel:
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
-        os.environ.update({  # Conda variable names, except those marked with CHAQUOPY_.
+        os.environ.update({  # Conda variable names.
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": os.getcwd(),
             "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
@@ -392,18 +397,12 @@ class BuildWheel:
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
-        sqlite_root = f"{self.ndk}/sources/sqlite/3"
-        openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
-        openssl_root = dirname(openssl_include)
-
         # Non-language-specific GCC flags.
         gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
             abi.cflags])
 
-        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
-        env["CFLAGS"] = (gcc_flags + f" -idirafter {openssl_root}/include" +
-                         f" -idirafter {sqlite_root}/include")
+        env["CFLAGS"] = gcc_flags
         if exists(f"{self.reqs_dir}/chaquopy/include"):
             env["CFLAGS"] += f" -I{self.reqs_dir}/chaquopy/include"
 
@@ -418,8 +417,7 @@ class BuildWheel:
             # this earlier by adding -Werror=implicit-function-declaration to CFLAGS, but that
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
-            abi.ldflags,
-            f"-L{openssl_root}/libs/{self.abi}", f"-L{sqlite_root}/libs/{self.abi}"])
+            abi.ldflags])
         if exists(f"{self.reqs_dir}/chaquopy/lib"):
             env["LDFLAGS"] += f" -L{self.reqs_dir}/chaquopy/lib"
 
@@ -438,6 +436,17 @@ class BuildWheel:
             # only way I can see to avoid this is to set CC to a wrapper script.
             env["CFLAGS"] += f" -I{self.python_include_dir}"
             env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{self.python_lib_version}"
+
+        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
+        if "openssl" in self.bundled_reqs:
+            openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
+            openssl_root = dirname(openssl_include)
+            env["CFLAGS"] += f" -idirafter {openssl_root}/include"
+            env["LDFLAGS"] += f"-L{openssl_root}/libs/{self.abi}"
+        if "sqlite" in self.bundled_reqs:
+            sqlite_root = f"{self.ndk}/sources/sqlite/3"
+            env["CFLAGS"] += f" -idirafter {sqlite_root}/include"
+            env["LDFLAGS"] += f"-L{sqlite_root}/libs/{self.abi}"
 
         if self.verbose:
             log("Environment set as follows:\n" +

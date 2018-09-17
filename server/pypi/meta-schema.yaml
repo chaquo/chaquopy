@@ -53,6 +53,9 @@ properties:
   #   implied if `source` is `pypi` or unspecified.) Python includes and libraries will be
   #   added to the CFLAGS and LDFLAGS, and the wheel build tag will be set accordingly.
   #
+  # * A `host` requirement of `openssl` or `sqlite` will add that library to CFLAGS and
+  #   LDFLAGS.
+  #
   # * A `build` requirement of `cmake` indicates that CMake is used in the build. A
   #   `chaquopy.toolchain.cmake` file will be generated in the build directory for use with
   #   `-DCMAKE_TOOLCHAIN_FILE`.

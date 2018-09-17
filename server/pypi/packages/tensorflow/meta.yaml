@@ -1,0 +1,14 @@
+package:
+  name: tensorflow
+  version: 1.10.1
+
+build:
+  number: 0  # FIXME increment once process is finalized, and see notes at top of build.sh.
+
+source:
+  url: https://github.com/tensorflow/tensorflow/archive/v1.10.1.tar.gz
+
+requirements:
+  host:
+    - python
+    - numpy 1.14.2

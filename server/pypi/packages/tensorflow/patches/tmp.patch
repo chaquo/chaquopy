@@ -1,0 +1,317 @@
+diff -urN --no-dereference src-original/tensorflow/tools/pip_package/BUILD src/tensorflow/tools/pip_package/BUILD
+--- src-original/tensorflow/tools/pip_package/BUILD	2018-08-23 19:58:44.000000000 +0000
++++ src/tensorflow/tools/pip_package/BUILD	2018-09-16 17:13:18.391584888 +0000
+@@ -54,45 +54,8 @@
+     "README",
+     "setup.py",
+     ":included_headers",
+-    "//tensorflow:tensorflow_py",
+-    "//tensorflow/contrib/autograph:autograph",
+-    "//tensorflow/contrib/autograph/converters:converters",
+-    "//tensorflow/contrib/autograph/core:core",
+-    "//tensorflow/contrib/autograph/core:test_lib",
+-    "//tensorflow/contrib/autograph/impl:impl",
+-    "//tensorflow/contrib/autograph/lang:lang",
+-    "//tensorflow/contrib/autograph/operators:operators",
+-    "//tensorflow/contrib/autograph/pyct:pyct",
+-    "//tensorflow/contrib/autograph/pyct/static_analysis:static_analysis",
+-    "//tensorflow/contrib/autograph/pyct/common_transformers:common_transformers",
+-    "//tensorflow/contrib/boosted_trees:boosted_trees_pip",
+-    "//tensorflow/contrib/cluster_resolver:cluster_resolver_pip",
+-    "//tensorflow/contrib/constrained_optimization:constrained_optimization_pip",
+-    "//tensorflow/contrib/data/python/kernel_tests/serialization:dataset_serialization_test_base",
+-    "//tensorflow/contrib/data/python/ops:contrib_op_loader",
+-    "//tensorflow/contrib/eager/python/examples:examples_pip",
+-    "//tensorflow/contrib/eager/python:evaluator",
+-    "//tensorflow/contrib/gan:gan",
+-    "//tensorflow/contrib/graph_editor:graph_editor_pip",
+-    "//tensorflow/contrib/keras:keras",
+-    "//tensorflow/contrib/labeled_tensor:labeled_tensor_pip",
+-    "//tensorflow/contrib/nn:nn_py",
+-    "//tensorflow/contrib/predictor:predictor_pip",
+-    "//tensorflow/contrib/proto:proto_pip",
+-    "//tensorflow/contrib/receptive_field:receptive_field_pip",
+-    "//tensorflow/contrib/rpc:rpc_pip",
+-    "//tensorflow/contrib/session_bundle:session_bundle_pip",
+-    "//tensorflow/contrib/signal:signal_py",
+-    "//tensorflow/contrib/signal:test_util",
+-    "//tensorflow/contrib/slim:slim",
+-    "//tensorflow/contrib/slim/python/slim/data:data_pip",
+-    "//tensorflow/contrib/slim/python/slim/nets:nets_pip",
+-    "//tensorflow/contrib/specs:specs",
+-    "//tensorflow/contrib/summary:summary_test_util",
+-    "//tensorflow/contrib/tensor_forest:init_py",
+-    "//tensorflow/contrib/tensor_forest/hybrid:hybrid_pip",
+-    "//tensorflow/contrib/timeseries:timeseries_pip",
+-    "//tensorflow/contrib/tpu",
++    "//tensorflow:tensorflow_py_no_contrib",  # Chaquopy: added `_no_contrib`.
++    # Chaquopy: removed everything under //tensorflow/contrib
+     "//tensorflow/examples/tutorials/mnist:package",
+     "//tensorflow/python:cond_v2",
+     "//tensorflow/python:distributed_framework_test_lib",
+diff -urN --no-dereference src-original/tensorflow/workspace.bzl src/tensorflow/workspace.bzl
+--- src-original/tensorflow/workspace.bzl	2018-08-23 19:58:44.000000000 +0000
++++ src/tensorflow/workspace.bzl	2018-09-10 12:21:33.173059521 +0000
+@@ -527,6 +527,7 @@
+       ],
+       sha256 = "524ba98a56300149696481b4cb9ddebd0c7b7ac9b9f6edee81da2d2d7e5d2bb3",
+       strip_prefix = "boringssl-a0fb951d2a26a8ee746b52f3ba81ab011a0af778",
++      build_file = clean_dep("//third_party:boringssl.BUILD"),  # Chaquopy override
+   )
+ 
+   tf_http_archive(
+Binary files src-original/tensorflow-1.10.1-0-cp36-cp36m-android_15_x86.whl and src/tensorflow-1.10.1-0-cp36-cp36m-android_15_x86.whl differ
+diff -urN --no-dereference src-original/third_party/boringssl.BUILD src/third_party/boringssl.BUILD
+--- src-original/third_party/boringssl.BUILD	1970-01-01 00:00:00.000000000 +0000
++++ src/third_party/boringssl.BUILD	2018-09-10 12:32:26.241092091 +0000
+@@ -0,0 +1,144 @@
++# Chaquopy: third_party/repo.bzl will copy this to BUILD.bazel, which overrides the existing
++# BUILD file in the external repository (https://github.com/bazelbuild/bazel/issues/4517).
++
++licenses(["notice"])
++
++exports_files(["LICENSE"])
++
++load(
++    ":BUILD.generated.bzl",
++    "crypto_headers",
++    "crypto_internal_headers",
++    "crypto_sources",
++    "crypto_sources_linux_x86_64",
++    "crypto_sources_mac_x86_64",
++    "fips_fragments",
++    "ssl_headers",
++    "ssl_internal_headers",
++    "ssl_sources",
++    "tool_sources",
++    "tool_headers",
++)
++
++config_setting(
++    name = "linux_x86_64",
++    values = {"cpu": "k8"},
++)
++
++config_setting(
++    name = "mac_x86_64",
++    values = {"cpu": "darwin"},
++)
++
++config_setting(
++    name = "windows_x86_64",
++    values = {"cpu": "x64_windows"},
++)
++
++config_setting(
++    name = "android",
++    values = {"crosstool_top": "//chaquopy/crosstool"},
++)
++
++
++posix_copts = [
++    # Assembler option --noexecstack adds .note.GNU-stack to each object to
++    # ensure that binaries can be built with non-executable stack.
++    "-Wa,--noexecstack",
++
++    # This is needed on Linux systems (at least) to get rwlock in pthread.
++    "-D_XOPEN_SOURCE=700",
++
++    # This list of warnings should match those in the top-level CMakeLists.txt.
++    "-Wall",
++    "-Werror",
++    "-Wformat=2",
++    "-Wsign-compare",
++    "-Wmissing-field-initializers",
++    "-Wwrite-strings",
++    "-Wshadow",
++    "-fno-common",
++
++    # Modern build environments should be able to set this to use atomic
++    # operations for reference counting rather than locks. However, it's
++    # known not to work on some Android builds.
++    # "-DOPENSSL_C11_ATOMIC",
++]
++
++boringssl_copts = select({
++    ":android": posix_copts,  # Chaquopy
++    ":linux_x86_64": posix_copts,
++    ":mac_x86_64": posix_copts,
++    ":windows_x86_64": [
++        "-DWIN32_LEAN_AND_MEAN",
++        "-DOPENSSL_NO_ASM",
++    ],
++    "//conditions:default": ["-DOPENSSL_NO_ASM"],
++})
++
++crypto_sources_asm = select({
++    ":linux_x86_64": crypto_sources_linux_x86_64,
++    ":mac_x86_64": crypto_sources_mac_x86_64,
++    "//conditions:default": [],
++})
++
++# For C targets only (not C++), compile with C11 support.
++posix_copts_c11 = [
++    "-std=c11",
++    "-Wmissing-prototypes",
++    "-Wold-style-definition",
++    "-Wstrict-prototypes",
++]
++
++boringssl_copts_c11 = boringssl_copts + select({
++    ":android": posix_copts_c11,  # Chaquopy
++    ":linux_x86_64": posix_copts_c11,
++    ":mac_x86_64": posix_copts_c11,
++    "//conditions:default": [],
++})
++
++# For C++ targets only (not C), compile with C++11 support.
++posix_copts_cxx = [
++    "-std=c++11",
++    "-Wmissing-declarations",
++]
++
++boringssl_copts_cxx = boringssl_copts + select({
++    ":android": posix_copts_cxx,  # Chaquopy
++    ":linux_x86_64": posix_copts_cxx,
++    ":mac_x86_64": posix_copts_cxx,
++    "//conditions:default": [],
++})
++
++cc_library(
++    name = "crypto",
++    srcs = crypto_sources + crypto_internal_headers + crypto_sources_asm,
++    hdrs = crypto_headers + fips_fragments,
++    copts = boringssl_copts_c11,
++    includes = ["src/include"],
++    linkopts = select({
++        ":mac_x86_64": [],
++        "//conditions:default": ["-lpthread"],
++    }),
++    visibility = ["//visibility:public"],
++)
++
++cc_library(
++    name = "ssl",
++    srcs = ssl_sources + ssl_internal_headers,
++    hdrs = ssl_headers,
++    copts = boringssl_copts_cxx,
++    includes = ["src/include"],
++    visibility = ["//visibility:public"],
++    deps = [
++        ":crypto",
++    ],
++)
++
++cc_binary(
++    name = "bssl",
++    srcs = tool_sources + tool_headers,
++    copts = boringssl_copts_cxx,
++    visibility = ["//visibility:public"],
++    deps = [":ssl"],
++)
+diff -urN --no-dereference src-original/third_party/gif.BUILD src/third_party/gif.BUILD
+--- src-original/third_party/gif.BUILD	2018-08-23 19:58:44.000000000 +0000
++++ src/third_party/gif.BUILD	2018-09-10 12:16:05.357068787 +0000
+@@ -66,5 +66,5 @@
+ 
+ config_setting(
+     name = "android",
+-    values = {"crosstool_top": "//external:android/crosstool"},
++    values = {"crosstool_top": "//chaquopy/crosstool"},
+ )
+diff -urN --no-dereference src-original/third_party/lmdb.BUILD src/third_party/lmdb.BUILD
+--- src-original/third_party/lmdb.BUILD	2018-08-23 19:58:44.000000000 +0000
++++ src/third_party/lmdb.BUILD	2018-09-16 17:01:26.037763451 +0000
+@@ -17,6 +17,7 @@
+     ],
+     copts = [
+         "-w",
++        "-DANDROID",  # Chaquopy: our compiler only defines __ANDROID__.
+     ],
+     linkopts = select({
+         ":windows": ["-DEFAULTLIB:advapi32.lib"],  # InitializeSecurityDescriptor, SetSecurityDescriptorDacl
+diff -urN --no-dereference src-original/third_party/py/BUILD.tpl src/third_party/py/BUILD.tpl
+--- src-original/third_party/py/BUILD.tpl	2018-08-23 19:58:44.000000000 +0000
++++ src/third_party/py/BUILD.tpl	2018-09-09 18:43:25.917903650 +0000
+@@ -2,25 +2,17 @@
+ 
+ package(default_visibility = ["//visibility:public"])
+ 
+-# To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
+-# See https://docs.python.org/3/extending/windows.html
++# Chaquopy: made lib dependency unconditional (used to be Windows-only).
+ cc_import(
+     name = "python_lib",
+-    interface_library = select({
+-        ":windows": ":python_import_lib",
+-        # A placeholder for Unix platforms which makes --no_build happy.
+-        "//conditions:default": "not-existing.lib",
+-    }),
++    interface_library = ":python_import_lib",
+     system_provided = 1,
+ )
+ 
+ cc_library(
+     name = "python_headers",
+     hdrs = [":python_include"],
+-    deps = select({
+-        ":windows": [":python_lib"],
+-        "//conditions:default": [],
+-    }),
++    deps = [":python_lib"],
+     includes = ["python_include"],
+ )
+ 
+diff -urN --no-dereference src-original/third_party/py/python_configure.bzl src/third_party/py/python_configure.bzl
+--- src-original/third_party/py/python_configure.bzl	2018-08-23 19:58:44.000000000 +0000
++++ src/third_party/py/python_configure.bzl	2018-09-16 17:39:00.079458088 +0000
+@@ -268,20 +268,23 @@
+   _check_python_bin(repository_ctx, python_bin)
+   python_lib = _get_python_lib(repository_ctx, python_bin)
+   _check_python_lib(repository_ctx, python_lib)
+-  python_include = _get_python_include(repository_ctx, python_bin)
+-  numpy_include = _get_numpy_include(repository_ctx, python_bin) + '/numpy'
++
++  # Chaquopy: edited
++  python_include = repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"]
++  numpy_include = (repository_ctx.os.environ["SRC_DIR"] +
++                   "/../requirements/numpy/core/include/numpy")
++
+   python_include_rule = _symlink_genrule_for_dir(
+       repository_ctx, python_include, 'python_include', 'python_include')
+   python_import_lib_genrule = ""
+-  # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
+-  # See https://docs.python.org/3/extending/windows.html
+-  if _is_windows(repository_ctx):
+-    python_include = _norm_path(python_include)
+-    python_import_lib_name = _get_python_import_lib_name(repository_ctx, python_bin)
+-    python_import_lib_src = python_include.rsplit('/', 1)[0] + "/libs/" + python_import_lib_name
+-    python_import_lib_genrule = _symlink_genrule_for_dir(
+-      repository_ctx, None, '', 'python_import_lib',
+-      [python_import_lib_src], [python_import_lib_name])
++
++  # Chaquopy: made lib dependency unconditional (used to be Windows-only).
++  python_import_lib_name = "lib" + repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB"] + ".so"
++  python_import_lib_src = repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB_DIR"] + "/" + python_import_lib_name
++  python_import_lib_genrule = _symlink_genrule_for_dir(
++    repository_ctx, None, '', 'python_import_lib',
++    [python_import_lib_src], [python_import_lib_name])
++
+   numpy_include_rule = _symlink_genrule_for_dir(
+       repository_ctx, numpy_include, 'numpy_include/numpy', 'numpy_include')
+   _tpl(repository_ctx, "BUILD", {
+diff -urN --no-dereference src-original/tools/bazel.rc src/tools/bazel.rc
+--- src-original/tools/bazel.rc	2018-08-23 19:58:44.000000000 +0000
++++ src/tools/bazel.rc	2018-09-10 13:57:11.793563237 +0000
+@@ -54,7 +54,10 @@
+ build:sycl_trisycl --crosstool_top=@local_config_sycl//crosstool:toolchain
+ build:sycl_trisycl --define=using_sycl=true --define=using_trisycl=true
+ 
+-build --define=use_fast_cpp_protos=true
++# Chaquopy disabled: this causes the host protobuf build to link against Python.
++# FIXME host tensorflow also needs to link against Python, so make that possible and back this out.
++# build --define=use_fast_cpp_protos=true
++
+ build --define=allow_oversize_protos=true
+ build --define=grpc_no_ares=true
+ 
