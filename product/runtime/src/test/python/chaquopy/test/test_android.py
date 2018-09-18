@@ -305,17 +305,19 @@ class TestAndroidImport(unittest.TestCase):
                     self.assertIsNotNone(mod.__spec__, prefix)
                     self.assertEqual(mod.__name__, mod.__spec__.name)
 
-                # Except for built-in modules, we consider `file`, `pathname`, `suffix` and
-                # `mode` to be opaque and don't check them (see note in find_module_override).
                 if actual_type == imp.C_BUILTIN:
+                    self.assertIsNone(file, prefix)
                     # This isn't documented, but it's what the current versions of CPython do.
                     if sys.version_info[0] < 3:
                         self.assertEqual(mod_name, pathname)
                     else:
                         self.assertIsNone(pathname, prefix)
-                    self.assertEqual("", suffix, prefix)
-                    self.assertEqual("", mode, prefix)
                 else:
+                    # Our implementation of load_module doesn't use `file`, but user code
+                    # might, so check it adequately simulates a file.
+                    self.assertTrue(hasattr(file, "read"), prefix)
+                    self.assertTrue(hasattr(file, "close"), prefix)
+                    self.assertIsNotNone(pathname, prefix)
                     self.assertTrue(hasattr(mod, "__file__"), prefix)
 
                 if i < len(words) - 1:

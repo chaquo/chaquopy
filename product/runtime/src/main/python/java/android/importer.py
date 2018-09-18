@@ -114,13 +114,19 @@ def find_module_override(base_name, path=None):
                         raise ValueError("Couldn't determine type of module '{}' from '{}'"
                                          .format(real_name, filename))
 
-                # The documentation says the returned pathname should be the empty string when
-                # a module isn't a package and "does not live in a file". However, neither
-                # Python 2 or 3 actually do this for built-in modules (see test_android).
-                # Anyway, the only thing the user can do with this value is pass it to
-                # load_module, so we should be safe to set it to any string we want.
-                pathname = PATHNAME_PREFIX + join(entry, base_name)
-                return (None, pathname, ("", "", mod_type))
+                # The documentation says that if the module "does not live in a file", the
+                # returned tuple contains file=None and pathname="". However, the the only
+                # thing the user is likely to do with these values is pass them to load_module,
+                # so we should be safe to use them however we want.
+                #
+                # * file=None causes problems for SWIG-generated code such as
+                #   tensorflow.python.pywrap_tensorflow_internal, so we return a dummy file-like
+                #   object instead.
+                # * `pathname` is used to communicate the location of the module to load_module
+                #   below.
+                return (six.BytesIO(),
+                        PATHNAME_PREFIX + join(entry, base_name),
+                        ("", "", mod_type))
 
     raise ImportError("No module named '{}' found in {}".format(base_name, path))
 
