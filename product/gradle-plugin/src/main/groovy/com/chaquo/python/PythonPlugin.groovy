@@ -723,8 +723,11 @@ class PythonExtension extends BaseExtension {
         "nbformat",
         "notebook",
         "obspy",  // Has data directories in many packages.
+        "pytz",
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
+        "theano",  // Could maybe make this more specific, but Theano has been abandoned, and
+                   // has unacceptable performance without a compiler anyway.
     ]
 
     String version
