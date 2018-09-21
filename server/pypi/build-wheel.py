@@ -231,6 +231,9 @@ class BuildWheel:
             # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
             run(f"git clone -b {source['git_rev']} --depth 1 --recurse-submodules "
                 f"{source['git_url']} {src_dir}")
+        elif "path" in source:
+            abs_path = abspath(join(self.package_dir, source["path"]))
+            run(f"cp -a {abs_path} {src_dir}")
         else:
             source_filename = (self.download_pypi() if source == "pypi"
                                else self.download_url(source["url"]))
@@ -296,8 +299,12 @@ class BuildWheel:
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
+        elif self.needs_python:
+            return self.build_with_pip()
         else:
-            return self.build_with_pip()  # Assume it's a Python source tree.
+            raise CommandError("Don't know how to build: no build.sh exists, and this is not "
+                               "declared as a Python package. Do you need to add a `host` "
+                               "requirement of `python`? See meta-schema.yaml.")
 
     def extract_requirements(self):
         ensure_empty(self.reqs_dir)

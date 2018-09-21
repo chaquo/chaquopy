@@ -19,22 +19,28 @@ properties:
   source:
     default: pypi
     oneOf:
-      - type: "null"
-      - type: string
+      - type: "null"    # The build script will get its own source.
+      - type: string    # Download an sdist from PyPI.
         const: pypi
-      - type: object
+      - type: object    # Download an archive from a URL.
         required: [url]
         properties:
           url:
             type: string
         additionalProperties: false
-      - type: object
+      - type: object    # Clone a Git repository.
         required: [git_url, git_rev]
         properties:
           git_url:
             type: string
           git_rev:
             type: [string, number]
+        additionalProperties: false
+      - type: object    # Copy a local directory.
+        required: [path]
+        properties:
+          path:
+            type: string
         additionalProperties: false
 
   build:
