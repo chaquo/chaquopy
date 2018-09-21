@@ -1,4 +1,8 @@
-# Compulsory but unused.
+# Chaquopy: this file is based on
+# https://github.com/bazelbuild/bazel/blob/0.16.1/tools/cpp/CROSSTOOLbazel/tools/cpp/CROSSTOOL,
+# specifically, the local_linux toolchain.
+
+# Chaquopy: Compulsory but unused.
 major_version: ""
 minor_version: ""
 default_target_cpu: ""
@@ -8,19 +12,13 @@ default_toolchain {
   toolchain_identifier: "chaquopy_ndk"
 }
 
-# Based on local_linux in bazel/tools/cpp/CROSSTOOL version 0.16.1.
 toolchain {
   abi_version: "local"
   abi_libc_version: "local"
   builtin_sysroot: ""
   compiler: "compiler"
   host_system_name: "local"
-
-  # Chaquopy: prevent non-PIC versions of everything from being built, which actually will be
-  # PIC anyway because we'll add -fPIC from CFLAGS below
-  # (https://github.com/bazelbuild/bazel/issues/1740).
-  needsPic: false
-
+  needsPic: true
   supports_gold_linker: false
   supports_incremental_linker: false
   supports_fission: false
@@ -127,9 +125,14 @@ toolchain {
     compiler_flag: "-DNDEBUG"
 
     # Removal of unused code and data at link time (can this increase binary size in some cases?).
-    compiler_flag: "-ffunction-sections"
-    compiler_flag: "-fdata-sections"
-    linker_flag: "-Wl,--gc-sections"
+    #
+    # Chaquopy: disabled all of these: on ARMv7 with GCC 4.9, -fdata-sections causes a "section
+    # type conflict" error when compiling the C++11 thread_local keyword, e.g. in
+    # tensorflow/core/util/work_sharder.cc.
+    #
+    # compiler_flag: "-ffunction-sections"
+    # compiler_flag: "-fdata-sections"
+    # linker_flag: "-Wl,--gc-sections"
   }
   linking_mode_flags { mode: DYNAMIC }
 }

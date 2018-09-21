@@ -176,9 +176,9 @@ class BuildWheel:
                         "to packages/ in the same directory as this script. Can be used "
                         "multiple times.")
         ap.add_argument("--ndk", metavar="DIR", required=True, help="Path to Crystax NDK")
-        ap.add_argument("--build-toolchain", action="store_true", help="Build standalone "
-                        "toolchain. Required if toolchain doesn't already exist for this ABI "
-                        "and API level.")
+        ap.add_argument("--build-toolchain", action="store_true", help="Rebuild standalone "
+                        "toolchain. Will happen automatically if toolchain doesn't already "
+                        "exist for this ABI and API level.")
         ap.add_argument("--python", metavar="VERSION", choices=(PYTHON_VERSIONS + ["all"]),
                         default="all", help="Choices: %(choices)s. Default: %(default)s.")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
@@ -353,21 +353,21 @@ class BuildWheel:
         })
         run(build_script)
 
+        # Most scripts will only output into {prefix_dir}/chaquopy, but the TensorFlow script
+        # generates a complete wheel hierarchy.
         info_dir = f"{prefix_dir}/{self.dist_info}"
         ensure_dir(info_dir)
-
-        info_wheel = message.Message()
-        update_message(info_wheel, {"Wheel-Version": "1.0",
-                                    "Root-Is-Purelib": "false"})
-        write_message(info_wheel, f"{info_dir}/WHEEL")
-
-        info_metadata = message.Message()
-        update_message(info_metadata, {"Metadata-Version": "1.2",
-                                       "Name": self.package,
-                                       "Version": self.version,
-                                       "Summary": "",        # Compulsory according to PEP 345,
-                                       "Download-URL": ""})  #
-        write_message(info_metadata, f"{info_dir}/METADATA")
+        update_message_file(f"{info_dir}/WHEEL",
+                            {"Wheel-Version": "1.0",
+                             "Root-Is-Purelib": "false"},
+                            replace=False)
+        update_message_file(f"{info_dir}/METADATA",
+                            {"Metadata-Version": "1.2",
+                             "Name": self.package,
+                             "Version": self.version,
+                             "Summary": "",        # Compulsory according to PEP 345,
+                             "Download-URL": ""},  #
+                            replace=False)
 
         return self.package_wheel(prefix_dir, os.getcwd())
 
@@ -400,7 +400,8 @@ class BuildWheel:
                      "ld", "nm", "ranlib", "readelf", "strip"]:
             var, suffix = (tool, tool) if isinstance(tool, str) else tool
             filename = f"{toolchain_dir}/bin/{abi.tool_prefix}-{suffix}"
-            assert_exists(filename)
+            if suffix != "gfortran":  # Only required for SciPy and OpenBLAS.
+                assert_exists(filename)
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
@@ -420,8 +421,11 @@ class BuildWheel:
         # (https://lists.debian.org/debian-devel/2016/05/msg00302.html). It can be added
         # manually for packages which require it (e.g. hdf5).
         env["LDFLAGS"] = " ".join([
-            # Catch attempts to use missing libc symbols on old API levels. I tried catching
-            # this earlier by adding -Werror=implicit-function-declaration to CFLAGS, but that
+            # This flag often catches errors in .so files which would otherwise be delayed
+            # until runtime. (Some of the more complex build.sh scripts need to remove this, or
+            # use it more selectively.)
+            #
+            # I tried also adding -Werror=implicit-function-declaration to CFLAGS, but that
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
             abi.ldflags])
@@ -504,20 +508,22 @@ class BuildWheel:
 
     def get_toolchain(self, abi):
         toolchain_dir = f"{PYPI_DIR}/toolchains/{self.platform_tag}"
-        if self.build_toolchain:
-            if exists(toolchain_dir):
-                log(f"Rebuilding toolchain {self.platform_tag}")
-                run(f"rm -rf {toolchain_dir}")
-            else:
-                log(f"Building new toolchain {self.platform_tag}")
+        if self.build_toolchain or not exists(toolchain_dir):
+            log(f"Building toolchain {self.platform_tag}")
+            run(f"rm -rf {toolchain_dir}")
             run(f"{self.ndk}/build/tools/make-standalone-toolchain.sh "
                 f"--toolchain={abi.toolchain}-{GCC_VERSION} "
                 f"--platform=android-{self.api_level} "
                 f"--install-dir={toolchain_dir}")
 
+            # On Android, libpthread is incorporated into libc. Create an empty library so we
+            # don't have to patch everything that links against it.
+            run(f"{toolchain_dir}/bin/{abi.tool_prefix}-ar r "
+                f"{toolchain_dir}/sysroot/usr/lib/libpthread.a")
+
             # The Crystax make-standalone-toolchain.sh renames libgnustl_static.a to
-            # libstdc++.a, but leaves libgnustl_shared.so at its original name. This would lead
-            # us to link against the static library by default, which is unsafe for the reasons
+            # libstdc++.a, but leaves libgnustl_shared.so at its original name. This would result
+            # in packages linking against the static library, which is unsafe for the reasons
             # given at https://developer.android.com/ndk/guides/cpp-support.html. So we'll
             # rename the shared library as well. (Its SONAME is still libgnustl_shared.so, so
             # that's the filename expected at runtime.)
@@ -533,11 +539,7 @@ class BuildWheel:
             run(f"rm {toolchain_dir}/sysroot/usr/include/sys/event.h")
 
         else:
-            if exists(toolchain_dir):
-                log(f"Using existing toolchain {self.platform_tag}")
-            else:
-                raise CommandError(f"No existing toolchain for {self.platform_tag}: "
-                                   f"pass --build-toolchain to build it.")
+            log(f"Using existing toolchain {self.platform_tag}")
 
         return toolchain_dir
 
@@ -704,6 +706,15 @@ class BuildWheel:
         else:
             raise CommandError(f"Couldn't find '{name}' in {packages_dirs}")
 
+
+def update_message_file(filename, d, replace=True):
+    try:
+        msg = read_message(filename)
+    except FileNotFoundError:
+        msg = message.Message()
+    update_message(msg, d, replace)
+    write_message(msg, filename)
+    return msg
 
 def read_message(filename):
     return parser.Parser().parse(open(filename))

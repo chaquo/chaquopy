@@ -1,23 +1,24 @@
 #!/bin/bash
 set -eu
 
+# Bazel 0.15 is the minimum required (see WORKSPACE).
+# Bazel 0.18 will remove support for tools/bazel.rc, which this version of TensorFlow depends
+# on (https://github.com/bazelbuild/bazel/issues/4502).
+bazel_ver="$(bazel version)"
+if ! echo $bazel_ver | grep -E 'Build label: 0\.(15|16|17)'; then
+    echo "Bazel version is not compatible: see build.sh"
+    exit 1
+fi
 
-# FIXME before attempting clean build:
-# * check all changes are in patches/
-# * update build number
-# * Try adding --force_pic (which also prevents duplication in host builds) and restoring
-#  `needsPic: true` in CROSSTOOL.tpl.
-
-
-# Extract the Python lib and include locations, and pass them to
-# third_party/py/python_configure.bzl using environment variables. All other flags are added to
-# the CROSSTOOL file. Unknown lib and include flags are an error because, with bazel's very
-# strict dependency tracking, merely adding them to CROSSTOOL will probably not be good enough.
+# The Python lib and include locations will be passed using environment variables below. All
+# other flags are added to the CROSSTOOL file. Unknown lib and include flags are an error
+# because, with bazel's very strict dependency tracking, merely adding them to CROSSTOOL will
+# probably not be good enough.
 compiler_flags=""
 for flag in $CFLAGS; do
     if echo $flag | grep -q "^-I"; then
         if echo $flag | grep -q "sources/python"; then
-            export CHAQUOPY_PYTHON_INCLUDE_DIR=$(echo $flag | sed 's/^..//')
+            python_include_dir=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
         fi
@@ -30,29 +31,29 @@ linker_flags=""
 for flag in $LDFLAGS; do
     if echo $flag | grep -q "^-L"; then
         if echo $flag | grep -q "sources/python"; then
-            export CHAQUOPY_PYTHON_LIB_DIR=$(echo $flag | sed 's/^..//')
+            export python_lib_dir=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
         fi
     elif echo $flag | grep -q "^-l"; then
         if echo $flag | grep -q "lpython"; then
-            export CHAQUOPY_PYTHON_LIB=$(echo $flag | sed 's/^..//')
+            export python_lib=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
         fi
     elif [ $flag = "-Wl,--no-undefined" ]; then
-        # Some libraries have deliberately incomplete dependencies (see comment at top of
-        # tensorflow/core/BUILD).
+        # The secondary Python native modules (e.g.
+        # tensorflow/contrib/framework/python/ops/_variable_ops.so) contain references to
+        # TensorFlow symbols which will be satisfied at runtime by the main module
+        # _pywrap_tensorflow_internal.so. So we remove --no-undefined from the general linker
+        # flags, and reintroduce it for the main module in tensorflow/tensorflow.bzl.
         true
     else
         linker_flags+="linker_flag: \"$flag\"  # Chaquopy: added by build.sh\n  "
     fi
 done
 
-# set -u will assert that all variables have been assigned.
-echo $CHAQUOPY_PYTHON_INCLUDE_DIR $CHAQUOPY_PYTHON_LIB_DIR $CHAQUOPY_PYTHON_LIB > /dev/null
-
-rm -rf chaquopy
+rm -rf chaquopy  # For testing with build-wheel.py --no-unpack.
 mkdir chaquopy
 cp -a $RECIPE_DIR/crosstool chaquopy
 mv chaquopy/crosstool/CROSSTOOL.tpl chaquopy/crosstool/CROSSTOOL
@@ -63,19 +64,11 @@ for cmd in "s|%{CHAQUOPY_TOOL_PREFIX}|$(echo $CC | sed 's/gcc$//')|g" \
     sed -i "$cmd" chaquopy/crosstool/CROSSTOOL
 done
 
-# Bazel 0.15 is the minimum required (see WORKSPACE).
-# Bazel 0.18 will remove support for tools/bazel.rc, which this version of TensorFlow depends
-# on (https://github.com/bazelbuild/bazel/issues/4502).
-if ! bazel version | grep -E 'Build label: 0\.(15|16|17)'; then
-    echo "Bazel version is not compatible: see build.sh"
-    exit 1
-fi
-
-# The build includes many tools like protoc which have to be built for the build platform
-# rather than the target platform. Since we're using the crosstool mechanism, we can unset all
-# of build-wheel.py's toolchain environment variables to prevent them affecting these things.
-# Currently CC is the only variable used by bazel/tools/cpp/cc_configure.bzl, but that may
-# change in the future (https://github.com/bazelbuild/bazel/issues/5186).
+# Since we're using the crosstool mechanism to define the target toolchain, we unset all of
+# build-wheel.py's toolchain environment variables to prevent them affecting things which need
+# to be built for the host. Currently CC is the only variable used by
+# bazel/tools/cpp/cc_configure.bzl, but that may change in the future
+# (https://github.com/bazelbuild/bazel/issues/5186).
 unset AR ARFLAGS AS CC CFLAGS CPP CPPFLAGS CXX CXXFLAGS F77 F90 FARCH FC LD LDFLAGS LDSHARED \
       NM RANLIB READELF STRIP
 
@@ -93,43 +86,32 @@ unset AR ARFLAGS AS CC CFLAGS CPP CPPFLAGS CXX CXXFLAGS F77 F90 FARCH FC LD LDFL
 TF_NEED_GCP="0" TF_NEED_HDFS="0" TF_NEED_AWS="0" TF_NEED_KAFKA="0" CC_OPT_FLAGS=" " \
     ./configure < /dev/null
 
+cat >>.tf_configure.bazelrc <<EOF
+
+# Chaquopy added the rest
+
 # --verbose_failures is technically redundant with --subcommands, but saves us having to search
 # for the command when building with high parallelism.
-bazel build --subcommands --verbose_failures \
-    --config=opt \
-    --crosstool_top=//chaquopy/crosstool --cpu=chaquopy \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain --host_compilation_mode=fastbuild \
-    //tensorflow/tools/pip_package:build_pip_package
+build --subcommands
+build --verbose_failures
+EOF
 
+for cmd in build cquery; do cat >>.tf_configure.bazelrc <<EOF
 
+# The following environment variables are used by third_party/py/python_configure.bzl.
+$cmd --action_env SRC_DIR=$SRC_DIR
+$cmd --action_env CHAQUOPY_PYTHON_INCLUDE_DIR=$python_include_dir
+$cmd --action_env CHAQUOPY_PYTHON_LIB_DIR=$python_lib_dir
+$cmd --action_env CHAQUOPY_PYTHON_LIB=$python_lib
+$cmd --crosstool_top=//chaquopy/crosstool
+$cmd --cpu=chaquopy
+$cmd --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+$cmd --host_compilation_mode=fastbuild
+$cmd --force_pic  # Prevent everything from being built both PIC and non-PIC.
+EOF
+done
 
-# FIXME running this script as follows will build a .whl file within the /tmp/tensorflow_pkg
-# directory:
-# bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
-
-# FIXME get build-wheel to post-process this whl.
-
-
-#################
-
-# https://stackoverflow.com/questions/42861431/tensorflow-on-android-with-python-bindings
-# https://www.tensorflow.org/install/install_sources
-# [Building TensorFlow from source](https://gist.github.com/kmhofmann/e368a2ebba05f807fa1a90b3bf9a1e03)
-# https://longervision.github.io/2018/07/10/DeepLearning/tensorflow-keras-build-from-source/
-
-
-# Official Android builds for Java at
-# https://bintray.com/google/tensorflow/tensorflow#files/org%2Ftensorflow%2Ftensorflow-android
-# seem to contain a cut-down "TensorFlow Inference Interface" native library, so we probably
-# can't build a wheel from that.
-
-
-# Linux .whl contains 44 .so files, but most of them are in contrib so are probably optional.
-# The remaining ones are:
-#
-# 16893032  2018-08-23 20:49   tensorflow-1.10.1.data/purelib/tensorflow/libtensorflow_framework.so
-# 3881512   2018-08-23 20:50   tensorflow-1.10.1.data/purelib/tensorflow/include/external/protobuf_archive/python/google/protobuf/pyext/_message.so
-# 8112      2018-08-23 20:50   tensorflow-1.10.1.data/purelib/tensorflow/include/external/protobuf_archive/python/google/protobuf/internal/_api_implementation.so
-# 123959784 2018-08-23 20:49   tensorflow-1.10.1.data/purelib/tensorflow/python/_pywrap_tensorflow_internal.so
-# 111760    2018-08-23 20:37   tensorflow-1.10.1.data/purelib/tensorflow/python/framework/fast_tensor_util.so
-#
+rm -f *.whl  # For testing with build-wheel.py --no-unpack.
+bazel build --config=opt --config=monolithic //tensorflow/tools/pip_package:build_pip_package
+bazel-bin/tensorflow/tools/pip_package/build_pip_package .
+unzip -q -d ../prefix *.whl

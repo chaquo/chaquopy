@@ -1,17 +1,30 @@
+Because of the way in which the build generates the Python public API files
+(tensorflow/python/tools/api/generator/create_python_api.py), everything will be built twice:
+once for the build machine and once for the target. If you want to complete the build in less
+than an hour, you'll probably need a machine with at least 6 cores.
+
+The following things must be installed before starting the build:
+
+* Bazel: the [installation instructions for
+  Ubuntu](https://docs.bazel.build/versions/master/install-ubuntu.html#install-with-installer-ubuntu)
+  also work on Debian.
+
+* g++ and binutils for the build machine.
+
+* NumPy must be installed in whichever Python environment is launched by the command "python".
+
 This is a very complex build, and when a command fails you might want an explanation of why
-it's even being run. The following command will provide that (FIXME move env vars and options
-to rc file):
+it's even being run. The following command will provide that:
 
-    <env_vars> bazel cquery <options> "somepath(<src>, <dst>)"
+    bazel cquery <options> "somepath(<tgt1>, <tgt2>)"
 
-`<env_vars>` are all variables which could affect the build: currently `SRC_DIR` and
-`CHAQUOPY_PYTHON_*`.
+Where:
 
-<options> are all the options to `bazel build`, other than those like `--subcommands` and
---verbose_failures` which only apply when you're actually doing a build.
+* `<options>` are the options used for `bazel build` in `build.sh`.
 
-<src> is the target you want to build, e.g. `//tensorflow/tools/pip_package:build_pip_package`.
+* `<tgt1>` is the target you want to build, e.g.
+  `//tensorflow/tools/pip_package:build_pip_package`.
 
-<tgt> is the target you want an explanation for. This is shown immediately after the word
-"SUBCOMMAND" in the `bazel build` output. If the SUBCOMMAND line says "[for host]", then
-write this as `config(<tgt>, host)`.
+* `<tgt2>` is the target you want an explanation for. The target corresponding to each command
+  is shown immediately after the word "SUBCOMMAND" in the `bazel build` output. If the
+  SUBCOMMAND line says "[for host]", then use the syntax `config(<tgt2>, host)`.

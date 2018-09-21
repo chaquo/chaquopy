@@ -1,4 +1,5 @@
-# Based loosely on https://github.com/bazelbuild/bazel/wiki/Building-with-a-custom-toolchain
+# Chaquopy: based loosely on
+# https://github.com/bazelbuild/bazel/wiki/Building-with-a-custom-toolchain
 
 package(default_visibility = ["//visibility:public"])
 
