@@ -1,8 +1,8 @@
 # build-wheel.py requires Python 3.6 or later, and the requirements listed below.
 #
-# build-wheel.py performs Python package builds by launching a Python subprocess of the version
-# specified by its --python argument. That version must have pip, setuptools and wheel
-# available (these are all installed by default in a new virtualenv).
+# Python package builds are performed by launching the command `pipX.Y`, where `X.Y` is the
+# target Python version. This command must be on the PATH, and launch a Python environment with
+# the `setuptools` and `wheel` packages available.
 
 attrs==17.2.0
 jinja2==2.10

@@ -1,6 +1,8 @@
 Change log
 ##########
 
+..
+   4.0.1 was a non-public release for ***REMOVED***.
 
 4.0.0 (2018-08-22)
 ==================
