@@ -85,3 +85,7 @@
 [submodule "target/openssl"]
 	path = target/openssl
 	url = https://github.com/openssl/openssl.git
+[submodule "target/crystax/toolchain/expat"]
+	path = target/crystax/toolchain/expat
+	url = https://github.com/crystax/android-toolchain-expat.git
+	branch = crystax-r10
