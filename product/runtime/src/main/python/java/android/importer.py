@@ -36,19 +36,14 @@ PATHNAME_PREFIX = "<chaquopy>/"
 
 
 def initialize(context, build_json, app_path):
+    initialize_importlib(context, build_json, app_path)
+    initialize_imp()
+    initialize_pkg_resources()
+
+
+def initialize_importlib(context, build_json, app_path):
     ep_json = build_json.get("extractPackages")
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
-
-    # In both Python 2 and 3, the standard implementations of imp.{find,load}_module do not use
-    # the PEP 302 import system. They are therefore only capable of loading from directory
-    # trees and built-in modules, and will ignore both our path_hook and the standard one for
-    # zipimport. To accommodate code which uses these functions, we provide these replacements.
-    global find_module_original, load_module_original
-    find_module_original = imp.find_module
-    load_module_original = imp.load_module
-    imp.find_module = find_module_override
-    imp.load_module = load_module_override
-
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     asset_finders = []
     for i, asset_name in enumerate(app_path):
@@ -85,6 +80,18 @@ def initialize(context, build_json, app_path):
                           file=sys.stderr)
                     print("Remainder of file ignored", file=sys.stderr)
                     break
+
+
+def initialize_imp():
+    # In both Python 2 and 3, the standard implementations of imp.{find,load}_module do not use
+    # the PEP 302 import system. They are therefore only capable of loading from directory
+    # trees and built-in modules, and will ignore both our path_hook and the standard one for
+    # zipimport. To accommodate code which uses these functions, we provide these replacements.
+    global find_module_original, load_module_original
+    find_module_original = imp.find_module
+    load_module_original = imp.load_module
+    imp.find_module = find_module_override
+    imp.load_module = load_module_override
 
 
 # Unlike the other APIs in this file, find_module does not take names containing dots.
@@ -150,6 +157,26 @@ def load_module_override(load_name, file, pathname, description):
                     "{} does not support loading module '{}' under a different name '{}'"
                     .format(type(loader).__name__, real_name, load_name))
             return loader.load_module(real_name, load_name=load_name)
+
+
+def initialize_pkg_resources():
+    try:
+        import pkg_resources
+    except ImportError:
+        return
+
+    # Search for top-level .dist-info directories (see pip_install.py).
+    def distribution_finder(finder, entry, only):
+        dist_infos = set()
+        for name in finder.zip_file.namelist():
+            dir_name = dirname(name)
+            if ("/" not in dir_name) and dir_name.endswith(".dist-info"):
+                dist_infos.add(dir_name)
+        for dist_info in dist_infos:
+            yield pkg_resources.Distribution.from_location(entry, dist_info)
+
+    pkg_resources.register_finder(AssetFinder, distribution_finder)
+    pkg_resources.working_set = pkg_resources.WorkingSet()
 
 
 # Not inheriting any base class: they aren't available in Python 2.

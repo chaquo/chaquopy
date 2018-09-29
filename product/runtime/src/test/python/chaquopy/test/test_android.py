@@ -244,15 +244,17 @@ class TestAndroidImport(unittest.TestCase):
         certifi_dir = dirname(certifi.__file__)
         cacert_filename = join(certifi_dir, "cacert.pem")
         self.assertTrue(isfile(cacert_filename))
-
-        test_filename = join(certifi_dir, "test.txt")
-        TEST_BYTES = b"File not in source ZIP"
-        with open(test_filename, "wb") as test_file:
-            test_file.write(TEST_BYTES)
-        self.assertTrue(exists(test_filename))
-        self.assertEqual(TEST_BYTES, pkgutil.get_data(certifi.__name__, "test.txt"))
+        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
+                         pkgutil.get_data("certifi", "cacert.pem")
+                         .decode("ASCII").splitlines()[1])
         self.check_extract_if_changed(certifi, cacert_filename)
-        self.assertFalse(exists(test_filename))
+
+        leftover_filename = join(certifi_dir, "leftover.txt")
+        with open(leftover_filename, "w"):
+            pass
+        self.assertTrue(exists(leftover_filename))
+        self.clean_reload(certifi)
+        self.assertFalse(exists(leftover_filename))
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
@@ -386,6 +388,12 @@ class TestAndroidImport(unittest.TestCase):
                          pth_generated.__path__)
         for entry in sys.path:
             self.assertNotIn("nonexistent", entry)
+
+    def test_pkg_resources(self):
+        import pkg_resources
+        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "setuptools"],
+                         sorted(dist.project_name for dist in pkg_resources.working_set))
+        self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)
 
 
 def asset_path(*paths):

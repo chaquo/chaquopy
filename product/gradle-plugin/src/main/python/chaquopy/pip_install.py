@@ -37,10 +37,20 @@ class PipInstall(object):
         os.mkdir(join(self.target, "common"))
         abi_trees = {}
         try:
+            # Install the first ABI.
             abi = self.android_abis[0]
             req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)
             self.move_pure([ri.tree for ri in req_infos if ri.is_pure], abi, abi_trees[abi])
 
+            # Create minimal .dist-info directories so pkg_resources will work (see importer.py).
+            for ri in req_infos:
+                dist_info_dir = join(self.target, "common", "{}-{}.dist-info".format(
+                    normalize_name_wheel(ri.dist.name), ri.dist.version))
+                os.mkdir(dist_info_dir)
+                with open(join(dist_info_dir, "empty.txt"), "w"):
+                    pass
+
+            # Install native requirements for the other ABIs.
             native_reqs = ["{}=={}".format(ri.dist.name, ri.dist.version)
                            for ri in req_infos if not ri.is_pure]
             self.pip_options.append("--no-deps")
@@ -304,6 +314,12 @@ class PathExistsError(ValueError):
 
 class CommandError(Exception):
     pass
+
+
+# This is what bdist_wheel does both for wheel filenames and .dist-info directory names.
+# NOTE: this is not entirely equivalent to the specifications in PEP 427 and PEP 376.
+def normalize_name_wheel(name):
+    return re.sub(r"[^A-Za-z0-9.]+", '_', name)
 
 
 if __name__ == "__main__":

@@ -45,11 +45,23 @@ class GradleTestCase(TestCase):
     #
     # Each element of `files` must be either a filename, or a (filename, dict) tuple. The dict
     # items must either be attributes of ZipInfo, or a "content" string.
-    def assertZipContents(self, zip_file, files):
+    #
+    # Top-level directories ending `.dist-info` are ignored for the purpose of comparing
+    # `files`, but will be compared against `dist_infos` if present.
+    def assertZipContents(self, zip_file, files, dist_infos=None):
+        actual_files = []
+        actual_dist_infos = {}
+        for name in zip_file.namelist():
+            di_match = re.match(r"(.+)-(.+).dist-info", name.split("/")[0])
+            if di_match:
+                version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
+                self.assertEqual(di_match.group(2), version)
+            elif not name.endswith("/"):
+                actual_files.append(name)
+
         self.assertEqual(sorted([f[0] if isinstance(f, tuple) else f
                                  for f in files]),
-                         sorted(name for name in zip_file.namelist()
-                                if not name.endswith("/")),
+                         sorted(actual_files),
                          msg=zip_file.filename)
         for f in files:
             if isinstance(f, tuple):
@@ -62,6 +74,9 @@ class GradleTestCase(TestCase):
                     self.assertEqual(content_expected, content_actual, msg)
                 for key, value in attrs.items():
                     self.assertEqual(value, getattr(zip_info, key), msg)
+
+        if dist_infos is not None:
+            self.assertEqual(dist_infos, actual_dist_infos)
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -411,17 +426,27 @@ class BuildPython3(BuildPythonCase):
 
 class PythonReqs(GradleTestCase):
     def test_change(self):
-        run = self.RunGradle("base")                               # No reqs
-        run.apply_layers("PythonReqs/1a")                          # Add one req
-        run.rerun(requirements=["apple/__init__.py"])
-        run.apply_layers("PythonReqs/1")                           # Replace with a req which has a
-        run.rerun(requirements=["alpha/__init__.py",               #   transitive dependency
-                                "alpha_dep/__init__.py"])
-        run.apply_layers("PythonReqs/2")                           # Add another req
-        run.rerun(requirements=["alpha/__init__.py",
-                                "alpha_dep/__init__.py",
-                                "bravo/__init__.py"])
-        run.apply_layers("base")                                   # Remove all
+        # No reqs.
+        run = self.RunGradle("base")
+
+        # Add one req.
+        run.apply_layers("PythonReqs/1a")
+        run.rerun(requirements=["apple/__init__.py"],
+                  reqs_versions={"apple": "0.0.1"})
+
+        # Replace with a req which has a transitive dependency.
+        run.apply_layers("PythonReqs/1")
+        run.rerun(requirements=["alpha/__init__.py", "alpha_dep/__init__.py"],
+                  reqs_versions={"alpha": "0.0.1", "alpha_dep": "0.0.1"})
+
+        # Add another req.
+        run.apply_layers("PythonReqs/2")
+        run.rerun(
+            requirements=["alpha/__init__.py", "alpha_dep/__init__.py", "bravo/__init__.py"],
+            reqs_versions={"alpha": "0.0.1", "alpha_dep": "0.0.1", "bravo": "0.0.1"})
+
+        # Remove all.
+        run.apply_layers("base")
         run.rerun()
 
     def test_download(self):
@@ -651,7 +676,8 @@ class PythonReqs(GradleTestCase):
         # armeabi-v7a will install a pure-Python wheel, so the requirement will not be
         # installed again for x86, even though an x86 wheel is available.
         run = self.RunGradle("base", "PythonReqs/multi_abi_order_1", abis=["armeabi-v7a", "x86"],
-                             requirements=["multi_abi_order_pure/__init__.py"])
+                             requirements=["multi_abi_order_pure/__init__.py"],
+                             reqs_versions={"multi_abi_order": "0.1"})
 
         # armeabi-v7a will install a native wheel, so the requirement will be installed again
         # for x86, which will select the pure-Python wheel.
@@ -659,7 +685,8 @@ class PythonReqs(GradleTestCase):
         run.rerun(abis=["armeabi-v7a", "x86"],
                   requirements={"common": [],
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
-                                "x86": ["multi_abi_order_pure/__init__.py"]})
+                                "x86": ["multi_abi_order_pure/__init__.py"]},
+                  reqs_versions={"multi_abi_order": "0.2"})
 
     def test_namespace_packages(self):
         self.RunGradle("base", "PythonReqs/namespace_packages",
@@ -900,7 +927,8 @@ class RunGradle(object):
     # post_check. See also `setdefault` loop at top of rerun().
     @kwonly_defaults
     def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
-                  requirements=[], extract_packages=[], licensed_id=None, **kwargs):
+                  requirements=[], reqs_versions=None, extract_packages=[], licensed_id=None,
+                  **kwargs):
         kwargs = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs)
 
@@ -932,7 +960,8 @@ class RunGradle(object):
                 else:
                     files = []
             reqs_zip = ZipFile(join(asset_dir, "requirements-{}.zip".format(suffix)))
-            self.test.assertZipContents(reqs_zip, files)
+            self.test.assertZipContents(reqs_zip, files,
+                                        reqs_versions if (suffix == "common") else None)
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
@@ -981,7 +1010,7 @@ class RunGradle(object):
         # build.json
         DEFAULT_EXTRACT_PACKAGES = [  # See PythonPlugin.groovy
             "certifi", "cv2.data", "ipykernel", "jedi.evaluate", "matplotlib", "nbformat",
-            "notebook", "obspy", "sklearn.datasets", "spacy.data",
+            "notebook", "obspy", "pytz", "sklearn.datasets", "spacy.data", "theano"
         ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
