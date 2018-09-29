@@ -1,0 +1,69 @@
+diff -ur src-original/deps/c-ares/src/ares_init.c src/deps/c-ares/src/ares_init.c
+--- src-original/deps/c-ares/src/ares_init.c	2017-07-20 20:58:08.000000000 +0000
++++ src/deps/c-ares/src/ares_init.c	2018-09-29 10:18:13.727028377 +0000
+@@ -1534,6 +1534,12 @@
+   status = ARES_EOF;
+ 
+ #elif defined(ANDROID) || defined(__ANDROID__)
++  /* Chaquopy: this technique no longer works on Android 8 and later
++   * (https://stackoverflow.com/a/48973823). There may be other properties still available with
++   * names like `net.eth0.dns1`, but these are undocumented and may be removed as they allow an
++   * app to learn information about the network without having the ACCESS_NETWORK_STATE
++   * permission
++   * (https://developer.android.com/about/versions/oreo/android-8.0-changes#o-pri). */
+   unsigned int i;
+   char propname[PROP_NAME_MAX];
+   char propvalue[PROP_VALUE_MAX]="";
+@@ -1812,14 +1818,14 @@
+     channel->ednspsz = EDNSPACKETSZ;
+ 
+   if (channel->nservers == -1) {
+-    /* If nobody specified servers, try a local named. */
++    /* Chaquopy: default to the Google public DNS server. */
+     channel->servers = ares_malloc(sizeof(struct server_state));
+     if (!channel->servers) {
+       rc = ARES_ENOMEM;
+       goto error;
+     }
+     channel->servers[0].addr.family = AF_INET;
+-    channel->servers[0].addr.addrV4.s_addr = htonl(INADDR_LOOPBACK);
++    channel->servers[0].addr.addrV4.s_addr = htonl(0x08080808);  /* Chaquopy: 8.8.8.8 */
+     channel->servers[0].addr.udp_port = 0;
+     channel->servers[0].addr.tcp_port = 0;
+     channel->nservers = 1;
+diff -ur src-original/deps/c-ares/src/config_linux/ares_config.h src/deps/c-ares/src/config_linux/ares_config.h
+--- src-original/deps/c-ares/src/config_linux/ares_config.h	2014-03-25 22:40:32.000000000 +0000
++++ src/deps/c-ares/src/config_linux/ares_config.h	2018-09-28 14:10:40.255767897 +0000
+@@ -53,7 +53,8 @@
+ #define HAVE_ARPA_INET_H 1
+ 
+ /* Define to 1 if you have the <arpa/nameser_compat.h> header file. */
+-#define HAVE_ARPA_NAMESER_COMPAT_H 1
++/* Chaquopy: Crystax doesn't have this file until API level 21. */
++/* #define HAVE_ARPA_NAMESER_COMPAT_H 1 */
+ 
+ /* Define to 1 if you have the <arpa/nameser.h> header file. */
+ #define HAVE_ARPA_NAMESER_H 1
+@@ -116,7 +117,8 @@
+ #define HAVE_GETNAMEINFO 1
+ 
+ /* Define to 1 if you have the getservbyport_r function. */
+-#define HAVE_GETSERVBYPORT_R 1
++/* Chaquopy: removed */
++/* #define HAVE_GETSERVBYPORT_R 1 */
+ 
+ /* Define to 1 if you have the `gettimeofday' function. */
+ #define HAVE_GETTIMEOFDAY 1
+diff -ur src-original/setup_cares.py src/setup_cares.py
+--- src-original/setup_cares.py	2017-04-25 06:44:35.000000000 +0000
++++ src/setup_cares.py	2018-09-28 14:07:48.719496046 +0000
+@@ -71,7 +71,8 @@
+         if sys.platform.startswith('linux'):
+             self.compiler.add_include_dir(os.path.join(self.cares_dir, 'src/config_linux'))
+             self.compiler.add_library('dl')
+-            self.compiler.add_library('rt')
++            # Chaquopy: removed
++            # self.compiler.add_library('rt')
+         elif sys.platform == 'darwin':
+             self.compiler.add_include_dir(os.path.join(self.cares_dir, 'src/config_darwin'))
+             self.compiler.define_macro('_DARWIN_USE_64_BIT_INODE', 1)

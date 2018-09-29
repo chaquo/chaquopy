@@ -1,0 +1,6 @@
+package:
+  name: pycares
+  version: 2.3.0
+
+build:
+  number: 1
