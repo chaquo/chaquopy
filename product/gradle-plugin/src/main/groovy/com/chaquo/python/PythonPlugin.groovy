@@ -188,6 +188,10 @@ class PythonPlugin implements Plugin<Project> {
                         "one of the following versions as soon as possible: " +
                         "${Common.CURRENT_PYTHON_VERSIONS}.")
             }
+            if (python.version.startsWith("2.")) {
+                println("Warning: $variant.name: Chaquopy will stop supporting Python 2 in " +
+                        "the near future. Please switch to Python 3 as soon as possible.")
+            }
 
             createConfigs(variant, python)
             Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
