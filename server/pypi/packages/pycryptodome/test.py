@@ -9,7 +9,6 @@ class TestPycryptodome(unittest.TestCase):
 
     def test_aes(self):
         from Crypto.Cipher import AES
-        from Crypto.Random import get_random_bytes
 
         plaintext = b"hello world"
         key = b'\x94\xed\x84d\x8e\xf4\n\xf9\x85\xdc\xefC>\x90Y.'

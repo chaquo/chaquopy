@@ -1,0 +1,8 @@
+package:
+  name: TA-Lib
+  version: 0.4.17
+
+requirements:
+  host:
+    - chaquopy-ta-lib 0.4.0
+    - numpy 1.14.2

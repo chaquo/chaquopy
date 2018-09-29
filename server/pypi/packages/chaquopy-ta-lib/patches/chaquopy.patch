@@ -1,0 +1,12 @@
+diff -ur src-original/config.sub src/config.sub
+--- src-original/config.sub	2006-11-08 07:44:58.000000000 +0000
++++ src/config.sub	2018-09-29 20:29:00.432852801 +0000
+@@ -1219,7 +1219,7 @@
+ 	      | -os2* | -vos* | -palmos* | -uclinux* | -nucleus* \
+ 	      | -morphos* | -superux* | -rtmk* | -rtmk-nova* | -windiss* \
+ 	      | -powermax* | -dnix* | -nx6 | -nx7 | -sei* | -dragonfly* \
+-	      | -skyos* | -haiku* | -rdos* | -toppers*)
++              | -skyos* | -haiku* | -rdos* | -toppers* | -android*)  # Chaquopy: added Android.
+ 	# Remember, each alternative MUST END IN *, to match a version number.
+ 		;;
+ 	-qnx*)

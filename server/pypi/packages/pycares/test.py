@@ -9,7 +9,6 @@ TIMEOUT = 1
 class TestPycares(unittest.TestCase):
 
     def test_basic(self):
-        import os
         import pycares
         from select import select
         import socket

@@ -1,0 +1,37 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-02-07 16:58:21.000000000 +0000
++++ src/setup.py	2018-09-29 20:42:40.886011874 +0000
+@@ -26,20 +26,12 @@
+     if prefix in sys.platform:
+         platform_supported = True
+         include_dirs = [
+-            '/usr/include',
+-            '/usr/local/include',
+-            '/opt/include',
+-            '/opt/local/include',
++            # Chaquopy: removed
+         ]
+         if 'TA_INCLUDE_PATH' in os.environ:
+             include_dirs.append(os.environ['TA_INCLUDE_PATH'])
+         lib_talib_dirs = [
+-            '/usr/lib',
+-            '/usr/local/lib',
+-            '/usr/lib64',
+-            '/usr/local/lib64',
+-            '/opt/lib',
+-            '/opt/local/lib',
++            # Chaquopy: removed
+         ]
+         if 'TA_LIBRARY_PATH' in os.environ:
+             runtime_lib_dirs = os.environ['TA_LIBRARY_PATH']
+@@ -59,8 +51,8 @@
+ 
+ # Do not require numpy or cython for just querying the package
+ if not query_only:
+-    import numpy
+-    include_dirs.insert(0, numpy.get_include())
++    # Chaquopy: edited
++    include_dirs.insert(0, os.path.abspath("../requirements/numpy/core/include"))
+ 
+ try:
+     from Cython.Distutils import build_ext
