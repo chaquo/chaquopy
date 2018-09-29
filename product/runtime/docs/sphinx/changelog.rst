@@ -2,7 +2,7 @@ Change log
 ##########
 
 ..
-   4.0.1 was a non-public release for ***REMOVED***.
+   4.0.1 and 4.0.2 were non-public releases.
 
 4.0.0 (2018-08-22)
 ==================
@@ -18,7 +18,7 @@ Change log
   be used.
 
 ..
-   3.3.3 and 3.3.4 were non-public releases for ***REMOVED***.
+   3.3.3 and 3.3.4 were non-public releases.
 
 3.3.2 (2018-08-01)
 ==================
@@ -35,7 +35,7 @@ Change log
   improve extractPackages performance.
 
 ..
-   3.3.1 was a non-public release for Electron Cash.
+   3.3.1 was a non-public release.
 
 3.3.0 (2018-06-20)
 ==================

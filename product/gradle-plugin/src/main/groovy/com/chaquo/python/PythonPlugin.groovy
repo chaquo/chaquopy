@@ -183,8 +183,8 @@ class PythonPlugin implements Plugin<Project> {
                                           "Current versions are ${Common.CURRENT_PYTHON_VERSIONS}.")
             }
             if (! Common.CURRENT_PYTHON_VERSIONS.contains(python.version)) {
-                println("Warning: $variant.name: python.version ${python.version} does not " +
-                        "contain all current Chaquopy features and bug fixes. Please switch to " +
+                println("Warning: $variant.name: python.version ${python.version} has not " +
+                        "been tested with this version of Chaquopy. Please switch to " +
                         "one of the following versions as soon as possible: " +
                         "${Common.CURRENT_PYTHON_VERSIONS}.")
             }

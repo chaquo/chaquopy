@@ -96,9 +96,10 @@ If this package was blocking others, use the pkgtest script (separate repository
 those packages and check whether any new issues have been exposed.
 
 If the package depended on extractPackages or other changes in the development version,
-consider postponing the remaining steps until that version is released:
+consider postponing the remaining steps until that version is released.
 
-* Update any GitHub issues.
-* Email any affected users, including anyone who emailed, commented or thumbed up a related
-  issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
-  discover potential users in the future.
+Update any GitHub issues.
+
+Email any affected users, including anyone who emailed, commented or thumbed up a related
+issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover discover
+potential users in the future.
