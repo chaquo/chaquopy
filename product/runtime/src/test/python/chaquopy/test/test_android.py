@@ -256,6 +256,11 @@ class TestAndroidImport(unittest.TestCase):
         self.clean_reload(certifi)
         self.assertFalse(exists(leftover_filename))
 
+    def test_extract_native_package(self):
+        # TODO #5513: these should be extracted to the same place.
+        self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
+        self.check_extracted_module("murmurhash.mrmr", REQS_ABI_ZIP, "murmurhash/mrmr.so")
+
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
         self.assertEqual(mod_name, mod.__name__)
@@ -391,7 +396,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_pkg_resources(self):
         import pkg_resources
-        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "setuptools"],
+        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl", "murmurhash",
+                          "setuptools"],
                          sorted(dist.project_name for dist in pkg_resources.working_set))
         self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)
 

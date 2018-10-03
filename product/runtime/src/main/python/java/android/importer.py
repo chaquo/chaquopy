@@ -289,7 +289,7 @@ class AssetFinder(object):
     def extract_if_changed(self, member, zip_file=None):
         if zip_file is None:
             zip_file = self.zip_file
-        return self.zip_file.extract_if_changed(member, self.extract_root)
+        return zip_file.extract_if_changed(member, self.extract_root)
 
 
 # Not inheriting any base class: they aren't available in Python 2.

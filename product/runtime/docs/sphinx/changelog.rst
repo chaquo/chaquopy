@@ -2,7 +2,7 @@ Change log
 ##########
 
 ..
-   4.0.1 and 4.0.2 were non-public releases.
+   4.0.1, 4.0.2 and 4.0.3 were non-public releases.
 
 4.0.0 (2018-08-22)
 ==================
