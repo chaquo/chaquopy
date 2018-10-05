@@ -26,6 +26,10 @@
 	path = target/crystax/toolchain/cloog
 	url = https://github.com/crystax/android-toolchain-cloog.git
 	branch = crystax-r10
+[submodule "target/crystax/toolchain/expat"]
+        path = target/crystax/toolchain/expat
+        url = https://github.com/crystax/android-toolchain-expat.git
+        branch = crystax-r10
 [submodule "target/crystax/toolchain/gcc/gcc-4.9"]
 	path = target/crystax/toolchain/gcc/gcc-4.9
 	url = gitolite@chaquo.com:crystax-toolchain-gcc-4-9
@@ -82,10 +86,10 @@
 	path = target/python
 	url = https://github.com/python/cpython.git
 	branch = 3.6
+[submodule "target/python2.7"]
+        path = target/python2.7
+        url = https://github.com/python/cpython.git
+        branch = 2.7
 [submodule "target/openssl"]
 	path = target/openssl
 	url = https://github.com/openssl/openssl.git
-[submodule "target/crystax/toolchain/expat"]
-	path = target/crystax/toolchain/expat
-	url = https://github.com/crystax/android-toolchain-expat.git
-	branch = crystax-r10
