@@ -1,0 +1,6 @@
+*
+!docker-entrypoint.sh
+!product
+product/*/build
+!target/package-target.sh
+!VERSION.txt

@@ -8,11 +8,13 @@
 
 set -eu
 
-crystax="${1:?}"
+crystax="$(cd ${1:?} && pwd)"
 short_ver="${2:?}"
 micro_build="${3:?}"
 full_ver="$short_ver.$micro_build"
-target_dir="$(cd ${4:?}; pwd)/$full_ver"
+
+mkdir -p "${4:?}"
+target_dir="$(cd $4 && pwd)/$full_ver"
 mkdir "$target_dir"  # Error if already exists: don't want to overwrite existing files.
 target_prefix="$target_dir/target-$full_ver"
 
@@ -20,7 +22,7 @@ tmp_dir="$target_dir/tmp"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
-for abi in armeabi-v7a x86; do
+for abi in armeabi-v7a arm64-v8a x86; do
     echo "$abi"
     mkdir "$abi"
     cd "$abi"
