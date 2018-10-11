@@ -5,6 +5,7 @@
 import argparse
 from copy import deepcopy
 import csv
+from dataclasses import dataclass, field
 from email import generator, message, parser
 from glob import glob
 import jsonschema
@@ -20,7 +21,6 @@ import sysconfig
 import tempfile
 from textwrap import dedent
 
-import attr
 from elftools.elf.elffile import ELFFile
 import jinja2
 from wheel.archive import archive_wheelfile
@@ -52,22 +52,27 @@ COMPILER_LIBS = {
 }
 
 
-@attr.s
+@dataclass
 class Abi:
-    name = attr.ib()
-    default_api_level = attr.ib()
-    toolchain = attr.ib()
-    tool_prefix = attr.ib()
-    variant = attr.ib(default="")  # Toolchain lib subdirectory
-    cflags = attr.ib(default="")
-    ldflags = attr.ib(default="")
+    name: str                               # Android ABI name.
+    default_api_level: int
+    tool_prefix: str                        # GCC target triplet.
+    toolchain: str = field(default="")      # Toolchain name (defaults to tool_prefix).
+    variant: str = field(default="")        # Toolchain lib subdirectory.
+    cflags: str = field(default="")
+    ldflags: str = field(default="")
+
+    def __post_init__(self):
+        if not self.toolchain:
+            self.toolchain = self.tool_prefix
+
 
 ABIS = {abi.name: abi for abi in [
-    Abi("armeabi-v7a", 15, "arm-linux-androideabi", "arm-linux-androideabi",
-        variant="armv7-a/thumb",
+    Abi("armeabi-v7a", 15, "arm-linux-androideabi", variant="armv7-a/thumb",
         cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
         ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
-    Abi("x86", 15, "x86", "i686-linux-android"),
+    Abi("arm64-v8a", 21, "aarch64-linux-android"),
+    Abi("x86", 15, "i686-linux-android", toolchain="x86"),
 ]}
 
 
@@ -99,24 +104,7 @@ class BuildWheel:
                     else:
                         self.bundled_reqs.append(name)
 
-            if not self.needs_python:
-                self.compat_tag = f"py2.py3-none-{self.platform_tag}"
-
-            if self.needs_python and (self.python == "all"):
-                wheels = []
-                for ver in PYTHON_VERSIONS:
-                    log(f"Building for Python {ver}")
-                    self.python = ver
-                    wheel = self.unpack_and_build()
-                    if wheel:
-                        if "py2.py3-none-any" in wheel:
-                            log("Universal wheel produced: no need to build other versions")
-                            break
-                        wheels.append(wheel)
-                if wheels:
-                    self.compare_wheels(wheels)
-            else:
-                self.unpack_and_build()
+            self.unpack_and_build()
 
         except CommandError as e:
             log("Error: " + str(e))
@@ -124,7 +112,11 @@ class BuildWheel:
 
     def unpack_and_build(self):
         if self.needs_python:
+            if not self.python:
+                raise CommandError("The --python argument is required for this package.")
             self.find_python()
+        else:
+            self.compat_tag = f"py2.py3-none-{self.platform_tag}"
 
         build_reqs = self.get_requirements("build")
         if build_reqs:
@@ -179,8 +171,8 @@ class BuildWheel:
         ap.add_argument("--build-toolchain", action="store_true", help="Rebuild standalone "
                         "toolchain. Will happen automatically if toolchain doesn't already "
                         "exist for this ABI and API level.")
-        ap.add_argument("--python", metavar="VERSION", choices=(PYTHON_VERSIONS + ["all"]),
-                        default="all", help="Choices: %(choices)s. Default: %(default)s.")
+        ap.add_argument("--python", metavar="VERSION", choices=PYTHON_VERSIONS,
+                        help="Python version (choices: %(choices)s)")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                         help="Choices: %(choices)s")
         ap.add_argument("--api-level", metavar="N", type=int,
@@ -605,36 +597,6 @@ class BuildWheel:
         out_filename = self.package_wheel(tmp_dir, out_dir)
         log(f"Wrote {out_filename}")
         return out_filename
-
-    # Compares Python 2 and Python 3 wheels, and merges them into a py2.py3 wheel if they have
-    # identical content.
-    def compare_wheels(self, wheels):
-        log("Comparing wheels")
-        tmp_dir = ensure_empty(f"{self.version_dir}/compare_{self.abi}")
-        record_filename = f"{self.dist_info}/RECORD"
-        wheel_data = []
-        for wheel in wheels:
-            run(f"unzip -d {tmp_dir} -q {wheel} {record_filename}")
-            wheel_data.append({
-                path: data
-                for path, *data in csv.reader(open(f"{tmp_dir}/{record_filename}"))
-                if path != f"{self.dist_info}/WHEEL"})
-            run(f"mv {tmp_dir}/{record_filename} "  # For manual diffing.
-                f"{tmp_dir}/{basename(wheel).replace('.whl', '.record')}")
-
-        if all(wd == wheel_data[0] for wd in wheel_data[1:]):
-            log("Wheel content is identical: producing a universal wheel")
-            new_filename = join(dirname(wheels[0]),
-                                re.sub(r"^(.+?)-(.+?)-(.+)\.whl$",
-                                       r"\1-\2-py2.py3-none-any.whl",
-                                       basename(wheels[0])))
-            run(f"mv {wheels[0]} {new_filename}")
-            for wheel in wheels[1:]:
-                run(f"rm {wheel}")
-            self.fix_wheel(new_filename)
-        else:
-            log("Wheel content differs: not producing a universal wheel")
-            log(f"To see differences, run `diff -u {tmp_dir}/*record`")
 
     def package_wheel(self, in_dir, out_dir):
         info_dir = f"{in_dir}/{self.dist_info}"
