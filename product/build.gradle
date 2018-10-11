@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-        jcenter()
+        mavenCentral()  // https://github.com/Abnaxos/markdown-doclet/issues/88
     }
     dependencies {
         classpath 'ch.raffael.pegdown-doclet:pegdown-doclet:1.3'
@@ -9,6 +9,6 @@ buildscript {
 
 allprojects {
      repositories {
-         jcenter()
+         mavenCentral()
      }
 }
