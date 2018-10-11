@@ -22,6 +22,14 @@ from pip._vendor.retrying import retry
 from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
 
+ABI_API_LEVELS = {
+    "armeabi-v7a": 15,
+    "arm64-v8a": 21,
+    "x86": 15,
+    "x86_64": 21,
+}
+
+
 logger = logging.getLogger(__name__)
 
 class PipInstall(object):
@@ -183,7 +191,7 @@ class PipInstall(object):
                 raise
 
     def platform_tag(self, abi):
-        return "android_15_" + re.sub(r"[-.]", "_", abi)
+        return "android_{}_{}".format(ABI_API_LEVELS[abi], re.sub(r"[-.]", "_", abi))
 
     def parse_args(self):
         class ReqFileAppend(argparse.Action):
