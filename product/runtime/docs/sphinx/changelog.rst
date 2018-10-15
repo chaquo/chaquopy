@@ -2,10 +2,11 @@ Change log
 ##########
 
 ..
-   4.0.1, 4.0.2 and 4.0.3 were non-public releases.
+   4.0.1, 4.0.2, 4.0.3 and 4.1.0 were non-public releases.
 
 4.0.0 (2018-08-22)
 ==================
+
 * Android Gradle plugin version 3.2 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 2.3 is no longer supported.
 * Add :any:`resource` module.

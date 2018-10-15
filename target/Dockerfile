@@ -6,8 +6,15 @@ FROM chaquopy-crystax
 COPY crystax/platform/ndk src/crystax/platform/ndk
 
 # OpenSSL
+#
+# Parallel build is not supported until at least OpenSSL 1.1.0. Adding `-j` to the make command
+# in build-target-openssl.sh has no effect because of the way OpenSSL uses recursive make. See
+# https://github.com/openssl/openssl/issues/298 ("jobserver unavailable") and
+# https://github.com/openssl/openssl/issues/5762.
 COPY openssl src/openssl
-RUN rm -r crystax/sources/openssl && \
+RUN apt-get update && \
+    apt-get install -y perl-modules && \
+    rm -r crystax/sources/openssl && \
     src/crystax/platform/ndk/build/tools/build-target-openssl.sh \
         --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/openssl && \
     rm -r /tmp/ndk-

@@ -20,11 +20,18 @@ RUN yes | android-sdk/tools/bin/sdkmanager 'cmake;3.6.4111459'
 
 # Not installing the NDK with sdkmanager, because there's no way to select a specific version
 # to make the build reproducible.
-RUN filename=android-ndk-r18-linux-x86_64.zip && \
+#
+# NDK r18 increased the minimum API level to 16: our minimum is currently 15.
+RUN filename=android-ndk-r17c-linux-x86_64.zip && \
     wget https://dl.google.com/android/repository/$filename && \
     unzip -q $filename && \
     rm $filename && \
-    mv android-ndk-r18 android-ndk
+    mv android-ndk-r17c android-ndk
+
+# Cache installation of Gradle itself.
+COPY product/gradlew product/
+COPY product/gradle product/gradle
+RUN product/gradlew -p product
 
 COPY product/buildSrc product/buildSrc
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
@@ -32,12 +39,12 @@ RUN platform_ver=$(grep COMPILE_SDK_VERSION \
                    | sed 's|.* = \(.*\);.*|\1|'); \
     yes | android-sdk/tools/bin/sdkmanager "platforms;android-$platform_ver"
 
-COPY product/build.gradle product/gradlew product/settings.gradle product/
-COPY product/gradle product/gradle
+COPY product/runtime/requirements-build.txt product/runtime/
+RUN pip install -r product/runtime/requirements-build.txt
+
+COPY product/build.gradle product/settings.gradle product/
 COPY product/gradle-plugin product/gradle-plugin
 COPY product/runtime product/runtime
-
-RUN pip install -r product/runtime/requirements-build.txt
 
 # Leave empty for default license enforcement.
 # `free` for no license enforcement at all.
@@ -54,10 +61,9 @@ COPY VERSION.txt ./
 # Options: Debug, Release
 ARG build_type=Release
 
-WORKDIR /root/product
-RUN ./gradlew -P cmakeBuildType=$build_type gradle-plugin:assemble gradle-plugin:writePom
+RUN product/gradlew -p product -P cmakeBuildType=$build_type \
+    gradle-plugin:assemble gradle-plugin:writePom
 
-WORKDIR /root
 COPY docker-entrypoint.sh .
 COPY target/package-target.sh target/
 ENTRYPOINT ["./docker-entrypoint.sh"]
