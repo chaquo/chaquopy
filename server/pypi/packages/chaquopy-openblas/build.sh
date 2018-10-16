@@ -59,6 +59,10 @@ case $CHAQUOPY_ABI in
         export ARM_SOFTFP_ABI="1"
         ;;
 
+    arm64-v8a)
+        export TARGET="ARMV8"
+        ;;
+
     x86)
         export TARGET="ATOM"
         ;;

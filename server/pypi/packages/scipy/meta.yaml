@@ -3,9 +3,10 @@ package:
   version: 1.0.1
 
 build:
-  number: 1
+  number: 2
 
 requirements:
   host:
+    - chaquopy-libgfortran 4.9.3
     - chaquopy-openblas 0.2.20
     - numpy 1.14.2
