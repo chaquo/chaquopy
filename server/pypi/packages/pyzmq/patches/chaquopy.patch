@@ -1,0 +1,31 @@
+diff -ur src-original/buildutils/detect.py src/buildutils/detect.py
+--- src-original/buildutils/detect.py	2018-02-10 13:02:35.000000000 +0000
++++ src/buildutils/detect.py	2018-10-16 21:11:08.511047255 +0000
+@@ -102,6 +102,14 @@
+         `library_dirs`, `libs`, etc.
+     """
+     
++    # Chaquopy: we can't run the test program when cross-compiling, so do this instead.
++    import re
++    for filename in os.listdir("../requirements"):
++        match = re.search(r"chaquopy_libzmq-(.*).dist-info", filename)
++        if match:
++            return {"vers": tuple(int(x) for x in match.group(1).split("."))}
++    raise Exception("Failed to find chaquopy-libzmq version")
++
+     cfile = pjoin(basedir, 'vers.c')
+     shutil.copy(pjoin(os.path.dirname(__file__), 'vers.c'), cfile)
+     
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-02-10 13:02:35.000000000 +0000
++++ src/setup.py	2018-10-16 21:05:20.843661110 +0000
+@@ -85,6 +85,9 @@
+ # allow `--zmq=foo` to be passed at any point,
+ # but always assign it to configure
+ 
++# Chaqupy added
++sys.argv.append("--zmq=../requirements/chaquopy")
++
+ configure_idx = -1
+ fetch_idx = -1
+ for idx, arg in enumerate(list(sys.argv)):

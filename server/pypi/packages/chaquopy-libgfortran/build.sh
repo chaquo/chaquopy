@@ -2,7 +2,7 @@
 set -eux
 
 mkdir -p $PREFIX/lib
-cp $(dirname $CC)/../*/lib/$CHAQUOPY_ABI_VARIANT/libgfortran.so.3 $PREFIX/lib
+cp $(dirname $CC)/../*/lib*/$CHAQUOPY_ABI_VARIANT/libgfortran.so.3 $PREFIX/lib
 
 # The most recently-released version of patchelf (0.9) rearranges the file in ways that break
 # some other tools, including strip (https://github.com/NixOS/patchelf/issues/10). Stripping
@@ -13,14 +13,13 @@ cp $(dirname $CC)/../*/lib/$CHAQUOPY_ABI_VARIANT/libgfortran.so.3 $PREFIX/lib
 # known bug (https://github.com/NixOS/patchelf/pull/127), but that seems to apply only to
 # executable files so isn't relevant to us.
 #
-# To install the fixed version, first uninstall nay existing version, then do the following
+# To install the fixed version, first uninstall any existing version, then do the following
 # (from https://github.com/pypa/manylinux/blob/6eae41b6988f34401d87d22fcb78970df2c3a06d/docker/build_scripts/build.sh):
 #
-#     apt-get install autoconf
-#     PATCHELF_COMMIT=6bfcafbba8d89e44f9ac9582493b4f27d9d8c369
-#     curl -sL -o patchelf.tar.gz https://github.com/NixOS/patchelf/archive/$PATCHELF_COMMIT.tar.gz
-#     tar -xzf patchelf.tar.gz
-#     (cd patchelf-$PATCHELF_COMMIT && ./bootstrap.sh && ./configure && make && make install)
+#     commit=6bfcafbba8d89e44f9ac9582493b4f27d9d8c369
+#     wget -q -O - https://github.com/NixOS/patchelf/archive/$commit.tar.gz | tar -xzf -
+#     cd patchelf-$commit
+#     ./bootstrap.sh && ./configure && make && make install)
 PATCHELF_VERSION="$(patchelf --version)"
 if [ "$PATCHELF_VERSION" != "patchelf 0.10" ]; then
     echo "$PATCHELF_VERSION is not the correct version: see comment in chaquopy-libgfortran/build.sh."
