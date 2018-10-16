@@ -4,8 +4,6 @@
 
 FROM chaquopy-target
 
-RUN echo "progress=dot:giga" > .wgetrc
-
 RUN apt-get update && \
     apt-get install -y openjdk-8-jdk-headless
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6

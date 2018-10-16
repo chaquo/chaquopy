@@ -29,7 +29,12 @@ RUN apt-get update && \
 ENV ABIS="armeabi-v7a,arm64-v8a,x86"
 
 # Rebuild libcrystax to fix several bugs (see commit history of `crystax/platform/ndk`).
-RUN NDK=$(pwd)/crystax ABIS=$ABIS make -j $(nproc) -C src/crystax/platform/ndk/sources/crystax && \
+#
+# armeabi and armeabi-v7a-hard are both required by make-standalone-toolchain.sh. Also,
+# armeabi is required for OpenBLAS: see pypi/packages/chaquopy-openblas/build.sh.
+RUN NDK=$(pwd)/crystax \
+    ABIS=$ABIS,armeabi,armeabi-v7a-hard \
+    make -j $(nproc) -C src/crystax/platform/ndk/sources/crystax && \
     rm -r crystax/sources/crystax && \
     mv src/crystax/platform/ndk/sources/crystax crystax/sources
 

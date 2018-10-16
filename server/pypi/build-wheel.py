@@ -167,7 +167,8 @@ class BuildWheel:
                         help="Extra directory to search for package information, in addition "
                         "to packages/ in the same directory as this script. Can be used "
                         "multiple times.")
-        ap.add_argument("--ndk", metavar="DIR", required=True, help="Path to Crystax NDK")
+        ap.add_argument("--ndk", metavar="DIR", type=abspath, required=True,
+                        help="Path to Crystax NDK")
         ap.add_argument("--build-toolchain", action="store_true", help="Rebuild standalone "
                         "toolchain. Will happen automatically if toolchain doesn't already "
                         "exist for this ABI and API level.")
@@ -305,7 +306,7 @@ class BuildWheel:
             return
 
         for package, version in reqs:
-            dist_dir = f"{self.find_package(package)}/dist"
+            dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
             matches = []
             for filename in os.listdir(dist_dir):
                 match = re.search(fr"^{normalize_name_wheel(package)}-"
@@ -592,8 +593,7 @@ class BuildWheel:
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        out_dir = f"{self.package_dir}/dist"
-        ensure_dir(out_dir)
+        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
         out_filename = self.package_wheel(tmp_dir, out_dir)
         log(f"Wrote {out_filename}")
         return out_filename
@@ -757,6 +757,7 @@ def cd(new_dir):
 
 def log(s):
     print(f"{PROGRAM_NAME}: {s}")
+    sys.stdout.flush()
 
 
 class CommandError(Exception):

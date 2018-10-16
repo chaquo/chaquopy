@@ -3,6 +3,8 @@
 # and exclude them from this context using .dockerignore.
 FROM chaquopy-crystax
 
+RUN echo "progress=dot:giga" > .wgetrc
+
 COPY crystax/platform/ndk src/crystax/platform/ndk
 
 # OpenSSL
@@ -37,7 +39,7 @@ RUN apt-get update && \
 COPY python src/python
 RUN apt-get update && \
     apt-get install -y libmpdec2 patch && \
-    wget --progress=dot:giga https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6,python3.6-minimal,libpython3.6-minimal,libpython3.6-stdlib}_3.6.3-1.deb9u1_amd64.deb && \
+    wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6,python3.6-minimal,libpython3.6-minimal,libpython3.6-stdlib}_3.6.3-1.deb9u1_amd64.deb && \
     dpkg -i *.deb && \
     rm *.deb && \
     src/crystax/platform/ndk/build/tools/build-target-python.sh \
