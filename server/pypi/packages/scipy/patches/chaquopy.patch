@@ -78,14 +78,13 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-03-24 03:12:35.000000000 +0000
 +++ src/setup.py	2018-10-16 22:36:07.845070738 +0000
-@@ -33,6 +33,20 @@
+@@ -33,6 +33,19 @@
  else:
      import builtins
  
 +
-+# Chaquopy: arm64-v8a requires -rpath-link, otherwise it can't find libgfortran.so.3 when
-+# linking the test program. This is in the toolchain at aarch64-linux-android/lib64, but
-+# symlinking it into aarch64-linux-android/lib or sysroot/usr/lib made no difference.
++# Chaquopy: an OpenBLAS test executable is built without using LDFLAGS, so we have to add
++# --rpath-link here: see note in build-wheel.py.
 +with open(os.path.join(os.path.dirname(__file__), "site.cfg"), "w") as site_file:
 +    site_file.write("[openblas]\n"
 +                    "library_dirs = {reqs_dir}/lib\n"

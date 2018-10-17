@@ -63,6 +63,29 @@ diff -ru src-original/setup.py src/setup.py
  
  if not PY3:
 diff -ru src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
+diff -ur src-original/third_party/cares/cares/ares_init.c src/third_party/cares/cares/ares_init.c
+--- src-original/third_party/cares/cares/ares_init.c	2018-06-01 23:53:57.000000000 +0000
++++ src/third_party/cares/cares/ares_init.c	2018-10-17 19:02:36.339520322 +0000
+@@ -1537,8 +1537,10 @@
+   unsigned int i;
+   char propname[PROP_NAME_MAX];
+   char propvalue[PROP_VALUE_MAX]="";
+-
+   for (i = 1; i <= MAX_DNS_PROPERTIES; i++) {
++  /* Chaquopy: __system_property_get was removed in 64-bit ABIs
++     (https://stackoverflow.com/a/28416743).
++
+     snprintf(propname, sizeof(propname), "%s%u", DNS_PROP_NAME_PREFIX, i);
+     if (__system_property_get(propname, propvalue) < 1) {
+       status = ARES_EOF;
+@@ -1547,6 +1549,7 @@
+     status = config_nameserver(&servers, &nservers, propvalue);
+     if (status != ARES_SUCCESS)
+       break;
++  */
+     status = ARES_EOF;
+   }
+ #elif defined(CARES_USE_LIBRESOLV)
 --- src-original/third_party/cares/config_android/ares_config.h	2018-06-01 23:53:55.000000000 +0000
 +++ src/third_party/cares/config_android/ares_config.h	2018-06-12 15:34:29.194597780 +0000
 @@ -52,7 +52,8 @@

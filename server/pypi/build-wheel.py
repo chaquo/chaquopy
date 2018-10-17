@@ -402,15 +402,10 @@ class BuildWheel:
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
-        # Non-language-specific GCC flags.
         gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
             abi.cflags])
-
         env["CFLAGS"] = gcc_flags
-        if exists(f"{self.reqs_dir}/chaquopy/include"):
-            env["CFLAGS"] += f" -I{self.reqs_dir}/chaquopy/include"
-
         env["FARCH"] = gcc_flags  # Used by numpy.distutils Fortran compilation.
 
         # Not including -pie despite recommendation in standalone toolchain docs, because it
@@ -425,9 +420,18 @@ class BuildWheel:
             # I tried also adding -Werror=implicit-function-declaration to CFLAGS, but that
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
+
+            # For some reason the arm64-v8a compiler doesn't have this as a default setting.
+            # This breaks anything which builds executables, e.g. during feature tests.
+            f"-Wl,--rpath-link,{toolchain_dir}/sysroot/usr/lib",
+
             abi.ldflags])
-        if exists(f"{self.reqs_dir}/chaquopy/lib"):
-            env["LDFLAGS"] += f" -L{self.reqs_dir}/chaquopy/lib"
+
+        reqs_prefix = f"{self.reqs_dir}/chaquopy"
+        if exists(reqs_prefix):
+            env["CFLAGS"] += f" -I{reqs_prefix}/include"
+            env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
+                               f" -Wl,--rpath-link,{reqs_prefix}/lib")
 
         env["ARFLAGS"] = "rc"
 
@@ -467,8 +471,10 @@ class BuildWheel:
     # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
     # configure as much as possible via update_env.
     def generate_cmake_toolchain(self, toolchain_dir):
+        # See build/cmake/android.toolchain.cmake in the Google NDK.
         CMAKE_PROCESSORS = {
             "armeabi-v7a": "armv7-a",
+            "arm64-v8a": "aarch64",
             "x86": "i686",
         }
 

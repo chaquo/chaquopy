@@ -14,12 +14,21 @@ RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python2.7
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 
 # Miscellaneous build tools
+#
+# The Python `-dev` packages are required for some packages (e.g. OpenCV and TensorFlow) which
+# need to build things for the host Python.
 RUN apt-get update && \
-    apt-get -y install autoconf cmake
+    apt-get -y install autoconf cmake git python2.7-dev && \
+    wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6-dev,libpython3.6-dev}_3.6.3-1.deb9u1_amd64.deb && \
+    dpkg -i *.deb && \
+    rm *.deb && \
+    ln -s python2.7 /usr/bin/python && \
+    ln -s python2.7 /usr/bin/python2 && \
+    ln -s python3.6 /usr/bin/python3
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \
-    apt-get -y install pkg-config zip g++ zlib1g-dev unzip python && \
+    apt-get -y install pkg-config zip g++ zlib1g-dev unzip && \
     version=0.16.1 && \
     filename=bazel-$version-installer-linux-x86_64.sh && \
     wget https://github.com/bazelbuild/bazel/releases/download/$version/$filename && \
