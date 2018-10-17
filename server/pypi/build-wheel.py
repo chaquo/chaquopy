@@ -252,10 +252,14 @@ class BuildWheel:
         if sdist_filename:
             log("Using existing source archive")
         else:
-            # Even with --no-deps, pip 9.0.3 still runs egg_info on the downloaded sdist. If
-            # this takes a long time, simply Ctrl-C and run build-wheel again.
-            run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
-                f"--no-binary :all: {self.package}=={self.version}")
+            result = run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
+                         f"--no-binary :all: {self.package}=={self.version}", check=False)
+            if result.returncode:
+                # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
+                # downloaded sdist (https://github.com/pypa/pip/issues/1884). If this fails, we
+                # can't work around it by patching the package, because we haven't had a chance
+                # to apply the patches yet.
+                warn(f"pip download returned exit status {result.returncode}")
             sdist_filename = self.find_sdist()
             if not sdist_filename:
                 raise CommandError("Can't find downloaded source archive: maybe it has an "
@@ -720,10 +724,10 @@ def expand_compat_tag(compat_tag):
     return result
 
 
-def run(command):
+def run(command, check=True):
     log(command)
     try:
-        subprocess.run(shlex.split(command), check=True)
+        return subprocess.run(shlex.split(command), check=check)
     except subprocess.CalledProcessError as e:
         raise CommandError(f"Command returned exit status {e.returncode}")
 
@@ -754,6 +758,9 @@ def cd(new_dir):
         log(f"cd {new_dir}")
         os.chdir(new_dir)
 
+
+def warn(s):
+    log(f"Warning: {s}")
 
 def log(s):
     print(f"{PROGRAM_NAME}: {s}")

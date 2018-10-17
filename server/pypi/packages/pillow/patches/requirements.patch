@@ -1,6 +1,6 @@
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-07-01 19:02:58.000000000 +0000
-+++ src/setup.py	2018-07-28 15:26:06.995153492 +0000
++++ src/setup.py	2018-10-17 12:15:58.387726061 +0000
 @@ -194,7 +194,7 @@
      ]
  
@@ -10,6 +10,15 @@ diff -ur src-original/setup.py src/setup.py
          build_ext.initialize_options(self)
          for x in self.feature:
              setattr(self, 'disable_%s' % x, None)
+@@ -279,7 +279,7 @@
+                     _add_directory(library_dirs, d)
+ 
+         prefix = sysconfig.get_config_var("prefix")
+-        if prefix:
++        if prefix and False:  # Chaquopy: disabled
+             _add_directory(library_dirs, os.path.join(prefix, "lib"))
+             _add_directory(include_dirs, os.path.join(prefix, "include"))
+ 
 @@ -435,6 +435,12 @@
                  _add_directory(include_dirs,
                                 os.path.join(best_path, 'include'))

@@ -8,6 +8,6 @@ make -j $CPU_COUNT
 make install prefix=$PREFIX
 
 rm -r $PREFIX/{bin,doc,man}
-mv $PREFIX/lib32 $PREFIX/lib
+mv $PREFIX/lib?? $PREFIX/lib  # lib32 or lib64
 mv $PREFIX/lib/libjpeg.so $PREFIX/lib/libjpeg_chaquopy.so  # See patches/soname.patch
 rm -r $PREFIX/lib/{*.a,*.la,pkgconfig}
