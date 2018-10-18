@@ -17,14 +17,15 @@ class TestGrpcio(unittest.TestCase):
 
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         helloworld_pb2_grpc.add_GreeterServicer_to_server(Greeter(), self.server)
-        self.server.add_insecure_port('[::]:50051')
+        self.port = self.server.add_insecure_port('localhost:0')
+        self.assertTrue(self.port)
         self.server.start()
 
     def test_greeter(self):
         import grpc
         from . import helloworld_pb2, helloworld_pb2_grpc
 
-        channel = grpc.insecure_channel('localhost:50051')
+        channel = grpc.insecure_channel('localhost:{}'.format(self.port))
         stub = helloworld_pb2_grpc.GreeterStub(channel)
         response = stub.SayHello(helloworld_pb2.HelloRequest(name='world'))
         self.assertEqual("Hello, world!", response.message)
