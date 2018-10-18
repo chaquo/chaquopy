@@ -346,7 +346,12 @@ class PythonPlugin implements Plugin<Project> {
                                                      // setuptools on the PYTHONPATH.
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
-                        args "--extra-index-url", "https://chaquo.com/pypi-2.1"
+                        if (!("--index-url" in python.pip.options ||
+                              "-i" in python.pip.options)) {
+                            // Treat our extra index URL as an extension of the default one,
+                            // so --index-url replaces them both.
+                            args "--extra-index-url", "https://chaquo.com/pypi-2.1"
+                        }
                         args "--implementation", pythonAbi.substring(0, 2)
                         args "--python-version", python.version
                         args "--abi", pythonAbi
