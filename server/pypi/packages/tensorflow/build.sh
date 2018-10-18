@@ -31,13 +31,13 @@ linker_flags=""
 for flag in $LDFLAGS; do
     if echo $flag | grep -q "^-L"; then
         if echo $flag | grep -q "sources/python"; then
-            export python_lib_dir=$(echo $flag | sed 's/^..//')
+            python_lib_dir=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
         fi
     elif echo $flag | grep -q "^-l"; then
         if echo $flag | grep -q "lpython"; then
-            export python_lib=$(echo $flag | sed 's/^..//')
+            python_lib=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
         fi
@@ -77,14 +77,17 @@ unset AR ARFLAGS AS CC CFLAGS CPP CPPFLAGS CXX CXXFLAGS F77 F90 FARCH FC LD LDFL
 # by the given environment variables: these questions and their default answers will appear
 # on-screen.
 #
-# Optional features are disabled for now to simplify the situation. We also remove the default
-# CC_OPT_FLAGS of '-march=native', which is not valid for cross-compiling. An empty string will
-# use the default, but a whitespace string will disable it.
-#
-# Set all variables on the command line rather than exporting, in case they affect the main
-# build in some way.
-TF_NEED_GCP="0" TF_NEED_HDFS="0" TF_NEED_AWS="0" TF_NEED_KAFKA="0" CC_OPT_FLAGS=" " \
+# Optional features are disabled for now to simplify the situation. Set all variables on the
+# command line rather than exporting, in case they affect the main build in some way.
+PYTHON_BIN_PATH=$(which python$CHAQUOPY_PYTHON) \
+    TF_NEED_GCP="0" TF_NEED_HDFS="0" TF_NEED_AWS="0" TF_NEED_KAFKA="0" \
     ./configure < /dev/null
+
+# The configure script adds -march=native to both the host and target compiler flags. This is
+# obviously invalid for the target when cross compiling. It *should* be fine for the host, but
+# on one server with GCC 6.3.0 I got the errors "unrecognizable insn" and "internal compiler
+# error: in extract_insn, at recog.c:2287" at Eigen/src/Core/arch/AVX512/PacketMath.h:880:1.
+sed -iE '/-march=native/d' .tf_configure.bazelrc
 
 cat >>.tf_configure.bazelrc <<EOF
 

@@ -291,6 +291,7 @@ class BuildWheel:
         os.environ.update({
             "CHAQUOPY_ABI": self.abi,
             "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
+            "CHAQUOPY_PYTHON": self.python,
             "CPU_COUNT": str(multiprocessing.cpu_count())  # Conda variable name.
         })
         build_script = f"{self.package_dir}/build.sh"
@@ -587,6 +588,7 @@ class BuildWheel:
                         reqs.update(self.check_requirements(fixed_path, available_libs))
 
                     # https://www.technovelty.org/linux/stripping-shared-libraries.html
+                    run(f"chmod +w {fixed_path}")
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
         reqs.update(self.get_requirements("host"))
