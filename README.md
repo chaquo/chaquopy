@@ -25,4 +25,4 @@ Chaquopy repository.
 
 To use this repository to build an app, follow the standard [Chaquopy setup
 instructions](https://chaquo.com/chaquopy/doc/current/android.html#basic-setup), but replace
-the URL https://chaquo.com/maven/ with the URL or local path of this directory.
+the URL https://chaquo.com/maven/ with the URL or local path of your own repository.

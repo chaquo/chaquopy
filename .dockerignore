@@ -1,11 +1,13 @@
 *
 !docker-entrypoint.sh
 !product
-product/*/build
 !target/package-target.sh
 !VERSION.txt
 
 # For ***REMOVED*** jupyter.dockerfile
 !apps
+!demo
 !maven
 !server/pypi/dist
+
+**/build/
