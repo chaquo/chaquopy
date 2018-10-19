@@ -408,7 +408,9 @@ class PackageFinder(object):
         See _link_package_versions for details on which files are accepted
         """
         index_locations = self._get_index_urls_locations(project_name)
-        index_file_loc, index_url_loc = self._sort_locations(index_locations)
+        # Chaquopy: added expand_dir so --extra-index-url can take a local path: see
+        # https://github.com/pypa/pip/issues/5827 and https://github.com/pypa/pip/issues/5846.
+        index_file_loc, index_url_loc = self._sort_locations(index_locations, expand_dir=True)
         fl_file_loc, fl_url_loc = self._sort_locations(
             self.find_links, expand_dir=True,
         )
