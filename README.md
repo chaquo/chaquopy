@@ -11,30 +11,18 @@ This repository contains the following components:
 The open-source demo apps are contained in separate repositories available at [https://github.com/chaquo/].
 
 
-# Deployment
+# Build
 
-The artifacts produced by the `product` and `target` builds should be deployed to a Maven
-repository similar to the [official Chaquopy one](https://chaquo.com/maven/). The repository is
-simply a directory structure, which can be placed either on the local machine or on a
-webserver.
+A Linux x86-64 machine with Docker is required. If necessary, install Docker using the
+[instructions on its website](https://docs.docker.com/install/#supported-platforms).
 
-Arrange the files similarly to this:
+Make sure all submodules are up to date:
 
-    maven
-    └── com
-        └── chaquo
-            └── python
-                ├── gradle
-                │   └── 3.3.1
-                │       ├── gradle-3.3.1.jar
-                │       └── gradle-3.3.1.pom
-                └── target
-                    └── 3.6.5-4
-                        ├── target-3.6.5-4-armeabi-v7a.zip
-                        ├── target-3.6.5-4-stdlib.zip
-                        ├── target-3.6.5-4-stdlib-pyc.zip
-                        └── target-3.6.5-4-x86.zip
+    git submodule init && git submodule update
 
-Now, to use this repository to build an app, follow the standard [Chaquopy setup
+Then run the script `build-maven.sh`. This will generate a `maven` directory containing the
+Chaquopy repository.
+
+To use this repository to build an app, follow the standard [Chaquopy setup
 instructions](https://chaquo.com/chaquopy/doc/current/android.html#basic-setup), but replace
-the URL https://chaquo.com/maven/ with the URL or local path of your own repository.
+the URL https://chaquo.com/maven/ with the URL or local path of this directory.

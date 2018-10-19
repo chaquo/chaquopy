@@ -26,11 +26,6 @@ RUN filename=android-ndk-r17c-linux-x86_64.zip && \
     rm $filename && \
     mv android-ndk-r17c android-ndk
 
-# Cache installation of Gradle itself.
-COPY product/gradlew product/
-COPY product/gradle product/gradle
-RUN product/gradlew -p product
-
 COPY product/buildSrc product/buildSrc
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
                    product/buildSrc/src/main/java/com/chaquo/python/Common.java \
@@ -40,7 +35,8 @@ RUN platform_ver=$(grep COMPILE_SDK_VERSION \
 COPY product/runtime/requirements-build.txt product/runtime/
 RUN pip install -r product/runtime/requirements-build.txt
 
-COPY product/build.gradle product/settings.gradle product/
+COPY product/build.gradle product/gradlew product/settings.gradle product/
+COPY product/gradle product/gradle
 COPY product/gradle-plugin product/gradle-plugin
 COPY product/runtime product/runtime
 

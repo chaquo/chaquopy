@@ -4,3 +4,8 @@
 product/*/build
 !target/package-target.sh
 !VERSION.txt
+
+# For ***REMOVED*** jupyter.dockerfile
+!apps
+!maven
+!server/pypi/dist

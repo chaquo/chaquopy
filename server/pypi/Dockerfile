@@ -8,8 +8,6 @@
 
 FROM chaquopy-target
 
-RUN echo "progress=dot:giga" > .wgetrc
-
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python2.7
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 

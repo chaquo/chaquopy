@@ -1,9 +1,6 @@
 Change log
 ##########
 
-..
-   4.0.1, 4.0.2, 4.0.3 and 4.1.0 were non-public releases.
-
 4.0.0 (2018-08-22)
 ==================
 
@@ -18,9 +15,6 @@ Change log
 * Implement :any:`importlib.abc.InspectLoader.get_code`: this allows :any:`runpy.run_module` to
   be used.
 
-..
-   3.3.3 and 3.3.4 were non-public releases.
-
 3.3.2 (2018-08-01)
 ==================
 
@@ -34,9 +28,6 @@ Change log
   <https://tracker.crystax.net/issues/1369>`_).
 * Fix :any:`pkgutil.get_data` when used with :ref:`extractPackages <extractPackages>`, and
   improve extractPackages performance.
-
-..
-   3.3.1 was a non-public release.
 
 3.3.0 (2018-06-20)
 ==================

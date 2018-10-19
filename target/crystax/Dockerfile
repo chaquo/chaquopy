@@ -1,4 +1,4 @@
-FROM debian:stretch
+FROM debian:stretch-20180831
 SHELL ["/bin/bash", "-c"]
 
 WORKDIR /root
