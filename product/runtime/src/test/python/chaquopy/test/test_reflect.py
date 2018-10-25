@@ -92,7 +92,7 @@ class TestReflect(FilterWarningsCase):
         s = String(str_u)
         if sys.version_info[0] < 3:
             self.assertEqual(str_u.encode("utf-8"), str(s))
-            self.assertEqual(str_u, unicode(s))
+            self.assertEqual(str_u, unicode(s))  # noqa: F821
             self.assertEqual(repr_u.encode("utf-8"), repr(s))
         else:
             self.assertEqual(str_u, str(s))
@@ -149,11 +149,11 @@ class TestReflect(FilterWarningsCase):
                 obj.setStaticZ = True
             with self.assertRaisesRegexp(TypeError, "not callable"):
                 obj.fieldStaticZ()
-            with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
+            with self.assertRaisesRegexp(TypeError, r"takes 0 arguments \(1 given\)"):
                 obj.staticNoArgs(True)
-            with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+            with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
                 obj.staticVarargs1()
-            with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
+            with self.assertRaisesRegexp(TypeError, r"takes 1 argument \(0 given\)"):
                 obj.setStaticZ()
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
@@ -168,13 +168,13 @@ class TestReflect(FilterWarningsCase):
             self.t.setZ = True
         with self.assertRaisesRegexp(TypeError, "not callable"):
             self.t.fieldZ()
-        with self.assertRaisesRegexp(TypeError, "takes 0 arguments \(1 given\)"):
+        with self.assertRaisesRegexp(TypeError, r"takes 0 arguments \(1 given\)"):
             self.t.noArgs(True)
-        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+        with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
             self.t.varargs1()
-        with self.assertRaisesRegexp(TypeError, "takes at least 1 argument \(0 given\)"):
+        with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
             self.Test.varargs1(self.t)
-        with self.assertRaisesRegexp(TypeError, "takes 1 argument \(0 given\)"):
+        with self.assertRaisesRegexp(TypeError, r"takes 1 argument \(0 given\)"):
             self.t.setZ()
 
         Object = jclass("java.lang.Object")
@@ -183,10 +183,10 @@ class TestReflect(FilterWarningsCase):
         with self.assertRaisesRegexp(AttributeError, "static context"):
             self.Test.fieldZ = True
         with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
-                                     "as first argument \(got nothing instead\)"):
+                                     r"as first argument \(got nothing instead\)"):
             self.Test.getZ()
         with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
-                                     "as first argument \(got Object instance instead\)"):
+                                     r"as first argument \(got Object instance instead\)"):
             self.Test.getZ(Object())
         self.assertEqual(False, self.Test.getZ(self.t))
 

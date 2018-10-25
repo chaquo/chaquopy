@@ -4,7 +4,7 @@ import sys
 if "sdist" in sys.argv:
     py_modules = ["two", "three"]
 else:
-    py_modules=["two" if (sys.version_info[0] == 2) else "three"]
+    py_modules = ["two" if (sys.version_info[0] == 2) else "three"]
 
 setup(
     name="buildpython_default",

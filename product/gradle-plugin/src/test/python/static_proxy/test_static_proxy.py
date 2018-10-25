@@ -65,17 +65,17 @@ class TestStaticProxy(FilterWarningsCase):
         self.run_json("bindings", "del", False,
                       "del.py:7:22: cannot resolve 'Class1' (binding not found)")
         self.run_json("bindings", "class", False,
-                      "class.py:7:22: cannot resolve 'C' \(bound at .*class.py:4:1\)", re=True)
+                      r"class.py:7:22: cannot resolve 'C' \(bound at .*class.py:4:1\)", re=True)
         self.run_json("bindings", "def", False,
-                      "def.py:7:22: cannot resolve 'f' \(bound at .*def.py:4:1\)", re=True)
+                      r"def.py:7:22: cannot resolve 'f' \(bound at .*def.py:4:1\)", re=True)
         self.run_json("bindings", "assign", False,
-                      "assign.py:6:22: cannot resolve 'C' \(bound at .*assign.py:4:1\)", re=True)
+                      r"assign.py:6:22: cannot resolve 'C' \(bound at .*assign.py:4:1\)", re=True)
         self.run_json("bindings", "assign_list", False, "assign_list.py:6:22: cannot resolve 'C' "
-                      "\(bound at .*assign_list.py:4:4\)", re=True)
+                      r"\(bound at .*assign_list.py:4:4\)", re=True)
         self.run_json("bindings", "assign_list_recursive", False, "assign_list_recursive.py:6:22: "
-                      "cannot resolve 'C' \(bound at .*assign_list_recursive.py:4:8\)", re=True)
+                      r"cannot resolve 'C' \(bound at .*assign_list_recursive.py:4:8\)", re=True)
         self.run_json("bindings", "assign_aug", False, "assign_aug.py:7:22: cannot resolve 'C' "
-                      "\(bound at .*assign_aug.py:5:1\)", re=True)
+                      r"\(bound at .*assign_aug.py:5:1\)", re=True)
 
     def test_bindings_py3(self):
         self.run_json("bindings", "def_async", False,
@@ -96,8 +96,8 @@ class TestStaticProxy(FilterWarningsCase):
         self.run_json("constructor", "constructor")
         self.run_json("constructor", "name", False,
                       "name.py:5:6: @constructor can only be used on __init__")
-        self.run_json("constructor", "return", False, "return.py:5:6: constructor\(\) takes "
-                      "exactly 1 arguments? \(2 given\)", re=True)
+        self.run_json("constructor", "return", False, r"return.py:5:6: constructor\(\) takes "
+                      r"exactly 1 arguments? \(2 given\)", re=True)
 
     def test_method(self):
         self.run_json("method", "return")
