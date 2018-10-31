@@ -370,23 +370,16 @@ class Pyc(GradleTestCase):
 
 
 class BuildPython(GradleTestCase):
-    # Verify that buildPython default major version is taken from app Python major version,
-    # using an sdist which installs different modules depending on sys.version.
-    def test_default(self):
-        self.RunGradle("base", "BuildPython/default",
-                       variants={"py2-debug": {"version": "2.7.15", "requirements": ["two.py"]},
-                                 "py3-debug": {"version": "3.6.5", "requirements": ["three.py"]}})
-
     def test_change(self):
         run = self.RunGradle("base", "BuildPython/change_1", requirements=["apple/__init__.py"])
         run.apply_layers("BuildPython/change_2")
         run.rerun(succeed=False)
         self.assertInLong("'pythoninvalid' failed to start", run.stderr)
 
-    def test_mismatch(self):
-        run = self.RunGradle("base", "BuildPython/mismatch", succeed=False)
-        self.assertInLong("buildPython major version (2) does not match app Python major "
-                          "version (3)", run.stderr)
+    def test_old(self):
+        run = self.RunGradle("base", "BuildPython/old", succeed=False)
+        self.assertInLong(r"buildPython must be version 3.4 or later: this is version 2\.7\.\d+",
+                          run.stderr, re=True)
 
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):

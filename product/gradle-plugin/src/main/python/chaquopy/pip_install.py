@@ -1,8 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
 
+# Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
+
+# Do this as early as possible to minimize the chance of something else going wrong and causing
+# a less comprehensible error message.
+from .util import check_build_python
+check_build_python()
 
 import argparse
 from collections import namedtuple
@@ -21,6 +27,7 @@ from pip._vendor.distlib.database import InstalledDistribution
 from pip._vendor.retrying import retry
 from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
+from .util import CommandError
 
 ABI_API_LEVELS = {
     "armeabi-v7a": 15,
@@ -318,10 +325,6 @@ class PathExistsError(ValueError):
         ValueError.__init__(self, "{} with value {}".format(path, value))
         self.path = path
         self.existing_value = value
-
-
-class CommandError(Exception):
-    pass
 
 
 # This is what bdist_wheel does both for wheel filenames and .dist-info directory names.

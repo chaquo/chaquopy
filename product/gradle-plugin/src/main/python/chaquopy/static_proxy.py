@@ -1,8 +1,14 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
 
+# Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
+
+# Do this as early as possible to minimize the chance of something else going wrong and causing
+# a less comprehensible error message.
+from .util import check_build_python
+check_build_python()
 
 import argparse
 import ast
@@ -20,6 +26,7 @@ from kwonly_args import first_kwonly_arg, kwonly_defaults, KWONLY_REQUIRED
 import six
 
 from . import tokenize
+from .util import CommandError
 
 # Consistent output for tests
 def join(*paths):
@@ -465,10 +472,6 @@ def type_error_msg(e):
         return e.args[0]
     else:
         return str(e)
-
-
-class CommandError(Exception):
-    pass
 
 
 if __name__ == "__main__":

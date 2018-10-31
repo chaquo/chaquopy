@@ -87,14 +87,17 @@ default_role = "code"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'classic'
+html_theme = 'python_docs_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 html_theme_options = {
-    "stickysidebar": True,
+    "collapsiblesidebar": True,
+    "root_name": "Documentation",
+    "root_url": "..",
+    "root_icon": "icon.png",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

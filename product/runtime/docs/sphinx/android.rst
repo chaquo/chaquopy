@@ -9,35 +9,25 @@ Prerequisites:
 
 * Android Gradle plugin version should be between 3.0.x and 3.2.x. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
-  usually be the same as your Android Studio version.
-
-  Older versions as far back as 2.2.x are supported by older versions of Chaquopy: search for
-  "Gradle plugin" in the :doc:`change log <../changelog>`. Newer versions may work, but have
+  usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
+
+  Older versions as far back as 2.2.x are supported by older versions of Chaquopy: for details,
+  see :doc:`this page <../versions>`.
 
 .. (extra space for consistency)
 
 * `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
   be at least 15 (Android 4.0.3).
 
-.. _buildPython:
-
-* Some features require Python to be available on the build machine. Supported versions are
-  2.7, 3.3 and later.
-
-  By default, Chaquopy will build with the same Python major version as the :ref:`app itself
-  <python-version>`, i.e. `python2` / `python3` on Linux and Mac, or `py -2` / `py -3` on
-  Windows. To change this, use the `buildPython` setting. For example, on Windows you might use
-  one of the following::
-
-      python {
-          buildPython "py -3.5"
-          buildPython "C:/Python36/python.exe"
-      }
-
 
 Basic setup
 ===========
+
+.. note:: Previous versions of Chaquopy required you to specify a Python version to build into
+          your app. From Chaquopy 5.x onwards, this is no longer necessary because each
+          Chaquopy version comes with only one Python version. For the mapping between
+          versions, see :doc:`this page <../versions>`.
 
 Gradle plugin
 -------------
@@ -63,33 +53,28 @@ Chaquopy plugin at the top of the file, but *after* the Android plugin::
    apply plugin: 'com.android.application'
    apply plugin: 'com.chaquo.python'        // Add this line
 
-.. _python-version:
+All other configuration will be done in this module-level `build.gradle`. The examples below
+will show the configuration within `defaultConfig`, but it can also be done within a `product
+flavor <https://developer.android.com/studio/build/build-variants#product-flavors>`_.
 
-Python version
---------------
+.. _buildPython:
 
-With the plugin applied, you can now add a `python` block within `android.defaultConfig`. The
-only required setting in this block is the Python version, and the currently available versions
-are:
+buildPython
+-----------
 
-* 2.7.15
-* 3.6.5 (recommended)
+Some features require Python 3.4 or later to be available on the build machine. By default,
+Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
+standard version of Python installed, no action should be required.
 
-For example::
+Otherwise, set the Python executable using the `buildPython` setting. For example, on Windows
+you might use the following::
 
-    defaultConfig {
-        python {
-            version "3.6.5"
-        }
-    }
+      defaultConfig {
+          python {
+              buildPython "C:/Python36/python.exe"
+          }
+      }
 
-.. note:: The following obsolete Python versions are also available, but they do not contain all
-          current features and bug fixes either for Chaquopy or for Python itself. Projects using
-          these versions should upgrade as soon as possible.
-
-          * 2.7.10
-          * 2.7.14
-          * 3.6.3
 
 ABI selection
 -------------
@@ -140,10 +125,9 @@ Android Studio plugin
 To add Python suppport to the Android Studio user interface, you may optionally install the
 JetBrains Python plugin.
 
-.. note:: Chaquopy is not fully integrated with this plugin. It will only provide syntax
-          highlighting, and limited code completion and navigation features. It does not
-          support Python debugging, and it will show numerous "unresolved reference" warnings.
-          We hope to improve this in a future version.
+.. note:: Chaquopy is not fully integrated with this plugin. It will show numerous "unresolved
+          reference" warnings, and it will not support Python debugging. We hope to improve
+          this in a future version.
 
 * In Android Studio, select File > Settings.
 * Go to the Plugins page, and click "Install JetBrains plugin".
@@ -232,9 +216,8 @@ attempting to run Python code. There are two basic ways to achieve this:
 Requirements
 ------------
 
-.. note:: This feature requires Python on the build machine. If you configure this with the
-          :ref:`buildPython <buildPython>` setting, the buildPython *must* have the same Python
-          major version as the :ref:`app itself <python-version>`.
+.. note:: This feature requires Python on the build machine, which can be configured with the
+          :ref:`buildPython <buildPython>` setting.
 
 External Python packages may be built into the app by adding a `python.pip` block to
 `build.gradle`. Within this block, add `install` lines, each specifying a package in one of the
@@ -249,12 +232,14 @@ following forms:
 
 Examples::
 
-    python {
-        pip {
-            install "six==1.10.0"
-            install "scipy==1.0.1"
-            install "LocalPackage-1.2.3-py2.py3-none-any.whl"
-            install "-r", "requirements.txt"
+    defaultConfig {
+        python {
+            pip {
+                install "six==1.10.0"
+                install "scipy==1.0.1"
+                install "LocalPackage-1.2.3-py2.py3-none-any.whl"
+                install "-r", "requirements.txt"
+            }
         }
     }
 
@@ -268,11 +253,9 @@ requirements, please visit our `issue tracker <https://github.com/chaquo/chaquop
 To pass options to `pip install`, give them as a comma-separated list to the `options` setting.
 For example::
 
-    python {
-        pip {
-            options "--extra-index-url", "https://example.com/private/repository"
-            install "PrivatePackage==1.2.3"
-        }
+    pip {
+        options "--extra-index-url", "https://example.com/private/repository"
+        install "PrivatePackage==1.2.3"
     }
 
 Any options in the `pip documentation
@@ -292,8 +275,10 @@ In order for a Python class to extend a Java class, or to be referenced by name 
 in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
 setting specifies which Python modules to search for these classes::
 
-    python {
-        staticProxy "module.one", "module.two"
+    defaultConfig {
+        python {
+            staticProxy "module.one", "module.two"
+        }
     }
 
 The app's :ref:`source tree <android-source>` and its :ref:`requirements
@@ -320,9 +305,11 @@ pip-installed packages in a future version.
 Compilation prevents source code text from appearing in Python stack traces, so you may wish
 to disable it during development. The default settings are as follows::
 
-    python {
-        pyc {
-            stdlib true
+    defaultConfig {
+        python {
+            pyc {
+                stdlib true
+            }
         }
     }
 
@@ -356,8 +343,10 @@ example, to read `package1/subdir/README.txt`:
 Alternatively, you can specify certain Python packages to extract at runtime using the
 `extractPackages` setting. For example::
 
-    python {
-        extractPackages "package1"
+    defaultConfig {
+        python {
+            extractPackages "package1"
+        }
     }
 
 Then you can use :any:`__file__` in the normal way:

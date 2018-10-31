@@ -6,7 +6,14 @@ Chaquopy
 Quick start
 ===========
 
-For examples of how Chaquopy can be used, see the following open-source apps:
+Start here:
+
+.. toctree::
+   :maxdepth: 1
+
+   Chaquopy setup instructions <android>
+
+Or for examples of how Chaquopy can be used, see the following open-source apps:
 
 * `chaquopy-hello <https://github.com/chaquo/chaquopy-hello>`_, a Python version of the Android
   Studio "Empty Activity" app template.
@@ -22,7 +29,6 @@ Reference
 .. toctree::
    :maxdepth: 1
 
-   android
    python
    java
    cross
@@ -34,5 +40,6 @@ Release notes
 .. toctree::
    :maxdepth: 1
 
+   versions
    changelog
    FAQ <https://chaquo.com/chaquopy/faq/>

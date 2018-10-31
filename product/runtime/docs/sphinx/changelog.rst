@@ -1,6 +1,11 @@
 Change log
 ##########
 
+5.0.0 (2018-XX)
+===============
+
+* [**BACKWARD INCOMPATIBLE**] `buildPython` must now be version 3.4 or later.
+
 4.0.0 (2018-08-22)
 ==================
 
@@ -66,8 +71,8 @@ Change log
   <https://github.com/chaquo/chaquopy/issues>`_.
 
   * Because of this change, the Python major version of :ref:`buildPython <buildPython>` is now
-    required to be the same as that of the :ref:`app itself <python-version>` when using pip,
-    and the default value of `buildPython` has been changed accordingly.
+    required to be the same as that of the app itself when using pip, and the default value of
+    `buildPython` has been changed accordingly.
 
 * Fix :any:`imp.find_module` and :any:`imp.load_module`.
 * Implement implicit namespace packages on Python 3 (:pep:`420`).
@@ -189,8 +194,8 @@ Change log
 * Support Android Gradle plugin versions 2.2 (`#9
   <https://github.com/chaquo/chaquopy/issues/9>`_) and 3.0 (`#3
   <https://github.com/chaquo/chaquopy/issues/3>`_).
-* Increase minimum API level to 15. This is the default for new apps in Android Studio 3.0, and
-  covers `99% of active devices <https://developer.android.com/about/dashboards/index.html>`_.
+* Increase minimum API level to 15. This still covers `99% of active devices
+  <https://developer.android.com/about/dashboards/index.html>`_.
 * Fix array store type-checking on old Android versions.
 * Add `java.detach`, and fix several multi-threading issues.
 

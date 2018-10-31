@@ -762,7 +762,7 @@ class PythonExtension extends BaseExtension {
         if (this.@buildPython != null) {
             return this.@buildPython
         }
-        def targetMajorVer = version.substring(0, 1)
+        def targetMajorVer = "3"
         if (System.getProperty("os.name").startsWith("Windows")) {
             // See PEP 397. After running the official Windows installer with default settings, this
             // will be the only Python thing on the PATH.

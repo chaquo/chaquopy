@@ -475,13 +475,6 @@ def apply_dist_restrictions(options):
     target_version_info = [int(x) for x in options.python_full_version.split(".")]
     options.python_version = "".join(str(x) for x in target_version_info[:2])
 
-    import sys
-    if sys.version_info[0] != target_version_info[0]:
-        # See note in pep425tags for why this matters. This can only happen if the user has
-        # already modified buildPython, so there's no need to tell them how to do that.
-        raise CommandError("buildPython major version ({}) does not match app Python major "
-                           "version ({})".format(sys.version_info[0], target_version_info[0]))
-
     # Removed requirement that either --no-deps or --only-binary=:all: is set: this was
     # intended to ensure that `pip download` would never execute sdist code on an incompatible
     # platform, but for our `pip install` use case we have no choice but to try.

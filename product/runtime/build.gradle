@@ -167,7 +167,7 @@ task("generateStaticProxy", type: Exec, group: "verification") {
     outputs.upToDateWhen { false }
     doFirst { delete outputDir }
     environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-    executable "python"
+    executable "python3"
     args "-m", "chaquopy.static_proxy"
     args "--path", "$projectDir/src/test/python"
     args "--java", outputDir
@@ -347,7 +347,7 @@ for (pyFullVersion in Common.PYTHON_VERSIONS) {
                 }
             }
 
-            if (pyVersion == "2.7") {
+            if (pyVersion == "3.6") {
                 task("sphinx", type: Exec, group: "documentation") {
                     executable pyPlusVersionExe
                     args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
