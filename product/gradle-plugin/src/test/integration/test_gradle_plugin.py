@@ -27,17 +27,24 @@ class GradleTestCase(TestCase):
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
 
-    # Prints b as a multi-line string rather than a repr().
     def assertInLong(self, a, b, re=False, msg=None):
+        self.assertLong(a, b, self.assertIn, self.assertRegex, "not found in", re, msg)
+
+    def assertNotInLong(self, a, b, re=False, msg=None):
+        self.assertLong(a, b, self.assertNotIn, self.assertNotRegex,
+                        "unexpectedly found in", re, msg)
+
+    # Prints b as a multi-line string rather than a repr().
+    def assertLong(self, a, b, plain_assert, re_assert, failure_msg, re, msg):
         try:
             if re:
                 import re as re_mod
-                self.assertRegex(b, re_mod.compile(a, re_mod.MULTILINE))
+                re_assert(b, re_mod.compile(a, re_mod.MULTILINE))
             else:
-                self.assertIn(a, b)
+                plain_assert(a, b)
         except self.failureException:
-            msg = self._formatMessage(msg, "{}'{}' not found in:\n{}".format
-                                      ("regex " if re else "", a, b))
+            prefix = "regex " if re else ""
+            msg = self._formatMessage(msg, f"{prefix}'{a}' {failure_msg}:\n{b}")
             raise self.failureException(msg) from None
 
     # Asserts that the given ZipFile contains exactly the given files. ZIP file entries
@@ -134,11 +141,14 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
                           "3.0.0 or later: " + self.ADVICE, run.stderr)
 
-    def test_untested(self):
-        run = self.RunGradle("base", "AndroidPlugin/untested",
-                             succeed=None)  # We don't care whether it succeeds.
+    def test_maximum(self):  # Also tests making a change
+        run = self.RunGradle("base")
+        self.assertNotInLong("not been tested with Android Gradle plugin", run.stdout)
+
+        run.apply_layers("AndroidPlugin/untested")
+        run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong("Warning: This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.2.0-beta05. If you experience "
+                          "Gradle plugin versions beyond 3.2.1. If you experience "
                           "problems, " + self.ADVICE, run.stdout)
 
 
