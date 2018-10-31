@@ -44,7 +44,9 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     VersionNumber getAndroidPluginVersion() {
-        final def ADVICE = "please edit com.android.tools.build:gradle in the buildscript block."
+        final def ADVICE =
+            "please edit com.android.tools.build:gradle in the top-level build.gradle. See " +
+            "https://chaquo.com/chaquopy/doc/current/versions.html."
         def depVer = null
         for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
                 .getAllDependencies()) {
@@ -171,8 +173,10 @@ class PythonPlugin implements Plugin<Project> {
             }
 
             if (variant.mergedFlavor.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
-                throw new GradleException("$variant.name: Chaquopy requires minSdkVersion " +
-                                          "$Common.MIN_SDK_VERSION or higher.")
+                throw new GradleException(
+                    "$variant.name: This version of Chaquopy requires minSdkVersion " +
+                    "$Common.MIN_SDK_VERSION or higher. See " +
+                    "https://chaquo.com/chaquopy/doc/current/versions.html.")
             }
             if (python.version == null) {
                 throw new GradleException("$variant.name: python.version not set: you may want to " +

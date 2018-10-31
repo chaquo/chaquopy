@@ -121,19 +121,25 @@ class ChaquopyPlugin(GradleTestCase):
 
 
 class AndroidPlugin(GradleTestCase):
+    ADVICE = ("please edit com.android.tools.build:gradle in the top-level build.gradle. See "
+              "https://chaquo.com/chaquopy/doc/current/versions.html.")
+
     def test_misordered(self):
         run = self.RunGradle("base", "AndroidPlugin/misordered", succeed=False)
-        self.assertInLong("project.android not set", run.stderr)
+        self.assertInLong("project.android not set. Did you apply plugin "
+                          "com.android.application before com.chaquo.python?", run.stderr)
 
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong("requires Android Gradle plugin version 3.0.0", run.stderr)
+        self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
+                          "3.0.0 or later: " + self.ADVICE, run.stderr)
 
     def test_untested(self):
         run = self.RunGradle("base", "AndroidPlugin/untested",
                              succeed=None)  # We don't care whether it succeeds.
-        self.assertInLong("not been tested with Android Gradle plugin versions beyond 3.2.0-beta05",
-                          run.stdout)
+        self.assertInLong("Warning: This version of Chaquopy has not been tested with Android "
+                          "Gradle plugin versions beyond 3.2.0-beta05. If you experience "
+                          "problems, " + self.ADVICE, run.stdout)
 
 
 # Verify that the user can use noCompress without interfering with our use of it.
@@ -162,15 +168,19 @@ class NoCompress(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    def test_old(self):  # Also tests making a change
+    ADVICE = "See https://chaquo.com/chaquopy/doc/current/versions.html."
+
+    def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: Chaquopy requires minSdkVersion 15 or higher", run.stderr)
+        self.assertInLong("debug: This version of Chaquopy requires minSdkVersion 16 or "
+                          "higher. " + self.ADVICE, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: Chaquopy requires minSdkVersion 15 or higher", run.stderr)
+        self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 16 or "
+                          "higher. " + self.ADVICE, run.stderr)
 
 
 class PythonVersion(GradleTestCase):
@@ -378,7 +388,8 @@ class BuildPython(GradleTestCase):
 
     def test_old(self):
         run = self.RunGradle("base", "BuildPython/old", succeed=False)
-        self.assertInLong(r"buildPython must be version 3.4 or later: this is version 2\.7\.\d+",
+        self.assertInLong(r"buildPython must be version 3.4 or later: this is version 2\.7\.\d+. "
+                          r"See https://chaquo.com/chaquopy/doc/current/android.html#buildpython.",
                           run.stderr, re=True)
 
     @skipUnless(os.name == "nt", "Windows-specific")
