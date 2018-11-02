@@ -1,6 +1,5 @@
 from __future__ import absolute_import, division, print_function
 
-import sys
 import unittest
 
 
@@ -30,8 +29,7 @@ class TestSpacy(unittest.TestCase):
                              'POS_coarse': 'PROPN',
                              'POS_fine': 'NNP',
                              'arc': 'attr',
-                             # No idea why this happens, but it's the same on Linux.
-                             'lemma': 'sparta' if sys.version_info[:2] < (3, 6) else 'Sparta',
+                             'lemma': 'Sparta',
                              'modifiers': [],
                              'word': 'Sparta'}],
               'word': 'is'}],

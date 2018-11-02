@@ -6,7 +6,10 @@ import com.chaquo.python.Common
 
 // Packages not to include in regular pre-release testing because they're very large and not
 // that popular.
-ext.DEFAULT_EXCLUDE_PACKAGES = ["obspy", "spacy"]
+ext.DEFAULT_EXCLUDE_PACKAGES = [
+    "obspy",
+    "spacy",  // Also requires `extractPackages "en_core_web_sm"`
+]
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 ext.TEST_PACKAGES = [
