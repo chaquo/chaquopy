@@ -3,6 +3,7 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
+
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 16
@@ -10,7 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "2.7.14"
+            version "3.6.5"
         }
         ndk {
             abiFilters "x86"

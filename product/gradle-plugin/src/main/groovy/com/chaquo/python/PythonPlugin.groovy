@@ -178,24 +178,6 @@ class PythonPlugin implements Plugin<Project> {
                     "$Common.MIN_SDK_VERSION or higher. See " +
                     "https://chaquo.com/chaquopy/doc/current/versions.html.")
             }
-            if (python.version == null) {
-                throw new GradleException("$variant.name: python.version not set: you may want to " +
-                                          "add it to defaultConfig.")
-            }
-            if (! Common.PYTHON_VERSIONS.contains(python.version)) {
-                throw new GradleException("$variant.name: invalid python.version '${python.version}'. " +
-                                          "Current versions are ${Common.CURRENT_PYTHON_VERSIONS}.")
-            }
-            if (! Common.CURRENT_PYTHON_VERSIONS.contains(python.version)) {
-                println("Warning: $variant.name: python.version ${python.version} has not " +
-                        "been tested with this version of Chaquopy. Please switch to " +
-                        "one of the following versions as soon as possible: " +
-                        "${Common.CURRENT_PYTHON_VERSIONS}.")
-            }
-            if (python.version.startsWith("2.")) {
-                println("Warning: $variant.name: Chaquopy will stop supporting Python 2 in " +
-                        "the near future. Please switch to Python 3 as soon as possible.")
-            }
 
             createConfigs(variant, python)
             Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
@@ -214,8 +196,7 @@ class PythonPlugin implements Plugin<Project> {
 
         def stdlibConfig = getConfig(variant, "targetStdlib")
         bs.dependencies.add(stdlibConfig.name,
-                            targetDependency(python.version,
-                                             python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
+                            targetDependency(python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
 
         def abiConfig = getConfig(variant, "targetAbis")
         for (abi in getAbis(variant)) {
@@ -223,7 +204,7 @@ class PythonPlugin implements Plugin<Project> {
                 throw new GradleException("$variant.name: Chaquopy does not support the ABI '$abi'. " +
                                           "Supported ABIs are ${Common.ABIS}.")
             }
-            bs.dependencies.add(abiConfig.name, targetDependency(python.version, abi))
+            bs.dependencies.add(abiConfig.name, targetDependency(abi))
         }
     }
 
@@ -232,9 +213,9 @@ class PythonPlugin implements Plugin<Project> {
         return project.rootProject.buildscript.configurations.maybeCreate(configName)
     }
 
-    String targetDependency(String version, String classifier) {
-        def buildNo = Common.PYTHON_BUILD_NUMBERS.get(version)
-        return "com.chaquo.python:target:$version-$buildNo:$classifier@zip"
+    String targetDependency(String classifier) {
+        def version = "${Common.PYTHON_VERSION}-${Common.PYTHON_BUILD_NUM}"
+        return "com.chaquo.python:target:$version:$classifier@zip"
     }
 
     List<String> getAbis(variant) {
@@ -300,7 +281,6 @@ class PythonPlugin implements Plugin<Project> {
             inputs.property("abis", abis)
             inputs.property("buildPython", python.buildPython)
             inputs.property("pip", python.pip.serialize())
-            inputs.property("version", python.version)
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
@@ -334,7 +314,6 @@ class PythonPlugin implements Plugin<Project> {
                         project.mkdir("$destinationDir/$abi")
                     }
                 } else {
-                    def pythonAbi = Common.PYTHON_ABIS.get(python.versionShort)
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
@@ -356,9 +335,9 @@ class PythonPlugin implements Plugin<Project> {
                             // so --index-url replaces them both.
                             args "--extra-index-url", "https://chaquo.com/pypi-2.1"
                         }
-                        args "--implementation", pythonAbi.substring(0, 2)
-                        args "--python-version", python.version
-                        args "--abi", pythonAbi
+                        args "--implementation", Common.PYTHON_IMPLEMENTATION
+                        args "--python-version", Common.PYTHON_VERSION
+                        args "--abi", Common.PYTHON_ABI
                         args "--no-compile"
                         args python.pip.options
                     }
@@ -581,7 +560,7 @@ class PythonPlugin implements Plugin<Project> {
 
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
-                    extractResource("runtime/lib-dynload/$python.versionShort/$abi/java/chaquopy.so",
+                    extractResource("runtime/lib-dynload/$abi/java/chaquopy.so",
                                     "$bootstrapDir/java")
                     new File("$bootstrapDir/java/__init__.py").text = ""
 
@@ -597,11 +576,9 @@ class PythonPlugin implements Plugin<Project> {
         }
         assetTask(variant, "build") {
             inputs.property("extractPackages", python.extractPackages)
-            inputs.property("version", python.version)
             inputs.files(ticketTask, appAssetsTask, reqsAssetsTask, miscAssetsTask)
             doLast {
                 def buildJson = new JSONObject()
-                buildJson.put("version", python.version)
                 buildJson.put("assets", hashAssets(ticketTask, appAssetsTask, reqsAssetsTask,
                                                    miscAssetsTask))
                 buildJson.put("extractPackages", new JSONArray(python.extractPackages))
@@ -674,7 +651,7 @@ class PythonPlugin implements Plugin<Project> {
                 }
 
                 for (abi in getAbis(variant)) {
-                    extractResource("runtime/jniLibs/$python.versionShort/$abi/libchaquopy_java.so",
+                    extractResource("runtime/jniLibs/$abi/libchaquopy_java.so",
                                     "$libsDir/$abi")
                 }
             }
@@ -743,7 +720,6 @@ class PythonExtension extends BaseExtension {
                    // has unacceptable performance without a compiler anyway.
     ]
 
-    String version
     String buildPython
     Set<String> staticProxy = new TreeSet<>()
     Set<String> extractPackages = new TreeSet<>()
@@ -757,11 +733,7 @@ class PythonExtension extends BaseExtension {
         pip.setDefaults()
         pyc.setDefaults()
     }
-
-    String getVersionShort() {
-        return Common.pyVersionShort(version)
-    }
-
+    
     String getBuildPython() {
         if (this.@buildPython != null) {
             return this.@buildPython
@@ -776,7 +748,16 @@ class PythonExtension extends BaseExtension {
         }
     }
 
-    void version(String v)                      { version = v }
+    void version(String v) {
+        if (v.equals(Common.PYTHON_VERSION)) {
+            println("Warning: python.version is no longer required and should be removed.")
+        } else {
+            throw new GradleException(
+                "This version of Chaquopy does not include Python version $v. " +
+                "Either remove python.version to use Python $Common.PYTHON_VERSION, or see " +
+                "https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
+        }
+    }
     void buildPython(String bp)                 { buildPython = bp }
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
     void extractPackages(String... packages)    { extractPackages.addAll(packages) }
@@ -784,7 +765,6 @@ class PythonExtension extends BaseExtension {
     void pyc(Closure closure)                   { applyClosure(pyc, closure) }
 
     void mergeFrom(PythonExtension overlay) {
-        version = chooseNotNull(overlay.version, version)
         buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
         staticProxy.addAll(overlay.staticProxy)
         extractPackages.addAll(overlay.extractPackages)

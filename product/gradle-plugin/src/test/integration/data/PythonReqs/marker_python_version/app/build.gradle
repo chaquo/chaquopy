@@ -10,12 +10,8 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("python_version")
             pip {
-                install "linux-1.0-py2.py3-none-any.whl; 'linux' in sys.platform"
-                install "not_linux-1.0-py2.py3-none-any.whl; 'linux' not in sys.platform"
-                install "pyver2-1.0-py2.py3-none-any.whl; python_version < '3.0'"
-                install "pyver3-1.0-py2.py3-none-any.whl; python_version >= '3.0'"
+                install "-r", "requirements.txt"
             }
         }
         ndk {

@@ -109,7 +109,7 @@ public class AndroidPlatform extends Python.Platform {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
             deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
             extractAssets();
-            loadNativeLibs(buildJson.getString("version"));
+            loadNativeLibs();
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
         }
@@ -228,22 +228,17 @@ public class AndroidPlatform extends Python.Platform {
         return out.toString();
     }
 
-    private void loadNativeLibs(String pyVersion) {
-        String pyVersionShort = Common.pyVersionShort(pyVersion);
-        int pyVersionMicro = Integer.parseInt(pyVersion.substring(pyVersion.lastIndexOf('.') + 1));
-
+    private void loadNativeLibs() {
         // Libraries must be loaded in dependency order before API level 18 (#5323).
         System.loadLibrary("crystax");
-        if (! ((pyVersionShort.equals("2.7") && pyVersionMicro < 15) ||
-               (pyVersionShort.equals("3.6") && pyVersionMicro < 5))) {
-            // build_target_openssl.sh changes the SONAMEs to avoid clashing with the system copies.
-            // This isn't necessary for SQLite because the system copy is just "libsqlite.so", with
-            // no "3".
-            System.loadLibrary("crypto_chaquopy");
-            System.loadLibrary("ssl_chaquopy");
-            System.loadLibrary("sqlite3");
-        }
-        System.loadLibrary("python" + Common.PYTHON_SUFFIXES.get(pyVersionShort));
+
+        // build_target_openssl.sh changes the SONAMEs to avoid clashing with the system copies.
+        // This isn't necessary for SQLite because the system copy is just "libsqlite.so", with
+        // no "3".
+        System.loadLibrary("crypto_chaquopy");
+        System.loadLibrary("ssl_chaquopy");
+        System.loadLibrary("sqlite3");
+        System.loadLibrary("python" + Common.PYTHON_SUFFIX);
         System.loadLibrary("chaquopy_java");
     }
 

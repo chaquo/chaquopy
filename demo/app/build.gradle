@@ -23,8 +23,10 @@ android {
     compileSdkVersion 26
 
     defaultConfig {
-        minSdkVersion 15
+        minSdkVersion 16
         targetSdkVersion 26
+
+        applicationId "com.chaquo.python.demo3"
 
         // *** Replace in public repository **********************************
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
@@ -67,27 +69,6 @@ android {
 
         // Remove other languages imported from Android support libraries.
         resConfigs "en"
-    }
-
-    flavorDimensions "pyVersion"
-    productFlavors {
-        // Allow temporary single-version testing just by editing Common.java.
-        if (Common.PYTHON_VERSIONS.contains("2.7.15")) {
-            // Using words rather than numbers so that "three" comes first alphabetically and is
-            // therefore the default (https://issuetracker.google.com/issues/36988145).
-            two {
-                dimension "pyVersion"
-                applicationId "com.chaquo.python.demo"
-                python { version "2.7.15" }
-            }
-        }
-        if (Common.PYTHON_VERSIONS.contains("3.6.5")) {
-            three {
-                dimension "pyVersion"
-                applicationId "com.chaquo.python.demo3"
-                python { version "3.6.5" }
-            }
-        }
     }
 
     buildTypes {

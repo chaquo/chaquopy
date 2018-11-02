@@ -1,14 +1,11 @@
 """Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
 
-from __future__ import absolute_import, division, print_function
-
+from importlib import reload
 import os
 from os.path import exists, join
 import sys
 import traceback
 from . import stream, importer
-
-from java._vendor import six
 
 
 def initialize(context, build_json, app_path):
@@ -18,19 +15,18 @@ def initialize(context, build_json, app_path):
 
 
 def initialize_stdlib(context):
-    initialize_sys(context)
+    from com.chaquo.python import Common
+    initialize_sys(context, Common)
     initialize_os(context)
-    initialize_sysconfig(context)
+    initialize_sysconfig(context, Common)
     initialize_tempfile(context)
     initialize_ssl(context)
     initialize_ctypes(context)
 
 
-def initialize_sys(context):
-    import sysconfig
-
+def initialize_sys(context, Common):
     if sys.version_info[0] >= 3:
-        sys.abiflags = python_suffix()[len(sysconfig.get_python_version()):]
+        sys.abiflags = Common.PYTHON_SUFFIX[len(Common.PYTHON_VERSION_SHORT):]
 
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
@@ -58,14 +54,14 @@ def initialize_os(context):
     os.environ.setdefault("HOME", str(context.getFilesDir()))
 
 
-def initialize_sysconfig(context):
+def initialize_sysconfig(context, Common):
     # Put a few basic things in until the build process is fixed to generate this (#5160).
     import sys
     import _sysconfigdata
     _sysconfigdata.build_time_vars.update({
         "EXT_SUFFIX": ".so",
         "LIBDIR": sys.prefix,
-        "LDLIBRARY": "libpython{}.so".format(python_suffix()),
+        "LDLIBRARY": f"libpython{Common.PYTHON_SUFFIX}.so"
     })
 
     if sys.version_info[0] >= 3:
@@ -92,11 +88,12 @@ def initialize_ssl(context):
     # hashlib may already have been imported during bootstrap: reload it now that the the
     # OpenSSL interface in `_hashlib` is on sys.path.
     import hashlib
-    six.moves.reload_module(hashlib)
+    reload(hashlib)
 
 
 def initialize_ctypes(context):
     import ctypes.util
+    import sysconfig
 
     # The standard implementation of find_library requires external tools, so will always fail
     # on Android. I can't see any easy way of finding the absolute library pathname ourselves
@@ -112,10 +109,4 @@ def initialize_ctypes(context):
             return filename
     ctypes.util.find_library = find_library_override
 
-    ctypes.pythonapi = ctypes.PyDLL("libpython{}.so".format(python_suffix()))
-
-
-def python_suffix():
-    import sysconfig
-    from com.chaquo.python import Common
-    return Common.PYTHON_SUFFIXES.get(sysconfig.get_python_version())
+    ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])

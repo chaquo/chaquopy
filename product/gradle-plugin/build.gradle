@@ -50,14 +50,14 @@ processResources {
             into("jniLibs") {
                 for (file in configurations.runtimeJniLibs) {
                     from(file) {
-                        into "$file.parentFile.parentFile.name/$file.parentFile.name"
+                        into "$file.parentFile.name"
                     }
                 }
             }
             into("lib-dynload") {
                 for (file in configurations.runtimeLibDynload) {
                     from(file) {
-                        into "$file.parentFile.parentFile.name/$file.parentFile.name/java"
+                        into "$file.parentFile.name/java"
                     }
                 }
             }

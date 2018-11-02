@@ -9,9 +9,6 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
-        python {
-            version "2.7.14"
-        }
         ndk {
             abiFilters "x86"
         }

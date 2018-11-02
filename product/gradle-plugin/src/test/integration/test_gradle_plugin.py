@@ -16,6 +16,9 @@ import javaproperties
 from kwonly_args import kwonly_defaults
 
 
+PYTHON_VERSION = "3.6.5"
+PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
+
 integration_dir = abspath(dirname(__file__))
 repo_root = abspath(join(integration_dir, "../../../../.."))
 
@@ -91,12 +94,6 @@ class GradleTestCase(TestCase):
     def post_check(self, apk_zip, apk_dir, kwargs):
         pass
 
-    # stdlib and libs changed at this point. Anything which calls this method will be exercised
-    # by PythonVersion.test_old_new.
-    def post_201805(self, version):
-        version_info = tuple(map(int, version.split(".")))
-        return ((2, 7, 15) <= version_info < (3, 0, 0)) or (version_info >= (3, 6, 5))
-
 
 class Basic(GradleTestCase):
     def test_base(self):
@@ -117,14 +114,12 @@ class ChaquopyPlugin(GradleTestCase):
         run.rerun(requirements=["alpha_dep/__init__.py"])
 
     # Since this version, there has been no change in the build-packages.zip filename. We
-    # distinguish the old version by it setting environment markers from the build platform
-    # rather than the target platform.
-    @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
+    # distinguish the old version by it not supporting arm64-v8a.
     def test_upgrade_3_2_1(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", requirements=[],
-                             extract_packages=None)
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", succeed=False)
+        self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
         run.apply_layers("ChaquopyPlugin/upgrade_current")
-        run.rerun(requirements=["six.py"])
+        run.rerun(abis=["arm64-v8a"])
 
 
 class AndroidPlugin(GradleTestCase):
@@ -194,47 +189,22 @@ class ApiLevel(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
-    def test_change(self):
-        run = self.RunGradle("base", version="2.7.14")
-        run.apply_layers("PythonVersion/change")
-        run.rerun(version="3.6.3")
+    def test_warning(self):
+        run = self.RunGradle("base")
+        self.assertNotInLong("python.version", run.stdout)
 
-    def test_missing(self):
-        run = self.RunGradle("base", "PythonVersion/missing", succeed=False)
-        self.assertInLong("debug: python.version not set", run.stderr)
+        run.apply_layers("PythonVersion/warning")
+        run.rerun()
+        self.assertInLong("Warning: python.version is no longer required and should be removed.",
+                          run.stdout)
 
-    def test_invalid(self):
-        run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
-        self.assertInLong("debug: invalid python.version '2.7.99'. Current versions are "
-                          "[2.7.15, 3.6.5].", run.stderr)
-
-    def test_old_new(self):
-        excerpt = "does not contain all current Chaquopy features and bug fixes"
-        run = self.RunGradle("base", run=False)
-        for old, new in [("2.7.14", "2.7.15"), ("3.6.3", "3.6.5")]:
-            major = old[0]
-            run.apply_layers("PythonVersion/old_" + major)
-            run.rerun(version=old)
-            self.assertInLong("Warning: debug: python.version {} {}. Please switch to one of "
-                              "the following versions as soon as possible: [2.7.15, 3.6.5]."
-                              .format(old, excerpt), run.stdout)
-            run.apply_layers("PythonVersion/new_" + major)
-            run.rerun(version=new)
-            self.assertNotIn(excerpt, run.stdout)
-
-    def test_variant(self):
-        self.RunGradle("base", "PythonVersion/variant",
-                       variants={"py2-debug": dict(version="2.7.14"),
-                                 "py3-debug": dict(version="3.6.3")})
-
-    def test_variant_merge(self):
-        self.RunGradle("base", "PythonVersion/variant_merge",
-                       variants={"py2-debug": dict(version="2.7.14"),
-                                 "py3-debug": dict(version="3.6.3")})
-
-    def test_variant_missing(self):
-        run = self.RunGradle("base", "PythonVersion/variant_missing", succeed=False)
-        self.assertInLong("missingDebug: python.version not set", run.stderr)
+    def test_error(self):
+        run = self.RunGradle("base", "PythonVersion/error", succeed=False)
+        self.assertInLong(
+            f"This version of Chaquopy does not include Python version 3.6.3. "
+            f"Either remove python.version to use Python {PYTHON_VERSION}, or see "
+            f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
+            run.stderr)
 
 
 class AbiFilters(GradleTestCase):
@@ -377,16 +347,14 @@ class Pyc(GradleTestCase):
 
     def post_check(self, apk_zip, apk_dir, kwargs):
         pyc = kwargs["pyc"]
-        version = kwargs["version"]
-
         stdlib_files = set(ZipFile(join(apk_dir, "assets/chaquopy/stdlib.zip")).namelist())
         self.assertEqual(pyc["stdlib"],    "argparse.pyc" in stdlib_files)
         self.assertNotEqual(pyc["stdlib"], "argparse.py" in stdlib_files)
-        if self.post_201805(version):
-            # See build_stdlib.py in crystax/platform/ndk.
-            for grammar_stem in ["Grammar", "PatternGrammar"]:
-                self.assertIn("lib2to3/{}{}.final.0.pickle".format(grammar_stem, version),
-                              stdlib_files)
+
+        # See build_stdlib.py in crystax/platform/ndk.
+        for grammar_stem in ["Grammar", "PatternGrammar"]:
+            self.assertIn("lib2to3/{}{}.final.0.pickle".format(grammar_stem, PYTHON_VERSION),
+                          stdlib_files)
 
 
 class BuildPython(GradleTestCase):
@@ -419,23 +387,6 @@ class BuildPython(GradleTestCase):
         self.assertInLong("'python-red' failed to start", run.stderr)
         run.rerun(variants=["blue-debug"], succeed=False)
         self.assertInLong("'python-blue' failed to start", run.stderr)
-
-
-# Use these as mixins to run a set of tests once each for python2 and python3.
-class BuildPythonCase(TestCase):
-    def setUp(self):
-        super(BuildPythonCase, self).setUp()
-        os.environ["python_version"] = self.python_version
-
-    def tearDown(self):
-        del os.environ["python_version"]
-        super(BuildPythonCase, self).tearDown()
-
-class BuildPython2(BuildPythonCase):
-    python_version = "2.7.15"
-
-class BuildPython3(BuildPythonCase):
-    python_version = "3.6.5"
 
 
 class PythonReqs(GradleTestCase):
@@ -600,28 +551,22 @@ class PythonReqs(GradleTestCase):
                        requirements=["no_binary_sdist/__init__.py"])
 
     def test_requires_python(self):
-        if os.name == "nt":
-            build_python = ["py", "-" + self.python_version[0]]
-        else:
-            build_python = ["python" + self.python_version[0]]
-        version_proc = subprocess.run(build_python + ["--version"], stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, universal_newlines=True)
-        _, build_version = version_proc.stdout.split()
+        build_version = self.get_different_build_python_version()
+        run = self.RunGradle("base", "PythonReqs/requires_python", run=False)
+        with open(f"{run.project_dir}/app/index/pyver/index.html", "w") as index_file:
+            def print_link(whl_version, requires_python):
+                filename = f"pyver-{whl_version}-py2.py3-none-any.whl"
+                print(f'<a href="{filename}" data-requires-python="=={requires_python}">'
+                      f'{filename}</a><br/>', file=index_file)
 
-        # Make sure the build version and the target version are different: it's the target
-        # version which should be matched against the data-requires-python attribute.
-        if build_version == self.python_version:
-            if self.python_version == "2.7.15":
-                self.python_version = "2.7.14"
-            elif self.python_version == "3.6.5":
-                self.python_version = "3.6.3"
-            else:
-                raise Exception("Unknown default python_version")
-            os.environ["python_version"] = self.python_version
+            # If the build Python version is used, or the data-requires-python attribute is
+            # ignored completely, then version 0.2 will be selected.
+            print("<html><head></head><body>", file=index_file)
+            print_link("0.1", PYTHON_VERSION)
+            print_link("0.2", build_version)
+            print("</body></html>", file=index_file)
 
-        self.RunGradle(
-            "base", "PythonReqs/requires_python",
-            requirements=[("pyver.py", {"content": "# " + self.python_version})])
+        run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
 
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
@@ -773,9 +718,24 @@ class PythonReqs(GradleTestCase):
                                 ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
                                 "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"])
 
-    def test_environment(self):
-        self.RunGradle("base", "PythonReqs/environment",
-                       requirements=["linux.py", "pyver{}.py".format(self.python_version[0])])
+    @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
+    def test_marker_platform(self):
+        self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
+
+    def test_marker_python_version(self):
+        run = self.RunGradle("base", "PythonReqs/marker_python_version", run=False)
+        build_version = self.get_different_build_python_version()
+        with open(f"{run.project_dir}/app/requirements.txt", "w") as reqs_file:
+            def print_req(whl_version, python_version):
+                print(f'pyver-{whl_version}-py2.py3-none-any.whl; '
+                      f'python_full_version == "{python_version}"', file=reqs_file)
+
+            # If the build Python version is used, or the environment markers are ignored
+            # completely, then version 0.2 will be selected.
+            print_req("0.1", PYTHON_VERSION)
+            print_req("0.2", build_version)
+
+        run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
 
     def tracker_advice(self):
         return (" For assistance, please raise an issue at "
@@ -785,12 +745,24 @@ class PythonReqs(GradleTestCase):
         return (r" Or try using one of the following versions, which are available as pre-built "
                 r"wheels: \[{}\].".format(", ".join("'{}'".format(v) for v in versions)))
 
+    def get_different_build_python_version(self):
+        version = self.get_build_python_version()
+        if version == PYTHON_VERSION:
+            # We want to verify that packages are selected based on the target Python version,
+            # not the build Python version, and we can only do that if the two versions are
+            # different.
+            self.skipTest(f"Build Python and target Python have the same version ({version})")
+        return version
 
-class PythonReqs2(PythonReqs, BuildPython2):
-    pass
-class PythonReqs3(PythonReqs, BuildPython3):
-    pass
-del PythonReqs
+    def get_build_python_version(self):
+        if os.name == "nt":
+            build_python = ["py", "-" + PYTHON_VERSION[0]]
+        else:
+            build_python = ["python" + PYTHON_VERSION[0]]
+        version_proc = subprocess.run(build_python + ["--version"], stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, universal_newlines=True)
+        _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
+        return version
 
 
 class StaticProxy(GradleTestCase):
@@ -820,12 +792,6 @@ class StaticProxy(GradleTestCase):
                        requirements=self.reqs,
                        variants={"red-debug":  {"classes": ["a.ReqsA1"]},
                                  "blue-debug": {"classes": ["a.ReqsA1", "b.ReqsB1"]}})
-
-class StaticProxy2(StaticProxy, BuildPython2):
-    pass
-class StaticProxy3(StaticProxy, BuildPython3):
-    pass
-del StaticProxy
 
 
 class RunGradle(object):
@@ -866,13 +832,6 @@ class RunGradle(object):
 
     @kwonly_defaults
     def rerun(self, succeed=True, variants=["debug"], **kwargs):
-        # "version" is also used in Pyc.post_check.
-        #
-        # TODO: edit test files to replace as many explicit Python version numbers as possible
-        # with an environment variable, as we already have in BuildPythonCase subclasses.
-        for k, v in [("version", getattr(self.test, "python_version", "2.7.14"))]:
-            kwargs.setdefault(k, v)
-
         status, self.stdout, self.stderr = self.run_gradle(variants)
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
@@ -938,7 +897,7 @@ class RunGradle(object):
         return process.wait(), stdout, stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
-    # post_check. See also `setdefault` loop at top of rerun().
+    # post_check.
     @kwonly_defaults
     def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
                   requirements=[], reqs_versions=None, extract_packages=[], licensed_id=None,
@@ -987,31 +946,24 @@ class RunGradle(object):
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
         # Python stdlib
-        version = kwargs["version"]
         stdlib_native_dir = join(asset_dir, "stdlib-native")
-        self.test.assertEqual([abi + ".zip" for abi in sorted(abis)],
-                              sorted(os.listdir(stdlib_native_dir)))
+        self.test.assertCountEqual([abi + ".zip" for abi in abis],
+                                   os.listdir(stdlib_native_dir))
         for abi in abis:
             stdlib_native_zip = ZipFile(join(stdlib_native_dir, abi + ".zip"))
-            expected_modules = ["_multiprocessing.so", "_socket.so", "_sqlite3.so",
-                                "_ssl.so", "pyexpat.so", "unicodedata.so"]
-            if self.test.post_201805(version):
-                expected_modules.append("_hashlib.so")
-            self.test.assertEqual(sorted(expected_modules),
-                                  sorted(stdlib_native_zip.namelist()))
+            self.test.assertCountEqual(
+                ["_hashlib.so", "_multiprocessing.so", "_socket.so", "_sqlite3.so",
+                 "_ssl.so", "pyexpat.so", "unicodedata.so"],
+                stdlib_native_zip.namelist())
 
         # libs
-        self.test.assertEqual(sorted(abis), sorted(os.listdir(join(apk_dir, "lib"))))
-        ver_suffix = version.rpartition(".")[0]
-        if ver_suffix.startswith("3"):
-            ver_suffix += "m"
+        self.test.assertCountEqual(abis, os.listdir(join(apk_dir, "lib")))
         for abi in abis:
-            libs = ["libchaquopy_java.so", "libcrystax.so",
-                    "libpython{}.so".format(ver_suffix)]
-            if self.test.post_201805(version):
-                libs += ["libcrypto_chaquopy.so", "libssl_chaquopy.so", "libsqlite3.so"]
-            self.test.assertEqual(sorted(libs),
-                                  sorted(os.listdir(join(apk_dir, "lib", abi))))
+            self.test.assertCountEqual(
+                ["libchaquopy_java.so", "libcrypto_chaquopy.so", "libcrystax.so",
+                 f"libpython{PYTHON_VERSION_SHORT}m.so", "libssl_chaquopy.so",
+                 "libsqlite3.so"],
+                os.listdir(join(apk_dir, "lib", abi)))
 
         # Chaquopy runtime library
         actual_classes = dex_classes(join(apk_dir, "classes.dex"))
@@ -1028,8 +980,7 @@ class RunGradle(object):
         ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
-        self.test.assertEqual(["assets", "extractPackages", "version"], sorted(build_json))
-        self.test.assertEqual(version, build_json["version"])
+        self.test.assertEqual(["assets", "extractPackages"], sorted(build_json))
         if extract_packages is not None:
             self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
                                   sorted(build_json["extractPackages"]))

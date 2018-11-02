@@ -10,7 +10,6 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("python_version")
             pip {
                 options "--no-cache-dir"  // Make tests repeatable.
                 install "sdist_native_compiler-1.0.tar.gz"

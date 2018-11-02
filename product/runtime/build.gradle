@@ -59,6 +59,8 @@ def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def mingwDir = windowsHost ? getLocalProperty('mingw.dir') : null
 
 
+task("doc", group: "documentation")
+
 // Affected by Markdown plugin above
 javadoc {
     outputs.upToDateWhen { false }
@@ -76,8 +78,6 @@ javadoc {
         addStringOption("encoding", "UTF-8")  // For em dash in title above
     }
 }
-
-def doc = task("doc", group: "documentation")
 doc.dependsOn(javadoc)
 
 
@@ -176,186 +176,166 @@ task("generateStaticProxy", type: Exec, group: "verification") {
 }
 sourceSets.test.java.srcDirs += generateStaticProxy.outputs
 
-task("testPython", "group": "verification")
-task("testJava", "group": "verification")
+for (abi in ["host"] + Common.ABIS) {
+    def pyPlusVersion = "python$Common.PYTHON_SUFFIX"
+    // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
+    def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
 
-def prevPyVersion = null
-for (pyFullVersion in Common.PYTHON_VERSIONS) {
-    def pyVersion = Common.pyVersionShort(pyFullVersion)
-    if (prevPyVersion != null && pyVersion.equals(prevPyVersion)) continue
-    def testVer = task("test-$pyVersion", "group": "verification")
-    check.dependsOn(testVer)
+    // Linux defaults
+    def pyLibPrefix = ""
+    def pyLibSuffix = ".so"
+    def javaLibPrefix = "lib"
+    def javaLibSuffix = ".so"
 
-    for (abi in ["host"] + Common.ABIS) {
-        def pyPlusVersion = "python${Common.PYTHON_SUFFIXES.get(pyVersion)}"
-        // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
-        def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
-
-        // Linux defaults
-        def pyLibPrefix = ""
-        def pyLibSuffix = ".so"
-        def javaLibPrefix = "lib"
-        def javaLibSuffix = ".so"
-
-        def cmakeBuildSubdir = "$buildDir/cmake/$pyVersion/$abi"
-        def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
-        def cmake = task("cmake-$pyVersion-$abi", type: Exec, group: "build") {
-            dependsOn cythonPython, cythonJava
-            inputs.files "CMakeLists.txt"
-            inputs.property("cmakeBuildType", cmakeBuildType)
-            outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
-                          "$cmakeBuildSubdir/CMakeCache.txt"
-            doFirst {
-                mkdir cmakeBuildSubdir
-                delete(outputs.files)   // Otherwise changes to args below won't take effect
-            }
-            workingDir cmakeBuildSubdir
-            executable "$sdkCmakeDir/bin/cmake"
-            args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
-                 "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
-                 "-DCHAQUOPY_LIBS=$pyPlusVersion"
-
-            if (abi == "host") {
-                if (windowsHost) {
-                    pyLibSuffix = ".pyd"
-                    javaLibPrefix = ""
-                    javaLibSuffix = ".dll"
-                    args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
-                                                 "$javaHome/include;$javaHome/include/win32"
-                } else {
-                    // TODO #5482: support Mac
-                    args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion;" +
-                                                 "$javaHome/include;$javaHome/include/linux"
-                }
-            } else {
-                def pyDir = "$crystaxDir/sources/python/$pyVersion"
-                args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
-                     "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
-                     "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION", "-DANDROID_ABI=$abi",
-                     "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
-                     "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
-            }
-            args "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
-                 "-DJAVA_LIB_PREFIX=$javaLibPrefix", "-DJAVA_LIB_SUFFIX=$javaLibSuffix",
-                 "$projectDir"
+    def cmakeBuildSubdir = "$buildDir/cmake/$abi"
+    def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
+    def cmake = task("cmake-$abi", type: Exec, group: "build") {
+        dependsOn cythonPython, cythonJava
+        inputs.files "CMakeLists.txt"
+        inputs.property("cmakeBuildType", cmakeBuildType)
+        outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
+                      "$cmakeBuildSubdir/CMakeCache.txt"
+        doFirst {
+            mkdir cmakeBuildSubdir
+            delete(outputs.files)   // Otherwise changes to args below won't take effect
         }
-
-        def cmakeBuild = task("cmakeBuild-$pyVersion-$abi", type: Exec, group: "build") {
-            // No inputs or outputs: the command itself determines whether it's up to date.
-            dependsOn cmake
-            executable "$sdkCmakeDir/bin/cmake"
-            args "--build", cmakeBuildSubdir
-        }
-        if (abi != "host") {
-            project.artifacts {
-                jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
-                libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
-            }
-        }
+        workingDir cmakeBuildSubdir
+        executable "$sdkCmakeDir/bin/cmake"
+        args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
+             "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
+             "-DCHAQUOPY_LIBS=$pyPlusVersion"
 
         if (abi == "host") {
-            def mainPythonDir = "$projectDir/src/main/python"
-            def testPythonDir = "$projectDir/src/test/python"
-            def setupPythonPath = task("setupPythonPath-$pyVersion", group: "verification") {
-                dependsOn cmakeBuild
-                if (prevPyVersion != null) {
-                    mustRunAfter(tasks.getByName("testJava-$prevPyVersion"))
-                    mustRunAfter(tasks.getByName("testPython-$prevPyVersion"))
-                }
-                doFirst {
-                    copy {
-                        into mainPythonDir
-                        from(cmakeBuildSubdir) {
-                            include "chaquopy${pyLibSuffix}"
-                            into "java"
-                        }
-                    }
-                }
+            if (windowsHost) {
+                pyLibSuffix = ".pyd"
+                javaLibPrefix = ""
+                javaLibSuffix = ".dll"
+                args "-DCHAQUOPY_INCLUDE_DIRS=$mingwDir/include/$pyPlusVersion;" +
+                                             "$javaHome/include;$javaHome/include/win32"
+            } else {
+                // TODO #5482: support Mac
+                args "-DCHAQUOPY_INCLUDE_DIRS=/usr/include/$pyPlusVersion;" +
+                                             "$javaHome/include;$javaHome/include/linux"
             }
+        } else {
+            def pyDir = "$crystaxDir/sources/python/$Common.PYTHON_VERSION_SHORT"
+            args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+                 "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
+                 "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION", "-DANDROID_ABI=$abi",
+                 "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
+                 "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
+        }
+        args "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
+             "-DJAVA_LIB_PREFIX=$javaLibPrefix", "-DJAVA_LIB_SUFFIX=$javaLibSuffix",
+             "$projectDir"
+    }
 
-            def testCommonConfig = {
-                dependsOn setupPythonPath, compileTestJava
-                environment "CLASSPATH", sourceSets.test.runtimeClasspath.asPath
-
-                // Can't use -Djava.library.path because we need something which also works
-                // for Python processes.
-                def pathVar = windowsHost ? "PATH" : "LD_LIBRARY_PATH"
-                environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
-                                      (System.getenv(pathVar) ?: ""))
-                environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
-                environment "PYTHONPATH", mainPythonDir + File.pathSeparator + testPythonDir
-            }
-
-            // For consistency with Android demo app, run via test suite rather than using
-            // "discover".
-            def testPythonVer = task("testPython-$pyVersion", type: Exec, group: "verification") {
-                workingDir "$projectDir/src/test/python"
-                executable pyPlusVersionExe
-                args "-m", "unittest"
-                if (project.hasProperty("testPythonArgs")) {
-                    args project.testPythonArgs.split(" ")
-                } else {
-                    args "chaquopy.test"
-                }
-            }
-            testPythonVer.configure(testCommonConfig)
-            testPython.dependsOn(testPythonVer)
-            testVer.dependsOn(testPythonVer)
-
-            // Run via test suite for consistency with Android demo app. (NOTE: this will not show
-            // test results within IntelliJ for some reason.)
-            test.exclude "**"  // Disable the default test task
-            def testJavaVer = task("testJava-$pyVersion", type: Test, group: "verification") {
-                outputs.upToDateWhen { false }
-                if (!windowsHost) {
-                    // libchaquopy_java.so is linked against libpython, but that doesn't add
-                    // the libpython symbols to the global scope, which is required in order to
-                    // load native modules like ctypes. Loading libpython with
-                    // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
-                    // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
-                    // the proper solution, but let's do it the easy way for now.
-                    //
-                    // TODO #5482: support Mac
-                    environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
-                }
-                testClassesDirs = sourceSets.test.output.classesDirs
-                scanForTestClasses = false
-                include "**/TestSuite.class"
-                testLogging {
-                    exceptionFormat = 'full'
-                    showStandardStreams = true
-                }
-            }
-            testJavaVer.configure(testCommonConfig)
-            testJava.dependsOn(testJavaVer)
-            testVer.dependsOn(testJavaVer)
-
-            // Generates a script to start a Python REPL with Java and Python paths set up.
-            task("consoleScript-$pyVersion") {
-                dependsOn setupPythonPath
-                doLast {
-                    def writer = new PrintWriter("$projectDir/console-${pyVersion}.sh")
-                    writer.println "#!/bin/bash -e"
-                    writer.println "# Generated by Gradle consoleScript task"
-                    def env = testPythonVer.environment
-                    for (String key : ["CLASSPATH", "PYTHONPATH"]) {
-                        writer.println "export $key='${env.get(key)}'"
-                    }
-                    writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                    writer.println "winpty $pyPlusVersionExe " + '"$@"'
-                    writer.close()
-                }
-            }
-
-            if (pyVersion == "3.6") {
-                task("sphinx", type: Exec, group: "documentation") {
-                    executable pyPlusVersionExe
-                    args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
-                }
-                sphinx.configure(testCommonConfig)
-                doc.dependsOn(sphinx)
-            }
+    def cmakeBuild = task("cmakeBuild-$abi", type: Exec, group: "build") {
+        // No inputs or outputs: the command itself determines whether it's up to date.
+        dependsOn cmake
+        executable "$sdkCmakeDir/bin/cmake"
+        args "--build", cmakeBuildSubdir
+    }
+    if (abi != "host") {
+        project.artifacts {
+            jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
+            libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
         }
     }
-    prevPyVersion = pyVersion
+
+    if (abi == "host") {
+        def mainPythonDir = "$projectDir/src/main/python"
+        def testPythonDir = "$projectDir/src/test/python"
+        task("setupPythonPath", group: "verification") {
+            dependsOn cmakeBuild
+            doFirst {
+                copy {
+                    into mainPythonDir
+                    from(cmakeBuildSubdir) {
+                        include "chaquopy${pyLibSuffix}"
+                        into "java"
+                    }
+                }
+            }
+        }
+
+        def testCommonConfig = {
+            dependsOn setupPythonPath, compileTestJava
+            environment "CLASSPATH", sourceSets.test.runtimeClasspath.asPath
+
+            // Can't use -Djava.library.path because we need something which also works
+            // for Python processes.
+            def pathVar = windowsHost ? "PATH" : "LD_LIBRARY_PATH"
+            environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
+                                  (System.getenv(pathVar) ?: ""))
+            environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
+            environment "PYTHONPATH", mainPythonDir + File.pathSeparator + testPythonDir
+        }
+
+        // For consistency with Android demo app, run via test suite rather than using
+        // "discover".
+        task("testPython", type: Exec, group: "verification") {
+            workingDir "$projectDir/src/test/python"
+            executable pyPlusVersionExe
+            args "-m", "unittest"
+            if (project.hasProperty("testPythonArgs")) {
+                args project.testPythonArgs.split(" ")
+            } else {
+                args "chaquopy.test"
+            }
+        }
+        testPython.configure(testCommonConfig)
+        check.dependsOn(testPython)
+
+        // Run via test suite for consistency with Android demo app. (NOTE: this will not show
+        // test results within IntelliJ for some reason.)
+        test.exclude "**"  // Disable the default test task
+        task("testJava", type: Test, group: "verification") {
+            outputs.upToDateWhen { false }
+            if (!windowsHost) {
+                // libchaquopy_java.so is linked against libpython, but that doesn't add
+                // the libpython symbols to the global scope, which is required in order to
+                // load native modules like ctypes. Loading libpython with
+                // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
+                // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
+                // the proper solution, but let's do it the easy way for now.
+                //
+                // TODO #5482: support Mac
+                environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
+            }
+            testClassesDirs = sourceSets.test.output.classesDirs
+            scanForTestClasses = false
+            include "**/TestSuite.class"
+            testLogging {
+                exceptionFormat = 'full'
+                showStandardStreams = true
+            }
+        }
+        testJava.configure(testCommonConfig)
+        check.dependsOn(testJava)
+
+        // Generates a script to start a Python REPL with Java and Python paths set up.
+        task("consoleScript") {
+            dependsOn setupPythonPath
+            doLast {
+                def writer = new PrintWriter("$projectDir/console.sh")
+                writer.println "#!/bin/bash -e"
+                writer.println "# Generated by Gradle consoleScript task"
+                def env = testPython.environment
+                for (String key : ["CLASSPATH", "PYTHONPATH"]) {
+                    writer.println "export $key='${env.get(key)}'"
+                }
+                writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
+                writer.println "winpty $pyPlusVersionExe " + '"$@"'
+                writer.close()
+            }
+        }
+
+        task("sphinx", type: Exec, group: "documentation") {
+            executable pyPlusVersionExe
+            args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
+        }
+        sphinx.configure(testCommonConfig)
+        doc.dependsOn(sphinx)
+    }
 }

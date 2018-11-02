@@ -11,7 +11,6 @@ android {
         versionName "0.0.1"
         python {
             buildPython System.getProperty("os.name").startsWith("Windows") ? "py -2" : "python2"
-            version "3.6.5"
             pip {
                 options "--no-index"
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
