@@ -8,3 +8,5 @@ build:
 requirements:
   build:
     - cffi 1.11.5
+  host:
+    - openssl

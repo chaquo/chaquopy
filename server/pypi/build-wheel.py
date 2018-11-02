@@ -455,11 +455,11 @@ class BuildWheel:
             openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
             openssl_root = dirname(openssl_include)
             env["CFLAGS"] += f" -idirafter {openssl_root}/include"
-            env["LDFLAGS"] += f"-L{openssl_root}/libs/{self.abi}"
+            env["LDFLAGS"] += f" -L{openssl_root}/libs/{self.abi}"
         if "sqlite" in self.bundled_reqs:
             sqlite_root = f"{self.ndk}/sources/sqlite/3"
             env["CFLAGS"] += f" -idirafter {sqlite_root}/include"
-            env["LDFLAGS"] += f"-L{sqlite_root}/libs/{self.abi}"
+            env["LDFLAGS"] += f" -L{sqlite_root}/libs/{self.abi}"
 
         if self.verbose:
             log("Environment set as follows:\n" +

@@ -7,6 +7,11 @@ HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
 make -j $CPU_COUNT
 make install
 
+if [ -d $PREFIX/lib64 ]; then
+    mv $PREFIX/lib64/* $PREFIX/lib
+    rmdir $PREFIX/lib64
+fi
+
 rm $PREFIX/lib/libffi.{a,la,so,so.6}
 mv $PREFIX/lib/libffi.so.* $PREFIX/lib/libffi.so.6
 mv $PREFIX/lib/libffi-*/include $PREFIX

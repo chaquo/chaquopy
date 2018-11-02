@@ -44,4 +44,6 @@ COPY requirements.txt pypi/
 RUN pip3.6 install -r pypi/requirements.txt
 
 COPY . pypi/
+
+ENV LC_ALL="C.UTF-8"
 ENTRYPOINT ["python3.6", "pypi/build-wheel.py", "--ndk", "crystax"]

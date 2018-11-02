@@ -1,7 +1,7 @@
 diff -ur src-original/deps/c-ares/src/ares_init.c src/deps/c-ares/src/ares_init.c
 --- src-original/deps/c-ares/src/ares_init.c	2017-07-20 20:58:08.000000000 +0000
-+++ src/deps/c-ares/src/ares_init.c	2018-09-29 10:18:13.727028377 +0000
-@@ -1534,6 +1534,12 @@
++++ src/deps/c-ares/src/ares_init.c	2018-11-02 19:21:56.958390429 +0000
+@@ -1534,11 +1534,19 @@
    status = ARES_EOF;
  
  #elif defined(ANDROID) || defined(__ANDROID__)
@@ -14,7 +14,22 @@ diff -ur src-original/deps/c-ares/src/ares_init.c src/deps/c-ares/src/ares_init.
    unsigned int i;
    char propname[PROP_NAME_MAX];
    char propvalue[PROP_VALUE_MAX]="";
-@@ -1812,14 +1818,14 @@
+ 
+   for (i = 1; i <= MAX_DNS_PROPERTIES; i++) {
++    /* Chaquopy: __system_property_get was removed in 64-bit ABIs
++       (https://stackoverflow.com/a/28416743).
+     snprintf(propname, sizeof(propname), "%s%u", DNS_PROP_NAME_PREFIX, i);
+     if (__system_property_get(propname, propvalue) < 1) {
+       status = ARES_EOF;
+@@ -1547,6 +1555,7 @@
+     status = config_nameserver(&servers, &nservers, propvalue);
+     if (status != ARES_SUCCESS)
+       break;
++    */
+     status = ARES_EOF;
+   }
+ #elif defined(CARES_USE_LIBRESOLV)
+@@ -1812,14 +1821,14 @@
      channel->ednspsz = EDNSPACKETSZ;
  
    if (channel->nservers == -1) {
