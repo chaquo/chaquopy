@@ -11,6 +11,7 @@ import marshal
 import os
 from os.path import dirname, exists, isfile, join
 import pkgutil
+import platform
 import re
 import shlex
 from subprocess import check_output
@@ -43,6 +44,17 @@ else:
 def setUpModule():
     if API_LEVEL is None:
         raise unittest.SkipTest("Not running on Android")
+
+
+class TestAndroidPlatform(unittest.TestCase):
+    def test_abi(self):
+        from android.os import Build
+
+        # 64-bit should be preferred to 32-bit where both are available.
+        python_bits = platform.architecture()[0]
+        self.assertEqual(python_bits,
+                         "64bit" if Build.CPU_ABI in ["arm64-v8a"]
+                         else "32bit")
 
 
 class TestAndroidImport(unittest.TestCase):
@@ -498,10 +510,6 @@ class TestAndroidStdlib(unittest.TestCase):
             self.assertEqual(expected_dir, dirname(f.name))
 
 
-@unittest.skipIf(API_LEVEL and API_LEVEL < 16,
-                 "logcat command requires READ_LOGS permission on this API level, which we "
-                 "don't request because Google Play describes it as giving access to 'browsing "
-                 "history and bookmarks'.")
 class TestAndroidStreams(unittest.TestCase):
 
     maxDiff = None

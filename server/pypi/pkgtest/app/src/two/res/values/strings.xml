@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<!-- Using a build variant source set so we can override the values imported from the demo app. -->
-<resources>
-    <string name="app_id">com.chaquo.python.pkgtest2</string>
-    <string name="app_name">Package tests Py2</string>
-</resources>

@@ -79,13 +79,16 @@ you might use the following::
 ABI selection
 -------------
 
-The Python interpreter is a native component, so you must specify which native ABIs you
-want the app to support. The currently available ABIs are:
+The Python interpreter is a native component, so you must use the `abiFilters
+<https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.internal.dsl.NdkOptions.html#com.android.build.gradle.internal.dsl.NdkOptions:abiFilters>`_
+setting to specify which ABIs you want the app to support. The currently available ABIs are:
 
-* `armeabi-v7a`, for the vast majority of Android hardware.
+* `armeabi-v7a`, supported by virtually all Android devices.
+* `arm64-v8a`, supported by most recent Android devices.
 * `x86`, for the Android emulator.
 
-During development you will probably want to enable them both::
+During development you will probably want to enable ABIs for both the emulator and your
+devices, e.g.::
 
     defaultConfig {
         ndk {

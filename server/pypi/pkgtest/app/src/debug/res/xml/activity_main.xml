@@ -9,7 +9,7 @@
             android:targetClass="com.chaquo.python.demo.ReplActivity"/>
     </Preference>
 
-    <Preference android:title="@string/pkg_tests">
+    <Preference android:title="@string/app_name">
         <intent android:targetPackage="@string/app_id"
             android:targetClass="com.chaquo.python.demo.PythonTestActivity"/>
     </Preference>
