@@ -136,7 +136,7 @@ class AndroidPlugin(GradleTestCase):
         self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
                           "3.0.0 or later: " + self.ADVICE, run.stderr)
 
-    def test_maximum(self):  # Also tests making a change
+    def test_untested(self):  # Also tests making a change
         run = self.RunGradle("base")
         self.assertNotInLong("not been tested with Android Gradle plugin", run.stdout)
 
@@ -884,6 +884,7 @@ class RunGradle(object):
 
     def run_gradle(self, variants):
         os.chdir(self.project_dir)
+        os.environ["chaquopy_root"] = repo_root
         os.environ["integration_dir"] = integration_dir
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1"

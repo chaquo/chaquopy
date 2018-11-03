@@ -1,5 +1,5 @@
 apply plugin: 'groovy'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 
 evaluationDependsOn ":runtime"
 
@@ -28,7 +28,6 @@ dependencies {
 }
 
 sourceCompatibility = 7
-archivesBaseName = "gradle"
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 
 task("zipBuildPackages", type: Zip) {
@@ -114,15 +113,21 @@ version = file("../../VERSION.txt").text.trim()
 
 jar {
     manifest {
-        // Used to generate pip --chaquopy option.
+        // Enables getClass().getPackage().getImplementationVersion().
         attributes 'Implementation-Version': version
     }
 }
 
-task writePom {
-    doLast {
-        pom {
-            artifactId = archivesBaseName
-        }.writeTo("$jar.destinationDir/$archivesBaseName-${version}.pom")
+publishing {
+    publications {
+        gradle(MavenPublication) {
+            from components.java
+            artifactId = "gradle"
+        }
+    }
+    repositories {
+        maven {
+            url = "../../maven"
+        }
     }
 }

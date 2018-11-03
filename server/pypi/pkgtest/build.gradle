@@ -6,16 +6,11 @@ buildscript {
     repositories {
         google()
         jcenter()
-        maven { url "https://chaquo.com/maven/" }
+        maven { url "../../../maven" }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.1.4'
-
-        classpath files("../../../product/gradle-plugin/build/libs/gradle-${version}.jar")
-        classpath "org.json:json:20160810"
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        classpath "com.chaquo.python:gradle:$version"
     }
 }
 
