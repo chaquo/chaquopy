@@ -115,8 +115,8 @@ class ChaquopyPlugin(GradleTestCase):
 
     # Since this version, there has been no change in the build-packages.zip filename. We
     # distinguish the old version by it not supporting arm64-v8a.
-    def test_upgrade_3_2_1(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_2_1", succeed=False)
+    def test_upgrade_4_0_0(self):
+        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_4_0_0", succeed=False)
         self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
         run.apply_layers("ChaquopyPlugin/upgrade_current")
         run.rerun(abis=["arm64-v8a"])
