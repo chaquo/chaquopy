@@ -67,20 +67,63 @@ processResources {
     }
 }
 
+// Don't use the Exec task: on Windows, it causes the integration tests to hang if they spawn a
+// Gradle daemon, because their stdout is inherited by the daemon and will therefore never
+// close (https://github.com/gradle/gradle/issues/3987). This can be reproduced more simply
+// with the command `cmd /c start notepad.exe`: cmd will exit, but the Exec task won't
+// complete until you close Notepad.
 Task testTask(String name, Closure closure) {
     def version = "3.6"
-    def t = task(name, "type": Exec, "group": "verification") {
+    def t = task(name, "group": "verification") {
+        def pb = new ProcessBuilder()
+        def command = new ArrayList<String>()
+
+        // Emulate the necessary Exec methods.
+        ext.workingDir = { dir -> pb.directory(file(dir)) }
+        ext.environment = { String key, String value -> pb.environment().put(key, value) }
+        ext.args = { String... args -> command.addAll(args) }
+
         if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            executable "py"
-            args "-$version"
+            args "py", "-$version"
         } else {
-            executable("python$version")
+            args "python$version"
         }
         args "-m", "unittest"
         if (project.hasProperty("testPythonArgs")) {
             args project.testPythonArgs.split(" ")
         } else {
             args "discover", "-v"
+        }
+
+        outputs.upToDateWhen { false }
+        doLast {
+            pb.command(command)
+            pb.redirectErrorStream(true)  // Merge stdout and stderr.
+            def process = pb.start()
+
+            // pb.inheritIO() doesn't seem to prevent stdout from blocking. Even if it did, the
+            // output would be lost because it would inherit the Gradle daemon's *native*
+            // stdout, which isn't connected to anything.
+            //
+            // So we capture the output manually and send it to System.out, which is connected
+            // to the Gradle client. In case isAlive() returns true with data still buffered,
+            // we keep on reading after the process exits until no more data is available.
+            def stdout = process.getInputStream()  // sic
+            def buffer = new byte[1024]
+            def available = 0
+            while ((available = stdout.available()) > 0 || process.isAlive()) {
+                if (available > 0) {
+                    def len = stdout.read(buffer, 0, Math.min(available, buffer.length))
+                    System.out.write(buffer, 0, len)
+                    System.out.flush()
+                } else {
+                    Thread.sleep(100)
+                }
+            }
+            def status = process.waitFor()
+            if (status != 0) {
+                throw new GradleException("Exit status $status")
+            }
         }
     }
     closure.delegate = t
