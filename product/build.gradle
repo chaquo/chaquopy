@@ -7,8 +7,16 @@ buildscript {
     }
 }
 
-allprojects {
-     repositories {
-         mavenCentral()
-     }
+subprojects {
+    def repoRoot = "$rootProject.projectDir/.."
+    version = file("$repoRoot/VERSION.txt").text.trim()
+
+    repositories {
+        mavenCentral()
+    }
+
+    apply plugin: 'maven-publish'
+    publishing.repositories {
+        maven { url = "$repoRoot/maven" }
+    }
 }

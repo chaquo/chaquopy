@@ -3,22 +3,26 @@ apply plugin: 'ch.raffael.pegdown-doclet'  // For javadoc
 
 import com.chaquo.python.Common;
 
+group = "com.chaquo.python.runtime"
 
-configurations {
-    // Can't use "compile" or anything based on it, because it contains android.jar. Can't use
-    // "archives" because it somehow ends up containing everything from all the other configurations
-    // as well.
-    chaquopyJava
-
-    chaquopyPython
-    jniLibs
-    libDynload
+void addArtifact(String name, Task task, Object filename, String abi=null) {
+    File f = file(filename)
+    def dotPos = f.name.lastIndexOf(".")
+    def pub = publishing.publications.maybeCreate(name, MavenPublication)
+    pub.artifactId = f.name.substring(0, dotPos)
+    pub.artifact(f) {
+        builtBy task
+        if (abi != null) {
+            classifier abi
+        }
+        extension f.name.substring(dotPos + 1)
+    }
 }
-artifacts { chaquopyJava jar }
 
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
-archivesBaseName = "chaquopy_java"
+jar { archiveName = "chaquopy_java.jar" }
+addArtifact("java", jar, jar.archivePath)
 
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") {
@@ -29,7 +33,7 @@ task("zipPython", type: Zip, group: "build") {
     destinationDir buildDir
     archiveName Common.ASSET_BOOTSTRAP
 }
-artifacts { chaquopyPython zipPython }
+addArtifact("python", zipPython, zipPython.archivePath)
 
 
 // The following properties file should be created manually. It's also used in
@@ -237,10 +241,8 @@ for (abi in ["host"] + Common.ABIS) {
         args "--build", cmakeBuildSubdir
     }
     if (abi != "host") {
-        project.artifacts {
-            jniLibs    (file("$cmakeBuildSubdir/libchaquopy_java.so")) { builtBy cmakeBuild }
-            libDynload (file("$cmakeBuildSubdir/chaquopy.so"))         { builtBy cmakeBuild }
-        }
+        addArtifact("jni", cmakeBuild, "$cmakeBuildSubdir/libchaquopy_java.so", abi)
+        addArtifact("module", cmakeBuild, "$cmakeBuildSubdir/chaquopy.so", abi)
     }
 
     if (abi == "host") {

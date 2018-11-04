@@ -1,14 +1,6 @@
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 
-evaluationDependsOn ":runtime"
-
-configurations {
-    runtimeJava         // There's probably a way to avoid this indirection, but when I tried
-    runtimePython       // project(":runtime).configurations.whatever, it always came back
-    runtimeJniLibs      // empty, even when contained within doLast {}.
-    runtimeLibDynload
-}
+group = "com.chaquo.python"
 
 dependencies {
     compile localGroovy()
@@ -18,11 +10,6 @@ dependencies {
     // worked with this 1-level version number format. Anyway, Gradle's default version conflict
     // resolution strategy is to use the newest version, which will have the same effect.
     compile "org.json:json:20160810"
-
-    runtimeJava         project(path: ":runtime", configuration: "chaquopyJava")
-    runtimePython       project(path: ":runtime", configuration: "chaquopyPython")
-    runtimeJniLibs      project(path: ":runtime", configuration: "jniLibs")
-    runtimeLibDynload   project(path: ":runtime", configuration: "libDynload")
 
     testCompile "junit:junit:4.12"
 }
@@ -38,32 +25,9 @@ task("zipBuildPackages", type: Zip) {
 }
 
 processResources {
-    // Configurations passed directly to `from` are depended on automatically.
-    dependsOn configurations.runtimeJniLibs, configurations.runtimeLibDynload
     doFirst { delete destinationDir }
-    into("com/chaquo/python") {
-        into("runtime") {
-            from(configurations.runtimeJava)
-            from(configurations.runtimePython)
-
-            into("jniLibs") {
-                for (file in configurations.runtimeJniLibs) {
-                    from(file) {
-                        into "$file.parentFile.name"
-                    }
-                }
-            }
-            into("lib-dynload") {
-                for (file in configurations.runtimeLibDynload) {
-                    from(file) {
-                        into "$file.parentFile.name/java"
-                    }
-                }
-            }
-        }
-        into("gradle") {
-            from zipBuildPackages
-        }
+    into("com/chaquo/python/gradle") {
+        from zipBuildPackages
     }
 }
 
@@ -140,7 +104,7 @@ check.dependsOn(testPython)
  *  test/integration/data/base-$version) */
 Task testIntegrationTask(String version) {
     return testTask("testIntegration-$version") {
-        dependsOn assemble
+        dependsOn publish, ":runtime:publish"
         workingDir "$projectDir/src/test/integration"
         environment "AGP_VERSION", version
     }
@@ -151,9 +115,6 @@ testIntegration.dependsOn(testIntegrationTask("3.1"))
 testIntegration.dependsOn(testIntegrationTask("3.2"))
 check.dependsOn(testIntegration)
 
-group = "com.chaquo.python"
-version = file("../../VERSION.txt").text.trim()
-
 jar {
     manifest {
         // Enables getClass().getPackage().getImplementationVersion().
@@ -161,16 +122,9 @@ jar {
     }
 }
 
-publishing {
-    publications {
-        gradle(MavenPublication) {
-            from components.java
-            artifactId = "gradle"
-        }
-    }
-    repositories {
-        maven {
-            url = "../../maven"
-        }
+publishing.publications {
+    gradle(MavenPublication) {
+        from components.java
+        artifactId = "gradle"
     }
 }

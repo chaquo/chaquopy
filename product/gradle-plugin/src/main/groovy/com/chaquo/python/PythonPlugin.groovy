@@ -3,6 +3,7 @@ package com.chaquo.python
 import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
+import org.gradle.api.initialization.dsl.ScriptHandler
 import org.gradle.api.plugins.*
 import org.gradle.process.ExecResult
 import org.gradle.util.*
@@ -16,10 +17,12 @@ import static java.nio.file.StandardCopyOption.*
 
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
+    static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0")
     static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.2.1")
 
     Project project
+    ScriptHandler buildscript
     Object android
     VersionNumber androidPluginVer
     File genDir
@@ -27,6 +30,10 @@ class PythonPlugin implements Plugin<Project> {
     public void apply(Project p) {
         project = p
         genDir = new File(project.buildDir, "generated/$NAME")
+
+        // Use the buildscript context to load dependencies so they'll come from the same
+        // repository as the Gradle plugin itself.
+        buildscript = project.rootProject.buildscript
 
         if (!project.hasProperty("android")) {
             throw new GradleException("project.android not set. Did you apply plugin " +
@@ -48,8 +55,7 @@ class PythonPlugin implements Plugin<Project> {
             "please edit com.android.tools.build:gradle in the top-level build.gradle. See " +
             "https://chaquo.com/chaquopy/doc/current/versions.html."
         def depVer = null
-        for (dep in project.rootProject.buildscript.configurations.getByName("classpath")
-                .getAllDependencies()) {
+        for (dep in buildscript.configurations.getByName("classpath").getAllDependencies()) {
             if (dep.group == "com.android.tools.build"  &&  dep.name == "gradle") {
                 depVer = VersionNumber.parse(dep.version)
                 if (depVer < MIN_ANDROID_PLUGIN_VER) {
@@ -155,10 +161,12 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void setupDependencies() {
-        def filename = "chaquopy_java.jar"
-        extractResource("runtime/$filename", genDir)
+        def runtimeJava = getConfig("runtimeJava")
+        buildscript.dependencies.add(runtimeJava.name, runtimeDep("chaquopy_java.jar"))
         project.dependencies {
-            implementation project.files("$genDir/$filename")
+            // Can't depend directly on runtimeJava, because "Currently you can only declare
+            // dependencies on configurations from the same project."
+            implementation project.files(runtimeJava)
         }
     }
 
@@ -190,32 +198,54 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createConfigs(variant, PythonExtension python) {
-        // Configurations are created in the buildscript context so they'll load the target
-        // dependencies from the same repository as the Gradle plugin itself.
-        def bs = project.rootProject.buildscript
+        buildscript.dependencies {
+            add(getConfig("runtimePython").name, runtimeDep("bootstrap.zip"))
+            add(getConfig("targetStdlib", variant).name,
+                targetDep(python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
+        }
 
-        def stdlibConfig = getConfig(variant, "targetStdlib")
-        bs.dependencies.add(stdlibConfig.name,
-                            targetDependency(python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
-
-        def abiConfig = getConfig(variant, "targetAbis")
         for (abi in getAbis(variant)) {
             if (! Common.ABIS.contains(abi)) {
-                throw new GradleException("$variant.name: Chaquopy does not support the ABI '$abi'. " +
-                                          "Supported ABIs are ${Common.ABIS}.")
+                throw new GradleException("$variant.name: Chaquopy does not support the ABI " +
+                                          "'$abi'. Supported ABIs are ${Common.ABIS}.")
             }
-            bs.dependencies.add(abiConfig.name, targetDependency(abi))
+            buildscript.dependencies {
+                add(getConfig("runtimeJni", variant).name, runtimeDep("libchaquopy_java.so", abi))
+                add(getConfig("runtimeModule", variant).name, runtimeDep("chaquopy.so", abi))
+                add(getConfig("targetNative", variant).name, targetDep(abi))
+            }
         }
     }
 
-    Configuration getConfig(variant, String name) {
-        def configName = "$NAME${variant.name.capitalize()}${name.capitalize()}"
-        return project.rootProject.buildscript.configurations.maybeCreate(configName)
+    Configuration getConfig(String name, variant=null) {
+        def variantName = (variant != null) ? variant.name : ""
+        def configName = "$NAME${variantName.capitalize()}${name.capitalize()}"
+        return buildscript.configurations.maybeCreate(configName)
     }
 
-    String targetDependency(String classifier) {
+    Object targetDep(String classifier) {
         def version = "${Common.PYTHON_VERSION}-${Common.PYTHON_BUILD_NUM}"
         return "com.chaquo.python:target:$version:$classifier@zip"
+    }
+
+    Object runtimeDep(String filename, String classifier=null) {
+        def dotPos = filename.lastIndexOf(".")
+        def result = [
+            group: "com.chaquo.python.runtime",
+            name: filename.substring(0, dotPos),
+            version: PLUGIN_VERSION,
+            ext: filename.substring(dotPos + 1),
+        ]
+        if (classifier != null) {
+            result.put("classifier", classifier)
+        }
+        return result
+    }
+
+    File getNativeArtifact(Configuration config, String abi) {
+        return config.resolvedConfiguration.resolvedArtifacts.find {
+            it.classifier == abi
+        }.file
     }
 
     List<String> getAbis(variant) {
@@ -321,7 +351,7 @@ class PythonPlugin implements Plugin<Project> {
                         args abis
                         args reqsArgs
                         args "--"
-                        args "--chaquopy", getClass().getPackage().getImplementationVersion()
+                        args "--chaquopy", PLUGIN_VERSION
                         args "--isolated"  // Disables config files and environment variables.
                         args "--no-build-isolation"  // I've not yet seen a package which requires
                                                      // this, and it would also require altering
@@ -531,44 +561,49 @@ class PythonPlugin implements Plugin<Project> {
         }
         // TODO: Use same filename pattern for stdlib and bootstrap as we do for requirements.
         def miscAssetsTask = assetTask(variant, "misc") {
-            def stdlibConfig = getConfig(variant, "targetStdlib")
-            def abiConfig = getConfig(variant, "targetAbis")
-            inputs.files(stdlibConfig, abiConfig)
+            def runtimePython = getConfig("runtimePython")
+            def runtimeModule = getConfig("runtimeModule", variant)
+            def targetStdlib = getConfig("targetStdlib", variant)
+            def targetNative = getConfig("targetNative", variant)
+            inputs.files(runtimePython, runtimeModule, targetStdlib, targetNative)
             doLast {
                 project.copy {
-                    from stdlibConfig
                     into assetDir
-                    rename { Common.ASSET_STDLIB }
+                    from(runtimePython) { rename { Common.ASSET_BOOTSTRAP } }
+                    from(targetStdlib) { rename { Common.ASSET_STDLIB } }
                 }
-                extractResource("runtime/$Common.ASSET_BOOTSTRAP", assetDir)
 
                 // The following stdlib native modules are needed during bootstrap and are
                 // pre-extracted; all others are loaded from a .zip using AssetFinder.
                 def BOOTSTRAP_NATIVE_STDLIB = ["_ctypes.so", "select.so"]
-                for (art in abiConfig.resolvedConfiguration.resolvedArtifacts) {
-                    def abi = art.classifier
+
+                for (abi in getAbis(variant)) {
                     // Using ant.unzip rather than project.zipTree because it preserves
                     // timestamps, allowing importer.py to avoid asset extraction.
-                    project.ant.unzip(src: art.file, dest: assetDir) {
+                    project.ant.unzip(src: getNativeArtifact(targetNative, abi),
+                                      dest: assetDir) {
                         patternset() {
                             include(name: "lib-dynload/**")
                         }
                     }
                     project.ant.zip(basedir: "$assetDir/lib-dynload/$abi",
                                     destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
-                                    excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "), whenempty: "fail")
+                                    excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "),
+                                    whenempty: "fail")
 
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
-                    extractResource("runtime/lib-dynload/$abi/java/chaquopy.so",
-                                    "$bootstrapDir/java")
-                    new File("$bootstrapDir/java/__init__.py").text = ""
-
                     project.copy {
-                        from "$assetDir/lib-dynload/$abi"
                         into bootstrapDir
-                        include BOOTSTRAP_NATIVE_STDLIB
+                        from("$assetDir/lib-dynload/$abi") {
+                            include BOOTSTRAP_NATIVE_STDLIB
+                        }
+                        from(getNativeArtifact(runtimeModule, abi)) {
+                            into "java"
+                            rename { "chaquopy.so" }
+                        }
                     }
+                    new File("$bootstrapDir/java/__init__.py").text = ""
                     project.delete("$assetDir/lib-dynload")
                 }
                 extractResource(Common.ASSET_CACERT, assetDir)
@@ -627,13 +662,14 @@ class PythonPlugin implements Plugin<Project> {
 
     void createJniLibsTasks(variant, PythonExtension python) {
         def libsDir = variantGenDir(variant, "jniLibs")
-        def abiConfig = getConfig(variant, "targetAbis")
+        def runtimeJni = getConfig("runtimeJni", variant)
+        def targetNative = getConfig("targetNative", variant)
         def genTask = project.task(taskName("generate", variant, "jniLibs")) {
-            inputs.files(abiConfig)
+            inputs.files(runtimeJni, targetNative)
             outputs.dir(libsDir)
             doLast {
                 project.delete(libsDir)
-                def artifacts = abiConfig.resolvedConfiguration.resolvedArtifacts
+                def artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
                     // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in the build
                     // directory. (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
@@ -651,8 +687,11 @@ class PythonPlugin implements Plugin<Project> {
                 }
 
                 for (abi in getAbis(variant)) {
-                    extractResource("runtime/jniLibs/$abi/libchaquopy_java.so",
-                                    "$libsDir/$abi")
+                    project.copy {
+                        from getNativeArtifact(runtimeJni, abi)
+                        into "$libsDir/$abi"
+                        rename { "libchaquopy_java.so" }
+                    }
                 }
             }
         }
