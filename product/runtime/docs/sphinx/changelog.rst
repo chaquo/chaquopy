@@ -1,10 +1,26 @@
 Change log
 ##########
 
-5.0.0 (2018-XX)
-===============
+5.0.0 (2018-11-05)
+==================
 
-* [**BACKWARD INCOMPATIBLE**] `buildPython` must now be version 3.4 or later.
+* The ABI `arm64-v8a` is now supported.
+* [**BACKWARD INCOMPATIBLE**] Each Chaquopy version will now include only one Python version,
+  so the `python.version` setting is no longer required. For the mapping between versions, see
+  :doc:`this page <../versions>`.
+
+  * Python 2 is no longer included. However, for existing Python 2 users, Chaquopy 4.x will
+    continue to be maintained until the end of 2019 (`#39
+    <https://github.com/chaquo/chaquopy/issues/39>`_).
+  * Python 3.6.3 is no longer included. Simply remove the `python.version` setting to switch to
+    Python 3.6.5.
+
+* [**BACKWARD INCOMPATIBLE**] `buildPython` must now be at least Python 3.4.
+* [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 16.
+* Runtime components are now distributed as separate Maven artifacts. This fixes various
+  intermittent build errors involving `chaquopy_java.jar` (`#62
+  <https://github.com/chaquo/chaquopy/issues/62>`_).
+* If `pkg_resources` is installed in your app, it will now detect all pip-installed packages.
 
 4.0.0 (2018-08-22)
 ==================

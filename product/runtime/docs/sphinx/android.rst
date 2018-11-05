@@ -57,25 +57,6 @@ All other configuration will be done in this module-level `build.gradle`. The ex
 will show the configuration within `defaultConfig`, but it can also be done within a `product
 flavor <https://developer.android.com/studio/build/build-variants#product-flavors>`_.
 
-.. _buildPython:
-
-buildPython
------------
-
-Some features require Python 3.4 or later to be available on the build machine. By default,
-Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
-standard version of Python installed, no action should be required.
-
-Otherwise, set the Python executable using the `buildPython` setting. For example, on Windows
-you might use the following::
-
-      defaultConfig {
-          python {
-              buildPython "C:/Python36/python.exe"
-          }
-      }
-
-
 ABI selection
 -------------
 
@@ -100,8 +81,8 @@ There's no need to actually install the Android native development kit (NDK), as
 download pre-compiled CPython binaries for the selected ABIs.
 
 .. note:: Each ABI will add several MB to the size of the app, plus the size of any native
-          :ref:`requirements <android-requirements>`. It will also make the app take longer to
-          build. Because of the way the native components are packaged, the `split APK
+          :ref:`requirements <android-requirements>`. Because of the way the native components
+          are packaged, the `split APK
           <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app
           bundle <https://developer.android.com/guide/app-bundle/>`_ features cannot currently
           mitigate this. Instead, if your multi-ABI APKs are too large, try using a `product
@@ -122,24 +103,23 @@ download pre-compiled CPython binaries for the selected ABIs.
                   }
               }
 
-Android Studio plugin
----------------------
-
-To add Python suppport to the Android Studio user interface, you may optionally install the
-JetBrains Python plugin.
-
-.. note:: Chaquopy is not fully integrated with this plugin. It will show numerous "unresolved
-          reference" warnings, and it will not support Python debugging. We hope to improve
-          this in a future version.
-
-* In Android Studio, select File > Settings.
-* Go to the Plugins page, and click "Install JetBrains plugin".
-* Select "Python Community Edition", and click "Install".
-* Restart Android Studio when prompted.
-
-
 Development
 ===========
+
+.. _buildPython:
+
+Some features require Python 3.4 or later to be available on the build machine. By default,
+Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
+standard version of Python installed, no special setup is required.
+
+Otherwise, set the Python executable using the `buildPython` setting. For example, on Windows
+you might use the following::
+
+      defaultConfig {
+          python {
+              buildPython "C:/Python36/python.exe"
+          }
+      }
 
 .. _android-source:
 
@@ -395,6 +375,20 @@ Logcat message length limit of approximately 4000 bytes.
 `stdin` always returns EOF. If you want to run some code which takes interactive text input, you
 may find the `console app template <https://github.com/chaquo/chaquopy-console>`_ useful.
 
+Android Studio plugin
+=====================
+
+To add Python suppport to the Android Studio user interface, you may optionally install the
+JetBrains Python plugin.
+
+.. note:: Chaquopy is not fully integrated with this plugin. It will show numerous "unresolved
+          reference" warnings, and it will not support Python debugging. We hope to improve
+          this in a future version.
+
+* In Android Studio, select File > Settings.
+* Go to the Plugins page, and click "Install JetBrains plugin".
+* Select "Python Community Edition", and click "Install".
+* Restart Android Studio when prompted.
 
 Licensing
 =========

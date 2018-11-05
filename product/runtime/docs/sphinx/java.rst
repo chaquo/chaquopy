@@ -5,8 +5,8 @@ The Java API provides facilities to use Python classes and objects from Java cod
 of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
 
 
-Quick start
-===========
+Summary
+=======
 
 #. If necessary, call `Python.start()
    <java/com/chaquo/python/Python.html#start-com.chaquo.python.Python.Platform->`_.
@@ -29,35 +29,36 @@ The following all assume `py` is a `Python <java/com/chaquo/python/Python.html>`
 
 Modules, classes, attributes and methods::
 
-    # Python code                                     // Java equivalent
-    import zipfile                                    PyObject zipfile = py.getModule("zipfile")
-    zf = zipfile.ZipFile("example.zip")               PyObject zf = zipfile.get("ZipFile").call("example.zip");
-    zf.debug = 2                                      zf.put("debug", 2);
-    zf.comment                                        zf.get("comment");
-    zf.write("file.name",                             zf.callAttr("write", "file.name",
-              compress_type=zipfile.ZIP_STORED)                   new Kwarg("compress_type", zipfile.get("ZIP_STORED")));
+    # Python code                             // Java equivalent
+    import zipfile                            PyObject zipfile = py.getModule("zipfile")
+    zf = zipfile.ZipFile(                     PyObject zf = zipfile.callAttr("ZipFile",
+      "example.zip")                                                         "example.zip");
+    zf.debug = 2                              zf.put("debug", 2);
+    zf.comment                                zf.get("comment");
+    zf.write(                                 zf.callAttr("write",
+      "filename.txt",                                     "filename.txt",
+      compress_type=zipfile.ZIP_STORED)                   new Kwarg("compress_type",
+                                                                    zipfile.get("ZIP_STORED")));
 
 Built-in types and functions::
 
-    # Python code                                     // Java equivalent
-                                                      PyObject builtins = py.getBuiltins();
-    l = [2, 1, 3]                                     PyObject l = builtins.callAttr("list", 2, 1, 3);
-    sorted(l)                                         builtins.callAttr("sorted", l);
-    l[0]                                              l.callAttr("__getitem__", 0);
-    l[0] = 42                                         l.callAttr("__setitem__", 0, 42);
+    # Python code                             // Java equivalent
+                                              PyObject builtins = py.getBuiltins();
+    l = [2, 1, 3]                             PyObject l = builtins.callAttr("list", 2, 1, 3);
+    sorted(l)                                 builtins.callAttr("sorted", l);
+    l[0]                                      l.callAttr("__getitem__", 0);
+    l[0] = 42                                 l.callAttr("__setitem__", 0, 42);
 
-    d = {1: "a", 2: "b"}                              PyObject d = builtins.callAttr("dict");
-                                                      d.callAttr("__setitem__", 1, "a");
-                                                      d.callAttr("__setitem__", 2, "b");
+    d = {1: "a", 2: "b"}                      PyObject d = builtins.callAttr("dict");
+                                              d.callAttr("__setitem__", 1, "a");
+                                              d.callAttr("__setitem__", 2, "b");
 
 Type conversion::
 
-    # Python code                                     // Java equivalent
-    import sys                                        PyObject sys = py.getModule("sys");
-    ms = sys.maxsize                                  int ms = sys.get("maxsize").toJava(int.class);
-
-    platform = sys.platform                           String platform = sys.get("platform").toJava(String.class);
-                                                      // or simply:                        .toString();
+    # Python code                             // Java equivalent
+    import sys                                PyObject sys = py.getModule("sys");
+    ms = sys.maxsize                          int ms = sys.get("maxsize").toJava(int.class);
+    version = sys.version                     String version = sys.get("version").toString()
 
 
 Reference

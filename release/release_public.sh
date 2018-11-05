@@ -20,7 +20,7 @@ update_version "$public_root/build.gradle"
 sed -i "s/versionName .*/versionName '${new_ver}'/" "$public_root/app/build.gradle"
 
 public_src_dir="$public_root/app/src"
-for source_set in main two three; do
+for source_set in main; do
     rm -rf "$public_src_dir/$source_set"
     cp -a "$private_src_dir/$source_set" "$public_src_dir"
 done

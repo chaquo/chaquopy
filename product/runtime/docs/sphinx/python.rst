@@ -109,7 +109,7 @@ Overloaded methods are resolved according to Java rules::
     u'true123null3.142'
 
 If a method or field name clashes with a Python reserved word, it can be accessed by
-appending an underscore, e.g. `print` becomes `print_`. The original name is still
+appending an underscore, e.g. `from` becomes `from_`. The original name is still
 accessible via :any:`getattr`.
 
 Aside from attribute access, Java objects also support the following operations:

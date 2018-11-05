@@ -10,43 +10,44 @@ Run `gradlew runtime:check`.
 Free up RAM if necessary. If restarting Android Studio, do it before starting the tests, as
 this may kill the Gradle daemon.
 
-On each supported workstation OS, run the following tasks with `gradlew -P
-cmakeBuildType=Release`:
+Free up disk space if necessary: the integration tests require about 6 GB per version.
 
-* `gradle-plugin:testPython`
-* `gradle-plugin:testIntegration-X.Y` for each supported Android Studio version.
+On one supported workstation OS, run `gradlew -P cmakeBuildType=Release gradle-plugin:check`.
 
-Remove any license key from pkgtest app, then test it for both Python 2 and 3 on the following
-devices, with at least one app on each device being a clean install:
+On the other supported workstation OSes, copy the `gradle` and `runtime` artifacts from the
+first machine. To make sure they're not overwritten, temporarily disable the `dependsOn
+publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:check` command.
+
+Remove any license key from pkgtest app, then test it on the following devices, with at least
+one device being a clean install:
 
 * API 18 emulator (earlier versions give "too many libraries" error (#5316)).
 * targetSdkVersion emulator
-* Any ARM device
+* Any armeabi-v7a device
+* Any arm64-v8a device
 
-On one of these devices, test on both Python 2 and 3 that the license notification and enforcement
-works correctly.
+Also, on at least one device, test that the license notification and enforcement works
+correctly.
 
 
 ## Demo apps
 
-Run `gradlew gradle-plugin:writePom`.
+Copy `gradle` and `runtime` artifacts to the public Maven repository.
 
-Copy .jar and .pom from gradle-plugin/build/libs to Maven repository.
+Run `release_public.sh OLD_VER NEW_VER`, where `OLD_VER` is the label in *this* repository from
+which the public repositories were last updated. If the script reports any files which require
+manual merging (e.g. build.gradle), examine them and update the public repositories as
+necessary.
 
-Run `release_public.sh OLD_VER NEW_VER`, where `OLD_VER` is the label in *this* repository
-from which the public repository was last updated. If the script reports any files which
-require manual copying or merging (e.g. build.gradle), examine them and update the public
-repository as necessary.
+"Clean Project", then "Generate Signed APK". To save time, start uploading it to Google Play
+now.
 
-"Clean Project", then "Generate Signed APK" for both Python 2 and 3. To save time, start
-uploading them to Google Play now.
-
-Test all features on the following devices, with at least one app on each device being a clean
-install:
+Test all features on the following devices, with at least one device being a clean install:
 
 * minSdkVersion emulator
 * targetSdkVersion emulator
-* Any ARM device
+* Any armeabi-v7a device
+* Any arm64-v8a device
 
 Update public/demo/CHANGELOG.md for demo app changes, and runtime/docs/sphinx/changelog.rst for
 SDK changes.
