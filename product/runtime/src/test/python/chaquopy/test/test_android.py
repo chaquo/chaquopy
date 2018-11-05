@@ -47,16 +47,23 @@ def setUpModule():
 
 
 class TestAndroidPlatform(unittest.TestCase):
+
+    # Build.CPU_ABI returns the actual ABI of the app, which may be 32-bit on a 64-bit device
+    # (https://stackoverflow.com/a/53158339).
+    @unittest.skipUnless(API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
     def test_abi(self):
         from android.os import Build
 
-        # 64-bit should be preferred to 32-bit where both are available.
+        # 64-bit should be preferred to 32-bit where both are available. This assumes that the
+        # 64-bit ABI was included in abiFilters.
         python_bits = platform.architecture()[0]
         self.assertEqual(python_bits,
-                         "64bit" if Build.CPU_ABI in ["arm64-v8a"]
+                         "64bit" if set(Build.SUPPORTED_ABIS) & set(["arm64-v8a"])
                          else "32bit")
 
 
+# These tests assume the app contains at least 2 ABIs, because otherwise all requirements would
+# be packaged in the `common` ZIP.
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):

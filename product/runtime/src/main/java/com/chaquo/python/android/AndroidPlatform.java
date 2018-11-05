@@ -4,7 +4,6 @@ import android.app.*;
 import android.content.*;
 import android.content.res.*;
 import android.os.*;
-import android.text.*;
 import com.chaquo.python.*;
 import java.io.*;
 import java.util.*;
@@ -15,50 +14,8 @@ import org.json.*;
 @SuppressWarnings("deprecation")
 public class AndroidPlatform extends Python.Platform {
 
-    public static String ABI;  // Can't be final because it's assigned in a loop.
-    static {
-        String[] SUPPORTED_ABIS;
-        if (Build.VERSION.SDK_INT >= 21) {
-            SUPPORTED_ABIS = Build.SUPPORTED_ABIS;
-        } else {
-            SUPPORTED_ABIS = new String[] { Build.CPU_ABI, Build.CPU_ABI2 };
-        }
-        for (String abi : SUPPORTED_ABIS) {
-            if (Common.ABIS.contains(abi)) {
-                ABI = abi;
-                break;
-            }
-        }
-        if (ABI == null) {
-            throw new RuntimeException("Couldn't identify ABI from list [" +
-                                       TextUtils.join(", ", SUPPORTED_ABIS) + "]");
-        }
-    }
-
-    // These assets will be extracted to <data-dir>/files/chaquopy before starting Python.
-    private static final List<String> BOOTSTRAP_PATH = new ArrayList<>();
-    static {
-        BOOTSTRAP_PATH.add(Common.ASSET_STDLIB);
-        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP);
-        BOOTSTRAP_PATH.add(Common.ASSET_BOOTSTRAP_NATIVE + "/" + ABI);
-    }
-
-    private static final List<String> EXTRACT_ASSETS = new ArrayList<>();
-    static {
-        EXTRACT_ASSETS.addAll(BOOTSTRAP_PATH);
-        EXTRACT_ASSETS.add(Common.ASSET_CACERT);
-        EXTRACT_ASSETS.add(Common.ASSET_TICKET);
-    }
-
-    // These assets will be extracted on demand using an /android_asset path.
-    // The final sys.path will be APP_PATH then BOOTSTRAP_PATH, in that order.
-    private static final List<String> APP_PATH = new ArrayList<>();
-    static {
-        APP_PATH.add(Common.ASSET_APP);
-        APP_PATH.add(Common.ASSET_REQUIREMENTS(Common.ABI_COMMON));
-        APP_PATH.add(Common.ASSET_REQUIREMENTS(ABI));
-        APP_PATH.add(Common.ASSET_STDLIB_NATIVE + "/" + ABI + ".zip");
-    }
+    // Used in importer.py and test_android.py.
+    public static String ABI;
 
     private static final String[] OBSOLETE_FILES = {
         // No longer extracted since 0.6.0
@@ -90,12 +47,34 @@ public class AndroidPlatform extends Python.Platform {
     public Application mContext;
     private SharedPreferences sp;
     private JSONObject buildJson;
+    private AssetManager am;
 
     /** Uses the {@link android.app.Application} context of the given context to initialize
      * Python. */
     public AndroidPlatform(Context context) {
         mContext = (Application) context.getApplicationContext();
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
+        am = mContext.getAssets();
+
+        List<String> supportedAbis = new ArrayList<>();  // In order of preference.
+        if (Build.VERSION.SDK_INT >= 21) {
+            Collections.addAll(supportedAbis, Build.SUPPORTED_ABIS);
+        } else {
+            Collections.addAll(supportedAbis, Build.CPU_ABI, Build.CPU_ABI2);
+        }
+
+        String stdlibNativeDir = Common.ASSET_DIR  + "/" + Common.ASSET_STDLIB_NATIVE;
+        for (String abi : supportedAbis) {
+            try {
+                am.open(stdlibNativeDir + "/" + abi + ".zip");
+                ABI = abi;
+                break;
+            } catch (IOException ignored) {}
+        }
+        if (ABI == null) {
+            throw new RuntimeException("None of this device's ABIs " + supportedAbis +
+                                       " are supported by this app.");
+        }
     }
 
     /** Returns the Application context of the context which was passed to the contructor. */
@@ -105,21 +84,29 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public String getPath() {
+        String path = "";
+        String assetDir = mContext.getFilesDir() + "/" + Common.ASSET_DIR;
+        List<String> bootstrapAssets = new ArrayList<>(Arrays.asList(
+            Common.ASSET_STDLIB,
+            Common.ASSET_BOOTSTRAP,
+            Common.ASSET_BOOTSTRAP_NATIVE + "/" + ABI));
+        for (int i = 0; i < bootstrapAssets.size(); i++) {
+            path += assetDir + "/" + bootstrapAssets.get(i);
+            if (i < bootstrapAssets.size() - 1) {
+                path += ":";
+            }
+        }
+
+        // Now add some non-Python assets which also need to be pre-extracted.
+        Collections.addAll(bootstrapAssets, Common.ASSET_CACERT, Common.ASSET_TICKET);
+
         try {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
             deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
-            extractAssets();
+            extractAssets(bootstrapAssets);
             loadNativeLibs();
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
-        }
-
-        String path = "";
-        for (int i = 0; i < BOOTSTRAP_PATH.size(); i++) {
-            path += mContext.getFilesDir() + "/" + Common.ASSET_DIR + "/" + BOOTSTRAP_PATH.get(i);
-            if (i < BOOTSTRAP_PATH.size() - 1) {
-                path += ":";
-            }
         }
         return path;
     }
@@ -132,25 +119,31 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public void onStart(Python py) {
-        py.getModule("java.android").callAttr(
-            "initialize", mContext, buildJson, APP_PATH.toArray());
+        // These assets will be added to the start of sys.path using `android_asset` paths
+        // so they will be extracted on demand.
+        String[] appPath = {
+            Common.ASSET_APP,
+            Common.ASSET_REQUIREMENTS(Common.ABI_COMMON),
+            Common.ASSET_REQUIREMENTS(ABI),
+            Common.ASSET_STDLIB_NATIVE + "/" + ABI + ".zip",
+        };
+        py.getModule("java.android").callAttr("initialize", mContext, buildJson, appPath);
     }
 
-    private void extractAssets() throws IOException, JSONException {
-        AssetManager assets = mContext.getAssets();
+    private void extractAssets(List<String> assets) throws IOException, JSONException {
         String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
-        buildJson = new JSONObject(streamToString(assets.open(buildJsonPath)));
+        buildJson = new JSONObject(streamToString(am.open(buildJsonPath)));
         JSONObject assetsJson = buildJson.getJSONObject("assets");
 
-        // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so we'll
-        // avoid using it.
-        Set<String> unextracted = new HashSet<>(EXTRACT_ASSETS);
+        // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so
+        // we'll avoid using it.
+        Set<String> unextracted = new HashSet<>(assets);
         SharedPreferences.Editor spe = sp.edit();
         for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
             String path = (String) i.next();
-            for (String ea : EXTRACT_ASSETS) {
+            for (String ea : assets) {
                 if (path.equals(ea) || path.startsWith(ea + "/")) {
-                    extractAsset(assets, assetsJson, spe, path);
+                    extractAsset(assetsJson, spe, path);
                     unextracted.remove(ea);
                     break;
                 }
@@ -162,7 +155,7 @@ public class AndroidPlatform extends Python.Platform {
         spe.apply();
     }
 
-    private void extractAsset(AssetManager assets, JSONObject assetsJson, SharedPreferences.Editor spe,
+    private void extractAsset(JSONObject assetsJson, SharedPreferences.Editor spe,
                               String path) throws IOException, JSONException {
         String fullPath = Common.ASSET_DIR  + "/" + path;
         File outFile = new File(mContext.getFilesDir(), fullPath);
@@ -181,7 +174,7 @@ public class AndroidPlatform extends Python.Platform {
             }
         }
 
-        InputStream inStream = assets.open(fullPath);
+        InputStream inStream = am.open(fullPath);
         File tmpFile = new File(outDir, outFile.getName() + ".tmp");
         tmpFile.delete();
         OutputStream outStream = new FileOutputStream(tmpFile);
