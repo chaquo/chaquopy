@@ -414,10 +414,9 @@ cdef apply_overrides(jms_in):
     return jms_out
 
 
-# Ensure the same aliases are available on all Python versions
-EXTRA_RESERVED_WORDS = {'exec', 'print',                      # Removed in Python 3.0
-                        'nonlocal', 'True', 'False', 'None',  # Added in Python 3.0
-                        'async', 'await'}                     # Added in Python 3.5
+# For backward compatibility, keep generating aliases for words which are no longer reserved in
+# the current version of Python.
+EXTRA_RESERVED_WORDS = {'exec', 'print'}                      # Removed in Python 3.0
 
 cdef is_reserved_word(word):
     return keyword.iskeyword(word) or word in EXTRA_RESERVED_WORDS

@@ -50,7 +50,7 @@ class TestAndroidPlatform(unittest.TestCase):
 
     # Build.CPU_ABI returns the actual ABI of the app, which may be 32-bit on a 64-bit device
     # (https://stackoverflow.com/a/53158339).
-    @unittest.skipUnless(API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
+    @unittest.skipUnless(API_LEVEL and API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
     def test_abi(self):
         from android.os import Build
 
