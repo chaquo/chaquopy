@@ -19,17 +19,19 @@ android {
     compileSdkVersion 26
 
     defaultConfig {
-        minSdkVersion 15
+        minSdkVersion 16
         targetSdkVersion 26
 
-        versionName '4.0.0'
+        applicationId "com.chaquo.python.demo3"
+
+        versionName '5.0.0'
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
         python {
             // If Chaquopy fails to find Python on your build machine, enable and edit the
-            // following line to point to a Python 2.7 or 3.3+ executable.
-            // buildPython "C:/Python27/python.exe"
+            // following line to point to a Python 3.4+ executable.
+            // buildPython "C:/Python36/python.exe"
 
             // Android UI demo
             pip {
@@ -40,13 +42,16 @@ android {
             // Python unit tests
             pip {
                 install "MarkupSafe==1.0"
-                install "certifi==2018.01.18"  // This is in the default extractPackages list.
+                install "murmurhash==0.28.0"
+                install "certifi==2018.01.18"  // For TestAndroidImport.test_extract_package.
+                install "setuptools==40.4.3"  // For TestAndroidImport.test_pkg_resources.
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
+            extractPackages "murmurhash"
         }
         ndk {
-            abiFilters "x86", "armeabi-v7a"
+            abiFilters "x86", "armeabi-v7a", "arm64-v8a"
         }
 
         // Chaquopy generates extra internal-use constructors on static proxy classes.
@@ -56,22 +61,6 @@ android {
 
         // Remove other languages imported from Android support libraries.
         resConfigs "en"
-    }
-
-    flavorDimensions "pyVersion"
-    productFlavors {
-        // Using words rather than numbers so that "three" comes first alphabetically and is
-        // therefore the default (https://issuetracker.google.com/issues/36988145).
-        two {
-            dimension "pyVersion"
-            applicationId "com.chaquo.python.demo"
-            python { version "2.7.15" }
-        }
-        three {
-            dimension "pyVersion"
-            applicationId "com.chaquo.python.demo3"
-            python { version "3.6.5" }
-        }
     }
 
     applicationVariants.all { variant ->

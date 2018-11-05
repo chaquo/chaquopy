@@ -3,6 +3,12 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 5.0.0 (2018-11-05)
+
+* Remove Python 2 flavor.
+* Add ABI `arm64-v8a`.
+* Increase minSdkVersion to 16.
+
 ## 4.0.0 (2018-08-22)
 
 * Target Android Studio 3.1.4.

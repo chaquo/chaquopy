@@ -75,28 +75,28 @@ class TestArray(FilterWarningsCase):
         self.assertIs(Boolean_array_Object, cast(Object, Boolean_array))
         self.assertIs(Boolean_array, cast(jarray(Boolean), Boolean_array_Object))
 
-        with self.assertRaisesRegexp(TypeError, "cannot create boolean\[\] proxy from "
-                                     "java.lang.Boolean\[\] instance"):
+        with self.assertRaisesRegexp(TypeError, r"cannot create boolean\[\] proxy from "
+                                     r"java.lang.Boolean\[\] instance"):
             cast(jarray(jboolean), Boolean_array)
 
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
+        with self.assertRaisesRegexp(TypeError, r"cannot create java.lang.Object\[\] proxy from "
                                      "java.lang.Object instance"):
             cast(jarray(Object), Object())
 
         Object_array = jarray(Object)([])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
-                                     "java.lang.Object\[\] instance"):
+        with self.assertRaisesRegexp(TypeError, r"cannot create java.lang.Boolean proxy from "
+                                     r"java.lang.Object\[\] instance"):
             cast(Boolean, Object_array)
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean\[\] proxy from "
-                                     "java.lang.Object\[\] instance"):
+        with self.assertRaisesRegexp(TypeError, r"cannot create java.lang.Boolean\[\] proxy from "
+                                     r"java.lang.Object\[\] instance"):
             cast(jarray(Boolean), Object_array)
 
         Z_array = jarray(jboolean)([True, False])
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean\[\] proxy from "
-                                     "boolean\[\] instance"):
+        with self.assertRaisesRegexp(TypeError, r"cannot create java.lang.Boolean\[\] proxy from "
+                                     r"boolean\[\] instance"):
             cast(jarray(Boolean), Z_array)
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Object\[\] proxy from "
-                                     "boolean\[\] instance"):
+        with self.assertRaisesRegexp(TypeError, r"cannot create java.lang.Object\[\] proxy from "
+                                     r"boolean\[\] instance"):
             cast(jarray(Object), Z_array)
 
     def test_output_arg(self):

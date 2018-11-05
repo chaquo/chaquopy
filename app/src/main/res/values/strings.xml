@@ -1,5 +1,8 @@
 <resources>
 
+    <string name="app_id">com.chaquo.python.demo3</string>
+    <string name="app_name">Chaquopy demo</string>
+
     <string name="main_caption">For more information see the
         <a href="https://chaquo.com/chaquopy/">Chaquopy website</a>, or view this app\'s source
         code <a href="https://github.com/chaquo/chaquopy">on GitHub</a>.

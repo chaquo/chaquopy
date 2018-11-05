@@ -11,6 +11,7 @@ import marshal
 import os
 from os.path import dirname, exists, isfile, join
 import pkgutil
+import platform
 import re
 import shlex
 from subprocess import check_output
@@ -45,6 +46,24 @@ def setUpModule():
         raise unittest.SkipTest("Not running on Android")
 
 
+class TestAndroidPlatform(unittest.TestCase):
+
+    # Build.CPU_ABI returns the actual ABI of the app, which may be 32-bit on a 64-bit device
+    # (https://stackoverflow.com/a/53158339).
+    @unittest.skipUnless(API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
+    def test_abi(self):
+        from android.os import Build
+
+        # 64-bit should be preferred to 32-bit where both are available. This assumes that the
+        # 64-bit ABI was included in abiFilters.
+        python_bits = platform.architecture()[0]
+        self.assertEqual(python_bits,
+                         "64bit" if set(Build.SUPPORTED_ABIS) & set(["arm64-v8a"])
+                         else "32bit")
+
+
+# These tests assume the app contains at least 2 ABIs, because otherwise all requirements would
+# be packaged in the `common` ZIP.
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
@@ -244,15 +263,22 @@ class TestAndroidImport(unittest.TestCase):
         certifi_dir = dirname(certifi.__file__)
         cacert_filename = join(certifi_dir, "cacert.pem")
         self.assertTrue(isfile(cacert_filename))
-
-        test_filename = join(certifi_dir, "test.txt")
-        TEST_BYTES = b"File not in source ZIP"
-        with open(test_filename, "wb") as test_file:
-            test_file.write(TEST_BYTES)
-        self.assertTrue(exists(test_filename))
-        self.assertEqual(TEST_BYTES, pkgutil.get_data(certifi.__name__, "test.txt"))
+        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
+                         pkgutil.get_data("certifi", "cacert.pem")
+                         .decode("ASCII").splitlines()[1])
         self.check_extract_if_changed(certifi, cacert_filename)
-        self.assertFalse(exists(test_filename))
+
+        leftover_filename = join(certifi_dir, "leftover.txt")
+        with open(leftover_filename, "w"):
+            pass
+        self.assertTrue(exists(leftover_filename))
+        self.clean_reload(certifi)
+        self.assertFalse(exists(leftover_filename))
+
+    def test_extract_native_package(self):
+        # TODO #5513: these should be extracted to the same place.
+        self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
+        self.check_extracted_module("murmurhash.mrmr", REQS_ABI_ZIP, "murmurhash/mrmr.so")
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
@@ -305,17 +331,19 @@ class TestAndroidImport(unittest.TestCase):
                     self.assertIsNotNone(mod.__spec__, prefix)
                     self.assertEqual(mod.__name__, mod.__spec__.name)
 
-                # Except for built-in modules, we consider `file`, `pathname`, `suffix` and
-                # `mode` to be opaque and don't check them (see note in find_module_override).
                 if actual_type == imp.C_BUILTIN:
+                    self.assertIsNone(file, prefix)
                     # This isn't documented, but it's what the current versions of CPython do.
                     if sys.version_info[0] < 3:
                         self.assertEqual(mod_name, pathname)
                     else:
                         self.assertIsNone(pathname, prefix)
-                    self.assertEqual("", suffix, prefix)
-                    self.assertEqual("", mode, prefix)
                 else:
+                    # Our implementation of load_module doesn't use `file`, but user code
+                    # might, so check it adequately simulates a file.
+                    self.assertTrue(hasattr(file, "read"), prefix)
+                    self.assertTrue(hasattr(file, "close"), prefix)
+                    self.assertIsNotNone(pathname, prefix)
                     self.assertTrue(hasattr(mod, "__file__"), prefix)
 
                 if i < len(words) - 1:
@@ -384,6 +412,13 @@ class TestAndroidImport(unittest.TestCase):
                          pth_generated.__path__)
         for entry in sys.path:
             self.assertNotIn("nonexistent", entry)
+
+    def test_pkg_resources(self):
+        import pkg_resources
+        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl", "murmurhash",
+                          "setuptools"],
+                         sorted(dist.project_name for dist in pkg_resources.working_set))
+        self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)
 
 
 def asset_path(*paths):
@@ -482,10 +517,6 @@ class TestAndroidStdlib(unittest.TestCase):
             self.assertEqual(expected_dir, dirname(f.name))
 
 
-@unittest.skipIf(API_LEVEL and API_LEVEL < 16,
-                 "logcat command requires READ_LOGS permission on this API level, which we "
-                 "don't request because Google Play describes it as giving access to 'browsing "
-                 "history and bookmarks'.")
 class TestAndroidStreams(unittest.TestCase):
 
     maxDiff = None
