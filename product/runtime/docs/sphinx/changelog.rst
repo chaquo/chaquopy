@@ -6,17 +6,16 @@ Change log
 
 * The ABI `arm64-v8a` is now supported.
 * [**BACKWARD INCOMPATIBLE**] Each Chaquopy version will now include only one Python version,
-  so the `python.version` setting is no longer required. For the mapping between versions, see
-  :doc:`this page <../versions>`.
+  so the `python.version` setting is no longer required. Simply remove it to use the current
+  version, 3.6.5.
 
   * Python 2 is no longer included. However, for existing Python 2 users, Chaquopy 4.x will
     continue to be maintained until the end of 2019 (`#39
     <https://github.com/chaquo/chaquopy/issues/39>`_).
-  * Python 3.6.3 is no longer included. Simply remove the `python.version` setting to switch to
-    Python 3.6.5.
 
 * [**BACKWARD INCOMPATIBLE**] `buildPython` must now be at least Python 3.4.
-* [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 16.
+* [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 16. This still
+  covers `99% of active devices <https://developer.android.com/about/dashboards/index.html>`_.
 * Runtime components are now distributed as separate Maven artifacts. This fixes various
   intermittent build errors involving `chaquopy_java.jar` (`#62
   <https://github.com/chaquo/chaquopy/issues/62>`_).
