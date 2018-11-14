@@ -1,5 +1,3 @@
-import platform
-
 from . import config
 
 from libc.stdint cimport uintptr_t
@@ -98,6 +96,7 @@ cdef jvm_lib_path():
     elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
         return f"{jre_home}/bin/server/jvm.dll"
     else:  # Assume Linux
+        import platform
         machine2cpu = {
             "amd64": "amd64",
             "x86_64": "amd64",

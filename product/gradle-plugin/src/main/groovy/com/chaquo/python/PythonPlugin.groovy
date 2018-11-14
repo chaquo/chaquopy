@@ -575,7 +575,14 @@ class PythonPlugin implements Plugin<Project> {
 
                 // The following stdlib native modules are needed during bootstrap and are
                 // pre-extracted; all others are loaded from a .zip using AssetFinder.
-                def BOOTSTRAP_NATIVE_STDLIB = ["_ctypes.so", "select.so"]
+                def BOOTSTRAP_NATIVE_STDLIB = [
+                    "_ctypes.so",  // java.primitive and java.android.importer
+                    "_struct.so",  // java.android.importer
+                    "binascii.so",  // zipfile < java.android.importer
+                    "math.so",  // datetime < calendar < java.android.importer
+                    "mmap.so",  // elftools < java.android.importer
+                    "zlib.so",  // zipimport
+                ]
 
                 for (abi in getAbis(variant)) {
                     // Using ant.unzip rather than project.zipTree because it preserves

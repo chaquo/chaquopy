@@ -223,14 +223,14 @@ public class AndroidPlatform extends Python.Platform {
 
     private void loadNativeLibs() {
         // Libraries must be loaded in dependency order before API level 18 (#5323).
-        System.loadLibrary("crystax");
-
-        // build_target_openssl.sh changes the SONAMEs to avoid clashing with the system copies.
+        /* TODO
+        // We change the OpenSSL SONAMEs to avoid clashing with the system copies.
         // This isn't necessary for SQLite because the system copy is just "libsqlite.so", with
         // no "3".
         System.loadLibrary("crypto_chaquopy");
         System.loadLibrary("ssl_chaquopy");
         System.loadLibrary("sqlite3");
+        */
         System.loadLibrary("python" + Common.PYTHON_SUFFIX);
         System.loadLibrary("chaquopy_java");
     }

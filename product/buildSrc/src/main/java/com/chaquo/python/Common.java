@@ -15,7 +15,7 @@ public class Common {
     public static final String PYTHON_VERSION = "3.6.5";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "8";
+    public static final String PYTHON_BUILD_NUM = "9";
 
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT + "m";
@@ -25,11 +25,7 @@ public class Common {
     public static final String PYTHON_ABI =
         PYTHON_IMPLEMENTATION + PYTHON_SUFFIX.replace(".", "");
 
-    public static final List<String> ABIS = Arrays.asList
-        ("armeabi-v7a",
-         "arm64-v8a",
-         "x86"
-        );
+    public static final List<String> ABIS = Arrays.asList("arm64-v8a");
 
     // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";

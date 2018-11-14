@@ -50,7 +50,6 @@ String getLocalProperty(String key, String defaultValue = null) {
 
 def sdkDir = getLocalProperty('sdk.dir')
 def ndkDir = getLocalProperty('ndk.dir')
-def crystaxDir = getLocalProperty('crystax.dir')
 def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
 def javaHome = System.getProperty("java.home")
@@ -222,12 +221,12 @@ for (abi in ["host"] + Common.ABIS) {
                                              "$javaHome/include;$javaHome/include/linux"
             }
         } else {
-            def pyDir = "$crystaxDir/sources/python/$Common.PYTHON_VERSION_SHORT"
+            def prefixDir = "$projectDir/../../target/toolchains/$abi/sysroot/usr"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION", "-DANDROID_ABI=$abi",
-                 "-DCHAQUOPY_INCLUDE_DIRS=$pyDir/include/python",
-                 "-DCHAQUOPY_LIB_DIRS=$pyDir/libs/$abi"
+                 "-DCHAQUOPY_INCLUDE_DIRS=$prefixDir/include/python$Common.PYTHON_SUFFIX",
+                 "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
         }
         args "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
              "-DJAVA_LIB_PREFIX=$javaLibPrefix", "-DJAVA_LIB_SUFFIX=$javaLibSuffix",

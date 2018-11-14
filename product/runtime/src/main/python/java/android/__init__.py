@@ -18,7 +18,6 @@ def initialize_stdlib(context):
     from com.chaquo.python import Common
     initialize_sys(context, Common)
     initialize_os(context)
-    initialize_sysconfig(context, Common)
     initialize_tempfile(context)
     initialize_ssl(context)
     initialize_ctypes(context)
@@ -52,24 +51,6 @@ def initialize_os(context):
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
-
-
-def initialize_sysconfig(context, Common):
-    # Put a few basic things in until the build process is fixed to generate this (#5160).
-    import sys
-    import _sysconfigdata
-    _sysconfigdata.build_time_vars.update({
-        "EXT_SUFFIX": ".so",
-        "LIBDIR": sys.prefix,
-        "LDLIBRARY": f"libpython{Common.PYTHON_SUFFIX}.so"
-    })
-
-    if sys.version_info[0] >= 3:
-        # distutils.sysconfig expects this module to exist.
-        mod_name = '_sysconfigdata_{}_{}_{}'.format(
-            sys.abiflags, sys.platform,
-            getattr(sys.implementation, '_multiarch', ''))
-        sys.modules[mod_name] = _sysconfigdata
 
 
 def initialize_tempfile(context):
