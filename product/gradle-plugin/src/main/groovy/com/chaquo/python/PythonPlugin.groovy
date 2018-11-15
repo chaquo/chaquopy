@@ -613,13 +613,18 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
+    // Takes the same arguments as project.ant.zip, but makes sure the ZIP is reproducible.
     def makeZip(Map args) {
-        // We're going to set the timestamps to make the ZIP reproducible, so make sure we
-        // don't accidentally do this to any source files.
+        // We're going to overwrite the timestamps, so make sure we don't accidentally do this
+        // to any source files.
         def baseDir = project.file(args.get("basedir")).toString()
         if (!baseDir.startsWith(project.buildDir.toString())) {
             throw new GradleException("$baseDir is not within $project.buildDir")
         }
+
+        // UTF-8 encoding is apparently on by default on Linux and off by default on Windows:
+        // this alters the resulting ZIP file even if all filenames are ASCII.
+        args.put("encoding", "UTF-8")
 
         // This timestamp corresponds to 1980-01-00 00:00 UTC, the minimum timestamp a ZIP file
         // can represent. This is also the timestamp the Android Gradle plugin sets on the
