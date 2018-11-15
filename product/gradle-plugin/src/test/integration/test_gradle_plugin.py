@@ -275,7 +275,7 @@ class PythonSrc(GradleTestCase):
 
     def test_reproducible(self):
         def post_check(apk_zip, apk_dir, kwargs):
-            self.assertEqual("85aa329280b6cc7adf073b87a80b25eb699851dd",
+            self.assertEqual("40a0518dd326472279acbd18ea9d37b4fe783385",
                              file_sha1(join(apk_dir, "assets/chaquopy/app.zip")))
         self.post_check = post_check
         self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"])
@@ -599,9 +599,9 @@ class PythonReqs(GradleTestCase):
         def post_check(apk_zip, apk_dir, kwargs):
             asset_dir = join(apk_dir, "assets/chaquopy")
             for filename, sha1 in \
-                [("requirements-common.zip", "e7e1992ba14e904968ea37131a38ecefb8c78b72"),
-                 ("requirements-armeabi-v7a.zip", "810ecb04486317b915f81ffe16facded438e612f"),
-                 ("requirements-x86.zip", "9845aa614cf7e1de8000d4007bcf8223d1560c18")]:
+                [("requirements-common.zip", "48c171200cf880b948cb59d04b345e8f47049105"),
+                 ("requirements-armeabi-v7a.zip", "0dcf53bdd67382faa5a11babac2855382aed010a"),
+                 ("requirements-x86.zip", "e5c9dcd8ece13a354364c75353db318ee9e08d31")]:
                 self.assertEqual(sha1, file_sha1(join(asset_dir, filename)))
         self.post_check = post_check
 
