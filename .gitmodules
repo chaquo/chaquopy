@@ -86,10 +86,6 @@
 	path = target/python
 	url = https://github.com/python/cpython.git
 	branch = 3.6
-[submodule "target/python2.7"]
-        path = target/python2.7
-        url = https://github.com/python/cpython.git
-        branch = 2.7
 [submodule "target/openssl"]
 	path = target/openssl
 	url = https://github.com/openssl/openssl.git

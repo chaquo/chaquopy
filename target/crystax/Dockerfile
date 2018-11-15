@@ -1,30 +1,30 @@
 FROM debian:stretch-20180831
 SHELL ["/bin/bash", "-c"]
-
 WORKDIR /root
 
-# Install original Crystax NDK.
-RUN apt-get update && \
-    apt-get install -y wget xz-utils && \
-    wget --progress=dot:giga \
-        https://www.crystax.net/download/crystax-ndk-10.3.2-linux-x86_64.tar.xz && \
-    tar -xf crystax-ndk-10.3.2-linux-x86_64.tar.xz && \
-    rm crystax-ndk-10.3.2-linux-x86_64.tar.xz && \
-    mv crystax-ndk-10.3.2 crystax
+RUN echo "progress=dot:giga" > .wgetrc
 
-COPY platform src/crystax/platform
-COPY toolchain src/crystax/toolchain
-COPY vendor src/crystax/vendor
+# Crystax NDK: reduce image size by removing the things we're going to rebuild.
+RUN apt-get update && \
+    apt-get install -y wget xz-utils
+RUN filename=crystax-ndk-10.3.2-linux-x86_64.tar.xz && \
+    wget https://www.crystax.net/download/$filename && \
+    tar -xf $filename && \
+    rm $filename && \
+    mv crystax-ndk-* crystax && \
+    rm -r crystax/toolchains crystax/sources/{crystax,openssl,python}
 
 # Rebuild toolchains to add a Fortran compiler for OpenBLAS and SciPy.
 RUN apt-get update && \
-    apt-get install -y bison bzip2 file flex g++ gcc m4 make ruby texinfo && \
-    src/crystax/platform/ndk/build/tools/build-host-prebuilts.sh \
+    apt-get install -y bison bzip2 file flex g++ gcc m4 make ruby texinfo
+COPY platform src/crystax/platform
+COPY toolchain src/crystax/toolchain
+COPY vendor src/crystax/vendor
+RUN src/crystax/platform/ndk/build/tools/build-host-prebuilts.sh \
         --verbose --systems=linux-x86_64 --arch=arm,arm64,x86 \
         src/crystax/toolchain && \
-    rm -r /tmp/ndk- && \
-    rm -r crystax/toolchains/*-4.9 && \
-    mv src/crystax/platform/ndk/toolchains/*-4.9 crystax/toolchains
+    rm -r /tmp/ndk-* && \
+    mv src/crystax/platform/ndk/toolchains crystax
 
 ENV ABIS="armeabi-v7a,arm64-v8a,x86"
 
@@ -35,7 +35,4 @@ ENV ABIS="armeabi-v7a,arm64-v8a,x86"
 RUN NDK=$(pwd)/crystax \
     ABIS=$ABIS,armeabi,armeabi-v7a-hard \
     make -j $(nproc) -C src/crystax/platform/ndk/sources/crystax && \
-    rm -r crystax/sources/crystax && \
     mv src/crystax/platform/ndk/sources/crystax crystax/sources
-
-RUN rm -r src
