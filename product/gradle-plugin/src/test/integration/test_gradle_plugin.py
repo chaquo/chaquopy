@@ -22,6 +22,9 @@ PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
 integration_dir = abspath(dirname(__file__))
 repo_root = abspath(join(integration_dir, "../../../../.."))
 
+# Android Gradle Plugin version (passed from Gradle task).
+agp_version = os.environ["AGP_VERSION"]
+
 
 class GradleTestCase(TestCase):
     longMessage = True
@@ -50,29 +53,28 @@ class GradleTestCase(TestCase):
             msg = self._formatMessage(msg, f"{prefix}'{a}' {failure_msg}:\n{b}")
             raise self.failureException(msg) from None
 
-    # Asserts that the given ZipFile contains exactly the given files. ZIP file entries
-    # representing directories are ignored, and must not be included in `files`.
+    # Asserts that the ZIP contains exactly the given files (do not include directories). Each
+    # element of `files` must be either a filename, or a (filename, dict) tuple. The dict items
+    # must either be attributes of ZipInfo, or a "content" string which will be compared with
+    # the UTF-8 decoded file.
     #
-    # Each element of `files` must be either a filename, or a (filename, dict) tuple. The dict
-    # items must either be attributes of ZipInfo, or a "content" string.
-    #
-    # Top-level directories ending `.dist-info` are ignored for the purpose of comparing
-    # `files`, but will be compared against `dist_infos` if present.
-    def assertZipContents(self, zip_file, files, dist_infos=None):
+    # If `dist_infos` is provided, it must be a {package: version} dict, which will be compared
+    # against the top-level `.dist-info` directories in the ZIP.
+    def checkZip(self, zip_filename, files, dist_infos=None):
+        zip_file = ZipFile(zip_filename)
         actual_files = []
         actual_dist_infos = {}
-        for name in zip_file.namelist():
-            di_match = re.match(r"(.+)-(.+).dist-info", name.split("/")[0])
+        for info in zip_file.infolist():
+            self.assertEqual((1980, 1, 1, 0, 0, 0), info.date_time, msg=info.filename)
+            di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
             if di_match:
                 version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
                 self.assertEqual(di_match.group(2), version)
-            elif not name.endswith("/"):
-                actual_files.append(name)
+            elif not info.filename.endswith("/"):
+                actual_files.append(info.filename)
 
-        self.assertEqual(sorted([f[0] if isinstance(f, tuple) else f
-                                 for f in files]),
-                         sorted(actual_files),
-                         msg=zip_file.filename)
+        self.assertCountEqual([f[0] if isinstance(f, tuple) else f for f in files],
+                              actual_files, msg=zip_file.filename)
         for f in files:
             if isinstance(f, tuple):
                 filename, attrs = f
@@ -97,7 +99,17 @@ class GradleTestCase(TestCase):
 
 class Basic(GradleTestCase):
     def test_base(self):
-        self.RunGradle("base")
+        expected_hash = None
+        def post_check(apk_zip, apk_dir, kwargs):
+            nonlocal expected_hash
+            actual_hash = file_sha1(apk_zip.filename)
+            if expected_hash is None:  # First run
+                expected_hash = actual_hash
+            else:  # Second run
+                self.assertEqual(actual_hash, expected_hash)
+        self.post_check = post_check
+        run = self.RunGradle("base")
+        run.rerun()
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
@@ -260,6 +272,13 @@ class PythonSrc(GradleTestCase):
         run.rerun(app=[("one.py", {"content": "one modified"}), "package/submodule.py"])
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun(app=["package/submodule.py"])
+
+    def test_reproducible(self):
+        def post_check(apk_zip, apk_dir, kwargs):
+            self.assertEqual("85aa329280b6cc7adf073b87a80b25eb699851dd",
+                             file_sha1(join(apk_dir, "assets/chaquopy/app.zip")))
+        self.post_check = post_check
+        self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"])
 
     def test_filter(self):
         run = self.RunGradle("base", "PythonSrc/filter_1", app=["one.py"])
@@ -577,6 +596,15 @@ class PythonReqs(GradleTestCase):
                           run.stderr, re=True)
 
     def test_multi_abi(self):
+        def post_check(apk_zip, apk_dir, kwargs):
+            asset_dir = join(apk_dir, "assets/chaquopy")
+            for filename, sha1 in \
+                [("requirements-common.zip", "e7e1992ba14e904968ea37131a38ecefb8c78b72"),
+                 ("requirements-armeabi-v7a.zip", "810ecb04486317b915f81ffe16facded438e612f"),
+                 ("requirements-x86.zip", "9845aa614cf7e1de8000d4007bcf8223d1560c18")]:
+                self.assertEqual(sha1, file_sha1(join(asset_dir, filename)))
+        self.post_check = post_check
+
         # This is not the same as the filename pattern used in our real wheels, but the point
         # is to test that the multi-ABI packaging works correctly.
         self.RunGradle(
@@ -611,23 +639,15 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
     def test_multi_abi_clash(self):
-        # Timestamps matter because the runtime uses them to decide whether to re-extract
-        # things. The zipfile module returns the timestamps as given below, with no timezone
-        # adjustment, but Windows Explorer's ZIP viewer may adjust the displayed timestamp
-        # depending on the current timezone and DST.
         self.RunGradle(
             "base", "PythonReqs/multi_abi_clash", abis=["armeabi-v7a", "x86"],
             requirements={"common": [],
-                          "armeabi-v7a": [("multi_abi_1_armeabi_v7a.pyd",
-                                           {"date_time": (2017, 12, 9, 14, 29, 30)}),
+                          "armeabi-v7a": ["multi_abi_1_armeabi_v7a.pyd",
                                           ("multi_abi_1_pure/__init__.py",
-                                           {"content": "# Clashing module (armeabi-v7a copy)",
-                                            "date_time": (2017, 12, 9, 14, 27, 48)})],
-                          "x86": [("multi_abi_1_x86.pyd",
-                                   {"date_time": (2017, 12, 9, 14, 29, 24)}),
+                                           {"content": "# Clashing module (armeabi-v7a copy)"})],
+                          "x86": ["multi_abi_1_x86.pyd",
                                   ("multi_abi_1_pure/__init__.py",
-                                   {"content": "# Clashing module (x86 copy)",
-                                    "date_time": (2017, 12, 9, 14, 28, 12)})]})
+                                   {"content": "# Clashing module (x86 copy)"})]})
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
@@ -798,11 +818,9 @@ class RunGradle(object):
     @kwonly_defaults
     def __init__(self, test, run=True, key=None, *layers, **kwargs):
         self.test = test
-        self.agp_version = os.environ["AGP_VERSION"]
-
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
         self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
-                            self.agp_version, cls, func)
+                            agp_version, cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
 
@@ -818,7 +836,7 @@ class RunGradle(object):
             copy_tree(join(integration_dir, "data", layer), self.project_dir,
                       preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
             if layer == "base":
-                self.apply_layers("base-" + self.agp_version)
+                self.apply_layers("base-" + agp_version)
 
     def apply_key(self, key):
         LP_FILENAME = "local.properties"
@@ -921,21 +939,15 @@ class RunGradle(object):
                               sorted(os.listdir(asset_dir)))
 
         # Python source
-        app_zip = ZipFile(join(asset_dir, "app.zip"))
-        self.test.assertZipContents(app_zip, app)
+        self.test.checkZip(join(asset_dir, "app.zip"), app)
 
         # Python requirements
         for suffix in reqs_suffixes:
-            if isinstance(requirements, dict):
-                files = requirements[suffix]
-            else:
-                if suffix == "common":
-                    files = requirements
-                else:
-                    files = []
-            reqs_zip = ZipFile(join(asset_dir, "requirements-{}.zip".format(suffix)))
-            self.test.assertZipContents(reqs_zip, files,
-                                        reqs_versions if (suffix == "common") else None)
+            self.test.checkZip(join(asset_dir, "requirements-{}.zip".format(suffix)),
+                               (requirements[suffix] if isinstance(requirements, dict)
+                                else requirements if suffix == "common"
+                                else []),
+                               reqs_versions if (suffix == "common") else None)
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
@@ -990,7 +1002,7 @@ class RunGradle(object):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
                            for f in filenames]
         self.test.assertEqual(
-            {filename: asset_hash(join(asset_dir, filename))
+            {filename: file_sha1(join(asset_dir, filename))
              for filename in asset_list if filename != "build.json"},
             build_json["assets"])
 
@@ -1019,7 +1031,7 @@ class RunGradle(object):
                        "=== STDERR ===\n" + self.stderr)
 
 
-def asset_hash(filename):
+def file_sha1(filename):
     with open(filename, "rb") as f:
         return hashlib.sha1(f.read()).hexdigest()
 

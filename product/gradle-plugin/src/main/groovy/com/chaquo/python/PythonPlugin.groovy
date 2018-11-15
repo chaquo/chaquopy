@@ -383,23 +383,16 @@ class PythonPlugin implements Plugin<Project> {
             project.mkdir(dir)
         }
 
-        // Avoid merge in the common case where there's only one source directory.
         def dirSets = (variant.sourceSets.collect { it.python }
                        .findAll { ! it.sourceFiles.isEmpty() })
-        def needMerge = ! (dirSets.size() == 1 &&
-                           dirSets[0].srcDirs.size() == 1 &&
-                           dirSets[0].filter.excludes.isEmpty() &&
-                           dirSets[0].filter.includes.isEmpty())
-
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
-            ext.destinationDir = needMerge ? mergeDir : dirSets[0].srcDirs.asList()[0]
+            ext.destinationDir = mergeDir
             inputs.files(dirSets.collect { it.sourceFiles })
             outputs.dir(destinationDir)
             doLast {
                 project.delete(mergeDir)
                 project.mkdir(mergeDir)
-                if (! needMerge) return
                 project.copy {
                     into mergeDir
                     exclude "**/*.pyc", "**/*.pyo"
@@ -546,16 +539,16 @@ class PythonPlugin implements Plugin<Project> {
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
             doLast {
-                project.ant.zip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
-                                destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
+                makeZip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
+                        destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
             }
         }
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
             doLast {
                 for (subdir in reqsTask.destinationDir.listFiles()) {
-                    project.ant.zip(basedir: subdir, excludes: excludes, whenempty: "create",
-                                    destfile: "$assetDir/${Common.ASSET_REQUIREMENTS(subdir.name)}")
+                    makeZip(basedir: subdir, excludes: excludes, whenempty: "create",
+                            destfile: "$assetDir/${Common.ASSET_REQUIREMENTS(subdir.name)}")
                 }
             }
         }
@@ -578,18 +571,16 @@ class PythonPlugin implements Plugin<Project> {
                 def BOOTSTRAP_NATIVE_STDLIB = ["_ctypes.so", "select.so"]
 
                 for (abi in getAbis(variant)) {
-                    // Using ant.unzip rather than project.zipTree because it preserves
-                    // timestamps, allowing importer.py to avoid asset extraction.
                     project.ant.unzip(src: getNativeArtifact(targetNative, abi),
                                       dest: assetDir) {
                         patternset() {
                             include(name: "lib-dynload/**")
                         }
                     }
-                    project.ant.zip(basedir: "$assetDir/lib-dynload/$abi",
-                                    destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
-                                    excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "),
-                                    whenempty: "fail")
+                    makeZip(basedir: "$assetDir/lib-dynload/$abi",
+                            destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
+                            excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "),
+                            whenempty: "fail")
 
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
@@ -620,6 +611,21 @@ class PythonPlugin implements Plugin<Project> {
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
+    }
+
+    def makeZip(Map args) {
+        // We're going to set the timestamps to make the ZIP reproducible, so make sure we
+        // don't accidentally do this to any source files.
+        def baseDir = project.file(args.get("basedir")).toString()
+        if (!baseDir.startsWith(project.buildDir.toString())) {
+            throw new GradleException("$baseDir is not within $project.buildDir")
+        }
+
+        // This timestamp corresponds to 1980-01-00 00:00 UTC, the minimum timestamp a ZIP file
+        // can represent. This is also the timestamp the Android Gradle plugin sets on the
+        // APK's own members.
+        project.fileTree(baseDir).visit { it.file.setLastModified(315532800000) }
+        project.ant.zip(args)
     }
 
     Task assetTask(variant, String name, Closure closure) {

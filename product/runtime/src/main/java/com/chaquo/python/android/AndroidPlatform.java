@@ -159,6 +159,8 @@ public class AndroidPlatform extends Python.Platform {
                               String path) throws IOException, JSONException {
         String fullPath = Common.ASSET_DIR  + "/" + path;
         File outFile = new File(mContext.getFilesDir(), fullPath);
+
+        // See also similar code in importer.py.
         String spKey = "asset." + path;
         String newHash = assetsJson.getString(path);
         if (outFile.exists() && sp.getString(spKey, "").equals(newHash)) {
