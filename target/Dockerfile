@@ -3,47 +3,37 @@
 # and exclude them from this context using .dockerignore.
 FROM chaquopy-crystax
 
-RUN echo "progress=dot:giga" > .wgetrc
+RUN rm -r src/crystax/platform/ndk/build/tools
+COPY crystax/platform/ndk/build/tools/prebuilt-common.sh \
+     crystax/platform/ndk/build/tools/ndk-common.sh \
+     crystax/platform/ndk/build/tools/dev-defaults.sh \
+     src/crystax/platform/ndk/build/tools/
 
-COPY crystax/platform/ndk src/crystax/platform/ndk
-
-# OpenSSL
-#
-# Parallel build is not supported until at least OpenSSL 1.1.0. Adding `-j` to the make command
+# OpenSSL doesn't support parallel build until version 1.1.0. Adding `-j` to the make command
 # in build-target-openssl.sh has no effect because of the way OpenSSL uses recursive make. See
 # https://github.com/openssl/openssl/issues/298 ("jobserver unavailable") and
 # https://github.com/openssl/openssl/issues/5762.
+RUN apt-get update && \
+    apt-get install -y perl-modules
 COPY openssl src/openssl
-RUN apt-get update && \
-    apt-get install -y perl-modules && \
-    rm -r crystax/sources/openssl && \
-    src/crystax/platform/ndk/build/tools/build-target-openssl.sh \
+COPY crystax/platform/ndk/build/tools/build-target-openssl.sh \
+     src/crystax/platform/ndk/build/tools/
+RUN src/crystax/platform/ndk/build/tools/build-target-openssl.sh \
         --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/openssl && \
-    rm -r /tmp/ndk-
+    rm -r /tmp/ndk-*
 
-# The Crystax Python build script runs `configure` with environment variables pointing to the
-# GCC 4.9 toolchain, but then ndk-build uses GCC 5. This is probably unintentional, but we know
-# it works so we might as well leave it alone until we remove Crystax entirely.
-
-RUN rm -r crystax/sources/python
-
-# Python 2.7
-COPY python2.7 src/python2.7
+# Python 3.6 isn't included in this version of Debian, so use a third-party build.
 RUN apt-get update && \
-    apt-get install -y python2.7 && \
-    src/crystax/platform/ndk/build/tools/build-target-python.sh \
-        --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/python2.7 && \
-    rm -r /tmp/ndk-
-
-# Python 3.6
-COPY python src/python
-RUN apt-get update && \
-    apt-get install -y libmpdec2 patch && \
+    apt-get install -y patch && \
     wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6,python3.6-minimal,libpython3.6,libpython3.6-minimal,libpython3.6-stdlib}_3.6.3-1.deb9u1_amd64.deb && \
-    dpkg -i *.deb && \
-    rm *.deb && \
-    src/crystax/platform/ndk/build/tools/build-target-python.sh \
-        --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/python && \
-    rm -r /tmp/ndk-
+    apt install -y ./*.deb && \
+    rm *.deb
 
-RUN rm -r src
+COPY python src/python
+COPY crystax/platform/ndk/build/tools/build-target-python.sh \
+     src/crystax/platform/ndk/build/tools/
+COPY crystax/platform/ndk/build/tools/build-target-python \
+     src/crystax/platform/ndk/build/tools/build-target-python
+RUN src/crystax/platform/ndk/build/tools/build-target-python.sh \
+        --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/python && \
+    rm -r /tmp/ndk-*

@@ -18,13 +18,11 @@ RUN yes | android-sdk/tools/bin/sdkmanager 'cmake;3.6.4111459'
 
 # Not installing the NDK with sdkmanager, because there's no way to select a specific version
 # to make the build reproducible.
-#
-# NDK r18 increased the minimum API level to 16: our minimum is currently 15.
 RUN filename=android-ndk-r17c-linux-x86_64.zip && \
     wget https://dl.google.com/android/repository/$filename && \
     unzip -q $filename && \
     rm $filename && \
-    mv android-ndk-r17c android-ndk
+    mv android-ndk-* android-ndk
 
 COPY product/buildSrc product/buildSrc
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
@@ -56,7 +54,8 @@ COPY VERSION.txt ./
 ARG build_type=Release
 
 RUN product/gradlew -p product -P cmakeBuildType=$build_type \
-    gradle-plugin:assemble gradle-plugin:writePom
+    gradle-plugin:publish runtime:publish && \
+    rm -r product/*/build
 
 COPY docker-entrypoint.sh .
 COPY target/package-target.sh target/

@@ -10,4 +10,7 @@
 !maven
 !server/pypi/dist
 
+**/.gradle/
+**/.idea/
 **/build/
+**/local.properties

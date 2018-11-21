@@ -62,8 +62,6 @@ class PipInstall(object):
                 dist_info_dir = join(self.target, "common", "{}-{}.dist-info".format(
                     normalize_name_wheel(ri.dist.name), ri.dist.version))
                 os.mkdir(dist_info_dir)
-                with open(join(dist_info_dir, "empty.txt"), "w"):
-                    pass
 
             # Install native requirements for the other ABIs.
             native_reqs = ["{}=={}".format(ri.dist.name, ri.dist.version)

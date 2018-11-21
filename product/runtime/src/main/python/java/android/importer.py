@@ -12,6 +12,7 @@ import os.path
 from os.path import basename, dirname, exists, join, relpath
 from pkgutil import get_importer
 import re
+from shutil import rmtree
 import struct
 import sys
 import time
@@ -46,6 +47,13 @@ def initialize_importlib(context, build_json, app_path):
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
     asset_finders = []
+    sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
+    assets_json = build_json.get("assets")
+
+    # extract_package extracts both requirements ZIPs to the same cache directory, so if one
+    # ZIP changes, both directories have to be removed.
+    requirements_updated = False
+
     for i, asset_name in enumerate(app_path):
         entry = str(join(ASSET_PREFIX, Common.ASSET_DIR, asset_name))
         sys.path.insert(i, entry)
@@ -53,6 +61,18 @@ def initialize_importlib(context, build_json, app_path):
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
         asset_finders.append(finder)
+
+        # See also similar code in AndroidPlatform.java.
+        sp_key = "asset." + asset_name
+        new_hash = assets_json.get(asset_name)
+        is_requirements = asset_name.startswith("requirements")
+        if (sp.getString(sp_key, "") != new_hash) or \
+           (is_requirements and requirements_updated):
+            if exists(finder.extract_root):
+                rmtree(finder.extract_root)
+            sp.edit().putString(sp_key, new_hash).apply()
+            if is_requirements:
+                requirements_updated = True
 
     # We do this here because .pth files may contain executable code which imports modules. If
     # we processed each zip's .pth files in AssetFinder.__init__, the finder itself wouldn't
@@ -556,6 +576,14 @@ class ConcurrentZipFile(ZipFile):
             os.utime(out_filename, (time.time(), timegm(member.date_time)))
         return out_filename
 
+    # The timestamp is the the last thing set by `extract`, so if the app gets killed in the
+    # middle of an extraction, the timestamps won't match and we'll know we need to extract the
+    # file again.
+    #
+    # However, since we're resetting all ZIP timestamps for a reproducible build, we can't rely
+    # on them to tell us which files have changed after an app update. Instead,
+    # initialize_importlib just removes the whole cache directory if its corresponding ZIP has
+    # changed.
     def extract_if_changed(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
