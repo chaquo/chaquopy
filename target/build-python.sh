@@ -2,14 +2,13 @@
 set -eu
 
 target_dir=$(dirname $(realpath $0))
-cd $target_dir
-
 toolchain=$(realpath ${1:?})
+
+cd $target_dir
 . build-common.sh
 
-# This is redundant since --sysroot is already in the compiler launcher script, but
+# This is redundant since --sysroot is already in the script pointed to by $CC, but
 # python/setup.py needs it to know where to search for header and library files.
-sysroot=$toolchain/sysroot
 export CC="$CC --sysroot=$sysroot"
 
 cd python

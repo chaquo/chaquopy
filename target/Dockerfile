@@ -30,15 +30,20 @@ RUN apt-get update && \
     apt-get -y install make
 COPY build-common.sh target/
 
-# OpenSSL doesn't support parallel build until version 1.1.0. Adding `-j` to the make command
-# in build-target-openssl.sh has no effect because of the way OpenSSL uses recursive make. See
-# https://github.com/openssl/openssl/issues/298 ("jobserver unavailable") and
-# https://github.com/openssl/openssl/issues/5762.
-COPY openssl src/openssl
-# TODO
+# OpenSSL
+RUN apt-get update && \
+    apt-get install -y perl-modules
+COPY openssl target/openssl
+COPY build-openssl.sh target/
+RUN target/build-openssl.sh $toolchain
 
 # SQLite
-# TODO
+RUN apt-get update && \
+    apt-get install -y gcc tclsh
+COPY sqlite target/sqlite
+COPY python/config.sub target/python/
+COPY build-sqlite.sh target/
+RUN target/build-sqlite.sh $toolchain
 
 # Python
 COPY python target/python

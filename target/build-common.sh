@@ -1,3 +1,4 @@
+sysroot=$toolchain/sysroot
 host_triplet=$(cd $toolchain/bin && echo *-clang | sed 's/-clang$//')
 tool_prefix="$toolchain/bin/$host_triplet"
 export AR="$tool_prefix-ar"

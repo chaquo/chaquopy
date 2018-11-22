@@ -41,22 +41,25 @@ for toolchain_dir in $this_dir/toolchains/*; do
     mkdir -p "$jniLibs_dir"
     cp "$prefix/lib/libpython$short_ver"*.so "$jniLibs_dir"
 
-    # TODO
-    if false; then
-        cp "$crystax/sources/sqlite/3/libs/$abi/libsqlite3.so" "$jniLibs_dir"
+    # The SONAMEs of our OpenSSL and SQLite libraries are those shown below with a version
+    # number after the .so. Unfortunately the Android Gradle plugin will only package libraries
+    # whose names and with .so, so we have to rename them.
+    #
+    # We add a _chaquopy suffix in case files of the same name are already present in
+    # /system/lib. (On devices where they are present, their SONAMEs never seem to contain a
+    # version number, so there should be no risk of a clash there.)
+    #
+    # This approach will only work on API level 23 or later. On older versions the dynamic
+    # linker ignores the SONAME attribute, so the SONAMEs and the filenames have to be the
+    # same.
 
-        for openssl_lib in crypto ssl; do
-            src_filename=$(echo $crystax/sources/openssl/*/libs/$abi/lib${openssl_lib}.so)
-            if [ $(echo "$src_filename" | wc -w) != "1" ]; then
-                echo "Found multiple versions of OpenSSL in Crystax NDK: delete the ones you don't want to use"
-                exit 1
-            fi
-            # build-target-openssl.sh changes the SONAMEs to avoid clashing with the system copies.
-            # This isn't necessary for SQLite because the system copy is just "libsqlite.so", with
-            # no "3".
-            cp "$src_filename" "$jniLibs_dir/lib${openssl_lib}_chaquopy.so"
-        done
-    fi
+    # OpenSSL
+    for lib_name in libcrypto libssl; do
+        cp $prefix/lib/$lib_name.so.1.0.0 $jniLibs_dir/${lib_name}_chaquopy.so
+    done
+
+    # SQLite
+    cp $prefix/lib/libsqlite3.so.0 $jniLibs_dir/libsqlite_chaquopy.so
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
@@ -64,7 +67,7 @@ for toolchain_dir in $this_dir/toolchains/*; do
     for module in $prefix/lib/python$short_ver/lib-dynload/*; do
         cp $module $dynload_dir/$(basename $module | sed 's/.cpython-.*.so/.so/')
     done
-    rm $dynload_dir/_test*.so
+    rm $dynload_dir/*_test*.so
 
     chmod u+w $(find -name *.so)
     $toolchain_dir/$gcc_abi-*/bin/strip $(find -name *.so)
@@ -92,7 +95,7 @@ find -name test -or -name tests | xargs rm -r
 # real files, not via zipimport.
 micro=$(echo $micro_build | sed 's/-.*//')
 for filename in lib2to3/*.pickle; do
-    mv $filename $(echo $filename | sed "s/$short_ver.[0-9]/$short_ver.$micro/")
+    mv $filename $(echo $filename | sed -E "s/$short_ver\\.[0-9]+/$short_ver.$micro/")
 done
 
 stdlib_zip="$target_prefix-stdlib.zip"
