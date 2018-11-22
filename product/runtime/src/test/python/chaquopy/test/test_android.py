@@ -445,12 +445,18 @@ class TestAndroidStdlib(unittest.TestCase):
         from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
-        # Requires the OpenSSL interface in `_hashlib`.
         import hashlib
-        self.assertEqual("37f332f68db77bd9d7edd4969571ad671cf9dd3b",
-                         hashlib.new("ripemd160",
-                                     b"The quick brown fox jumps over the lazy dog")
-                         .hexdigest())
+        INPUT = b"The quick brown fox jumps over the lazy dog"
+        TESTS = [
+            # Built-in.
+            ("sha3_512", "01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
+             "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450"),
+
+            # Requires the OpenSSL interface in `_hashlib`.
+            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),
+        ]
+        for algorithm, digest in TESTS:
+            self.assertEqual(digest, hashlib.new(algorithm, INPUT).hexdigest())
 
     def test_os(self):
         self.assertEqual("posix", os.name)
