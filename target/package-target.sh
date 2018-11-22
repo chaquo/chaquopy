@@ -87,6 +87,14 @@ rm -r curses dbm idlelib tkinter turtle*
 rm -r ensurepip pydoc_data
 find -name test -or -name tests | xargs rm -r
 
+# The build generates these files with the version number of the build Python, not the target
+# Python. The source .txt files can't be used instead, because lib2to3 can only load them from
+# real files, not via zipimport.
+micro=$(echo $micro_build | sed 's/-.*//')
+for filename in lib2to3/*.pickle; do
+    mv $filename $(echo $filename | sed "s/$short_ver.[0-9]/$short_ver.$micro/")
+done
+
 stdlib_zip="$target_prefix-stdlib.zip"
 rm -f $stdlib_zip
 zip -q -i '*.py' '*.pickle' -r $stdlib_zip .
