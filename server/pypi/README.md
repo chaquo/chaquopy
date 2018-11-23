@@ -30,60 +30,12 @@ Temporarily add the new package to `PACKAGES` in `pkgtest/app/build.gradle`. If 
 release the package before the next version of the SDK, also temporarily edit
 `pkgtest/build.gradle` to test with the current released SDK.
 
-Then build and run the app for both Python 2 and 3 on:
+Then test the app on the following devices:
 
-* minSdkVersion emulator, or API 18 if "too many libraries" error occurs.
+* minSdkVersion emulator, or API 18 if "too many libraries" error occurs (#5316).
 * targetSdkVersion emulator
-* Any ARM device
+* armeabi-v7a device
+* arm64-v8a device
 
 Once everything's working, move the wheels to the public package repository, and go through the
 public release procedure.
-
-
-# GCC
-
-If building OpenBLAS or SciPy, the Crystax GCC toolchain must be rebuilt to add support for
-Fortran. If building anything else, there's no need to do this.
-
-Check out the following submodules under `target/crystax`:
-
-    platform/development
-    platform/ndk
-    toolchain/binutils
-    toolchain/build
-    toolchain/cloog
-    toolchain/gcc/gcc-4.9
-    toolchain/gdb/gdb-7.10
-    toolchain/gmp
-    toolchain/isl
-    toolchain/mpc
-    toolchain/mpfr
-    toolchain/ppl
-    toolchain/sed
-
-Install the following prerequisites on the build machine:
-
-    bison
-    flex
-    m4
-    texinfo
-
-Run the following commands:
-
-    cd target/crystax/platform/ndk
-    ./build/tools/build-host-prebuilts.sh --verbose --systems=linux-x86_64 --arch=arm,x86 ../../toolchain
-
-The new toolchains will now be in `target/crystax/platform/ndk/toolchains`. Use these to
-replace the toolchains in your Crystax installation.
-
-
-# libcrystax notes
-
-We've made some bug-fixes to libcrystax (see `target/README.md`), and we may make more in the
-future. However, these shouldn't affect binary compatibility, so there's no need to rerun
-`build-wheel.py --build-toolchain` whenever libcrystax changes.
-
-Similarly, it doesn't matter that `build-wheel.py --build-toolchain` installs all variants of
-libcrystax (e.g. armeabi (v5) and armeabi-v7a-hard), even though we're only rebuilding the ones
-which we actually distribute. This is relevant to OpenBLAS because it actually builds in
-armeabi (v5) mode: see `packages/chaquopy-openblas/build.sh`.

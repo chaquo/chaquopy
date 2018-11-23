@@ -4,7 +4,7 @@
 !target/package-target.sh
 !VERSION.txt
 
-# For ***REMOVED*** jupyter.dockerfile
+# For app dockerfiles.
 !apps
 !demo
 !maven

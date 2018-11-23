@@ -44,6 +44,10 @@ android {
             // Enable and edit the following line if "python" is not on your PATH.
             // buildPython "C:/Python27/python.exe"
 
+            pip {
+                options "--extra-index-url", "../../server/pypi/dist"
+            }
+
             // Android UI demo
             pip {
                 install "Pygments==2.2.0"   // Also used in Java API demo
@@ -79,17 +83,17 @@ android {
     }
 
     // *** Remove in public repository ***************************************
-    signingConfigs {
-        config {
-            storeFile file('../chaquo.jks')
-            keyAlias 'key0'
-            keyPassword 'android'
-            storePassword 'android'
+    def keystore = file('../chaquo.jks')
+    if (keystore.exists()) {
+        signingConfigs {
+            config {
+                storeFile keystore
+                keyAlias 'key0'
+                keyPassword 'android'
+                storePassword 'android'
+            }
         }
-    }
-    buildTypes {
-        release { signingConfig signingConfigs.config }
-        debug { signingConfig signingConfigs.config }
+        buildTypes.all { it.signingConfig signingConfigs.config }
     }
 
     sourceSets {
