@@ -40,6 +40,8 @@ else:
     APP_ZIP = "app.zip"
     REQS_COMMON_ZIP = "requirements-common.zip"
     REQS_ABI_ZIP = "requirements-{}.zip".format(AndroidPlatform.ABI)
+    multi_abi = len([name for name in context.getAssets().list("chaquopy")
+                     if name.startswith("requirements")]) > 2
 
 def setUpModule():
     if API_LEVEL is None:
@@ -121,15 +123,16 @@ class TestAndroidImport(unittest.TestCase):
             pyc_file.write(header)
 
     def test_so(self):
+        reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.so"
-        mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
+        mod = self.check_module(mod_name, reqs_zip, filename)
         mod.foo = 1
         delattr(mod, "escape")
         reload(mod)
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
-        self.check_extract_if_changed(mod, asset_cache(REQS_ABI_ZIP, filename))
+        self.check_extract_if_changed(mod, asset_cache(reqs_zip, filename))
 
     def check_extract_if_changed(self, mod, cache_filename):
         # An unchanged file should not be extracted again.
@@ -278,7 +281,9 @@ class TestAndroidImport(unittest.TestCase):
     def test_extract_native_package(self):
         # TODO #5513: these should be extracted to the same place.
         self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
-        self.check_extracted_module("murmurhash.mrmr", REQS_ABI_ZIP, "murmurhash/mrmr.so")
+        self.check_extracted_module("murmurhash.mrmr",
+                                    REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP,
+                                    "murmurhash/mrmr.so")
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
