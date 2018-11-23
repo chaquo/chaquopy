@@ -16,14 +16,6 @@ RUN filename=sdk-tools-linux-4333796.zip && \
 
 RUN yes | android-sdk/tools/bin/sdkmanager 'cmake;3.6.4111459'
 
-# Not installing the NDK with sdkmanager, because there's no way to select a specific version
-# to make the build reproducible.
-RUN filename=android-ndk-r17c-linux-x86_64.zip && \
-    wget https://dl.google.com/android/repository/$filename && \
-    unzip -q $filename && \
-    rm $filename && \
-    mv android-ndk-* android-ndk
-
 COPY product/buildSrc product/buildSrc
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
                    product/buildSrc/src/main/java/com/chaquo/python/Common.java \
@@ -57,6 +49,8 @@ RUN product/gradlew -p product -P cmakeBuildType=$build_type \
     gradle-plugin:publish runtime:publish && \
     rm -r product/*/build
 
+RUN apt-get update && \
+    apt-get install -y zip
 COPY docker-entrypoint.sh .
 COPY target/package-target.sh target/
 ENTRYPOINT ["./docker-entrypoint.sh"]

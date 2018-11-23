@@ -11,16 +11,8 @@ FROM chaquopy-target
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 
 # Miscellaneous build tools
-#
-# The Python `-dev` packages are required for some packages (e.g. OpenCV and TensorFlow) which
-# need to build things for the host Python.
 RUN apt-get update && \
-    apt-get -y install autoconf cmake git && \
-    wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6-dev,libpython3.6-dev}_3.6.3-1.deb9u1_amd64.deb && \
-    apt install -y ./*.deb && \
-    rm *.deb && \
-    ln -s python3.6 /usr/bin/python && \
-    ln -s python3.6 /usr/bin/python3
+    apt-get -y install autoconf cmake git patch
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \
@@ -42,6 +34,5 @@ COPY requirements.txt pypi/
 RUN pip3.6 install -r pypi/requirements.txt
 
 COPY . pypi/
-
 ENV LC_ALL="C.UTF-8"
-ENTRYPOINT ["python3.6", "pypi/build-wheel.py", "--ndk", "crystax"]
+ENTRYPOINT ["pypi/docker-entrypoint.sh"]

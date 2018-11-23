@@ -4,7 +4,6 @@ set -eu
 license_mode=${1:-}
 
 cd $(dirname $0)
-docker build -t chaquopy-crystax target/crystax
 docker build -t chaquopy-target target
 docker build -t chaquopy --build-arg license_mode=$license_mode .
 
