@@ -30,10 +30,7 @@ from wheel.util import urlsafe_b64encode  # Not the same as the version in base6
 from .util import CommandError
 
 ABI_API_LEVELS = {
-    "armeabi-v7a": 15,
-    "arm64-v8a": 21,
-    "x86": 15,
-    "x86_64": 21,
+    "arm64-v8a": 23,
 }
 
 

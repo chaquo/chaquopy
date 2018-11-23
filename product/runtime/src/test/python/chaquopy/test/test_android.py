@@ -420,7 +420,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_pkg_resources(self):
         import pkg_resources
-        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl", "murmurhash",
+        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-libcxx", "murmurhash",
                           "setuptools"],
                          sorted(dist.project_name for dist in pkg_resources.working_set))
         self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)

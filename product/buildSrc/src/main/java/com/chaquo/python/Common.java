@@ -7,7 +7,7 @@ import java.util.*;
 public class Common {
     // We currently aim for 99% support, based on the numbers at
     // https://developer.android.com/about/dashboards/.
-    public static final int MIN_SDK_VERSION = 16;
+    public static final int MIN_SDK_VERSION = 23;
 
     // For Build.SUPPORTED_ABIS.
     public static final int COMPILE_SDK_VERSION = 21;
