@@ -1,8 +1,0 @@
-package:
-  name: chaquopy-gnustl
-  version: 4.9.3  # gcc version number: see Crystax gcc repository log
-
-source: null
-
-build:
-  number: 2

@@ -31,10 +31,10 @@ import yaml
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
-HOST_PLATFORM = "linux-x86_64"
-GCC_VERSION = "4.9"
-PYTHON_VERSIONS = ["2.7", "3.6"]
+PYTHON_VERSION = "3.6"
+PYTHON_SUFFIX = PYTHON_VERSION + "m"
 
+# All libraries are listed under their SONAMEs.
 STANDARD_LIBS = {
     # Android-provided libraries up to API level 15
     # (https://developer.android.com/ndk/guides/stable_apis).
@@ -43,12 +43,12 @@ STANDARD_LIBS = {
     "libz.so",
 
     # Chaquopy-provided libraries (libpythonX.Y.so is added below)
-    "libcrystax.so", "libcrypto_chaquopy.so", "libsqlite3.so", "libssl_chaquopy.so",
+    "libcrypto.so.1.0.0", "libsqlite3.so.0", "libssl.so.1.0.0",
 }
 
 COMPILER_LIBS = {
-    "libgfortran.so.3": ("chaquopy-libgfortran", GCC_VERSION),
-    "libgnustl_shared.so": ("chaquopy-gnustl", GCC_VERSION),
+    "libgfortran.so.3": ("chaquopy-libgfortran", "TODO"),
+    "libc++_shared.so": ("chaquopy-libcxx", "7000"),  # See packages/chaquopy-libcxx.
 }
 
 
@@ -57,22 +57,11 @@ class Abi:
     name: str                               # Android ABI name.
     default_api_level: int
     tool_prefix: str                        # GCC target triplet.
-    toolchain: str = field(default="")      # Toolchain name (defaults to tool_prefix).
-    variant: str = field(default="")        # Toolchain lib subdirectory.
     cflags: str = field(default="")
     ldflags: str = field(default="")
 
-    def __post_init__(self):
-        if not self.toolchain:
-            self.toolchain = self.tool_prefix
-
-
 ABIS = {abi.name: abi for abi in [
-    Abi("armeabi-v7a", 15, "arm-linux-androideabi", variant="armv7-a/thumb",
-        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
-        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
-    Abi("arm64-v8a", 21, "aarch64-linux-android"),
-    Abi("x86", 15, "i686-linux-android", toolchain="x86"),
+    Abi("arm64-v8a", 23, "aarch64-linux-android"),
 ]}
 
 
@@ -102,6 +91,8 @@ class BuildWheel:
                     if name == "python":
                         self.needs_python = True
                     else:
+                        # OpenSSL and SQLite now work without any build flags, but we still
+                        # accept them in meta.yaml for compatibility with the Crystax branch.
                         self.bundled_reqs.append(name)
 
             self.unpack_and_build()
@@ -112,8 +103,6 @@ class BuildWheel:
 
     def unpack_and_build(self):
         if self.needs_python:
-            if not self.python:
-                raise CommandError("The --python argument is required for this package.")
             self.find_python()
         else:
             self.compat_tag = f"py2.py3-none-{self.platform_tag}"
@@ -167,13 +156,8 @@ class BuildWheel:
                         help="Extra directory to search for package information, in addition "
                         "to packages/ in the same directory as this script. Can be used "
                         "multiple times.")
-        ap.add_argument("--ndk", metavar="DIR", type=abspath, required=True,
-                        help="Path to Crystax NDK")
-        ap.add_argument("--build-toolchain", action="store_true", help="Rebuild standalone "
-                        "toolchain. Will happen automatically if toolchain doesn't already "
-                        "exist for this ABI and API level.")
-        ap.add_argument("--python", metavar="VERSION", choices=PYTHON_VERSIONS,
-                        help="Python version (choices: %(choices)s)")
+        ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
+                        help="Path to toolchain")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                         help="Choices: %(choices)s")
         ap.add_argument("--api-level", metavar="N", type=int,
@@ -188,30 +172,18 @@ class BuildWheel:
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
 
     def find_python(self):
-        python_dir = f"{self.ndk}/sources/python/{self.python}"
-        self.python_include_dir = f"{python_dir}/include/python"
+        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{PYTHON_SUFFIX}"
         assert_isdir(self.python_include_dir)
+        python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
+        assert_exists(python_lib)
+        STANDARD_LIBS.add(basename(python_lib) + ".1.0")
 
-        self.python_lib_dir = f"{python_dir}/libs/{self.abi}"
-        assert_isdir(self.python_lib_dir)
-        for name in os.listdir(self.python_lib_dir):
-            match = re.match(r"libpython(.*)\.so", name)
-            if match:
-                STANDARD_LIBS.add(name)
-                self.python_lib_version = match.group(1)
+        # We require the build and target Python versions to be the same, because
+        # many setup.py scripts are affected by sys.version.
+        self.pip = f"pip{PYTHON_VERSION} --disable-pip-version-check"
 
-                # We require the build and target Python versions to be the same, because
-                # many native build scripts are affected by sys.version, especially to
-                # distinguish between Python 2 and 3. To install multiple Python versions
-                # in one virtualenv, simply run mkvirtualenv again with a different -p
-                # argument.
-                self.pip = f"pip{self.python} --disable-pip-version-check"
-                break
-        else:
-            raise CommandError(f"Can't find libpython*.so in {self.python_lib_dir}")
-
-        self.compat_tag = (f"cp{self.python.replace('.', '')}-"
-                           f"cp{self.python_lib_version.replace('.', '')}-"
+        self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
+                           f"cp{PYTHON_SUFFIX.replace('.', '')}-"
                            f"{self.platform_tag}")
 
     def unpack_source(self):
@@ -290,8 +262,7 @@ class BuildWheel:
     def build_wheel(self):
         os.environ.update({
             "CHAQUOPY_ABI": self.abi,
-            "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
-            "CHAQUOPY_PYTHON": self.python,
+            "CHAQUOPY_PYTHON": PYTHON_VERSION,
             "CPU_COUNT": str(multiprocessing.cpu_count())  # Conda variable name.
         })
         build_script = f"{self.package_dir}/build.sh"
@@ -345,6 +316,8 @@ class BuildWheel:
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
         os.environ.update({  # Conda variable names.
+            "PKG_NAME": self.package,
+            "PKG_VERSION": self.version,
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": os.getcwd(),
             "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
@@ -391,13 +364,13 @@ class BuildWheel:
     def update_env(self):
         env = {}
         abi = ABIS[self.abi]
-        toolchain_dir = self.get_toolchain(abi)
-        for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"),
+        self.setup_toolchain(abi)
+        for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
                      ("fc", "gfortran"),   # Used by openblas
                      ("f77", "gfortran"), ("f90", "gfortran"),  # Used by numpy.distutils
                      "ld", "nm", "ranlib", "readelf", "strip"]:
             var, suffix = (tool, tool) if isinstance(tool, str) else tool
-            filename = f"{toolchain_dir}/bin/{abi.tool_prefix}-{suffix}"
+            filename = f"{self.toolchain}/bin/{abi.tool_prefix}-{suffix}"
             if suffix != "gfortran":  # Only required for SciPy and OpenBLAS.
                 assert_exists(filename)
             env[var.upper()] = filename
@@ -422,10 +395,6 @@ class BuildWheel:
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
 
-            # For some reason the arm64-v8a compiler doesn't have this as a default setting.
-            # This breaks anything which builds executables, e.g. during feature tests.
-            f"-Wl,--rpath-link,{toolchain_dir}/sysroot/usr/lib",
-
             abi.ldflags])
 
         reqs_prefix = f"{self.reqs_dir}/chaquopy"
@@ -448,18 +417,7 @@ class BuildWheel:
             # have a header which isn't present in the target Python include directory. The
             # only way I can see to avoid this is to set CC to a wrapper script.
             env["CFLAGS"] += f" -I{self.python_include_dir}"
-            env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{self.python_lib_version}"
-
-        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
-        if "openssl" in self.bundled_reqs:
-            openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
-            openssl_root = dirname(openssl_include)
-            env["CFLAGS"] += f" -idirafter {openssl_root}/include"
-            env["LDFLAGS"] += f" -L{openssl_root}/libs/{self.abi}"
-        if "sqlite" in self.bundled_reqs:
-            sqlite_root = f"{self.ndk}/sources/sqlite/3"
-            env["CFLAGS"] += f" -idirafter {sqlite_root}/include"
-            env["LDFLAGS"] += f" -L{sqlite_root}/libs/{self.abi}"
+            env["LDFLAGS"] += f" -lpython{PYTHON_SUFFIX}"
 
         if self.verbose:
             log("Environment set as follows:\n" +
@@ -467,11 +425,11 @@ class BuildWheel:
         os.environ.update(env)
 
         if self.needs_cmake:
-            self.generate_cmake_toolchain(toolchain_dir)
+            self.generate_cmake_toolchain()
 
     # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
     # configure as much as possible via update_env.
-    def generate_cmake_toolchain(self, toolchain_dir):
+    def generate_cmake_toolchain(self):
         # See build/cmake/android.toolchain.cmake in the Google NDK.
         CMAKE_PROCESSORS = {
             "armeabi-v7a": "armv7-a",
@@ -484,7 +442,7 @@ class BuildWheel:
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
                 set(ANDROID TRUE)
-                set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {toolchain_dir})
+                set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {self.toolchain})
 
                 set(CMAKE_SYSTEM_NAME Android)
                 set(CMAKE_SYSTEM_VERSION {self.api_level})
@@ -493,7 +451,7 @@ class BuildWheel:
                 # Our requirements dir comes before the sysroot, because the sysroot include
                 # directory contains headers for third-party libraries like libjpeg which may
                 # be of different versions to what we want to use.
-                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy {toolchain_dir}/sysroot)
+                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy {self.toolchain}/sysroot)
                 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
                 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
                 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
@@ -505,47 +463,17 @@ class BuildWheel:
                     # Variables used by pybind11
                     SET(PYTHONLIBS_FOUND TRUE)
                     SET(PYTHON_LIBRARIES
-                        {self.python_lib_dir}/libpython{self.python_lib_version}.so)
+                        {self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so)
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
 
-    def get_toolchain(self, abi):
-        toolchain_dir = f"{PYPI_DIR}/toolchains/{self.platform_tag}"
-        if self.build_toolchain or not exists(toolchain_dir):
-            log(f"Building toolchain {self.platform_tag}")
-            run(f"rm -rf {toolchain_dir}")
-            run(f"{self.ndk}/build/tools/make-standalone-toolchain.sh "
-                f"--toolchain={abi.toolchain}-{GCC_VERSION} "
-                f"--platform=android-{self.api_level} "
-                f"--install-dir={toolchain_dir}")
-
-            # On Android, libpthread is incorporated into libc. Create an empty library so we
-            # don't have to patch everything that links against it.
-            run(f"{toolchain_dir}/bin/{abi.tool_prefix}-ar r "
-                f"{toolchain_dir}/sysroot/usr/lib/libpthread.a")
-
-            # The Crystax make-standalone-toolchain.sh renames libgnustl_static.a to
-            # libstdc++.a, but leaves libgnustl_shared.so at its original name. This would result
-            # in packages linking against the static library, which is unsafe for the reasons
-            # given at https://developer.android.com/ndk/guides/cpp-support.html. So we'll
-            # rename the shared library as well. (Its SONAME is still libgnustl_shared.so, so
-            # that's the filename expected at runtime.)
-            #
-            # Some ABIs (e.g. armeabi-v7a) contain multiple sets of libraries in
-            # subdirectories: we want to process them all.
-            for lib_dir, _, _ in os.walk(f"{toolchain_dir}/{abi.tool_prefix}/lib"):
-                if not lib_dir.endswith("ldscripts"):
-                    run(f"mv {lib_dir}/libgnustl_shared.so {lib_dir}/libstdc++.so")
-
-            # The kevent API doesn't work properly: it gives a "bad address" error
-            # (https://tracker.crystax.net/issues/1433).
-            run(f"rm {toolchain_dir}/sysroot/usr/include/sys/event.h")
-
-        else:
-            log(f"Using existing toolchain {self.platform_tag}")
-
-        return toolchain_dir
+    def setup_toolchain(self, abi):
+        # On Android, libpthread is incorporated into libc. Create an empty library so we
+        # don't have to patch everything that links against it.
+        sysroot_lib = f"{self.toolchain}/sysroot/usr/lib"
+        if not any(exists(f"{sysroot_lib}/libpthread.{ext}") for ext in ["a", "so"]):
+            run(f"{self.toolchain}/bin/{abi.tool_prefix}-ar r {sysroot_lib}/libpthread.a")
 
     def fix_wheel(self, in_filename):
         pure_match = re.search(r"^(.+?)-(.+?)-(.+-none-any)\.whl$", basename(in_filename))
