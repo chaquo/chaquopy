@@ -32,3 +32,22 @@ diff -ur src-original/setup.py src/setup.py
          #
          # insert new dirs *before* default libs, to avoid conflicts
          # between Python PYD stub libs and real libraries
+@@ -591,7 +597,7 @@
+         for src_file in _LIB_IMAGING:
+             files.append(os.path.join("src/libImaging", src_file + ".c"))
+ 
+-        libs = []
++        libs = ["m"]  # Chaquopy: added "m"
+         defs = []
+         if feature.jpeg:
+             libs.append(feature.jpeg)
+@@ -663,7 +669,8 @@
+                               include_dirs=['src/Tk'],
+                               libraries=tk_libs))
+ 
+-        exts.append(Extension("PIL._imagingmath", ["src/_imagingmath.c"]))
++        exts.append(Extension("PIL._imagingmath", ["src/_imagingmath.c"],
++                              libraries=["m"]))  # Chaquopy: added
+         exts.append(Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]))
+ 
+         self.extensions[:] = exts

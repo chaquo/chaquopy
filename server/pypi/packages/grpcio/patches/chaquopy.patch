@@ -1,6 +1,6 @@
-diff -ru src-original/setup.py src/setup.py
+diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-06-01 23:53:55.000000000 +0000
-+++ src/setup.py	2018-06-12 16:22:58.376096174 +0000
++++ src/setup.py	2018-11-30 23:19:56.985643589 +0000
 @@ -40,14 +40,7 @@
  CARES_INCLUDE = (
      os.path.join('third_party', 'cares'),
@@ -17,7 +17,26 @@ diff -ru src-original/setup.py src/setup.py
  ADDRESS_SORTING_INCLUDE = (os.path.join('third_party', 'address_sorting', 'include'),)
  README = os.path.join(PYTHON_STEM, 'README.rst')
  
-@@ -123,17 +116,9 @@
+@@ -104,7 +97,8 @@
+ EXTRA_ENV_COMPILE_ARGS = os.environ.get('GRPC_PYTHON_CFLAGS', None)
+ EXTRA_ENV_LINK_ARGS = os.environ.get('GRPC_PYTHON_LDFLAGS', None)
+ if EXTRA_ENV_COMPILE_ARGS is None:
+-  EXTRA_ENV_COMPILE_ARGS = ' -std=c++11'
++  # Chaquopy: removed `-std=c++11`, which clang doesn't allow with C files.
++  EXTRA_ENV_COMPILE_ARGS = ''
+   if 'win32' in sys.platform and sys.version_info < (3, 5):
+     EXTRA_ENV_COMPILE_ARGS += ' -D_hypot=hypot'
+     # We use define flags here and don't directly add to DEFINE_MACROS below to
+@@ -116,24 +110,17 @@
+     else:
+       EXTRA_ENV_COMPILE_ARGS += ' -D_ftime=_ftime64 -D_timeb=__timeb64'
+   elif "linux" in sys.platform:
+-    EXTRA_ENV_COMPILE_ARGS += ' -std=gnu99 -fvisibility=hidden -fno-wrapv -fno-exceptions'
++    # Chaquopy: removed `-std=gnu99`, which clang doesn't allow with C++ files.
++    EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
+   elif "darwin" in sys.platform:
+     EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
+ EXTRA_ENV_COMPILE_ARGS += ' -DPB_FIELD_16BIT'
  
  if EXTRA_ENV_LINK_ARGS is None:
    EXTRA_ENV_LINK_ARGS = ''
@@ -38,7 +57,7 @@ diff -ru src-original/setup.py src/setup.py
  
  EXTRA_COMPILE_ARGS = shlex.split(EXTRA_ENV_COMPILE_ARGS)
  EXTRA_LINK_ARGS = shlex.split(EXTRA_ENV_LINK_ARGS)
-@@ -153,12 +138,7 @@
+@@ -153,12 +140,7 @@
      CARES_INCLUDE + ADDRESS_SORTING_INCLUDE)
  
  EXTENSION_LIBRARIES = ()
@@ -52,7 +71,7 @@ diff -ru src-original/setup.py src/setup.py
  
  DEFINE_MACROS = (
      ('OPENSSL_NO_ASM', 1), ('_WIN32_WINNT', 0x600),
-@@ -239,6 +219,9 @@
+@@ -239,6 +221,9 @@
  
  INSTALL_REQUIRES = (
      'six>=1.5.2',
@@ -62,7 +81,6 @@ diff -ru src-original/setup.py src/setup.py
  )
  
  if not PY3:
-diff -ru src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
 diff -ur src-original/third_party/cares/cares/ares_init.c src/third_party/cares/cares/ares_init.c
 --- src-original/third_party/cares/cares/ares_init.c	2018-06-01 23:53:57.000000000 +0000
 +++ src/third_party/cares/cares/ares_init.c	2018-10-17 19:02:36.339520322 +0000
@@ -86,8 +104,9 @@ diff -ur src-original/third_party/cares/cares/ares_init.c src/third_party/cares/
      status = ARES_EOF;
    }
  #elif defined(CARES_USE_LIBRESOLV)
+diff -ur src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
 --- src-original/third_party/cares/config_android/ares_config.h	2018-06-01 23:53:55.000000000 +0000
-+++ src/third_party/cares/config_android/ares_config.h	2018-06-12 15:34:29.194597780 +0000
++++ src/third_party/cares/config_android/ares_config.h	2018-11-30 23:35:50.419146489 +0000
 @@ -52,7 +52,8 @@
  #define HAVE_ARPA_INET_H
  
@@ -98,3 +117,13 @@ diff -ur src-original/third_party/cares/cares/ares_init.c src/third_party/cares/
  
  /* Define to 1 if you have the <arpa/nameser.h> header file. */
  #define HAVE_ARPA_NAMESER_H
+@@ -442,7 +443,8 @@
+   /* 'FD_ZERO' doesn't use __fdelt_chk, no need to redefine. */
+ 
+   #ifdef __FDS_BITS
+-    #define GRPC_CARES_FDS_BITS(set) __FDS_BITS(set)
++    /* Chaquopy: added first argument to __FDS_BITS. */
++    #define GRPC_CARES_FDS_BITS(set) __FDS_BITS(fd_set*,set)
+   #else
+     #define GRPC_CARES_FDS_BITS(set) ((set)->fds_bits)
+   #endif
