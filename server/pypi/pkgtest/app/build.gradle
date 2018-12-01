@@ -21,7 +21,7 @@ ext.TEST_PACKAGES = [
 android {
     compileSdkVersion 26
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 23
         targetSdkVersion 26
 
         applicationId "com.chaquo.python.pkgtest3"
