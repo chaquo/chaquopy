@@ -6,6 +6,7 @@ toolchain=$(realpath ${1:?})
 
 cd $target_dir
 . build-common.sh
+. build-common-tools.sh
 
 # This is redundant since --sysroot is already in the script pointed to by $CC, but
 # python/setup.py needs it to know where to search for header and library files.

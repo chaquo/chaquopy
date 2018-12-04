@@ -6,6 +6,7 @@ toolchain=$(realpath ${1:?})
 
 cd $target_dir
 . build-common.sh
+. build-common-tools.sh
 
 cd sqlite
 

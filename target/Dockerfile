@@ -26,9 +26,21 @@ ENV toolchain="/root/target/toolchains/arm64-v8a"
 RUN android-ndk/build/tools/make_standalone_toolchain.py --arch arm64 --api 23 \
         --install-dir $toolchain
 
+# Fortran compiler (for OpenBLAS and SciPy)
 RUN apt-get update && \
-    apt-get -y install make
-COPY build-common.sh target/
+    apt-get -y install g++ make
+RUN stem=gcc-8.2.0 && \
+    wget http://ftpmirror.gnu.org/gcc/$stem/$stem.tar.gz && \
+    tar -xf $stem.tar.gz -C target && \
+    rm $stem.tar.gz && \
+    mv target/gcc-* target/gcc && \
+    cd target/gcc && \
+    contrib/download_prerequisites
+COPY build-fortran.sh build-common.sh target/
+RUN target/build-fortran.sh $toolchain
+
+
+COPY build-common-tools.sh target/
 
 # OpenSSL
 RUN apt-get update && \
