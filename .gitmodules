@@ -8,3 +8,6 @@
 [submodule "target/sqlite"]
 	path = target/sqlite
 	url = https://github.com/mackyle/sqlite.git
+[submodule "target/gcc"]
+	path = target/gcc
+	url = https://android.googlesource.com/toolchain/gcc
