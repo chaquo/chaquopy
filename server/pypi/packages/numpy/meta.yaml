@@ -1,9 +1,9 @@
 package:
   name: numpy
-  version: 1.14.2
+  version: 1.15.4
 
 build:
-  number: 1
+  number: 0
 
 requirements:
   host:

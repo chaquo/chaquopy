@@ -1,6 +1,6 @@
 diff -ur src-original/numpy/distutils/fcompiler/__init__.py src/numpy/distutils/fcompiler/__init__.py
 --- src-original/numpy/distutils/fcompiler/__init__.py	2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/distutils/fcompiler/__init__.py	2018-04-22 17:09:52.812356493 +0000
++++ src/numpy/distutils/fcompiler/__init__.py	2018-12-05 12:04:58.443647624 +0000
 @@ -333,9 +333,14 @@
                  unique_possibles.append(e)
  
@@ -19,7 +19,7 @@ diff -ur src-original/numpy/distutils/fcompiler/__init__.py src/numpy/distutils/
              return None
 diff -ur src-original/numpy/distutils/npy_pkg_config.py src/numpy/distutils/npy_pkg_config.py
 --- src-original/numpy/distutils/npy_pkg_config.py	2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/distutils/npy_pkg_config.py	2018-04-22 13:36:27.265045865 +0000
++++ src/numpy/distutils/npy_pkg_config.py	2018-12-05 12:04:58.443647624 +0000
 @@ -312,15 +312,14 @@
  
      # FIXME: document this. If pkgname is defined in the variables section, and
@@ -42,22 +42,9 @@ diff -ur src-original/numpy/distutils/npy_pkg_config.py src/numpy/distutils/npy_
  
      return LibraryInfo(name=meta["name"], description=meta["description"],
              version=meta["version"], sections=sections, vars=VariableSet(vars))
-diff -ur src-original/numpy/distutils/system_info.py src/numpy/distutils/system_info.py
---- src-original/numpy/distutils/system_info.py 2018-03-12 09:49:52.000000000 +0000
-+++ src/numpy/distutils/system_info.py  2018-04-17 12:42:12.265904840 +0000
-@@ -1876,7 +1876,8 @@
-         c = customized_ccompiler()
- 
-         tmpdir = tempfile.mkdtemp()
--        s = """void zungqr();
-+        # Chaquopy: added missing underscore (https://github.com/numpy/numpy/pull/10916)
-+        s = """void zungqr_();
-         int main(int argc, const char *argv[])
-         {
-             zungqr_();
 diff -ur src-original/numpy/f2py/f90mod_rules.py src/numpy/f2py/f90mod_rules.py
---- src-original/numpy/f2py/f90mod_rules.py    2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/f2py/f90mod_rules.py     2018-04-22 19:42:24.178863635 +0000
+--- src-original/numpy/f2py/f90mod_rules.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/f2py/f90mod_rules.py	2018-12-05 12:04:58.451647677 +0000
 @@ -46,6 +46,19 @@
              ret = ret + findf90modules(b)
      return ret
@@ -89,7 +76,7 @@ diff -ur src-original/numpy/f2py/f90mod_rules.py src/numpy/f2py/f90mod_rules.py
        end if
 diff -ur src-original/numpy/f2py/__init__.py src/numpy/f2py/__init__.py
 --- src-original/numpy/f2py/__init__.py	2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/f2py/__init__.py	2018-04-22 14:56:55.304772470 +0000
++++ src/numpy/f2py/__init__.py	2018-12-05 12:04:58.451647677 +0000
 @@ -9,7 +9,7 @@
  import sys
  
@@ -99,20 +86,9 @@ diff -ur src-original/numpy/f2py/__init__.py src/numpy/f2py/__init__.py
  from . import diagnose
  
  run_main = f2py2e.run_main
-@@ -69,6 +69,7 @@
-         f.close()
-     return status
- 
--from numpy.testing import _numpy_tester
--test = _numpy_tester().test
--bench = _numpy_tester().bench
-+# Chaquopy: disabled
-+# from numpy.testing import _numpy_tester
-+# test = _numpy_tester().test
-+# bench = _numpy_tester().bench
 diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
 --- src-original/numpy/__init__.py	2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/__init__.py	2018-04-22 16:48:56.253279855 +0000
++++ src/numpy/__init__.py	2018-12-05 12:04:58.443647624 +0000
 @@ -121,6 +121,15 @@
  
  if __NUMPY_SETUP__:
@@ -130,14 +106,15 @@ diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
      try:
          from numpy.__config__ import show as show_config
 diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py       2018-04-15 20:25:55.769497865 +0000
-+++ src/setup.py        2018-04-15 19:32:59.070017179 +0000
-@@ -39,6 +39,10 @@
+--- src-original/setup.py	2018-03-12 09:57:00.000000000 +0000
++++ src/setup.py	2018-12-05 14:25:56.223557337 +0000
+@@ -39,6 +39,11 @@
      import __builtin__ as builtins
  
  
 +# Chaquopy added
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
++os.environ["LDFLAGS"] += " -lm"  # NumPy doesn't use this everywhere it should.
 +
 +
  CLASSIFIERS = """\
