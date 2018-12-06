@@ -8,6 +8,11 @@
 
 FROM chaquopy-target
 
+# OpenCV requires Python 2 even when building for Python 3: see its patch.
+RUN apt-get update && \
+    apt-get -y install python && \
+    ln -sf python3.6 /usr/bin/python
+
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 
 # Miscellaneous build tools

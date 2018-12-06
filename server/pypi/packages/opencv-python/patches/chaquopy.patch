@@ -109,22 +109,23 @@ index 7acb02705..08f873e0a 100644
          "-DBUILD_opencv_python%d=ON" % sys.version_info[0],
          # Otherwise, opencv scripts would want to install `.pyd' right into site-packages,
          # and skbuild bails out on seeing that
-@@ -113,6 +117,64 @@ def main():
+@@ -113,6 +117,65 @@ def main():
          "-DBUILD_DOCS=OFF"
      ] + (["-DOPENCV_EXTRA_MODULES_PATH=" + os.path.abspath("opencv_contrib/modules")] if build_contrib else [])
  
 +    # Chaquopy: BEGIN additions
 +    from distutils.spawn import find_executable
 +
++    python_include_dir = None
 +    for word in os.environ["CFLAGS"].split():
-+        if word.startswith("-I") and "sources/python" in word:
++        if word.startswith("-I") and "include/python" in word:
 +            python_include_dir = word[2:]
 +    assert python_include_dir, os.environ["CFLAGS"]
 +
++    python_lib_dir = os.path.abspath(python_include_dir + "/../../lib")
++    python_lib = None
 +    for word in os.environ["LDFLAGS"].split():
-+        if word.startswith("-L") and "sources/python" in word:
-+            python_lib_dir = word[2:]
-+        elif word.startswith("-lpython"):
++        if word.startswith("-lpython"):
 +            python_lib = "lib{}.so".format(word[2:])
 +    assert python_lib_dir and python_lib, os.environ["LDFLAGS"]
 +

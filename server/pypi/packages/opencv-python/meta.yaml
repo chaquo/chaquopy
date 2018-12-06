@@ -1,5 +1,6 @@
-# "Unofficial" PyPI releases in this repository use a sequence number as the Git tag, which is
-# also added as a fourth version number component on PyPI.
+# The OpenCV releases on PyPI come from the unofficial skvark repository. Each release is
+# tagged with a sequence number, which is appended to the underlying OpenCV version to
+# form a 4-component version number on PyPI.
 
 package:
   name: opencv-python
@@ -12,7 +13,7 @@ source:
   git_rev: 16
 
 build:
-  number: 2
+  number: 3
 
 requirements:
   build:
@@ -21,5 +22,5 @@ requirements:
   host:
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3
-    - numpy 1.14.2
+    - numpy 1.15.4
     - python
