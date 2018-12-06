@@ -445,6 +445,13 @@ class TestAndroidStdlib(unittest.TestCase):
 
         self.assertTrue(ctypes.pythonapi.PyLong_FromString)
 
+    def test_datetime(self):
+        import datetime
+        # This is the interface to the native _datetime module, which is required by NumPy. The
+        # attribute will only exist if _datetime was available when datetime was first
+        # imported.
+        self.assertTrue(hasattr(datetime, "datetime_CAPI"))
+
     def test_lib2to3(self):
         # Requires grammar files to be available in stdlib zip.
         from lib2to3 import pygram  # noqa: F401
