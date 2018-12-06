@@ -78,7 +78,7 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-03-24 03:12:35.000000000 +0000
 +++ src/setup.py	2018-10-16 22:36:07.845070738 +0000
-@@ -33,6 +33,19 @@
+@@ -33,6 +33,22 @@
  else:
      import builtins
  
@@ -91,6 +91,9 @@ diff -ur src-original/setup.py src/setup.py
 +                    "include_dirs = {reqs_dir}/include\n"
 +                    "extra_link_args = -Wl,-rpath-link,{reqs_dir}/lib\n"
 +                    .format(reqs_dir=os.path.abspath("../requirements/chaquopy")))
++
++# Chaquopy added
++os.environ["LDFLAGS"] += " -lm"  # This isn't used everywhere it should be.
 +sys.path.append(os.path.abspath("../requirements"))  # For numpy.distutils
 +builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
 +
