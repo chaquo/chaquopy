@@ -24,12 +24,6 @@ RUN apt-get update && \
     ./$filename && \
     rm $filename
 
-# patchelf (see comment in packages/chaquopy-libgfortran/build.sh)
-RUN commit=6bfcafbba8d89e44f9ac9582493b4f27d9d8c369 && \
-    wget -q -O - https://github.com/NixOS/patchelf/archive/$commit.tar.gz | tar -xzf - && \
-    ( cd patchelf-$commit && ./bootstrap.sh && ./configure && make && make install ) && \
-    rm -r patchelf-$commit
-
 COPY requirements.txt pypi/
 RUN pip3.6 install -r pypi/requirements.txt
 

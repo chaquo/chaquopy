@@ -46,9 +46,11 @@ STANDARD_LIBS = {
     "libcrypto.so.1.0.0", "libsqlite3.so.0", "libssl.so.1.0.0",
 }
 
+# TODO: break out the build script fragments which get the actual version numbers from the
+# toolchain, and call them here.
 COMPILER_LIBS = {
-    "libgfortran.so.3": ("chaquopy-libgfortran", "TODO"),
-    "libc++_shared.so": ("chaquopy-libcxx", "7000"),  # See packages/chaquopy-libcxx.
+    "libgfortran.so.3": ("chaquopy-libgfortran", "4.9"),
+    "libc++_shared.so": ("chaquopy-libcxx", "7000"),
 }
 
 

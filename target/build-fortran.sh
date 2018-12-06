@@ -1,20 +1,36 @@
 #!/bin/bash
 set -eu
 
+# The stock GCC has Android support for ARM, but only Google's fork extends that to ARM64. So
+# we're building the Google fork of GCC 4.9, which was the last version to be included in the
+# NDK before they switched over to Clang. We install it into the toolchain in such a way that
+# it's only used for Fortran: C and C++ will still use the NDK's current version of Clang.
+#
+# The Google fork has many changes, so it's hard to tell how much work it would be to move to
+# the stock GCC, but it would at least require updating gcc/config/aarch64 to use the correct
+# Android filenames for start files (crt[...].o) and the dynamic linker (/system/bin/linker64).
+#
+# TODO: when building for x86, we may need the patch from
+# https://github.com/buffer51/android-gfortran#other-targets--hosts.
+
 target_dir=$(dirname $(realpath $0))
 toolchain=$(realpath ${1:?})
 
 cd $target_dir
 . build-common.sh
 
-# TODO: when building for x86, we may need the patch from
-# https://github.com/buffer51/android-gfortran#other-targets--hosts. It's not clear whether
-# this has been fixed in newer versions of GCC.
-
-mkdir gcc-build
-cd gcc-build
+src_dir=$(realpath gcc/gcc-4.9)
+build_dir=$(realpath gcc/build)
+rm -rf $build_dir
+mkdir -p $build_dir
+cd $build_dir
 export PATH=$PATH:$toolchain/bin  # For target assembler and linker.
-config_args="--target=$host_triplet --with-sysroot=$sysroot --enable-languages=c,fortran"  # FIXME remove `c`?
+
+config_args="--target=$host_triplet --enable-languages=c,fortran"
+
+# Since the sysroot is a subdirectory of the prefix, "it will be found relative to the GCC
+# binaries if the installation tree is moved" (https://gcc.gnu.org/install/configure.html).
+config_args+=" --prefix=$toolchain --with-sysroot=$sysroot"
 
 # Not simply using `--enable-shared`, because this would also enable a shared libgcc
 # (libgcc_s.so), which has the surprising effect of causing the static libgcc.a to have some
@@ -46,15 +62,26 @@ config_args+=" --enable-shared=libgfortran"
 # but would probably be harmless since it won't exist anyway.
 config_args+=" --disable-libquadmath --disable-libquadmath-support"
 
-../gcc/configure $config_args
-
+$src_dir/configure $config_args
 make -j $(nproc)
 
-# FIXME install:
-#
-# don't overwrite any existing files
-#
-# If --with-sysroot "is a subdirectory of ${exec_prefix}, then it will be found relative to the
-# GCC binaries if the installation tree is moved." Does the same apply to lib/gcc?
-#
-# rm -r gcc-build
+# We copy into the toolchain selectively to minimize the chance of breaking anything. However,
+# we do overwrite the existing copy of libgcc. The two copies should be very similar, but I
+# think GCC is more likely than Clang to make assumptions about exactly what's in it.
+install_dir=$(realpath ../install)
+rm -rf $install_dir
+make install DESTDIR=$install_dir
+cd $install_dir/$toolchain
+for path in \
+    aarch64-linux-android/lib64/libgfortran.* \
+    bin/aarch64-linux-android-gfortran \
+    lib/gcc/aarch64-linux-android/4.9.x/{finclude,include,include-fixed} \
+    lib/gcc/aarch64-linux-android/4.9.x/{libgcc.*,libgfortranbegin.*} \
+    libexec/gcc; do
+    rm -rf $toolchain/$path
+    mkdir -p $toolchain/$(dirname $path)
+    cp -a $path $toolchain/$path
+done
+rm -r $install_dir
+
+rm -r $build_dir
