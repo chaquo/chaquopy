@@ -583,7 +583,7 @@ diff -urN --no-dereference src-original/third_party/py/python_configure.bzl src/
    # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
    # See https://docs.python.org/3/extending/windows.html
    if _is_windows(repository_ctx):
-@@ -282,12 +289,26 @@
+@@ -282,12 +289,27 @@
      python_import_lib_genrule = _symlink_genrule_for_dir(
        repository_ctx, None, '', 'python_import_lib',
        [python_import_lib_src], [python_import_lib_name])
@@ -591,7 +591,8 @@ diff -urN --no-dereference src-original/third_party/py/python_configure.bzl src/
 +  # Chaquopy: no point in generating separate host and target rules for libpython, because
 +  # we'll never support building TensorFlow on Windows.
 +  python_import_lib_name = "lib" + repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB"] + ".so"
-+  python_import_lib_src = repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB_DIR"] + "/" + python_import_lib_name
++  python_import_lib_src = (repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"] +
++                           "/../../lib/" + python_import_lib_name)
 +  python_import_lib_genrule = _symlink_genrule_for_dir(
 +    repository_ctx, None, '', 'python_import_lib',
 +    [python_import_lib_src], [python_import_lib_name])

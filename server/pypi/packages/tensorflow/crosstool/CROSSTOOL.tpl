@@ -1,6 +1,6 @@
 # Chaquopy: this file is based on
-# https://github.com/bazelbuild/bazel/blob/0.16.1/tools/cpp/CROSSTOOLbazel/tools/cpp/CROSSTOOL,
-# specifically, the local_linux toolchain.
+# https://github.com/bazelbuild/bazel/blob/0.16.1/tools/cpp/CROSSTOOL, specifically, the
+# local_linux toolchain.
 
 # Chaquopy: Compulsory but unused.
 major_version: ""
@@ -40,6 +40,7 @@ toolchain {
 
   cxx_builtin_include_directory: "%{CHAQUOPY_TOOLCHAIN}/include"
   cxx_builtin_include_directory: "%{CHAQUOPY_TOOLCHAIN}/lib/gcc"
+  cxx_builtin_include_directory: "%{CHAQUOPY_TOOLCHAIN}/lib64/clang"
   cxx_builtin_include_directory: "%{CHAQUOPY_TOOLCHAIN}/sysroot/usr/include"
 
   tool_path { name: "gcov" path: "%{CHAQUOPY_TOOL_PREFIX}gcov" }
@@ -55,9 +56,11 @@ toolchain {
   tool_path { name: "objdump" path: "%{CHAQUOPY_TOOL_PREFIX}objdump" }
   tool_path { name: "strip" path: "%{CHAQUOPY_TOOL_PREFIX}strip" }
 
+  # Chaquopy: disabled these: they're not supported by Clang in NDK r18.
+  #
   # Anticipated future default.
-  unfiltered_cxx_flag: "-no-canonical-prefixes"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
+  # unfiltered_cxx_flag: "-no-canonical-prefixes"
+  # unfiltered_cxx_flag: "-fno-canonical-system-headers"
 
   # Make C++ compilation deterministic. Use linkstamping instead of these
   # compiler symbols.
@@ -82,20 +85,26 @@ toolchain {
 
   # All warnings are enabled. Maybe enable -Werror as well?
   compiler_flag: "-Wall"
+
+  # Chaquopy: disabled these: they're not supported by Clang in NDK r18.
+  #
   # Enable a few more warnings that aren't part of -Wall.
-  compiler_flag: "-Wunused-but-set-parameter"
+  # compiler_flag: "-Wunused-but-set-parameter"
   # But disable some that are problematic.
-  compiler_flag: "-Wno-free-nonheap-object" # has false positives
+  # compiler_flag: "-Wno-free-nonheap-object" # has false positives
 
   # Keep stack frames for debugging, even in opt mode.
   compiler_flag: "-fno-omit-frame-pointer"
 
   %{CHAQUOPY_COMPILER_FLAGS}
 
+  # Chaquopy: disabled these: they're not supported by Clang in NDK r18.
+  #
   # Anticipated future default.
-  linker_flag: "-no-canonical-prefixes"
+  # linker_flag: "-no-canonical-prefixes"
   # Have gcc return the exit code from ld.
-  linker_flag: "-pass-exit-codes"
+  # linker_flag: "-pass-exit-codes"
+
   # Gold linker only? Can we enable this by default?
   # linker_flag: "-Wl,--warn-execstack"
   # linker_flag: "-Wl,--detect-odr-violations"

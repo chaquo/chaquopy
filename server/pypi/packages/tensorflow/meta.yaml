@@ -3,7 +3,7 @@ package:
   version: 1.10.1
 
 build:
-  number: 7
+  number: 8
 
 source:
   url: https://github.com/tensorflow/tensorflow/archive/v1.10.1.tar.gz
@@ -11,7 +11,7 @@ source:
 requirements:
   # Everything is built for the host machine too: see README.md.
   build:
-    - numpy 1.14.2
+    - numpy 1.15.4
   host:
     - python
-    - numpy 1.14.2
+    - numpy 1.15.4

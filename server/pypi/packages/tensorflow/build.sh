@@ -17,7 +17,7 @@ fi
 compiler_flags=""
 for flag in $CFLAGS; do
     if echo $flag | grep -q "^-I"; then
-        if echo $flag | grep -q "sources/python"; then
+        if echo $flag | grep -q "include/python"; then
             python_include_dir=$(echo $flag | sed 's/^..//')
         else
             echo "Unknown flag: $flag"; exit 1
@@ -30,11 +30,7 @@ done
 linker_flags=""
 for flag in $LDFLAGS; do
     if echo $flag | grep -q "^-L"; then
-        if echo $flag | grep -q "sources/python"; then
-            python_lib_dir=$(echo $flag | sed 's/^..//')
-        else
-            echo "Unknown flag: $flag"; exit 1
-        fi
+        echo "Unknown flag: $flag"; exit 1
     elif echo $flag | grep -q "^-l"; then
         if echo $flag | grep -q "lpython"; then
             python_lib=$(echo $flag | sed 's/^..//')
@@ -104,7 +100,6 @@ for cmd in build cquery; do cat >>.tf_configure.bazelrc <<EOF
 # The following environment variables are used by third_party/py/python_configure.bzl.
 $cmd --action_env SRC_DIR=$SRC_DIR
 $cmd --action_env CHAQUOPY_PYTHON_INCLUDE_DIR=$python_include_dir
-$cmd --action_env CHAQUOPY_PYTHON_LIB_DIR=$python_lib_dir
 $cmd --action_env CHAQUOPY_PYTHON_LIB=$python_lib
 $cmd --crosstool_top=//chaquopy/crosstool
 $cmd --cpu=chaquopy
