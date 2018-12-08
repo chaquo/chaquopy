@@ -6,7 +6,7 @@ requirements:
   host:
     - chaquopy-freetype 2.9.1
     - chaquopy-libpng 1.6.34
-    - numpy 1.15.4
+    - numpy 1.14.2
 
 build:
   number: 1

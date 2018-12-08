@@ -11,7 +11,7 @@ source:
 requirements:
   # Everything is built for the host machine too: see README.md.
   build:
-    - numpy 1.15.4
+    - numpy 1.14.2
   host:
     - python
-    - numpy 1.15.4
+    - numpy 1.14.2
