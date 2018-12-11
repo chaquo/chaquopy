@@ -918,7 +918,7 @@ class RunGradle(object):
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
     @kwonly_defaults
-    def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
+    def check_apk(self, apk_zip, apk_dir, abis=["arm64-v8a"], classes=[], app=[],
                   requirements=[], reqs_versions=None, extract_packages=[], licensed_id=None,
                   **kwargs):
         kwargs = KwargsWrapper(kwargs)
@@ -953,8 +953,10 @@ class RunGradle(object):
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertEqual(sorted(abis), sorted(os.listdir(bootstrap_native_dir)))
         for abi in abis:
-            self.test.assertEqual(["_ctypes.so", "java", "select.so"],
-                                  sorted(os.listdir(join(bootstrap_native_dir, abi))))
+            self.test.assertCountEqual(
+                ["java", "_ctypes.so", "_datetime.so", "_struct.so", "binascii.so", "math.so",
+                 "mmap.so", "zlib.so"],
+                os.listdir(join(bootstrap_native_dir, abi)))
             self.test.assertEqual(["__init__.py", "chaquopy.so"],
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
@@ -965,17 +967,24 @@ class RunGradle(object):
         for abi in abis:
             stdlib_native_zip = ZipFile(join(stdlib_native_dir, abi + ".zip"))
             self.test.assertCountEqual(
-                ["_hashlib.so", "_multiprocessing.so", "_socket.so", "_sqlite3.so",
-                 "_ssl.so", "pyexpat.so", "unicodedata.so"],
+                ["_asyncio.so", "_bisect.so", "_blake2.so", "_codecs_cn.so", "_codecs_hk.so",
+                 "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so", "_codecs_tw.so",
+                 "_crypt.so", "_csv.so", "_decimal.so", "_elementtree.so", "_hashlib.so",
+                 "_heapq.so", "_json.so", "_lsprof.so", "_md5.so", "_multibytecodec.so",
+                 "_multiprocessing.so", "_opcode.so", "_pickle.so", "_posixsubprocess.so",
+                 "_random.so", "_sha1.so", "_sha256.so", "_sha3.so", "_sha512.so", "_socket.so",
+                 "_sqlite3.so", "_ssl.so", "array.so", "audioop.so", "cmath.so", "fcntl.so",
+                 "grp.so", "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so",
+                 "select.so", "syslog.so", "termios.so", "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())
 
         # libs
         self.test.assertCountEqual(abis, os.listdir(join(apk_dir, "lib")))
         for abi in abis:
             self.test.assertCountEqual(
-                ["libchaquopy_java.so", "libcrypto_chaquopy.so", "libcrystax.so",
+                ["libchaquopy_java.so", "libcrypto_chaquopy.so",
                  f"libpython{PYTHON_VERSION_SHORT}m.so", "libssl_chaquopy.so",
-                 "libsqlite3.so"],
+                 "libsqlite_chaquopy.so"],
                 os.listdir(join(apk_dir, "lib", abi)))
 
         # Chaquopy runtime library
