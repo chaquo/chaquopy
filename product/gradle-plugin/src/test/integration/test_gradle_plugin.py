@@ -119,12 +119,12 @@ class Basic(GradleTestCase):
 # Test that new versions of build-packages.zip are correctly extracted and used.
 class ChaquopyPlugin(GradleTestCase):
     # Since this version, the extracted copy of build-packages.zip has been renamed to bp.zip.
-    # We distinguish the old version by its inability to install sdists.
+    # We distinguish the old version by it not supporting arm64-v8a.
     def test_upgrade_3_0_0(self):
         run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_0_0", succeed=False)
-        self.assertInLong("Chaquopy does not support sdist packages", run.stderr)
+        self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
         run.apply_layers("ChaquopyPlugin/upgrade_current")
-        run.rerun(requirements=["alpha_dep/__init__.py"])
+        run.rerun(abis=["arm64-v8a"])
 
     # Since this version, there has been no change in the build-packages.zip filename. We
     # distinguish the old version by it not supporting arm64-v8a.
@@ -228,13 +228,15 @@ class AbiFilters(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
         self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
-                          "Supported ABIs are [armeabi-v7a, arm64-v8a, x86].", run.stderr)
+                          "Supported ABIs are [arm64-v8a].", run.stderr)
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_variant(self):
         self.RunGradle("base", "AbiFilters/variant",
                        variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},
                                  "x86-debug":         {"abis": ["x86"]}})
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_variant_merge(self):
         self.RunGradle("base", "AbiFilters/variant_merge",
                        variants={"x86-debug":  {"abis": ["x86"]},
@@ -250,6 +252,7 @@ class AbiFilters(GradleTestCase):
     # ....\app\build\intermediates\transforms\stripDebugSymbol\release\folders\2000\1f\main\lib\armeabi-v7a
     # I've reported https://issuetracker.google.com/issues/62291921. Other people have had
     # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
+    @skip("This branch currently supports arm64-v8a only")
     def test_change(self):
         run = self.RunGradle("base")
         run.apply_layers("AbiFilters/2")
@@ -434,6 +437,7 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("base")
         run.rerun()
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_download(self):
         self.RunGradle("base", "PythonReqs/download", abis=["armeabi-v7a", "x86"],
                        requirements={"common": ["_regex_core.py", "regex.py", "test_regex.py",
@@ -514,6 +518,7 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_wheel_index(self):
         # If testing on another platform, add it to the list below, and add corresponding
         # wheels to packages/dist.
@@ -540,6 +545,7 @@ class PythonReqs(GradleTestCase):
     #   1.3: compatible native wheel
     #   1.6: incompatible native wheel (should be ignored)
     #   2.0: sdist
+    @skip("This branch currently supports arm64-v8a only")
     def test_mixed_index(self):
         # With no version restriction, the compatible native wheel is preferred over the sdist,
         # despite having a lower version.
@@ -596,6 +602,7 @@ class PythonReqs(GradleTestCase):
                           self.tracker_advice() + r"$",
                           run.stderr, re=True)
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi(self):
         def post_check(apk_zip, apk_dir, kwargs):
             asset_dir = join(apk_dir, "assets/chaquopy")
@@ -624,6 +631,7 @@ class PythonReqs(GradleTestCase):
                           "x86": ["module_x86.pyd",
                                   "pkg/submodule_x86.pyd"]})
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_variant(self):
         variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
                                           "requirements": ["apple/__init__.py",
@@ -639,6 +647,7 @@ class PythonReqs(GradleTestCase):
                                                            "pkg/submodule_x86.pyd"]}}
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
+    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_clash(self):
         self.RunGradle(
             "base", "PythonReqs/multi_abi_clash", abis=["armeabi-v7a", "x86"],
@@ -652,6 +661,7 @@ class PythonReqs(GradleTestCase):
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
+    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_order(self):
         # armeabi-v7a will install a pure-Python wheel, so the requirement will not be
         # installed again for x86, even though an x86 wheel is available.
@@ -682,6 +692,7 @@ class PythonReqs(GradleTestCase):
     #
     # All versions of dd.py are padded out to the same length to verify that the hash is being
     # checked and not just the length.
+    @skip("This branch currently supports arm64-v8a only")
     def test_duplicate_filenames(self):
         run = self.RunGradle(
             "base", "PythonReqs/duplicate_filenames_np",  # Native, then pure.
@@ -719,6 +730,7 @@ class PythonReqs(GradleTestCase):
     # This test also installs 4 additional single_file packages: one each at the beginning and
     # end of the alphabet, both before and after the duplicate_filenames packages. This
     # exercises the .dist-info processing a bit more (see commit on 2018-06-17).
+    @skip("This branch currently supports arm64-v8a only")
     def test_duplicate_filenames_single_abi(self):
         run = self.RunGradle(
             "base", "PythonReqs/duplicate_filenames_single_abi_pn",

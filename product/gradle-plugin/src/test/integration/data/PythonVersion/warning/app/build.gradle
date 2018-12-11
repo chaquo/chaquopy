@@ -14,7 +14,7 @@ android {
             version "3.6.5"
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "arm64-v8a"
         }
     }
 }

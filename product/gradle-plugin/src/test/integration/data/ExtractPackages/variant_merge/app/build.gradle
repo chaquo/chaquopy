@@ -13,7 +13,7 @@ android {
             extractPackages "common"
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "arm64-v8a"
         }
     }
 

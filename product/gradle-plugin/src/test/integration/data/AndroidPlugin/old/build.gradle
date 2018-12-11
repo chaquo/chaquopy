@@ -3,6 +3,12 @@ buildscript {
 
     repositories {
         jcenter()
+        maven {
+            // As of 2018-12-11, the Android Gradle plugin is missing from jcenter
+            // (https://issuetracker.google.com/issues/120759347), and the Google Maven
+            // repository only has version 3.0 and later.
+            url "https://dl.bintray.com/android/android-tools"
+        }
         maven { url "${System.getenv('chaquopy_root')}/maven" }
     }
     dependencies {

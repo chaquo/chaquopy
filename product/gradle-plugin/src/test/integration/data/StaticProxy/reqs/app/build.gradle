@@ -18,7 +18,7 @@ android {
             staticProxy "chaquopy_test.a", "chaquopy_test.b"
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "arm64-v8a"
         }
     }
 }
