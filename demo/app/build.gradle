@@ -45,6 +45,7 @@ android {
             // buildPython "C:/Python27/python.exe"
 
             pip {
+                options "--index-url", "https://pypi.org/simple"  // Disable chaquo.com index.
                 options "--extra-index-url", "../../server/pypi/dist"
             }
 

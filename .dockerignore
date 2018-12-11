@@ -8,6 +8,8 @@
 !apps
 !demo
 !maven
+!server/pypi/packages
+!server/pypi/pkgtest
 !server/pypi/dist
 
 **/.gradle/

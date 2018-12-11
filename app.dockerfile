@@ -1,7 +1,10 @@
-FROM chaquopy-target
+FROM debian:stretch-20180831
+SHELL ["/bin/bash", "-c"]
+WORKDIR /root
 
 RUN apt-get update && \
-    apt-get install -y openjdk-8-jdk-headless
+    apt-get install -y openjdk-8-jdk-headless python3 unzip wget
+RUN echo "progress=dot:giga" > .wgetrc
 
 RUN filename=sdk-tools-linux-4333796.zip && \
     wget https://dl.google.com/android/repository/$filename && \

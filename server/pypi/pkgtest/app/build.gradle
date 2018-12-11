@@ -4,6 +4,14 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
+// Packages known to work on this branch (see build-***REMOVED***.sh).
+ext.DEFAULT_INCLUDE_PACKAGES = [
+    "markupsafe", "chaquopy-libcxx", "murmurhash", "chaquopy-libgfortran", "chaquopy-openblas",
+    "numpy", "scipy", "chaquopy-libzmq", "pyzmq", "kiwisolver", "chaquopy-freetype",
+    "chaquopy-libjpeg", "chaquopy-libpng", "pillow", "matplotlib", "opencv-python",
+    "chaquopy-hdf5", "h5py", "grpcio", "tensorflow"
+]
+
 // Packages not to include in regular pre-release testing because they're very large and not
 // that popular.
 ext.DEFAULT_EXCLUDE_PACKAGES = [
@@ -32,12 +40,11 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
-        // To test only some packages, replace `null` with a list.
-        addPackages(delegate, include: null)
+        addPackages(delegate, include: DEFAULT_INCLUDE_PACKAGES)
         python {
             pip {
-                // After a package is tested, remember to move it to the public repository!
-                options "--extra-index-url", "https://chaquo.com/pypi-test/"
+                options "--index-url", "https://pypi.org/simple"  // Disable chaquo.com index.
+                options "--extra-index-url", "../../dist"
             }
         }
 
