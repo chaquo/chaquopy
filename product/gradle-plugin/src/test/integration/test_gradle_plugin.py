@@ -5,9 +5,10 @@ import distutils.util
 import hashlib
 import json
 import os
-from os.path import abspath, dirname, join, relpath
+from os.path import abspath, dirname, exists, join, relpath
 import re
 import subprocess
+from subprocess import check_output
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
@@ -988,7 +989,7 @@ class RunGradle(object):
                 os.listdir(join(apk_dir, "lib", abi)))
 
         # Chaquopy runtime library
-        actual_classes = dex_classes(join(apk_dir, "classes.dex"))
+        actual_classes = dex_classes(apk_dir)
         self.test.assertIn("com.chaquo.python.Python", actual_classes)
 
         # App Java classes
@@ -1059,20 +1060,33 @@ class KwargsWrapper(object):
         return self.kwargs[key]
 
 
-def dex_classes(dex_filename):
+def dex_classes(apk_dir):
     # The following properties file should be created manually. It's also used in
     # runtime/build.gradle.
     with open(join(repo_root, "product/local.properties")) as props_file:
         props = javaproperties.load(props_file)
     build_tools_dir = join(props["sdk.dir"], "build-tools")
     newest_ver = sorted(os.listdir(build_tools_dir))[-1]
-    dexdump = subprocess.check_output([join(build_tools_dir, newest_ver, "dexdump"),
-                                       dex_filename], universal_newlines=True)
+    dexdump_cmd = f"{build_tools_dir}/{newest_ver}/dexdump"
+
     classes = []
-    for line in dexdump.splitlines():
-        match = re.search(r"Class descriptor *: *'L(.*);'", line)
-        if match:
-            classes.append(match.group(1).replace("/", "."))
+    file_num = 1
+    while True:
+        # Multidex is used by default in debug builds when minSdkVersion is 21 or higher
+        # (https://developer.android.com/studio/build/multidex).
+        dex_filename = f"{apk_dir}/classes{file_num if (file_num > 1) else ''}.dex"
+        if exists(dex_filename):
+            for line in check_output([dexdump_cmd, dex_filename],
+                                     universal_newlines=True).splitlines():
+                match = re.search(r"Class descriptor *: *'L(.*);'", line)
+                if match:
+                    classes.append(match.group(1).replace("/", "."))
+        else:
+            if file_num == 1:
+                raise Exception(f"{dex_filename} does not exist")
+            break
+        file_num += 1
+
     return classes
 
 
