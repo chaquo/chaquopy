@@ -1,0 +1,122 @@
+diff -ur src-original/numpy/distutils/fcompiler/__init__.py src/numpy/distutils/fcompiler/__init__.py
+--- src-original/numpy/distutils/fcompiler/__init__.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/distutils/fcompiler/__init__.py	2018-12-05 12:04:58.443647624 +0000
+@@ -333,9 +333,14 @@
+                 unique_possibles.append(e)
+ 
+             for exe in unique_possibles:
+-                fc_exe = cached_find_executable(exe)
++                # Chaquopy: handle multi-word executables like LDSHARED="path/to/gcc -shared"
++                exe_split = split_quoted(exe)
++                fc_exe = cached_find_executable(exe_split[0])
+                 if fc_exe:
+                     cmd[0] = fc_exe
++                    for arg in exe_split[1:]:
++                        if arg not in cmd:
++                            cmd.append(arg)
+                     return fc_exe
+             self.set_command(exe_key, None)
+             return None
+diff -ur src-original/numpy/distutils/npy_pkg_config.py src/numpy/distutils/npy_pkg_config.py
+--- src-original/numpy/distutils/npy_pkg_config.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/distutils/npy_pkg_config.py	2018-12-05 12:04:58.443647624 +0000
+@@ -312,15 +312,14 @@
+ 
+     # FIXME: document this. If pkgname is defined in the variables section, and
+     # there is no pkgdir variable defined, pkgdir is automatically defined to
+-    # the path of pkgname. This requires the package to be imported to work
++    # the path of pkgname.
++    # Chaquopy: edited to use find_module so the module doesn't have to be imported.
+     if not 'pkgdir' in vars and "pkgname" in vars:
++        import imp
+         pkgname = vars["pkgname"]
+-        if not pkgname in sys.modules:
+-            raise ValueError("You should import %s to get information on %s" %
+-                             (pkgname, meta["name"]))
+-
+-        mod = sys.modules[pkgname]
+-        vars["pkgdir"] = _escape_backslash(os.path.dirname(mod.__file__))
++        pkgs = pkgname.split(".")
++        _, top_dir, _ = imp.find_module(pkgs[0])
++        vars["pkgdir"] = _escape_backslash(os.path.join(top_dir, *pkgs[1:]))
+ 
+     return LibraryInfo(name=meta["name"], description=meta["description"],
+             version=meta["version"], sections=sections, vars=VariableSet(vars))
+diff -ur src-original/numpy/f2py/f90mod_rules.py src/numpy/f2py/f90mod_rules.py
+--- src-original/numpy/f2py/f90mod_rules.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/f2py/f90mod_rules.py	2018-12-05 12:04:58.451647677 +0000
+@@ -46,6 +46,19 @@
+             ret = ret + findf90modules(b)
+     return ret
+ 
++# Chaquopy: get this from the generated header file rather than the build machine.
++import os
++import pkgutil
++numpyconfig_h = pkgutil.get_data("numpy", "core/include/numpy/_numpyconfig.h").decode("UTF-8")
++for line in numpyconfig_h.splitlines():
++    words = line.split()
++    # This is valid because npy_common.h has `#define NPY_SIZEOF_INTP NPY_SIZEOF_PY_INTPTR_T`.
++    if (len(words) == 3) and (words[:2] == ["#define", "NPY_SIZEOF_PY_INTPTR_T"]):
++        SIZEOF_INTP = int(words[2])
++        break
++else:
++    raise Exception("Couldn't determine SIZEOF_INTP")
++
+ fgetdims1 = """\
+       external f2pysetdata
+       logical ns
+@@ -62,7 +75,7 @@
+             deallocate(d)
+          end if
+       end if
+-      if ((.not.allocated(d)).and.(s(1).ge.1)) then""" % np.intp().itemsize
++      if ((.not.allocated(d)).and.(s(1).ge.1)) then""" % SIZEOF_INTP
+ 
+ fgetdims2 = """\
+       end if
+diff -ur src-original/numpy/f2py/__init__.py src/numpy/f2py/__init__.py
+--- src-original/numpy/f2py/__init__.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/f2py/__init__.py	2018-12-05 12:04:58.451647677 +0000
+@@ -9,7 +9,7 @@
+ import sys
+ 
+ from . import f2py2e
+-from . import f2py_testing
++# from . import f2py_testing  # Chaquopy: disabled
+ from . import diagnose
+ 
+ run_main = f2py2e.run_main
+diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
+--- src-original/numpy/__init__.py	2018-02-28 17:03:26.000000000 +0000
++++ src/numpy/__init__.py	2018-12-05 12:04:58.443647624 +0000
+@@ -121,6 +121,15 @@
+ 
+ if __NUMPY_SETUP__:
+     sys.stderr.write('Running from numpy source directory.\n')
++
++    # Chaquopy: the module namespace was originally empty in this mode, but the following
++    # things are neded by the SciPy build.
++    def get_include():
++        import os
++        return os.path.join(os.path.dirname(__file__), 'core', 'include')
++
++    from .version import version as __version__
++
+ else:
+     try:
+         from numpy.__config__ import show as show_config
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-03-12 09:57:00.000000000 +0000
++++ src/setup.py	2018-12-05 14:25:56.223557337 +0000
+@@ -39,6 +39,11 @@
+     import __builtin__ as builtins
+ 
+ 
++# Chaquopy added
++os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
++os.environ["LDFLAGS"] += " -lm"  # NumPy doesn't use this everywhere it should.
++
++
+ CLASSIFIERS = """\
+ Development Status :: 5 - Production/Stable
+ Intended Audience :: Science/Research
