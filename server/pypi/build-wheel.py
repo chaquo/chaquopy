@@ -31,10 +31,11 @@ import yaml
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
-HOST_PLATFORM = "linux-x86_64"
 GCC_VERSION = "4.9"
-PYTHON_VERSIONS = ["2.7", "3.6"]
+PYTHON_VERSION = "3.6"
+PYTHON_SUFFIX = PYTHON_VERSION + "m"
 
+# All libraries are listed under their SONAMEs.
 STANDARD_LIBS = {
     # Android-provided libraries up to API level 15
     # (https://developer.android.com/ndk/guides/stable_apis).
@@ -112,8 +113,6 @@ class BuildWheel:
 
     def unpack_and_build(self):
         if self.needs_python:
-            if not self.python:
-                raise CommandError("The --python argument is required for this package.")
             self.find_python()
         else:
             self.compat_tag = f"py2.py3-none-{self.platform_tag}"
@@ -172,8 +171,6 @@ class BuildWheel:
         ap.add_argument("--build-toolchain", action="store_true", help="Rebuild standalone "
                         "toolchain. Will happen automatically if toolchain doesn't already "
                         "exist for this ABI and API level.")
-        ap.add_argument("--python", metavar="VERSION", choices=PYTHON_VERSIONS,
-                        help="Python version (choices: %(choices)s)")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
                         help="Choices: %(choices)s")
         ap.add_argument("--api-level", metavar="N", type=int,
@@ -188,30 +185,21 @@ class BuildWheel:
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
 
     def find_python(self):
-        python_dir = f"{self.ndk}/sources/python/{self.python}"
+        python_dir = f"{self.ndk}/sources/python/{PYTHON_VERSION}"
         self.python_include_dir = f"{python_dir}/include/python"
         assert_isdir(self.python_include_dir)
 
         self.python_lib_dir = f"{python_dir}/libs/{self.abi}"
-        assert_isdir(self.python_lib_dir)
-        for name in os.listdir(self.python_lib_dir):
-            match = re.match(r"libpython(.*)\.so", name)
-            if match:
-                STANDARD_LIBS.add(name)
-                self.python_lib_version = match.group(1)
+        python_lib = f"{self.python_lib_dir}/libpython{PYTHON_SUFFIX}.so"
+        assert_exists(python_lib)
+        STANDARD_LIBS.add(basename(python_lib))
 
-                # We require the build and target Python versions to be the same, because
-                # many native build scripts are affected by sys.version, especially to
-                # distinguish between Python 2 and 3. To install multiple Python versions
-                # in one virtualenv, simply run mkvirtualenv again with a different -p
-                # argument.
-                self.pip = f"pip{self.python} --disable-pip-version-check"
-                break
-        else:
-            raise CommandError(f"Can't find libpython*.so in {self.python_lib_dir}")
+        # We require the build and target Python versions to be the same, because
+        # many native build scripts are affected by sys.version.
+        self.pip = f"pip{PYTHON_VERSION} --disable-pip-version-check"
 
-        self.compat_tag = (f"cp{self.python.replace('.', '')}-"
-                           f"cp{self.python_lib_version.replace('.', '')}-"
+        self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
+                           f"cp{PYTHON_SUFFIX.replace('.', '')}-"
                            f"{self.platform_tag}")
 
     def unpack_source(self):
@@ -291,7 +279,7 @@ class BuildWheel:
         os.environ.update({
             "CHAQUOPY_ABI": self.abi,
             "CHAQUOPY_ABI_VARIANT": ABIS[self.abi].variant,
-            "CHAQUOPY_PYTHON": self.python,
+            "CHAQUOPY_PYTHON": PYTHON_VERSION,
             "CPU_COUNT": str(multiprocessing.cpu_count())  # Conda variable name.
         })
         build_script = f"{self.package_dir}/build.sh"
@@ -448,7 +436,7 @@ class BuildWheel:
             # have a header which isn't present in the target Python include directory. The
             # only way I can see to avoid this is to set CC to a wrapper script.
             env["CFLAGS"] += f" -I{self.python_include_dir}"
-            env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{self.python_lib_version}"
+            env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{PYTHON_SUFFIX}"
 
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
         if "openssl" in self.bundled_reqs:
@@ -505,7 +493,7 @@ class BuildWheel:
                     # Variables used by pybind11
                     SET(PYTHONLIBS_FOUND TRUE)
                     SET(PYTHON_LIBRARIES
-                        {self.python_lib_dir}/libpython{self.python_lib_version}.so)
+                        {self.python_lib_dir}/libpython{PYTHON_SUFFIX}.so)
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
