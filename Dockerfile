@@ -37,7 +37,6 @@ ARG license_mode
 
 RUN (echo sdk.dir=$(pwd)/android-sdk && \
      echo ndk.dir=$(pwd)/android-ndk && \
-     echo crystax.dir=$(pwd)/crystax && \
      echo chaquopy.license_mode=$license_mode) > product/local.properties
 
 COPY VERSION.txt ./

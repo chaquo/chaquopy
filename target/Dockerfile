@@ -22,9 +22,13 @@ RUN apt-get update && \
     ln -s python3.6 /usr/bin/python && \
     ln -s python3.6 /usr/bin/python3
 
-ENV toolchain="/root/target/toolchains/arm64-v8a"
-RUN android-ndk/build/tools/make_standalone_toolchain.py --arch arm64 --api 23 \
-        --install-dir $toolchain
+ARG abi
+RUN test -n "$abi"
+ARG api
+RUN test -n "$api"
+ENV toolchain="/root/target/toolchains/$abi"
+COPY build-toolchain.sh target/
+RUN target/build-toolchain.sh android-ndk $abi $api
 
 # Fortran compiler (for OpenBLAS and SciPy)
 RUN apt-get update && \

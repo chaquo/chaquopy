@@ -73,10 +73,10 @@ rm -rf $install_dir
 make install DESTDIR=$install_dir
 cd $install_dir/$toolchain
 for path in \
-    aarch64-linux-android/lib64/libgfortran.* \
-    bin/aarch64-linux-android-gfortran \
-    lib/gcc/aarch64-linux-android/4.9.x/{finclude,include,include-fixed} \
-    lib/gcc/aarch64-linux-android/4.9.x/{libgcc.*,libgfortranbegin.*} \
+    $host_triplet/lib*/libgfortran.* \
+    bin/$host_triplet-gfortran \
+    lib/gcc/$host_triplet/4.9.x/{finclude,include,include-fixed} \
+    lib/gcc/$host_triplet/4.9.x/{libgcc.*,libgfortranbegin.*} \
     libexec/gcc; do
     rm -rf $toolchain/$path
     mkdir -p $toolchain/$(dirname $path)
