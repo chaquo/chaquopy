@@ -63,7 +63,11 @@ class Abi:
     ldflags: str = field(default="")
 
 ABIS = {abi.name: abi for abi in [
-    Abi("arm64-v8a", 23, "aarch64-linux-android"),
+    Abi("armeabi-v7a", 15, "arm-linux-androideabi",
+        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
+        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
+    Abi("arm64-v8a", 21, "aarch64-linux-android"),
+    Abi("x86", 15, "i686-linux-android"),
 ]}
 
 
