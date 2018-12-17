@@ -410,10 +410,6 @@ class BuildWheel:
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
 
-            # For some reason the arm64-v8a compiler doesn't have this as a default setting.
-            # This breaks anything which builds executables, e.g. during feature tests.
-            f"-Wl,--rpath-link,{toolchain_dir}/sysroot/usr/lib",
-
             abi.ldflags])
 
         reqs_prefix = f"{self.reqs_dir}/chaquopy"
@@ -507,6 +503,15 @@ class BuildWheel:
                 f"--toolchain={abi.toolchain}-{GCC_VERSION} "
                 f"--platform=android-{self.api_level} "
                 f"--install-dir={toolchain_dir}")
+
+            # The Crystax toolchains have ld.gold as the default linker for armeabi-v7a and
+            # x86, while ld.bfd is the default in arm64-v8a: I haven't looked into why this
+            # happens. ld.bfd sometimes doesn't work because it tries to transitively resolve
+            # symbols in shared libraries. This would require us to pass -rpath link when using
+            # requirements which are linked against each other. and would also prevent us from
+            # using libraries (e.g. OpenBLAS) which were built with the Google NDK and have
+            # versioned symbol references (e.g. `malloc@LIBC`).
+            run(f"ln -sf {abi.tool_prefix}-ld.gold {toolchain_dir}/bin/{abi.tool_prefix}-ld")
 
             # On Android, libpthread is incorporated into libc. Create an empty library so we
             # don't have to patch everything that links against it.
