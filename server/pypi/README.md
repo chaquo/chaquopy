@@ -26,15 +26,16 @@ ABI.
 Copy the resulting wheels from `packages/<subdir>/dist` to a private package repository (edit
 `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
-Temporarily add the new package to `PACKAGES` in `pkgtest/app/build.gradle`. If planning to
+Temporarily add the new package to `pkgtest/app/build.gradle`. If planning to
 release the package before the next version of the SDK, also temporarily edit
-`pkgtest/build.gradle` to test with the current released SDK.
+`pkgtest/build.gradle` to test with the current released version.
 
-Then build and run the app for both Python 2 and 3 on:
+Then test the app on the following devices, with at least one device being a clean install:
 
-* minSdkVersion emulator, or API 18 if "too many libraries" error occurs.
+* minSdkVersion emulator, or API 18 if "too many libraries" error occurs (#5316)
 * targetSdkVersion emulator
-* Any ARM device
+* Any armeabi-v7a device
+* Any arm64-v8a device
 
 Once everything's working, move the wheels to the public package repository, and go through the
 public release procedure.

@@ -102,5 +102,5 @@ consider postponing the remaining steps until that version is released.
 Update any GitHub issues.
 
 Email any affected users, including anyone who emailed, commented or thumbed up a related
-issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover discover
+issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
 potential users in the future.
