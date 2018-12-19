@@ -241,12 +241,14 @@ class BuildWheel:
             log("Using existing source archive")
         else:
             result = run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
-                         f"--no-binary :all: {self.package}=={self.version}", check=False)
+                         f"--no-binary {self.package} --no-build-isolation "
+                         f"{self.package}=={self.version}", check=False)
             if result.returncode:
                 # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
-                # downloaded sdist (https://github.com/pypa/pip/issues/1884). If this fails, we
-                # can't work around it by patching the package, because we haven't had a chance
-                # to apply the patches yet.
+                # downloaded sdist, which installs anything in `setup_requires`
+                # (https://github.com/pypa/pip/issues/1884). If this fails or takes a long
+                # time, we can't work around it by patching the package, because we haven't had
+                # a chance to apply the patches yet.
                 warn(f"pip download returned exit status {result.returncode}")
             sdist_filename = self.find_sdist()
             if not sdist_filename:
