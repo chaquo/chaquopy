@@ -7,7 +7,7 @@ import com.chaquo.python.Common
 // Packages known to work on this branch (see build-***REMOVED***.sh).
 ext.DEFAULT_INCLUDE_PACKAGES = [
     "markupsafe", "chaquopy-libcxx", "murmurhash", "chaquopy-libgfortran", "chaquopy-openblas",
-    "numpy", "scipy", "chaquopy-libzmq", "pyzmq", "kiwisolver", "chaquopy-freetype",
+    "numpy", "scipy", "pandas", "chaquopy-libzmq", "pyzmq", "kiwisolver", "chaquopy-freetype",
     "chaquopy-libjpeg", "chaquopy-libpng", "pillow", "matplotlib", "opencv-python",
     "chaquopy-hdf5", "h5py", "grpcio", "tensorflow"
 ]

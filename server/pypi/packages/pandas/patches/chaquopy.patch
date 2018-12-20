@@ -1,7 +1,19 @@
 diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py       2017-12-30 19:56:04.000000000 +0000
-+++ src/setup.py        2018-04-18 20:52:02.596231971 +0000
-@@ -53,7 +53,7 @@
+--- src-original/setup.py	2017-12-30 19:56:04.000000000 +0000
++++ src/setup.py	2018-12-20 07:53:35.887460294 +0000
+@@ -14,6 +14,11 @@
+ import platform
+ from distutils.version import LooseVersion
+ 
++
++# Chaquopy
++os.environ["LDFLAGS"] += " -lm"  # This isn't used everywhere it should be.
++
++
+ def is_platform_windows():
+     return sys.platform == 'win32' or sys.platform == 'cygwin'
+ 
+@@ -53,7 +58,7 @@
                           'install_requires': ['python-dateutil >= 2',
                                                'pytz >= 2011k',
                                                'numpy >= %s' % min_numpy_ver],
@@ -10,7 +22,7 @@ diff -ur src-original/setup.py src/setup.py
                           }
      if not _have_setuptools:
          sys.exit("need setuptools/distribute for Py3k"
-@@ -64,7 +64,7 @@
+@@ -64,7 +69,7 @@
          'install_requires': ['python-dateutil',
                              'pytz >= 2011k',
                               'numpy >= %s' % min_numpy_ver],
@@ -18,14 +30,14 @@ diff -ur src-original/setup.py src/setup.py
 +        # Chaquopy: removed setup_requires numpy
          'zip_safe': False,
      }
-
-@@ -153,7 +153,8 @@
+ 
+@@ -153,7 +158,8 @@
                  with open(outfile, "w") as f:
                      f.write(pyxcontent)
-
+ 
 -        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
 +        # Chaquopy: edited
 +        numpy_incl = os.path.abspath("../requirements/numpy/core/include")
-
+ 
          for ext in self.extensions:
              if hasattr(ext, 'include_dirs') and not numpy_incl in ext.include_dirs:
