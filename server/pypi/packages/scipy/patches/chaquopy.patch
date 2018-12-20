@@ -76,9 +76,9 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
          from scipy.__config__ import show as show_config
      except ImportError:
 diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2018-03-24 03:12:35.000000000 +0000
-+++ src/setup.py	2018-10-16 22:36:07.845070738 +0000
-@@ -33,6 +33,22 @@
+--- src-original/setup.py	2018-05-05 17:10:14.000000000 +0000
++++ src/setup.py	2018-12-20 11:40:38.859887187 +0000
+@@ -34,6 +34,22 @@
  else:
      import builtins
  
@@ -101,7 +101,18 @@ diff -ur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -377,7 +391,7 @@
+@@ -211,6 +227,10 @@
+                 script_fn = os.path.join(self.build_temp, 'link-version-{}.map'.format(ext.name))
+                 with open(script_fn, 'w') as f:
+                     f.write(text)
++
++                    # Chaquopy: backport from https://github.com/scipy/scipy/issues/8680
++                    ext.extra_link_args = [arg for arg in ext.extra_link_args if not "version-script" in arg]
++
+                     ext.extra_link_args.append('-Wl,--version-script=' + script_fn)
+ 
+             old_build_ext.build_extension(self, ext)
+@@ -429,7 +449,7 @@
          classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
          platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
          test_suite='nose.collector',
