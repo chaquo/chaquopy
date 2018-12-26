@@ -457,6 +457,14 @@ class TestAndroidStdlib(unittest.TestCase):
                                      b"The quick brown fox jumps over the lazy dog")
                          .hexdigest())
 
+    def test_locale(self):
+        import locale
+        self.assertEqual("UTF-8", locale.getlocale()[1])
+        self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
+        self.assertEqual("UTF-8", locale.getpreferredencoding())
+        self.assertEqual("utf-8", sys.getdefaultencoding())
+        self.assertEqual("utf-8", sys.getfilesystemencoding())
+
     def test_os(self):
         self.assertEqual("posix", os.name)
         self.assertEqual(str(context.getFilesDir()), os.path.expanduser("~"))

@@ -13,6 +13,7 @@ cdef extern from "Python.h":
     void PyEval_SaveThread()
 
 from libc.errno cimport errno
+from libc.locale cimport LC_ALL, setlocale
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport getenv, malloc
 from libc.stdio cimport printf, snprintf
@@ -68,6 +69,17 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
                 return
         finally:  # Yes, this does compile to pure C, with the help of "goto".
             env[0].ReleaseStringUTFChars(env, j_python_path, python_path)
+
+
+    # In Python 3.6, the default encoding for both filenames and content is ASCII. This will
+    # change to UTF-8 in Python 3.7, at which time we may be able to remove this code.
+    cdef const char *lc_all = getenv("LC_ALL")
+    if lc_all == NULL:
+        if not set_env(env, "LC_ALL", "en_US.UTF-8"):  # "C.UTF-8" doesn't work.
+            return
+    if setlocale(LC_ALL, "") == NULL:
+        throw_simple_exception(env, "setlocale failed")
+        return
 
     Py_Initialize()  # Calls abort() on failure
 
