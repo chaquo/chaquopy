@@ -1,17 +1,15 @@
 buildscript {
+    def repoRoot = "../../../../.."
+    def version = file("$repoRoot/VERSION.txt").text.trim()
+
     repositories {
         google()
         jcenter()
+        maven { url "$repoRoot/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.3'
-
-	def gradleJars = fileTree(".").include("gradle-*.jar").getFiles().toArray()
-	if (gradleJars.length != 1) {
-	    throw new GradleException("Found $gradleJars.length Chaquopy plugin JARs")
-	}
-	classpath files(gradleJars[0])
-        classpath "org.json:json:20160810"
+        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath "com.chaquo.python:gradle:$version"
     }
 }
 

@@ -5,24 +5,21 @@ android {
     compileSdkVersion 23
 
     defaultConfig {
-        applicationId "com.chaquo.python.pkgtest"
-        minSdkVersion 15
+        applicationId "com.chaquo.python.piptest"
+        minSdkVersion 16
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("pkgtest_version")
-            buildPython "python" + version.substring(0, 3)
             pip {
-                if (System.getenv("pkgtest_verbose").equals("True")) {
+                if (System.getenv("piptest_verbose").equals("True")) {
                     options "-v"
                 }
-                options "--no-cache-dir"  // Disable wheel cache to make each run independent.
-                install System.getenv("pkgtest_package")
+                install System.getenv("piptest_package")
             }
         }
         ndk {
-            abiFilters "armeabi-v7a", "x86"
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86"
         }
     }
 }

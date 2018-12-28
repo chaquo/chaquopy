@@ -9,6 +9,7 @@
 !demo
 !maven
 !server/pypi/dist
+!server/pypi/piptest
 
 **/.gradle/
 **/.idea/
