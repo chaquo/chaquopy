@@ -1,0 +1,6 @@
+*~
+
+/build
+/log*/
+src/gradle-*.jar
+src/local.properties
