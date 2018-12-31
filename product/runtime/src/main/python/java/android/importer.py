@@ -187,16 +187,38 @@ def initialize_pkg_resources():
 
     # Search for top-level .dist-info directories (see pip_install.py).
     def distribution_finder(finder, entry, only):
-        dist_infos = set()
-        for name in finder.zip_file.namelist():
-            dir_name = dirname(name)
-            if ("/" not in dir_name) and dir_name.endswith(".dist-info"):
-                dist_infos.add(dir_name)
+        dist_infos = [name for name in finder.zip_file.listdir("")
+                      if name.endswith(".dist-info")]
         for dist_info in dist_infos:
             yield pkg_resources.Distribution.from_location(entry, dist_info)
 
     pkg_resources.register_finder(AssetFinder, distribution_finder)
     pkg_resources.working_set = pkg_resources.WorkingSet()
+
+    class AssetProvider(pkg_resources.NullProvider):
+        def __init__(self, module):
+            super().__init__(module)
+            self.zip_file = self.loader.finder.zip_file
+
+        def get_resource_filename(self, manager, resource_name):
+            # This would require extracting the resource to a temporary file, as in
+            # pkg_resources.ZipProvider.
+            raise NotImplementedError()
+
+        def _has(self, path):
+            try:
+                self.zip_file.getinfo(self.loader._zip_path(path))
+                return True
+            except KeyError:
+                return self._isdir(path)
+
+        def _isdir(self, path):
+            return self.zip_file.isdir(self.loader._zip_path(path))
+
+        def _listdir(self, path):
+            return self.zip_file.listdir(self.loader._zip_path(path))
+
+    pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
 # Not inheriting any base class: they aren't available in Python 2.
@@ -263,7 +285,7 @@ class AssetFinder(object):
                 path = self._get_path(mod_name)
         else:
             base_name = mod_name.rpartition(".")[2]
-            if self.zip_file.has_dir(join(self.prefix, base_name)):
+            if self.zip_file.isdir(join(self.prefix, base_name)):
                 path = self._get_path(mod_name)
         return (loader, path)
 
@@ -358,14 +380,16 @@ class AssetLoader(object):
         if exists(path):  # extractPackages is in effect.
             with open(path, "rb") as f:
                 return f.read()
+        try:
+            return self.finder.zip_file.read(self._zip_path(path))
+        except KeyError as e:
+            raise IOError(str(e))  # "There is no item named '{}' in the archive"
 
+    def _zip_path(self, path):
         match = re.search(r"^{}/(.+)$".format(self.finder.archive), path)
         if not match:
             raise IOError("{} can't access '{}'".format(self.finder, path))
-        try:
-            return self.finder.zip_file.read(match.group(1))
-        except KeyError as e:
-            raise IOError(str(e))  # "There is no item named '{}' in the archive"
+        return match.group(1)
 
     def is_package(self, mod_name):
         return basename(self.get_filename(mod_name)).startswith("__init__.")
@@ -558,14 +582,21 @@ class ConcurrentZipFile(ZipFile):
         ZipFile.__init__(self, *args, **kwargs)
         self.lock = RLock()
 
-        self.dir_set = set()
+        # ZIP files *may* have individual entries for directories, but we can't rely on it,
+        # so we build an index to support `isdir` and `listdir`.
+        self.dir_index = {"": []}  # Provide empty listing for root even if ZIP is empty.
         self.pth_files = []
         for name in self.namelist():
-            dir_name, base_name = os.path.split(name)
-            if dir_name:
-                self.dir_set.add(dir_name)
-            if (not dir_name) and base_name.endswith(".pth"):
-                self.pth_files.append(base_name)
+            parts = name.rstrip("/").split("/")
+            while parts:
+                parent = "/".join(parts[:-1])
+                if parent in self.dir_index:
+                    self.dir_index[parent].append(parts[-1])
+                    break
+                else:
+                    self.dir_index[parent] = [parts.pop()]
+            if ("/" not in name) and (name.endswith(".pth")):
+                self.pth_files.append(name)
 
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
@@ -601,7 +632,8 @@ class ConcurrentZipFile(ZipFile):
         with self.lock:
             return ZipFile.read(self, member)
 
-    # ZIP files *may* have individual entries for directories, but we shouldn't rely on it, so
-    # we build a directory set in __init__.
-    def has_dir(self, dir_name):
-        return (dir_name in self.dir_set)
+    def isdir(self, path):
+        return (path in self.dir_index)
+
+    def listdir(self, path):
+        return self.dir_index[path]
