@@ -16,11 +16,14 @@ def initialize(context, build_json, app_path):
 
 def initialize_stdlib(context):
     from com.chaquo.python import Common
+
+    # These are ordered roughly from low to high level.
     initialize_sys(context, Common)
     initialize_os(context)
     initialize_tempfile(context)
     initialize_ssl(context)
     initialize_ctypes(context)
+    initialize_locale(context)
 
 
 def initialize_sys(context, Common):
@@ -91,3 +94,11 @@ def initialize_ctypes(context):
     ctypes.util.find_library = find_library_override
 
     ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])
+
+
+def initialize_locale(context):
+    import locale
+    # Of the various encoding functions in test_android.py, this only affects `getlocale`. All
+    # the others are controlled by the LC_ALL environment variable (set in chaquopy_java.pyx),
+    # and are not modifiable after Python startup.
+    locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
