@@ -25,6 +25,7 @@ from java._vendor.elftools.elf.elffile import ELFFile
 from java._vendor import six
 from java.chaquopy import ASSET_PREFIX, AssetFile, InvalidAssetPathError
 
+from android.os import Build
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 from java.io import IOException
@@ -497,24 +498,17 @@ class SourceFileLoader(AssetLoader):
 
 class ExtensionFileLoader(AssetLoader):
     def load_module_impl(self):
-        out_filename = self.extract_so()
+        # Older versions can't load two .so files with the same basename (#5478). Symlink
+        # workaround was removed on this branch because of apparent filesystem corruption on
+        # ***REMOVED*** devices (#5530).
+        assert Build.VERSION.SDK_INT >= 23
+
+        out_filename = self.finder.extract_if_changed(self.zip_info)
         load_needed(out_filename)
         # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
         mod = imp.load_dynamic(self.mod_name, out_filename)
         sys.modules[self.mod_name] = mod
         self.set_mod_attrs(mod)
-
-    # In API level 22 and older, when asked to load a library with the same basename as one
-    # already loaded, the dynamic linker will return the existing library. Work around this by
-    # loading through a uniquely-named symlink.
-    def extract_so(self):
-        filename = self.finder.extract_if_changed(self.zip_info)
-        linkname = join(dirname(filename), self.mod_name + ".so")
-        if linkname != filename:
-            if exists(linkname):
-                os.remove(linkname)
-            os.symlink(filename, linkname)
-        return linkname
 
 
 needed_lock = RLock()
