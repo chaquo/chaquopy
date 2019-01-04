@@ -602,7 +602,9 @@ class ConcurrentZipFile(ZipFile):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
         with self.lock:
-            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170).
+            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170),
+            # so set the timestamp manually. See makeZip in PythonPlugin.groovy for how these
+            # timestamps are generated.
             out_filename = ZipFile.extract(self, member, target_dir)
             os.utime(out_filename, (time.time(), timegm(member.date_time)))
         return out_filename

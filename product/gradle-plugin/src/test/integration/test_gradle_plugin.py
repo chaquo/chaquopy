@@ -7,6 +7,7 @@ import json
 import os
 from os.path import abspath, dirname, join, relpath
 import re
+import shutil
 import subprocess
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
@@ -14,6 +15,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 import javaproperties
 from kwonly_args import kwonly_defaults
+from retrying import retry
 
 
 PYTHON_VERSION = "3.6.5"
@@ -98,18 +100,8 @@ class GradleTestCase(TestCase):
 
 
 class Basic(GradleTestCase):
-    def test_reproducible(self):
-        expected_hash = None
-        def post_check(apk_zip, apk_dir, kwargs):
-            nonlocal expected_hash
-            actual_hash = file_sha1(apk_zip.filename)
-            if expected_hash is None:  # First run
-                expected_hash = actual_hash
-            else:  # Second run
-                self.assertEqual(actual_hash, expected_hash)
-        self.post_check = post_check
+    def test_base(self):
         self.RunGradle("base")
-        self.RunGradle("base")  # Don't use rerun(), we want a clean rebuild.
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
@@ -917,8 +909,6 @@ class RunGradle(object):
                 self.dump_run("exit status {}".format(status))
 
     def run_gradle(self, variants, env):
-        os.chdir(self.project_dir)
-
         merged_env = os.environ.copy()
         merged_env["chaquopy_root"] = repo_root
         merged_env["integration_dir"] = integration_dir
@@ -927,8 +917,10 @@ class RunGradle(object):
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1"
         #   error on Windows.
-        gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
-        process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
+        gradlew = join(self.project_dir,
+                       "gradlew.bat" if sys.platform.startswith("win") else "gradlew")
+        process = subprocess.Popen([gradlew, "-p", self.project_dir,
+                                    "--stacktrace", "--info", "--console", "plain"] +
                                    # Even if the Gradle client passes some environment
                                    # variables to the daemon, that won't work for TZ, because
                                    # the JVM will only read it once.
@@ -1101,7 +1093,11 @@ def task_name(prefix, variant, suffix=""):
             cap_first(suffix))
 
 
-# shutil.rmtree is unreliable on MSYS2: it frequently fails with Windows error 145 (directory
-# not empty), even though it has already removed everything from that directory.
+# On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of
+# pip/_internal/utils/misc.py.
 def rmtree(path):
-    subprocess.check_call(["rm", "-rf", path])
+    shutil.rmtree(path, onerror=rmtree_errorhandler)
+
+@retry(wait_fixed=50, stop_max_delay=3000)
+def rmtree_errorhandler(func, path, exc_info):
+    func(path)  # Use the original function to repeat the operation.
