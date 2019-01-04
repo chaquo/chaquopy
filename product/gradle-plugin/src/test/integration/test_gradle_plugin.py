@@ -1,12 +1,13 @@
 # This file requires Python 3.6 or later.
 
-from distutils.dir_util import copy_tree
+from distutils import dir_util
 import distutils.util
 import hashlib
 import json
 import os
 from os.path import abspath, dirname, exists, join, relpath
 import re
+import shutil
 import subprocess
 from subprocess import check_output
 import sys
@@ -15,6 +16,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 import javaproperties
 from kwonly_args import kwonly_defaults
+from retrying import retry
 
 
 PYTHON_VERSION = "3.6.5"
@@ -66,7 +68,7 @@ class GradleTestCase(TestCase):
         actual_files = []
         actual_dist_infos = {}
         for info in zip_file.infolist():
-            self.assertEqual((1980, 1, 1, 0, 0, 0), info.date_time, msg=info.filename)
+            self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time, msg=info.filename)
             di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
             if di_match:
                 version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
@@ -100,17 +102,7 @@ class GradleTestCase(TestCase):
 
 class Basic(GradleTestCase):
     def test_base(self):
-        expected_hash = None
-        def post_check(apk_zip, apk_dir, kwargs):
-            nonlocal expected_hash
-            actual_hash = file_sha1(apk_zip.filename)
-            if expected_hash is None:  # First run
-                expected_hash = actual_hash
-            else:  # Second run
-                self.assertEqual(actual_hash, expected_hash)
-        self.post_check = post_check
-        run = self.RunGradle("base")
-        run.rerun()
+        self.RunGradle("base")
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
@@ -259,6 +251,13 @@ class AbiFilters(GradleTestCase):
         run.rerun(abis=["armeabi-v7a", "x86"])
 
 
+def make_asset_check(test, hashes):
+    def post_check(apk_zip, apk_dir, kwargs):
+        for asset_path, expected_hash in hashes.items():
+            test.assertEqual(expected_hash, file_sha1(f"{apk_dir}/assets/chaquopy/{asset_path}"))
+    return post_check
+
+
 class PythonSrc(GradleTestCase):
     def test_change(self):
         # Missing (as opposed to empty) src/main/python directory is already tested by Basic.
@@ -277,12 +276,21 @@ class PythonSrc(GradleTestCase):
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
         run.rerun(app=["package/submodule.py"])
 
-    def test_reproducible(self):
-        def post_check(apk_zip, apk_dir, kwargs):
-            self.assertEqual("40a0518dd326472279acbd18ea9d37b4fe783385",
-                             file_sha1(join(apk_dir, "assets/chaquopy/app.zip")))
-        self.post_check = post_check
+    @skipIf(os.name == "posix", "For systems which don't support TZ variable")
+    def test_reproducible_basic(self):
+        self.post_check = make_asset_check(self, {
+            "app.zip": "ace2495dbddff198cbfa9b52cbfb53bb743475dd"})
         self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"])
+
+    @skipUnless(os.name == "posix", "For systems which support TZ variable")
+    def test_reproducible_timezone(self):
+        self.post_check = make_asset_check(self, {
+            "app.zip": "ace2495dbddff198cbfa9b52cbfb53bb743475dd"})
+
+        app = ["one.py", "package/submodule.py"]
+        for tz in ["UTC+0", "PST+8", "CET-1"]:  # + and - are reversed compared to normal usage.
+            with self.subTest(tz=tz):
+                self.RunGradle("base", "PythonSrc/1", app=app, env={"TZ": tz})
 
     def test_filter(self):
         run = self.RunGradle("base", "PythonSrc/filter_1", app=["one.py"])
@@ -604,14 +612,11 @@ class PythonReqs(GradleTestCase):
 
     @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi(self):
-        def post_check(apk_zip, apk_dir, kwargs):
-            asset_dir = join(apk_dir, "assets/chaquopy")
-            for filename, sha1 in \
-                [("requirements-common.zip", "48c171200cf880b948cb59d04b345e8f47049105"),
-                 ("requirements-armeabi-v7a.zip", "0dcf53bdd67382faa5a11babac2855382aed010a"),
-                 ("requirements-x86.zip", "e5c9dcd8ece13a354364c75353db318ee9e08d31")]:
-                self.assertEqual(sha1, file_sha1(join(asset_dir, filename)))
-        self.post_check = post_check
+        # Check requirements ZIPs are reproducible.
+        self.post_check = make_asset_check(self, {
+            "requirements-common.zip": "498951b8a3ca3313de5f3dccf1e0b7cfa2419c6b",
+            "requirements-armeabi-v7a.zip": "e71ef6f14d410f8c2339b10b16cb30424bcc57c4",
+            "requirements-x86.zip": "e9a6a0d8d9e701ce4ad24c160974182e7ab0e963"})
 
         # This is not the same as the filename pattern used in our real wheels, but the point
         # is to test that the multi-ABI packaging works correctly.
@@ -846,8 +851,11 @@ class RunGradle(object):
 
     def apply_layers(self, *layers):
         for layer in layers:
-            copy_tree(join(integration_dir, "data", layer), self.project_dir,
-                      preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
+            # We use dir_utils.copy_tree because shutil.copytree can't merge into a destination
+            # that already exists.
+            dir_util._path_created.clear()  # https://bugs.python.org/issue10948
+            dir_util.copy_tree(join(integration_dir, "data", layer), self.project_dir,
+                               preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
             if layer == "base":
                 self.apply_layers("base-" + agp_version)
 
@@ -862,8 +870,8 @@ class RunGradle(object):
                 print("\nchaquopy.license=" + key, file=out_file)
 
     @kwonly_defaults
-    def rerun(self, succeed=True, variants=["debug"], **kwargs):
-        status, self.stdout, self.stderr = self.run_gradle(variants)
+    def rerun(self, succeed=True, variants=["debug"], *, env={}, **kwargs):
+        status, self.stdout, self.stderr = self.run_gradle(variants, env)
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
                 self.dump_run("run unexpectedly succeeded")
@@ -895,7 +903,7 @@ class RunGradle(object):
 
             # Run a second time to check all tasks are considered up to date.
             first_msg = "\n=== FIRST RUN STDOUT ===\n" + self.stdout
-            status, second_stdout, second_stderr = self.run_gradle(variants)
+            status, second_stdout, second_stderr = self.run_gradle(variants, env)
             if status != 0:
                 self.stdout, self.stderr = second_stdout, second_stderr
                 self.dump_run("Second run: exit status {}".format(status))
@@ -913,18 +921,26 @@ class RunGradle(object):
             if succeed:
                 self.dump_run("exit status {}".format(status))
 
-    def run_gradle(self, variants):
-        os.chdir(self.project_dir)
-        os.environ["chaquopy_root"] = repo_root
-        os.environ["integration_dir"] = integration_dir
+    def run_gradle(self, variants, env):
+        merged_env = os.environ.copy()
+        merged_env["chaquopy_root"] = repo_root
+        merged_env["integration_dir"] = integration_dir
+        merged_env.update(env)
+
         # --info explains why tasks were not considered up to date.
         # --console plain prevents output being truncated by a "String index out of range: -1"
         #   error on Windows.
-        gradlew = "gradlew.bat" if sys.platform.startswith("win") else "./gradlew"
-        process = subprocess.Popen([gradlew, "--stacktrace", "--info", "--console", "plain"] +
+        gradlew = join(self.project_dir,
+                       "gradlew.bat" if sys.platform.startswith("win") else "gradlew")
+        process = subprocess.Popen([gradlew, "-p", self.project_dir,
+                                    "--stacktrace", "--info", "--console", "plain"] +
+                                   # Even if the Gradle client passes some environment
+                                   # variables to the daemon, that won't work for TZ, because
+                                   # the JVM will only read it once.
+                                   (["--no-daemon"] if env else []) +
                                    [task_name("assemble", v) for v in variants],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True)
+                                   universal_newlines=True, env=merged_env)
         stdout, stderr = process.communicate()
         return process.wait(), stdout, stderr
 
@@ -1112,7 +1128,11 @@ def task_name(prefix, variant, suffix=""):
             cap_first(suffix))
 
 
-# shutil.rmtree is unreliable on MSYS2: it frequently fails with Windows error 145 (directory
-# not empty), even though it has already removed everything from that directory.
+# On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of
+# pip/_internal/utils/misc.py.
 def rmtree(path):
-    subprocess.check_call(["rm", "-rf", path])
+    shutil.rmtree(path, onerror=rmtree_errorhandler)
+
+@retry(wait_fixed=50, stop_max_delay=3000)
+def rmtree_errorhandler(func, path, exc_info):
+    func(path)  # Use the original function to repeat the operation.

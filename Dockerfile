@@ -45,8 +45,7 @@ COPY VERSION.txt ./
 ARG build_type=Release
 
 RUN product/gradlew -p product -P cmakeBuildType=$build_type \
-    gradle-plugin:publish runtime:publish && \
-    rm -r product/*/build
+    gradle-plugin:publish runtime:publish
 
 RUN apt-get update && \
     apt-get install -y zip

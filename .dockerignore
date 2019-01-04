@@ -11,6 +11,7 @@
 !server/pypi/packages
 !server/pypi/pkgtest
 !server/pypi/dist
+!server/pypi/piptest
 
 **/.gradle/
 **/.idea/

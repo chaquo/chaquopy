@@ -1,0 +1,21 @@
+buildscript {
+    def repoRoot = "../../../../.."
+    def version = file("$repoRoot/VERSION.txt").text.trim()
+
+    repositories {
+        google()
+        jcenter()
+        maven { url "$repoRoot/maven" }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath "com.chaquo.python:gradle:$version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+    }
+}

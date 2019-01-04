@@ -419,11 +419,25 @@ class TestAndroidImport(unittest.TestCase):
             self.assertNotIn("nonexistent", entry)
 
     def test_pkg_resources(self):
-        import pkg_resources
-        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-libcxx", "murmurhash",
-                          "setuptools"],
-                         sorted(dist.project_name for dist in pkg_resources.working_set))
-        self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)
+        import pkg_resources as pr
+        self.assertCountEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-libcxx",
+                               "murmurhash", "setuptools"],
+                              [dist.project_name for dist in pr.working_set])
+        self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
+
+        self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
+        self.assertTrue(pr.resource_exists(__package__, "resources"))
+        self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
+        self.assertTrue(pr.resource_exists(__package__, "resources/a.txt"))
+        self.assertFalse(pr.resource_exists(__package__, "resources/nonexistent.txt"))
+
+        self.assertFalse(pr.resource_isdir(__package__, "test_android.py"))
+        self.assertTrue(pr.resource_isdir(__package__, "resources"))
+        self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
+
+        self.assertCountEqual(["a.txt", "b.txt"],
+                              pr.resource_listdir(__package__, "resources"))
+        self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
 
 
 def asset_path(*paths):
@@ -469,6 +483,14 @@ class TestAndroidStdlib(unittest.TestCase):
         ]
         for algorithm, digest in TESTS:
             self.assertEqual(digest, hashlib.new(algorithm, INPUT).hexdigest())
+
+    def test_locale(self):
+        import locale
+        self.assertEqual("UTF-8", locale.getlocale()[1])
+        self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
+        self.assertEqual("UTF-8", locale.getpreferredencoding())
+        self.assertEqual("utf-8", sys.getdefaultencoding())
+        self.assertEqual("utf-8", sys.getfilesystemencoding())
 
     def test_os(self):
         self.assertEqual("posix", os.name)

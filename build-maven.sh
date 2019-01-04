@@ -15,4 +15,3 @@ docker build -t chaquopy --build-arg license_mode=$license_mode .
 container_name="chaquopy-$(date +%s)"
 docker run --name $container_name chaquopy
 docker cp $container_name:/root/maven .
-docker rm $container_name

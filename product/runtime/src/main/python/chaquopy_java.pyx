@@ -69,6 +69,14 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
         finally:  # Yes, this does compile to pure C, with the help of "goto".
             env[0].ReleaseStringUTFChars(env, j_python_path, python_path)
 
+
+    # In Python 3.6, the default encoding for both filenames and content is ASCII. This will
+    # change to UTF-8 in Python 3.7, at which time we may be able to remove this code.
+    cdef const char *lc_all = getenv("LC_ALL")
+    if lc_all == NULL:
+        if not set_env(env, "LC_ALL", "en_US.UTF-8"):  # "C.UTF-8" doesn't work.
+            return
+
     Py_Initialize()  # Calls abort() on failure
 
     # All code run before Py_Initialize must compile to pure C. After Py_Initialize returns we
