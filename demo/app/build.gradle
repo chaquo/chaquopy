@@ -27,9 +27,9 @@ android {
         targetSdkVersion 26
 
         // *** Replace in public repository **********************************
-        // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
-        // builds in the public repo.
-        versionName rootProject.version + "-SNAPSHOT"
+        // There will be no further releases to the public repository from this branch, so
+        // removed the SNAPSHOT suffix so we can release directly from this repository.
+        versionName rootProject.version
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 

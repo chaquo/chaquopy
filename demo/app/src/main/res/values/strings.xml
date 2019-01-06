@@ -1,8 +1,8 @@
 <resources>
 
-    <string name="main_caption">For more information see the
-        <a href="https://chaquo.com/chaquopy/">Chaquopy website</a>, or view this app\'s source
-        code <a href="https://github.com/chaquo/chaquopy">on GitHub</a>.
+    <string name="main_caption"><b>Chaquopy no longer supports Python 2.</b> Please install
+        the <a href="https://play.google.com/store/apps/details?id=com.chaquo.python.demo3">Python
+        3 version of this app</a> instead.
     </string>
 
     <string name="repl">Python console</string>
