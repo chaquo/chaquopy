@@ -74,9 +74,17 @@ def is_none(x):
 none_var = None
 bool_var = True
 int_var = 42
+negative_int_var = -42
+short_int_var = 1234
+medium_int_var = 123456
+long_int_var = 9876543210
+super_long_int_var = 9876543210876543210
 float_var = 43.5
+double_var = 1e39
 str_var = "hello"
 char_var = "x"
+
+list_var = ["a", "b", "c"]
 
 
 class HashObject(object):

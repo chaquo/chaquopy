@@ -57,8 +57,9 @@ Type conversion::
 
     # Python code                             // Java equivalent
     import sys                                PyObject sys = py.getModule("sys");
-    ms = sys.maxsize                          int ms = sys.get("maxsize").toJava(int.class);
-    version = sys.version                     String version = sys.get("version").toString()
+    sys.maxsize                               sys.get("maxsize").toLong();
+    sys.version                               sys.get("version").toString();
+    sys.is_finalizing()                       sys.callAttr("is_finalizing").toBoolean();
 
 
 Reference

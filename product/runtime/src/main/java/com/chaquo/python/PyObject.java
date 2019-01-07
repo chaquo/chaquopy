@@ -89,8 +89,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     // implement the corresponding Python methods (`__len__`, `__getitem__`, etc.).
     public static native PyObject fromJava(Object o);
 
-    /** Attempts to view the Python object as the given Java type. For example.
-     * `toJava(int.class)` will attempt to view the object as an `int`.
+    /** Converts the Python object to the given Java type. There's usually no need to call this
+     * method directly, as it's more readable to use {@link #toInt}, {@link #toString}, etc.
      *
      * * If `klass` is a primitive type (such as `int`), or an immutable value type (such as
      *   `Integer` or `String`), and the Python object is compatible with it, an equivalent Java
@@ -108,6 +108,38 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     // Not sure whether to do this with java.lang.reflect.Proxy or with pre-defined classes PyList,
     // PyMap, etc. It might be easier to implement this in Java.
     public native <T> T toJava(Class<T> klass);
+
+    /** Converts a Python `bool` to a Java `boolean`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public boolean toBoolean() { return toJava(boolean.class); }
+
+    /** Converts a Python `int` to a Java `byte`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public byte toByte() { return toJava(byte.class); }
+
+    /** Converts a 1-character Python string to a Java `char`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public char toChar() { return toJava(char.class); }
+
+    /** Converts a Python `int` to a Java `short`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public short toShort() { return toJava(short.class); }
+
+    /** Converts a Python `int` to a Java `int`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public int toInt() { return toJava(int.class); }
+
+    /** Converts a Python `int` to a Java `long`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public long toLong() { return toJava(long.class); }
+
+    /** Converts a Python `float` or `int`  to a Java `float`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public float toFloat() { return toJava(float.class); }
+
+    /** Converts a Python `float` or `int` to a Java `double`.
+     * @throws ClassCastException if the Python object is not of a compatible type */
+    public double toDouble() { return toJava(double.class); }
 
     /** Equivalent to Python `id()`. */
     public native long id();
@@ -162,7 +194,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     // ==== Map ==============================================================
 
-    /** Attempts to remove all attributes returned by `dir()`. Because `dir()` usually includes
+    /** Removes all attributes returned by `dir()`. Because `dir()` usually includes
      * non-removable attributes such as `__class__`, this will probably fail unless
      * the object has a custom `__dir__` method.
      *
