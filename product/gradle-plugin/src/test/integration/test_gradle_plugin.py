@@ -199,14 +199,14 @@ class PythonVersion(GradleTestCase):
 
         run.apply_layers("PythonVersion/warning")
         run.rerun()
-        self.assertInLong("Warning: python.version is no longer required and should be removed.",
-                          run.stdout)
+        self.assertInLong("Warning: Python 'version' setting is no longer required and should be "
+                          "removed from build.gradle.", run.stdout)
 
     def test_error(self):
         run = self.RunGradle("base", "PythonVersion/error", succeed=False)
         self.assertInLong(
             f"This version of Chaquopy does not include Python version 3.6.3. "
-            f"Either remove python.version to use Python {PYTHON_VERSION}, or see "
+            f"Either remove 'version' from build.gradle to use Python {PYTHON_VERSION}, or see "
             f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
             run.stderr)
 
@@ -763,11 +763,11 @@ class PythonReqs(GradleTestCase):
         run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
 
     def tracker_advice(self):
-        return (" For assistance, please raise an issue at "
+        return ("\nFor assistance, please raise an issue at "
                 "https://github.com/chaquo/chaquopy/issues.")
 
     def wheel_advice(self, *versions):
-        return (r" Or try using one of the following versions, which are available as pre-built "
+        return (r"\nOr try using one of the following versions, which are available as pre-built "
                 r"wheels: \[{}\].".format(", ".join("'{}'".format(v) for v in versions)))
 
     def get_different_build_python_version(self):

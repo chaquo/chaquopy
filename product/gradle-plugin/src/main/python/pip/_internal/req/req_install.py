@@ -832,7 +832,8 @@ class InstallRequirement(object):
                 f.write('\n'.join(new_lines) + '\n')
 
     def chaquopy_setup_py_failed(self, exc):
-        message = ("Failed to install {}. For assistance, please raise an issue "
+        # {} may be a long URL, hence the newline.
+        message = ("Failed to install {}.\nFor assistance, please raise an issue "
                    "at https://github.com/chaquo/chaquopy/issues.".format(self))
         if hasattr(self.link, "chaquopy_candidates"):
             wheel_versions = [str(ver) for ver in
@@ -840,7 +841,7 @@ class InstallRequirement(object):
                                      for candidate in self.link.chaquopy_candidates
                                      if candidate.location.is_wheel)]
             if wheel_versions:
-                message += (" Or try using one of the following versions, which are available "
+                message += ("\nOr try using one of the following versions, which are available "
                             "as pre-built wheels: {}.".format(wheel_versions))
         logger.critical(str(exc))
         raise CommandError(message)
