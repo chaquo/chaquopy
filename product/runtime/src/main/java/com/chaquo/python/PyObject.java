@@ -99,15 +99,10 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      *   href="../../../../python.html#java.jarray">jarray</a> object which is compatible with
      *   `klass`, the underlying Java object will be returned.
      * * Otherwise, a `ClassCastException` will be thrown. */
-    //
-    // TODO #5154 If the given type is `List`, `Map` or `Set`, a proxy object will be returned which
-    // calls the corresponding Python methods (`__len__`, `__getitem__`, etc.). (If proxy is
-    // passed back through j2p, the original Python object should be unwrapped. Maybe make proxies
-    // implement an interface with a getPyObject method. PyObject could also implement this, returning
-    // itself.)
-    // Not sure whether to do this with java.lang.reflect.Proxy or with pre-defined classes PyList,
-    // PyMap, etc. It might be easier to implement this in Java.
     public native <T> T toJava(Class<T> klass);
+
+
+    // === Primitive conversions =============================================
 
     /** Converts a Python `bool` to a Java `boolean`.
      * @throws ClassCastException if the Python object is not of a compatible type */
@@ -140,6 +135,46 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     /** Converts a Python `float` or `int` to a Java `double`.
      * @throws ClassCastException if the Python object is not of a compatible type */
     public double toDouble() { return toJava(double.class); }
+
+
+    // === Container views ===================================================
+
+    /** Returns a view of the Python object as a list. The view is backed by the object, so
+     * changes to the object are reflected in the view, and vice-versa.
+     *
+     * To add Java objects to the Python container through the view, first convert them using
+     * {@link #fromJava fromJava}.
+     *
+     * @throws UnsupportedOperationException if the Python object does not implement the
+     * methods `__getitem__` and `__len__`. */
+    public List<PyObject> asList() { return new PyList(this); }
+
+    /** Returns a view of the Python object as a map. The view is backed by the object, so
+     * changes to the object are reflected in the view, and vice-versa.
+     *
+     * PyObject already implements the `Map` interface, but that is for attribute access
+     * (Python "`.`" syntax, whereas the `Map` returned by this method is for container access
+     * (Python "`[]`" syntax).
+     *
+     * To add Java objects to the Python container through the view, first convert them using
+     * {@link #fromJava fromJava}.
+     *
+     * @throws UnsupportedOperationException if the Python object does not implement the
+     * methods `__contains__`, `__getitem__`, `__iter__` and `__len__`. */
+    public Map<PyObject, PyObject> asMap() { return new PyMap(this); }
+
+    /** Returns a view of the Python object as a set. The view is backed by the object, so
+     * changes to the object are reflected in the view, and vice-versa.
+     *
+     * To add Java objects to the Python container through the view, first convert them using
+     * {@link #fromJava fromJava}.
+     *
+     * @throws UnsupportedOperationException if the Python object does not implement the
+     * methods `__contains__`, `__iter__` and `__len__`. */
+    public Set<PyObject> asSet() { return new PySet(this); }
+
+
+    // === Miscellaneous =====================================================
 
     /** Equivalent to Python `id()`. */
     public native long id();
@@ -192,7 +227,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
         }
     }
 
-    // ==== Map ==============================================================
+
+    // ==== Attributes =======================================================
 
     /** Removes all attributes returned by `dir()`. Because `dir()` usually includes
      * non-removable attributes such as `__class__`, this will probably fail unless
@@ -210,16 +246,8 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     @Override public native boolean containsKey(Object key);
 
     /** The value will be converted as described at {@link #fromJava fromJava()}.*/
-    // Need override because the AbstractMap implementation calls equals() on the given value, not
-    // the values in the map.
     @Override public boolean containsValue(Object o) {
-        for (Entry<String,PyObject> entry : entrySet()) {
-            PyObject value = entry.getValue();
-            if ((o == null && value == null) || value.equals(o)) {
-                return true;
-            }
-        }
-        return false;
+        return super.containsValue(fromJava(o));
     }
 
     /** Equivalent to Python `getattr()`. In accordance with the `Map` interface, when the attribute
@@ -236,7 +264,10 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Equivalent to Python `delattr()`. This usually means it will only succeed in removing
      * attributes of the object itself, even though `dir()` also returns an object's class attributes
-     * by default, */
+     * by default
+     *
+     * In accordance with the `Map` interface, when the attribute does not exist, this method
+     * returns `null` rather than throwing an exception. */
     @Override public native PyObject remove(Object key);
 
     /** Equivalent to Python `dir()`. The returned set is backed by the Python object, so changes to
@@ -285,7 +316,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     private native List<String> dir();
 
 
-    // === Object ============================================================
+    // === Object methods ====================================================
 
     /** Equivalent to Python `==` operator.
      * @param that Object to compare with this object. It will be converted as described at
