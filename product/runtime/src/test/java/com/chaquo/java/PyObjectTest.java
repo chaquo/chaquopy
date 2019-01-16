@@ -7,6 +7,8 @@ import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsInstanceOf.any;
 import static org.hamcrest.core.IsNull.nullValue;
@@ -248,7 +250,8 @@ public class PyObjectTest {
     @Test
     public void toLong_overflow() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("too big");
+        thrown.expectMessage(anyOf(containsString("too large"),  // 64-bit Linux/Android
+                                   containsString("too big")));  // Other platforms
         pyobjecttest.get("super_long_int_var").toLong();
     }
 
