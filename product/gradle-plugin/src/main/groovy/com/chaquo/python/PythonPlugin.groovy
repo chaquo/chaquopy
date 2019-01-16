@@ -770,6 +770,7 @@ class PythonExtension extends BaseExtension {
         "nbformat",
         "notebook",
         "obspy",  // Has data directories in many packages.
+        "parso",
         "pytz",
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
