@@ -914,22 +914,22 @@ class RunGradle(object):
         merged_env["integration_dir"] = integration_dir
         merged_env.update(env)
 
-        # --info explains why tasks were not considered up to date.
-        # --console plain prevents output being truncated by a "String index out of range: -1"
-        #   error on Windows.
         gradlew = join(self.project_dir,
                        "gradlew.bat" if sys.platform.startswith("win") else "gradlew")
-        process = subprocess.Popen([gradlew, "-p", self.project_dir,
-                                    "--stacktrace", "--info", "--console", "plain"] +
-                                   # Even if the Gradle client passes some environment
-                                   # variables to the daemon, that won't work for TZ, because
-                                   # the JVM will only read it once.
-                                   (["--no-daemon"] if env else []) +
-                                   [task_name("assemble", v) for v in variants],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True, env=merged_env)
-        stdout, stderr = process.communicate()
-        return process.wait(), stdout, stderr
+
+        # `--info` explains why tasks were not considered up to date.
+        # `--console plain` prevents "String index out of range: -1" error on Windows.
+        gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
+        if env:
+            # Even if the Gradle client passes some environment variables to the daemon, that
+            # won't work for TZ, because the JVM will only read it once.
+            gradlew_flags.append("--no-daemon")
+
+        process = subprocess.run([gradlew, "-p", self.project_dir] + gradlew_flags +
+                                 [task_name("assemble", v) for v in variants],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True, env=merged_env, timeout=300)
+        return process.returncode, process.stdout, process.stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
@@ -1096,6 +1096,8 @@ def task_name(prefix, variant, suffix=""):
 # On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of
 # pip/_internal/utils/misc.py.
 def rmtree(path):
+    if os.name == "nt":  # https://bugs.python.org/issue18199
+        path = "\\\\?\\" + path.replace("/", "\\")
     shutil.rmtree(path, onerror=rmtree_errorhandler)
 
 @retry(wait_fixed=50, stop_max_delay=3000)

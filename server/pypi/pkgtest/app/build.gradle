@@ -4,9 +4,19 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
-// Packages not to include in regular pre-release testing because they're very large and not
-// that popular.
+// Packages not to include in regular pre-release testing.
 ext.DEFAULT_EXCLUDE_PACKAGES = [
+    // Not in the public package repository.
+    "cmake-example",
+
+    // Not applicable to our Python version.
+    //
+    // scandir is not in this category, because even though it's unnecessary on Python 3.5 or
+    // later, it still provides an implementation on every Python version, which some apps may
+    // be using for consistency.
+    "subprocess32",
+
+    // Very large and not that popular.
     "obspy",
     "spacy",  // Also requires `extractPackages "en_core_web_sm"`
 ]
