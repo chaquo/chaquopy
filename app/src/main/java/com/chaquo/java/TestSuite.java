@@ -7,8 +7,11 @@ import org.junit.runners.*;
 @Suite.SuiteClasses({
     AndroidPlatformTest.class,
     GenericPlatformTest.class,
+    ListTest.class,
+    MapTest.class,
     PyObjectTest.class,
     PythonTest.class,
+    SetTest.class,
     StaticProxyTest.class
 })
 public class TestSuite {}

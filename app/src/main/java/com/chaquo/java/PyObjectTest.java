@@ -7,6 +7,8 @@ import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsInstanceOf.any;
 import static org.hamcrest.core.IsNull.nullValue;
@@ -158,6 +160,131 @@ public class PyObjectTest {
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("Cannot convert int object to java.lang.String");
         pyobjecttest.get("int_var").toJava(String.class);
+    }
+
+    @Test
+    public void toBoolean() {
+        assertTrue(pyobjecttest.get("bool_var").toBoolean());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert int object to java.lang.Boolean");
+        pyobjecttest.get("int_var").toBoolean();
+    }
+
+    @Test
+    public void toByte() {
+        assertEquals(42, pyobjecttest.get("int_var").toByte());
+        assertEquals(-42, pyobjecttest.get("negative_int_var").toByte());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to java.lang.Byte");
+        pyobjecttest.get("float_var").toByte();
+    }
+
+    @Test
+    public void toByte_overflow() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("too large");
+        pyobjecttest.get("short_int_var").toByte();
+    }
+
+    @Test
+    public void toChar() {
+        assertEquals('x', pyobjecttest.get("char_var").toChar());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert int object to java.lang.Character");
+        pyobjecttest.get("int_var").toChar();
+    }
+
+    @Test
+    public void toChar_length() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("only single character unicode strings can be converted");
+        pyobjecttest.get("str_var").toChar();
+    }
+
+    @Test
+    public void toShort() {
+        assertEquals(1234, pyobjecttest.get("short_int_var").toShort());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert bool object to java.lang.Short");
+        pyobjecttest.get("bool_var").toShort();
+    }
+
+    @Test
+    public void toShort_overflow() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("too large");
+        pyobjecttest.get("medium_int_var").toShort();
+    }
+
+
+    @Test
+    public void toInt() {
+        assertEquals(123456, pyobjecttest.get("medium_int_var").toInt());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert str object to java.lang.Int");
+        pyobjecttest.get("str_var").toInt();
+    }
+
+    @Test
+    public void toInt_overflow() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("too large");
+        pyobjecttest.get("long_int_var").toInt();
+    }
+
+    @Test
+    public void toLong() {
+        assertEquals(123456, pyobjecttest.get("medium_int_var").toLong());
+        assertEquals(9876543210L, pyobjecttest.get("long_int_var").toLong());
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert list object to java.lang.Long");
+        pyobjecttest.get("list_var").toLong();
+    }
+
+    @Test
+    public void toLong_overflow() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage(anyOf(containsString("too large"),  // 64-bit Linux/Android
+                                   containsString("too big")));  // Other platforms
+        pyobjecttest.get("super_long_int_var").toLong();
+    }
+
+    @Test
+    public void toFloat() {
+        assertEquals(42.0, pyobjecttest.get("int_var").toFloat(), 1e-5);
+        assertEquals(9.87654e9, pyobjecttest.get("long_int_var").toFloat(), 0.00001e9);
+        assertEquals(9.87654e18, pyobjecttest.get("super_long_int_var").toFloat(), 0.00001e18);
+        assertEquals(43.5, pyobjecttest.get("float_var").toFloat(), 1e-5);
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert str object to java.lang.Float");
+        pyobjecttest.get("char_var").toFloat();
+    }
+
+    @Test
+    public void toFloat_overflow() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("too large");
+        pyobjecttest.get("double_var").toFloat();
+    }
+
+    @Test
+    public void toDouble() {
+        assertEquals(42.0, pyobjecttest.get("int_var").toDouble(), 1e-13);
+        assertEquals(9.87654e9, pyobjecttest.get("long_int_var").toDouble(), 0.00001e9);
+        assertEquals(9.87654e18, pyobjecttest.get("super_long_int_var").toDouble(), 0.00001e18);
+        assertEquals(43.5, pyobjecttest.get("float_var").toDouble(), 1e-13);
+        assertEquals(1e39, pyobjecttest.get("double_var").toDouble(), 1e24);
+
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert bool object to java.lang.Double");
+        pyobjecttest.get("bool_var").toDouble();
     }
 
     @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")
@@ -545,6 +672,8 @@ public class PyObjectTest {
     @Test
     public void toString_() {
         assertEquals("hello", pyobjecttest.get("str_var").toString());
+        assertEquals("True", pyobjecttest.get("bool_var").toString());
+        assertEquals("43.5", pyobjecttest.get("float_var").toString());
     }
 
     @Test

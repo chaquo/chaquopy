@@ -40,6 +40,8 @@ else:
     APP_ZIP = "app.zip"
     REQS_COMMON_ZIP = "requirements-common.zip"
     REQS_ABI_ZIP = "requirements-{}.zip".format(AndroidPlatform.ABI)
+    multi_abi = len([name for name in context.getAssets().list("chaquopy")
+                     if name.startswith("requirements")]) > 2
 
 def setUpModule():
     if API_LEVEL is None:
@@ -50,7 +52,7 @@ class TestAndroidPlatform(unittest.TestCase):
 
     # Build.CPU_ABI returns the actual ABI of the app, which may be 32-bit on a 64-bit device
     # (https://stackoverflow.com/a/53158339).
-    @unittest.skipUnless(API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
+    @unittest.skipUnless(API_LEVEL and API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
     def test_abi(self):
         from android.os import Build
 
@@ -121,15 +123,16 @@ class TestAndroidImport(unittest.TestCase):
             pyc_file.write(header)
 
     def test_so(self):
+        reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.so"
-        mod = self.check_module(mod_name, REQS_ABI_ZIP, filename)
+        mod = self.check_module(mod_name, reqs_zip, filename)
         mod.foo = 1
         delattr(mod, "escape")
         reload(mod)
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
-        self.check_extract_if_changed(mod, asset_cache(REQS_ABI_ZIP, filename))
+        self.check_extract_if_changed(mod, asset_cache(reqs_zip, filename))
 
     def check_extract_if_changed(self, mod, cache_filename):
         # An unchanged file should not be extracted again.
@@ -278,7 +281,9 @@ class TestAndroidImport(unittest.TestCase):
     def test_extract_native_package(self):
         # TODO #5513: these should be extracted to the same place.
         self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
-        self.check_extracted_module("murmurhash.mrmr", REQS_ABI_ZIP, "murmurhash/mrmr.so")
+        self.check_extracted_module("murmurhash.mrmr",
+                                    REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP,
+                                    "murmurhash/mrmr.so")
 
     def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
         mod = import_module(mod_name)
@@ -414,11 +419,25 @@ class TestAndroidImport(unittest.TestCase):
             self.assertNotIn("nonexistent", entry)
 
     def test_pkg_resources(self):
-        import pkg_resources
-        self.assertEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl", "murmurhash",
-                          "setuptools"],
-                         sorted(dist.project_name for dist in pkg_resources.working_set))
-        self.assertEqual("40.4.3", pkg_resources.get_distribution("setuptools").version)
+        import pkg_resources as pr
+        self.assertCountEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl",
+                               "murmurhash", "setuptools"],
+                              [dist.project_name for dist in pr.working_set])
+        self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
+
+        self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
+        self.assertTrue(pr.resource_exists(__package__, "resources"))
+        self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
+        self.assertTrue(pr.resource_exists(__package__, "resources/a.txt"))
+        self.assertFalse(pr.resource_exists(__package__, "resources/nonexistent.txt"))
+
+        self.assertFalse(pr.resource_isdir(__package__, "test_android.py"))
+        self.assertTrue(pr.resource_isdir(__package__, "resources"))
+        self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
+
+        self.assertCountEqual(["a.txt", "b.txt"],
+                              pr.resource_listdir(__package__, "resources"))
+        self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
 
 
 def asset_path(*paths):
@@ -451,6 +470,14 @@ class TestAndroidStdlib(unittest.TestCase):
                          hashlib.new("ripemd160",
                                      b"The quick brown fox jumps over the lazy dog")
                          .hexdigest())
+
+    def test_locale(self):
+        import locale
+        self.assertEqual("UTF-8", locale.getlocale()[1])
+        self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
+        self.assertEqual("UTF-8", locale.getpreferredencoding())
+        self.assertEqual("utf-8", sys.getdefaultencoding())
+        self.assertEqual("utf-8", sys.getfilesystemencoding())
 
     def test_os(self):
         self.assertEqual("posix", os.name)

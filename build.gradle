@@ -5,11 +5,11 @@ buildscript {
         maven { url "https://chaquo.com/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.4'
+        classpath 'com.android.tools.build:gradle:3.2.1'
 
         // Newer versions may be available: please check here:
         // https://chaquo.com/chaquopy/doc/current/changelog.html
-        classpath "com.chaquo.python:gradle:5.0.0"
+        classpath "com.chaquo.python:gradle:5.1.2"
     }
 }
 

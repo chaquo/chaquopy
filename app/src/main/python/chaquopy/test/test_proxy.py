@@ -367,16 +367,16 @@ class TestProxy(FilterWarningsCase):
         from java.lang.reflect import UndeclaredThrowableException
         from com.chaquo.python import PyException
 
-        ref_line_no = traceback.extract_stack()[-1][1]
+        ref_line_no = traceback.extract_stack()[-1][1]  # Line number of THIS line.
         class E(dynamic_proxy(TP.Exceptions)):
             def fnf(self):
                 raise E.exc_cls("fnf")
         e_cast = cast(TP.Exceptions, E())
 
-        fnf_frames = [("<python>", "fnf", "test_proxy.py", ref_line_no + 3),
-                      ("com.chaquo.python.PyObject", "callAttrThrows", None, None),
-                      ("com.chaquo.python.PyInvocationHandler", "invoke",
-                       "PyInvocationHandler.java", None)]
+        fnf_frames = [
+            ("<python>.chaquopy.test.test_proxy", "fnf", "test_proxy.py", ref_line_no + 3),
+            ("com.chaquo.python.PyObject", "callAttrThrows", None, None),
+            ("com.chaquo.python.PyInvocationHandler", "invoke", "PyInvocationHandler.java", None)]
 
         def assertFnfThrows(message, throw_cls, catch_cls=None, check_cause=False):
             if catch_cls is None:
@@ -413,26 +413,47 @@ class TestProxy(FilterWarningsCase):
         try:
             e_cast.parse("abc")
         except NumberFormatException as e:
-            self.assertHasFrames(e, [("java.lang.Integer", "parseInt", None, None),
-                                     ("<python>", "indirect_parse", "test_proxy.py", ref_line + 5),
-                                     ("<python>", "parse", "test_proxy.py", ref_line + 3),
-                                     ("com.chaquo.python.PyObject", "callAttrThrows", None, None)])
+            self.assertHasFrames(e, [
+                ("java.lang.Integer", "parseInt", None, None),
+                ("<python>.chaquopy.test.test_proxy", "indirect_parse", "test_proxy.py",
+                 ref_line + 5),
+                ("<python>.chaquopy.test.test_proxy", "parse", "test_proxy.py", ref_line + 3),
+                ("com.chaquo.python.PyObject", "callAttrThrows", None, None)])
         else:
             self.fail()
 
+    def test_exception_in_init(self):
+        from java.lang import Runnable
+        ref_line_no = traceback.extract_stack()[-1][1]  # Line number of THIS line.
+        class C(dynamic_proxy(Runnable)):
+            def run(self):
+                from . import exception_in_init  # noqa: F401
+
+        c = C()
+        try:
+            cast(Runnable, c).run()
+        except PyException as e:
+            self.assertEqual("ValueError: Exception in __init__.py", e.getMessage())
+            self.assertHasFrames(e, [
+                ("<python>.chaquopy.test.exception_in_init", "<module>", "__init__.py", 3),
+                ("<python>.java.chaquopy", "import_override", "import.pxi", None),
+                ("<python>.chaquopy.test.test_proxy", "run", "test_proxy.py", ref_line_no + 3),
+                ("com.chaquo.python.PyObject", "callAttrThrows", None, None)])
+
+    # Checks that the given Java exception has the given frames in the given order (ignoring
+    # any other frames before, between and after).
     def assertHasFrames(self, e, frames):
         i_frame = 0
         for ste in e.getStackTrace():
             cls_name, method_name, file_name, line_no = frames[i_frame]
             if ste.getClassName() == cls_name and \
                ste.getMethodName() == method_name and \
-               (file_name is None or ste.getFileName().endswith(file_name)) and \
+               (file_name is None or ste.getFileName() == file_name) and \
                (line_no is None or ste.getLineNumber() == line_no):
                 i_frame += 1
                 if i_frame == len(frames):
                     return
-        raise AssertionError("{} element {} not found in {}".format(frames, i_frame,
-                                                                    e.getStackTrace()))
+        raise AssertionError("{} not found in {}".format(frames[i_frame], e.getStackTrace()))
 
     # Test a non-Chaquopy proxy class, implemented in Java in the conventional way.
     def test_java_implemented(self):

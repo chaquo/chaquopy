@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 5.1.2 (2019-01-19)
+
+* Target Android Studio 3.2.1.
+* Increase target API level to 28.
+
 ## 5.0.0 (2018-11-05)
 
 * Remove Python 2 flavor.
@@ -50,7 +55,7 @@ This file only records changes to the demo app. For changes to the Chaquopy SDK 
 
 ## 1.4.0 (2018-03-05)
 
-* Increase target API level from 23 to 26.
+* Increase target API level to 26.
 * Console activities are now based on the [console app
   template](https://github.com/chaquo/chaquopy-console), giving the following improvements:
   * Code input in the REPL is now executed on a background thread.
