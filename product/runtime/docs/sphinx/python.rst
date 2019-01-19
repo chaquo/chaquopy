@@ -382,8 +382,8 @@ class, so all Java exceptions can be thrown in Python.
 
 When `inheriting Java classes`_, exceptions may propagate from Python to Java code:
 
-* The Python and Java stack traces will be merged together in the exception, with Python frames
-  having a class name of `<python>`.
+* The exception will have a combined Python and Java stack trace, with Python frames indicated
+  by a package name starting "<python>".
 * If the exception is of a Java type, the original exception object will be used. Otherwise, it
   will be represented as a `PyException <java/com/chaquo/python/PyException.html>`_.
 

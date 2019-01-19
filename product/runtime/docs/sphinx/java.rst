@@ -40,20 +40,7 @@ Modules, classes, attributes and methods::
       compress_type=zipfile.ZIP_STORED)                   new Kwarg("compress_type",
                                                                     zipfile.get("ZIP_STORED")));
 
-Built-in types and functions::
-
-    # Python code                             // Java equivalent
-                                              PyObject builtins = py.getBuiltins();
-    l = [2, 1, 3]                             PyObject l = builtins.callAttr("list", 2, 1, 3);
-    sorted(l)                                 builtins.callAttr("sorted", l);
-    l[0]                                      l.callAttr("__getitem__", 0);
-    l[0] = 42                                 l.callAttr("__setitem__", 0, 42);
-
-    d = {1: "a", 2: "b"}                      PyObject d = builtins.callAttr("dict");
-                                              d.callAttr("__setitem__", 1, "a");
-                                              d.callAttr("__setitem__", 2, "b");
-
-Type conversion::
+Primitive types::
 
     # Python code                             // Java equivalent
     import sys                                PyObject sys = py.getModule("sys");
@@ -61,6 +48,17 @@ Type conversion::
     sys.version                               sys.get("version").toString();
     sys.is_finalizing()                       sys.callAttr("is_finalizing").toBoolean();
 
+Container types::
+
+    # Python code                             // Java equivalent
+    import sys                                PyObject sys = py.getModule("sys");
+    sys.version_info[0]                       sys.get("version_info").asList().get(0).toInt();
+
+    import os                                 PyObject os = py.getModule("os");
+    os.environ["HELLO"]                       os.get("environ").asMap().get("HELLO").toString();
+    os.environ["HELLO"] = "world"             os.get("environ").asMap().put(
+                                                  PyObject.fromJava("HELLO"),
+                                                  PyObject.fromJava("world"));
 
 Reference
 =========
