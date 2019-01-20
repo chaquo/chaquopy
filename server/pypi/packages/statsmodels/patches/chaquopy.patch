@@ -1,0 +1,55 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-05-14 20:02:52.000000000 +0000
++++ src/setup.py	2019-01-20 13:59:44.263816582 +0000
+@@ -70,7 +70,8 @@
+ 
+ class build_ext(_build_ext):
+     def build_extensions(self):
+-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
++        # Chaquopy
++        numpy_incl = os.path.abspath("../requirements/numpy/core/include")
+ 
+         for ext in self.extensions:
+             if (hasattr(ext, 'include_dirs') and
+@@ -164,7 +165,8 @@
+             raise ImportError("Patsy version is %s. Requires >= %s" %
+                               (pversion, min_versions["patsy"]))
+ 
+-    return setup_requires, install_requires
++    # Chaquopy: return [] instead of setup_requires.
++    return [], install_requires
+ 
+ 
+ MAJ = 0
+@@ -344,12 +346,19 @@
+ #NOTE: we are not currently using this but add it to Extension, if needed.
+ # libraries = ['m'] if 'win32' not in sys.platform else []
+ 
+-from numpy.distutils.misc_util import get_info
++# Chaquopy: disabled
++# from numpy.distutils.misc_util import get_info
+ 
+ # Reset the cython exclusions file
+ init_cython_exclusion(CYTHON_EXCLUSION_FILE)
+ 
+-npymath_info = get_info("npymath")
++# Chaquppy: replaced use of get_info
++npymath_info = {
++    "include_dirs": [os.path.abspath("../requirements/numpy/core/include")],
++    "library_dirs": [os.path.abspath("../requirements/numpy/core/lib")],
++    "libraries": ["npymath", "m"],
++}
++
+ ext_data = dict(
+     kalman_loglike = {"name" : "statsmodels/tsa/kalmanf/kalman_loglike.c",
+               "depends" : ["statsmodels/src/capsule.h"],
+@@ -446,7 +455,8 @@
+               "sources": []},
+ )
+ try:
+-    from scipy.linalg import cython_blas
++    # Chaquopy: disabled this check.
++    # from scipy.linalg import cython_blas
+     ext_data.update(statespace_ext_data)
+ except ImportError:
+     for name, data in statespace_ext_data.items():
