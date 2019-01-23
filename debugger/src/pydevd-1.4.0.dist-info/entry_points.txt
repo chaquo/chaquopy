@@ -1,0 +1,3 @@
+[console_scripts]
+pydevd = pydevd:main
+

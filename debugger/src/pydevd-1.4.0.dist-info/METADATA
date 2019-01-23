@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: pydevd
+Version: 1.4.0
+Summary: PyDev.Debugger (used in PyDev, PyCharm and VSCode Python)
+Home-page: https://github.com/fabioz/PyDev.Debugger/
+Author: Fabio Zadrozny and others
+Author-email: UNKNOWN
+License: EPL (Eclipse Public License)
+Keywords: pydev,pydevd,pydev.debugger
+Platform: UNKNOWN
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Debuggers
+
+UNKNOWN
+
+

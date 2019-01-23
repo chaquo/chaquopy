@@ -1,0 +1,15 @@
+_pydev_bundle
+_pydev_imps
+_pydev_runfiles
+_pydevd_bundle
+_pydevd_frame_eval
+pydev_app_engine_debug_startup
+pydev_ipython
+pydev_run_in_console
+pydevconsole
+pydevd
+pydevd_concurrency_analyser
+pydevd_file_utils
+pydevd_plugins
+pydevd_tracing
+setup_cython
