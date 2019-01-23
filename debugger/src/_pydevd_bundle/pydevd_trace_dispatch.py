@@ -6,7 +6,7 @@ import sys
 from _pydevd_bundle.pydevd_constants import CYTHON_SUPPORTED
 
 
-use_cython = os.getenv('PYDEVD_USE_CYTHON', None)
+use_cython = os.getenv('PYDEVD_USE_CYTHON', 'NO')  # Chaquopy: default to 'NO' rather than None.
 dirname = os.path.dirname(os.path.dirname(__file__))
 # Do not show incorrect warning for .egg files for Remote debugger
 if not CYTHON_SUPPORTED or dirname.endswith('.egg'):

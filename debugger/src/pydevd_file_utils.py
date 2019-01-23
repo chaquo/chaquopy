@@ -315,12 +315,7 @@ try:
     except AttributeError:
         code = rPath.__code__
     if not exists(_NormFile(code.co_filename)):
-        sys.stderr.write('-------------------------------------------------------------------------------\n')
-        sys.stderr.write('pydev debugger: CRITICAL WARNING: This version of python seems to be incorrectly compiled (internal generated filenames are not absolute)\n')
-        sys.stderr.write('pydev debugger: The debugger may still function, but it will work slower and may miss breakpoints.\n')
-        sys.stderr.write('pydev debugger: Related bug: http://bugs.python.org/issue1666807\n')
-        sys.stderr.write('-------------------------------------------------------------------------------\n')
-        sys.stderr.flush()
+        # Chaquopy: removed warning.
 
         NORM_SEARCH_CACHE = {}
 
@@ -338,7 +333,7 @@ try:
                         if exists(real_path):
                             break
                     else:
-                        sys.stderr.write('pydev debugger: Unable to find real location for: %s\n' % (filename,))
+                        # Chaquopy: removed warning
                         abs_path = filename
                         real_path = filename
 

@@ -346,7 +346,8 @@ def process_net_command(py_db, cmd_id, seq, text):
 
                 file = pydevd_file_utils.norm_file_to_server(file)
 
-                if not pydevd_file_utils.exists(file):
+                # Chaquopy: disabled warning for android_asset paths.
+                if not pydevd_file_utils.exists(file) and not file.startswith("/android_asset/"):
                     sys.stderr.write('pydev debugger: warning: trying to add breakpoint'\
                         ' to file that does not exist: %s (will have no effect)\n' % (file,))
                     sys.stderr.flush()
