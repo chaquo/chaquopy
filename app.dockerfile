@@ -12,9 +12,10 @@ RUN filename=sdk-tools-linux-4333796.zip && \
     unzip -q -d android-sdk $filename && \
     rm $filename
 
-# Indicate that we accept the license which has the given hash.
-RUN mkdir android-sdk/licenses && \
-    echo d56f5187479451eabf01fb78af6dfcb131a6481e > android-sdk/licenses/android-sdk-license
+# Indicate that we accept the Android SDK license. The platform version here doesn't matter:
+# all versions require the same license, and if the app build.gradle specifies a different
+# version, the build process will automatically download it.
+RUN yes | android-sdk/tools/bin/sdkmanager "platforms;android-28"
 
 COPY maven maven
 COPY server/pypi/dist server/pypi/dist
