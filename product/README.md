@@ -4,6 +4,9 @@ This file contains instructions for building and testing Chaquopy. These instruc
 tested on Linux x86-64, and Windows x86-64 with MSYS2. However, the resulting packages can be
 used on any supported Android build platform (Windows, Linux or Mac).
 
+Alternatively, you might want to use the automated Docker-based build process: see
+`../README.md`.
+
 
 # Build prerequisites
 
@@ -16,17 +19,16 @@ used on any supported Android build platform (Windows, Linux or Mac).
    * SDK Platform corresponding to `COMPILE_SDK_VERSION` in
      `product/buildSrc/src/main/java/com/chaquo/python/Common.java` (e.g.
      `platforms;android-21`).
-* Crystax NDK 10.3.2.
-* Crystax libraries and includes for each Python version. These should be in `sources/python`
-  within the Crystax directory: either generate them using the instructions in
-  `target/README.md`, or copy them from another machine.
+* Android sysroots in `../target/toolchains/<abi>/sysroot`. Either generate them using the
+  commands in `../build-maven.sh`, or copy them from another machine. For this purpose, you
+  only need to copy the Python headers in `usr/include/pythonX.Y` and the library
+  `usr/lib/libpythonX.Y.so`.
 
 Create a `local.properties` file in `product` (i.e. the same directory as this README), with
 the following content:
 
     sdk.dir=<Android SDK directory>
     ndk.dir=<Android SDK directory>/ndk-bundle
-    crystax.dir=<Crystax NDK directory>
 
 If building with a non-standard license mode, also add the line:
 
@@ -40,22 +42,25 @@ Current modes are `free` for no license enforcement at all, and `ec` for Electro
 The build can be done either at the command line using `gradlew`, or by opening the project in
 Android Studio or IntelliJ.
 
-Run the Gradle task `gradle-plugin:assemble`. (For a release build, add `-P
-cmakeBuildType=Release` to the Gradle command line.) The resulting JAR file will be generated
-in `product/gradle-plugin/build/libs`.
+The top-level Gradle tasks are as follows. All artifacts are generated in the `maven` directory
+in the repository root. All apps in this repository are set to build against that local Maven
+repository, not the one on chaquo.com.
 
-To generate the POM file for the Maven repository, run the Gradle task
-`gradle-plugin:writePom`.
+* `gradle-plugin:publish` for the `com.chaquo.python:gradle` artifact.
+* `runtime:publish` for the `com.chaquo.python.runtime` artifacts. For a release build, add `-P
+  cmakeBuildType=Release` to the Gradle command line.
 
 
 # Runtime tests
 
 Most of the runtime library unit tests included in the [Android demo
-app](https://github.com/chaquo/chaquopy/) can also be run locally.
+app](https://github.com/chaquo/chaquopy/) can also be run locally. You must have installed the
+same major.minor version of Python as Chaquopy currently uses: this is represented below as
+`X.Y`.
 
 Linux prerequisites:
 
-* Python development headers (e.g. `python3.6-dev` on Debian)
+* Python development headers (e.g. `pythonX.Y-dev` on Debian)
 
 Windows prerequisites:
 
@@ -69,15 +74,14 @@ Common prerequisities (on Windows, these must be the MSYS2 versions):
 * GCC and binutils.
 * Python of the same major.minor version as you are testing.
 
-The tests are run by the Gradle tasks `runtime:testPython-X.Y` and `runtime:testJava-X.Y`,
-where `X.Y` is the Python version (e.g. 3.6). Or run `runtime:check` to test everything at
-once.
+The tests are run by the Gradle tasks `runtime:testPython` and `runtime:testJava`. Or run
+`runtime:check` to test everything at once.
 
 
 # Gradle plugin tests
 
 There are a few Gradle plugin unit tests, which can be run with the Gradle task
-`gradle-plugin:testPython-X`, where `X` is the Python major version (e.g. 3).
+`gradle-plugin:testPython`.
 
 However, most of the Gradle plugin functionality is covered by the integration tests.
 Prerequisites:
