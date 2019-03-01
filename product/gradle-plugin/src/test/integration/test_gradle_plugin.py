@@ -138,7 +138,7 @@ class AndroidPlugin(GradleTestCase):
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
-                          "3.0.0 or later: " + self.ADVICE, run.stderr)
+                          "3.1.0 or later: " + self.ADVICE, run.stderr)
 
     def test_untested(self):  # Also tests making a change
         run = self.RunGradle("base")
@@ -865,13 +865,9 @@ class RunGradle(object):
 
             for variant in variants:
                 outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
-                apk_filename = join(outputs_apk_dir,
-                                    "app-{}.apk".format(variant))       # Android plugin 2.x
-                if not os.path.isfile(apk_filename):
-                    apk_filename = join(outputs_apk_dir, variant.replace("-", "/"),
-                                        "app-{}.apk".format(variant))   # Android plugin 3.x
-
-                apk_zip = ZipFile(apk_filename)
+                apk_zip = ZipFile(join(outputs_apk_dir,
+                                       variant.replace("-", "/"),
+                                       "app-{}.apk".format(variant)))
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
                     rmtree(apk_dir)

@@ -18,7 +18,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.0")
     static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.2.1")
 
     Project project
@@ -476,22 +476,16 @@ class PythonPlugin implements Plugin<Project> {
         try {
             execResult.assertNormalExitValue()
         } catch (Exception e) {
-            // A failed build in Android Studio 2.3 or 3.0 brings up the Messages window, which
-            // shows only the stderr output of the task.
+            // The Build window opens in tree mode by default, with the root node focused. This
+            // displays only the message of the lowest- level exception in the chain, which
+            // will be something vague like "Process 'command 'python'' finished with non-zero
+            // exit value 1". So we need to tell the user how to see the full pip output.
             //
-            // Android Studio 3.1 brings up the Build window, which, if in tree mode (the default),
-            // initially has the root node focused. This displays only the message of the lowest-
-            // level exception in the chain, which will be something like "Process 'command
-            // 'python'' finished with non-zero exit value 1".
-            //
-            // Either way, we need to tell the user how to see the full pip output. Don't change the
-            // message depending on the Android Gradle plugin version, because that isn't
-            // necessarily the same as the Android Studio version.
+            // These instructions are currently the same for all supported Android Studio
+            // versions. If that ever changes, see Chaquopy 5.0 for how to format the message.
             throw new GradleException(
-                "buildPython failed ($e). For full details:\n" +
-                "* In Android Studio 3.1 and later, open the 'Build' window and switch to text " +
-                "mode with the 'ab' button on the left.\n" +
-                 "* In Android Studio 3.0 and earlier, open the 'Gradle Console' window.")
+                "buildPython failed ($e). For full details, open the 'Build' window and " +
+                "switch to text mode with the 'Toggle view' button on the left.")
         }
     }
 
