@@ -7,7 +7,7 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 3.0.x and 3.2.x. This is specified as
+* Android Gradle plugin version should be between 3.1.x and 3.3.x. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.

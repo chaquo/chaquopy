@@ -19,7 +19,7 @@ class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.0")
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.2.1")
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.3.1")
 
     Project project
     ScriptHandler buildscript
@@ -647,7 +647,7 @@ class PythonPlugin implements Plugin<Project> {
         }
         closure.delegate = t
         closure()
-        extendMergeTask(variant.getMergeAssets(), t)
+        extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}Assets"), t)
         return t
     }
 
@@ -690,9 +690,9 @@ class PythonPlugin implements Plugin<Project> {
                         include "jniLibs/**"
                         into libsDir
                         eachFile { FileCopyDetails fcd ->
-                            fcd.relativePath = new RelativePath
-                                    (!fcd.file.isDirectory(),
-                                     fcd.relativePath.segments[1..-1] as String[])
+                            fcd.relativePath = new RelativePath(
+                                 !fcd.file.isDirectory(),
+                                 fcd.relativePath.segments[1..-1] as String[])
                         }
                         includeEmptyDirs = false
                     }

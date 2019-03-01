@@ -112,6 +112,7 @@ Task testIntegrationTask(String version) {
 task("testIntegration", "group": "verification")
 testIntegration.dependsOn(testIntegrationTask("3.1"))
 testIntegration.dependsOn(testIntegrationTask("3.2"))
+testIntegration.dependsOn(testIntegrationTask("3.3"))
 check.dependsOn(testIntegration)
 
 jar {
