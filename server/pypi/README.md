@@ -32,8 +32,9 @@ release the package before the next version of the SDK, also temporarily edit
 
 Then test the app on the following devices, with at least one device being a clean install:
 
-* minSdkVersion emulator, or API 18 if "too many libraries" error occurs (#5316)
-* targetSdkVersion emulator
+* x86 emulator with minSdkVersion, or API 18 if "too many libraries" error occurs (#5316)
+* x86 emulator with targetSdkVersion
+* x86\_64 emulator with API 23 (#5563)
 * Any armeabi-v7a device
 * Any arm64-v8a device
 

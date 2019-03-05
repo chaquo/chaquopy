@@ -219,7 +219,8 @@ class AbiFilters(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
         self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
-                          "Supported ABIs are [armeabi-v7a, arm64-v8a, x86].", run.stderr)
+                          "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
+                          run.stderr)
 
     def test_variant(self):
         self.RunGradle("base", "AbiFilters/variant",

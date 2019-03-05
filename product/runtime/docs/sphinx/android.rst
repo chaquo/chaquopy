@@ -67,6 +67,7 @@ setting to specify which ABIs you want the app to support. The currently availab
 * `armeabi-v7a`, supported by virtually all Android devices.
 * `arm64-v8a`, supported by most recent Android devices.
 * `x86`, for the Android emulator.
+* `x86_64`, for the Android emulator.
 
 During development you will probably want to enable ABIs for both the emulator and your
 devices, e.g.::

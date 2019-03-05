@@ -26,10 +26,7 @@ public class Common {
         PYTHON_IMPLEMENTATION + PYTHON_SUFFIX.replace(".", "");
 
     public static final List<String> ABIS = Arrays.asList
-        ("armeabi-v7a",
-         "arm64-v8a",
-         "x86"
-        );
+        ("armeabi-v7a", "arm64-v8a", "x86", "x86_64");
 
     // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";
