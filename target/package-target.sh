@@ -22,7 +22,7 @@ tmp_dir="$target_dir/tmp"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
-for abi in armeabi-v7a arm64-v8a x86; do
+for abi in armeabi-v7a arm64-v8a x86 x86_64; do
     echo "$abi"
     mkdir "$abi"
     cd "$abi"

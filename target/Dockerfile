@@ -19,7 +19,7 @@ COPY openssl src/openssl
 COPY crystax/platform/ndk/build/tools/build-target-openssl.sh \
      src/crystax/platform/ndk/build/tools/
 RUN src/crystax/platform/ndk/build/tools/build-target-openssl.sh \
-        --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/openssl && \
+        --verbose --ndk-dir=$(pwd)/crystax --abis=$abis src/openssl && \
     rm -r /tmp/ndk-*
 
 # Python 3.6 isn't included in this version of Debian, so use a third-party build.
@@ -35,5 +35,5 @@ COPY crystax/platform/ndk/build/tools/build-target-python.sh \
 COPY crystax/platform/ndk/build/tools/build-target-python \
      src/crystax/platform/ndk/build/tools/build-target-python
 RUN src/crystax/platform/ndk/build/tools/build-target-python.sh \
-        --verbose --ndk-dir=$(pwd)/crystax --abis=$ABIS src/python && \
+        --verbose --ndk-dir=$(pwd)/crystax --abis=$abis src/python && \
     rm -r /tmp/ndk-*
