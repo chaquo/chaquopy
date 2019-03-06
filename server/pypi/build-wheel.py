@@ -522,6 +522,17 @@ class BuildWheel:
             run(f"{toolchain_dir}/bin/{abi.tool_prefix}-ar r "
                 f"{toolchain_dir}/sysroot/usr/lib/libpthread.a")
 
+            if abi.name == "x86_64":
+                # The actual x86_64 libraries are in `lib64`. These alternative ABI
+                # subdirectories should never be used, and they confuse the build scripts for
+                # chaquopy-gnustl and chaquopy-libgfortran, so just remove them.
+                for name in ["lib", "libx32"]:
+                    run(f"rm -r {toolchain_dir}/{abi.tool_prefix}/{name}")
+
+                # The linker apparently requires the `lib` directory to exist, otherwise it
+                # won't even look for `lib64`.
+                run(f"mkdir {toolchain_dir}/{abi.tool_prefix}/lib")
+
             # The Crystax make-standalone-toolchain.sh renames libgnustl_static.a to
             # libstdc++.a, but leaves libgnustl_shared.so at its original name. This would result
             # in packages linking against the static library, which is unsafe for the reasons
@@ -529,11 +540,12 @@ class BuildWheel:
             # rename the shared library as well. (Its SONAME is still libgnustl_shared.so, so
             # that's the filename expected at runtime.)
             #
-            # Some ABIs (e.g. armeabi-v7a) contain multiple sets of libraries in
-            # subdirectories: we want to process them all.
-            for lib_dir, _, _ in os.walk(f"{toolchain_dir}/{abi.tool_prefix}/lib"):
-                if not lib_dir.endswith("ldscripts"):
-                    run(f"mv {lib_dir}/libgnustl_shared.so {lib_dir}/libstdc++.so")
+            # armeabi-v7a and x86_64 contain multiple lib directories, so don't hard code the
+            # directory name.
+            src_filename = "libgnustl_shared.so"
+            for dirpath, dirnames, filenames in os.walk(f"{toolchain_dir}/{abi.tool_prefix}"):
+                if src_filename in filenames:
+                    run(f"mv {dirpath}/{src_filename} {dirpath}/libstdc++.so")
 
             # The kevent API doesn't work properly: it gives a "bad address" error
             # (https://tracker.crystax.net/issues/1433).
