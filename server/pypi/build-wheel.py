@@ -68,6 +68,7 @@ ABIS = {abi.name: abi for abi in [
         ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
     Abi("arm64-v8a", 21, "aarch64-linux-android"),
     Abi("x86", 15, "i686-linux-android"),
+    Abi("x86_64", 21, "x86_64-linux-android"),
 ]}
 
 
@@ -441,6 +442,7 @@ class BuildWheel:
             "armeabi-v7a": "armv7-a",
             "arm64-v8a": "aarch64",
             "x86": "i686",
+            "x86_64": "x86_64",
         }
 
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")

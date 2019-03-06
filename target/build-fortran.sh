@@ -62,6 +62,12 @@ config_args+=" --enable-shared=libgfortran"
 # but would probably be harmless since it won't exist anyway.
 config_args+=" --disable-libquadmath --disable-libquadmath-support"
 
+# These arguments both affect x86_64:
+# * `--disable-bootstrap` prevents the build system from trying to build a native
+#   compiler rather than a cross compiler (https://stackoverflow.com/a/48019473).
+# * `--disable-multilib` prevents it from building x86 copies of everything.
+config_args+=" --disable-bootstrap --disable-multilib"
+
 $src_dir/configure $config_args
 make -j $(nproc)
 

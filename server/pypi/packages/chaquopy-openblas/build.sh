@@ -71,6 +71,12 @@ case $CHAQUOPY_ABI in
         export TARGET="ATOM"
         ;;
 
+    x86_64)
+        # This corresponds to the instruction set extensions listed at
+        # https://developer.android.com/ndk/guides/abis#86-64.
+        export TARGET="NEHALEM"
+        ;;
+
     *)
         echo "Unknown ABI '$CHAQUOPY_ABI'"
         exit 1
