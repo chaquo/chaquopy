@@ -317,7 +317,15 @@ diff -urN --no-dereference src-original/tensorflow/workspace.bzl src/tensorflow/
        build_file = clean_dep("//third_party:swig.BUILD"),
        system_build_file = clean_dep("//third_party/systemlibs:swig.BUILD"),
    )
-@@ -527,6 +529,7 @@
+@@ -469,6 +471,7 @@
+       sha256 = "50db9cf2221354485eb7c3bd55a4c27190caef7048a2a1a15fbe60a498f98b44",
+       strip_prefix = "grpc-1.13.0",
+       system_build_file = clean_dep("//third_party/systemlibs:grpc.BUILD"),
++      patch_file = clean_dep("//third_party/grpc:chaquopy.patch"),
+   )
+
+   tf_http_archive(
+@@ -527,6 +530,7 @@
        ],
        sha256 = "524ba98a56300149696481b4cb9ddebd0c7b7ac9b9f6edee81da2d2d7e5d2bb3",
        strip_prefix = "boringssl-a0fb951d2a26a8ee746b52f3ba81ab011a0af778",
@@ -491,6 +499,22 @@ diff -urN --no-dereference src-original/third_party/gif.BUILD src/third_party/gi
 -    values = {"crosstool_top": "//external:android/crosstool"},
 +    values = {"crosstool_top": "//chaquopy/crosstool"},
  )
+diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaquopy.patch
+--- src-original/third_party/grpc/chaquopy.patch        1970-01-01 00:00:00.000000000 +0000
++++ src/third_party/grpc/chaquopy.patch 2019-03-06 20:33:50.086229265 +0000
+@@ -0,0 +1,12 @@
++--- a/src/core/lib/gpr/wrap_memcpy.cc  2018-06-28 00:25:45.000000000 +0000
+++++ b/src/core/lib/gpr/wrap_memcpy.cc  2019-03-06 20:31:01.440544707 +0000
++@@ -28,7 +28,8 @@
++
++ extern "C" {
++ #ifdef __linux__
++-#if defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
+++// Chaquopy: disabled
+++#if 0 && defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
++ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
++ void* __wrap_memcpy(void* destination, const void* source, size_t num) {
++   return memcpy(destination, source, num);
 diff -urN --no-dereference src-original/third_party/lmdb.BUILD src/third_party/lmdb.BUILD
 --- src-original/third_party/lmdb.BUILD	2018-08-23 19:58:44.000000000 +0000
 +++ src/third_party/lmdb.BUILD	2018-09-20 20:49:57.365222384 +0000

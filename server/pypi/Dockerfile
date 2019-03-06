@@ -8,6 +8,11 @@
 
 FROM chaquopy-target
 
+# OpenCV requires Python 2 even when building for Python 3: see its patch.
+RUN apt-get update && \
+    apt-get -y install python && \
+    ln -sf python3.6 /usr/bin/python
+
 RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 
 # Miscellaneous build tools
@@ -19,8 +24,8 @@ RUN apt-get update && \
     wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6-dev,libpython3.6-dev}_3.6.3-1.deb9u1_amd64.deb && \
     apt install -y ./*.deb && \
     rm *.deb && \
-    ln -s python3.6 /usr/bin/python && \
-    ln -s python3.6 /usr/bin/python3
+    ln -sf python3.6 /usr/bin/python && \
+    ln -sf python3.6 /usr/bin/python3
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \

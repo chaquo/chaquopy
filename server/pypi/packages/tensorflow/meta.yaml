@@ -3,7 +3,7 @@ package:
   version: 1.10.1
 
 build:
-  number: 7
+  number: 8
 
 source:
   url: https://github.com/tensorflow/tensorflow/archive/v1.10.1.tar.gz
