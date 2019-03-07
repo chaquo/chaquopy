@@ -3,10 +3,10 @@ package:
   version: 0.19.1
 
 build:
-  number: 1
+  number: 2
 
 requirements:
   host:
     - chaquopy-openblas 0.2.20
     - numpy 1.14.2
-    - scipy 1.0.1
+    - scipy 1.1.0

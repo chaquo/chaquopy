@@ -253,8 +253,9 @@ class BuildWheel:
                 warn(f"pip download returned exit status {result.returncode}")
             sdist_filename = self.find_sdist()
             if not sdist_filename:
-                raise CommandError("Can't find downloaded source archive. Does the package name "
-                                   "in meta.yaml have the correct capitalization and punctuation?")
+                raise CommandError("Can't find downloaded source archive. Does the name and "
+                                   "version in the package's meta.yaml match the filename "
+                                   "shown above?")
         return sdist_filename
 
     def find_sdist(self):
