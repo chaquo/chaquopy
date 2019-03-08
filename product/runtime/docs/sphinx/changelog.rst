@@ -1,6 +1,13 @@
 Change log
 ##########
 
+6.0.0 (2019-03-08)
+==================
+
+* The ABI `x86_64` is now supported.
+* Android Gradle plugin version 3.3 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.0 is no longer supported.
+
 5.1.2 (2019-01-19)
 ==================
 

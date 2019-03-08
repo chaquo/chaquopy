@@ -24,8 +24,9 @@ publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:
 Remove any license key from pkgtest app, then test it on the following devices, with at least
 one device being a clean install:
 
-* API 18 emulator (earlier versions give "too many libraries" error (#5316)).
-* targetSdkVersion emulator
+* x86 emulator with API 18 (#5316)
+* x86 emulator with targetSdkVersion
+* x86\_64 emulator with API 23 (#5563)
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
