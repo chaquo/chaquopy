@@ -238,8 +238,9 @@ class BuildWheel:
                 warn(f"pip download returned exit status {result.returncode}")
             sdist_filename = self.find_sdist()
             if not sdist_filename:
-                raise CommandError("Can't find downloaded source archive: maybe it has an "
-                                   "unknown filename extension")
+                raise CommandError("Can't find downloaded source archive. Does the name and "
+                                   "version in the package's meta.yaml match the filename "
+                                   "shown above?")
         return sdist_filename
 
     def find_sdist(self):
@@ -439,6 +440,7 @@ class BuildWheel:
             "armeabi-v7a": "armv7-a",
             "arm64-v8a": "aarch64",
             "x86": "i686",
+            "x86_64": "x86_64",
         }
 
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
@@ -510,7 +512,8 @@ class BuildWheel:
             host_soabi = sysconfig.get_config_var("SOABI")
             for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
                 if re.search(r"\.(so(\..*)?|a)$", original_path):
-                    # On Python 3, native modules will be tagged with the build platform, e.g.
+                    # Because distutils doesn't propertly support cross-compilation, native
+                    # modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
                     original_path = join(tmp_dir, original_path)
                     fixed_path = re.sub(fr"\.({host_soabi}|abi\d+)\.so$", ".so", original_path)

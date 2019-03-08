@@ -81,6 +81,18 @@ diff -ur src-original/setup.py src/setup.py
  )
  
  if not PY3:
+--- src-original/src/core/lib/gpr/wrap_memcpy.cc        2018-06-01 23:53:55.000000000 +0000
++++ src/src/core/lib/gpr/wrap_memcpy.cc 2019-03-07 19:58:46.900378870 +0000
+@@ -28,7 +28,8 @@
+
+ extern "C" {
+ #ifdef __linux__
+-#if defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
++// Chaquopy disabled: build succeeds, but function hangs at runtime.
++#if 0 && defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
+ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
+ void* __wrap_memcpy(void* destination, const void* source, size_t num) {
+   return memcpy(destination, source, num);
 diff -ur src-original/third_party/cares/cares/ares_init.c src/third_party/cares/cares/ares_init.c
 --- src-original/third_party/cares/cares/ares_init.c	2018-06-01 23:53:57.000000000 +0000
 +++ src/third_party/cares/cares/ares_init.c	2018-10-17 19:02:36.339520322 +0000

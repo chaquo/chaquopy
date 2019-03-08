@@ -7,7 +7,7 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 3.0.x and 3.2.x. This is specified as
+* Android Gradle plugin version should be between 3.1.x and 3.3.x. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
@@ -67,6 +67,7 @@ setting to specify which ABIs you want the app to support. The currently availab
 * `armeabi-v7a`, supported by virtually all Android devices.
 * `arm64-v8a`, supported by most recent Android devices.
 * `x86`, for the Android emulator.
+* `x86_64`, for the Android emulator.
 
 During development you will probably want to enable ABIs for both the emulator and your
 devices, e.g.::
@@ -375,6 +376,7 @@ Logcat message length limit of approximately 4000 bytes.
 `stdin` always returns EOF. If you want to run some code which takes interactive text input, you
 may find the `console app template <https://github.com/chaquo/chaquopy-console>`_ useful.
 
+
 Android Studio plugin
 =====================
 
@@ -389,41 +391,3 @@ JetBrains Python plugin.
 * Go to the Plugins page, and click "Install JetBrains plugin".
 * Select "Python Community Edition", and click "Install".
 * Restart Android Studio when prompted.
-
-Licensing
-=========
-
-Evaluation
-----------
-
-You can try out Chaquopy right now by cloning one of the :ref:`example apps <quick-start>`, or
-following the setup instructions above in an app of your own.
-
-An unlicensed SDK is fully-functional, but apps built with it will display a notification on
-startup, and are limited to a run-time of 5 minutes. To remove these restrictions, a license is
-required. All licenses are perpetual and include upgrades to all future versions.
-
-Once you have a license key, activate it by adding the following line to the project’s
-`local.properties` file::
-
-    chaquopy.license=<license key>
-
-Standard license
-----------------
-
-A standard license allows unlimited use of Chaquopy in any number of apps. Please `contact us
-<https://chaquo.com/chaquopy/contact/>`_ to request a license key, giving the following information:
-
-* A summary of what your app is, and how Chaquopy will be used in it.
-* How many developers on your project will be using Chaquopy.
-
-Open-source license
--------------------
-
-For open-source apps, Chaquopy will always be free of charge. Please `contact us
-<https://chaquo.com/chaquopy/contact/>`_ with details of your app, including:
-
-* The `applicationId <https://developer.android.com/studio/build/application-id>`_ from your
-  `build.gradle`.
-* Where the app is distributed (e.g. Google Play).
-* Where the app's source code is available.

@@ -1,6 +1,26 @@
 Change log
 ##########
 
+6.0.0 (2019-03-08)
+==================
+
+* The ABI `x86_64` is now supported.
+* Android Gradle plugin version 3.3 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.0 is no longer supported.
+
+5.1.2 (2019-01-19)
+==================
+
+* Add `PyObject` primitive conversion methods (`toBoolean`, `toInt`, etc.).
+* Add `PyObject` container view methods (`asList`, `asMap` and `asSet`).
+* If `pkg_resources` is installed in your app, its `"basic resource access"
+  <https://setuptools.readthedocs.io/en/latest/pkg_resources.html#basic-resource-access>`_
+  functions will now work.
+* Remove directory names when converting exception stack traces from Python to Java. This works
+  around a bug in Google Play which was causing crash reports to be incomplete.
+* Change default character encoding from ASCII to UTF-8.
+* Make APK build more reproducible.
+
 5.0.0 (2018-11-05)
 ==================
 

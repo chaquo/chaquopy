@@ -16,14 +16,12 @@ Data types are converted between Python and Java as follows:
 * Java `null` corresponds to Python `None`.
 
 * The Java boolean, integer and floating point types correspond to Python `bool`, `int` and
-  `float` respectively. (In Python 2, `long` is accepted for Python-to-Java conversions, and is
-  used when necessary in Java-to-Python conversions.)
+  `float` respectively.
 
 * When Java code uses a "boxed" type, auto-boxing is done when converting from Python to Java,
   and auto-unboxing when converting from Java to Python.
 
-* Java `String` and `char` both correspond to a Python Unicode string. (The Python 2 `str` is
-  also accepted for Python-to-Java conversions, as long as it only contains ASCII characters.)
+* Java `String` and `char` both correspond to a Python Unicode string.
 
 * A Java object is represented as a :any:`jclass` object.
 
@@ -158,8 +156,8 @@ a single parameter, which must be one of the following:
     jarray(jchar)("hello")                        new char[] {'h', 'e', 'l', 'l', 'o'}
 
 * `byte[]` arrays can be initialized from Python :any:`bytes` and :any:`bytearray` objects.
-  (The Python 2 `str` is also accepted.) This does an unsigned-to-signed conversion: Python
-  values 128 to 255 will be mapped to Java values -128 to -1.
+  This does an unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java
+  values -128 to -1.
 
 Array objects support the standard Python sequence protocol:
 
@@ -180,8 +178,7 @@ useful, so the equivalent Python operations are defined as follows:
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 
-`byte[]` arrays can be passed to the Python 3 :any:`bytes` function. (In Python 2, call the
-:any:`__bytes__ <object.__bytes__>` method directly.) This does a signed-to-unsigned
+`byte[]` arrays can be passed to the Python 3 :any:`bytes` function. This does a signed-to-unsigned
 conversion: Java values -128 to -1 will be mapped to Python values 128 to 255. Direct
 conversion to a :any:`bytearray` is not currently supported: use `bytearray(bytes(...))`
 instead.
@@ -385,8 +382,8 @@ class, so all Java exceptions can be thrown in Python.
 
 When `inheriting Java classes`_, exceptions may propagate from Python to Java code:
 
-* The Python and Java stack traces will be merged together in the exception, with Python frames
-  having a class name of `<python>`.
+* The exception will have a combined Python and Java stack trace, with Python frames indicated
+  by a package name starting "<python>".
 * If the exception is of a Java type, the original exception object will be used. Otherwise, it
   will be represented as a `PyException <java/com/chaquo/python/PyException.html>`_.
 

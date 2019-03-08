@@ -1,0 +1,26 @@
+--- src-original/setup.py	2018-09-26 18:57:49.000000000 +0000
++++ src/setup.py	2019-01-31 15:02:10.361223549 +0000
+@@ -167,16 +167,21 @@
+                 configure, "--disable-shared", "--enable-static",
+                 "--disable-debug", "--disable-dependency-tracking",
+                 "--with-pic", "--prefix", os.path.abspath(self.build_clib),
++
++                # Chaquopy
++                "--host", os.path.basename(os.environ["CC"]).replace("-gcc", ""),
+             ],
+             cwd=build_temp,
+         )
+ 
+         make_args = os.environ.get('LIBSODIUM_MAKE_ARGS', '').split()
++        # Chaquopy
++        make_args += ["-j", str(os.cpu_count())]
++
+         # Build the library
+         subprocess.check_call(["make"] + make_args, cwd=build_temp)
+ 
+-        # Check the build library
+-        subprocess.check_call(["make", "check"] + make_args, cwd=build_temp)
++        # Chaquopy: removed `make check`
+ 
+         # Install the built library
+         subprocess.check_call(["make", "install"] + make_args, cwd=build_temp)

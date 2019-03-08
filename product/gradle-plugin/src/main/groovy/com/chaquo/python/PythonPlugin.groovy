@@ -18,8 +18,8 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.0.0")
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.2.1")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.0")
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.3.2")
 
     Project project
     ScriptHandler buildscript
@@ -476,22 +476,16 @@ class PythonPlugin implements Plugin<Project> {
         try {
             execResult.assertNormalExitValue()
         } catch (Exception e) {
-            // A failed build in Android Studio 2.3 or 3.0 brings up the Messages window, which
-            // shows only the stderr output of the task.
+            // The Build window opens in tree mode by default, with the root node focused. This
+            // displays only the message of the lowest- level exception in the chain, which
+            // will be something vague like "Process 'command 'python'' finished with non-zero
+            // exit value 1". So we need to tell the user how to see the full pip output.
             //
-            // Android Studio 3.1 brings up the Build window, which, if in tree mode (the default),
-            // initially has the root node focused. This displays only the message of the lowest-
-            // level exception in the chain, which will be something like "Process 'command
-            // 'python'' finished with non-zero exit value 1".
-            //
-            // Either way, we need to tell the user how to see the full pip output. Don't change the
-            // message depending on the Android Gradle plugin version, because that isn't
-            // necessarily the same as the Android Studio version.
+            // These instructions are currently the same for all supported Android Studio
+            // versions. If that ever changes, see Chaquopy 5.0 for how to format the message.
             throw new GradleException(
-                "buildPython failed ($e). For full details:\n" +
-                "* In Android Studio 3.1 and later, open the 'Build' window and switch to text " +
-                "mode with the 'ab' button on the left.\n" +
-                 "* In Android Studio 3.0 and earlier, open the 'Gradle Console' window.")
+                "buildPython failed ($e). For full details, open the 'Build' window and " +
+                "switch to text mode with the 'Toggle view' button on the left.")
         }
     }
 
@@ -661,7 +655,7 @@ class PythonPlugin implements Plugin<Project> {
         }
         closure.delegate = t
         closure()
-        extendMergeTask(variant.getMergeAssets(), t)
+        extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}Assets"), t)
         return t
     }
 
@@ -704,9 +698,9 @@ class PythonPlugin implements Plugin<Project> {
                         include "jniLibs/**"
                         into libsDir
                         eachFile { FileCopyDetails fcd ->
-                            fcd.relativePath = new RelativePath
-                                    (!fcd.file.isDirectory(),
-                                     fcd.relativePath.segments[1..-1] as String[])
+                            fcd.relativePath = new RelativePath(
+                                 !fcd.file.isDirectory(),
+                                 fcd.relativePath.segments[1..-1] as String[])
                         }
                         includeEmptyDirs = false
                     }
@@ -778,6 +772,7 @@ class PythonExtension extends BaseExtension {
         "nbformat",
         "notebook",
         "obspy",  // Has data directories in many packages.
+        "parso",
         "pytz",
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
@@ -815,12 +810,13 @@ class PythonExtension extends BaseExtension {
 
     void version(String v) {
         if (v.equals(Common.PYTHON_VERSION)) {
-            println("Warning: python.version is no longer required and should be removed.")
+            println("Warning: Python 'version' setting is no longer required and should be " +
+                    "removed from build.gradle.")
         } else {
             throw new GradleException(
                 "This version of Chaquopy does not include Python version $v. " +
-                "Either remove python.version to use Python $Common.PYTHON_VERSION, or see " +
-                "https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
+                "Either remove 'version' from build.gradle to use Python $Common.PYTHON_VERSION, " +
+                "or see https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
         }
     }
     void buildPython(String bp)                 { buildPython = bp }

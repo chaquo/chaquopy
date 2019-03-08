@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: 'ch.raffael.pegdown-doclet'  // For javadoc
+apply plugin: 'ch.raffael.markdown-doclet'  // For javadoc
 
 import com.chaquo.python.Common;
 

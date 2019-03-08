@@ -7,7 +7,7 @@ buildscript {
         maven { url "${System.getenv('chaquopy_root')}/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.3.2'
         classpath "com.chaquo.python:gradle:$version"
     }
 }

@@ -139,7 +139,7 @@ class AndroidPlugin(GradleTestCase):
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
-                          "3.0.0 or later: " + self.ADVICE, run.stderr)
+                          "3.1.0 or later: " + self.ADVICE, run.stderr)
 
     def test_untested(self):  # Also tests making a change
         run = self.RunGradle("base")
@@ -148,7 +148,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong("Warning: This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.2.1. If you experience "
+                          "Gradle plugin versions beyond 3.3.2. If you experience "
                           "problems, " + self.ADVICE, run.stdout)
 
 
@@ -200,14 +200,14 @@ class PythonVersion(GradleTestCase):
 
         run.apply_layers("PythonVersion/warning")
         run.rerun()
-        self.assertInLong("Warning: python.version is no longer required and should be removed.",
-                          run.stdout)
+        self.assertInLong("Warning: Python 'version' setting is no longer required and should be "
+                          "removed from build.gradle.", run.stdout)
 
     def test_error(self):
         run = self.RunGradle("base", "PythonVersion/error", succeed=False)
         self.assertInLong(
             f"This version of Chaquopy does not include Python version 3.6.3. "
-            f"Either remove python.version to use Python {PYTHON_VERSION}, or see "
+            f"Either remove 'version' from build.gradle to use Python {PYTHON_VERSION}, or see "
             f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
             run.stderr)
 
@@ -776,11 +776,11 @@ class PythonReqs(GradleTestCase):
         run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
 
     def tracker_advice(self):
-        return (" For assistance, please raise an issue at "
+        return ("\nFor assistance, please raise an issue at "
                 "https://github.com/chaquo/chaquopy/issues.")
 
     def wheel_advice(self, *versions):
-        return (r" Or try using one of the following versions, which are available as pre-built "
+        return (r"\nOr try using one of the following versions, which are available as pre-built "
                 r"wheels: \[{}\].".format(", ".join("'{}'".format(v) for v in versions)))
 
     def get_different_build_python_version(self):
@@ -878,13 +878,9 @@ class RunGradle(object):
 
             for variant in variants:
                 outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
-                apk_filename = join(outputs_apk_dir,
-                                    "app-{}.apk".format(variant))       # Android plugin 2.x
-                if not os.path.isfile(apk_filename):
-                    apk_filename = join(outputs_apk_dir, variant.replace("-", "/"),
-                                        "app-{}.apk".format(variant))   # Android plugin 3.x
-
-                apk_zip = ZipFile(apk_filename)
+                apk_zip = ZipFile(join(outputs_apk_dir,
+                                       variant.replace("-", "/"),
+                                       "app-{}.apk".format(variant)))
                 apk_dir = join(self.run_dir, "apk", variant)
                 if os.path.exists(apk_dir):
                     rmtree(apk_dir)
@@ -927,22 +923,22 @@ class RunGradle(object):
         merged_env["integration_dir"] = integration_dir
         merged_env.update(env)
 
-        # --info explains why tasks were not considered up to date.
-        # --console plain prevents output being truncated by a "String index out of range: -1"
-        #   error on Windows.
         gradlew = join(self.project_dir,
                        "gradlew.bat" if sys.platform.startswith("win") else "gradlew")
-        process = subprocess.Popen([gradlew, "-p", self.project_dir,
-                                    "--stacktrace", "--info", "--console", "plain"] +
-                                   # Even if the Gradle client passes some environment
-                                   # variables to the daemon, that won't work for TZ, because
-                                   # the JVM will only read it once.
-                                   (["--no-daemon"] if env else []) +
-                                   [task_name("assemble", v) for v in variants],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   universal_newlines=True, env=merged_env)
-        stdout, stderr = process.communicate()
-        return process.wait(), stdout, stderr
+
+        # `--info` explains why tasks were not considered up to date.
+        # `--console plain` prevents "String index out of range: -1" error on Windows.
+        gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
+        if env:
+            # Even if the Gradle client passes some environment variables to the daemon, that
+            # won't work for TZ, because the JVM will only read it once.
+            gradlew_flags.append("--no-daemon")
+
+        process = subprocess.run([gradlew, "-p", self.project_dir] + gradlew_flags +
+                                 [task_name("assemble", v) for v in variants],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True, env=merged_env, timeout=300)
+        return process.returncode, process.stdout, process.stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
@@ -1027,7 +1023,7 @@ class RunGradle(object):
         # build.json
         DEFAULT_EXTRACT_PACKAGES = [  # See PythonPlugin.groovy
             "certifi", "cv2.data", "ipykernel", "jedi.evaluate", "matplotlib", "nbformat",
-            "notebook", "obspy", "pytz", "sklearn.datasets", "spacy.data", "theano"
+            "notebook", "obspy", "parso", "pytz", "sklearn.datasets", "spacy.data", "theano"
         ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
@@ -1131,6 +1127,8 @@ def task_name(prefix, variant, suffix=""):
 # On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of
 # pip/_internal/utils/misc.py.
 def rmtree(path):
+    if os.name == "nt":  # https://bugs.python.org/issue18199
+        path = "\\\\?\\" + path.replace("/", "\\")
     shutil.rmtree(path, onerror=rmtree_errorhandler)
 
 @retry(wait_fixed=50, stop_max_delay=3000)

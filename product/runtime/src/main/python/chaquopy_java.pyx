@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import ctypes
 from importlib import import_module
+import os
 import sys
 import traceback
 
@@ -451,11 +452,8 @@ cdef class SavedException(object):
 # Otherwise, if exc_info refers to a Java exception, it will be returned with a modified stack
 # trace. Otherwise, a new PyException will be returned.
 cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
-    StackTraceElement = java.jclass("java.lang.StackTraceElement")
     _, exc_value, exc_traceback = exc_info
-    python_trace = [StackTraceElement("<python>", func_name, file_name, line_no)
-                    for file_name, line_no, func_name, _ in
-                    reversed(traceback.extract_tb(exc_traceback))]
+    python_trace = tb_to_java(exc_traceback)
 
     Throwable = java.jclass("java.lang.Throwable")
     if isinstance(exc_value, Throwable) and java_cls_name is None:
@@ -469,6 +467,36 @@ cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
         java_exc.setStackTrace(python_trace + java_exc.getStackTrace())
     return java_exc._chaquopy_this
 
+
+# Converts a Python traceback to a list of StackTraceElements which can be passed to
+# Throwable.setStackTrace.
+def tb_to_java(tb):
+    result = []
+    StackTraceElement = java.jclass("java.lang.StackTraceElement")
+    for frame, line_no in traceback.walk_tb(tb):
+        code = frame.f_code
+        # We only include the basename of the Python source file, because Google Play crash
+        # reports omit stack frames with slashes in their filenames. Also, this makes Python
+        # source line numbers clickable in the Android Studio Logcat window.
+        filename = os.path.basename(code.co_filename)
+
+        # The Python module name will become the Java class name. It's not easy to get the
+        # actual Python class name, if any, because __qualname__ is an attribute of the
+        # function, not the code object (https://stackoverflow.com/a/14821336).
+        mod_name = frame.f_globals.get("__name__", "")
+
+        # Cython function names contain a module name prefix. Even if this is fixed for our
+        # modules by a new version of Cython, most third-party sdists contain pre-generated .c
+        # files, so it wouldn't be fixed for them.
+        func_name = code.co_name
+        mod_prefix = mod_name + "."
+        if func_name.startswith(mod_prefix):
+            func_name = func_name[len(mod_prefix):]
+
+        result.append(StackTraceElement("<python>." + mod_name, func_name, filename, line_no))
+
+    result.reverse()
+    return result
 
 # Unlike the `traceback` function of the same name, this function returns a single string.
 # May be called after module initialization failure (see note after call to Py_Initialize).
