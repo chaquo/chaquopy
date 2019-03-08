@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 6.0.0 (2019-03-09)
+
+* Target Android Studio 3.3.2.
+* Add ABI `x86_64`.
+
 ## 5.1.2 (2019-01-19)
 
 * Target Android Studio 3.2.1.

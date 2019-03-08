@@ -24,7 +24,7 @@ android {
 
         applicationId "com.chaquo.python.demo3"
 
-        versionName '5.1.2'
+        versionName '6.0.0'
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
@@ -51,7 +51,7 @@ android {
             extractPackages "murmurhash"
         }
         ndk {
-            abiFilters "x86", "armeabi-v7a", "arm64-v8a"
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
 
         // Chaquopy generates extra internal-use constructors on static proxy classes.
