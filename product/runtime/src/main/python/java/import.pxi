@@ -110,6 +110,9 @@ class AssetFile(object):
         self.offset += read_len
         return array.__bytes__(0, read_len)
 
+    def seekable(self):
+        return True
+
     def seek(self, offset, whence=os.SEEK_SET):
         if whence == os.SEEK_SET:
             pass
@@ -123,7 +126,7 @@ class AssetFile(object):
         self.stream.reset()
         self.stream.skip(offset)
         self.offset = offset
-        return offset   # Required in Python 3: Python 2 returns None.
+        return offset
 
     def tell(self):
         return self.offset

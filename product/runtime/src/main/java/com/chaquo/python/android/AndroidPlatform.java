@@ -31,6 +31,13 @@ public class AndroidPlatform extends Python.Platform {
 
         // Split into bootstrap-native and stdlib-native/<abi>.zip in 1.3.0
         "lib-dynload",
+
+        // TODO: when extractAssets is passed a directory, it should remove any files in that
+        // directory which aren't in the assets. Then this list would be unnecessary.
+        "bootstrap-native/armeabi-v7a/select.so",    // Removed when we stopped using Crystax
+        "bootstrap-native/arm64-v8a/select.so",
+        "bootstrap-native/x86/select.so",
+        "bootstrap-native/x86_64/select.so",
     };
 
     private static final String[] OBSOLETE_CACHE = {

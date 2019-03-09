@@ -234,7 +234,7 @@ class TestAndroidImport(unittest.TestCase):
                 s,
                 r'File "{}/package1/recursive_import_error.py", line 1, in <module>\n'
                 r'    from os import nonexistent\n'
-                r"ImportError: cannot import name '?nonexistent'?\n$".format(asset_path(APP_ZIP)))
+                r"ImportError: cannot import name 'nonexistent'".format(asset_path(APP_ZIP)))
         else:
             self.fail()
 

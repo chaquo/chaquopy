@@ -565,6 +565,7 @@ class PythonPlugin implements Plugin<Project> {
                 def BOOTSTRAP_NATIVE_STDLIB = [
                     "_ctypes.so",  // java.primitive and java.android.importer
                     "_datetime.so",  // datetime < calendar < java.android.importer (see test_android)
+                    "_hashlib.so",  // rsa
                     "_struct.so",  // java.android.importer
                     "binascii.so",  // zipfile < java.android.importer
                     "math.so",  // datetime < calendar < java.android.importer
