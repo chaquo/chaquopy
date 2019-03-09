@@ -5,8 +5,7 @@
 FROM chaquopy-target
 
 RUN apt-get update && \
-    apt-get install -y openjdk-8-jdk-headless
-RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
+    apt-get install -y openjdk-8-jdk-headless python3-pip
 
 RUN filename=sdk-tools-linux-4333796.zip && \
     wget https://dl.google.com/android/repository/$filename && \
@@ -23,7 +22,7 @@ RUN platform_ver=$(grep COMPILE_SDK_VERSION \
     yes | android-sdk/tools/bin/sdkmanager "platforms;android-$platform_ver"
 
 COPY product/runtime/requirements-build.txt product/runtime/
-RUN pip install -r product/runtime/requirements-build.txt
+RUN pip3 install -r product/runtime/requirements-build.txt
 
 COPY product/build.gradle product/gradlew product/settings.gradle product/
 COPY product/gradle product/gradle

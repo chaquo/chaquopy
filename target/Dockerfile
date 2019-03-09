@@ -1,9 +1,9 @@
-FROM debian:stretch-20180831
+FROM debian:buster-20190228
 SHELL ["/bin/bash", "-c"]
 WORKDIR /root
 
 RUN apt-get update && \
-    apt-get install -y wget unzip
+    apt-get install -y unzip wget
 RUN echo "progress=dot:giga" > .wgetrc
 
 # Not installing the NDK with sdkmanager, because there's no way to select a specific version
@@ -14,13 +14,9 @@ RUN filename=android-ndk-r18b-linux-x86_64.zip && \
     rm $filename && \
     mv android-ndk-* android-ndk
 
-# Python 3.6 isn't included in this version of Debian, so use a third-party build.
 RUN apt-get update && \
-    wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6,python3.6-dev,python3.6-minimal,libpython3.6,libpython3.6-dev,libpython3.6-minimal,libpython3.6-stdlib}_3.6.3-1.deb9u1_amd64.deb && \
-    apt install -y ./*.deb && \
-    rm *.deb && \
-    ln -s python3.6 /usr/bin/python && \
-    ln -s python3.6 /usr/bin/python3
+    apt-get install -y python3 && \
+    ln -sf python3 /usr/bin/python
 
 ARG abi
 RUN test -n "$abi"
@@ -54,6 +50,10 @@ COPY sqlite target/sqlite
 COPY python/config.sub target/python/
 COPY build-sqlite.sh target/
 RUN target/build-sqlite.sh $toolchain
+
+# libffi
+COPY build-libffi.sh target/
+RUN target/build-libffi.sh $toolchain
 
 # Python
 COPY python target/python

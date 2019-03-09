@@ -25,6 +25,7 @@ export CONFIG_SITE=$(pwd)/config.site
 
 # --enable-ipv6 prevents the "getaddrinfo bug" test, which can't be run when cross-compiling.
 ./configure --host=$host_triplet --build=x86_64-linux-gnu \
-            --enable-shared --enable-ipv6 --without-ensurepip
+            --enable-shared --enable-ipv6 --without-ensurepip \
+            --with-openssl=$sysroot/usr
 make -j $(nproc)
 make install prefix=$sysroot/usr

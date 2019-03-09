@@ -13,9 +13,9 @@ short_ver="${1:?}"
 micro_build="${2:?}"
 full_ver="$short_ver.$micro_build"
 
-target_parent="$(realpath ${3:?})"
-target_dir="$target_parent/$full_ver"
-mkdir -p "$target_dir"
+mkdir -p "${3:?}"
+target_dir="$(realpath $3)/$full_ver"
+mkdir "$target_dir"
 target_prefix="$target_dir/target-$full_ver"
 
 tmp_dir="$target_dir/tmp"
@@ -94,8 +94,11 @@ find -name test -or -name tests | xargs rm -r
 # Python. The source .txt files can't be used instead, because lib2to3 can only load them from
 # real files, not via zipimport.
 micro=$(echo $micro_build | sed 's/-.*//')
-for filename in lib2to3/*.pickle; do
-    mv $filename $(echo $filename | sed -E "s/$short_ver\\.[0-9]+/$short_ver.$micro/")
+for src_filename in lib2to3/*.pickle; do
+    tgt_filename=$(echo $src_filename | sed -E "s/$short_ver\\.[0-9]+/$short_ver.$micro/")
+    if [[ $src_filename != $tgt_filename ]]; then
+        mv $src_filename $tgt_filename
+    fi
 done
 
 stdlib_zip="$target_prefix-stdlib.zip"

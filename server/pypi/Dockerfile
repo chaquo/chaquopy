@@ -1,5 +1,5 @@
-# This image takes the same command-line arguments as build-wheel.py, except for `--ndk`, which
-# should be omitted.
+# This image takes the same command-line arguments as build-wheel.py, except for `--toolchain`,
+# which should be omitted.
 #
 # Each run will generate one wheel file in the directory /root/pypi/dist, which is structured
 # as a PyPI respository. If a package requires other packages to build against, then this
@@ -9,15 +9,16 @@
 FROM chaquopy-target
 
 # OpenCV requires Python 2 even when building for Python 3: see its patch.
+#
+# TensorFlow requires python3-dev because it builds various things for the build platform: see
+# its README.
 RUN apt-get update && \
-    apt-get -y install python && \
-    ln -sf python3.6 /usr/bin/python
-
-RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
+    apt-get install -y python python3-dev python3-pip && \
+    ln -sf python3 /usr/bin/python
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get -y install autoconf cmake git patch
+    apt-get install -y autoconf cmake git patch
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \
@@ -30,7 +31,7 @@ RUN apt-get update && \
     rm $filename
 
 COPY requirements.txt pypi/
-RUN pip3.6 install -r pypi/requirements.txt
+RUN pip3 install -r pypi/requirements.txt
 
 COPY . pypi/
 ENV LC_ALL="C.UTF-8"

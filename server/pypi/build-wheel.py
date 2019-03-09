@@ -31,7 +31,7 @@ import yaml
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
-PYTHON_VERSION = "3.6"
+PYTHON_VERSION = "3.7"
 PYTHON_SUFFIX = PYTHON_VERSION + "m"
 
 # All libraries are listed under their SONAMEs.
@@ -182,7 +182,7 @@ class BuildWheel:
 
         # We require the build and target Python versions to be the same, because
         # many setup.py scripts are affected by sys.version.
-        self.pip = f"pip{PYTHON_VERSION} --disable-pip-version-check"
+        self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
 
         self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
                            f"cp{PYTHON_SUFFIX.replace('.', '')}-"
