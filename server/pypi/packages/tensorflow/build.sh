@@ -1,15 +1,6 @@
 #!/bin/bash
 set -eu
 
-# Bazel 0.15 is the minimum required (see WORKSPACE).
-# Bazel 0.18 will remove support for tools/bazel.rc, which this version of TensorFlow depends
-# on (https://github.com/bazelbuild/bazel/issues/4502).
-bazel_ver="$(bazel version)"
-if ! echo $bazel_ver | grep -E 'Build label: 0\.(15|16|17)'; then
-    echo "Bazel version is not compatible: see build.sh"
-    exit 1
-fi
-
 # The Python lib and include locations will be passed using environment variables below. All
 # other flags are added to the CROSSTOOL file. Unknown lib and include flags are an error
 # because, with bazel's very strict dependency tracking, merely adding them to CROSSTOOL will
@@ -50,14 +41,16 @@ for flag in $LDFLAGS; do
 done
 
 rm -rf chaquopy  # For testing with build-wheel.py --no-unpack.
-mkdir chaquopy
-cp -a $RECIPE_DIR/crosstool chaquopy
-mv chaquopy/crosstool/CROSSTOOL.tpl chaquopy/crosstool/CROSSTOOL
-for cmd in "s|%{CHAQUOPY_TOOL_PREFIX}|$(echo $CC | sed 's/gcc$//')|g" \
-           "s|%{CHAQUOPY_TOOLCHAIN}|$(realpath $(dirname $CC)/..)|g" \
-           "s|%{CHAQUOPY_COMPILER_FLAGS}|$compiler_flags|g" \
-           "s|%{CHAQUOPY_LINKER_FLAGS}|$linker_flags|g"; do
-    sed -i "$cmd" chaquopy/crosstool/CROSSTOOL
+mkdir -p chaquopy/crosstool
+for filename in BUILD CROSSTOOL; do
+    cp $RECIPE_DIR/crosstool/$filename.tpl chaquopy/crosstool/$filename
+    for cmd in "s|%{CHAQUOPY_ABI}|$CHAQUOPY_ABI|g" \
+               "s|%{CHAQUOPY_TOOL_PREFIX}|$(echo $CC | sed 's/gcc$//')|g" \
+               "s|%{CHAQUOPY_TOOLCHAIN}|$(realpath $(dirname $CC)/..)|g" \
+               "s|%{CHAQUOPY_COMPILER_FLAGS}|$compiler_flags|g" \
+               "s|%{CHAQUOPY_LINKER_FLAGS}|$linker_flags|g"; do
+        sed -i "$cmd" chaquopy/crosstool/$filename
+    done
 done
 
 # Since we're using the crosstool mechanism to define the target toolchain, we unset all of
@@ -102,7 +95,7 @@ $cmd --action_env SRC_DIR=$SRC_DIR
 $cmd --action_env CHAQUOPY_PYTHON_INCLUDE_DIR=$python_include_dir
 $cmd --action_env CHAQUOPY_PYTHON_LIB=$python_lib
 $cmd --crosstool_top=//chaquopy/crosstool
-$cmd --cpu=chaquopy
+$cmd --cpu=$CHAQUOPY_ABI
 $cmd --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 $cmd --host_compilation_mode=fastbuild
 $cmd --force_pic  # Prevent everything from being built both PIC and non-PIC.

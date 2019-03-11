@@ -7,4 +7,4 @@ build:
 
 requirements:
   host:
-    - numpy 1.14.2
+    - numpy 1.14.6

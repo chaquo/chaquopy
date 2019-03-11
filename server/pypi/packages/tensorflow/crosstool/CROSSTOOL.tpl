@@ -1,16 +1,11 @@
-# Chaquopy: this file is based on
-# https://github.com/bazelbuild/bazel/blob/0.16.1/tools/cpp/CROSSTOOL, specifically, the
-# local_linux toolchain.
+# Chaquopy: see https://docs.bazel.build/versions/0.21.0/tutorial/crosstool.html. This file is
+# based on https://github.com/bazelbuild/bazel/blob/0.16.1/tools/cpp/CROSSTOOL, specifically,
+# the local_linux toolchain.
 
 # Chaquopy: Compulsory but unused.
 major_version: ""
 minor_version: ""
 default_target_cpu: ""
-
-default_toolchain {
-  cpu: "chaquopy"
-  toolchain_identifier: "chaquopy_ndk"
-}
 
 toolchain {
   abi_version: "local"
@@ -26,7 +21,7 @@ toolchain {
   supports_normalizing_ar: false
   supports_start_end_lib: false
   target_libc: "local"
-  target_cpu: "chaquopy"
+  target_cpu: "%{CHAQUOPY_ABI}"
   target_system_name: "local"
   toolchain_identifier: "chaquopy_ndk"
 

@@ -9,4 +9,4 @@ requirements:
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy 1.14.2
+    - numpy 1.14.6

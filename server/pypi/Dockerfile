@@ -23,7 +23,7 @@ RUN apt-get update && \
 # Bazel (for TensorFlow)
 RUN apt-get update && \
     apt-get -y install pkg-config zip g++ zlib1g-dev unzip && \
-    version=0.16.1 && \
+    version=0.21.0 && \
     filename=bazel-$version-installer-linux-x86_64.sh && \
     wget https://github.com/bazelbuild/bazel/releases/download/$version/$filename && \
     chmod +x $filename && \

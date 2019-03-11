@@ -1,7 +1,7 @@
 diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
---- src-original/tensorflow/BUILD	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/BUILD	2018-09-20 20:49:57.361222382 +0000
-@@ -25,6 +25,9 @@
+--- src-original/tensorflow/BUILD	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/BUILD	2019-03-11 11:40:27.633418445 +0000
+@@ -57,6 +57,9 @@
  )
  
  # Config setting for determining if we are building for Android.
@@ -11,7 +11,7 @@ diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
  config_setting(
      name = "android",
      values = {"crosstool_top": "//external:android/crosstool"},
-@@ -32,6 +35,12 @@
+@@ -64,6 +67,12 @@
  )
  
  config_setting(
@@ -24,51 +24,75 @@ diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
      name = "android_x86",
      values = {
          "crosstool_top": "//external:android/crosstool",
-@@ -591,7 +600,7 @@
+@@ -608,7 +617,7 @@
      visibility = ["//visibility:public"],
-     deps = [
+     deps = select({
+         "api_version_2": [],
+-        "//conditions:default": ["//tensorflow/contrib:contrib_py"],
++        "//conditions:default": [],  # Chaquopy: removed to simplify build: "//tensorflow/contrib:contrib_py"
+     }) + [
          ":tensorflow_py_no_contrib",
--        "//tensorflow/contrib:contrib_py",
-+        # Chaquopy: removed to simplify build: "//tensorflow/contrib:contrib_py",
          "//tensorflow/python/estimator:estimator_py",
-     ],
- )
+diff -urN --no-dereference src-original/tensorflow/compiler/jit/xla_compilation_cache.cc src/tensorflow/compiler/jit/xla_compilation_cache.cc
+--- src-original/tensorflow/compiler/jit/xla_compilation_cache.cc	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/compiler/jit/xla_compilation_cache.cc	2019-03-11 16:26:02.478431336 +0000
+@@ -38,6 +38,9 @@
+ 
+ namespace tensorflow {
+ 
++// Chaquopy: https://github.com/tensorflow/tensorflow/issues/23648
++constexpr int64 XlaCompilationCache::kDefaultCompilationThreshold;
++
+ XlaCompilationCache::XlaCompilationCache(xla::LocalClient* client,
+                                          DeviceType device_type)
+     : client_(client), device_type_(std::move(device_type)) {}
 diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/context.cc src/tensorflow/core/common_runtime/eager/context.cc
---- src-original/tensorflow/core/common_runtime/eager/context.cc	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/context.cc	2018-09-20 20:49:57.361222382 +0000
-@@ -38,7 +38,6 @@
-   InitDeviceMapAndAsync();
+--- src-original/tensorflow/core/common_runtime/eager/context.cc	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/core/common_runtime/eager/context.cc	2019-03-11 11:45:06.002689803 +0000
+@@ -151,7 +151,6 @@
+   return policy_;
  }
  
 -#ifndef __ANDROID__
- EagerContext::EagerContext(
-     const SessionOptions& opts, ContextDevicePlacementPolicy default_policy,
-     bool async, DeviceMgr* local_device_mgr, Rendezvous* rendezvous,
-@@ -62,7 +61,6 @@
-       remote_contexts_(remote_contexts) {
-   InitDeviceMapAndAsync();
+ void EagerContext::CloseRemoteContexts() {
+   // Close all remote contexts.
+   std::vector<eager::CloseContextRequest> requests(remote_contexts_.size());
+@@ -180,10 +179,8 @@
+ 
+   counter.Wait();
  }
 -#endif
- 
- void EagerContext::InitDeviceMapAndAsync() {
-   if (async_default_) {
-@@ -127,7 +125,6 @@
- }
  
  EagerContext::~EagerContext() {
 -#ifndef __ANDROID__
    if (server_) {
      // TODO(nareshmodi): Fix this.
      LOG(WARNING) << "Unable to destroy server_ object, so releasing instead. "
-@@ -161,7 +158,6 @@
-   }
+@@ -199,7 +196,6 @@
+   keep_alive_thread_.reset();
  
-   counter.Wait();
+   CloseRemoteContexts();
 -#endif
  
    executor_.WaitForAllPendingNodes().IgnoreError();
    ClearCaches();
-@@ -265,7 +261,6 @@
+@@ -262,7 +258,6 @@
+ 
+ Status EagerContext::MaybeRegisterFunctionRemotely(const FunctionDef& fdef) {
+   if (remote_device_manager_ == nullptr) return Status::OK();
+-#ifndef __ANDROID__
+   BlockingCounter blocking_counter(static_cast<int>(remote_contexts_.size()));
+ 
+   std::vector<eager::RegisterFunctionRequest> requests(remote_contexts_.size());
+@@ -292,7 +287,6 @@
+   for (int i = 0; i < remote_contexts_.size(); i++) {
+     TF_RETURN_IF_ERROR(statuses[i]);
+   }
+-#endif
+   return Status::OK();
+ }
+ 
+@@ -333,7 +327,6 @@
  }
  }  // namespace
  
@@ -76,16 +100,16 @@ diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/con
  Status EagerContext::GetClientAndContextID(Device* device,
                                             eager::EagerClient** client,
                                             uint64* context_id) {
-@@ -295,6 +290,5 @@
- 
-   return Status::OK();
+@@ -462,6 +455,5 @@
+         }));
+   }
  }
 -#endif
  
  }  // namespace tensorflow
 diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/context.h src/tensorflow/core/common_runtime/eager/context.h
---- src-original/tensorflow/core/common_runtime/eager/context.h	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/context.h	2018-09-20 20:49:57.361222382 +0000
+--- src-original/tensorflow/core/common_runtime/eager/context.h	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/core/common_runtime/eager/context.h	2019-03-11 11:45:55.752346633 +0000
 @@ -29,10 +29,8 @@
  #include "tensorflow/core/common_runtime/eager/kernel_and_device.h"
  #include "tensorflow/core/common_runtime/function.h"
@@ -94,58 +118,48 @@ diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/con
  #include "tensorflow/core/distributed_runtime/eager/eager_client.h"
  #include "tensorflow/core/distributed_runtime/server_lib.h"
 -#endif
+ #include "tensorflow/core/framework/collective.h"
+ #include "tensorflow/core/framework/log_memory.h"
  #include "tensorflow/core/framework/rendezvous.h"
- #include "tensorflow/core/lib/core/stringpiece.h"
- #include "tensorflow/core/lib/core/threadpool.h"
-@@ -84,7 +82,6 @@
-   //  - remote_device_mgr: A DeviceMgr* which contains all remote devices
-   //  (should contain no local devices).
-   //  - remote_contexts: A map containing task name to remote context ID.
--#ifndef __ANDROID__
-   explicit EagerContext(
-       const SessionOptions& opts, ContextDevicePlacementPolicy default_policy,
-       bool async, DeviceMgr* local_device_mgr, Rendezvous* rendezvous,
-@@ -92,7 +89,6 @@
-       std::unique_ptr<eager::EagerClientCache> remote_eager_workers,
-       std::unique_ptr<DeviceMgr> remote_device_manager,
-       const gtl::FlatMap<string, uint64>& remote_contexts);
--#endif
-   ~EagerContext();
- 
-   // Returns the function library runtime for the given device.
-@@ -177,10 +173,8 @@
+@@ -177,7 +175,6 @@
  
    FunctionLibraryDefinition* FuncLibDef() { return &func_lib_def_; }
  
 -#ifndef __ANDROID__
    Status GetClientAndContextID(Device* device, eager::EagerClient** client,
                                 uint64* context_id);
+ 
+@@ -204,7 +201,6 @@
+     return active_remote_contexts_.find(context_id) !=
+            active_remote_contexts_.end();
+   }
 -#endif
-  private:
-   void InitDeviceMapAndAsync();
-   Status MaybeRegisterFunctionRemotely(const FunctionDef& fdef);
-@@ -238,14 +232,12 @@
-   // The server_ is not const since we release it when the context is destroyed.
-   // Therefore the server_ object is not marked as const (even though it should
-   // be).
+ 
+   // If true, then tensors should be shipped across processes via the
+   // EagerService.SendTensor RPC. If false, _Send/_Recv ops should be used
+@@ -281,7 +277,6 @@
+ 
+   std::unique_ptr<CollectiveExecutorMgrInterface> collective_executor_mgr_;
+ 
 -#ifndef __ANDROID__
-   std::unique_ptr<ServerInterface> server_;
-   const std::unique_ptr<eager::EagerClientCache> remote_eager_workers_;
+   void CloseRemoteContexts();
  
-   const gtl::FlatMap<string, uint64> remote_contexts_;
-   gtl::FlatMap<Device*, std::pair<eager::EagerClient*, uint64>>
-       device_to_client_cache_;
+   // The server_ is not const since we release it when the context is destroyed.
+@@ -304,7 +299,6 @@
+   mutex keep_alive_thread_shutdown_mu_;
+   condition_variable keep_alive_thread_cv_;
+   bool shutting_down_ GUARDED_BY(keep_alive_thread_shutdown_mu_) = false;
 -#endif
- };
  
- }  // namespace tensorflow
+   bool use_send_tensor_rpc_;
+   const bool pin_small_ops_to_cpu_;
 diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/execute.cc src/tensorflow/core/common_runtime/eager/execute.cc
---- src-original/tensorflow/core/common_runtime/eager/execute.cc	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/execute.cc	2018-09-20 20:49:57.361222382 +0000
-@@ -24,10 +24,8 @@
- #include "tensorflow/core/common_runtime/eager/execute_node.h"
+--- src-original/tensorflow/core/common_runtime/eager/execute.cc	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/core/common_runtime/eager/execute.cc	2019-03-11 11:47:54.760309847 +0000
+@@ -25,10 +25,8 @@
  #include "tensorflow/core/common_runtime/eager/kernel_and_device.h"
  #include "tensorflow/core/common_runtime/eager/tensor_handle.h"
+ #include "tensorflow/core/lib/core/errors.h"
 -#ifndef __ANDROID__
  #include "tensorflow/core/distributed_runtime/eager/eager_client.h"
  #include "tensorflow/core/distributed_runtime/eager/remote_execute_node.h"
@@ -153,7 +167,39 @@ diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/exe
  #include "tensorflow/core/framework/step_stats.pb.h"
  #include "tensorflow/core/framework/tensor.h"
  #include "tensorflow/core/framework/types.h"
-@@ -584,10 +582,6 @@
+@@ -355,7 +353,6 @@
+   return status;
+ }
+ 
+-#ifndef __ANDROID__
+ std::function<void()> GetRemoteTensorDestructor(
+     EagerContext* ctx, eager::EagerClient* eager_client, uint64 context_id,
+     uint64 op_id, int output_num) {
+@@ -393,7 +390,6 @@
+     return tensorflow::Status::OK();
+   };
+ }
+-#endif
+ 
+ // When !ctx->UseSendTensorRPC(), then tensors are shipped between remote
+ // devices by the receiver invoking the WorkerService.RecvTensor RPC *on the
+@@ -405,10 +401,6 @@
+ // *on the receiver*.
+ Status EagerRemoteSendTensor(EagerContext* ctx, TensorHandle* h,
+                              Device* recv_device, TensorHandle** result) {
+-#ifdef __ANDROID__
+-  return errors::Unimplemented(
+-      "Eager's remote execution is not available on Android devices.");
+-#else
+   eager::EagerClient* eager_client;
+   uint64 context_id;
+   TF_RETURN_IF_ERROR(
+@@ -464,15 +456,10 @@
+   actual_handle->Unref();
+ 
+   return Status::OK();
+-#endif
+ }
  
  Status EagerRemoteExecute(EagerOperation* op, TensorHandle** retvals,
                            int* num_retvals) {
@@ -164,14 +210,14 @@ diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/exe
    EagerContext* ctx = op->EagerContext();
  
    eager::EagerClient* eager_client;
-@@ -723,7 +717,6 @@
+@@ -590,7 +577,6 @@
    }
  
    return Status::OK();
 -#endif
  }
- }  // namespace
  
+ // These ops are not pinnable since they generate data. It can be slower to
 diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/tensorflow/core/platform/platform.h
 --- src-original/tensorflow/core/platform/platform.h	2018-08-23 19:58:44.000000000 +0000
 +++ src/tensorflow/core/platform/platform.h	2018-09-20 20:49:57.361222382 +0000
@@ -187,10 +233,40 @@ diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/
  
  #elif defined(__APPLE__)
  #define PLATFORM_POSIX
+diff -urN --no-dereference src-original/tensorflow/lite/kernels/internal/optimized/cpu_check.h src/tensorflow/lite/kernels/internal/optimized/cpu_check.h
+--- src-original/tensorflow/lite/kernels/internal/optimized/cpu_check.h	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/lite/kernels/internal/optimized/cpu_check.h	2019-03-11 13:41:42.646395999 +0000
+@@ -18,7 +18,10 @@
+ namespace tflite {
+ 
+ #ifdef __ANDROID__
+-#include "ndk/sources/android/cpufeatures/cpu-features.h"
++// Chaquopy: cpufeatures is made available via @androidndk//:cpufeatures in ./BUILD,
++// conditional on //tensorflow:android, which we've not enabled for the reasons explained in
++// tensorflow/BUILD.
++// #include "ndk/sources/android/cpufeatures/cpu-features.h"
+ 
+ // Runtime check for Neon support on Android.
+ inline bool TestCPUFeatureNeon() {
+@@ -26,11 +29,9 @@
+   // ARM-64 always has NEON support.
+   return true;
+ #else
+-  static bool kUseAndroidNeon =
+-      (android_getCpuFamily() == ANDROID_CPU_FAMILY_ARM &&
+-       android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_ARMv7 &&
+-       android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON);
+-  return kUseAndroidNeon;
++  // Chaquopy: removed call to cpufeatures: see above. Returning false because NEON is not
++  // guaranteed on armeabi-v7a: see chaquopy-openblas/build.sh.
++  return false;
+ #endif  // __aarch64__
+ }
+ 
 diff -urN --no-dereference src-original/tensorflow/python/BUILD src/tensorflow/python/BUILD
---- src-original/tensorflow/python/BUILD	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/python/BUILD	2018-09-20 20:49:57.365222384 +0000
-@@ -61,7 +61,7 @@
+--- src-original/tensorflow/python/BUILD	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/python/BUILD	2019-03-11 11:27:51.076213806 +0000
+@@ -69,7 +69,7 @@
      ],
      deps = [
          ":no_contrib",
@@ -200,139 +276,107 @@ diff -urN --no-dereference src-original/tensorflow/python/BUILD src/tensorflow/p
      ],
  )
 diff -urN --no-dereference src-original/tensorflow/tensorflow.bzl src/tensorflow/tensorflow.bzl
---- src-original/tensorflow/tensorflow.bzl	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/tensorflow.bzl	2018-09-20 20:49:57.365222384 +0000
-@@ -1466,6 +1466,12 @@
-       ],
-       clean_dep("//tensorflow:windows"): [],
-       clean_dep("//tensorflow:windows_msvc"): [],
-+      clean_dep("//tensorflow:chaquopy"): [
-+          "-Wl,--no-undefined",  # See note in build.sh.
-+          "-llog",               #
-+          "-Wl,--version-script",
-+          "$(location %s.lds)"%vscriptname,
-+      ],
-       "//conditions:default": [
-           "-Wl,--version-script",
-           "$(location %s.lds)"%vscriptname,
-diff -urN --no-dereference src-original/tensorflow/tools/pip_package/BUILD src/tensorflow/tools/pip_package/BUILD
---- src-original/tensorflow/tools/pip_package/BUILD	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/tools/pip_package/BUILD	2018-09-20 20:49:57.365222384 +0000
-@@ -54,45 +54,10 @@
-     "README",
-     "setup.py",
-     ":included_headers",
-+    # Chaquopy: we've changed tensorflow_py to be equivalent to tensorflow_py_no_contrib, but
-+    # with the addition of the estimator API.
-     "//tensorflow:tensorflow_py",
--    "//tensorflow/contrib/autograph:autograph",
--    "//tensorflow/contrib/autograph/converters:converters",
--    "//tensorflow/contrib/autograph/core:core",
--    "//tensorflow/contrib/autograph/core:test_lib",
--    "//tensorflow/contrib/autograph/impl:impl",
--    "//tensorflow/contrib/autograph/lang:lang",
--    "//tensorflow/contrib/autograph/operators:operators",
--    "//tensorflow/contrib/autograph/pyct:pyct",
--    "//tensorflow/contrib/autograph/pyct/static_analysis:static_analysis",
--    "//tensorflow/contrib/autograph/pyct/common_transformers:common_transformers",
--    "//tensorflow/contrib/boosted_trees:boosted_trees_pip",
--    "//tensorflow/contrib/cluster_resolver:cluster_resolver_pip",
--    "//tensorflow/contrib/constrained_optimization:constrained_optimization_pip",
--    "//tensorflow/contrib/data/python/kernel_tests/serialization:dataset_serialization_test_base",
--    "//tensorflow/contrib/data/python/ops:contrib_op_loader",
--    "//tensorflow/contrib/eager/python/examples:examples_pip",
--    "//tensorflow/contrib/eager/python:evaluator",
--    "//tensorflow/contrib/gan:gan",
--    "//tensorflow/contrib/graph_editor:graph_editor_pip",
--    "//tensorflow/contrib/keras:keras",
--    "//tensorflow/contrib/labeled_tensor:labeled_tensor_pip",
--    "//tensorflow/contrib/nn:nn_py",
--    "//tensorflow/contrib/predictor:predictor_pip",
--    "//tensorflow/contrib/proto:proto_pip",
--    "//tensorflow/contrib/receptive_field:receptive_field_pip",
--    "//tensorflow/contrib/rpc:rpc_pip",
--    "//tensorflow/contrib/session_bundle:session_bundle_pip",
--    "//tensorflow/contrib/signal:signal_py",
--    "//tensorflow/contrib/signal:test_util",
--    "//tensorflow/contrib/slim:slim",
--    "//tensorflow/contrib/slim/python/slim/data:data_pip",
--    "//tensorflow/contrib/slim/python/slim/nets:nets_pip",
--    "//tensorflow/contrib/specs:specs",
--    "//tensorflow/contrib/summary:summary_test_util",
--    "//tensorflow/contrib/tensor_forest:init_py",
--    "//tensorflow/contrib/tensor_forest/hybrid:hybrid_pip",
--    "//tensorflow/contrib/timeseries:timeseries_pip",
--    "//tensorflow/contrib/tpu",
-+    # Chaquopy: removed everything under //tensorflow/contrib to simplify build
-     "//tensorflow/examples/tutorials/mnist:package",
-     "//tensorflow/python:cond_v2",
-     "//tensorflow/python:distributed_framework_test_lib",
-@@ -185,9 +150,7 @@
-         "//tensorflow:windows_msvc": [":simple_console_for_windows"],
-         "//conditions:default": COMMON_PIP_DEPS + [
-             ":simple_console",
--            "//tensorflow/contrib/lite/python:interpreter_test_data",
--            "//tensorflow/contrib/lite/python:tflite_convert",
--            "//tensorflow/contrib/lite/toco/python:toco_from_protos",
-+            # Chaquopy: removed everything under //tensorflow/contrib
+--- src-original/tensorflow/tensorflow.bzl	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/tensorflow.bzl	2019-03-11 11:51:06.758703356 +0000
+@@ -1669,6 +1669,12 @@
+             "-Wl,-exported_symbols_list,$(location %s.lds)" % vscriptname,
          ],
-     }) + if_mkl(["//third_party/mkl:intel_binary_blob"]),
- )
-diff -urN --no-dereference src-original/tensorflow/tools/pip_package/build_pip_package.sh src/tensorflow/tools/pip_package/build_pip_package.sh
---- src-original/tensorflow/tools/pip_package/build_pip_package.sh	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/tools/pip_package/build_pip_package.sh	2018-09-20 20:49:57.365222384 +0000
-@@ -117,7 +117,8 @@
-     fi
-     mkdir "${TMPDIR}/tensorflow/aux-bin"
-     # Install toco as a binary in aux-bin.
--    cp bazel-bin/tensorflow/contrib/lite/python/tflite_convert ${TMPDIR}/tensorflow/aux-bin/
-+    # Chaquopy: removed everything under //tensorflow/contrib to simplify build
-+    # cp bazel-bin/tensorflow/contrib/lite/python/tflite_convert ${TMPDIR}/tensorflow/aux-bin/
-   fi
- 
-   # protobuf pip package doesn't ship with header files. Copy the headers
+         clean_dep("//tensorflow:windows"): [],
++        clean_dep("//tensorflow:chaquopy"): [
++            "-Wl,--no-undefined",  # See note in build.sh.
++            "-llog",               #
++            "-Wl,--version-script",
++            "$(location %s.lds)"%vscriptname,
++        ],
+         "//conditions:default": [
+             "-Wl,--version-script",
+             "$(location %s.lds)" % vscriptname,
+diff -urN --no-dereference src-original/tensorflow/tools/pip_package/BUILD src/tensorflow/tools/pip_package/BUILD
+--- src-original/tensorflow/tools/pip_package/BUILD	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/tools/pip_package/BUILD	2019-03-11 11:59:12.694882636 +0000
+@@ -248,7 +248,9 @@
+         "api_version_2": COMMON_PIP_DEPS + [
+             ":simple_console",
+         ],
+-        "//conditions:default": COMMON_PIP_DEPS_V1 + [
++        # Chaquopy: to simplify build, changed COMMON_PIP_DEPS_V1 to COMMON_PIP_DEPS below.
++        # This removes everything under //tensorflow/contrib.
++        "//conditions:default": COMMON_PIP_DEPS + [
+             ":simple_console",
+         ],
+     }) + if_mkl_ml(["//third_party/mkl:intel_binary_blob"]),
 diff -urN --no-dereference src-original/tensorflow/workspace.bzl src/tensorflow/workspace.bzl
---- src-original/tensorflow/workspace.bzl	2018-08-23 19:58:44.000000000 +0000
-+++ src/tensorflow/workspace.bzl	2018-09-21 15:49:09.980733392 +0000
-@@ -435,15 +435,17 @@
-       system_build_file = clean_dep("//third_party/systemlibs:pcre.BUILD"),
-   )
+--- src-original/tensorflow/workspace.bzl	2019-02-25 20:37:04.000000000 +0000
++++ src/tensorflow/workspace.bzl	2019-03-11 14:28:54.452389887 +0000
+@@ -136,11 +136,12 @@
+     tf_http_archive(
+         name = "eigen_archive",
+         build_file = clean_dep("//third_party:eigen.BUILD"),
+-        sha256 = "753fbb58d0a49b6bcbcfb126ebfa2e21fc97f7471529ba835a096008ce588d8a",
+-        strip_prefix = "eigen-eigen-9f48e814419e",
++        # Chaquopy: cherry-pick from https://github.com/tensorflow/tensorflow/issues/24457
++        sha256 = "9de38f2d162c51599b802f7c36d9f3773980d19ac908c61638f8344d2c10e1ca",
++        strip_prefix = "eigen-eigen-88fc23324517",
+         urls = [
+-            "https://mirror.bazel.build/bitbucket.org/eigen/eigen/get/9f48e814419e.tar.gz",
+-            "https://bitbucket.org/eigen/eigen/get/9f48e814419e.tar.gz",
++            "https://mirror.bazel.build/bitbucket.org/eigen/eigen/get/88fc23324517.tar.gz",
++            "https://bitbucket.org/eigen/eigen/get/88fc23324517.tar.gz",
+         ],
+     )
  
-+  # Chaquopy: used to be SWIG 3.0.8, which incorrectly used __file__ to find submodules
-+  # rather than __path__.
-   tf_http_archive(
-       name = "swig",
--      sha256 = "58a475dbbd4a4d7075e5fe86d4e54c9edde39847cdb96a3053d87cb64a23a453",
-+      sha256 = "4f3a4afb22ac1a9dd9c8725175451bda8bae5c564761edc01e0edd2c672857f0",
-       urls = [
--          "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
--          "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
--          "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
-+          "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-+          "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-+          "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-       ],
--      strip_prefix = "swig-3.0.8",
-+      strip_prefix = "swig-3.0.9",
-       build_file = clean_dep("//third_party:swig.BUILD"),
-       system_build_file = clean_dep("//third_party/systemlibs:swig.BUILD"),
-   )
-@@ -469,6 +471,7 @@
-       sha256 = "50db9cf2221354485eb7c3bd55a4c27190caef7048a2a1a15fbe60a498f98b44",
-       strip_prefix = "grpc-1.13.0",
-       system_build_file = clean_dep("//third_party/systemlibs:grpc.BUILD"),
-+      patch_file = clean_dep("//third_party/grpc:chaquopy.patch"),
-   )
-
-   tf_http_archive(
-@@ -527,6 +530,7 @@
-       ],
-       sha256 = "524ba98a56300149696481b4cb9ddebd0c7b7ac9b9f6edee81da2d2d7e5d2bb3",
-       strip_prefix = "boringssl-a0fb951d2a26a8ee746b52f3ba81ab011a0af778",
-+      build_file = clean_dep("//third_party:boringssl.BUILD"),  # Chaquopy override
-   )
+@@ -437,13 +438,15 @@
+     tf_http_archive(
+         name = "swig",
+         build_file = clean_dep("//third_party:swig.BUILD"),
+-        sha256 = "58a475dbbd4a4d7075e5fe86d4e54c9edde39847cdb96a3053d87cb64a23a453",
+-        strip_prefix = "swig-3.0.8",
++        # Chaquopy: upgrade from SWIG 3.0.8, which incorrectly used __file__ to find submodules
++        # rather than __path__.
++        sha256 = "4f3a4afb22ac1a9dd9c8725175451bda8bae5c564761edc01e0edd2c672857f0",
++        strip_prefix = "swig-3.0.9",
+         system_build_file = clean_dep("//third_party/systemlibs:swig.BUILD"),
+         urls = [
+-            "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
+-            "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
+-            "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
++            "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
++            "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
++            "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
+         ],
+     )
  
-   tf_http_archive(
+@@ -462,6 +465,7 @@
+     # WARNING: make sure ncteisen@ and vpai@ are cc-ed on any CL to change the below rule
+     tf_http_archive(
+         name = "grpc",
++        patch_file = clean_dep("//third_party/grpc:chaquopy.patch"),
+         sha256 = "1aa84387232dda273ea8fdfe722622084f72c16f7b84bfc519ac7759b71cdc91",
+         strip_prefix = "grpc-69b6c047bc767b4d80e7af4d00ccb7c45b683dae",
+         system_build_file = clean_dep("//third_party/systemlibs:grpc.BUILD"),
+@@ -532,6 +536,7 @@
+ 
+     tf_http_archive(
+         name = "boringssl",
++        build_file = clean_dep("//third_party:boringssl.BUILD"),  # Chaquopy override
+         sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
+         strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
+         system_build_file = clean_dep("//third_party/systemlibs:boringssl.BUILD"),
+diff -urN --no-dereference src-original/third_party/aws/BUILD.bazel src/third_party/aws/BUILD.bazel
+--- src-original/third_party/aws/BUILD.bazel	2019-02-25 20:37:04.000000000 +0000
++++ src/third_party/aws/BUILD.bazel	2019-03-11 16:58:31.534820702 +0000
+@@ -24,7 +24,10 @@
+         "@org_tensorflow//tensorflow:raspberry_pi_armeabi": glob([
+             "aws-cpp-sdk-core/source/platform/linux-shared/*.cpp",
+         ]),
+-        "//conditions:default": [],
++        "//conditions:default": glob([
++            # Chaquopy: added
++            "aws-cpp-sdk-core/source/platform/linux-shared/*.cpp",
++        ]),
+     }) + glob([
+         "aws-cpp-sdk-core/include/**/*.h",
+         "aws-cpp-sdk-core/source/*.cpp",
 diff -urN --no-dereference src-original/third_party/boringssl.BUILD src/third_party/boringssl.BUILD
 --- src-original/third_party/boringssl.BUILD	1970-01-01 00:00:00.000000000 +0000
 +++ src/third_party/boringssl.BUILD	2018-09-20 20:49:57.365222384 +0000
@@ -500,7 +544,7 @@ diff -urN --no-dereference src-original/third_party/gif.BUILD src/third_party/gi
 +    values = {"crosstool_top": "//chaquopy/crosstool"},
  )
 diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaquopy.patch
---- src-original/third_party/grpc/chaquopy.patch        1970-01-01 00:00:00.000000000 +0000
+--- src-original/third_party/grpc/chaquopy.patch	1970-01-01 00:00:00.000000000 +0000
 +++ src/third_party/grpc/chaquopy.patch 2019-03-06 20:33:50.086229265 +0000
 @@ -0,0 +1,12 @@
 +--- a/src/core/lib/gpr/wrap_memcpy.cc  2018-06-28 00:25:45.000000000 +0000
@@ -515,6 +559,23 @@ diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaq
 + __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 + void* __wrap_memcpy(void* destination, const void* source, size_t num) {
 +   return memcpy(destination, source, num);
+diff -urN --no-dereference src-original/third_party/llvm/llvm.bzl src/third_party/llvm/llvm.bzl
+--- src-original/third_party/llvm/llvm.bzl	2019-02-25 20:37:04.000000000 +0000
++++ src/third_party/llvm/llvm.bzl	2019-03-11 14:03:47.578289993 +0000
+@@ -201,8 +201,11 @@
+     "HAVE_ZLIB_H": 1,
+ 
+     # Features
+-    "HAVE_BACKTRACE": 1,
+-    "BACKTRACE_HEADER": "execinfo.h",
++
++    # Chaquopy: this header isn't available on Android.
++    # "HAVE_BACKTRACE": 1,
++    # "BACKTRACE_HEADER": "execinfo.h",
++
+     "HAVE_DLOPEN": 1,
+     "HAVE_FUTIMES": 1,
+     "HAVE_GETCWD": 1,
 diff -urN --no-dereference src-original/third_party/lmdb.BUILD src/third_party/lmdb.BUILD
 --- src-original/third_party/lmdb.BUILD	2018-08-23 19:58:44.000000000 +0000
 +++ src/third_party/lmdb.BUILD	2018-09-20 20:49:57.365222384 +0000
@@ -636,8 +697,8 @@ diff -urN --no-dereference src-original/third_party/py/python_configure.bzl src/
  
  
 diff -urN --no-dereference src-original/third_party/swig.BUILD src/third_party/swig.BUILD
---- src-original/third_party/swig.BUILD	2018-08-23 19:58:44.000000000 +0000
-+++ src/third_party/swig.BUILD	2018-09-21 16:08:18.469593051 +0000
+--- src-original/third_party/swig.BUILD	2019-02-25 20:37:04.000000000 +0000
++++ src/third_party/swig.BUILD	2019-03-11 11:27:51.076213806 +0000
 @@ -1,3 +1,5 @@
 +# Chaquopy: updated for SWIG 3.0.9 (see tensorflow/workspace.bzl).
 +
@@ -652,7 +713,7 @@ diff -urN --no-dereference src-original/third_party/swig.BUILD src/third_party/s
          "Source/Modules/lang.cxx",
          "Source/Modules/main.cxx",
          "Source/Modules/module.cxx",
-@@ -127,7 +130,6 @@
+@@ -126,7 +129,6 @@
          "Lib/python/defarg.swg",
          "Lib/python/director.swg",
          "Lib/python/embed.i",
@@ -660,7 +721,7 @@ diff -urN --no-dereference src-original/third_party/swig.BUILD src/third_party/s
          "Lib/python/exception.i",
          "Lib/python/factory.i",
          "Lib/python/file.i",
-@@ -292,7 +294,7 @@
+@@ -291,7 +293,7 @@
            "#define HAVE_PCRE\n" +
            "#define HAVE_POPEN\n" +
            "#define PACKAGE_BUGREPORT \"http://www.swig.org\"\n" +

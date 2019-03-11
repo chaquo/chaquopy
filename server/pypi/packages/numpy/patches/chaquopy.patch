@@ -42,19 +42,6 @@ diff -ur src-original/numpy/distutils/npy_pkg_config.py src/numpy/distutils/npy_
  
      return LibraryInfo(name=meta["name"], description=meta["description"],
              version=meta["version"], sections=sections, vars=VariableSet(vars))
-diff -ur src-original/numpy/distutils/system_info.py src/numpy/distutils/system_info.py
---- src-original/numpy/distutils/system_info.py 2018-03-12 09:49:52.000000000 +0000
-+++ src/numpy/distutils/system_info.py  2018-04-17 12:42:12.265904840 +0000
-@@ -1876,7 +1876,8 @@
-         c = customized_ccompiler()
- 
-         tmpdir = tempfile.mkdtemp()
--        s = """void zungqr();
-+        # Chaquopy: added missing underscore (https://github.com/numpy/numpy/pull/10916)
-+        s = """void zungqr_();
-         int main(int argc, const char *argv[])
-         {
-             zungqr_();
 diff -ur src-original/numpy/f2py/f90mod_rules.py src/numpy/f2py/f90mod_rules.py
 --- src-original/numpy/f2py/f90mod_rules.py    2018-02-28 17:03:26.000000000 +0000
 +++ src/numpy/f2py/f90mod_rules.py     2018-04-22 19:42:24.178863635 +0000

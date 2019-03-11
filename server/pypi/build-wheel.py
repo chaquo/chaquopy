@@ -475,11 +475,12 @@ class BuildWheel:
                     """), file=toolchain_file)
 
     def setup_toolchain(self, abi):
-        # On Android, libpthread is incorporated into libc. Create an empty library so we
-        # don't have to patch everything that links against it.
+        # On Android, these libraries are incorporated into libc. Create empty .a files so we
+        # don't have to patch everything that links against them.
         sysroot_lib = f"{self.toolchain}/sysroot/usr/lib"
-        if not any(exists(f"{sysroot_lib}/libpthread.{ext}") for ext in ["a", "so"]):
-            run(f"{self.toolchain}/bin/{abi.tool_prefix}-ar r {sysroot_lib}/libpthread.a")
+        for name in ["pthread", "rt"]:
+            if not any(exists(f"{sysroot_lib}/lib{name}.{ext}") for ext in ["a", "so"]):
+                run(f"{self.toolchain}/bin/{abi.tool_prefix}-ar r {sysroot_lib}/lib{name}.a")
 
     def fix_wheel(self, in_filename):
         pure_match = re.search(r"^(.+?)-(.+?)-(.+-none-any)\.whl$", basename(in_filename))

@@ -1,9 +1,8 @@
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2017-12-30 19:56:04.000000000 +0000
-+++ src/setup.py	2018-12-20 07:53:35.887460294 +0000
-@@ -14,6 +14,11 @@
- import platform
- from distutils.version import LooseVersion
+--- src-original/setup.py	2018-07-05 21:25:03.000000000 +0000
++++ src/setup.py	2019-03-09 20:04:30.234885544 +0000
+@@ -20,6 +20,11 @@
+ cmdclass = versioneer.get_cmdclass()
+ 
  
 +
 +# Chaquopy
@@ -13,25 +12,17 @@ diff -ur src-original/setup.py src/setup.py
  def is_platform_windows():
      return sys.platform == 'win32' or sys.platform == 'cygwin'
  
-@@ -53,7 +58,7 @@
-                          'install_requires': ['python-dateutil >= 2',
-                                               'pytz >= 2011k',
-                                               'numpy >= %s' % min_numpy_ver],
--                         'setup_requires': ['numpy >= %s' % min_numpy_ver],
-+                         # Chaquopy: removed setup_requires numpy
-                          }
-     if not _have_setuptools:
-         sys.exit("need setuptools/distribute for Py3k"
-@@ -64,7 +69,7 @@
-         'install_requires': ['python-dateutil',
-                             'pytz >= 2011k',
-                              'numpy >= %s' % min_numpy_ver],
--        'setup_requires': ['numpy >= %s' % min_numpy_ver],
-+        # Chaquopy: removed setup_requires numpy
-         'zip_safe': False,
-     }
+@@ -48,7 +53,8 @@
+         'pytz >= 2011k',
+         'numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver),
+     ],
+-    'setup_requires': ['numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver)],
++    # Chaquopy: disabled
++    # 'setup_requires': ['numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver)],
+     'zip_safe': False,
+ }
  
-@@ -153,7 +158,8 @@
+@@ -125,7 +131,8 @@
                  with open(outfile, "w") as f:
                      f.write(pyxcontent)
  
@@ -40,4 +31,4 @@ diff -ur src-original/setup.py src/setup.py
 +        numpy_incl = os.path.abspath("../requirements/numpy/core/include")
  
          for ext in self.extensions:
-             if hasattr(ext, 'include_dirs') and not numpy_incl in ext.include_dirs:
+             if (hasattr(ext, 'include_dirs') and
