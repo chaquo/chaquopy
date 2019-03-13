@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 #
 # Positional arguments:
 #  * Python major.minor version, e.g. "2.7"
@@ -29,21 +29,14 @@ for toolchain_dir in $this_dir/toolchains/*; do
     mkdir "$abi"
     cd "$abi"
 
-    gcc_abi=$abi
-    if [[ $abi == "arm64-v8a" ]]; then
-        gcc_abi="aarch64"
-    elif [[ $abi == "armeabi"* ]]; then
-        gcc_abi="arm"
-    fi
     prefix="$toolchain_dir/sysroot/usr"
-
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
     cp "$prefix/lib/libpython$short_ver"*.so "$jniLibs_dir"
 
     # The SONAMEs of our OpenSSL and SQLite libraries are those shown below with a version
     # number after the .so. Unfortunately the Android Gradle plugin will only package libraries
-    # whose names and with .so, so we have to rename them.
+    # whose names end with ".so", so we have to rename them.
     #
     # We add a _chaquopy suffix in case files of the same name are already present in
     # /system/lib. (On devices where they are present, their SONAMEs never seem to contain a
@@ -70,7 +63,7 @@ for toolchain_dir in $this_dir/toolchains/*; do
     rm $dynload_dir/*_test*.so
 
     chmod u+w $(find -name *.so)
-    $toolchain_dir/$gcc_abi-*/bin/strip $(find -name *.so)
+    $toolchain_dir/*/bin/strip $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"
