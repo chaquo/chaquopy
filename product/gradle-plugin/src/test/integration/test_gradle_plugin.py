@@ -19,7 +19,7 @@ from kwonly_args import kwonly_defaults
 from retrying import retry
 
 
-PYTHON_VERSION = "3.6.5"
+PYTHON_VERSION = "3.7.2"
 PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
 
 integration_dir = abspath(dirname(__file__))
@@ -979,8 +979,8 @@ class RunGradle(object):
         self.test.assertEqual(sorted(abis), sorted(os.listdir(bootstrap_native_dir)))
         for abi in abis:
             self.test.assertCountEqual(
-                ["java", "_ctypes.so", "_datetime.so", "_struct.so", "binascii.so", "math.so",
-                 "mmap.so", "zlib.so"],
+                ["java", "_ctypes.so", "_datetime.so",  "_hashlib.so", "_struct.so",
+                 "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(join(bootstrap_native_dir, abi)))
             self.test.assertEqual(["__init__.py", "chaquopy.so"],
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
@@ -994,12 +994,12 @@ class RunGradle(object):
             self.test.assertCountEqual(
                 ["_asyncio.so", "_bisect.so", "_blake2.so", "_codecs_cn.so", "_codecs_hk.so",
                  "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so", "_codecs_tw.so",
-                 "_crypt.so", "_csv.so", "_decimal.so", "_elementtree.so", "_hashlib.so",
+                 "_contextvars.so", "_csv.so", "_decimal.so", "_elementtree.so",
                  "_heapq.so", "_json.so", "_lsprof.so", "_md5.so", "_multibytecodec.so",
-                 "_multiprocessing.so", "_opcode.so", "_pickle.so", "_posixsubprocess.so",
+                 "_multiprocessing.so", "_opcode.so", "_pickle.so", "_posixsubprocess.so", "_queue.so",
                  "_random.so", "_sha1.so", "_sha256.so", "_sha3.so", "_sha512.so", "_socket.so",
-                 "_sqlite3.so", "_ssl.so", "array.so", "audioop.so", "cmath.so", "fcntl.so",
-                 "grp.so", "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so",
+                 "_sqlite3.so", "_ssl.so", "_xxtestfuzz.so", "array.so", "audioop.so", "cmath.so",
+                 "fcntl.so", "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so",
                  "select.so", "syslog.so", "termios.so", "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())
 
