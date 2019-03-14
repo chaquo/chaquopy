@@ -1,16 +1,15 @@
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2018-07-01 19:02:58.000000000 +0000
-+++ src/setup.py	2018-10-17 12:15:58.387726061 +0000
-@@ -194,7 +194,7 @@
-     ]
+--- src-original/setup.py	2019-01-05 17:33:50.000000000 +0000
++++ src/setup.py	2019-03-14 17:28:57.394638198 +0000
+@@ -259,7 +259,7 @@
+     ] + [('add-imaging-libs=', None, 'Add libs to _imaging build')]
  
      def initialize_options(self):
 -        self.disable_platform_guessing = None
-+        self.disable_platform_guessing = True  # Chaquopy: set to True
++        self.disable_platform_guessing = True  # Chaquopy: changed from None to True
+         self.add_imaging_libs = ""
          build_ext.initialize_options(self)
          for x in self.feature:
-             setattr(self, 'disable_%s' % x, None)
-@@ -279,7 +279,7 @@
+@@ -356,7 +356,7 @@
                      _add_directory(library_dirs, d)
  
          prefix = sysconfig.get_config_var("prefix")
@@ -19,7 +18,7 @@ diff -ur src-original/setup.py src/setup.py
              _add_directory(library_dirs, os.path.join(prefix, "lib"))
              _add_directory(include_dirs, os.path.join(prefix, "include"))
  
-@@ -435,6 +435,12 @@
+@@ -465,6 +465,12 @@
                  _add_directory(include_dirs,
                                 os.path.join(best_path, 'include'))
  
@@ -32,16 +31,16 @@ diff -ur src-original/setup.py src/setup.py
          #
          # insert new dirs *before* default libs, to avoid conflicts
          # between Python PYD stub libs and real libraries
-@@ -591,7 +597,7 @@
+@@ -621,7 +627,7 @@
          for src_file in _LIB_IMAGING:
              files.append(os.path.join("src/libImaging", src_file + ".c"))
  
--        libs = []
-+        libs = ["m"]  # Chaquopy: added "m"
+-        libs = self.add_imaging_libs.split()
++        libs = self.add_imaging_libs.split() + ["m"]  # Chaquopy: added "m"
          defs = []
          if feature.jpeg:
              libs.append(feature.jpeg)
-@@ -663,7 +669,8 @@
+@@ -693,7 +699,8 @@
                                include_dirs=['src/Tk'],
                                libraries=tk_libs))
  

@@ -1,9 +1,9 @@
 package:
   name: pyzmq
-  version: 17.0.0
+  version: 18.0.1
 
 build:
-  number: 3
+  number: 0
 
 requirements:
   host:

@@ -101,17 +101,6 @@ diff -ur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -211,6 +227,10 @@
-                 script_fn = os.path.join(self.build_temp, 'link-version-{}.map'.format(ext.name))
-                 with open(script_fn, 'w') as f:
-                     f.write(text)
-+
-+                    # Chaquopy: backport from https://github.com/scipy/scipy/issues/8680
-+                    ext.extra_link_args = [arg for arg in ext.extra_link_args if not "version-script" in arg]
-+
-                     ext.extra_link_args.append('-Wl,--version-script=' + script_fn)
- 
-             old_build_ext.build_extension(self, ext)
 @@ -429,7 +449,7 @@
          classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
          platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],

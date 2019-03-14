@@ -1,10 +1,10 @@
 package:
   name: pandas
-  version: 0.23.3
+  version: 0.24.2
 
 build:
   number: 0
 
 requirements:
   host:
-    - numpy 1.14.6
+    - numpy 1.16.2

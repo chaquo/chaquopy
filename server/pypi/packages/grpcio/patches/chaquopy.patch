@@ -1,7 +1,7 @@
 diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2018-06-01 23:53:55.000000000 +0000
-+++ src/setup.py	2018-11-30 23:19:56.985643589 +0000
-@@ -40,14 +40,7 @@
+--- src-original/setup.py       2019-02-26 17:31:26.000000000 +0000
++++ src/setup.py        2019-03-14 19:55:13.247165632 +0000
+@@ -41,14 +41,7 @@
  CARES_INCLUDE = (
      os.path.join('third_party', 'cares'),
      os.path.join('third_party', 'cares', 'cares'),)
@@ -16,8 +16,8 @@ diff -ur src-original/setup.py src/setup.py
 +CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_android'),)  # Chaquopy
  ADDRESS_SORTING_INCLUDE = (os.path.join('third_party', 'address_sorting', 'include'),)
  README = os.path.join(PYTHON_STEM, 'README.rst')
- 
-@@ -104,7 +97,8 @@
+
+@@ -145,7 +138,8 @@
  EXTRA_ENV_COMPILE_ARGS = os.environ.get('GRPC_PYTHON_CFLAGS', None)
  EXTRA_ENV_LINK_ARGS = os.environ.get('GRPC_PYTHON_LDFLAGS', None)
  if EXTRA_ENV_COMPILE_ARGS is None:
@@ -27,7 +27,7 @@ diff -ur src-original/setup.py src/setup.py
    if 'win32' in sys.platform and sys.version_info < (3, 5):
      EXTRA_ENV_COMPILE_ARGS += ' -D_hypot=hypot'
      # We use define flags here and don't directly add to DEFINE_MACROS below to
-@@ -116,24 +110,17 @@
+@@ -157,7 +151,8 @@
      else:
        EXTRA_ENV_COMPILE_ARGS += ' -D_ftime=_ftime64 -D_timeb=__timeb64'
    elif "linux" in sys.platform:
@@ -36,50 +36,25 @@ diff -ur src-original/setup.py src/setup.py
 +    EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
    elif "darwin" in sys.platform:
      EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
- EXTRA_ENV_COMPILE_ARGS += ' -DPB_FIELD_16BIT'
- 
- if EXTRA_ENV_LINK_ARGS is None:
-   EXTRA_ENV_LINK_ARGS = ''
--  if "linux" in sys.platform or "darwin" in sys.platform:
--    EXTRA_ENV_LINK_ARGS += ' -lpthread'
--  elif "win32" in sys.platform and sys.version_info < (3, 5):
--    msvcr = cygwinccompiler.get_msvcr()[0]
--    # TODO(atash) sift through the GCC specs to see if libstdc++ can have any
--    # influence on the linkage outcome on MinGW for non-C++ programs.
--    EXTRA_ENV_LINK_ARGS += (
--        ' -static-libgcc -static-libstdc++ -mcrtdll={msvcr} '
--        '-static'.format(msvcr=msvcr))
--  if "linux" in sys.platform:
--    EXTRA_ENV_LINK_ARGS += ' -Wl,-wrap,memcpy  -static-libgcc'
-+  # Chaquopy: these are the arguments for Linux, minus -lpthread, which is part of libc on
-+  # Android.
-+  EXTRA_ENV_LINK_ARGS += ' -Wl,-wrap,memcpy  -static-libgcc'
- 
- EXTRA_COMPILE_ARGS = shlex.split(EXTRA_ENV_COMPILE_ARGS)
- EXTRA_LINK_ARGS = shlex.split(EXTRA_ENV_LINK_ARGS)
-@@ -153,12 +140,7 @@
-     CARES_INCLUDE + ADDRESS_SORTING_INCLUDE)
- 
+ EXTRA_ENV_COMPILE_ARGS += ' -DPB_FIELD_32BIT'
+@@ -208,7 +203,7 @@
+
  EXTENSION_LIBRARIES = ()
--if "linux" in sys.platform:
+ if "linux" in sys.platform:
 -  EXTENSION_LIBRARIES += ('rt',)
--if not "win32" in sys.platform:
--  EXTENSION_LIBRARIES += ('m',)
--if "win32" in sys.platform:
--  EXTENSION_LIBRARIES += ('advapi32', 'ws2_32',)
-+EXTENSION_LIBRARIES += ('log',)  # Chaquopy
- 
- DEFINE_MACROS = (
-     ('OPENSSL_NO_ASM', 1), ('_WIN32_WINNT', 0x600),
-@@ -239,6 +221,9 @@
- 
++  EXTENSION_LIBRARIES += ('rt', 'log')  # Chaquopy: added 'log'
+ if not "win32" in sys.platform:
+   EXTENSION_LIBRARIES += ('m',)
+ if "win32" in sys.platform:
+@@ -299,6 +294,9 @@
+
  INSTALL_REQUIRES = (
      'six>=1.5.2',
 +
 +    # Chaquopy: pkg_resources is imported by src/python/grpcio/grpc/_cython/cygrpc.pyx.
 +    'setuptools'
  )
- 
+
  if not PY3:
 --- src-original/src/core/lib/gpr/wrap_memcpy.cc        2018-06-01 23:53:55.000000000 +0000
 +++ src/src/core/lib/gpr/wrap_memcpy.cc 2019-03-07 19:58:46.900378870 +0000

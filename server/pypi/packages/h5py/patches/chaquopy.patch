@@ -45,11 +45,11 @@ diff -ru src-original/setup_build.py src/setup_build.py
                  s = s.encode('utf-8')
                  f.write(s)
 diff -ru src-original/setup_configure.py src/setup_configure.py
---- src-original/setup_configure.py	2017-06-30 23:50:59.000000000 +0000
-+++ src/setup_configure.py	2018-07-29 17:12:35.522699041 +0000
+--- src-original/setup_configure.py     2018-12-20 04:15:31.000000000 +0000
++++ src/setup_configure.py      2019-03-14 17:58:50.250639920 +0000
 @@ -90,7 +90,7 @@
                      ('reset', 'r', 'Reset config options') ]
-     
+
      def initialize_options(self):
 -        self.hdf5 = None
 +        self.hdf5 = op.abspath("../requirements/chaquopy")
@@ -57,9 +57,9 @@ diff -ru src-original/setup_configure.py src/setup_configure.py
          self.mpi = None
          self.reset = None
 @@ -203,6 +203,13 @@
- 
+
      import pkgconfig
-     
+
 +    # Chaquopy: added
 +    for line in open(op.join(hdf5_dir, "include/H5public.h")):
 +        match = re.search(r"HDF5 library version: ([0-9.]+)", line)
