@@ -57,8 +57,8 @@ android {
 
             // Python unit tests
             pip {
-                install "MarkupSafe==1.0"
-                install "murmurhash==0.28.0"
+                install "MarkupSafe"
+                install "murmurhash"
                 install "certifi==2018.01.18"  // For TestAndroidImport.test_extract_package.
                 install "setuptools==40.4.3"  // For TestAndroidImport.test_pkg_resources.
             }

@@ -71,7 +71,7 @@ class TestAndroidImport(unittest.TestCase):
         self.check_module("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
                           package_path=[asset_path(zip, "markupsafe")
                                         for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]],
-                          source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
+                          source_head='# -*- coding: utf-8 -*-\n"""\nmarkupsafe\n')
 
     def test_py(self):
         # Despite its name, this is a pure Python module.
@@ -80,7 +80,7 @@ class TestAndroidImport(unittest.TestCase):
         cache_filename = asset_cache(REQS_COMMON_ZIP, filename + "c")
         mod = self.check_module(
             mod_name, REQS_COMMON_ZIP, filename,
-            source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
+            source_head='# -*- coding: utf-8 -*-\n"""\nmarkupsafe._native\n')
 
         mod.foo = 1
         delattr(mod, "escape")
@@ -189,7 +189,7 @@ class TestAndroidImport(unittest.TestCase):
         if zip_name == REQS_COMMON_ZIP:
             data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
             self.assertTrue(data.startswith(
-                b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
+                b'# -*- coding: utf-8 -*-\n"""\nmarkupsafe._constants\n'), repr(data))
         with self.assertRaisesRegexp(IOError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
                                      .format(asset_path(zip_name, *mod_name.split(".")[:-1]))):
             loader.get_data("/invalid.py")
@@ -248,9 +248,9 @@ class TestAndroidImport(unittest.TestCase):
             s = format_exc()
             self.assertRegexpMatches(
                 s,
-                r'File "{}/markupsafe/_native.py", line 21, in escape\n'.format(
+                r'File "{}/markupsafe/_native.py", line 27, in escape\n'.format(
                     asset_path(REQS_COMMON_ZIP)) +
-                r'    return s.__html__\(\)\n'
+                r'    return Markup\(s.__html__\(\)\)\n'
                 r"TypeError: 'NoneType' object is not callable\n$")
         else:
             self.fail()
