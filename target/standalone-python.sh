@@ -15,12 +15,8 @@ cd "$out_dir/lib"
 python_ver=$(echo libpython*.*.so | sed -E 's/libpython([0-9]+\.[0-9]+).*/\1/')
 python_ver_major=$(echo "$python_ver" | sed -E 's/^([0-9]+)\..*/\1/')
 
-# Python stdlib: see package-target.sh for why we remove some things.
 cp -a "$toolchain_dir/sysroot/usr/lib/python$python_ver" "$out_dir/lib"
 cd "$out_dir/lib/python$python_ver"
-rm -r curses dbm idlelib tkinter turtle*
-rm -r ensurepip pydoc_data
-find -name test -or -name tests | xargs rm -r
 find -name __pycache__ | xargs rm -r
 
 cd "$out_dir/lib"
