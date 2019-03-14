@@ -105,7 +105,25 @@ public class AndroidPlatform extends Python.Platform {
         }
 
         // Now add some non-Python assets which also need to be pre-extracted.
-        Collections.addAll(bootstrapAssets, Common.ASSET_CACERT, Common.ASSET_TICKET);
+        //
+        // Removed Common.ASSET_TICKET since it isn't currently being used on this branch, and
+        // it sometimes causes a crash on the Nexus 5X with the Jupyter app:
+        //      java.io.FileNotFoundException: chaquopy/ticket.txt
+        //        at android.content.res.AssetManager.openAsset(Native Method)
+        //        at android.content.res.AssetManager.open(AssetManager.java:347)
+        //        at android.content.res.AssetManager.open(AssetManager.java:321)
+        //        at com.chaquo.python.android.AndroidPlatform.extractAsset(AndroidPlatform.java:186)
+        //
+        // This was preceded in the log by these lines:
+        //      E/filemap: mmap(146317312,0) failed: Invalid argument
+        //      [This appears to be the position and size of ticket.txt within the APK.]
+        //      W/asset: create map from entry failed
+        //
+        // A build of Chaquopy 6.1.0 done on Linux with Docker consistently caused the problem,
+        // while a build of the same code on Windows was fine. The Linux-built pkgtest app also
+        // worked fine, even though it has a similar set of packages. So it looks like the
+        // problem is sensitive to small details of the APK structure.
+        Collections.addAll(bootstrapAssets, Common.ASSET_CACERT);
 
         try {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
