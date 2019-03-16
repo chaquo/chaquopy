@@ -417,13 +417,35 @@ class TestAndroidImport(unittest.TestCase):
         for entry in sys.path:
             self.assertNotIn("nonexistent", entry)
 
-    def test_pkg_resources(self):
+    def test_iter_modules(self):
+        def check_iter_modules(mod, expected):
+            mod_infos = list(pkgutil.iter_modules(mod.__path__))
+            self.assertCountEqual(expected, [(mi.name, mi.ispkg) for mi in mod_infos])
+            finders = [pkgutil.get_importer(p) for p in mod.__path__]
+            for mi in mod_infos:
+                self.assertIn(mi.module_finder, finders, mi)
+
+        import murmurhash.tests
+        check_iter_modules(murmurhash, [("about", False),   # Pure-Python module
+                                        ("mrmr", False),    # Native module
+                                        ("tests", True)])   # Package
+        check_iter_modules(murmurhash.tests, [("test_import", False)])
+
+        self.assertCountEqual([("murmurhash.about", False), ("murmurhash.mrmr", False),
+                               ("murmurhash.tests", True),
+                               ("murmurhash.tests.test_import", False)],
+                              [(mi.name, mi.ispkg) for mi in
+                               pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
+
+    def test_pkg_resources_working_set(self):
         import pkg_resources as pr
         self.assertCountEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl",
                                "murmurhash", "setuptools"],
                               [dist.project_name for dist in pr.working_set])
         self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
 
+    def test_pkg_resources_resources(self):
+        import pkg_resources as pr
         self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
         self.assertTrue(pr.resource_exists(__package__, "resources"))
         self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
@@ -434,9 +456,11 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(pr.resource_isdir(__package__, "resources"))
         self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
 
-        self.assertCountEqual(["a.txt", "b.txt"],
+        self.assertCountEqual(["a.txt", "b.txt", "subdir"],
                               pr.resource_listdir(__package__, "resources"))
         self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
+        self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
+        self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
 
 
 def asset_path(*paths):

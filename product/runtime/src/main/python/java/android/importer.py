@@ -311,6 +311,25 @@ class AssetFinder(object):
 
         return None
 
+    # This method has never been specified in a PEP, but it's required by pkgutil.iter_modules.
+    def iter_modules(self, prefix=""):
+        # Finders may be created for nonexistent paths, e.g. if a package contains only
+        # pure-Python code, then its directory won't exist in the ABI ZIP.
+        if not self.zip_file.isdir(self.prefix):
+            return
+
+        for filename in self.zip_file.listdir(self.prefix):
+            abs_filename = join(self.prefix, filename)
+            if self.zip_file.isdir(abs_filename):
+                for sub_filename in self.zip_file.listdir(abs_filename):
+                    if getmodulename(sub_filename) == "__init__":
+                        yield prefix + filename, True
+                        break
+            else:
+                mod_base_name = getmodulename(filename)
+                if mod_base_name and (mod_base_name != "__init__"):
+                    yield prefix + mod_base_name, False
+
     def extract_package(self, package_rel_dir):
         filenames_in_zip = set()
         for zf in [self.zip_file] + self.other_zips:
@@ -573,6 +592,15 @@ LOADERS = [
 ]
 
 
+# Like inspect.getmodulename, but only matches file extensions which we actually support.
+def getmodulename(path):
+    base_name = basename(path)
+    for suffix, _ in LOADERS:
+        if base_name.endswith(suffix):
+            return base_name[:-len(suffix)]
+    return None
+
+
 # Protects `extract` and `read` with locks, because they seek the underlying file object.
 # `getinfo` and `infolist` are already thread-safe, because the ZIP index is completely read
 # during construction. However, `open` cannot be made thread-safe without a lot of work, so it
@@ -584,17 +612,17 @@ class ConcurrentZipFile(ZipFile):
 
         # ZIP files *may* have individual entries for directories, but we can't rely on it,
         # so we build an index to support `isdir` and `listdir`.
-        self.dir_index = {"": []}  # Provide empty listing for root even if ZIP is empty.
+        self.dir_index = {"": set()}  # Provide empty listing for root even if ZIP is empty.
         self.pth_files = []
         for name in self.namelist():
             parts = name.rstrip("/").split("/")
             while parts:
                 parent = "/".join(parts[:-1])
                 if parent in self.dir_index:
-                    self.dir_index[parent].append(parts[-1])
+                    self.dir_index[parent].add(parts[-1])
                     break
                 else:
-                    self.dir_index[parent] = [parts.pop()]
+                    self.dir_index[parent] = set([parts.pop()])
             if ("/" not in name) and (name.endswith(".pth")):
                 self.pth_files.append(name)
 
@@ -635,7 +663,9 @@ class ConcurrentZipFile(ZipFile):
             return ZipFile.read(self, member)
 
     def isdir(self, path):
+        path = path.rstrip("/")
         return (path in self.dir_index)
 
     def listdir(self, path):
-        return self.dir_index[path]
+        path = path.rstrip("/")
+        return sorted(self.dir_index[path])
