@@ -360,9 +360,9 @@ Python standard library
 ssl
 ---
 
-Because of inconsistencies in the system certificate authority store formats of different Android
-versions, the `ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://github.com/certifi/python-certifi/>`_. The current version is from certifi 2018.01.18.
+For consistency across different devices, the `ssl` module is configured to use a copy of the CA
+bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version is
+from certifi 2019.3.9.
 
 sys
 ---
