@@ -1,6 +1,6 @@
 """Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
 
-from importlib import reload
+from importlib import import_module, reload
 import os
 from os.path import exists, join
 import sys
@@ -92,6 +92,13 @@ def initialize_hashlib(context):
     # OpenSSL interface in `_hashlib` is on sys.path.
     import hashlib
     reload(hashlib)
+
+    for mod_name in ["_blake2", "_sha3"]:
+        try:
+            import_module(mod_name)
+            raise Exception(f"module {mod_name} is available: workaround should be removed")
+        except ImportError:
+            pass
 
     # None of the native hash modules are currently included on this branch. hashlib will
     # normally prefer to use OpenSSL anyway, which works for MD5, SHA-1 and SHA-2, but we need
