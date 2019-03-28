@@ -9,15 +9,12 @@ COPY crystax/platform/ndk/build/tools/prebuilt-common.sh \
      crystax/platform/ndk/build/tools/dev-defaults.sh \
      src/crystax/platform/ndk/build/tools/
 
-# OpenSSL doesn't support parallel build until version 1.1.0. Adding `-j` to the make command
-# in build-target-openssl.sh has no effect because of the way OpenSSL uses recursive make. See
-# https://github.com/openssl/openssl/issues/298 ("jobserver unavailable") and
-# https://github.com/openssl/openssl/issues/5762.
 RUN apt-get update && \
     apt-get install -y perl-modules
 COPY openssl src/openssl
 COPY crystax/platform/ndk/build/tools/build-target-openssl.sh \
      src/crystax/platform/ndk/build/tools/
+COPY crystax/platform/ndk/sources/openssl src/crystax/platform/ndk/sources/openssl
 RUN src/crystax/platform/ndk/build/tools/build-target-openssl.sh \
         --verbose --ndk-dir=$(pwd)/crystax --abis=$abis src/openssl && \
     rm -r /tmp/ndk-*
