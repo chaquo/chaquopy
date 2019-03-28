@@ -487,12 +487,34 @@ class TestAndroidStdlib(unittest.TestCase):
         from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
-        # Requires the OpenSSL interface in `_hashlib`.
         import hashlib
-        self.assertEqual("37f332f68db77bd9d7edd4969571ad671cf9dd3b",
-                         hashlib.new("ripemd160",
-                                     b"The quick brown fox jumps over the lazy dog")
-                         .hexdigest())
+        INPUT = b"The quick brown fox jumps over the lazy dog"
+        TESTS = [
+            ("sha1", "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"),
+            ("sha3_512", ("01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
+                          "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450")),
+            ("blake2b", ("a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f8240"
+                         "1cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918")),
+            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),  # OpenSSL-only
+        ]
+        for name, expected in TESTS:
+            with self.subTest(algorithm=name):
+                # With initial data
+                self.assertEqual(expected, hashlib.new(name, INPUT).hexdigest())
+                # Without initial data
+                h = hashlib.new(name)
+                h.update(INPUT)
+                self.assertEqual(expected, h.hexdigest())
+
+                if name in hashlib.algorithms_guaranteed:
+                    # With initial data
+                    self.assertEqual(expected, getattr(hashlib, name)(INPUT).hexdigest())
+                    # Without initial data
+                    h = getattr(hashlib, name)()
+                    h.update(INPUT)
+                    self.assertEqual(expected, h.hexdigest())
+                else:
+                    self.assertFalse(hasattr(hashlib, name))
 
     def test_locale(self):
         import locale

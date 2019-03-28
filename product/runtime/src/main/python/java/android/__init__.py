@@ -21,6 +21,7 @@ def initialize_stdlib(context):
     initialize_sysconfig(context, Common)
     initialize_tempfile(context)
     initialize_ssl(context)
+    initialize_hashlib(context)
     initialize_ctypes(context)
 
 
@@ -85,10 +86,29 @@ def initialize_ssl(context):
     # on it (https://blog.kylemanna.com/android/android-ca-certificates/).
     os.environ["SSL_CERT_FILE"] = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
 
+
+def initialize_hashlib(context):
     # hashlib may already have been imported during bootstrap: reload it now that the the
     # OpenSSL interface in `_hashlib` is on sys.path.
     import hashlib
     reload(hashlib)
+
+    # None of the native hash modules are currently included on this branch. hashlib will
+    # normally prefer to use OpenSSL anyway, which works for MD5, SHA-1 and SHA-2, but we need
+    # to intervene for BLAKE2 and SHA-3 because they're given different identifiers by OpenSSL.
+    # This technique should enable everything in the hashlib documentation, except the
+    # additional keyword arguments for BLAKE2.
+    NAME_MAP = {f"sha3_{n}": f"sha3-{n}" for n in [224, 256, 384, 512]}
+    NAME_MAP.update({"blake2b": "blake2b512", "blake2s": "blake2s256"})
+    def new_constructor(name):
+        return lambda data=b"": hashlib.new(name, data)
+    for python_name, openssl_name in NAME_MAP.items():
+        setattr(hashlib, python_name, new_constructor(openssl_name))
+
+    new_original = hashlib.new
+    def new_override(name, data=b""):
+        return new_original(NAME_MAP.get(name, name), data)
+    hashlib.new = new_override
 
 
 def initialize_ctypes(context):
