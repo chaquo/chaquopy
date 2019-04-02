@@ -767,6 +767,7 @@ class PythonExtension extends BaseExtension {
         "obspy",  // Has data directories in many packages.
         "parso",
         "pytz",
+        "skimage.data", "skimage.io",
         "sklearn.datasets",
         "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
         "theano",  // Could maybe make this more specific, but Theano has been abandoned, and
