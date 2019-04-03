@@ -756,6 +756,7 @@ class PythonExtension extends BaseExtension {
     static final def DEFAULT_EXTRACT_PACKAGES = [
         "certifi",
         "cv2.data",
+        "face_recognition_models",
         "ipykernel",
         "jedi.evaluate",
         "matplotlib",       // Data (mostly fonts) is in a subdirectory "mpl-data", which is

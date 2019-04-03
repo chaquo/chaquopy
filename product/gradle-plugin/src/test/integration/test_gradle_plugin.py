@@ -1001,9 +1001,9 @@ class RunGradle(object):
 
         # build.json
         DEFAULT_EXTRACT_PACKAGES = [  # See PythonPlugin.groovy
-            "certifi", "cv2.data", "ipykernel", "jedi.evaluate", "matplotlib", "nbformat",
-            "notebook", "obspy", "parso", "pytz", "skimage.data", "skimage.io",
-            "sklearn.datasets", "spacy.data", "theano"
+            "certifi", "cv2.data", "face_recognition_models", "ipykernel", "jedi.evaluate",
+            "matplotlib", "nbformat", "notebook", "obspy", "parso", "pytz", "skimage.data",
+            "skimage.io", "sklearn.datasets", "spacy.data", "theano"
         ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)

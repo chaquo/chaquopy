@@ -54,8 +54,8 @@ android {
             pip {
                 install "MarkupSafe==1.0"
                 install "murmurhash==0.28.0"
-                install "certifi==2018.01.18"  // For TestAndroidImport.test_extract_package.
-                install "setuptools==40.4.3"  // For TestAndroidImport.test_pkg_resources.
+                install "certifi==2018.01.18"  // For TestAndroidImport
+                install "setuptools==40.4.3"   //
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")

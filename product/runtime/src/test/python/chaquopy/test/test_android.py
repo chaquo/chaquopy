@@ -264,10 +264,10 @@ class TestAndroidImport(unittest.TestCase):
         import certifi
         certifi_dir = dirname(certifi.__file__)
         cacert_filename = join(certifi_dir, "cacert.pem")
-        self.assertTrue(isfile(cacert_filename))
-        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
-                         pkgutil.get_data("certifi", "cacert.pem")
-                         .decode("ASCII").splitlines()[1])
+        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        with open(cacert_filename) as cacert_file:
+            self.check_cacert(cacert_file.read())
+        self.check_cacert(pkgutil.get_data("certifi", "cacert.pem").decode())
         self.check_extract_if_changed(certifi, cacert_filename)
 
         leftover_filename = join(certifi_dir, "leftover.txt")
@@ -276,6 +276,10 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(exists(leftover_filename))
         self.clean_reload(certifi)
         self.assertFalse(exists(leftover_filename))
+
+    def check_cacert(self, content):
+        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
+                         content.splitlines()[1])
 
     def test_extract_native_package(self):
         # TODO #5513: these should be extracted to the same place.
@@ -461,6 +465,17 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
         self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
         self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
+
+        a_path = asset_path(APP_ZIP, "chaquopy/test/resources/a.txt")
+        with self.assertRaisesRegex(NotImplementedError, fr"Can't extract '{a_path}': use "
+                                    r"extractPackages instead \(see https://chaquo.com/chaquopy/"
+                                    r"doc/current/android.html#resource-files\)"):
+            pr.resource_filename(__package__, "resources/a.txt")
+
+        cacert_filename = pr.resource_filename("certifi", "cacert.pem")
+        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        with open(cacert_filename) as cacert_file:
+            self.check_cacert(cacert_file.read())
 
 
 def asset_path(*paths):

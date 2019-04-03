@@ -202,9 +202,14 @@ def initialize_pkg_resources():
             self.zip_file = self.loader.finder.zip_file
 
         def get_resource_filename(self, manager, resource_name):
-            # This would require extracting the resource to a temporary file, as in
-            # pkg_resources.ZipProvider.
-            raise NotImplementedError()
+            filename = super().get_resource_filename(manager, resource_name)
+            if filename.startswith(ASSET_PREFIX):
+                # This would require extracting the resource to a temporary file, as in
+                # pkg_resources.ZipProvider.
+                raise NotImplementedError(
+                    f"Can't extract '{filename}': use extractPackages instead (see https://"
+                    f"chaquo.com/chaquopy/doc/current/android.html#resource-files)")
+            return filename
 
         def _has(self, path):
             try:
