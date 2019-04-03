@@ -180,10 +180,11 @@ def load_module_override(load_name, file, pathname, description):
 
 
 def initialize_pkg_resources():
-    try:
-        import pkg_resources
-    except ImportError:
-        return
+    # Because so much code requires pkg_resources without declaring setuptools as a dependency,
+    # we include it in the bootstrap ZIP. We don't include the rest of setuptools, because it's
+    # much larger and much less likely to be useful. If the user installs setuptools via pip,
+    # then that copy will take priority because the requirements ZIP is earlier on sys.path.
+    import pkg_resources
 
     # Search for top-level .dist-info directories (see pip_install.py).
     def distribution_finder(finder, entry, only):
