@@ -1,0 +1,9 @@
+package:
+  name: dlib
+  version: 19.17.0
+
+requirements:
+  build:
+    - cmake
+  host:
+    - chaquopy-openblas 0.2.20

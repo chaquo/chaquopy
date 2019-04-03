@@ -1,0 +1,50 @@
+diff -ur src-original/dlib/dir_nav/dir_nav_kernel_2.cpp src/dlib/dir_nav/dir_nav_kernel_2.cpp
+--- src-original/dlib/dir_nav/dir_nav_kernel_2.cpp	2019-03-03 16:42:37.000000000 +0000
++++ src/dlib/dir_nav/dir_nav_kernel_2.cpp	2019-04-03 12:00:16.752212692 +0000
+@@ -66,7 +66,8 @@
+ 
+             state.last_modified = std::chrono::system_clock::from_time_t(buffer.st_mtime);
+ #ifdef _BSD_SOURCE 
+-            state.last_modified += std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::nanoseconds(buffer.st_atim.tv_nsec));
++            // Chaquopy: changed from st_atim.tv_nsec.
++            state.last_modified += std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::nanoseconds(buffer.st_atime_nsec));
+ #endif
+         }
+ 
+diff -ur src-original/dlib/dir_nav/dir_nav_kernel_2.h src/dlib/dir_nav/dir_nav_kernel_2.h
+--- src-original/dlib/dir_nav/dir_nav_kernel_2.h	2019-03-03 16:42:37.000000000 +0000
++++ src/dlib/dir_nav/dir_nav_kernel_2.h	2019-04-03 12:00:51.345479976 +0000
+@@ -394,7 +394,8 @@
+                 }
+                 auto last_modified = std::chrono::system_clock::from_time_t(buffer.st_mtime);
+ #ifdef _BSD_SOURCE 
+-                last_modified += std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::nanoseconds(buffer.st_atim.tv_nsec));
++                // Chaquopy: changed from st_atim.tv_nsec.
++                last_modified += std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::nanoseconds(buffer.st_atime_nsec));
+ #endif
+ 
+                 if (S_ISDIR(buffer.st_mode) == 0)
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2019-03-08 12:49:03.000000000 +0000
++++ src/setup.py	2019-04-03 12:01:36.827146162 +0000
+@@ -140,6 +140,20 @@
+         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
+                       '-DPYTHON_EXECUTABLE=' + sys.executable]
+ 
++        # Chaquopy
++        abi = os.environ["CHAQUOPY_ABI"]
++        cmake_args += [
++            "-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake"),
++            "-DDLIB_USE_CUDA=no",
++
++            # By default, dlib/cmake_utils/set_compiler_specific_options.cmake sets these
++            # options by running executables on the host, so force them according to
++            # https://developer.android.com/ndk/guides/abis.
++            f"-DSSE4_IS_AVAILABLE_ON_HOST={abi == 'x86_64'}",
++            f"-DAVX_IS_AVAILABLE_ON_HOST=False",
++            f"-DARM_NEON_IS_AVAILABLE={abi == 'arm64-v8a'}",
++        ]
++
+         cmake_args += cmake_extra_options 
+ 
+         cfg = 'Debug' if self.debug else 'Release'
