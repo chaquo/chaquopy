@@ -1,8 +1,7 @@
 Java API
 ########
 
-The Java API provides facilities to use Python classes and objects from Java code. For examples
-of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`_.
+The Java API provides facilities to use Python classes and objects from Java code.
 
 
 Summary
@@ -59,6 +58,9 @@ Container types::
     os.environ["HELLO"] = "world"             os.get("environ").asMap().put(
                                                   PyObject.fromJava("HELLO"),
                                                   PyObject.fromJava("world"));
+
+For more examples, see the `demo app <https://github.com/chaquo/chaquopy>`_.
+
 
 Reference
 =========

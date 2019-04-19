@@ -12,7 +12,8 @@ this may kill the Gradle daemon.
 
 Free up disk space if necessary: the integration tests require about 6 GB per version.
 
-On one supported workstation OS, run `gradlew -P cmakeBuildType=Release gradle-plugin:check`.
+On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
+gradle-plugin:check`.
 
 On the other supported workstation OSes, copy the `gradle` and `runtime` artifacts from the
 first machine. To make sure they're not overwritten, temporarily disable the `dependsOn

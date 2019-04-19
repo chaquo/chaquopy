@@ -1,6 +1,16 @@
 Change log
 ##########
 
+6.2.1 (2019-04-19)
+==================
+
+* Android Gradle plugin version 3.4 is now supported.
+* Update to OpenSSL 1.1.1b. This enables the BLAKE2 and SHA-3 algorithms in `hashlib`.
+* Update CA bundle to certifi 2019.3.9.
+* Implement `pkgutil.iter_modules`.
+* Build `pkg_resources` into all apps. Many packages require this but don't declare a
+  dependency on setuptools.
+
 6.0.0 (2019-03-08)
 ==================
 
