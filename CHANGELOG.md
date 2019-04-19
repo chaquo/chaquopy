@@ -3,6 +3,10 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 6.2.1 (2019-04-19)
+
+* No changes except for the SDK update.
+
 ## 6.0.0 (2019-03-09)
 
 * Target Android Studio 3.3.2.

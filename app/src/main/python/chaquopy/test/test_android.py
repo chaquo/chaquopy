@@ -264,10 +264,10 @@ class TestAndroidImport(unittest.TestCase):
         import certifi
         certifi_dir = dirname(certifi.__file__)
         cacert_filename = join(certifi_dir, "cacert.pem")
-        self.assertTrue(isfile(cacert_filename))
-        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
-                         pkgutil.get_data("certifi", "cacert.pem")
-                         .decode("ASCII").splitlines()[1])
+        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        with open(cacert_filename) as cacert_file:
+            self.check_cacert(cacert_file.read())
+        self.check_cacert(pkgutil.get_data("certifi", "cacert.pem").decode())
         self.check_extract_if_changed(certifi, cacert_filename)
 
         leftover_filename = join(certifi_dir, "leftover.txt")
@@ -276,6 +276,10 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(exists(leftover_filename))
         self.clean_reload(certifi)
         self.assertFalse(exists(leftover_filename))
+
+    def check_cacert(self, content):
+        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
+                         content.splitlines()[1])
 
     def test_extract_native_package(self):
         # TODO #5513: these should be extracted to the same place.
@@ -417,13 +421,35 @@ class TestAndroidImport(unittest.TestCase):
         for entry in sys.path:
             self.assertNotIn("nonexistent", entry)
 
-    def test_pkg_resources(self):
+    def test_iter_modules(self):
+        def check_iter_modules(mod, expected):
+            mod_infos = list(pkgutil.iter_modules(mod.__path__))
+            self.assertCountEqual(expected, [(mi.name, mi.ispkg) for mi in mod_infos])
+            finders = [pkgutil.get_importer(p) for p in mod.__path__]
+            for mi in mod_infos:
+                self.assertIn(mi.module_finder, finders, mi)
+
+        import murmurhash.tests
+        check_iter_modules(murmurhash, [("about", False),   # Pure-Python module
+                                        ("mrmr", False),    # Native module
+                                        ("tests", True)])   # Package
+        check_iter_modules(murmurhash.tests, [("test_import", False)])
+
+        self.assertCountEqual([("murmurhash.about", False), ("murmurhash.mrmr", False),
+                               ("murmurhash.tests", True),
+                               ("murmurhash.tests.test_import", False)],
+                              [(mi.name, mi.ispkg) for mi in
+                               pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
+
+    def test_pkg_resources_working_set(self):
         import pkg_resources as pr
         self.assertCountEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-gnustl",
                                "murmurhash", "setuptools"],
                               [dist.project_name for dist in pr.working_set])
         self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
 
+    def test_pkg_resources_resources(self):
+        import pkg_resources as pr
         self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
         self.assertTrue(pr.resource_exists(__package__, "resources"))
         self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
@@ -434,9 +460,22 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(pr.resource_isdir(__package__, "resources"))
         self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
 
-        self.assertCountEqual(["a.txt", "b.txt"],
+        self.assertCountEqual(["a.txt", "b.txt", "subdir"],
                               pr.resource_listdir(__package__, "resources"))
         self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
+        self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
+        self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
+
+        a_path = asset_path(APP_ZIP, "chaquopy/test/resources/a.txt")
+        with self.assertRaisesRegex(NotImplementedError, fr"Can't extract '{a_path}': use "
+                                    r"extractPackages instead \(see https://chaquo.com/chaquopy/"
+                                    r"doc/current/android.html#resource-files\)"):
+            pr.resource_filename(__package__, "resources/a.txt")
+
+        cacert_filename = pr.resource_filename("certifi", "cacert.pem")
+        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        with open(cacert_filename) as cacert_file:
+            self.check_cacert(cacert_file.read())
 
 
 def asset_path(*paths):
@@ -463,12 +502,34 @@ class TestAndroidStdlib(unittest.TestCase):
         from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
-        # Requires the OpenSSL interface in `_hashlib`.
         import hashlib
-        self.assertEqual("37f332f68db77bd9d7edd4969571ad671cf9dd3b",
-                         hashlib.new("ripemd160",
-                                     b"The quick brown fox jumps over the lazy dog")
-                         .hexdigest())
+        INPUT = b"The quick brown fox jumps over the lazy dog"
+        TESTS = [
+            ("sha1", "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"),
+            ("sha3_512", ("01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
+                          "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450")),
+            ("blake2b", ("a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f8240"
+                         "1cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918")),
+            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),  # OpenSSL-only
+        ]
+        for name, expected in TESTS:
+            with self.subTest(algorithm=name):
+                # With initial data
+                self.assertEqual(expected, hashlib.new(name, INPUT).hexdigest())
+                # Without initial data
+                h = hashlib.new(name)
+                h.update(INPUT)
+                self.assertEqual(expected, h.hexdigest())
+
+                if name in hashlib.algorithms_guaranteed:
+                    # With initial data
+                    self.assertEqual(expected, getattr(hashlib, name)(INPUT).hexdigest())
+                    # Without initial data
+                    h = getattr(hashlib, name)()
+                    h.update(INPUT)
+                    self.assertEqual(expected, h.hexdigest())
+                else:
+                    self.assertFalse(hasattr(hashlib, name))
 
     def test_locale(self):
         import locale
