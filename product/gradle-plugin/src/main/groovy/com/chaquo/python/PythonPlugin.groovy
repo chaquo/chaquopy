@@ -12,6 +12,7 @@ import org.json.*
 import java.nio.file.*
 import java.security.MessageDigest
 
+import static com.chaquo.python.Common.assetZip;
 import static java.nio.file.StandardCopyOption.*
 
 
@@ -96,12 +97,14 @@ class PythonPlugin implements Plugin<Project> {
 
         def originalSet = ao.getClass().getMethod("noCompress", [String[].class] as Class[])
         def newSet = {String... nc ->
-            def mergedNc = [Common.ASSET_APP, Common.ASSET_BOOTSTRAP,
-                            Common.ASSET_REQUIREMENTS(Common.ABI_COMMON),
-                            Common.ASSET_STDLIB]
-            for (abi in Common.ABIS) {
-                mergedNc.add(Common.ASSET_REQUIREMENTS(abi))
-                mergedNc.add("${abi}.zip")  // stdlib-native
+            def mergedNc = []
+            for (asset in [Common.ASSET_APP, Common.ASSET_BOOTSTRAP]) {
+                mergedNc.add(assetZip(asset))
+            }
+            for (asset in [Common.ASSET_REQUIREMENTS, Common.ASSET_STDLIB]) {
+                for (abi in Common.ABIS + [Common.ABI_COMMON]) {
+                    mergedNc.add(assetZip(asset, abi))
+                }
             }
             mergedNc.addAll(nc)
             originalSet.invoke(ao, [mergedNc as String[]] as Object[])
@@ -122,7 +125,7 @@ class PythonPlugin implements Plugin<Project> {
         // the current situation is probably fine. However, we'll check and display a warning just
         // in case.
         project.afterEvaluate {
-            if (! ao.noCompress.contains(Common.ASSET_APP)) {
+            if (! ao.noCompress.contains(assetZip(Common.ASSET_APP))) {
                 println("Warning: aaptOptions.noCompress has been overridden: this may reduce " +
                         "Chaquopy performance. Consider replacing `noCompress =` with simply " +
                         "`noCompress`.")
@@ -535,19 +538,22 @@ class PythonPlugin implements Plugin<Project> {
             inputs.files(mergeSrcTask)
             doLast {
                 makeZip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
-                        destfile: "$assetDir/$Common.ASSET_APP", whenempty: "create")
+                        destfile: "$assetDir/${assetZip(Common.ASSET_APP)}",
+                        whenempty: "create")
             }
         }
+
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
             doLast {
                 for (subdir in reqsTask.destinationDir.listFiles()) {
+                    def filename = assetZip(Common.ASSET_REQUIREMENTS, subdir.name)
                     makeZip(basedir: subdir, excludes: excludes, whenempty: "create",
-                            destfile: "$assetDir/${Common.ASSET_REQUIREMENTS(subdir.name)}")
+                            destfile: "$assetDir/$filename")
                 }
             }
         }
-        // TODO: Use same filename pattern for stdlib and bootstrap as we do for requirements.
+
         def miscAssetsTask = assetTask(variant, "misc") {
             def runtimePython = getConfig("runtimePython")
             def runtimeModule = getConfig("runtimeModule", variant)
@@ -557,8 +563,12 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.copy {
                     into assetDir
-                    from(runtimePython) { rename { Common.ASSET_BOOTSTRAP } }
-                    from(targetStdlib) { rename { Common.ASSET_STDLIB } }
+                    from(runtimePython) {
+                        rename { assetZip(Common.ASSET_BOOTSTRAP) }
+                    }
+                    from(targetStdlib) {
+                        rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
+                    }
                 }
 
                 // The following stdlib native modules are needed during bootstrap and are
@@ -573,7 +583,7 @@ class PythonPlugin implements Plugin<Project> {
                         }
                     }
                     makeZip(basedir: "$assetDir/lib-dynload/$abi",
-                            destfile: "$assetDir/$Common.ASSET_STDLIB_NATIVE/${abi}.zip",
+                            destfile: "$assetDir/${assetZip(Common.ASSET_STDLIB, abi)}",
                             excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "),
                             whenempty: "fail")
 

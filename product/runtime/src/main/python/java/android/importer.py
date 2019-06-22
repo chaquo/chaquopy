@@ -23,7 +23,7 @@ from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
 from java._vendor import six
-from java.chaquopy import ASSET_PREFIX, AssetFile, InvalidAssetPathError
+from java.chaquopy import AssetFile
 
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
@@ -43,6 +43,12 @@ def initialize(context, build_json, app_path):
 
 
 def initialize_importlib(context, build_json, app_path):
+    # Remove nonexistent default paths (#5410)
+    sys.path = [p for p in sys.path if exists(p)]
+
+    global ASSET_PREFIX
+    ASSET_PREFIX = join(context.getCacheDir().toString(), Common.ASSET_DIR, "AssetFinder")
+
     ep_json = build_json.get("extractPackages")
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
     sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
@@ -55,7 +61,7 @@ def initialize_importlib(context, build_json, app_path):
     requirements_updated = False
 
     for i, asset_name in enumerate(app_path):
-        entry = str(join(ASSET_PREFIX, Common.ASSET_DIR, asset_name))
+        entry = join(ASSET_PREFIX, asset_name)
         sys.path.insert(i, entry)
         finder = get_importer(entry)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
@@ -115,11 +121,19 @@ def initialize_imp():
 
 
 # Unlike the other APIs in this file, find_module does not take names containing dots.
+#
+# The documentation says that if the module "does not live in a file", the returned tuple
+# contains file=None and pathname="". However, the the only thing the user is likely to do with
+# these values is pass them to load_module, so we should be safe to use them however we want:
+#
+#   * file=None causes problems for SWIG-generated code such as pywrap_tensorflow_internal, so
+#     we return a dummy file-like object instead.
+#
+#   * `pathname` is used to communicate the location of the module to load_module_override.
 def find_module_override(base_name, path=None):
-    try:
-        return find_module_original(base_name, path)
-    except Exception:
-        pass
+    # When calling find_module_original, we can't just replace None with sys.path, because None
+    # will also search built-in modules.
+    path_original = path
 
     if path is None:
         path = sys.path
@@ -131,8 +145,10 @@ def find_module_override(base_name, path=None):
             loader = finder.find_module(real_name)
             if loader is not None:
                 if loader.is_package(real_name):
+                    file = None
                     mod_type = imp.PKG_DIRECTORY
                 else:
+                    file = io.BytesIO()
                     filename = loader.get_filename(real_name)
                     for suffix, mode, mod_type in imp.get_suffixes():
                         if filename.endswith(suffix):
@@ -141,30 +157,15 @@ def find_module_override(base_name, path=None):
                         raise ValueError("Couldn't determine type of module '{}' from '{}'"
                                          .format(real_name, filename))
 
-                # The documentation says that if the module "does not live in a file", the
-                # returned tuple contains file=None and pathname="". However, the the only
-                # thing the user is likely to do with these values is pass them to load_module,
-                # so we should be safe to use them however we want.
-                #
-                # * file=None causes problems for SWIG-generated code such as
-                #   tensorflow.python.pywrap_tensorflow_internal, so we return a dummy file-like
-                #   object instead.
-                # * `pathname` is used to communicate the location of the module to load_module
-                #   below.
-                return (six.BytesIO(),
+                return (file,
                         PATHNAME_PREFIX + join(entry, base_name),
                         ("", "", mod_type))
 
-    raise ImportError("No module named '{}' found in {}".format(base_name, path))
+    return find_module_original(base_name, path_original)
 
 
 def load_module_override(load_name, file, pathname, description):
-    # In Python 2, load_module_original will return an empty module when asked to load a
-    # directory that doesn't exist. It may have other undesirable behaviour as well, so avoid
-    # calling it unless our parameters came from find_module_original.
-    if (pathname is None) or (not pathname.startswith(PATHNAME_PREFIX)):
-        return load_module_original(load_name, file, pathname, description)
-    else:
+    if (pathname is not None) and (pathname.startswith(PATHNAME_PREFIX)):
         entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
         finder = get_importer(entry)
         real_name = join(finder.prefix, base_name).replace("/", ".")
@@ -177,6 +178,8 @@ def load_module_override(load_name, file, pathname, description):
                     "{} does not support loading module '{}' under a different name '{}'"
                     .format(type(loader).__name__, real_name, load_name))
             return loader.load_module(real_name, load_name=load_name)
+    else:
+        return load_module_original(load_name, file, pathname, description)
 
 
 def initialize_pkg_resources():
@@ -200,16 +203,6 @@ def initialize_pkg_resources():
         def __init__(self, module):
             super().__init__(module)
             self.zip_file = self.loader.finder.zip_file
-
-        def get_resource_filename(self, manager, resource_name):
-            filename = super().get_resource_filename(manager, resource_name)
-            if filename.startswith(ASSET_PREFIX):
-                # This would require extracting the resource to a temporary file, as in
-                # pkg_resources.ZipProvider.
-                raise NotImplementedError(
-                    f"Can't extract '{filename}': use extractPackages instead (see https://"
-                    f"chaquo.com/chaquopy/doc/current/android.html#resource-files)")
-            return filename
 
         def _has(self, path):
             try:
@@ -238,33 +231,33 @@ class AssetFinder(object):
             self.extract_packages = extract_packages
             self.path = path
 
-            self.archive = path  # These two attributes have the same meaning as in zipimport.
-            self.prefix = ""     #
-            while True:  # Will be terminated by InvalidAssetPathError.
+            self.extract_root = path
+            self.prefix = ""
+            while True:
                 try:
-                    self.zip_file = self.get_zip_file(self.archive)
+                    # For non-asset paths, get_zip_file will raise InvalidAssetPathError, which
+                    # we catch below.
+                    self.zip_file = self.get_zip_file(self.extract_root)
                     break
                 except IOException:
-                    self.prefix = join(basename(self.archive), self.prefix)
-                    self.archive = dirname(self.archive)
+                    self.prefix = join(basename(self.extract_root), self.prefix)
+                    self.extract_root = dirname(self.extract_root)
+            os.makedirs(self.extract_root, exist_ok=True)
 
             self.package_path = [path]
             self.other_zips = []
             abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
             abi_match = re.search(r"^(.*)-({})\.zip$".format("|".join(abis)),
-                                  self.archive)
+                                  self.extract_root)
             if abi_match:
                 for abi in abis:
                     abi_archive = "{}-{}.zip".format(abi_match.group(1), abi)
-                    if abi_archive != self.archive:
+                    if abi_archive != self.extract_root:
                         self.package_path.append(join(abi_archive, self.prefix))
                         self.other_zips.append(self.get_zip_file(abi_archive))
 
-            self.extract_root = join(context.getCacheDir().toString(), Common.ASSET_DIR,
-                                     "AssetFinder", basename(self.archive))
-
         # If we raise ImportError, the finder is silently skipped. This is what we want only if
-        # the path entry isn't an /android_asset path: all other errors should abort the import,
+        # the path entry isn't an asset path: all other errors should abort the import,
         # including when the asset doesn't exist.
         except InvalidAssetPathError:
             raise ImportError(format_exc())
@@ -275,11 +268,16 @@ class AssetFinder(object):
         return "<AssetFinder({!r})>".format(self.path)
 
     def get_zip_file(self, path):
+        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
+        if not match:
+            raise InvalidAssetPathError("not an asset path: '{}'".format(path))
+        asset_path = join(Common.ASSET_DIR, match.group(1))  # Relative to assets root
+
         with self.zip_file_lock:
-            zip_file = self.zip_file_cache.get(path)
+            zip_file = self.zip_file_cache.get(asset_path)
             if not zip_file:
-                zip_file = ConcurrentZipFile(AssetFile(self.context, path))
-                self.zip_file_cache[path] = zip_file
+                zip_file = ConcurrentZipFile(AssetFile(self.context, asset_path))
+                self.zip_file_cache[asset_path] = zip_file
             return zip_file
 
     # This method will be called by Python 3.
@@ -411,7 +409,7 @@ class AssetLoader(object):
             raise IOError(str(e))  # "There is no item named '{}' in the archive"
 
     def _zip_path(self, path):
-        match = re.search(r"^{}/(.+)$".format(self.finder.archive), path)
+        match = re.search(r"^{}/(.+)$".format(self.finder.extract_root), path)
         if not match:
             raise IOError("{} can't access '{}'".format(self.finder, path))
         return match.group(1)
@@ -434,7 +432,7 @@ class AssetLoader(object):
                 root = self.finder.extract_root
                 break
         else:
-            root = self.finder.archive
+            root = self.finder.extract_root
         return join(root, self.zip_info.filename)
 
     # Most loader methods will only work for the loader's own module. However, always allow the
@@ -675,3 +673,7 @@ class ConcurrentZipFile(ZipFile):
     def listdir(self, path):
         path = path.rstrip("/")
         return sorted(self.dir_index[path])
+
+
+class InvalidAssetPathError(ValueError):
+    pass

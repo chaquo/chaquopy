@@ -31,16 +31,21 @@ public class AndroidPlatform extends Python.Platform {
 
         // Split into bootstrap-native and stdlib-native/<abi>.zip in 1.3.0
         "lib-dynload",
+
+        // Renamed to stdlib-common.zip in 6.2.2.
+        "stdlib.zip",
     };
 
     private static final String[] OBSOLETE_CACHE = {
-        // Renamed back to .zip in 1.1.0 (these are directories, not files)
+        // Renamed back to .zip in 1.1.0.
         "AssetFinder/app.mp3",
         "AssetFinder/requirements.mp3",
 
-        // Split into requirements-common.zip and requirements-<abi>.zip in 2.1.0. This is a
-        // directory, not a file.
+        // Split into requirements-common.zip and requirements-<abi>.zip in 2.1.0.
         "AssetFinder/requirements.zip",
+
+        // Renamed to stdlib-<abi>.zip in 6.2.2.
+        "AssetFinder/<abi>.zip",
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */
@@ -63,10 +68,9 @@ public class AndroidPlatform extends Python.Platform {
             Collections.addAll(supportedAbis, Build.CPU_ABI, Build.CPU_ABI2);
         }
 
-        String stdlibNativeDir = Common.ASSET_DIR  + "/" + Common.ASSET_STDLIB_NATIVE;
         for (String abi : supportedAbis) {
             try {
-                am.open(stdlibNativeDir + "/" + abi + ".zip");
+                am.open(Common.ASSET_DIR + "/" + Common.assetZip(Common.ASSET_STDLIB, abi));
                 ABI = abi;
                 break;
             } catch (IOException ignored) {}
@@ -84,11 +88,12 @@ public class AndroidPlatform extends Python.Platform {
 
     @Override
     public String getPath() {
+        // These assets will be extracted to separate files and used as the initial PYTHONPATH.
         String path = "";
         String assetDir = mContext.getFilesDir() + "/" + Common.ASSET_DIR;
         List<String> bootstrapAssets = new ArrayList<>(Arrays.asList(
-            Common.ASSET_STDLIB,
-            Common.ASSET_BOOTSTRAP,
+            Common.assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON),
+            Common.assetZip(Common.ASSET_BOOTSTRAP),
             Common.ASSET_BOOTSTRAP_NATIVE + "/" + ABI));
         for (int i = 0; i < bootstrapAssets.size(); i++) {
             path += assetDir + "/" + bootstrapAssets.get(i);
@@ -113,19 +118,20 @@ public class AndroidPlatform extends Python.Platform {
 
     private void deleteObsolete(File baseDir, String[] filenames) {
         for (String filename : filenames) {
+            filename = filename.replace("<abi>", ABI);
             deleteRecursive(new File(baseDir, Common.ASSET_DIR + "/" + filename));
         }
     }
 
     @Override
     public void onStart(Python py) {
-        // These assets will be added to the start of sys.path using `android_asset` paths
-        // so they will be extracted on demand.
+        // These assets will be added to the start of sys.path using AssetFinder paths,
+        // so their content will be extracted on demand.
         String[] appPath = {
-            Common.ASSET_APP,
-            Common.ASSET_REQUIREMENTS(Common.ABI_COMMON),
-            Common.ASSET_REQUIREMENTS(ABI),
-            Common.ASSET_STDLIB_NATIVE + "/" + ABI + ".zip",
+            Common.assetZip(Common.ASSET_APP),
+            Common.assetZip(Common.ASSET_REQUIREMENTS, Common.ABI_COMMON),
+            Common.assetZip(Common.ASSET_REQUIREMENTS, ABI),
+            Common.assetZip(Common.ASSET_STDLIB, ABI),
         };
         py.getModule("java.android").callAttr("initialize", mContext, buildJson, appPath);
     }

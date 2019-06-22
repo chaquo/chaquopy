@@ -42,12 +42,6 @@ def initialize_sys(context, Common):
         traceback.print_exc()
         sys.executable = ""
 
-    # Remove default paths (#5410).
-    invalid_paths = [p for p in sys.path
-                     if not (exists(p) or p.startswith(importer.ASSET_PREFIX))]
-    for p in invalid_paths:
-        sys.path.remove(p)
-
 
 def initialize_os(context):
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.

@@ -31,7 +31,7 @@ task("zipPython", type: Zip, group: "build") {
         includeEmptyDirs false
     }
     destinationDir buildDir
-    archiveName Common.ASSET_BOOTSTRAP
+    archiveName Common.assetZip(Common.ASSET_BOOTSTRAP)
 }
 addArtifact("python", zipPython, zipPython.archivePath)
 

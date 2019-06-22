@@ -85,17 +85,12 @@ cdef resolve_name(name, globals, level):
         return name
 
 
-ASSET_PREFIX = "/android_asset"
-
 class AssetFile(object):
-    # Raises InvalidAssetPathError if the path is not an asset path, or IOException if the
-    # asset does not exist.
+    # `path` is relative to the assets root. Raises java.io.IOException if the asset does not
+    # exist.
     def __init__(self, context, path):
-        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
-        if not match:
-            raise InvalidAssetPathError("not an {} path: '{}'".format(ASSET_PREFIX, path))
         self.name = path
-        self.stream = AssetFile_get_stream(context, match.group(1))
+        self.stream = AssetFile_get_stream(context, path)
         self.stream.mark(2**31 - 1)
         self.offset = 0
         self.length = self.stream.available()
@@ -123,7 +118,7 @@ class AssetFile(object):
         self.stream.reset()
         self.stream.skip(offset)
         self.offset = offset
-        return offset   # Required in Python 3: Python 2 returns None.
+        return offset
 
     def tell(self):
         return self.offset
@@ -139,7 +134,3 @@ IF CHAQUOPY_LICENSE_MODE not in ["ec"]:
     def AssetFile_get_stream(context, s):
         AssetManager = jclass("android.content.res.AssetManager")
         return context.getAssets().open(s, AssetManager.ACCESS_RANDOM)
-
-
-class InvalidAssetPathError(ValueError):
-    pass

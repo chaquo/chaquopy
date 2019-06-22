@@ -375,7 +375,8 @@ class Pyc(GradleTestCase):
 
     def post_check(self, apk_zip, apk_dir, kwargs):
         pyc = kwargs["pyc"]
-        stdlib_files = set(ZipFile(join(apk_dir, "assets/chaquopy/stdlib.zip")).namelist())
+        zipfile = ZipFile(join(apk_dir, "assets/chaquopy/stdlib-common.zip"))
+        stdlib_files = set(zipfile.namelist())
         self.assertEqual(pyc["stdlib"],    "argparse.pyc" in stdlib_files)
         self.assertNotEqual(pyc["stdlib"], "argparse.py" in stdlib_files)
 
@@ -944,18 +945,18 @@ class RunGradle(object):
 
         # Top-level assets
         asset_dir = join(apk_dir, "assets/chaquopy")
-        reqs_suffixes = sorted(["common"] + abis)
-        self.test.assertEqual(["app.zip", "bootstrap-native", "bootstrap.zip", "build.json",
-                               "cacert.pem"] +
-                              ["requirements-{}.zip".format(suffix) for suffix in reqs_suffixes] +
-                              ["stdlib-native", "stdlib.zip", "ticket.txt"],
-                              sorted(os.listdir(asset_dir)))
+        abi_suffixes = ["common"] + abis
+        self.test.assertCountEqual(
+            ["app.zip", "bootstrap-native", "bootstrap.zip", "build.json", "cacert.pem",
+             "ticket.txt"] + [f"{stem}-{suffix}.zip" for stem in ["requirements", "stdlib"]
+                              for suffix in abi_suffixes],
+            os.listdir(asset_dir))
 
         # Python source
         self.test.checkZip(join(asset_dir, "app.zip"), app)
 
         # Python requirements
-        for suffix in reqs_suffixes:
+        for suffix in abi_suffixes:
             self.test.checkZip(join(asset_dir, "requirements-{}.zip".format(suffix)),
                                (requirements[suffix] if isinstance(requirements, dict)
                                 else requirements if suffix == "common"
@@ -971,12 +972,9 @@ class RunGradle(object):
             self.test.assertEqual(["__init__.py", "chaquopy.so"],
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
-        # Python stdlib
-        stdlib_native_dir = join(asset_dir, "stdlib-native")
-        self.test.assertCountEqual([abi + ".zip" for abi in abis],
-                                   os.listdir(stdlib_native_dir))
+        # Python stdlib (stdlib-common.zip is covered by the "Pyc" tests)
         for abi in abis:
-            stdlib_native_zip = ZipFile(join(stdlib_native_dir, abi + ".zip"))
+            stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.zip"))
             self.test.assertCountEqual(
                 ["_hashlib.so", "_multiprocessing.so", "_socket.so", "_sqlite3.so",
                  "_ssl.so", "pyexpat.so", "unicodedata.so"],

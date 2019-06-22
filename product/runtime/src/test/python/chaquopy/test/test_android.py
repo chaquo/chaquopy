@@ -175,7 +175,7 @@ class TestAndroidImport(unittest.TestCase):
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
-        self.assertFalse(exists(mod.__file__))
+        self.assertEqual(filename.endswith(".so"), exists(mod.__file__))
         if package_path:
             self.assertEqual(package_path, mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
@@ -303,8 +303,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_imp(self):
         self.longMessage = True
-        with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent' found in " +
-                                     re.escape(str(sys.path))):
+        with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent'"):
             imp.find_module("nonexistent")
 
         # If any of the below modules already exist, they will be reloaded. This may have
@@ -332,25 +331,22 @@ class TestAndroidImport(unittest.TestCase):
                 self.assertEqual(actual_type == imp.PKG_DIRECTORY,
                                  hasattr(mod, "__path__"), prefix)
 
-                if sys.version_info[0] < 3:
-                    self.assertFalse(hasattr(mod, "__spec__"), prefix)
-                else:
-                    self.assertTrue(hasattr(mod, "__spec__"), prefix)
-                    self.assertIsNotNone(mod.__spec__, prefix)
-                    self.assertEqual(mod.__name__, mod.__spec__.name)
+                self.assertTrue(hasattr(mod, "__spec__"), prefix)
+                self.assertIsNotNone(mod.__spec__, prefix)
+                self.assertEqual(mod.__name__, mod.__spec__.name)
 
                 if actual_type == imp.C_BUILTIN:
                     self.assertIsNone(file, prefix)
-                    # This isn't documented, but it's what the current versions of CPython do.
-                    if sys.version_info[0] < 3:
-                        self.assertEqual(mod_name, pathname)
-                    else:
-                        self.assertIsNone(pathname, prefix)
+                    # This isn't documented, but it's what the current version of CPython does.
+                    self.assertIsNone(pathname, prefix)
                 else:
-                    # Our implementation of load_module doesn't use `file`, but user code
-                    # might, so check it adequately simulates a file.
-                    self.assertTrue(hasattr(file, "read"), prefix)
-                    self.assertTrue(hasattr(file, "close"), prefix)
+                    if actual_type == imp.PKG_DIRECTORY:
+                        self.assertIsNone(file, prefix)
+                    else:
+                        # Our implementation of load_module doesn't use `file`, but user code
+                        # might, so check it adequately simulates a file.
+                        self.assertTrue(hasattr(file, "read"), prefix)
+                        self.assertTrue(hasattr(file, "close"), prefix)
                     self.assertIsNotNone(pathname, prefix)
                     self.assertTrue(hasattr(mod, "__file__"), prefix)
 
@@ -466,21 +462,24 @@ class TestAndroidImport(unittest.TestCase):
         self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
         self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
 
-        a_path = asset_path(APP_ZIP, "chaquopy/test/resources/a.txt")
-        with self.assertRaisesRegex(NotImplementedError, fr"Can't extract '{a_path}': use "
-                                    r"extractPackages instead \(see https://chaquo.com/chaquopy/"
-                                    r"doc/current/android.html#resource-files\)"):
-            pr.resource_filename(__package__, "resources/a.txt")
+        # Non-extracted package
+        a_filename = pr.resource_filename(__package__, "resources/a.txt")
+        self.assertEqual(asset_cache(APP_ZIP, "chaquopy/test/resources/a.txt"), a_filename)
+        self.assertFalse(exists(a_filename))
 
+        # Extracted package
         cacert_filename = pr.resource_filename("certifi", "cacert.pem")
         self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
         with open(cacert_filename) as cacert_file:
             self.check_cacert(cacert_file.read())
 
 
+# This is the path used on sys.path. It used to be in a special format starting
+# "/android_asset", but is now just the same as the cache location.
 def asset_path(*paths):
-    return join("/android_asset/chaquopy", *paths)
+    return asset_cache(*paths)
 
+# This is the real path where packages are extracted and cached.
 def asset_cache(*paths):
     return join(context.getCacheDir().toString(), "chaquopy/AssetFinder", *paths)
 
@@ -584,7 +583,7 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
             self.assertIsInstance(p, str)
-            self.assertTrue(exists(p) or p.startswith("/android_asset"), p)
+            self.assertTrue(exists(p), p)
         self.assertRegexpMatches(sys.platform, r"^linux")
 
     def test_sysconfig(self):
