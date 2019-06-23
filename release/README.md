@@ -10,7 +10,8 @@ Run `gradlew runtime:check`.
 Free up RAM if necessary. If restarting Android Studio, do it before starting the tests, as
 this may kill the Gradle daemon.
 
-Free up disk space if necessary: the integration tests require about 6 GB per version.
+Free up disk space if necessary: the integration tests require about 6 GB per Android Gradle
+plugin version.
 
 On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
 gradle-plugin:check`.

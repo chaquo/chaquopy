@@ -253,7 +253,7 @@ defined by the given interfaces will be visible to Java. If Java code calls an i
 which is not implemented by the Python class, a `PyException
 <java/com/chaquo/python/PyException.html>`_ will be thrown.
 
-Simple example (for more examples, see the `unit tests <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/test_proxy.py>`__)::
+Simple example::
 
     >>> from java.lang import Runnable, Thread
     >>> class R(dynamic_proxy(Runnable)):
@@ -271,6 +271,8 @@ Simple example (for more examples, see the `unit tests <https://github.com/chaqu
     Running hello
     >>> t.getState()
     <java.lang.Thread$State 'TERMINATED'>
+
+For more examples, see the `unit tests <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/test_proxy.py>`__.
 
 Dynamic proxy classes have the following limitations:
 
@@ -293,10 +295,7 @@ To generate Java methods for the class, use the following decorators:
 .. autofunction:: java.Override(return_type, arg_types, *, modifiers="public", throws=None)
 .. autofunction:: java.constructor(arg_types, *, modifiers="public", throws=None)
 
-Simple example (for more examples, see the `demo app
-<https://github.com/chaquo/chaquopy/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
-and `unit tests
-<https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__)::
+Simple example::
 
     # Python code                                     // Java equivalent
     from com.example import Base, Iface1, Iface1      import com.example.*;
@@ -308,15 +307,20 @@ and `unit tests
         def __init__(self, i, s):                             ...
             ...                                           }
 
-        @method(jvoid, [int], throws=[Exception])         public void f(int x) throws Exception {
+        @method(jvoid, [jint], throws=[Exception])        public void f(int i) throws Exception {
                                                               ...
                                                           }
 
-        @Override(String, [String],                       @Override
-                  modifiers="protected")                  protected String f(String x) {
-        def f(self, x):                                       ...
+        @Override(String, [jint, String],                 @Override
+                  modifiers="protected")                  protected String f(int i, String s) {
+        def f(self, i, s=None):                               ...
             ...                                           }
                                                       }
+
+For more examples, see the `demo app
+<https://github.com/chaquo/chaquopy/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
+and `unit tests
+<https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__.
 
 Because the :ref:`static proxy generator <static-proxy-generator>` works by static analysis of the
 Python source code, there are some restrictions on the code's structure:
@@ -352,7 +356,8 @@ The following notes apply to both types of proxy:
 
 * If a method is overloaded (i.e. it has multiple Java signatures), the Python signature should
   be able to accept them all. This can usually be achieved by some combination of `duck typing
-  <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax.
+  <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax. For
+  example, see the method `f` in the static proxy example above.
 
 * To call through to the base class implementation of a method, use the syntax
   `SuperClass.method(self, args)`. Using :any:`super` is not currently supported for Java
