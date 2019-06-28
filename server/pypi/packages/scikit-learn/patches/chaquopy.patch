@@ -1,0 +1,67 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2019-05-15 09:30:00.000000000 +0000
++++ src/setup.py	2019-06-28 12:08:03.530448656 +0000
+@@ -17,6 +17,12 @@
+     # Python 2 compat: just to be able to declare that Python >=3.5 is needed.
+     import __builtin__ as builtins
+ 
++# Chaquopy
++os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
++sys.path.append(os.path.abspath("../requirements"))  # For numpy.distutils
++builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++builtins.__SCIPY_SETUP__ = True  #
++
+ # This is a bit (!) hackish: we are setting a global variable so that the
+ # main sklearn __init__ can detect if it is being loaded by the setup
+ # routine, to avoid attempting to load components that aren't built yet:
+diff -ur src-original/sklearn/_build_utils/openmp_helpers.py src/sklearn/_build_utils/openmp_helpers.py
+--- src-original/sklearn/_build_utils/openmp_helpers.py	2019-05-10 02:16:16.000000000 +0000
++++ src/sklearn/_build_utils/openmp_helpers.py	2019-06-28 12:08:03.530448656 +0000
+@@ -96,16 +96,19 @@
+                                       extra_preargs=extra_preargs,
+                                       extra_postargs=openmp_flags)
+ 
+-            # Run test program
+-            output = subprocess.check_output('./test_openmp')
+-            output = output.decode(sys.stdout.encoding or 'utf-8').splitlines()
++            # Chaquopy: can't run a cross-compiled executable.
++            openmp_supported = True
+ 
+-            # Check test program output
+-            if 'nthreads=' in output[0]:
+-                nthreads = int(output[0].strip().split('=')[1])
+-                openmp_supported = (len(output) == nthreads)
+-            else:
+-                openmp_supported = False
++            # # Run test program
++            # output = subprocess.check_output('./test_openmp')
++            # output = output.decode(sys.stdout.encoding or 'utf-8').splitlines()
++
++            # # Check test program output
++            # if 'nthreads=' in output[0]:
++            #     nthreads = int(output[0].strip().split('=')[1])
++            #     openmp_supported = (len(output) == nthreads)
++            # else:
++            #     openmp_supported = False
+ 
+         except (CompileError, LinkError, subprocess.CalledProcessError):
+             openmp_supported = False
+diff -ur src-original/sklearn/utils/_joblib.py src/sklearn/utils/_joblib.py
+--- src-original/sklearn/utils/_joblib.py	2019-05-10 02:16:16.000000000 +0000
++++ src/sklearn/utils/_joblib.py	2019-06-28 14:15:01.349961617 +0000
+@@ -1,6 +1,15 @@
+ import os as _os
+ import warnings as _warnings
+ 
++# Chaquopy: workaround for https://github.com/joblib/joblib/issues/825. This will allow the
++# joblib import to complete, but any scikit-learn features which use process-based parallelism
++# will still not work. I'm not sure how widely-used these features are, so I'm not taking any
++# further action on this unless a user reports a problem. If they do, we can advise them to use
++# the `parallel_backend` context manager to use thread-based parallelism instead, and then
++# we'll look into whether there's a way to monkey-patch joblib to do that by default.
++import _multiprocessing
++_multiprocessing.sem_unlink = None
++
+ with _warnings.catch_warnings():
+     _warnings.simplefilter("ignore")
+     # joblib imports may raise DeprecationWarning on certain Python

@@ -1,9 +1,9 @@
 package:
   name: scikit-learn
-  version: 0.19.1
+  version: 0.21.2
 
 build:
-  number: 2
+  number: 1
 
 requirements:
   host:
