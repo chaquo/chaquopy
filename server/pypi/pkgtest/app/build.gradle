@@ -8,6 +8,7 @@ import com.chaquo.python.Common
 ext.DEFAULT_EXCLUDE_PACKAGES = [
     // Not in the public package repository.
     "cmake-example",
+    "python-example",
 
     // Not applicable to our Python version.
     //
