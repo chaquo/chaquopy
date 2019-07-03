@@ -13,6 +13,8 @@ short_ver="${2:?}"
 micro_build="${3:?}"
 full_ver="$short_ver.$micro_build"
 
+crystax_python_dir="$crystax/sources/python/$short_ver"
+
 mkdir -p "${4:?}"
 target_dir="$(cd $4 && pwd)/$full_ver"
 mkdir "$target_dir"  # Error if already exists: don't want to overwrite existing files.
@@ -27,6 +29,8 @@ for abi in armeabi-v7a arm64-v8a x86 x86_64; do
     mkdir "$abi"
     cd "$abi"
 
+    cp -a "$crystax_python_dir/include" .
+
     gcc_abi=$abi
     libcrystax_abi=$abi
     if [[ $abi == "arm64-v8a" ]]; then
@@ -38,7 +42,7 @@ for abi in armeabi-v7a arm64-v8a x86 x86_64; do
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp "$crystax/sources/python/$short_ver/libs/$abi/libpython${short_ver}"*.so "$jniLibs_dir"
+    cp "$crystax_python_dir/libs/$abi/libpython${short_ver}"*.so "$jniLibs_dir"
     cp "$crystax/sources/crystax/libs/$libcrystax_abi/libcrystax.so" "$jniLibs_dir"
     cp "$crystax/sources/sqlite/3/libs/$abi/libsqlite3.so" "$jniLibs_dir"
 
@@ -56,7 +60,7 @@ for abi in armeabi-v7a arm64-v8a x86 x86_64; do
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
-    cp -a "$crystax/sources/python/$short_ver/libs/$abi/modules" "$dynload_dir"
+    cp -a "$crystax_python_dir/libs/$abi/modules" "$dynload_dir"
 
     chmod u+w $(find -name *.so)
     $crystax/toolchains/$gcc_abi-*4.9/prebuilt/*/*/bin/strip $(find -name *.so)
@@ -69,7 +73,7 @@ done
 
 echo "stdlib"
 stdlib_zip="$target_prefix-stdlib.zip"
-cp "$crystax/sources/python/$short_ver/libs/x86/stdlib.zip" "$stdlib_zip"
+cp "$crystax_python_dir/libs/x86/stdlib.zip" "$stdlib_zip"
 
 echo "stdlib-pyc"
 mkdir stdlib

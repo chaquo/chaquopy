@@ -7,5 +7,9 @@ source:
   git_rev: master
 
 requirements:
+  build:
+    # setup.py has pybind11 in setup_requires, but this doesn't work because the headers aren't
+    # unpacked correctly (https://github.com/pybind/python_example/issues/16).
+    - pybind11 2.3.0
   host:
     - python

@@ -654,8 +654,6 @@ class BuildWheel:
         reqs = []
         for req in self.meta["requirements"][req_type]:
             package, version = req.split()
-            if req_type == "host":
-                package = self.load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
 

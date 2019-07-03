@@ -20,7 +20,7 @@ RUN wget -q -O - https://bootstrap.pypa.io/get-pip.py | python3.6
 # The Python `-dev` packages are required for some packages (e.g. OpenCV and TensorFlow) which
 # need to build things for the host Python.
 RUN apt-get update && \
-    apt-get -y install autoconf cmake git && \
+    apt-get -y install autoconf cmake git make patch && \
     wget https://github.com/chriskuehl/python3.6-debian-stretch/releases/download/v3.6.3-1-deb9u1/{python3.6-dev,libpython3.6-dev}_3.6.3-1.deb9u1_amd64.deb && \
     apt install -y ./*.deb && \
     rm *.deb && \
