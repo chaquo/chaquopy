@@ -24,6 +24,7 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 ext.TEST_PACKAGES = [
+    "casadi": ["numpy"],
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz"],

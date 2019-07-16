@@ -1,0 +1,21 @@
+diff -ur src-original/cmake/UseSWIGMOD.cmake src/cmake/UseSWIGMOD.cmake
+--- src-original/cmake/UseSWIGMOD.cmake	2018-08-07 19:40:03.000000000 +0000
++++ src/cmake/UseSWIGMOD.cmake	2019-07-15 16:35:07.622807408 +0000
+@@ -100,6 +100,17 @@
+       "${${DEST_VARIABLE}}")
+     string(REGEX REPLACE "\n" ";"
+       ${DEST_VARIABLE} "${${DEST_VARIABLE}}")
++
++    # Chaquopy: with SWIG 3.0.10, -MF generates relative paths for %include statements which
++    # use <> syntax (e.g. casadi/core/casadi_types.hpp). When generating the makefile, cmake
++    # incorrectly resolves those paths relative to the swig/python directory. Work around this
++    # by making all the paths absolute.
++    set(abs_deps)
++    foreach(it ${${DEST_VARIABLE}})
++      get_filename_component(abs_it ${it} ABSOLUTE BASE_DIR ${CMAKE_BINARY_DIR})
++      list(APPEND abs_deps ${abs_it})
++    endforeach()
++    set(${DEST_VARIABLE} ${abs_deps})
+   endif()
+ endmacro()
+ 

@@ -1,0 +1,14 @@
+{% set version = "3.4.5" %}
+
+package:
+  name: casadi
+  version: {{ version }}
+
+source:
+  url: https://github.com/casadi/casadi/archive/{{ version }}.tar.gz
+
+requirements:
+  build:
+    - cmake
+  host:
+    - python
