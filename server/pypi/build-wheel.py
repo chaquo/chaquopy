@@ -382,6 +382,12 @@ class BuildWheel:
     # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
+
+        env["PYTHONPATH"] = join(PYPI_DIR, "build-packages")
+        existing_python_path = os.environ.get("PYTHONPATH")
+        if existing_python_path:
+            env["PYTHONPATH"] += os.pathsep + existing_python_path
+
         abi = ABIS[self.abi]
         toolchain_dir = self.get_toolchain(abi)
         for tool in ["ar", "as", ("cc", "gcc"), "cpp", ("cxx", "g++"),
@@ -429,16 +435,11 @@ class BuildWheel:
         for var in ["CPPFLAGS", "CXXFLAGS"]:
             env[var] = ""
 
+        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
+        # and typed-ast).
         if self.needs_python:
-            # TODO: distutils adds -I arguments for the build Python's include directory (and
-            # virtualenv include directory if applicable). They're at the end of the command
-            # line so they should be overridden, but may still cause problems if they happen to
-            # have a header which isn't present in the target Python include directory. The
-            # only way I can see to avoid this is to set CC to a wrapper script.
-            env["CFLAGS"] += f" -I{self.python_include_dir}"
+            env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] += f" -L{self.python_lib_dir} -lpython{PYTHON_SUFFIX}"
-
-        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio).
         if "openssl" in self.bundled_reqs:
             openssl_include, = glob(f"{self.ndk}/sources/openssl/*/include")  # Note comma
             openssl_root = dirname(openssl_include)
