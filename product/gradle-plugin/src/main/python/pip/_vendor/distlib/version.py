@@ -111,7 +111,8 @@ class Matcher(object):
             # import pdb; pdb.set_trace()
             for op, s in r.constraints:
                 if s.endswith('.*'):
-                    if op not in ('==', '!='):
+                    # Chaquopy: pip can handle this, so pip_install must also (#5543).
+                    if False and op not in ('==', '!='):
                         raise ValueError('\'.*\' not allowed for '
                                          '%r constraints' % op)
                     # Could be a partial version (e.g. for '2.*') which
