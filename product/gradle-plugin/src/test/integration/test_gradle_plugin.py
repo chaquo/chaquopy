@@ -147,7 +147,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong("Warning: This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.4.1. If you experience "
+                          "Gradle plugin versions beyond 3.5.0-rc01. If you experience "
                           "problems, " + self.ADVICE, run.stdout)
 
 
@@ -926,7 +926,7 @@ class RunGradle(object):
         process = subprocess.run([gradlew, "-p", self.project_dir] + gradlew_flags +
                                  [task_name("assemble", v) for v in variants],
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                 universal_newlines=True, env=merged_env, timeout=300)
+                                 universal_newlines=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
