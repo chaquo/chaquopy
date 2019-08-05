@@ -318,6 +318,13 @@ class BuildWheel:
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
+            # Put headers on the include path (used by gevent to build against greenlet).
+            include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
+            if exists(include_src):
+                include_tgt = f"{self.reqs_dir}/chaquopy/include/{package}"
+                run(f"mkdir -p {dirname(include_tgt)}")
+                run(f"mv {include_src} {include_tgt}")
+
         # There is an extension to allow ZIP files to contain symlnks, but the zipfile module
         # doesn't support it, and the links wouldn't survive on Windows anyway. So our library
         # wheels include external shared libraries only under their SONAMEs, and we need to
@@ -519,10 +526,11 @@ class BuildWheel:
             # versioned symbol references (e.g. `malloc@LIBC`).
             run(f"ln -sf {abi.tool_prefix}-ld.gold {toolchain_dir}/bin/{abi.tool_prefix}-ld")
 
-            # On Android, libpthread is incorporated into libc. Create an empty library so we
-            # don't have to patch everything that links against it.
-            run(f"{toolchain_dir}/bin/{abi.tool_prefix}-ar r "
-                f"{toolchain_dir}/sysroot/usr/lib/libpthread.a")
+            # On Android, these libraries are incorporated into libc. Create empty files so we
+            # don't have to patch everything that links against them.
+            for name in ["pthread", "rt"]:
+                run(f"{toolchain_dir}/bin/{abi.tool_prefix}-ar r "
+                    f"{toolchain_dir}/sysroot/usr/lib/lib{name}.a")
 
             if abi.name == "x86_64":
                 # The actual x86_64 libraries are in `lib64`. These alternative ABI
