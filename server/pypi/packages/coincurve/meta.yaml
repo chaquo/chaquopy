@@ -1,0 +1,7 @@
+package:
+  name: coincurve
+  version: 12.0.0
+
+requirements:
+  host:
+    - chaquopy-secp256k1 20190331
