@@ -1,4 +1,4 @@
-"""Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2019 Chaquo Ltd. All rights reserved."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -17,20 +17,17 @@ import struct
 import sys
 import time
 from threading import RLock
+from tokenize import detect_encoding
 from traceback import format_exc
 from types import ModuleType
 from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
-from java._vendor import six
 from java.chaquopy import AssetFile
 
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 from java.io import IOException
-
-if six.PY3:
-    from tokenize import detect_encoding
 
 
 PATHNAME_PREFIX = "<chaquopy>/"
@@ -109,10 +106,10 @@ def initialize_importlib(context, build_json, app_path):
 
 
 def initialize_imp():
-    # In both Python 2 and 3, the standard implementations of imp.{find,load}_module do not use
-    # the PEP 302 import system. They are therefore only capable of loading from directory
-    # trees and built-in modules, and will ignore both our path_hook and the standard one for
-    # zipimport. To accommodate code which uses these functions, we provide these replacements.
+    # The standard implementations of imp.{find,load}_module do not use the PEP 302 import
+    # system. They are therefore only capable of loading from directory trees and built-in
+    # modules, and will ignore both our path_hook and the standard one for zipimport. To
+    # accommodate code which uses these functions, we provide these replacements.
     global find_module_original, load_module_original
     find_module_original = imp.find_module
     load_module_original = imp.load_module
@@ -220,7 +217,7 @@ def initialize_pkg_resources():
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
-# Not inheriting any base class: they aren't available in Python 2.
+# TODO: inherit base class from importlib?
 class AssetFinder(object):
     zip_file_lock = RLock()
     zip_file_cache = {}
@@ -357,7 +354,7 @@ class AssetFinder(object):
         return zip_file.extract_if_changed(member, self.extract_root)
 
 
-# Not inheriting any base class: they aren't available in Python 2.
+# TODO: inherit base class from importlib?
 class AssetLoader(object):
     def __init__(self, finder, real_name, zip_info):
         self.finder = finder
@@ -397,8 +394,6 @@ class AssetLoader(object):
             import importlib.util
             mod.__spec__ = importlib.util.spec_from_loader(self.mod_name, self)
 
-    # IOError became an alias for OSError in Python 3.4, and the get_data specification was
-    # changed accordingly.
     def get_data(self, path):
         if exists(path):  # extractPackages is in effect.
             with open(path, "rb") as f:
@@ -406,12 +401,12 @@ class AssetLoader(object):
         try:
             return self.finder.zip_file.read(self._zip_path(path))
         except KeyError as e:
-            raise IOError(str(e))  # "There is no item named '{}' in the archive"
+            raise OSError(str(e))  # "There is no item named '{}' in the archive"
 
     def _zip_path(self, path):
         match = re.search(r"^{}/(.+)$".format(self.finder.extract_root), path)
         if not match:
-            raise IOError("{} can't access '{}'".format(self.finder, path))
+            raise OSError("{} can't access '{}'".format(self.finder, path))
         return match.group(1)
 
     def is_package(self, mod_name):
@@ -445,7 +440,6 @@ class AssetLoader(object):
                                  .format(actual_name, expected_name))
 
 
-# Irrespective of the Python version, we use the Python 3.6 .pyc layout (with size field).
 PYC_HEADER_FORMAT = "<4siI"
 
 class SourceFileLoader(AssetLoader):
@@ -455,7 +449,7 @@ class SourceFileLoader(AssetLoader):
             mod = ModuleType(self.mod_name)
             self.set_mod_attrs(mod)
             sys.modules[self.mod_name] = mod
-        six.exec_(self.get_code(self.mod_name), mod.__dict__)
+        exec(self.get_code(self.mod_name), mod.__dict__)
 
     def get_code(self, mod_name):
         self._check_name(mod_name)
@@ -468,20 +462,13 @@ class SourceFileLoader(AssetLoader):
             self.write_pyc(pyc_filename, code)
         return code
 
-    # Should return a bytes string in Python 2, or a unicode string in Python 3, in both cases
-    # with newlines normalized to "\n".
+    # Must return a unicode string with newlines normalized to "\n".
     def get_source(self, mod_name):
         self._check_name(mod_name)
         source_bytes = self.get_source_bytes()
-        if six.PY2:
-            # zipfile mode "rU" doesn't work with read() (https://bugs.python.org/issue6759),
-            # and would probably have been slower than this anyway.
-            return re.sub(r"\r\n?", "\n", source_bytes)
-        else:
-            # Adapted from Python 3.6 importlib
-            encoding, lines = detect_encoding(io.BytesIO(source_bytes).readline)
-            return io.IncrementalNewlineDecoder(None, True).decode(
-                source_bytes.decode(encoding))
+        encoding, _ = detect_encoding(io.BytesIO(source_bytes).readline)
+        return io.IncrementalNewlineDecoder(None, True).decode(
+            source_bytes.decode(encoding))
 
     def get_source_bytes(self):
         return self.finder.zip_file.read(self.zip_info)
@@ -584,15 +571,13 @@ def load_needed(filename):
                 break
 
 
-# These class names are based on the standard Python 3 loaders from importlib.machinery, though
+# These class names are based on the standard loaders from importlib.machinery, though
 # their interfaces are somewhat different.
 LOADERS = [
     (".py", SourceFileLoader),
     (".so", ExtensionFileLoader),
-    # No current need for a SourcelessFileLoader, since we exclude .pyc files from app.zip and
-    # requirements.zip. To support this fully for both Python 2 and 3 would be non-trivial due
-    # to the variation in bytecode file names and locations. However, we could select one
-    # variation and use it for all Python versions.
+    # No current need for a SourcelessFileLoader, since we never include .pyc files in the
+    # assets.
 ]
 
 
