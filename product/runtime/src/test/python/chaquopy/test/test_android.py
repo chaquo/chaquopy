@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 
 from contextlib import contextmanager
 import imp
-from importlib import import_module
+from importlib import import_module, reload
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
@@ -19,12 +19,6 @@ import sys
 from traceback import format_exc
 import types
 import unittest
-
-if sys.version_info[0] < 3:
-    bytes = str
-else:
-    from importlib import reload
-    unicode = str
 
 
 try:
@@ -209,19 +203,24 @@ class TestAndroidImport(unittest.TestCase):
         return mod
 
     # Verify that the traceback builder can get source code from the loader in all contexts.
-    # (The "package1" test files are also used in test_import.)
+    # (The "package1" test files are also used in test_import.py.)
     def test_exception(self):
+        test_frame = (fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/test_android.py", '
+                      fr'line \d+, in test_exception\n'
+                      fr'    .+?\n')  # Source code line from this file.
+        import_frame = r'  File "import.pxi", line \d+, in java.chaquopy.import_override\n'
+
         # Compilation
         try:
             from package1 import syntax_error  # noqa
         except SyntaxError:
-            s = format_exc()
             self.assertRegexpMatches(
-                s,
-                r'File "{}/package1/syntax_error.py", line 1\n'
-                r'    one two\n'
-                r'          \^\n'
-                r'SyntaxError: invalid syntax\n$'.format(asset_path(APP_ZIP)))
+                format_exc(),
+                test_frame + import_frame +
+                fr'  File "{asset_path(APP_ZIP)}/package1/syntax_error.py", line 1\n'
+                fr'    one two\n'
+                fr'          \^\n'
+                fr'SyntaxError: invalid syntax\n$')
         else:
             self.fail()
 
@@ -229,12 +228,31 @@ class TestAndroidImport(unittest.TestCase):
         try:
             from package1 import recursive_import_error  # noqa
         except ImportError:
-            s = format_exc()
             self.assertRegexpMatches(
-                s,
-                r'File "{}/package1/recursive_import_error.py", line 1, in <module>\n'
-                r'    from os import nonexistent\n'
-                r"ImportError: cannot import name '?nonexistent'?\n$".format(asset_path(APP_ZIP)))
+                format_exc(),
+                test_frame + import_frame +
+                fr'  File "{asset_path(APP_ZIP)}/package1/recursive_import_error.py", '
+                fr'line 1, in <module>\n'
+                fr'    from os import nonexistent\n'
+                fr"ImportError: cannot import name 'nonexistent'\n$")
+        else:
+            self.fail()
+
+        # Module execution (recursive import)
+        try:
+            from package1 import recursive_other_error  # noqa
+        except ValueError:
+            self.assertRegexpMatches(
+                format_exc(),
+                test_frame + import_frame +
+                fr'  File "{asset_path(APP_ZIP)}/package1/recursive_other_error.py", '
+                fr'line 1, in <module>\n'
+                fr'    from . import other_error\n' +
+                import_frame +
+                fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
+                fr'line 1, in <module>\n'
+                fr'    int\("hello"\)\n'
+                fr"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
         else:
             self.fail()
 
@@ -245,13 +263,13 @@ class TestAndroidImport(unittest.TestCase):
             from markupsafe import _native
             _native.escape(C)
         except TypeError:
-            s = format_exc()
             self.assertRegexpMatches(
-                s,
-                r'File "{}/markupsafe/_native.py", line 21, in escape\n'.format(
-                    asset_path(REQS_COMMON_ZIP)) +
-                r'    return s.__html__\(\)\n'
-                r"TypeError: 'NoneType' object is not callable\n$")
+                format_exc(),
+                test_frame +
+                fr'  File "{asset_path(REQS_COMMON_ZIP)}/markupsafe/_native.py", '
+                fr'line 21, in escape\n'
+                fr'    return s.__html__\(\)\n'
+                fr"TypeError: 'NoneType' object is not callable\n$")
         else:
             self.fail()
 

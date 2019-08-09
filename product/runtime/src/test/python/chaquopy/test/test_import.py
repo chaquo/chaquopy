@@ -66,7 +66,7 @@ class TestImport(FilterWarningsCase):
         with self.no_name_error("Nonexistent"):
             from sys import path, Nonexistent  # noqa: F401, F811
 
-        # These test files are also used in test_android.
+        # These test files are also used in test_android.py.
         with self.assertRaisesRegexp(SyntaxError, "invalid syntax"):
             from package1 import syntax_error  # noqa: F401
         with self.no_name_error("nonexistent"):
