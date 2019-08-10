@@ -7,13 +7,11 @@ import ctypes
 from functools import partial
 import imp
 import io
-import marshal
 import os.path
 from os.path import basename, dirname, exists, join
 from pkgutil import get_importer
 import re
 from shutil import rmtree
-import struct
 import sys
 import time
 from threading import RLock
@@ -432,8 +430,6 @@ class AssetLoader(object):
                                  .format(actual_name, expected_name))
 
 
-PYC_HEADER_FORMAT = "<4siI"
-
 class SourceFileLoader(AssetLoader):
     def load_module_impl(self):
         mod = sys.modules.get(self.mod_name)
@@ -445,14 +441,9 @@ class SourceFileLoader(AssetLoader):
 
     def get_code(self, mod_name):
         self._check_name(mod_name)
-        pyc_filename = join(self.finder.extract_root, self.zip_info.filename + "c")
-        code = self.read_pyc(pyc_filename)
-        if not code:
-            # compile() doesn't impose the same restrictions as get_source().
-            code = compile(self.get_source_bytes(), self.get_filename(self.mod_name), "exec",
-                           dont_inherit=True)
-            self.write_pyc(pyc_filename, code)
-        return code
+        # compile() doesn't impose the same restrictions as get_source().
+        return compile(self.get_source_bytes(), self.get_filename(self.mod_name), "exec",
+                       dont_inherit=True)
 
     # Must return a unicode string with newlines normalized to "\n".
     def get_source(self, mod_name):
@@ -464,37 +455,6 @@ class SourceFileLoader(AssetLoader):
 
     def get_source_bytes(self):
         return self.finder.zip_file.read(self.zip_info)
-
-    def write_pyc(self, filename, code):
-        pyc_dirname = dirname(filename)
-        try:
-            os.makedirs(pyc_dirname)
-        except OSError:
-            assert exists(pyc_dirname)
-        with open(filename, "wb") as pyc_file:
-            # Write header last, so read_pyc doesn't try to load an incomplete file.
-            header = self.pyc_header()
-            pyc_file.seek(len(header))
-            marshal.dump(code, pyc_file)
-            pyc_file.seek(0)
-            pyc_file.write(header)
-
-    def read_pyc(self, filename):
-        if not exists(filename):
-            return None
-        with open(filename, "rb") as pyc_file:
-            expected_header = self.pyc_header()
-            actual_header = pyc_file.read(len(expected_header))
-            if actual_header != expected_header:
-                return None
-            try:
-                return marshal.loads(pyc_file.read())
-            except Exception:
-                return None
-
-    def pyc_header(self):
-        return struct.pack(PYC_HEADER_FORMAT, imp.get_magic(), timegm(self.zip_info.date_time),
-                           self.zip_info.file_size)
 
 
 class ExtensionFileLoader(AssetLoader):

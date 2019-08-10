@@ -7,7 +7,6 @@ from __future__ import absolute_import, division, print_function
 from contextlib import contextmanager
 import imp
 from importlib import import_module, reload
-import marshal
 import os
 from os.path import dirname, exists, isfile, join
 import pkgutil
@@ -71,7 +70,6 @@ class TestAndroidImport(unittest.TestCase):
         # Despite its name, this is a pure Python module.
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
-        cache_filename = asset_cache(REQS_COMMON_ZIP, filename + "c")
         mod = self.check_module(
             mod_name, REQS_COMMON_ZIP, filename,
             source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
@@ -81,39 +79,6 @@ class TestAndroidImport(unittest.TestCase):
         reload(mod)
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
-
-        # A valid .pyc should not be written again.
-        with self.set_mode(cache_filename, "444"):
-            mod = self.clean_reload(mod)
-
-        # And if the header matches, the code in the .pyc should be used, whatever it is.
-        header = self.read_pyc_header(cache_filename)
-        with open(cache_filename, "wb") as pyc_file:
-            pyc_file.write(header)
-            code = compile("foo = 2", "<test>", "exec")
-            marshal.dump(code, pyc_file)
-        self.assertFalse(hasattr(mod, "foo"))  # Should have been removed by clean_reload.
-        mod = self.clean_reload(mod)
-        self.assertEqual(2, mod.foo)
-        self.assertFalse(hasattr(mod, "escape"))
-
-        # A .pyc with mismatching header timestamp should be written again.
-        new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
-        self.write_pyc_header(cache_filename, new_header)
-        with self.set_mode(cache_filename, "444"):
-            with self.assertRaisesRegexp(IOError, "Permission denied"):
-                self.clean_reload(mod)
-        self.clean_reload(mod)
-        self.assertEqual(header, self.read_pyc_header(cache_filename))
-
-    def read_pyc_header(self, filename):
-        with open(filename, "rb") as pyc_file:
-            return pyc_file.read(12)
-
-    def write_pyc_header(self, filename, header):
-        with open(filename, "r+b") as pyc_file:
-            pyc_file.seek(0)
-            pyc_file.write(header)
 
     def test_so(self):
         reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
@@ -138,7 +103,11 @@ class TestAndroidImport(unittest.TestCase):
         with self.set_mode(cache_filename, "444"):
             with self.assertRaisesRegexp(IOError, "Permission denied"):
                 self.clean_reload(mod)
+
+        # A nonexistent file should be extracted again.
+        os.remove(cache_filename)
         self.clean_reload(mod)
+        self.assertTrue(exists(cache_filename))
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
 
     @contextmanager
@@ -157,16 +126,8 @@ class TestAndroidImport(unittest.TestCase):
         return new_mod
 
     def check_module(self, mod_name, zip_name, filename, package_path=None, source_head=None):
-        cache_filename = asset_cache(zip_name, filename)
-        if cache_filename.endswith(".py"):
-            cache_filename += "c"
-        if exists(cache_filename):
-            os.remove(cache_filename)
-        sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
-        mod = import_module(mod_name)
-        self.assertTrue(exists(cache_filename))
-
         # Module attributes
+        mod = import_module(mod_name)
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
         self.assertEqual(filename.endswith(".so"), exists(mod.__file__))
