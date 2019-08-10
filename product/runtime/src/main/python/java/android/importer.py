@@ -9,7 +9,7 @@ import imp
 import io
 import marshal
 import os.path
-from os.path import basename, dirname, exists, join, relpath
+from os.path import basename, dirname, exists, join
 from pkgutil import get_importer
 import re
 from shutil import rmtree
@@ -331,22 +331,14 @@ class AssetFinder(object):
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
+    # TODO: use dir_index via isdir and listdir??
     def extract_package(self, package_rel_dir):
-        filenames_in_zip = set()
+        prefix = package_rel_dir.rstrip("/") + "/"
         for zf in [self.zip_file] + self.other_zips:
             for info in zf.infolist():
-                if info.filename.startswith(package_rel_dir) and \
-                   not info.filename.endswith("/"):
-                    filenames_in_zip.add(info.filename)
+                filename = info.filename
+                if filename.startswith(prefix) and not filename.endswith("/"):
                     self.extract_if_changed(info, zip_file=zf)
-
-        # Remove any leftover extracted files from previous versions of the app.
-        for dirpath, _, filenames in os.walk(join(self.extract_root, package_rel_dir)):
-            rel_dirpath = relpath(dirpath, self.extract_root)
-            for name in filenames:
-                if not name.endswith(".pyc") and \
-                   join(rel_dirpath, name) not in filenames_in_zip:
-                    os.remove(join(dirpath, name))
 
     def extract_if_changed(self, member, zip_file=None):
         if zip_file is None:

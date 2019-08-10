@@ -247,7 +247,7 @@ class TestAndroidImport(unittest.TestCase):
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/recursive_other_error.py", '
                 fr'line 1, in <module>\n'
-                fr'    from . import other_error\n' +
+                fr'    from . import other_error  # noqa: F401\n' +
                 import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
@@ -287,13 +287,6 @@ class TestAndroidImport(unittest.TestCase):
             self.check_cacert(cacert_file.read())
         self.check_cacert(pkgutil.get_data("certifi", "cacert.pem").decode())
         self.check_extract_if_changed(certifi, cacert_filename)
-
-        leftover_filename = join(certifi_dir, "leftover.txt")
-        with open(leftover_filename, "w"):
-            pass
-        self.assertTrue(exists(leftover_filename))
-        self.clean_reload(certifi)
-        self.assertFalse(exists(leftover_filename))
 
     def check_cacert(self, content):
         self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
