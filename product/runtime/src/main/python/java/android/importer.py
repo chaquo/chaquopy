@@ -6,21 +6,18 @@ from calendar import timegm
 import ctypes
 from functools import partial
 import imp
-import importlib.util
+from importlib import _bootstrap, machinery, util
+from inspect import getmodulename
 import io
-import marshal
 import os.path
 from os.path import basename, dirname, exists, join
 from pkgutil import get_importer
 import re
 from shutil import rmtree
-import struct
 import sys
 import time
 from threading import RLock
-from tokenize import detect_encoding
 from traceback import format_exc
-from types import ModuleType
 from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
@@ -167,15 +164,16 @@ def load_module_override(load_name, file, pathname, description):
         entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
         finder = get_importer(entry)
         real_name = join(finder.prefix, base_name).replace("/", ".")
-        loader = finder.find_module(real_name)
-        if real_name == load_name:
-            return loader.load_module(real_name)
+        if hasattr(finder, "find_spec"):
+            spec = finder.find_spec(real_name)
+            spec.name = load_name
+            return _bootstrap._load(spec)
+        elif real_name == load_name:
+            return finder.find_module(real_name).load_module(real_name)
         else:
-            if not isinstance(loader, AssetLoader):
-                raise ImportError(
-                    "{} does not support loading module '{}' under a different name '{}'"
-                    .format(type(loader).__name__, real_name, load_name))
-            return loader.load_module(real_name, load_name=load_name)
+            raise ImportError(
+                "{} does not support loading module '{}' under a different name '{}'"
+                .format(type(finder).__name__, real_name, load_name))
     else:
         return load_module_original(load_name, file, pathname, description)
 
@@ -218,8 +216,7 @@ def initialize_pkg_resources():
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
-# TODO: inherit base class from importlib?
-class AssetFinder(object):
+class AssetFinder:
     zip_file_lock = RLock()
     zip_file_cache = {}
 
@@ -278,24 +275,25 @@ class AssetFinder(object):
                 self.zip_file_cache[asset_path] = zip_file
             return zip_file
 
-    # This method will be called by Python 3.
-    def find_loader(self, mod_name):
+    def find_spec(self, mod_name, target=None):
+        spec = None
         loader = self.find_module(mod_name)
-        path = []
         if loader:
+            spec = util.spec_from_loader(mod_name, loader)
             if loader.is_package(mod_name):
-                path = self._get_path(mod_name)
+                spec.submodule_search_locations = self._get_path(mod_name)
         else:
             base_name = mod_name.rpartition(".")[2]
             if self.zip_file.isdir(join(self.prefix, base_name)):
-                path = self._get_path(mod_name)
-        return (loader, path)
+                # Possible namespace package.
+                spec = machinery.ModuleSpec(mod_name, None)
+                spec.submodule_search_locations = self._get_path(mod_name)
+        return spec
 
     def _get_path(self, mod_name):
         base_name = mod_name.rpartition(".")[2]
         return [join(entry, base_name) for entry in self.package_path]
 
-    # This method will be called by Python 2.
     def find_module(self, mod_name):
         # It may seem weird to ignore all but the last word of mod_name, but that's what the
         # standard Python 3 finder does too.
@@ -313,7 +311,7 @@ class AssetFinder(object):
 
         return None
 
-    # This method has never been specified in a PEP, but it's required by pkgutil.iter_modules.
+    # Called by pkgutil.iter_modules.
     def iter_modules(self, prefix=""):
         # Finders may be created for nonexistent paths, e.g. if a package contains only
         # pure-Python code, then its directory won't exist in the ABI ZIP.
@@ -347,47 +345,22 @@ class AssetFinder(object):
         return zip_file.extract_if_changed(member, self.extract_root)
 
 
-# TODO: inherit base class from importlib?
-class AssetLoader(object):
-    def __init__(self, finder, real_name, zip_info):
+# To create a concrete loader class, inherit this class followed by a FileLoader subclass.
+class AssetLoader:
+    def __init__(self, finder, fullname, zip_info):
         self.finder = finder
-        self.mod_name = self.real_name = real_name
         self.zip_info = zip_info
+        super().__init__(fullname, join(finder.extract_root, zip_info.filename))
 
     def __repr__(self):
-        return ("<{}.{}({}, {!r})>"  # Distinguish from standard loaders with the same names.
-                .format(__name__, type(self).__name__, self.finder, self.real_name))
+        return f"{type(self).__name__}({self.name!r}, {self.path!r})"
 
-    def load_module(self, real_name, load_name=None):
-        self._check_name(real_name, self.real_name)
-        self.mod_name = load_name or real_name
-        is_reload = self.mod_name in sys.modules
-        try:
-            self.load_module_impl()
-            # The module that ends up in sys.modules is not necessarily the one we just created
-            # (e.g. see bottom of pygments/formatters/__init__.py).
-            return sys.modules[self.mod_name]
-        except Exception:
-            if not is_reload:
-                sys.modules.pop(self.mod_name, None)  # Don't leave a part-initialized module.
-            raise
-
-    def set_mod_attrs(self, mod):
-        mod.__name__ = self.mod_name  # Native module creation may set this to the unqualified name.
-        mod.__file__ = self.get_filename(self.mod_name)
-        if self.is_package(self.mod_name):
-            mod.__package__ = self.mod_name
-            mod.__path__ = self.finder._get_path(self.real_name)
-        else:
-            mod.__package__ = self.mod_name.rpartition('.')[0]
-        mod.__loader__ = self
-
-        # The import system sets __spec__ when using the import statement, but not when
-        # load_module is called directly.
-        mod.__spec__ = importlib.util.spec_from_loader(self.mod_name, self)
+    # Override to disable the fullname check. This is necessary for module renaming via imp.
+    def get_filename(self, fullname):
+        return self.path
 
     def get_data(self, path):
-        if exists(path):  # extractPackages is in effect.
+        if exists(path):
             with open(path, "rb") as f:
                 return f.read()
         try:
@@ -401,117 +374,26 @@ class AssetLoader(object):
             raise OSError("{} can't access '{}'".format(self.finder, path))
         return match.group(1)
 
-    def is_package(self, mod_name):
-        return basename(self.get_filename(mod_name)).startswith("__init__.")
 
-    # Overridden in SourceFileLoader
-    def get_code(self, mod_name):
-        return None
-
-    # Overridden in SourceFileLoader
-    def get_source(self, mod_name):
-        return None
-
-    def get_filename(self, mod_name):
-        self._check_name(mod_name)
-        for ep in self.finder.extract_packages:
-            if (mod_name == ep) or mod_name.startswith(ep + "."):
-                root = self.finder.extract_root
-                break
-        else:
-            root = self.finder.extract_root
-        return join(root, self.zip_info.filename)
-
-    # Most loader methods will only work for the loader's own module. However, always allow the
-    # name "__main__", which might be used by the runpy module.
-    def _check_name(self, actual_name, expected_name=None):
-        if expected_name is None:
-            expected_name = self.mod_name
-        if actual_name not in [expected_name, "__main__"]:
-            raise AssertionError("actual={!r}, expected={!r}"
-                                 .format(actual_name, expected_name))
+# SourceFileLoader will access both the source and bytecode files via AssetLoader.get_data.
+class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
+    def path_stats(self, path):
+        return {"mtime": timegm(self.zip_info.date_time),
+                "size": self.zip_info.file_size}
 
 
-PYC_HEADER_FORMAT = "<4siI"
-
-class SourceFileLoader(AssetLoader):
-    def load_module_impl(self):
-        mod = sys.modules.get(self.mod_name)
-        if mod is None:
-            mod = ModuleType(self.mod_name)
-            self.set_mod_attrs(mod)
-            sys.modules[self.mod_name] = mod
-        exec(self.get_code(self.mod_name), mod.__dict__)
-
-    def get_code(self, mod_name):
-        self._check_name(mod_name)
-        pyc_filename = join(self.finder.extract_root, self.zip_info.filename + "c")
-        code = self.read_pyc(pyc_filename)
-        if not code:
-            # compile() doesn't impose the same restrictions as get_source().
-            code = compile(self.get_source_bytes(), self.get_filename(self.mod_name), "exec",
-                           dont_inherit=True)
-            self.write_pyc(pyc_filename, code)
-        return code
-
-    # Must return a unicode string with newlines normalized to "\n".
-    def get_source(self, mod_name):
-        self._check_name(mod_name)
-        source_bytes = self.get_source_bytes()
-        encoding, _ = detect_encoding(io.BytesIO(source_bytes).readline)
-        return io.IncrementalNewlineDecoder(None, True).decode(
-            source_bytes.decode(encoding))
-
-    def get_source_bytes(self):
-        return self.finder.zip_file.read(self.zip_info)
-
-    def write_pyc(self, filename, code):
-        pyc_dirname = dirname(filename)
-        try:
-            os.makedirs(pyc_dirname)
-        except OSError:
-            assert exists(pyc_dirname)
-        with open(filename, "wb") as pyc_file:
-            # Write header last, so read_pyc doesn't try to load an incomplete file.
-            header = self.pyc_header()
-            pyc_file.seek(len(header))
-            marshal.dump(code, pyc_file)
-            pyc_file.seek(0)
-            pyc_file.write(header)
-
-    def read_pyc(self, filename):
-        if not exists(filename):
-            return None
-        with open(filename, "rb") as pyc_file:
-            expected_header = self.pyc_header()
-            actual_header = pyc_file.read(len(expected_header))
-            if actual_header != expected_header:
-                return None
-            try:
-                return marshal.loads(pyc_file.read())
-            except Exception:
-                return None
-
-    def pyc_header(self):
-        return struct.pack(PYC_HEADER_FORMAT, imp.get_magic(), timegm(self.zip_info.date_time),
-                           self.zip_info.file_size)
-
-
-class ExtensionFileLoader(AssetLoader):
-    def load_module_impl(self):
+class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
+    def create_module(self, spec):
         out_filename = self.extract_so()
         load_needed(out_filename)
-        # imp.load_{source,compiled,dynamic} are undocumented in Python 3, but still present.
-        mod = imp.load_dynamic(self.mod_name, out_filename)
-        sys.modules[self.mod_name] = mod
-        self.set_mod_attrs(mod)
+        return super().create_module(spec)
 
     # In API level 22 and older, when asked to load a library with the same basename as one
     # already loaded, the dynamic linker will return the existing library. Work around this by
     # loading through a uniquely-named symlink.
     def extract_so(self):
         filename = self.finder.extract_if_changed(self.zip_info)
-        linkname = join(dirname(filename), self.mod_name + ".so")
+        linkname = join(dirname(filename), self.name + ".so")
         if linkname != filename:
             if exists(linkname):
                 os.remove(linkname)
@@ -563,23 +445,12 @@ def load_needed(filename):
                 break
 
 
-# These class names are based on the standard loaders from importlib.machinery, though
-# their interfaces are somewhat different.
 LOADERS = [
-    (".py", SourceFileLoader),
-    (".so", ExtensionFileLoader),
+    (".py", SourceAssetLoader),
+    (".so", ExtensionAssetLoader),
     # No current need for a SourcelessFileLoader, since we never include .pyc files in the
     # assets.
 ]
-
-
-# Like inspect.getmodulename, but only matches file extensions which we actually support.
-def getmodulename(path):
-    base_name = basename(path)
-    for suffix, _ in LOADERS:
-        if base_name.endswith(suffix):
-            return base_name[:-len(suffix)]
-    return None
 
 
 # Protects `extract` and `read` with locks, because they seek the underlying file object.

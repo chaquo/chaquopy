@@ -119,6 +119,9 @@ class AssetFile(object):
         self.offset = 0
         self.length = self.stream.available()
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.name!r})"
+
     def read(self, size=None):
         if size is None:
             size = self.stream.available()

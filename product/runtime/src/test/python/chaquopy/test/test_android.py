@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 from contextlib import contextmanager
 import imp
 from importlib import import_module, reload
+from importlib.util import cache_from_source
 import marshal
 import os
 from os.path import dirname, exists, isfile, join
@@ -71,7 +72,7 @@ class TestAndroidImport(unittest.TestCase):
         # Despite its name, this is a pure Python module.
         mod_name = "markupsafe._native"
         filename = "markupsafe/_native.py"
-        cache_filename = asset_cache(REQS_COMMON_ZIP, filename + "c")
+        cache_filename = asset_cache(REQS_COMMON_ZIP, cache_from_source(filename))
         mod = self.check_module(
             mod_name, REQS_COMMON_ZIP, filename,
             source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
@@ -99,10 +100,8 @@ class TestAndroidImport(unittest.TestCase):
 
         # A .pyc with mismatching header timestamp should be written again.
         new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
+        self.assertNotEqual(new_header, header)
         self.write_pyc_header(cache_filename, new_header)
-        with self.set_mode(cache_filename, "444"):
-            with self.assertRaisesRegexp(IOError, "Permission denied"):
-                self.clean_reload(mod)
         self.clean_reload(mod)
         self.assertEqual(header, self.read_pyc_header(cache_filename))
 
@@ -120,11 +119,6 @@ class TestAndroidImport(unittest.TestCase):
         mod_name = "markupsafe._speedups"
         filename = "markupsafe/_speedups.so"
         mod = self.check_module(mod_name, reqs_zip, filename)
-        mod.foo = 1
-        delattr(mod, "escape")
-        reload(mod)
-        self.assertEqual(1, mod.foo)
-        self.assertTrue(hasattr(mod, "escape"))
         self.check_extract_if_changed(mod, asset_cache(reqs_zip, filename))
 
     def check_extract_if_changed(self, mod, cache_filename):
@@ -136,7 +130,7 @@ class TestAndroidImport(unittest.TestCase):
         original_mtime = os.stat(cache_filename).st_mtime
         os.utime(cache_filename, None)
         with self.set_mode(cache_filename, "444"):
-            with self.assertRaisesRegexp(IOError, "Permission denied"):
+            with self.assertRaisesRegexp(OSError, "Permission denied"):
                 self.clean_reload(mod)
         self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
@@ -159,12 +153,12 @@ class TestAndroidImport(unittest.TestCase):
     def check_module(self, mod_name, zip_name, filename, package_path=None, source_head=None):
         cache_filename = asset_cache(zip_name, filename)
         if cache_filename.endswith(".py"):
-            cache_filename += "c"
+            cache_filename = cache_from_source(cache_filename)
         if exists(cache_filename):
             os.remove(cache_filename)
         sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
         mod = import_module(mod_name)
-        self.assertTrue(exists(cache_filename))
+        self.assertTrue(exists(cache_filename), cache_filename)
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
@@ -184,10 +178,10 @@ class TestAndroidImport(unittest.TestCase):
             data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
             self.assertTrue(data.startswith(
                 b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
-        with self.assertRaisesRegexp(IOError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
+        with self.assertRaisesRegexp(OSError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
                                      .format(asset_path(zip_name, *mod_name.split(".")[:-1]))):
             loader.get_data("/invalid.py")
-        with self.assertRaisesRegexp(IOError, "There is no item named 'invalid.py' in the archive"):
+        with self.assertRaisesRegexp(OSError, "There is no item named 'invalid.py' in the archive"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
 
         self.assertEqual(bool(package_path), loader.is_package(mod_name))
@@ -330,43 +324,44 @@ class TestAndroidImport(unittest.TestCase):
                 ("markupsafe._speedups", imp.C_EXTENSION),      #
                 ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
                 ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
-            path = None
-            prefix = ""
-            words = mod_name.split(".")
-            for i, word in enumerate(words):
-                prefix += word
-                file, pathname, description = imp.find_module(word, path)
-                suffix, mode, actual_type = description
-                mod = imp.load_module(prefix, file, pathname, description)
-                self.assertEqual(prefix, mod.__name__)
-                self.assertEqual(actual_type == imp.PKG_DIRECTORY,
-                                 hasattr(mod, "__path__"), prefix)
+            with self.subTest(mod_name=mod_name):
+                path = None
+                prefix = ""
+                words = mod_name.split(".")
+                for i, word in enumerate(words):
+                    prefix += word
+                    with self.subTest(prefix=prefix):
+                        file, pathname, description = imp.find_module(word, path)
+                        suffix, mode, actual_type = description
+                        mod = imp.load_module(prefix, file, pathname, description)
+                        self.assertEqual(prefix, mod.__name__)
+                        self.assertEqual(actual_type == imp.PKG_DIRECTORY,
+                                         hasattr(mod, "__path__"))
 
-                self.assertTrue(hasattr(mod, "__spec__"), prefix)
-                self.assertIsNotNone(mod.__spec__, prefix)
-                self.assertEqual(mod.__name__, mod.__spec__.name)
+                        self.assertTrue(hasattr(mod, "__spec__"))
+                        self.assertIsNotNone(mod.__spec__)
+                        self.assertEqual(mod.__name__, mod.__spec__.name)
 
-                if actual_type == imp.C_BUILTIN:
-                    self.assertIsNone(file, prefix)
-                    # This isn't documented, but it's what the current version of CPython does.
-                    self.assertIsNone(pathname, prefix)
-                else:
-                    if actual_type == imp.PKG_DIRECTORY:
-                        self.assertIsNone(file, prefix)
-                    else:
-                        # Our implementation of load_module doesn't use `file`, but user code
-                        # might, so check it adequately simulates a file.
-                        self.assertTrue(hasattr(file, "read"), prefix)
-                        self.assertTrue(hasattr(file, "close"), prefix)
-                    self.assertIsNotNone(pathname, prefix)
-                    self.assertTrue(hasattr(mod, "__file__"), prefix)
+                        if actual_type == imp.C_BUILTIN:
+                            self.assertIsNone(file)
+                            self.assertIsNone(pathname)
+                        else:
+                            if actual_type == imp.PKG_DIRECTORY:
+                                self.assertIsNone(file)
+                            else:
+                                # Our implementation of load_module doesn't use `file`, but
+                                # user code might, so check it adequately simulates a file.
+                                self.assertTrue(hasattr(file, "read"))
+                                self.assertTrue(hasattr(file, "close"))
+                            self.assertIsNotNone(pathname)
+                            self.assertTrue(hasattr(mod, "__file__"))
 
-                if i < len(words) - 1:
-                    self.assertEqual(imp.PKG_DIRECTORY, actual_type, prefix)
-                    prefix += "."
-                    path = mod.__path__
-                else:
-                    self.assertEqual(expected_type, actual_type, prefix)
+                        if i < len(words) - 1:
+                            self.assertEqual(imp.PKG_DIRECTORY, actual_type)
+                            prefix += "."
+                            path = mod.__path__
+                        else:
+                            self.assertEqual(expected_type, actual_type)
 
     def test_imp_rename(self):
         # Renames in stdlib are not currently supported.
