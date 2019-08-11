@@ -563,9 +563,9 @@ class TestAndroidStdlib(unittest.TestCase):
         import select
         self.assertFalse(hasattr(select, "kevent"))
         self.assertFalse(hasattr(select, "kqueue"))
-        if sys.version_info[0] >= 3:
-            import selectors
-            self.assertIs(selectors.DefaultSelector, selectors.EpollSelector)
+
+        import selectors
+        self.assertIs(selectors.DefaultSelector, selectors.EpollSelector)
 
     def test_sqlite(self):
         import sqlite3
@@ -576,20 +576,13 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
-        if sys.version_info[0] < 3:
-            from urllib2 import urlopen
-        else:
-            from urllib.request import urlopen
+        from urllib.request import urlopen
         resp = urlopen("https://chaquo.com/chaquopy/")
         self.assertEqual(200, resp.getcode())
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
 
     def test_sys(self):
-        if sys.version_info[0] < 3:
-            self.assertFalse(hasattr(sys, "abiflags"))
-        else:
-            self.assertEqual("m", sys.abiflags)
-
+        self.assertEqual("m", sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
@@ -600,9 +593,7 @@ class TestAndroidStdlib(unittest.TestCase):
     def test_sysconfig(self):
         import distutils.sysconfig
         import sysconfig
-        ldlibrary = "libpython{}.{}{}.so".format(
-            sys.version_info[0], sys.version_info[1],
-            "m" if (sys.version_info[0] >= 3) else "")
+        ldlibrary = "libpython{}.{}m.so".format(*sys.version_info[:2])
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
         self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
@@ -625,8 +616,7 @@ class TestAndroidStreams(unittest.TestCase):
 
     def write(self, stream, s, expected_log):
         self.assertEqual(len(s), stream.write(s))
-        self.expected_log += [line.decode("utf-8") if isinstance(line, bytes) else line
-                              for line in expected_log]
+        self.expected_log += expected_log
 
     def tearDown(self):
         actual_log = None
@@ -655,15 +645,10 @@ class TestAndroidStreams(unittest.TestCase):
         self.write(out, " ",             ["I/python.stdout:  "])
         self.write(out, "  ",            ["I/python.stdout:   "])
 
-        non_ascii = [
-            (b"ol\xc3\xa9",               u"ol\u00e9"),         # Spanish
-            (b"\xe4\xb8\xad\xe6\x96\x87", u"\u4e2d\u6587"),     # Chinese
-        ]
-        for b, u in non_ascii:
-            expected = [u"I/python.stdout: " + u]
-            self.write(out, u, expected)
-            if sys.version_info[0] < 3:
-                self.write(out, b, expected)
+        # Non-ASCII text
+        for s in ["ol\u00e9",        # Spanish
+                  "\u4e2d\u6587"]:   # Chinese
+            self.write(out, s, ["I/python.stdout: " + s])
 
         # Empty lines can't be logged, so we change them to a space. Empty strings, on the
         # other hand, should be ignored.

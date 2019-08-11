@@ -6,6 +6,7 @@ from calendar import timegm
 import ctypes
 from functools import partial
 import imp
+import importlib.util
 import io
 import marshal
 import os.path
@@ -380,11 +381,10 @@ class AssetLoader(object):
         else:
             mod.__package__ = self.mod_name.rpartition('.')[0]
         mod.__loader__ = self
-        if sys.version_info[0] >= 3:
-            # The import system sets __spec__ when using the import statement, but not when
-            # load_module is called directly.
-            import importlib.util
-            mod.__spec__ = importlib.util.spec_from_loader(self.mod_name, self)
+
+        # The import system sets __spec__ when using the import statement, but not when
+        # load_module is called directly.
+        mod.__spec__ = importlib.util.spec_from_loader(self.mod_name, self)
 
     def get_data(self, path):
         if exists(path):  # extractPackages is in effect.
