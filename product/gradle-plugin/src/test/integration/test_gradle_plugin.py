@@ -357,6 +357,7 @@ class ExtractPackages(GradleTestCase):
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
 
 
+# FIXME pip
 class Pyc(GradleTestCase):
     def test_change(self):
         run = self.RunGradle("base", pyc={"stdlib": True})

@@ -282,20 +282,32 @@ Packaging
 Bytecode compilation
 --------------------
 
-Your app will start up faster if its Python code is compiled to `.pyc` format. This is
-currently only supported for the Python standard library, but may be extended to app code and
-pip-installed packages in a future version.
+Your app will start up faster if its Python code is compiled to `.pyc` format. This is enabled
+by default for pip-installed :ref:`requirements <android-requirements>`, and the Python
+standard library. (It may be extended to :ref:`local source code <android-source>` in a future
+version.)
 
-Compilation prevents source code text from appearing in Python stack traces, so you may wish
-to disable it during development. The default settings are as follows::
+Compilation prevents source code text from appearing in stack traces, so during development you
+may wish to disable it as follows::
 
     defaultConfig {
         python {
             pyc {
-                stdlib true
+                pip false
+                stdlib false
             }
         }
     }
+
+In order to compile pip-installed requirements, your :ref:`buildPython <buildPython>` must use
+the same bytecode format as :doc:`Chaquopy's own Python version <../versions>`. Usually this
+means it must have the same minor version, e,g. if Chaquopy is using Python 3.6.5, then
+`buildPython` can be any version of Python 3.6.
+
+If the bytecode formats do not match, the build will continue with a warning, unless you've
+explicitly set `pyc.pip` to `true`. Your app will still work, but its code will have to be
+compiled on the target device, which means it will start up slower and use more storage space.
+
 
 .. _extractPackages:
 

@@ -58,6 +58,8 @@ Test all features on the following devices, with at least one device being a cle
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
+FIXME pyc variant on x86 targetSdkVersion only.
+
 Update `public/demo/CHANGELOG.md`.
 
 Release app on Google Play, updating description and screenshots if necessary.

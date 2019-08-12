@@ -196,6 +196,13 @@ class TestAndroidImport(unittest.TestCase):
 
         return mod
 
+    # FIXME include stdlib source code check
+    #
+    # FIXME should have source code for each zip if and only if its pyc setting is false. Not
+    # sure how to will determine that here.
+    #
+    # FIXME include inspect.get_filename check
+
     # Verify that the traceback builder can get source code from the loader in all contexts.
     # (The "package1" test files are also used in test_import.py.)
     def test_exception(self):
