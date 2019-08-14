@@ -10,9 +10,8 @@ from importlib import _bootstrap, machinery, util
 from inspect import getmodulename
 import io
 import os.path
-from os.path import basename, dirname, exists, join
+from os.path import basename, dirname, exists, join, relpath
 from pkgutil import get_importer
-import re
 from shutil import rmtree
 import sys
 import time
@@ -25,7 +24,6 @@ from java.chaquopy import AssetFile
 
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
-from java.io import IOException
 
 
 PATHNAME_PREFIX = "<chaquopy>/"
@@ -41,19 +39,13 @@ def initialize_importlib(context, build_json, app_path):
     # Remove nonexistent default paths (#5410)
     sys.path = [p for p in sys.path if exists(p)]
 
+    # FIXME: move to getFilesDir in next commit (#5541), and add cleanup in AndroidPlatform.
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getCacheDir().toString(), Common.ASSET_DIR, "AssetFinder")
 
     ep_json = build_json.get("extractPackages")
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
-    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages))
-    asset_finders = []
-    sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
-    assets_json = build_json.get("assets")
-
-    # extract_package extracts both requirements ZIPs to the same cache directory, so if one
-    # ZIP changes, both directories have to be removed.
-    requirements_updated = False
+    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages, build_json))
 
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
@@ -61,30 +53,14 @@ def initialize_importlib(context, build_json, app_path):
         finder = get_importer(entry)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
-        asset_finders.append(finder)
 
-        # See also similar code in AndroidPlatform.java.
-        sp_key = "asset." + asset_name
-        new_hash = assets_json.get(asset_name)
-        is_requirements = asset_name.startswith("requirements")
-        if (sp.getString(sp_key, "") != new_hash) or \
-           (is_requirements and requirements_updated):
-            if exists(finder.extract_root):
-                rmtree(finder.extract_root)
-            sp.edit().putString(sp_key, new_hash).apply()
-            if is_requirements:
-                requirements_updated = True
-
-    # We do this here because .pth files may contain executable code which imports modules. If
-    # we processed each zip's .pth files in AssetFinder.__init__, the finder itself wouldn't
-    # be available to the system for imports yet.
-    #
-    # This is based on site.addpackage, which we can't use directly because we need to set the
-    # local variable `sitedir` to accommodate the trick used by protobuf (see test_android).
-    for finder in asset_finders:
+        # FIXME: once .pth files are extracted during startup, replace this with a call to
+        # site.addpackage immediately after that.
         sitedir = finder.path  # noqa: F841 (see note above)
-        for pth_filename in finder.zip_file.pth_files:
-            pth_content = finder.zip_file.read(pth_filename).decode("UTF-8")
+        for pth_filename in finder.listdir("/"):
+            if not pth_filename.endswith(".pth"):
+                continue
+            pth_content = finder.get_data(pth_filename).decode("UTF-8")
             for line_no, line in enumerate(pth_content.splitlines(), start=1):
                 try:
                     line = line.strip()
@@ -182,15 +158,14 @@ def initialize_pkg_resources():
     # Because so much code requires pkg_resources without declaring setuptools as a dependency,
     # we include it in the bootstrap ZIP. We don't include the rest of setuptools, because it's
     # much larger and much less likely to be useful. If the user installs setuptools via pip,
-    # then that copy will take priority because the requirements ZIP is earlier on sys.path.
+    # then that copy of pkg_resources will take priority because the requirements ZIP is
+    # earlier on sys.path.
     import pkg_resources
 
-    # Search for top-level .dist-info directories (see pip_install.py).
     def distribution_finder(finder, entry, only):
-        dist_infos = [name for name in finder.zip_file.listdir("")
-                      if name.endswith(".dist-info")]
-        for dist_info in dist_infos:
-            yield pkg_resources.Distribution.from_location(entry, dist_info)
+        for name in finder.listdir("/"):
+            if name.endswith(".dist-info"):
+                yield pkg_resources.Distribution.from_location(entry, name)
 
     pkg_resources.register_finder(AssetFinder, distribution_finder)
     pkg_resources.working_set = pkg_resources.WorkingSet()
@@ -198,130 +173,105 @@ def initialize_pkg_resources():
     class AssetProvider(pkg_resources.NullProvider):
         def __init__(self, module):
             super().__init__(module)
-            self.zip_file = self.loader.finder.zip_file
+            self.finder = self.loader.finder
 
         def _has(self, path):
-            try:
-                self.zip_file.getinfo(self.loader._zip_path(path))
-                return True
-            except KeyError:
-                return self._isdir(path)
+            return self.finder.exists(self.finder.zip_path(path))
 
         def _isdir(self, path):
-            return self.zip_file.isdir(self.loader._zip_path(path))
+            return self.finder.isdir(self.finder.zip_path(path))
 
         def _listdir(self, path):
-            return self.zip_file.listdir(self.loader._zip_path(path))
+            return self.finder.listdir(self.finder.zip_path(path))
 
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
 class AssetFinder:
-    zip_file_lock = RLock()
-    zip_file_cache = {}
+    def __init__(self, context, extract_packages, build_json, path):
+        if not path.startswith(ASSET_PREFIX + "/"):
+            raise ImportError(f"not an asset path: '{path}'")
 
-    def __init__(self, context, extract_packages, path):
-        try:
-            self.context = context  # Also used in tests.
-            self.extract_packages = extract_packages
-            self.path = path
+        self.context = context  # Also used in tests.
+        self.extract_packages = extract_packages
+        self.path = path
 
+        sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
+        assets_json = build_json.get("assets")
+        if dirname(path) == ASSET_PREFIX:  # Root finder
             self.extract_root = path
             self.prefix = ""
-            while True:
+
+            # To allow modules in both requirements ZIPs to access data files from the other
+            # ZIP, we extract both ZIPs to the same directory, and make both ZIPs generate
+            # modules whose __file__ and __path__ point to that directory. This is most easily
+            # done by accessing both ZIPs through the same finder.
+            self.zip_files = []
+            for suffix in [".zip", f"-{Common.ABI_COMMON}.zip", f"-{AndroidPlatform.ABI}.zip"]:
+                asset_name = basename(self.extract_root) + suffix
                 try:
-                    # For non-asset paths, get_zip_file will raise InvalidAssetPathError, which
-                    # we catch below.
-                    self.zip_file = self.get_zip_file(self.extract_root)
-                    break
-                except IOException:
-                    self.prefix = join(basename(self.extract_root), self.prefix)
-                    self.extract_root = dirname(self.extract_root)
-            os.makedirs(self.extract_root, exist_ok=True)
+                    self.zip_files.append(ConcurrentZipFile(
+                        AssetFile(self.context, join(Common.ASSET_DIR, asset_name))))
+                except FileNotFoundError:
+                    continue
 
-            self.package_path = [path]
-            self.other_zips = []
-            abis = [Common.ABI_COMMON, AndroidPlatform.ABI]
-            abi_match = re.search(r"^(.*)-({})\.zip$".format("|".join(abis)),
-                                  self.extract_root)
-            if abi_match:
-                for abi in abis:
-                    abi_archive = "{}-{}.zip".format(abi_match.group(1), abi)
-                    if abi_archive != self.extract_root:
-                        self.package_path.append(join(abi_archive, self.prefix))
-                        self.other_zips.append(self.get_zip_file(abi_archive))
+                # FIXME verify this with first/second run performance test with pkgtest, and
+                # record numbers in repo.
+                #
+                # See also similar code in AndroidPlatform.java.
+                sp_key = "asset." + asset_name
+                new_hash = assets_json.get(asset_name)
+                if sp.getString(sp_key, "") != new_hash:
+                    if exists(self.extract_root):
+                        rmtree(self.extract_root)
+                    sp.edit().putString(sp_key, new_hash).apply()
 
-        # If we raise ImportError, the finder is silently skipped. This is what we want only if
-        # the path entry isn't an asset path: all other errors should abort the import,
-        # including when the asset doesn't exist.
-        except InvalidAssetPathError:
-            raise ImportError(format_exc())
-        except ImportError:
-            raise Exception(format_exc())
+            if not self.zip_files:
+                raise FileNotFoundError(path)
+        else:
+            parent = get_importer(dirname(path))
+            self.extract_root = parent.extract_root
+            self.prefix = relpath(path, self.extract_root)
+            self.zip_files = parent.zip_files
 
     def __repr__(self):
-        return "<AssetFinder({!r})>".format(self.path)
-
-    def get_zip_file(self, path):
-        match = re.search(r"^{}/(.+)$".format(ASSET_PREFIX), path)
-        if not match:
-            raise InvalidAssetPathError("not an asset path: '{}'".format(path))
-        asset_path = join(Common.ASSET_DIR, match.group(1))  # Relative to assets root
-
-        with self.zip_file_lock:
-            zip_file = self.zip_file_cache.get(asset_path)
-            if not zip_file:
-                zip_file = ConcurrentZipFile(AssetFile(self.context, asset_path))
-                self.zip_file_cache[asset_path] = zip_file
-            return zip_file
+        return f"{type(self).__name__}({self.path!r})"
 
     def find_spec(self, mod_name, target=None):
         spec = None
         loader = self.find_module(mod_name)
         if loader:
             spec = util.spec_from_loader(mod_name, loader)
-            if loader.is_package(mod_name):
-                spec.submodule_search_locations = self._get_path(mod_name)
         else:
-            base_name = mod_name.rpartition(".")[2]
-            if self.zip_file.isdir(join(self.prefix, base_name)):
+            dir_path = join(self.prefix, mod_name.rpartition(".")[2])
+            if self.isdir(dir_path):
                 # Possible namespace package.
                 spec = machinery.ModuleSpec(mod_name, None)
-                spec.submodule_search_locations = self._get_path(mod_name)
+                spec.submodule_search_locations = [join(self.extract_root, dir_path)]
         return spec
 
-    def _get_path(self, mod_name):
-        base_name = mod_name.rpartition(".")[2]
-        return [join(entry, base_name) for entry in self.package_path]
-
     def find_module(self, mod_name):
-        # It may seem weird to ignore all but the last word of mod_name, but that's what the
-        # standard Python 3 finder does too.
+        # Ignore all but the last word of the name (see FileFinder.find_spec).
         prefix = join(self.prefix, mod_name.rpartition(".")[2])
-        # Packages take priority over modules (https://stackoverflow.com/questions/4092395/)
+        # Packages take priority over modules (see FileFinder.find_spec).
         for infix in ["/__init__", ""]:
-            for suffix, loader_cls in LOADERS:
-                try:
-                    zip_info = self.zip_file.getinfo(prefix + infix + suffix)
-                except KeyError:
-                    continue
-                if infix == "/__init__" and mod_name in self.extract_packages:
-                    self.extract_package(prefix)
-                return loader_cls(self, mod_name, zip_info)
-
+            for zf in self.zip_files:
+                for suffix, loader_cls in LOADERS:
+                    try:
+                        zip_info = zf.getinfo(prefix + infix + suffix)
+                    except KeyError:
+                        continue
+                    if infix == "/__init__" and mod_name in self.extract_packages:
+                        self.extract_dir(prefix)
+                    return loader_cls(self, mod_name, zip_info)
         return None
 
     # Called by pkgutil.iter_modules.
     def iter_modules(self, prefix=""):
-        # Finders may be created for nonexistent paths, e.g. if a package contains only
-        # pure-Python code, then its directory won't exist in the ABI ZIP.
-        if not self.zip_file.isdir(self.prefix):
-            return
-
-        for filename in self.zip_file.listdir(self.prefix):
-            abs_filename = join(self.prefix, filename)
-            if self.zip_file.isdir(abs_filename):
-                for sub_filename in self.zip_file.listdir(abs_filename):
+        for filename in self.listdir(self.prefix):
+            zip_path = join(self.prefix, filename)
+            if self.isdir(zip_path):
+                for sub_filename in self.listdir(zip_path):
                     if getmodulename(sub_filename) == "__init__":
                         yield prefix + filename, True
                         break
@@ -330,19 +280,49 @@ class AssetFinder:
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
-    # TODO: use dir_index via isdir and listdir??
-    def extract_package(self, package_rel_dir):
-        prefix = package_rel_dir.rstrip("/") + "/"
-        for zf in [self.zip_file] + self.other_zips:
-            for info in zf.infolist():
-                filename = info.filename
-                if filename.startswith(prefix) and not filename.endswith("/"):
-                    self.extract_if_changed(info, zip_file=zf)
+    def extract_dir(self, zip_dir):
+        for filename in self.listdir(zip_dir):
+            zip_path = join(zip_dir, filename)
+            if self.isdir(zip_path):
+                self.extract_dir(zip_path)
+            else:
+                self.extract_if_changed(zip_path)
 
-    def extract_if_changed(self, member, zip_file=None):
-        if zip_file is None:
-            zip_file = self.zip_file
-        return zip_file.extract_if_changed(member, self.extract_root)
+    def extract_if_changed(self, zip_path):
+        for zf in self.zip_files:
+            try:
+                return zf.extract_if_changed(zip_path, self.extract_root)
+            except KeyError:
+                pass
+        raise FileNotFoundError(zip_path)
+
+    def exists(self, zip_path):
+        return any(zf.exists(zip_path) for zf in self.zip_files)
+
+    def isdir(self, zip_path):
+        return any(zf.isdir(zip_path) for zf in self.zip_files)
+
+    def listdir(self, zip_path):
+        result = [name for zf in self.zip_files if zf.isdir(zip_path)
+                  for name in zf.listdir(zip_path)]
+        if not result and not self.isdir(zip_path):
+            raise (NotADirectoryError if self.exists(zip_path) else FileNotFoundError)(zip_path)
+        return result
+
+    def get_data(self, zip_path):
+        for zf in self.zip_files:
+            try:
+                return zf.read(zip_path)
+            except KeyError:
+                pass
+        raise FileNotFoundError(zip_path)
+
+    def zip_path(self, path):
+        # If `path` is absolute then `join` will return it unchanged.
+        path = join(self.extract_root, path)
+        if not path.startswith(self.extract_root + "/"):
+            raise ValueError(f"{self} can't access '{path}'")
+        return path[len(self.extract_root) + 1:]
 
 
 # To create a concrete loader class, inherit this class followed by a FileLoader subclass.
@@ -360,19 +340,10 @@ class AssetLoader:
         return self.path
 
     def get_data(self, path):
-        if exists(path):
+        if exists(path):  # For bytecode and pre-extracted files.
             with open(path, "rb") as f:
                 return f.read()
-        try:
-            return self.finder.zip_file.read(self._zip_path(path))
-        except KeyError as e:
-            raise OSError(str(e))  # "There is no item named '{}' in the archive"
-
-    def _zip_path(self, path):
-        match = re.search(r"^{}/(.+)$".format(self.finder.extract_root), path)
-        if not match:
-            raise OSError("{} can't access '{}'".format(self.finder, path))
-        return match.group(1)
+        return self.finder.get_data(self.finder.zip_path(path))
 
 
 # SourceFileLoader will access both the source and bytecode files via AssetLoader.get_data.
@@ -383,16 +354,27 @@ class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
 
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
+    needed_lock = RLock()
+    needed_loaded = {}
+
     def create_module(self, spec):
         out_filename = self.extract_so()
-        load_needed(out_filename)
+        self.load_needed(out_filename)
+        # FIXME we need to load via out_filename for reason explained below (first check that
+        # pkgtest with h5py and pyzmq would have caught this). Still override __file__
+        # afterwards with the simple name in case code depends on it, and leave this sentence
+        # as note.
         return super().create_module(spec)
 
     # In API level 22 and older, when asked to load a library with the same basename as one
     # already loaded, the dynamic linker will return the existing library. Work around this by
     # loading through a uniquely-named symlink.
+    #
+    # For example, h5py and pyzmq both have a native submodule called utils.so. Without this
+    # workaround, if you loaded them both, their __file__ attributes would appear different,
+    # but the second one would actually have been loaded from the first one's file,
     def extract_so(self):
-        filename = self.finder.extract_if_changed(self.zip_info)
+        filename = self.finder.extract_if_changed(self.finder.zip_path(self.path))
         linkname = join(dirname(filename), self.name + ".so")
         if linkname != filename:
             if exists(linkname):
@@ -400,39 +382,28 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
             os.symlink(filename, linkname)
         return linkname
 
+    def load_needed(self, filename):
+        with self.needed_lock, open(filename, "rb") as so_file:
+            ef = ELFFile(so_file)
+            dynamic = ef.get_section_by_name(".dynamic")
+            if not dynamic:
+                raise Exception(filename + " has no .dynamic section")
 
-needed_lock = RLock()
-needed_loaded = {}
-
-# Before API level 18, the dynamic linker only searches for DT_NEEDED libraries in system
-# directories, so we need to load them manually in dependency order (#5323).
-#
-# It's not an error if we don't find a library: maybe it's a system library, or one of the
-# libraries loaded by AndroidPlatform.loadNativeLibs.
-def load_needed(filename):
-    with needed_lock, open(filename, "rb") as so_file:
-        ef = ELFFile(so_file)
-        dynamic = ef.get_section_by_name(".dynamic")
-        if not dynamic:
-            raise Exception(filename + " has no .dynamic section")
-
-        for tag in dynamic.iter_tags():
-            if tag.entry.d_tag != "DT_NEEDED":
-                continue
-            soname = tag.needed
-            if soname in needed_loaded:
-                continue
-
-            for entry in sys.path:
-                finder = get_importer(entry)
-                if not isinstance(finder, AssetFinder):
+            for tag in dynamic.iter_tags():
+                if tag.entry.d_tag != "DT_NEEDED":
                     continue
+                soname = tag.needed
+                if soname in self.needed_loaded:
+                    continue
+
                 try:
-                    zip_info = finder.zip_file.getinfo("chaquopy/lib/" + soname)
-                except KeyError:
+                    needed_filename = self.finder.extract_if_changed("chaquopy/lib/" + soname)
+                except FileNotFoundError:
+                    # Maybe it's a system library, or one of the libraries loaded by
+                    # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
+                    # get an exception in ctypes.CDLL or ExtensionFileLoader.create_module.
                     continue
-                needed_filename = finder.extract_if_changed(zip_info)
-                load_needed(needed_filename)
+                self.load_needed(needed_filename)
 
                 # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
                 # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
@@ -441,8 +412,7 @@ def load_needed(filename):
                 #
                 # It doesn't look like the library is closed when the CDLL object is garbage
                 # collected, but this isn't documented, so keep a reference for safety.
-                needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
-                break
+                self.needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
 
 
 LOADERS = [
@@ -465,7 +435,6 @@ class ConcurrentZipFile(ZipFile):
         # ZIP files *may* have individual entries for directories, but we can't rely on it,
         # so we build an index to support `isdir` and `listdir`.
         self.dir_index = {"": set()}  # Provide empty listing for root even if ZIP is empty.
-        self.pth_files = []
         for name in self.namelist():
             parts = name.rstrip("/").split("/")
             while parts:
@@ -475,8 +444,7 @@ class ConcurrentZipFile(ZipFile):
                     break
                 else:
                     self.dir_index[parent] = set([parts.pop()])
-            if ("/" not in name) and (name.endswith(".pth")):
-                self.pth_files.append(name)
+        self.dir_index = {k: sorted(v) for k, v in self.dir_index.items()}
 
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
@@ -514,14 +482,17 @@ class ConcurrentZipFile(ZipFile):
         with self.lock:
             return ZipFile.read(self, member)
 
+    def exists(self, path):
+        if self.isdir(path):
+            return True
+        try:
+            self.getinfo(path)
+            return True
+        except KeyError:
+            return False
+
     def isdir(self, path):
-        path = path.rstrip("/")
-        return (path in self.dir_index)
+        return path.rstrip("/") in self.dir_index
 
     def listdir(self, path):
-        path = path.rstrip("/")
-        return sorted(self.dir_index[path])
-
-
-class InvalidAssetPathError(ValueError):
-    pass
+        return self.dir_index[path.rstrip("/")]

@@ -58,24 +58,22 @@ class TestAndroidPlatform(unittest.TestCase):
                          else "32bit")
 
 
-# These tests assume the app contains at least 2 ABIs, because otherwise all requirements would
-# be packaged in the `common` ZIP.
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
-        self.check_module("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
-                          package_path=[asset_path(zip, "markupsafe")
-                                        for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]],
-                          source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
+        self.check_py("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
+                      is_package=True,
+                      source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
 
     def test_py(self):
         # Despite its name, this is a pure Python module.
-        mod_name = "markupsafe._native"
-        filename = "markupsafe/_native.py"
-        cache_filename = asset_cache(REQS_COMMON_ZIP, cache_from_source(filename))
-        mod = self.check_module(
-            mod_name, REQS_COMMON_ZIP, filename,
-            source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
+        self.check_py("markupsafe._native", REQS_COMMON_ZIP, "markupsafe/_native.py",
+                      source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
+
+    def check_py(self, mod_name, zip_name, zip_path, **kwargs):
+        filename = asset_path(zip_name, zip_path)
+        cache_filename = cache_from_source(filename)
+        mod = self.check_module(mod_name, filename, cache_filename=cache_filename, **kwargs)
 
         mod.foo = 1
         delattr(mod, "escape")
@@ -83,9 +81,11 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(1, mod.foo)
         self.assertTrue(hasattr(mod, "escape"))
 
-        # A valid .pyc should not be written again.
-        with self.set_mode(cache_filename, "444"):
+        # A valid .pyc should not be written again. (We can't use the set_mode technique here
+        # because failure to write a .pyc is silently ignored.)
+        with self.assertNotModifies(cache_filename):
             mod = self.clean_reload(mod)
+        self.assertFalse(hasattr(mod, "foo"))
 
         # And if the header matches, the code in the .pyc should be used, whatever it is.
         header = self.read_pyc_header(cache_filename)
@@ -93,7 +93,6 @@ class TestAndroidImport(unittest.TestCase):
             pyc_file.write(header)
             code = compile("foo = 2", "<test>", "exec")
             marshal.dump(code, pyc_file)
-        self.assertFalse(hasattr(mod, "foo"))  # Should have been removed by clean_reload.
         mod = self.clean_reload(mod)
         self.assertEqual(2, mod.foo)
         self.assertFalse(hasattr(mod, "escape"))
@@ -102,7 +101,8 @@ class TestAndroidImport(unittest.TestCase):
         new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
         self.assertNotEqual(new_header, header)
         self.write_pyc_header(cache_filename, new_header)
-        self.clean_reload(mod)
+        with self.assertModifies(cache_filename):
+            self.clean_reload(mod)
         self.assertEqual(header, self.read_pyc_header(cache_filename))
 
     def read_pyc_header(self, filename):
@@ -116,12 +116,31 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_so(self):
         reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
-        mod_name = "markupsafe._speedups"
-        filename = "markupsafe/_speedups.so"
-        mod = self.check_module(mod_name, reqs_zip, filename)
-        self.check_extract_if_changed(mod, asset_cache(reqs_zip, filename))
+        filename = asset_path(reqs_zip, "markupsafe/_speedups.so")
+        mod = self.check_module("markupsafe._speedups", filename)
+        self.check_extract_if_changed(mod, filename)
+
+    def test_get_data(self):
+        import murmurhash.about
+        loader = murmurhash.about.__loader__
+        zip_name = REQS_COMMON_ZIP
+        data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
+        self.assertTrue(data.startswith(
+            b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
+        with self.assertRaisesRegexp(ValueError,
+                                     r"AssetFinder\('{}'\) can't access '/invalid.py'"
+                                     .format(asset_path(zip_name, "murmurhash"))):
+            loader.get_data("/invalid.py")
+        with self.assertRaisesRegexp(FileNotFoundError, "invalid.py"):
+            loader.get_data(asset_path(zip_name, "invalid.py"))
 
     def check_extract_if_changed(self, mod, cache_filename):
+        # A missing file should be extracted.
+        if exists(cache_filename):
+            os.remove(cache_filename)
+        mod = self.clean_reload(mod)
+        self.assertPredicate(exists, cache_filename)
+
         # An unchanged file should not be extracted again.
         with self.set_mode(cache_filename, "444"):
             mod = self.clean_reload(mod)
@@ -150,22 +169,23 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNot(new_mod, mod)
         return new_mod
 
-    def check_module(self, mod_name, zip_name, filename, package_path=None, source_head=None):
-        cache_filename = asset_cache(zip_name, filename)
-        if cache_filename.endswith(".py"):
-            cache_filename = cache_from_source(cache_filename)
+    def check_module(self, mod_name, filename, *, cache_filename=None, is_package=False,
+                     source_head=None):
+        # A missing cache file should be created.
+        if cache_filename is None:
+            cache_filename = filename
         if exists(cache_filename):
             os.remove(cache_filename)
-        sys.modules.pop(mod_name, None)  # Force reload, to check cache file is recreated.
+        sys.modules.pop(mod_name, None)
         mod = import_module(mod_name)
-        self.assertTrue(exists(cache_filename), cache_filename)
+        self.assertPredicate(exists, cache_filename)
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
-        self.assertEqual(join(asset_path(zip_name), filename), mod.__file__)
+        self.assertEqual(filename, mod.__file__)
         self.assertEqual(filename.endswith(".so"), exists(mod.__file__))
-        if package_path:
-            self.assertEqual(package_path, mod.__path__)
+        if is_package:
+            self.assertEqual([dirname(filename)], mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
         else:
             self.assertFalse(hasattr(mod, "__path__"))
@@ -173,18 +193,8 @@ class TestAndroidImport(unittest.TestCase):
         loader = mod.__loader__
         self.assertIsInstance(loader, importer.AssetLoader)
 
-        # Optional loader methods
-        if zip_name == REQS_COMMON_ZIP:
-            data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
-            self.assertTrue(data.startswith(
-                b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
-        with self.assertRaisesRegexp(OSError, r"<AssetFinder\('{}'\)> can't access '/invalid.py'"
-                                     .format(asset_path(zip_name, *mod_name.split(".")[:-1]))):
-            loader.get_data("/invalid.py")
-        with self.assertRaisesRegexp(OSError, "There is no item named 'invalid.py' in the archive"):
-            loader.get_data(asset_path(zip_name, "invalid.py"))
-
-        self.assertEqual(bool(package_path), loader.is_package(mod_name))
+        # Loader methods (get_data is tested elsewhere)
+        self.assertEqual(is_package, loader.is_package(mod_name))
         self.assertIsInstance(loader.get_code(mod_name),
                               types.CodeType if filename.endswith(".py") else type(None))
         source = loader.get_source(mod_name)
@@ -269,14 +279,13 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_extract_package(self):
         self.check_extracted_module("certifi", REQS_COMMON_ZIP, "certifi/__init__.py",
-                                    package_path=[asset_path(zip, "certifi")
-                                                  for zip in [REQS_COMMON_ZIP, REQS_ABI_ZIP]])
+                                    is_package=True)
         self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
 
         import certifi
         certifi_dir = dirname(certifi.__file__)
         cacert_filename = join(certifi_dir, "cacert.pem")
-        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        self.assertEqual(asset_path(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
         with open(cacert_filename) as cacert_file:
             self.check_cacert(cacert_file.read())
         self.check_cacert(pkgutil.get_data("certifi", "cacert.pem").decode())
@@ -287,19 +296,19 @@ class TestAndroidImport(unittest.TestCase):
                          content.splitlines()[1])
 
     def test_extract_native_package(self):
-        # TODO #5513: these should be extracted to the same place.
         self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
         self.check_extracted_module("murmurhash.mrmr",
                                     REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP,
                                     "murmurhash/mrmr.so")
 
-    def check_extracted_module(self, mod_name, zip_name, filename, package_path=None):
+    def check_extracted_module(self, mod_name, zip_name, filename, *, is_package=False):
+        abs_filename = asset_path(zip_name, filename)
         mod = import_module(mod_name)
         self.assertEqual(mod_name, mod.__name__)
-        self.assertEqual(asset_cache(zip_name, filename), mod.__file__)
+        self.assertEqual(abs_filename, mod.__file__)
         self.assertTrue(isfile(mod.__file__))
-        if package_path:
-            self.assertEqual(package_path, mod.__path__)
+        if is_package:
+            self.assertEqual([dirname(abs_filename)], mod.__path__)
             self.assertEqual(mod_name, mod.__package__)
         else:
             self.assertFalse(hasattr(mod, "__path__"))
@@ -470,24 +479,50 @@ class TestAndroidImport(unittest.TestCase):
 
         # Non-extracted package
         a_filename = pr.resource_filename(__package__, "resources/a.txt")
-        self.assertEqual(asset_cache(APP_ZIP, "chaquopy/test/resources/a.txt"), a_filename)
+        self.assertEqual(asset_path(APP_ZIP, "chaquopy/test/resources/a.txt"), a_filename)
         self.assertFalse(exists(a_filename))
 
         # Extracted package
         cacert_filename = pr.resource_filename("certifi", "cacert.pem")
-        self.assertEqual(asset_cache(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
+        self.assertEqual(asset_path(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
         with open(cacert_filename) as cacert_file:
             self.check_cacert(cacert_file.read())
 
+    def assertModifies(self, filename):
+        return self.check_modifies(self.assertNotEqual, filename)
 
-# This is the path used on sys.path. It used to be in a special format starting
-# "/android_asset", but is now just the same as the cache location.
-def asset_path(*paths):
-    return asset_cache(*paths)
+    def assertNotModifies(self, filename):
+        return self.check_modifies(self.assertEqual, filename)
 
-# This is the real path where packages are extracted and cached.
-def asset_cache(*paths):
-    return join(context.getCacheDir().toString(), "chaquopy/AssetFinder", *paths)
+    @contextmanager
+    def check_modifies(self, assertion, filename):
+        # The Android filesystem may only have 1-second resolution, and Device File Explorer
+        # only has 1-minute resolution, so we need to set the mtime to something at least that
+        # far away from the current time.
+        original_mtime = os.stat(filename).st_mtime
+        test_mtime = original_mtime - 60
+        os.utime(filename, (test_mtime, test_mtime))
+        try:
+            yield
+            assertion(test_mtime, os.stat(filename).st_mtime)
+        finally:
+            os.utime(filename, (original_mtime, original_mtime))
+
+    def assertPredicate(self, f, *args):
+        self.check_predicate(self.assertTrue, f, *args)
+
+    def assertNotPredicate(self, f, *args):
+        self.check_predicate(self.assertFalse, f, *args)
+
+    def check_predicate(self, assertion, f, *args):
+        assertion(f(*args), f"{f.__name__}{args!r}")
+
+
+def asset_path(zip_name, *paths):
+    return join(context.getCacheDir().toString(),
+                "chaquopy/AssetFinder",
+                os.path.splitext(zip_name)[0].partition("-")[0],
+                *paths)
 
 
 class TestAndroidStdlib(unittest.TestCase):

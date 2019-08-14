@@ -128,10 +128,9 @@ public class AndroidPlatform extends Python.Platform {
         // These assets will be added to the start of sys.path using AssetFinder paths,
         // so their content will be extracted on demand.
         String[] appPath = {
-            Common.assetZip(Common.ASSET_APP),
-            Common.assetZip(Common.ASSET_REQUIREMENTS, Common.ABI_COMMON),
-            Common.assetZip(Common.ASSET_REQUIREMENTS, ABI),
-            Common.assetZip(Common.ASSET_STDLIB, ABI),
+            Common.ASSET_APP,
+            Common.ASSET_REQUIREMENTS,
+            Common.ASSET_STDLIB + "-" + ABI,
         };
         py.getModule("java.android").callAttr("initialize", mContext, buildJson, appPath);
     }

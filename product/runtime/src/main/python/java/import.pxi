@@ -110,8 +110,6 @@ cdef resolve_name(name, globals, level):
 
 
 class AssetFile(object):
-    # `path` is relative to the assets root. Raises java.io.IOException if the asset does not
-    # exist.
     def __init__(self, context, path):
         self.name = path
         self.stream = AssetFile_get_stream(context, path)
@@ -157,7 +155,11 @@ class AssetFile(object):
 
 IF CHAQUOPY_LICENSE_MODE not in ["ec"]:
     # Can't use the import statment in this function, or infinite recursion will happen during
-    # importer initialization.
-    def AssetFile_get_stream(context, s):
+    # finder initialization.
+    def AssetFile_get_stream(context, path):
         AssetManager = jclass("android.content.res.AssetManager")
-        return context.getAssets().open(s, AssetManager.ACCESS_RANDOM)
+        IOException = jclass("java.io.IOException")
+        try:
+            return context.getAssets().open(path, AssetManager.ACCESS_RANDOM)
+        except IOException:
+            raise FileNotFoundError(path)
