@@ -10,13 +10,6 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
     "cmake-example",
     "python-example",
 
-    // Not applicable to our Python version.
-    //
-    // scandir is not in this category, because even though it's unnecessary on Python 3.5 or
-    // later, it still provides an implementation on every Python version, which some apps may
-    // be using for consistency.
-    "subprocess32",
-
     // Very large and not that popular.
     "obspy",
     "spacy",  // Also requires `extractPackages "en_core_web_sm"`
@@ -44,8 +37,8 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
-        // To test only some packages, replace `null` with a list.
-        addPackages(delegate, include: null)
+        // To test everything except DEFAULT_EXCLUDE_PACKAGES, replace the list with `null`.
+        addPackages(delegate, [])
         python {
             pip {
                 // After a package is tested, remember to move it to the public repository!
@@ -81,9 +74,8 @@ android {
 }
 
 
-def addPackages(Map kwargs, flavor) {
+def addPackages(flavor, List<String> packages) {
     def inputDir = "../../packages"
-    List packages = kwargs.getOrDefault("include", null)
     if (packages == null) {
         packages = []
         for (f in file(inputDir).listFiles()) {
@@ -92,33 +84,33 @@ def addPackages(Map kwargs, flavor) {
             }
         }
     }
-    List exclude = kwargs.getOrDefault("exclude", [])
-    packages.removeIf({ exclude.contains(it) })
 
     def outputDir = "src/$flavor.name/python/chaquopy/test"
     delete(outputDir)
     mkdir(outputDir)
     String suiteSrc = ""
     for (pkgName in packages) {
-        def testPaths = ["test.py", "test"].collect { file("$inputDir/$pkgName/$it") }
-        for (testPath in testPaths) {
-            if (testPath.exists()) {
-                flavor.python.pip {
-                    install pkgName
-                    TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
-                }
-                def pkgModule = pkgName.replace('-', '_')
-                copy {
-                    from testPath.parentFile
-                    include "${testPath.name}/**"
-                    into outputDir
-                }
-                file("$outputDir/$testPath.name").renameTo(
-                    file("$outputDir/${testPath.name.replace('test', pkgModule)}"))
-                suiteSrc += "from .${pkgModule} import *\n"
-                break
-            }
+        def testPaths = ["test.py", "test"]
+            .collect { file("$inputDir/$pkgName/$it") }
+            .findAll { it.exists() }
+        if (testPaths.size() != 1) {
+            throw new GradleException("Found ${testPaths.size()} test files for $pkgName")
         }
+
+        def testPath = testPaths[0]
+        flavor.python.pip {
+            install pkgName
+            TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
+        }
+        def pkgModule = pkgName.replace('-', '_')
+        copy {
+            from testPath.parentFile
+            include "${testPath.name}/**"
+            into outputDir
+        }
+        file("$outputDir/$testPath.name").renameTo(
+            file("$outputDir/${testPath.name.replace('test', pkgModule)}"))
+        suiteSrc += "from .${pkgModule} import *\n"
     }
     file("$outputDir/__init__.py").text = suiteSrc
 }

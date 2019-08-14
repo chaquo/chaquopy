@@ -23,8 +23,9 @@ publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:
 
 ## Package tests
 
-Remove any license key from pkgtest app, then test it on the following devices, with at least
-one device being a clean install:
+Remove license key from pkgtest app, and temporarily set it to include all packages by passing
+`null` to `addPackages`. Then test it on the following devices, with at least one device being
+a clean install:
 
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
