@@ -37,15 +37,8 @@ public class AndroidPlatform extends Python.Platform {
     };
 
     private static final String[] OBSOLETE_CACHE = {
-        // Renamed back to .zip in 1.1.0.
-        "AssetFinder/app.mp3",
-        "AssetFinder/requirements.mp3",
-
-        // Split into requirements-common.zip and requirements-<abi>.zip in 2.1.0.
-        "AssetFinder/requirements.zip",
-
-        // Renamed to stdlib-<abi>.zip in 6.2.2.
-        "AssetFinder/<abi>.zip",
+        // Moved to from cache to files dir in 6.3.0
+        "AssetFinder"
     };
 
     /** @deprecated Internal use in chaquopy_java.pyx. */

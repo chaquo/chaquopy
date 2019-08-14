@@ -519,7 +519,7 @@ class TestAndroidImport(unittest.TestCase):
 
 
 def asset_path(zip_name, *paths):
-    return join(context.getCacheDir().toString(),
+    return join(context.getFilesDir().toString(),
                 "chaquopy/AssetFinder",
                 os.path.splitext(zip_name)[0].partition("-")[0],
                 *paths)

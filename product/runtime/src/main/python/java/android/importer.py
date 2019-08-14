@@ -39,9 +39,8 @@ def initialize_importlib(context, build_json, app_path):
     # Remove nonexistent default paths (#5410)
     sys.path = [p for p in sys.path if exists(p)]
 
-    # FIXME: move to getFilesDir in next commit (#5541), and add cleanup in AndroidPlatform.
     global ASSET_PREFIX
-    ASSET_PREFIX = join(context.getCacheDir().toString(), Common.ASSET_DIR, "AssetFinder")
+    ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
 
     ep_json = build_json.get("extractPackages")
     extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
@@ -215,9 +214,6 @@ class AssetFinder:
                 except FileNotFoundError:
                     continue
 
-                # FIXME verify this with first/second run performance test with pkgtest, and
-                # record numbers in repo.
-                #
                 # See also similar code in AndroidPlatform.java.
                 sp_key = "asset." + asset_name
                 new_hash = assets_json.get(asset_name)
