@@ -360,11 +360,10 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
         out_filename = self.extract_so()
         self.load_needed(out_filename)
-        # FIXME we need to load via out_filename for reason explained below (first check that
-        # pkgtest with h5py and pyzmq would have caught this). Still override __file__
-        # afterwards with the simple name in case code depends on it, and leave this sentence
-        # as note.
-        return super().create_module(spec)
+        spec.origin = out_filename
+        mod = super().create_module(spec)
+        mod.__file__ = self.path  # In case user code depends on the original name.
+        return mod
 
     # In API level 22 and older, when asked to load a library with the same basename as one
     # already loaded, the dynamic linker will return the existing library. Work around this by
