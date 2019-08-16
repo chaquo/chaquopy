@@ -76,8 +76,8 @@ Change log
   :any:`sysconfig.get_config_vars`.
 * Fix native crash in `lrintf` / `feholdexcept` / `fegetenv` (Crystax issue `#1369
   <https://tracker.crystax.net/issues/1369>`_).
-* Fix :any:`pkgutil.get_data` when used with :ref:`extractPackages <extractPackages>`, and
-  improve extractPackages performance.
+* Fix :any:`pkgutil.get_data` when used with `extractPackages`, and improve `extractPackages`
+  performance.
 
 3.3.0 (2018-06-20)
 ==================

@@ -10,10 +10,9 @@ from importlib import import_module, reload
 from importlib.util import cache_from_source
 import marshal
 import os
-from os.path import dirname, exists, isfile, join
+from os.path import dirname, exists, join
 import pkgutil
 import platform
-import re
 import shlex
 from subprocess import check_output
 import sys
@@ -74,6 +73,7 @@ class TestAndroidImport(unittest.TestCase):
         filename = asset_path(zip_name, zip_path)
         cache_filename = cache_from_source(filename)
         mod = self.check_module(mod_name, filename, cache_filename=cache_filename, **kwargs)
+        self.assertNotPredicate(exists, filename)
 
         mod.foo = 1
         delattr(mod, "escape")
@@ -120,19 +120,52 @@ class TestAndroidImport(unittest.TestCase):
         mod = self.check_module("markupsafe._speedups", filename)
         self.check_extract_if_changed(mod, filename)
 
-    def test_get_data(self):
+    def test_data(self):
+        # App ZIP
+        # .py files should never be extracted.
+        self.check_data(APP_ZIP, "chaquopy", "test/test_android.py",
+                        '"""This file tests internal details of AndroidPlatform.',
+                        extract=False)
+        # .so files should only be extracted when imported (see test_so).
+        self.check_data(APP_ZIP, "chaquopy", "test/resources/b.so", "bravo", extract=False)
+        # Other files should always be extracted.
+        self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", "alpha", extract=True)
+
+        # Requirements ZIP
+        self.check_data(REQS_COMMON_ZIP, "markupsafe", "_constants.py",
+                        '# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants',
+                        extract=False)
+        self.check_data(REQS_COMMON_ZIP, "certifi", "cacert.pem",
+                        "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
+                        extract=True)
+
         import murmurhash.about
         loader = murmurhash.about.__loader__
         zip_name = REQS_COMMON_ZIP
-        data = loader.get_data(asset_path(zip_name, "markupsafe/_constants.py"))
-        self.assertTrue(data.startswith(
-            b'# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants\n'), repr(data))
         with self.assertRaisesRegexp(ValueError,
                                      r"AssetFinder\('{}'\) can't access '/invalid.py'"
                                      .format(asset_path(zip_name, "murmurhash"))):
             loader.get_data("/invalid.py")
         with self.assertRaisesRegexp(FileNotFoundError, "invalid.py"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
+
+    def check_data(self, zip_name, package, filename, start, *, extract):
+        # Extraction is triggered when the top-level package is imported.
+        self.assertNotIn(".", package)
+
+        mod = import_module(package)
+        data = pkgutil.get_data(package, filename)
+        if isinstance(start, str):
+            start = start.encode("UTF-8")
+        self.assertTrue(data.startswith(start))
+
+        cache_filename = asset_path(zip_name, package, filename)
+        if extract:
+            self.check_extract_if_changed(mod, cache_filename)
+            with open(cache_filename, "rb") as cache_file:
+                self.assertEqual(data, cache_file.read())
+        else:
+            self.assertNotPredicate(exists, cache_filename)
 
     def check_extract_if_changed(self, mod, cache_filename):
         # A missing file should be extracted.
@@ -277,44 +310,6 @@ class TestAndroidImport(unittest.TestCase):
         else:
             self.fail()
 
-    def test_extract_package(self):
-        self.check_extracted_module("certifi", REQS_COMMON_ZIP, "certifi/__init__.py",
-                                    is_package=True)
-        self.check_extracted_module("certifi.core", REQS_COMMON_ZIP, "certifi/core.py")
-
-        import certifi
-        certifi_dir = dirname(certifi.__file__)
-        cacert_filename = join(certifi_dir, "cacert.pem")
-        self.assertEqual(asset_path(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
-        with open(cacert_filename) as cacert_file:
-            self.check_cacert(cacert_file.read())
-        self.check_cacert(pkgutil.get_data("certifi", "cacert.pem").decode())
-        self.check_extract_if_changed(certifi, cacert_filename)
-
-    def check_cacert(self, content):
-        self.assertEqual("# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
-                         content.splitlines()[1])
-
-    def test_extract_native_package(self):
-        self.check_extracted_module("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py")
-        self.check_extracted_module("murmurhash.mrmr",
-                                    REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP,
-                                    "murmurhash/mrmr.so")
-
-    def check_extracted_module(self, mod_name, zip_name, filename, *, is_package=False):
-        abs_filename = asset_path(zip_name, filename)
-        mod = import_module(mod_name)
-        self.assertEqual(mod_name, mod.__name__)
-        self.assertEqual(abs_filename, mod.__file__)
-        self.assertTrue(isfile(mod.__file__))
-        if is_package:
-            self.assertEqual([dirname(abs_filename)], mod.__path__)
-            self.assertEqual(mod_name, mod.__package__)
-        else:
-            self.assertFalse(hasattr(mod, "__path__"))
-            self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
-        self.assertIsInstance(mod.__loader__, importer.AssetLoader)
-
     def test_imp(self):
         self.longMessage = True
         with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent'"):
@@ -372,6 +367,8 @@ class TestAndroidImport(unittest.TestCase):
                         else:
                             self.assertEqual(expected_type, actual_type)
 
+    # This trick was used by Electron Cash to load modules under a different name. The Electron
+    # Cash Android app no longer needs it, but there may be other software which does.
     def test_imp_rename(self):
         # Renames in stdlib are not currently supported.
         with self.assertRaisesRegexp(ImportError, "zipimporter does not support loading module "
@@ -424,11 +421,9 @@ class TestAndroidImport(unittest.TestCase):
 
     # See src/test/python/test.pth.
     def test_pth(self):
-        import chaquopy
         import pth_generated
-        self.assertEqual([re.sub(r"/chaquopy$", "/pth_generated", entry)
-                          for entry in chaquopy.__path__],
-                         pth_generated.__path__)
+        self.assertFalse(hasattr(pth_generated, "__file__"))
+        self.assertEqual([asset_path(APP_ZIP, "pth_generated")], pth_generated.__path__)
         for entry in sys.path:
             self.assertNotIn("nonexistent", entry)
 
@@ -471,22 +466,25 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(pr.resource_isdir(__package__, "resources"))
         self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
 
-        self.assertCountEqual(["a.txt", "b.txt", "subdir"],
+        self.assertCountEqual(["a.txt", "b.so", "subdir"],
                               pr.resource_listdir(__package__, "resources"))
         self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
+        self.assertEqual(b"bravo\n", pr.resource_string(__package__, "resources/b.so"))
         self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
         self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
 
-        # Non-extracted package
+        # App ZIP
         a_filename = pr.resource_filename(__package__, "resources/a.txt")
         self.assertEqual(asset_path(APP_ZIP, "chaquopy/test/resources/a.txt"), a_filename)
-        self.assertFalse(exists(a_filename))
+        with open(a_filename) as a_file:
+            self.assertEqual("alpha\n", a_file.read())
 
-        # Extracted package
+        # Requirements ZIP
         cacert_filename = pr.resource_filename("certifi", "cacert.pem")
         self.assertEqual(asset_path(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
         with open(cacert_filename) as cacert_file:
-            self.check_cacert(cacert_file.read())
+            self.assertTrue(cacert_file.read().startswith(
+                "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA"))
 
     def assertModifies(self, filename):
         return self.check_modifies(self.assertNotEqual, filename)

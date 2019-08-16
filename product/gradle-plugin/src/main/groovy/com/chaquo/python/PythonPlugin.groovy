@@ -606,13 +606,11 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         assetTask(variant, "build") {
-            inputs.property("extractPackages", python.extractPackages)
             inputs.files(ticketTask, appAssetsTask, reqsAssetsTask, miscAssetsTask)
             doLast {
                 def buildJson = new JSONObject()
                 buildJson.put("assets", hashAssets(ticketTask, appAssetsTask, reqsAssetsTask,
                                                    miscAssetsTask))
-                buildJson.put("extractPackages", new JSONArray(python.extractPackages))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
@@ -763,38 +761,12 @@ class PythonPlugin implements Plugin<Project> {
 
 
 class PythonExtension extends BaseExtension {
-    static final def DEFAULT_EXTRACT_PACKAGES = [
-        "certifi",
-        "cv2.data",
-        "face_recognition_models",
-        "ipykernel",
-        "jedi.evaluate",
-        "matplotlib",       // Data (mostly fonts) is in a subdirectory "mpl-data", which is
-                            // not a valid package name, We could add a patch to rename it and
-                            // make this more specific, but it's probably not worth it because
-                            // it would still make up a large proportion of the wheel size.
-        "nbformat",
-        "notebook",
-        "obspy",  // Has data directories in many packages.
-        "parso",
-        "pytz",
-        "skimage.data", "skimage.io",
-        "sklearn.datasets",
-        "spacy.data",       // Depends on server/pypi/packages/spacy/patches/data.patch.
-        "theano",  // Could maybe make this more specific, but Theano has been abandoned, and
-                   // has unacceptable performance without a compiler anyway.
-    ]
-
     String buildPython
     Set<String> staticProxy = new TreeSet<>()
-    Set<String> extractPackages = new TreeSet<>()
     PipExtension pip = new PipExtension()
     PycExtension pyc = new PycExtension()
 
     void setDefaults() {
-        // `version` has no default: the user must specify it.
-        // `buildPython`'s default depends on the OS and the value of `version`.
-        extractPackages.addAll(DEFAULT_EXTRACT_PACKAGES)
         pip.setDefaults()
         pyc.setDefaults()
     }
@@ -826,14 +798,17 @@ class PythonExtension extends BaseExtension {
     }
     void buildPython(String bp)                 { buildPython = bp }
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
-    void extractPackages(String... packages)    { extractPackages.addAll(packages) }
     void pip(Closure closure)                   { applyClosure(pip, closure) }
     void pyc(Closure closure)                   { applyClosure(pyc, closure) }
+
+    void extractPackages(String... packages) {
+        println("Warning: Python 'extractPackages' setting is no longer required and should " +
+                "be removed from build.gradle.")
+    }
 
     void mergeFrom(PythonExtension overlay) {
         buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
         staticProxy.addAll(overlay.staticProxy)
-        extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)
         pyc.mergeFrom(overlay.pyc)
     }

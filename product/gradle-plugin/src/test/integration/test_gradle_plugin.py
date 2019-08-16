@@ -194,13 +194,13 @@ class ApiLevel(GradleTestCase):
 
 class PythonVersion(GradleTestCase):
     def test_warning(self):
+        message = ("Warning: Python 'version' setting is no longer required and should be "
+                   "removed from build.gradle.")
         run = self.RunGradle("base")
-        self.assertNotInLong("python.version", run.stdout)
-
+        self.assertNotInLong(message, run.stdout)
         run.apply_layers("PythonVersion/warning")
         run.rerun()
-        self.assertInLong("Warning: Python 'version' setting is no longer required and should be "
-                          "removed from build.gradle.", run.stdout)
+        self.assertInLong(message, run.stdout)
 
     def test_error(self):
         run = self.RunGradle("base", "PythonVersion/error", succeed=False)
@@ -341,20 +341,14 @@ class PythonSrc(GradleTestCase):
 
 
 class ExtractPackages(GradleTestCase):
-    def test_change(self):
-        run = self.RunGradle("base", "ExtractPackages/1", extract_packages=["alpha"])
-        run.apply_layers("ExtractPackages/2")
-        run.rerun(extract_packages=["alpha", "bravo.subpackage", "charlie"])
-
-    def test_variant(self):
-        self.RunGradle("base", "ExtractPackages/variant",
-                       variants={"red-debug": dict(extract_packages=["red"]),
-                                 "blue-debug": dict(extract_packages=["blue"])})
-
-    def test_variant_merge(self):
-        self.RunGradle("base", "ExtractPackages/variant_merge",
-                       variants={"red-debug": dict(extract_packages=["common"]),
-                                 "blue-debug": dict(extract_packages=["common", "blue"])})
+    def test_warning(self):
+        message = ("Warning: Python 'extractPackages' setting is no longer required and should "
+                   "be removed from build.gradle.")
+        run = self.RunGradle("base")
+        self.assertNotInLong(message, run.stdout)
+        run.apply_layers("ExtractPackages/warning")
+        run.rerun()
+        self.assertInLong(message, run.stdout)
 
 
 class Pyc(GradleTestCase):
@@ -933,7 +927,7 @@ class RunGradle(object):
     # post_check.
     @kwonly_defaults
     def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
-                  requirements=[], reqs_versions=None, extract_packages=[], licensed_id=None,
+                  requirements=[], reqs_versions=None, licensed_id=None,
                   **kwargs):
         kwargs = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs)
@@ -998,17 +992,9 @@ class RunGradle(object):
                               sorted(c for c in actual_classes if c.startswith("chaquopy_test")))
 
         # build.json
-        DEFAULT_EXTRACT_PACKAGES = [  # See PythonPlugin.groovy
-            "certifi", "cv2.data", "face_recognition_models", "ipykernel", "jedi.evaluate",
-            "matplotlib", "nbformat", "notebook", "obspy", "parso", "pytz", "skimage.data",
-            "skimage.io", "sklearn.datasets", "spacy.data", "theano"
-        ]
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
-        self.test.assertEqual(["assets", "extractPackages"], sorted(build_json))
-        if extract_packages is not None:
-            self.test.assertEqual(sorted(extract_packages + DEFAULT_EXTRACT_PACKAGES),
-                                  sorted(build_json["extractPackages"]))
+        self.test.assertEqual(["assets"], sorted(build_json))
         asset_list = []
         for dirpath, dirnames, filenames in os.walk(asset_dir):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")

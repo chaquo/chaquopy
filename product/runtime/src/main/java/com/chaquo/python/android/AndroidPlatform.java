@@ -37,7 +37,7 @@ public class AndroidPlatform extends Python.Platform {
     };
 
     private static final String[] OBSOLETE_CACHE = {
-        // Moved to from cache to files dir in 6.3.0
+        // Moved from cache to files dir in 6.3.0
         "AssetFinder"
     };
 
@@ -133,7 +133,7 @@ public class AndroidPlatform extends Python.Platform {
         buildJson = new JSONObject(streamToString(am.open(buildJsonPath)));
         JSONObject assetsJson = buildJson.getJSONObject("assets");
 
-        // AssetManager.list() is extremely slow (20 ms per call on the API 23 emulator), so
+        // AssetManager.list() is surprisingly slow (20 ms per call on the API 23 emulator), so
         // we'll avoid using it.
         Set<String> unextracted = new HashSet<>(assets);
         SharedPreferences.Editor spe = sp.edit();

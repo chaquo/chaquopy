@@ -13,10 +13,10 @@ import os.path
 from os.path import basename, dirname, exists, join, relpath
 from pkgutil import get_importer
 from shutil import rmtree
+import site
 import sys
 import time
 from threading import RLock
-from traceback import format_exc
 from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
@@ -41,10 +41,7 @@ def initialize_importlib(context, build_json, app_path):
 
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
-
-    ep_json = build_json.get("extractPackages")
-    extract_packages = set(ep_json.get(i) for i in range(ep_json.length()))
-    sys.path_hooks.insert(0, partial(AssetFinder, context, extract_packages, build_json))
+    sys.path_hooks.insert(0, partial(AssetFinder, context, build_json))
 
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
@@ -53,29 +50,15 @@ def initialize_importlib(context, build_json, app_path):
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
 
-        # FIXME: once .pth files are extracted during startup, replace this with a call to
-        # site.addpackage immediately after that.
-        sitedir = finder.path  # noqa: F841 (see note above)
-        for pth_filename in finder.listdir("/"):
-            if not pth_filename.endswith(".pth"):
-                continue
-            pth_content = finder.get_data(pth_filename).decode("UTF-8")
-            for line_no, line in enumerate(pth_content.splitlines(), start=1):
-                try:
-                    line = line.strip()
-                    if (not line) or line.startswith("#"):
-                        pass
-                    elif line.startswith(("import ", "import\t")):
-                        exec(line, {})
-                    else:
-                        # We don't add anything to sys.path: there's no way it could possibly work.
-                        pass
-                except Exception:
-                    print("Error processing line {} of {}/{}: {}"
-                          .format(line_no, finder.path, pth_filename, format_exc()),
-                          file=sys.stderr)
-                    print("Remainder of file ignored", file=sys.stderr)
-                    break
+        # Extract .pth files and any other data files in the root directory.
+        finder.extract_dir("", recursive=False)
+
+        # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
+        # require the finder to be fully available to the system, which isn't the case until
+        # get_importer returns.
+        for name in finder.listdir(""):
+            if name.endswith(".pth"):
+                site.addpackage(finder.extract_root, name, set())
 
 
 def initialize_imp():
@@ -162,7 +145,7 @@ def initialize_pkg_resources():
     import pkg_resources
 
     def distribution_finder(finder, entry, only):
-        for name in finder.listdir("/"):
+        for name in finder.listdir(""):
             if name.endswith(".dist-info"):
                 yield pkg_resources.Distribution.from_location(entry, name)
 
@@ -187,19 +170,18 @@ def initialize_pkg_resources():
 
 
 class AssetFinder:
-    def __init__(self, context, extract_packages, build_json, path):
+    def __init__(self, context, build_json, path):
         if not path.startswith(ASSET_PREFIX + "/"):
             raise ImportError(f"not an asset path: '{path}'")
-
         self.context = context  # Also used in tests.
-        self.extract_packages = extract_packages
         self.path = path
 
-        sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
-        assets_json = build_json.get("assets")
-        if dirname(path) == ASSET_PREFIX:  # Root finder
+        parent_path = dirname(path)
+        if parent_path == ASSET_PREFIX:  # Root finder
             self.extract_root = path
             self.prefix = ""
+            sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
+            assets_json = build_json.get("assets")
 
             # To allow modules in both requirements ZIPs to access data files from the other
             # ZIP, we extract both ZIPs to the same directory, and make both ZIPs generate
@@ -225,7 +207,7 @@ class AssetFinder:
             if not self.zip_files:
                 raise FileNotFoundError(path)
         else:
-            parent = get_importer(dirname(path))
+            parent = get_importer(parent_path)
             self.extract_root = parent.extract_root
             self.prefix = relpath(path, self.extract_root)
             self.zip_files = parent.zip_files
@@ -257,7 +239,7 @@ class AssetFinder:
                         zip_info = zf.getinfo(prefix + infix + suffix)
                     except KeyError:
                         continue
-                    if infix == "/__init__" and mod_name in self.extract_packages:
+                    if (infix == "/__init__") and ("." not in mod_name):
                         self.extract_dir(prefix)
                     return loader_cls(self, mod_name, zip_info)
         return None
@@ -276,12 +258,13 @@ class AssetFinder:
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
-    def extract_dir(self, zip_dir):
+    def extract_dir(self, zip_dir, recursive=True):
         for filename in self.listdir(zip_dir):
             zip_path = join(zip_dir, filename)
             if self.isdir(zip_path):
-                self.extract_dir(zip_path)
-            else:
+                if recursive:
+                    self.extract_dir(zip_path)
+            elif not any(filename.endswith(suffix) for suffix, _ in LOADERS):
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
@@ -427,18 +410,19 @@ class ConcurrentZipFile(ZipFile):
         ZipFile.__init__(self, *args, **kwargs)
         self.lock = RLock()
 
-        # ZIP files *may* have individual entries for directories, but we can't rely on it,
-        # so we build an index to support `isdir` and `listdir`.
         self.dir_index = {"": set()}  # Provide empty listing for root even if ZIP is empty.
         for name in self.namelist():
-            parts = name.rstrip("/").split("/")
+            # If `name` ends with a slash, it represents a directory. However, not all ZIP
+            # files contain these entries.
+            parts = name.split("/")
             while parts:
                 parent = "/".join(parts[:-1])
                 if parent in self.dir_index:
                     self.dir_index[parent].add(parts[-1])
                     break
                 else:
-                    self.dir_index[parent] = set([parts.pop()])
+                    base_name = parts.pop()
+                    self.dir_index[parent] = set([base_name] if base_name else [])
         self.dir_index = {k: sorted(v) for k, v in self.dir_index.items()}
 
     def extract(self, member, target_dir):
