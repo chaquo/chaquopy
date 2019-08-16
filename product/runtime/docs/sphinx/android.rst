@@ -282,17 +282,19 @@ Packaging
 Bytecode compilation
 --------------------
 
-Your app will start up faster if its Python code is compiled to `.pyc` format. This is
-currently only supported for the Python standard library, but may be extended to app code and
-pip-installed packages in a future version.
+Your app will start up faster if its Python code is compiled to `.pyc` format. This is enabled
+by default for pip-installed :ref:`requirements <android-requirements>`, and the Python
+standard library. (It may be extended to :ref:`local source code <android-source>` in a future
+version.)
 
-Compilation prevents source code text from appearing in Python stack traces, so you may wish
-to disable it during development. The default settings are as follows::
+Compilation prevents source code text from appearing in stack traces, so during development you
+may wish to disable it as follows::
 
     defaultConfig {
         python {
             pyc {
-                stdlib true
+                pip false
+                stdlib false
             }
         }
     }

@@ -350,8 +350,10 @@ class PythonPlugin implements Plugin<Project> {
                     execBuildPython(python, buildPackagesTask) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
-                        args "--android-abis"
-                        args abis
+                        args("--android-abis", *abis)
+                        if (python.pyc.pip != null) {
+                            args "--pyc", python.pyc.pip
+                        }
                         args reqsArgs
                         args "--"
                         args "--chaquopy", PLUGIN_VERSION
@@ -372,7 +374,6 @@ class PythonPlugin implements Plugin<Project> {
                         args "--implementation", Common.PYTHON_IMPLEMENTATION
                         args "--python-version", Common.PYTHON_VERSION
                         args "--abi", Common.PYTHON_ABI
-                        args "--no-compile"
                         args python.pip.options
                     }
                 }
@@ -450,7 +451,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
-        final def ADVICE = "set python.buildPython to your Python executable path."
+        final def ADVICE = "set python.buildPython to your Python executable path. See " +
+                           "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
         ExecResult execResult = null
         try {
             execResult = project.exec {
@@ -849,21 +851,29 @@ class PipExtension extends BaseExtension {
 
 
 class PycExtension extends BaseExtension {
+    Boolean pip
     Boolean stdlib
 
     void setDefaults() {
+        pip = null
         stdlib = true
     }
 
+    void pip(boolean s) { pip = s }
     void stdlib(boolean s) { stdlib = s }
 
     void mergeFrom(PycExtension overlay) {
+        pip = chooseNotNull(overlay.pip, pip)
         stdlib = chooseNotNull(overlay.stdlib, stdlib)
     }
 }
 
 
 class BaseExtension implements Serializable {
+    // If a setting's default value is not null or empty, we can't just set it in a field
+    // initializer, because then a value explicitly set by the user in defaultConfig could be
+    // overridden by a default value from a product flavor. Instead, such values are set in
+    // this method, which is only called on defaultConfig.
     void setDefaults() {}
 
     static void applyClosure(BaseExtension be, Closure closure) {
