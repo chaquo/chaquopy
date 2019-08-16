@@ -12,7 +12,7 @@ import io
 import os.path
 from os.path import basename, dirname, exists, join, relpath
 from pkgutil import get_importer
-from shutil import rmtree
+from shutil import copyfileobj, rmtree
 import site
 import sys
 import time
@@ -38,6 +38,11 @@ def initialize(context, build_json, app_path):
 def initialize_importlib(context, build_json, app_path):
     # Remove nonexistent default paths (#5410)
     sys.path = [p for p in sys.path if exists(p)]
+
+    # The default copyfileobj buffer size is 16 KB, which significantly slows down extraction
+    # of large files because each call to AssetFile.read is relatively expensive.
+    assert len(copyfileobj.__defaults__) == 1
+    copyfileobj.__defaults__ = (1024 * 1024,)
 
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
@@ -442,8 +447,7 @@ class ConcurrentZipFile(ZipFile):
     #
     # However, since we're resetting all ZIP timestamps for a reproducible build, we can't rely
     # on them to tell us which files have changed after an app update. Instead,
-    # initialize_importlib just removes the whole cache directory if its corresponding ZIP has
-    # changed.
+    # AssetFinder.__init__ just removes the whole extract_root if any of its ZIPs have changed.
     def extract_if_changed(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
