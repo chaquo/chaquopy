@@ -7,18 +7,18 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 3.1.x and 3.5.x. This is specified as
+* Android Gradle plugin version should be between 3.1 and 3.5. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
 
-  Older versions as far back as 2.2.x are supported by older versions of Chaquopy: for details,
-  see :doc:`this page <../versions>`.
+  Older versions as far back as 2.2 are supported by older versions of Chaquopy: see :doc:`this
+  page <../versions>`.
 
 .. (extra space for consistency)
 
 * `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
-  be at least 15 (Android 4.0.3).
+  be at least 16.
 
 
 Basic setup
@@ -104,10 +104,11 @@ download pre-compiled CPython binaries for the selected ABIs.
                   }
               }
 
-Development
-===========
 
 .. _buildPython:
+
+Development
+===========
 
 Some features require Python 3.4 or later to be available on the build machine. By default,
 Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
@@ -282,22 +283,35 @@ Packaging
 Bytecode compilation
 --------------------
 
-Your app will start up faster if its Python code is compiled to `.pyc` format. This is enabled
-by default for pip-installed :ref:`requirements <android-requirements>`, and the Python
-standard library. (It may be extended to :ref:`local source code <android-source>` in a future
-version.)
+Your app will start up faster if its Python code is compiled to `.pyc` format, so this is
+enabled by default.
 
 Compilation prevents source code text from appearing in stack traces, so during development you
-may wish to disable it as follows::
+may wish to disable it. There are individual settings for:
+
+* `src`: :ref:`local source code <android-source>`
+* `pip`: :ref:`requirements <android-requirements>`
+* `stdlib`: the Python standard library
+
+For example, to disable compilation of your local source code::
 
     defaultConfig {
         python {
             pyc {
-                pip false
-                stdlib false
+                src false
             }
         }
     }
+
+In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
+bytecode format as :doc:`Chaquopy's own Python version <../versions>`. Usually this means it
+must have the same minor version, e,g. if Chaquopy is using Python 3.6.5, then `buildPython`
+can be any version of Python 3.6.
+
+If the bytecode formats do not match, the build will continue with a warning, unless you've
+explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will
+have to be compiled on the target device, which means it will start up slower and use more
+storage space.
 
 
 Python standard library

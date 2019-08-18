@@ -9,6 +9,11 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
+        python {
+            pip {
+                install "six"
+            }
+        }
         ndk {
             abiFilters "x86"
         }
@@ -19,13 +24,21 @@ android {
         red {
             dimension "color"
             python {
-                pyc { stdlib true }
+                pyc {
+                    src true
+                    pip true
+                    stdlib true
+                }
             }
         }
         blue {
             dimension "color"
             python {
-                pyc { stdlib false }
+                pyc {
+                    src false
+                    pip false
+                    stdlib false
+                }
             }
         }
     }

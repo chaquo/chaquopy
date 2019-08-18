@@ -15,7 +15,6 @@ from collections import namedtuple
 import email.parser
 from glob import glob
 import hashlib
-import importlib.util
 import logging.config
 import os
 from os.path import abspath, dirname, exists, isdir, join
@@ -38,8 +37,6 @@ ABI_API_LEVELS = {
     "x86_64": 21,
 }
 
-RUNTIME_MAGIC_NUMBER = b'3\r\r\n'
-
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +55,6 @@ class PipInstall(object):
             abi_trees = {}
 
             # Install the first ABI.
-            self.check_pyc()
             abi = self.android_abis[0]
             req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)
             self.move_pure([ri.tree for ri in req_infos if ri.is_pure], abi, abi_trees[abi])
@@ -81,20 +77,6 @@ class PipInstall(object):
         except CommandError as e:
             logger.error(str(e))
             sys.exit(1)
-
-    def check_pyc(self):
-        if self.pyc == "false":
-            self.pip_options.append("--no-compile")
-        else:
-            if importlib.util.MAGIC_NUMBER != RUNTIME_MAGIC_NUMBER:
-                message = ("Can't make .pyc files with buildPython version {}.{}.{}. See "
-                           "https://chaquo.com/chaquopy/doc/current/android.html"
-                           "#android-bytecode.").format(*sys.version_info[:3])
-                if self.pyc == "true":
-                    raise CommandError(message)
-                else:
-                    print("Warning: " + message)
-                    self.pip_options.append("--no-compile")
 
     # pip makes no attempt to check for multiple packages providing the same filename, so the
     # version we end up with will be the one that pip installed last. We therefore treat a
@@ -226,7 +208,6 @@ class PipInstall(object):
         ap = argparse.ArgumentParser()
         ap.add_argument("--target", metavar="DIR", type=abspath, required=True)
         ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
-        ap.add_argument("--pyc", choices=["true", "false"])
 
         # Passing the requirements this way ensures their order is maintained on the pip install
         # command line, which may be significant because of pip's simple-minded dependency

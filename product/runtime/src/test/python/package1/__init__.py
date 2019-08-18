@@ -1,4 +1,4 @@
-# This package is used by chaquopy.test.test_import.
+# This package is used by chaquopy.test.test_android.
 
 
 # Test relative imports from a first-level package (package1/package11/__init__.py
@@ -28,7 +28,7 @@ def test_relative(self):
     # Error wording varies across Python versions.
     with self.assertRaisesRegexp(ValueError,
                                  r"^[Aa]ttempted relative import beyond top(-?)level package$"):
-        from .. import whatever
+        from .. import whatever  # noqa: F401
 
 
 def test_relative_implicit(self):

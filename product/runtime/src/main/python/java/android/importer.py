@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import _imp
 from calendar import timegm
 import ctypes
 from functools import partial
@@ -337,6 +338,19 @@ class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
                 "size": self.zip_info.file_size}
 
 
+# In case user code depends on the original source filename, we make sure it's used everywhere.
+class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
+    def exec_module(self, mod):
+        assert self.path.endswith(".pyc"), self.path
+        mod.__file__ = self.path[:-1]
+        return super().exec_module(mod)
+
+    def get_code(self, fullname):
+        code = super().get_code(fullname)
+        _imp._fix_co_filename(code, self.path[:-1])
+        return code
+
+
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     needed_lock = RLock()
     needed_loaded = {}
@@ -400,6 +414,7 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
 
 LOADERS = [
     (".py", SourceAssetLoader),
+    (".pyc", SourcelessAssetLoader),
     (".so", ExtensionAssetLoader),
     # No current need for a SourcelessFileLoader, since we never include .pyc files in the
     # assets.

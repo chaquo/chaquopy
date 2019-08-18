@@ -80,11 +80,7 @@ mkdir stdlib
 # Run compileall from the parent directory: that way the "stdlib/" prefix gets encoded into the
 # .pyc files and will appear in traceback messages.
 unzip -q "$stdlib_zip" -d stdlib
-compileall_args=""
-if echo "$short_ver" | grep -q "^3"; then
-    compileall_args="-b"  # zipimport doesn't support __pycache__ directories.
-fi
-"python$short_ver" -m compileall -q "$compileall_args" stdlib
+"python$short_ver" -m compileall -qb stdlib
 
 stdlib_pyc_zip="$target_prefix-stdlib-pyc.zip"
 rm -f "$stdlib_pyc_zip"

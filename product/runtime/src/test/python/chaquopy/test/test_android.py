@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function
 from contextlib import contextmanager
 import imp
 from importlib import import_module, reload
-from importlib.util import cache_from_source
+from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
 from os.path import dirname, exists, join
@@ -60,50 +60,58 @@ class TestAndroidPlatform(unittest.TestCase):
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
-        self.check_py("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py",
+        self.check_py("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py", "escape",
+                      is_package=True)
+        self.check_py("package1", APP_ZIP, "package1/__init__.py", "test_relative",
                       is_package=True,
-                      source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe\n')
+                      source_head="# This package is used by chaquopy.test.test_android.")
 
     def test_py(self):
-        # Despite its name, this is a pure Python module.
-        self.check_py("markupsafe._native", REQS_COMMON_ZIP, "markupsafe/_native.py",
-                      source_head='# -*- coding: utf-8 -*-\n"""\n    markupsafe._native\n')
+        self.check_py("markupsafe._native", REQS_COMMON_ZIP, "markupsafe/_native.py", "escape")
+        self.check_py("package1.package11.python", APP_ZIP, "package1/package11/python.py",
+                      "x", source_head='x = "python 11"')
 
-    def check_py(self, mod_name, zip_name, zip_path, **kwargs):
+    def check_py(self, mod_name, zip_name, zip_path, existing_attr, **kwargs):
         filename = asset_path(zip_name, zip_path)
-        cache_filename = cache_from_source(filename)
-        mod = self.check_module(mod_name, filename, cache_filename=cache_filename, **kwargs)
+        # In build.gradle, .pyc pre-compilation is enabled for everything except app.zip.
+        cache_filename = cache_from_source(filename) if (zip_name == APP_ZIP) else None
+        mod = self.check_module(mod_name, filename, cache_filename, **kwargs)
         self.assertNotPredicate(exists, filename)
+        if cache_filename is None:
+            self.assertNotPredicate(exists, cache_from_source(filename))
 
-        mod.foo = 1
-        delattr(mod, "escape")
-        reload(mod)
-        self.assertEqual(1, mod.foo)
-        self.assertTrue(hasattr(mod, "escape"))
+        new_attr = "check_py_attr"
+        self.assertFalse(hasattr(mod, new_attr))
+        setattr(mod, new_attr, 1)
+        delattr(mod, existing_attr)
+        reload(mod)  # Should reuse existing module object.
+        self.assertEqual(1, getattr(mod, new_attr))
+        self.assertTrue(hasattr(mod, existing_attr))
 
-        # A valid .pyc should not be written again. (We can't use the set_mode technique here
-        # because failure to write a .pyc is silently ignored.)
-        with self.assertNotModifies(cache_filename):
+        if cache_filename:
+            # A valid .pyc should not be written again. (We can't use the set_mode technique
+            # here because failure to write a .pyc is silently ignored.)
+            with self.assertNotModifies(cache_filename):
+                mod = self.clean_reload(mod)
+            self.assertFalse(hasattr(mod, new_attr))
+
+            # And if the header matches, the code in the .pyc should be used, whatever it is.
+            header = self.read_pyc_header(cache_filename)
+            with open(cache_filename, "wb") as pyc_file:
+                pyc_file.write(header)
+                code = compile(f"{new_attr} = 2", "<test>", "exec")
+                marshal.dump(code, pyc_file)
             mod = self.clean_reload(mod)
-        self.assertFalse(hasattr(mod, "foo"))
+            self.assertEqual(2, getattr(mod, new_attr))
+            self.assertFalse(hasattr(mod, existing_attr))
 
-        # And if the header matches, the code in the .pyc should be used, whatever it is.
-        header = self.read_pyc_header(cache_filename)
-        with open(cache_filename, "wb") as pyc_file:
-            pyc_file.write(header)
-            code = compile("foo = 2", "<test>", "exec")
-            marshal.dump(code, pyc_file)
-        mod = self.clean_reload(mod)
-        self.assertEqual(2, mod.foo)
-        self.assertFalse(hasattr(mod, "escape"))
-
-        # A .pyc with mismatching header timestamp should be written again.
-        new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
-        self.assertNotEqual(new_header, header)
-        self.write_pyc_header(cache_filename, new_header)
-        with self.assertModifies(cache_filename):
-            self.clean_reload(mod)
-        self.assertEqual(header, self.read_pyc_header(cache_filename))
+            # A .pyc with mismatching header timestamp should be written again.
+            new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
+            self.assertNotEqual(new_header, header)
+            self.write_pyc_header(cache_filename, new_header)
+            with self.assertModifies(cache_filename):
+                self.clean_reload(mod)
+            self.assertEqual(header, self.read_pyc_header(cache_filename))
 
     def read_pyc_header(self, filename):
         with open(filename, "rb") as pyc_file:
@@ -117,7 +125,7 @@ class TestAndroidImport(unittest.TestCase):
     def test_so(self):
         reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
         filename = asset_path(reqs_zip, "markupsafe/_speedups.so")
-        mod = self.check_module("markupsafe._speedups", filename)
+        mod = self.check_module("markupsafe._speedups", filename, filename)
         self.check_extract_if_changed(mod, filename)
 
     def test_data(self):
@@ -132,9 +140,9 @@ class TestAndroidImport(unittest.TestCase):
         self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", "alpha", extract=True)
 
         # Requirements ZIP
-        self.check_data(REQS_COMMON_ZIP, "markupsafe", "_constants.py",
-                        '# -*- coding: utf-8 -*-\n"""\n    markupsafe._constants',
+        self.check_data(REQS_COMMON_ZIP, "markupsafe", "_constants.pyc", MAGIC_NUMBER,
                         extract=False)
+        self.check_data(REQS_ABI_ZIP, "markupsafe", "_speedups.so", b"\x7fELF", extract=False)
         self.check_data(REQS_COMMON_ZIP, "certifi", "cacert.pem",
                         "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
                         extract=True)
@@ -150,8 +158,12 @@ class TestAndroidImport(unittest.TestCase):
             loader.get_data(asset_path(zip_name, "invalid.py"))
 
     def check_data(self, zip_name, package, filename, start, *, extract):
-        # Extraction is triggered when the top-level package is imported.
+        # Extraction is triggered only when a top-level package is imported.
         self.assertNotIn(".", package)
+
+        cache_filename = asset_path(zip_name, package, filename)
+        if exists(cache_filename):
+            os.remove(cache_filename)
 
         mod = import_module(package)
         data = pkgutil.get_data(package, filename)
@@ -159,7 +171,6 @@ class TestAndroidImport(unittest.TestCase):
             start = start.encode("UTF-8")
         self.assertTrue(data.startswith(start))
 
-        cache_filename = asset_path(zip_name, package, filename)
         if extract:
             self.check_extract_if_changed(mod, cache_filename)
             with open(cache_filename, "rb") as cache_file:
@@ -202,16 +213,15 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNot(new_mod, mod)
         return new_mod
 
-    def check_module(self, mod_name, filename, *, cache_filename=None, is_package=False,
+    def check_module(self, mod_name, filename, cache_filename, *, is_package=False,
                      source_head=None):
-        # A missing cache file should be created.
-        if cache_filename is None:
-            cache_filename = filename
-        if exists(cache_filename):
-            os.remove(cache_filename)
-        sys.modules.pop(mod_name, None)
         mod = import_module(mod_name)
-        self.assertPredicate(exists, cache_filename)
+        if cache_filename:
+            # A missing cache file should be created.
+            if exists(cache_filename):
+                os.remove(cache_filename)
+            mod = self.clean_reload(mod)
+            self.assertPredicate(exists, cache_filename)
 
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
@@ -230,12 +240,17 @@ class TestAndroidImport(unittest.TestCase):
         self.assertEqual(is_package, loader.is_package(mod_name))
         self.assertIsInstance(loader.get_code(mod_name),
                               types.CodeType if filename.endswith(".py") else type(None))
+
         source = loader.get_source(mod_name)
         if source_head:
             self.assertTrue(source.startswith(source_head), repr(source))
         else:
             self.assertIsNone(source)
-        self.assertEqual(mod.__file__, loader.get_filename(mod_name))
+
+        expected_file = loader.get_filename(mod_name)
+        if expected_file.endswith(".pyc"):
+            expected_file = expected_file[:-1]
+        self.assertEqual(expected_file, mod.__file__)
 
         return mod
 
@@ -293,7 +308,8 @@ class TestAndroidImport(unittest.TestCase):
         else:
             self.fail()
 
-        # After import complete
+        # After import complete.
+        # Frames from pre-compiled requirements should have no source code.
         class C(object):
             __html__ = None
         try:
@@ -305,8 +321,22 @@ class TestAndroidImport(unittest.TestCase):
                 test_frame +
                 fr'  File "{asset_path(REQS_COMMON_ZIP)}/markupsafe/_native.py", '
                 fr'line 21, in escape\n'
-                fr'    return s.__html__\(\)\n'
                 fr"TypeError: 'NoneType' object is not callable\n$")
+        else:
+            self.fail()
+
+        # Frames from pre-compiled stdlib should have no source code.
+        try:
+            import json
+            json.loads("hello")
+        except json.JSONDecodeError:
+            self.assertRegexpMatches(
+                format_exc(),
+                test_frame +
+                r'  File "stdlib/json/__init__.py", line 354, in loads\n'
+                r'  File "stdlib/json/decoder.py", line 339, in decode\n'
+                r'  File "stdlib/json/decoder.py", line 357, in raw_decode\n'
+                r'json.decoder.JSONDecodeError: Expecting value: line 1 column 1 \(char 0\)\n$')
         else:
             self.fail()
 
@@ -324,7 +354,7 @@ class TestAndroidImport(unittest.TestCase):
                 ("select", imp.C_EXTENSION),                    #
                 ("errno", imp.C_BUILTIN),                       #
                 ("markupsafe", imp.PKG_DIRECTORY),              # requirements
-                ("markupsafe._native", imp.PY_SOURCE),          #
+                ("markupsafe._native", imp.PY_COMPILED),        #
                 ("markupsafe._speedups", imp.C_EXTENSION),      #
                 ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
                 ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)

@@ -10,7 +10,9 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            pyc { stdlib false }
+            pip {
+                install "six"
+            }
         }
         ndk {
             abiFilters "x86"

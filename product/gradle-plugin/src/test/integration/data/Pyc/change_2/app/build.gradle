@@ -10,35 +10,17 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            pip {
-                install "six"
-            }
             pyc {
                 src false
                 pip false
                 stdlib false
+            }
+            pip {
+                install "six"
             }
         }
         ndk {
             abiFilters "x86"
         }
     }
-
-    flavorDimensions "color"
-    productFlavors {
-        red {
-            dimension "color"
-        }
-        blue {
-            dimension "color"
-            python {
-                pyc {
-                    src true
-                    pip true
-                    stdlib true
-                }
-            }
-        }
-    }
-
 }

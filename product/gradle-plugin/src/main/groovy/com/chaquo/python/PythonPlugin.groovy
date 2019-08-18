@@ -192,7 +192,7 @@ class PythonPlugin implements Plugin<Project> {
 
             createConfigs(variant, python)
             Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
-            Task mergeSrcTask = createMergeSrcTask(variant, python)
+            Task mergeSrcTask = createMergeSrcTask(variant, python, buildPackagesTask)
             createProxyTask(variant, python, buildPackagesTask, reqsTask, mergeSrcTask)
             Task ticketTask = createTicketTask(variant)
             createAssetsTasks(variant, python, reqsTask, mergeSrcTask, ticketTask)
@@ -314,6 +314,7 @@ class PythonPlugin implements Plugin<Project> {
             inputs.property("abis", abis)
             inputs.property("buildPython", python.buildPython)
             inputs.property("pip", python.pip.serialize())
+            inputs.property("pyc", python.pyc.pip).optional(true)
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
@@ -351,9 +352,6 @@ class PythonPlugin implements Plugin<Project> {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args("--android-abis", *abis)
-                        if (python.pyc.pip != null) {
-                            args "--pyc", python.pyc.pip
-                        }
                         args reqsArgs
                         args "--"
                         args "--chaquopy", PLUGIN_VERSION
@@ -374,14 +372,16 @@ class PythonPlugin implements Plugin<Project> {
                         args "--implementation", Common.PYTHON_IMPLEMENTATION
                         args "--python-version", Common.PYTHON_VERSION
                         args "--abi", Common.PYTHON_ABI
+                        args "--no-compile"
                         args python.pip.options
                     }
+                    compilePyc(python, "pip", buildPackagesTask, destinationDir)
                 }
             }
         }
     }
 
-    Task createMergeSrcTask(variant, PythonExtension python) {
+    Task createMergeSrcTask(variant, PythonExtension python, Task buildPackagesTask) {
         // Create the main source set directory if it doesn't already exist, to invite the user
         // to put things in it.
         for (dir in android.sourceSets.main.python.srcDirs) {
@@ -393,6 +393,8 @@ class PythonPlugin implements Plugin<Project> {
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
             ext.destinationDir = mergeDir
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("pyc", python.pyc.src).optional(true)
             inputs.files(dirSets.collect { it.sourceFiles })
             outputs.dir(destinationDir)
             doLast {
@@ -419,6 +421,34 @@ class PythonPlugin implements Plugin<Project> {
                             }
                         }
                     }
+                }
+                compilePyc(python, "src", buildPackagesTask, mergeDir)
+            }
+        }
+    }
+
+    void compilePyc(python, String tag, Task buildPackagesTask, File dir) {
+        Boolean setting = python.pyc[tag]
+        if (setting == null || setting) {
+            try {
+                execBuildPython(python, buildPackagesTask) {
+                    args "-m", "chaquopy.pyc"
+                    args "--tag", tag
+                    if (setting) {
+                        args "--required"
+                    }
+                    args "--quiet"  // TODO #5411: option to display syntax errors
+                    args dir
+                }
+            } catch (InvalidBuildPythonException e) {
+                if (setting) {
+                    throw e
+                } else {
+                    println("Warning: " + e.message)
+                    println("Warning: buildPython is unavailable, so can't compile '$tag' " +
+                            "files to .pyc format. This will cause the app to start up " +
+                            "slower and use more storage space. See " +
+                            "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
                 }
             }
         }
@@ -451,7 +481,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
-        final def ADVICE = "set python.buildPython to your Python executable path. See " +
+        final def ADVICE = "set buildPython to your Python executable path. See " +
                            "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
         ExecResult execResult = null
         try {
@@ -471,13 +501,15 @@ class PythonPlugin implements Plugin<Project> {
                 closure()
             }
         } catch (Exception e) {
-            throw new GradleException("'$python.buildPython' failed to start ($e). Please " + ADVICE)
+            throw new InvalidBuildPythonException(
+                "'$python.buildPython' failed to start ($e). Please " + ADVICE)
         }
         if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
             // Before Python 3.6, stderr from the `py` command was lost
             // (https://bugs.python.org/issue25789). This is the only likely error.
-            throw new GradleException("'$python.buildPython': could not find the requested " +
-                                      "version of Python. Please either install it, or " + ADVICE);
+            throw new InvalidBuildPythonException(
+                "'$python.buildPython': could not find the requested " +
+                "version of Python. Please either install it, or " + ADVICE);
         }
         try {
             execResult.assertNormalExitValue()
@@ -534,12 +566,10 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask, Task ticketTask) {
-        def excludes = "**/*.pyc **/*.pyo"
-
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
             doLast {
-                makeZip(basedir: mergeSrcTask.destinationDir, excludes: excludes,
+                makeZip(basedir: mergeSrcTask.destinationDir,
                         destfile: "$assetDir/${assetZip(Common.ASSET_APP)}",
                         whenempty: "create")
             }
@@ -550,7 +580,7 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 for (subdir in reqsTask.destinationDir.listFiles()) {
                     def filename = assetZip(Common.ASSET_REQUIREMENTS, subdir.name)
-                    makeZip(basedir: subdir, excludes: excludes, whenempty: "create",
+                    makeZip(basedir: subdir, whenempty: "create",
                             destfile: "$assetDir/$filename")
                 }
             }
@@ -851,18 +881,22 @@ class PipExtension extends BaseExtension {
 
 
 class PycExtension extends BaseExtension {
+    Boolean src
     Boolean pip
     Boolean stdlib
 
     void setDefaults() {
+        src = null
         pip = null
         stdlib = true
     }
 
-    void pip(boolean s) { pip = s }
-    void stdlib(boolean s) { stdlib = s }
+    void src(boolean value) { src = value }
+    void pip(boolean value) { pip = value }
+    void stdlib(boolean value) { stdlib = value }
 
     void mergeFrom(PycExtension overlay) {
+        src = chooseNotNull(overlay.src, src)
         pip = chooseNotNull(overlay.pip, pip)
         stdlib = chooseNotNull(overlay.stdlib, stdlib)
     }
@@ -910,5 +944,12 @@ class BaseExtension implements Serializable {
             }
         }
         return cbuf.toString();
+    }
+}
+
+
+class InvalidBuildPythonException extends GradleException {
+    InvalidBuildPythonException(String message) {
+        super(message)
     }
 }

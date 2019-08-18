@@ -1,0 +1,20 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 16
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            def pyVer = "3.5"
+            buildPython System.getProperty("os.name").startsWith("Windows") ? "py -$pyVer" : "python$pyVer"
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+}

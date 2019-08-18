@@ -14,7 +14,6 @@ from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 import javaproperties
-from kwonly_args import kwonly_defaults
 from retrying import retry
 
 
@@ -26,6 +25,9 @@ repo_root = abspath(join(integration_dir, "../../../../.."))
 
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["AGP_VERSION"]
+
+# This pattern causes Android Studio to show a line as a warning in tree view.
+WARNING = "^Warning: "
 
 
 class GradleTestCase(TestCase):
@@ -62,32 +64,41 @@ class GradleTestCase(TestCase):
     #
     # If `dist_infos` is provided, it must be a {package: version} dict, which will be compared
     # against the top-level `.dist-info` directories in the ZIP.
-    def checkZip(self, zip_filename, files, dist_infos=None):
+    def checkZip(self, zip_filename, files, *, pyc=False, dist_infos=None):
         zip_file = ZipFile(zip_filename)
         actual_files = []
         actual_dist_infos = {}
         for info in zip_file.infolist():
-            self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time, msg=info.filename)
-            di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
-            if di_match:
-                version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
-                self.assertEqual(di_match.group(2), version)
-            elif not info.filename.endswith("/"):
-                actual_files.append(info.filename)
+            with self.subTest(filename=info.filename):
+                self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
+                di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
+                if di_match:
+                    version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
+                    self.assertEqual(di_match.group(2), version)
+                elif not info.filename.endswith("/"):
+                    actual_files.append(info.filename)
 
-        self.assertCountEqual([f[0] if isinstance(f, tuple) else f for f in files],
-                              actual_files, msg=zip_file.filename)
+        expected_files = []
         for f in files:
-            if isinstance(f, tuple):
-                filename, attrs = f
-                msg = join(zip_file.filename, filename)
+            with self.subTest(f=f):
+                filename, attrs = f if isinstance(f, tuple) else (f, {})
+                if pyc and filename.endswith(".py"):
+                    filename += "c"
+                expected_files.append(filename)
                 zip_info = zip_file.getinfo(filename)
+
+                # Build machine paths should not be stored in the .pyc files.
+                if filename.endswith(".pyc"):
+                    self.assertNotIn(repo_root.encode("UTF-8"), zip_file.read(zip_info))
+
                 content_expected = attrs.pop("content", None)
                 if content_expected is not None:
                     content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
-                    self.assertEqual(content_expected, content_actual, msg)
+                    self.assertEqual(content_expected, content_actual)
                 for key, value in attrs.items():
-                    self.assertEqual(value, getattr(zip_info, key), msg)
+                    self.assertEqual(value, getattr(zip_info, key))
+
+        self.assertCountEqual(expected_files, actual_files)
 
         if dist_infos is not None:
             self.assertEqual(dist_infos, actual_dist_infos)
@@ -146,9 +157,9 @@ class AndroidPlugin(GradleTestCase):
 
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
-        self.assertInLong("Warning: This version of Chaquopy has not been tested with Android "
+        self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
                           "Gradle plugin versions beyond 3.5.0-rc01. If you experience "
-                          "problems, " + self.ADVICE, run.stdout)
+                          "problems, " + self.ADVICE, run.stdout, re=True)
 
 
 # Verify that the user can use noCompress without interfering with our use of it.
@@ -168,7 +179,8 @@ class NoCompress(GradleTestCase):
         with self.assertRaisesRegex(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
             run = self.RunGradle("base", "NoCompress/nocompress_assign", run=False)
             run.rerun()
-        self.assertInLong("Warning: aaptOptions.noCompress has been overridden", run.stdout)
+        self.assertInLong(WARNING + "aaptOptions.noCompress has been overridden", run.stdout,
+                          re=True)
 
     def post_check(self, apk_zip, apk_dir, kwargs):
         for filename, expected in kwargs["compress_type"].items():
@@ -194,13 +206,13 @@ class ApiLevel(GradleTestCase):
 
 class PythonVersion(GradleTestCase):
     def test_warning(self):
-        message = ("Warning: Python 'version' setting is no longer required and should be "
+        message = (WARNING + "Python 'version' setting is no longer required and should be "
                    "removed from build.gradle.")
         run = self.RunGradle("base")
-        self.assertNotInLong(message, run.stdout)
+        self.assertNotInLong(message, run.stdout, re=True)
         run.apply_layers("PythonVersion/warning")
         run.rerun()
-        self.assertInLong(message, run.stdout)
+        self.assertInLong(message, run.stdout, re=True)
 
     def test_error(self):
         run = self.RunGradle("base", "PythonVersion/error", succeed=False)
@@ -342,74 +354,102 @@ class PythonSrc(GradleTestCase):
 
 class ExtractPackages(GradleTestCase):
     def test_warning(self):
-        message = ("Warning: Python 'extractPackages' setting is no longer required and should "
+        message = (WARNING + "Python 'extractPackages' setting is no longer required and should "
                    "be removed from build.gradle.")
         run = self.RunGradle("base")
-        self.assertNotInLong(message, run.stdout)
+        self.assertNotInLong(message, run.stdout, re=True)
         run.apply_layers("ExtractPackages/warning")
         run.rerun()
-        self.assertInLong(message, run.stdout)
+        self.assertInLong(message, run.stdout, re=True)
 
 
 class Pyc(GradleTestCase):
+    UNAVAILABLE = "buildPython is unavailable,"
+    MAGIC = r"buildPython version is {}.\d+,"
+    CANT = "so can't compile '{}' files to .pyc format."
+    SLOWER = "This will cause the app to start up slower and use more storage space."
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
+
     def test_change(self):
-        run = self.RunGradle("base", pyc={"stdlib": True})
-        run.apply_layers("Pyc/change")
-        run.rerun(pyc={"stdlib": False})
+        kwargs = dict(app=["hello.py"], requirements=["six.py"])
+        run = self.RunGradle("base", "Pyc/change_1", **kwargs)
+        run.apply_layers("Pyc/change_2")
+        run.rerun(pyc=[], **kwargs)
 
     def test_variant(self):
-        self.RunGradle("base", "Pyc/variant",
-                       variants={"red-debug": dict(pyc={"stdlib": True}),
-                                 "blue-debug": dict(pyc={"stdlib": False})})
+        self.RunGradle("base", "Pyc/variant", app=["hello.py"], requirements=["six.py"],
+                       variants={"red-debug": dict(pyc=["src", "pip", "stdlib"]),
+                                 "blue-debug": dict(pyc=[])})
 
     def test_variant_merge(self):
-        self.RunGradle("base", "Pyc/variant_merge",
-                       variants={"red-debug": dict(pyc={"stdlib": False}),
-                                 "blue-debug": dict(pyc={"stdlib": True})})
+        self.RunGradle("base", "Pyc/variant_merge", app=["hello.py"], requirements=["six.py"],
+                       variants={"red-debug": dict(pyc=[]),
+                                 "blue-debug": dict(pyc=["src", "pip", "stdlib"])})
 
-    def post_check(self, apk_zip, apk_dir, kwargs):
-        pyc = kwargs["pyc"]
-        zipfile = ZipFile(join(apk_dir, "assets/chaquopy/stdlib-common.zip"))
-        stdlib_files = set(zipfile.namelist())
-        self.assertEqual(pyc["stdlib"],    "argparse.pyc" in stdlib_files)
-        self.assertNotEqual(pyc["stdlib"], "argparse.py" in stdlib_files)
+    def test_syntax_error(self):
+        self.RunGradle("base", "Pyc/syntax_error", app=["bad.py", "good.pyc"], pyc=["stdlib"])
 
-        # See build_stdlib.py in crystax/platform/ndk.
-        for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.assertIn("lib2to3/{}{}.final.0.pickle".format(grammar_stem, PYTHON_VERSION),
-                          stdlib_files)
+    def test_build_python_warning(self):
+        run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
+        self.assertInLong(WARNING + "" + BuildPython.FAILED.format("pythoninvalid") + "\n" +
+                          WARNING + " ".join([self.UNAVAILABLE, self.CANT.format("src"),
+                                              self.SLOWER, self.SEE]),
+                          run.stdout, re=True)
+
+    def test_build_python_error(self):
+        run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
+        self.assertInLong(BuildPython.FAILED.format("pythoninvalid"), run.stderr, re=True)
+
+    def test_magic_warning(self):
+        run = self.RunGradle("base", "Pyc/magic_warning", pyc=["stdlib"])
+        self.assertInLong(WARNING + " ".join([self.MAGIC.format("3.5"), self.CANT.format("src"),
+                                              self.SLOWER, self.SEE]),
+                          run.stdout, re=True)
+
+        # Shouldn't attempt to compile pip files unless pip was actually run.
+        self.assertNotInLong(self.CANT.format("pip"), run.stdout)
+
+    def test_magic_error(self):
+        run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
+        self.assertInLong(" ".join([self.MAGIC.format("3.5"), self.CANT.format("pip"),
+                                    self.SEE]),
+                          run.stderr, re=True)
 
 
 class BuildPython(GradleTestCase):
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
+    ADVICE = "set buildPython to your Python executable path. " + SEE
+    FAILED = r"'{}' failed to start \(.+\). Please " + ADVICE
+
     def test_change(self):
         run = self.RunGradle("base", "BuildPython/change_1", requirements=["apple/__init__.py"])
         run.apply_layers("BuildPython/change_2")
         run.rerun(succeed=False)
-        self.assertInLong("'pythoninvalid' failed to start", run.stderr)
+        self.assertInLong(self.FAILED.format("pythoninvalid"), run.stderr, re=True)
 
     def test_old(self):
         run = self.RunGradle("base", "BuildPython/old", succeed=False)
-        self.assertInLong(r"buildPython must be version 3.4 or later: this is version 2\.7\.\d+. "
-                          r"See https://chaquo.com/chaquopy/doc/current/android.html#buildpython.",
-                          run.stderr, re=True)
+        self.assertInLong(r"buildPython must be version 3.4 or later: this is version "
+                          r"2\.7\.\d+. " + self.SEE, run.stderr, re=True)
 
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):
         run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
-        self.assertInLong("'py -2.8': could not find the requested version of Python", run.stderr)
+        self.assertInLong("'py -2.8': could not find the requested version of Python. Please "
+                          "either install it, or " + self.ADVICE, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant",
                              requirements=["apple/__init__.py"], variants=["good-debug"])
         run.rerun(variants=["bad-debug"], succeed=False)
-        self.assertInLong("'pythoninvalid' failed to start", run.stderr)
+        self.assertInLong(self.FAILED.format("pythoninvalid"), run.stderr, re=True)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong("'python-red' failed to start", run.stderr)
+        self.assertInLong(self.FAILED.format("python-red"), run.stderr, re=True)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong("'python-blue' failed to start", run.stderr)
+        self.assertInLong(self.FAILED.format("python-blue"), run.stderr, re=True)
 
 
 class PythonReqs(GradleTestCase):
@@ -816,8 +856,7 @@ class StaticProxy(GradleTestCase):
 
 
 class RunGradle(object):
-    @kwonly_defaults
-    def __init__(self, test, run=True, key=None, *layers, **kwargs):
+    def __init__(self, test, *layers, run=True, key=None, **kwargs):
         self.test = test
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
         self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
@@ -852,8 +891,7 @@ class RunGradle(object):
             if key is not None:
                 print("\nchaquopy.license=" + key, file=out_file)
 
-    @kwonly_defaults
-    def rerun(self, succeed=True, variants=["debug"], *, env={}, **kwargs):
+    def rerun(self, *, succeed=True, variants=["debug"],  env={}, **kwargs):
         status, self.stdout, self.stderr = self.run_gradle(variants, env)
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
@@ -925,9 +963,8 @@ class RunGradle(object):
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
-    @kwonly_defaults
-    def check_apk(self, apk_zip, apk_dir, abis=["x86"], classes=[], app=[],
-                  requirements=[], reqs_versions=None, licensed_id=None,
+    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes=[], app=[], requirements=[],
+                  reqs_versions=None, licensed_id=None, pyc=["src", "pip", "stdlib"],
                   **kwargs):
         kwargs = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs)
@@ -947,15 +984,18 @@ class RunGradle(object):
             os.listdir(asset_dir))
 
         # Python source
-        self.test.checkZip(join(asset_dir, "app.zip"), app)
+        self.test.checkZip(join(asset_dir, "app.zip"), app, pyc=("src" in pyc))
 
         # Python requirements
         for suffix in abi_suffixes:
-            self.test.checkZip(join(asset_dir, "requirements-{}.zip".format(suffix)),
-                               (requirements[suffix] if isinstance(requirements, dict)
-                                else requirements if suffix == "common"
-                                else []),
-                               reqs_versions if (suffix == "common") else None)
+            with self.test.subTest(suffix=suffix):
+                self.test.checkZip(
+                    join(asset_dir, "requirements-{}.zip".format(suffix)),
+                    (requirements[suffix] if isinstance(requirements, dict)
+                     else requirements if suffix == "common"
+                     else []),
+                    pyc=("pip" in pyc),
+                    dist_infos=(reqs_versions if (suffix == "common") else None))
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
@@ -966,7 +1006,16 @@ class RunGradle(object):
             self.test.assertEqual(["__init__.py", "chaquopy.so"],
                                   sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
 
-        # Python stdlib (stdlib-common.zip is covered by the "Pyc" tests)
+        # Python stdlib
+        stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.zip")).namelist())
+        self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
+        self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
+
+        # See build_stdlib.py in crystax/platform/ndk.
+        for grammar_stem in ["Grammar", "PatternGrammar"]:
+            self.test.assertIn("lib2to3/{}{}.final.0.pickle"
+                               .format(grammar_stem, PYTHON_VERSION), stdlib_files)
+
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.zip"))
             self.test.assertCountEqual(
