@@ -3,6 +3,7 @@ apply plugin: 'com.chaquo.python'
 
 android {
     compileSdkVersion 23
+
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdkVersion 16
@@ -10,16 +11,10 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            pip {
-                options "--no-index"
-                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
-                install "duplicate_filenames_pure"
-                install "duplicate_filenames_native"
-            }
-            pyc { pip false }
+            pyc { src false }
         }
         ndk {
-            abiFilters "armeabi-v7a", "x86"
+            abiFilters "x86"
         }
     }
 }

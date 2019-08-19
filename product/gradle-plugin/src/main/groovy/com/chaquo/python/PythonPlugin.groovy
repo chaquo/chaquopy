@@ -192,10 +192,11 @@ class PythonPlugin implements Plugin<Project> {
 
             createConfigs(variant, python)
             Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
-            Task mergeSrcTask = createMergeSrcTask(variant, python, buildPackagesTask)
+            Task mergeSrcTask = createMergeSrcTask(variant, python)
             createProxyTask(variant, python, buildPackagesTask, reqsTask, mergeSrcTask)
             Task ticketTask = createTicketTask(variant)
-            createAssetsTasks(variant, python, reqsTask, mergeSrcTask, ticketTask)
+            createAssetsTasks(variant, python, buildPackagesTask, reqsTask, mergeSrcTask,
+                              ticketTask)
             createJniLibsTasks(variant, python)
         }
     }
@@ -313,8 +314,7 @@ class PythonPlugin implements Plugin<Project> {
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
             inputs.property("buildPython", python.buildPython)
-            inputs.property("pip", python.pip.serialize())
-            inputs.property("pyc", python.pyc.pip).optional(true)
+            inputs.property("pip", python.pip)
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
@@ -375,13 +375,12 @@ class PythonPlugin implements Plugin<Project> {
                         args "--no-compile"
                         args python.pip.options
                     }
-                    compilePyc(python, "pip", buildPackagesTask, destinationDir)
                 }
             }
         }
     }
 
-    Task createMergeSrcTask(variant, PythonExtension python, Task buildPackagesTask) {
+    Task createMergeSrcTask(variant, PythonExtension python) {
         // Create the main source set directory if it doesn't already exist, to invite the user
         // to put things in it.
         for (dir in android.sourceSets.main.python.srcDirs) {
@@ -393,8 +392,6 @@ class PythonPlugin implements Plugin<Project> {
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
             ext.destinationDir = mergeDir
-            inputs.property("buildPython", python.buildPython)
-            inputs.property("pyc", python.pyc.src).optional(true)
             inputs.files(dirSets.collect { it.sourceFiles })
             outputs.dir(destinationDir)
             doLast {
@@ -422,36 +419,44 @@ class PythonPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                compilePyc(python, "src", buildPackagesTask, mergeDir)
             }
         }
     }
 
-    void compilePyc(python, String tag, Task buildPackagesTask, File dir) {
+    // We can't modify the input directory because that will break the up-to-date status of the
+    // task which generated it. And we can't *replace* .py files with .pycs within that task,
+    // because the static proxy generator requires the .py files to still be available. So
+    // we compile to a separate directory.
+    //
+    // TODO: We could generate the .pycs *alongside* the .py files in the earlier task, and
+    // then exclude from the ZIP any .py file which has a corresponding .pyc, This would
+    // improve build performance because we would no longer need to copy all the non-Python
+    // files. But I can't see how to specify such an exclusion rule with ant.zip.
+    File compilePyc(python, String tag, Task buildPackagesTask, File inDir) {
         Boolean setting = python.pyc[tag]
         if (setting == null || setting) {
             try {
+                def outDir = new File("$inDir-pyc")
+                project.delete(outDir)
+                project.mkdir(outDir)
                 execBuildPython(python, buildPackagesTask) {
                     args "-m", "chaquopy.pyc"
-                    args "--tag", tag
-                    if (setting) {
-                        args "--required"
-                    }
                     args "--quiet"  // TODO #5411: option to display syntax errors
-                    args dir
+                    args inDir, outDir
                 }
-            } catch (InvalidBuildPythonException e) {
+                return outDir
+            } catch (BuildPythonException e) {
                 if (setting) {
                     throw e
                 } else {
                     println("Warning: " + e.message)
-                    println("Warning: buildPython is unavailable, so can't compile '$tag' " +
-                            "files to .pyc format. This will cause the app to start up " +
-                            "slower and use more storage space. See " +
+                    println("Warning: can't compile '$tag' files to .pyc format. This will " +
+                            "cause the app to start up slower and use more storage space. See " +
                             "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
                 }
             }
         }
+        return inDir
     }
 
     void createProxyTask(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask,
@@ -501,13 +506,13 @@ class PythonPlugin implements Plugin<Project> {
                 closure()
             }
         } catch (Exception e) {
-            throw new InvalidBuildPythonException(
+            throw new BuildPythonInvalidException(
                 "'$python.buildPython' failed to start ($e). Please " + ADVICE)
         }
         if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
             // Before Python 3.6, stderr from the `py` command was lost
             // (https://bugs.python.org/issue25789). This is the only likely error.
-            throw new InvalidBuildPythonException(
+            throw new BuildPythonInvalidException(
                 "'$python.buildPython': could not find the requested " +
                 "version of Python. Please either install it, or " + ADVICE);
         }
@@ -521,7 +526,7 @@ class PythonPlugin implements Plugin<Project> {
             //
             // These instructions are currently the same for all supported Android Studio
             // versions. If that ever changes, see Chaquopy 5.0 for how to format the message.
-            throw new GradleException(
+            throw new BuildPythonFailedException(
                 "buildPython failed ($e). For full details, open the 'Build' window and " +
                 "switch to text mode with the 'Toggle view' button on the left.")
         }
@@ -565,11 +570,15 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask, Task ticketTask) {
+    void createAssetsTasks(variant, python, Task buildPackagesTask, Task reqsTask,
+                           Task mergeSrcTask, Task ticketTask) {
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("pyc", python.pyc.src).optional(true)
             doLast {
-                makeZip(basedir: mergeSrcTask.destinationDir,
+                makeZip(basedir: compilePyc(python, "src", buildPackagesTask,
+                                            mergeSrcTask.destinationDir),
                         destfile: "$assetDir/${assetZip(Common.ASSET_APP)}",
                         whenempty: "create")
             }
@@ -577,11 +586,16 @@ class PythonPlugin implements Plugin<Project> {
 
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("pyc", python.pyc.pip).optional(true)
             doLast {
-                for (subdir in reqsTask.destinationDir.listFiles()) {
+                def outDir = compilePyc(python, "pip", buildPackagesTask,
+                                        reqsTask.destinationDir)
+                for (subdir in outDir.listFiles()) {
                     def filename = assetZip(Common.ASSET_REQUIREMENTS, subdir.name)
-                    makeZip(basedir: subdir, whenempty: "create",
-                            destfile: "$assetDir/$filename")
+                    makeZip(basedir: subdir,
+                            destfile: "$assetDir/$filename",
+                            whenempty: "create")
                 }
             }
         }
@@ -657,8 +671,8 @@ class PythonPlugin implements Plugin<Project> {
             throw new GradleException("$baseDir is not within $project.buildDir")
         }
 
-        // UTF-8 encoding is apparently on by default on Linux and off by default on Windows:
-        // this alters the resulting ZIP file even if all filenames are ASCII.
+        // UTF-8 filename encoding is apparently on by default on Linux and off by default on
+        // Windows: this alters the resulting ZIP file even if all filenames are ASCII.
         args.put("encoding", "UTF-8")
 
         // This is the same timestamp used by the `preserveFileTimestamps` setting of the
@@ -918,38 +932,17 @@ class BaseExtension implements Serializable {
     static <T> T chooseNotNull(T overlay, T base) {
         return overlay != null ? overlay : base
     }
-
-    // Using custom classes as task input properties doesn't work in Gradle 2.14.1 / Android
-    // Studio 2.2 (https://github.com/gradle/gradle/issues/784), so we use a String as the input
-    // property instead. We don't use a byte[] because this version of Gradle apparently compares
-    // all properties using equals(), which only checks array identity, not content.
-    //
-    // This approach also avoids the need for equals and hashCode methods
-    // (https://github.com/gradle/gradle/pull/962).
-    String serialize() {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream()
-        ObjectOutputStream oos = new ObjectOutputStream(baos)
-        oos.writeObject(this)
-        oos.close()
-        return escape(baos.toByteArray())
-    }
-
-    static String escape(byte[] data) {
-        StringBuilder cbuf = new StringBuilder();
-        for (byte b : data) {
-            if (b >= 0x20 && b <= 0x7e) {
-                cbuf.append((char) b);
-            } else {
-                cbuf.append(String.format("\\x%02x", b & 0xFF));
-            }
-        }
-        return cbuf.toString();
-    }
 }
 
 
-class InvalidBuildPythonException extends GradleException {
-    InvalidBuildPythonException(String message) {
-        super(message)
-    }
+class BuildPythonException extends GradleException {
+    BuildPythonException(String message) { super(message) }
+}
+
+class BuildPythonFailedException extends BuildPythonException {
+    BuildPythonFailedException(String message) { super(message) }
+}
+
+class BuildPythonInvalidException extends BuildPythonException {
+    BuildPythonInvalidException(String message) { super(message) }
 }

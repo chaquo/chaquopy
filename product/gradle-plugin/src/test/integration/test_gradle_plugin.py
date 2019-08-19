@@ -279,17 +279,19 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/empty")
 
         run.apply_layers("PythonSrc/1")                                 # Add
-        run.rerun(app=[("one.py", {"content": "one"}), "package/submodule.py"])
+        run.rerun(app=[("one.py", {"content": "one"}), "package/submodule.py"], pyc=["stdlib"])
         run.apply_layers("PythonSrc/2")                                 # Modify
-        run.rerun(app=[("one.py", {"content": "one modified"}), "package/submodule.py"])
+        run.rerun(app=[("one.py", {"content": "one modified"}), "package/submodule.py"],
+                  pyc=["stdlib"])
         os.remove(join(run.project_dir, "app/src/main/python/one.py"))  # Remove
-        run.rerun(app=["package/submodule.py"])
+        run.rerun(app=["package/submodule.py"], pyc=["stdlib"])
 
     @skipIf(os.name == "posix", "For systems which don't support TZ variable")
     def test_reproducible_basic(self):
         self.post_check = make_asset_check(self, {
             "app.zip": "ace2495dbddff198cbfa9b52cbfb53bb743475dd"})
-        self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"])
+        self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"],
+                       pyc=["stdlib"])
 
     @skipUnless(os.name == "posix", "For systems which support TZ variable")
     def test_reproducible_timezone(self):
@@ -299,7 +301,7 @@ class PythonSrc(GradleTestCase):
         app = ["one.py", "package/submodule.py"]
         for tz in ["UTC+0", "PST+8", "CET-1"]:  # + and - are reversed compared to normal usage.
             with self.subTest(tz=tz):
-                self.RunGradle("base", "PythonSrc/1", app=app, env={"TZ": tz})
+                self.RunGradle("base", "PythonSrc/1", app=app, env={"TZ": tz}, pyc=["stdlib"])
 
     def test_filter(self):
         run = self.RunGradle("base", "PythonSrc/filter_1", app=["one.py"])
@@ -310,7 +312,8 @@ class PythonSrc(GradleTestCase):
         self.RunGradle(
             "base", "PythonSrc/variant",
             variants={"red-debug": dict(app=["common.py", ("color.py", {"content": "red"})]),
-                      "blue-debug": dict(app=["common.py", ("color.py", {"content": "blue"})])})
+                      "blue-debug": dict(app=["common.py", ("color.py", {"content": "blue"})])},
+            pyc=["stdlib"])
 
     def test_conflict(self):
         variants = {"red-debug": dict(app=["common.py", ("color.py", {"content": "red"})]),
@@ -319,9 +322,9 @@ class PythonSrc(GradleTestCase):
         self.assertInLong('(?s)mergeBlueDebugPythonSources.*Encountered duplicate path "common.py"',
                           run.stderr, re=True)
         run.apply_layers("PythonSrc/conflict_exclude")
-        run.rerun(variants=variants)
+        run.rerun(variants=variants, pyc=["stdlib"])
         run.apply_layers("PythonSrc/conflict_include")
-        run.rerun(variants=variants)
+        run.rerun(variants=variants, pyc=["stdlib"])
 
     def test_set_dirs(self):
         self.RunGradle("base", "PythonSrc/set_dirs", app=["two.py"])
@@ -349,7 +352,7 @@ class PythonSrc(GradleTestCase):
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
         self.RunGradle("base", "PythonSrc/set_root", app=[("one.py", {"content": "one main2"})],
-                       classes=["One", "One$Main2"])
+                       classes=["One", "One$Main2"], pyc=["stdlib"])
 
 
 class ExtractPackages(GradleTestCase):
@@ -364,11 +367,10 @@ class ExtractPackages(GradleTestCase):
 
 
 class Pyc(GradleTestCase):
-    UNAVAILABLE = "buildPython is unavailable,"
-    MAGIC = r"buildPython version is {}.\d+,"
-    CANT = "so can't compile '{}' files to .pyc format."
-    SLOWER = "This will cause the app to start up slower and use more storage space."
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
+    MAGIC = r"buildPython version is {}.\d+, so bytecode format is different."
+    CANT = ("can't compile '{}' files to .pyc format. This will cause the app to start "
+            "up slower and use more storage space. See "
+            "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
 
     def test_change(self):
         kwargs = dict(app=["hello.py"], requirements=["six.py"])
@@ -391,41 +393,41 @@ class Pyc(GradleTestCase):
 
     def test_build_python_warning(self):
         run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
-        self.assertInLong(WARNING + "" + BuildPython.FAILED.format("pythoninvalid") + "\n" +
-                          WARNING + " ".join([self.UNAVAILABLE, self.CANT.format("src"),
-                                              self.SLOWER, self.SEE]),
-                          run.stdout, re=True)
+        for tag in ["src", "pip"]:
+            self.assertInLong(WARNING + BuildPython.INVALID.format("pythoninvalid") + "\n" +
+                              WARNING + self.CANT.format(tag),
+                              run.stdout, re=True)
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
-        self.assertInLong(BuildPython.FAILED.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning", pyc=["stdlib"])
-        self.assertInLong(WARNING + " ".join([self.MAGIC.format("3.5"), self.CANT.format("src"),
-                                              self.SLOWER, self.SEE]),
+        self.assertInLong(self.MAGIC.format("3.5") + "\n" +
+                          WARNING + BuildPython.FAILED + "\n" +
+                          WARNING + self.CANT.format("src"),
                           run.stdout, re=True)
-
-        # Shouldn't attempt to compile pip files unless pip was actually run.
         self.assertNotInLong(self.CANT.format("pip"), run.stdout)
 
     def test_magic_error(self):
         run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
-        self.assertInLong(" ".join([self.MAGIC.format("3.5"), self.CANT.format("pip"),
-                                    self.SEE]),
-                          run.stderr, re=True)
+        self.assertInLong(self.MAGIC.format("3.5"), run.stdout, re=True)
+        self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
 
 class BuildPython(GradleTestCase):
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
     ADVICE = "set buildPython to your Python executable path. " + SEE
-    FAILED = r"'{}' failed to start \(.+\). Please " + ADVICE
+    INVALID = r"'{}' failed to start \(.+\). Please " + ADVICE
+    FAILED = (r"buildPython failed \(.+\). For full details, open the 'Build' window and " +
+              r"switch to text mode with the 'Toggle view' button on the left.")
 
     def test_change(self):
         run = self.RunGradle("base", "BuildPython/change_1", requirements=["apple/__init__.py"])
         run.apply_layers("BuildPython/change_2")
         run.rerun(succeed=False)
-        self.assertInLong(self.FAILED.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInLong(self.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
     def test_old(self):
         run = self.RunGradle("base", "BuildPython/old", succeed=False)
@@ -442,14 +444,14 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", "BuildPython/variant",
                              requirements=["apple/__init__.py"], variants=["good-debug"])
         run.rerun(variants=["bad-debug"], succeed=False)
-        self.assertInLong(self.FAILED.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInLong(self.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong(self.FAILED.format("python-red"), run.stderr, re=True)
+        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong(self.FAILED.format("python-blue"), run.stderr, re=True)
+        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
 
 
 class PythonReqs(GradleTestCase):
@@ -588,7 +590,8 @@ class PythonReqs(GradleTestCase):
         # despite having a lower version.
         run = self.RunGradle("base", "PythonReqs/mixed_index_1",
                              requirements=[("native3_android_15_x86/__init__.py",
-                                            {"content": "# Version 1.3"})])
+                                            {"content": "# Version 1.3"})],
+                             pyc=["stdlib"])
         self.assertInLong("Using version 1.3 (newest version is 2.0, but Chaquopy prefers "
                           "native wheels", run.stdout)
 
@@ -662,7 +665,8 @@ class PythonReqs(GradleTestCase):
                           "armeabi-v7a": ["module_armeabi_v7a.pyd",
                                           "pkg/submodule_armeabi_v7a.pyd"],
                           "x86": ["module_x86.pyd",
-                                  "pkg/submodule_x86.pyd"]})
+                                  "pkg/submodule_x86.pyd"]},
+            pyc=["stdlib"])
 
     def test_multi_abi_variant(self):
         variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
@@ -688,7 +692,8 @@ class PythonReqs(GradleTestCase):
                                            {"content": "# Clashing module (armeabi-v7a copy)"})],
                           "x86": ["multi_abi_1_x86.pyd",
                                   ("multi_abi_1_pure/__init__.py",
-                                   {"content": "# Clashing module (x86 copy)"})]})
+                                   {"content": "# Clashing module (x86 copy)"})]},
+            pyc=["stdlib"])
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
@@ -736,7 +741,8 @@ class PythonReqs(GradleTestCase):
                 "x86":          ["native_x86.pyd",
                                  ("pkg/dd.py", {"content": "# x86 ##############"}),
                                  ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
-                                 ("pkg/id.py", {"content": "# x86"})]})
+                                 ("pkg/id.py", {"content": "# x86"})]},
+            pyc=["stdlib"])
 
         run.apply_layers("PythonReqs/duplicate_filenames_pn")  # Pure, then native.
         run.rerun(
@@ -750,7 +756,8 @@ class PythonReqs(GradleTestCase):
                                  ("pkg/id.py", {"content": "# pure and armeabi-v7a"})],
                 "x86":          ["native_x86.pyd",
                                  ("pkg/dd.py", {"content": "# x86 ##############"}),
-                                 ("pkg/id.py", {"content": "# x86"})]})
+                                 ("pkg/id.py", {"content": "# x86"})]},
+            pyc=["stdlib"])
 
     # With a single ABI, everything should end up in common, but in two phases: first files
     # from the pure package will be moved, then all the rest. Check that this doesn't cause
@@ -768,7 +775,8 @@ class PythonReqs(GradleTestCase):
                           ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
                           ("pkg/id.py", {"content": "# x86"}),
                           ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
-                          "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"])
+                          "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"],
+            pyc=["stdlib"])
 
         run.apply_layers("PythonReqs/duplicate_filenames_single_abi_np")
         run.rerun(requirements=["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
@@ -777,7 +785,8 @@ class PythonReqs(GradleTestCase):
                                 ("pkg/di.py", {"content": "# pure"}),
                                 ("pkg/id.py", {"content": "# pure and armeabi-v7a"}),
                                 ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
-                                "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"])
+                                "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"],
+                  pyc=["stdlib"])
 
     @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
     def test_marker_platform(self):
@@ -812,7 +821,7 @@ class PythonReqs(GradleTestCase):
             # We want to verify that packages are selected based on the target Python version,
             # not the build Python version, and we can only do that if the two versions are
             # different.
-            self.skipTest(f"Build Python and target Python have the same version ({version})")
+            self.fail(f"Build Python and target Python have the same version ({version})")
         return version
 
     def get_build_python_version(self):

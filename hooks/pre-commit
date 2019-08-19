@@ -8,7 +8,7 @@ exclude_re='^(debugger/src)|(hooks/pre-commit)|(product/gradle-plugin/src/main/p
 files=$(git diff --cached --diff-filter=d --name-only | egrep -v "$exclude_re")
 
 if [ -n "$files" ]; then
-    if grep -Hn FIXME $files; then result=1; fi
+    if grep -Hni FIXME $files; then result=1; fi
 
     py_files=$(echo $files | tr ' ' '\n' | grep 'py$')
     if [ -n "$py_files" ]; then

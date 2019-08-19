@@ -12,6 +12,9 @@ android {
         python {
             def pyVer = "3.5"
             buildPython System.getProperty("os.name").startsWith("Windows") ? "py -$pyVer" : "python$pyVer"
+            pyc {
+                pip false
+            }
         }
         ndk {
             abiFilters "x86"

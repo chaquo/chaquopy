@@ -266,9 +266,9 @@ setting specifies which Python modules to search for these classes::
         }
     }
 
-The app's :ref:`source tree <android-source>` and its :ref:`requirements
-<android-requirements>` will be searched, in that order, for the specified modules. Either
-simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be found.
+The app's :ref:`source code <android-source>` and :ref:`requirements <android-requirements>`
+will be searched, in that order, for the specified modules. Either simple modules (e.g.
+`module/one.py`) or packages (e.g. `module/one/__init__.py`) may be used.
 
 Within the modules, static proxy classes must be declared using the syntax described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
