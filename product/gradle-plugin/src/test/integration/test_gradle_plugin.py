@@ -1008,12 +1008,12 @@ class RunGradle(object):
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
-        self.test.assertEqual(sorted(abis), sorted(os.listdir(bootstrap_native_dir)))
+        self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
-            self.test.assertEqual(["_ctypes.so", "java", "select.so"],
-                                  sorted(os.listdir(join(bootstrap_native_dir, abi))))
-            self.test.assertEqual(["__init__.py", "chaquopy.so"],
-                                  sorted(os.listdir(join(bootstrap_native_dir, abi, "java"))))
+            self.test.assertCountEqual(["_ctypes.so", "java", "select.so"],
+                                       os.listdir(join(bootstrap_native_dir, abi)))
+            self.test.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
+                                       os.listdir(join(bootstrap_native_dir, abi, "java")))
 
         # Python stdlib
         stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.zip")).namelist())

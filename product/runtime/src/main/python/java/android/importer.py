@@ -21,7 +21,7 @@ from threading import RLock
 from zipfile import ZipFile, ZipInfo
 
 from java._vendor.elftools.elf.elffile import ELFFile
-from java.chaquopy import AssetFile
+from java.chaquopy_android import AssetFile
 
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
@@ -41,7 +41,7 @@ def initialize_importlib(context, build_json, app_path):
     sys.path = [p for p in sys.path if exists(p)]
 
     # The default copyfileobj buffer size is 16 KB, which significantly slows down extraction
-    # of large files because each call to AssetFile.read is relatively expensive.
+    # of large files because each call to AssetFile.read is relatively expensive (#5596).
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
 
@@ -197,8 +197,8 @@ class AssetFinder:
             for suffix in [".zip", f"-{Common.ABI_COMMON}.zip", f"-{AndroidPlatform.ABI}.zip"]:
                 asset_name = basename(self.extract_root) + suffix
                 try:
-                    self.zip_files.append(ConcurrentZipFile(
-                        AssetFile(self.context, join(Common.ASSET_DIR, asset_name))))
+                    self.zip_files.append(
+                        AssetZipFile(self.context, join(Common.ASSET_DIR, asset_name)))
                 except FileNotFoundError:
                     continue
 
@@ -421,14 +421,9 @@ LOADERS = [
 ]
 
 
-# Protects `extract` and `read` with locks, because they seek the underlying file object.
-# `getinfo` and `infolist` are already thread-safe, because the ZIP index is completely read
-# during construction. However, `open` cannot be made thread-safe without a lot of work, so it
-# should not be used except via `extract` or `read`.
-class ConcurrentZipFile(ZipFile):
-    def __init__(self, *args, **kwargs):
-        ZipFile.__init__(self, *args, **kwargs)
-        self.lock = RLock()
+class AssetZipFile(ZipFile):
+    def __init__(self, context, path, *args, **kwargs):
+        super().__init__(AssetFile(context, path), *args, **kwargs)
 
         self.dir_index = {"": set()}  # Provide empty listing for root even if ZIP is empty.
         for name in self.namelist():
@@ -448,12 +443,12 @@ class ConcurrentZipFile(ZipFile):
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
-        with self.lock:
-            # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170),
-            # so set the timestamp manually. See makeZip in PythonPlugin.groovy for how these
-            # timestamps are generated.
-            out_filename = ZipFile.extract(self, member, target_dir)
-            os.utime(out_filename, (time.time(), timegm(member.date_time)))
+
+        # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170),
+        # so set the timestamp manually. See makeZip in PythonPlugin.groovy for how these
+        # timestamps are generated.
+        out_filename = ZipFile.extract(self, member, target_dir)
+        os.utime(out_filename, (time.time(), timegm(member.date_time)))
         return out_filename
 
     # The timestamp is the the last thing set by `extract`, so if the app gets killed in the
@@ -475,10 +470,6 @@ class ConcurrentZipFile(ZipFile):
         if need_extract:
             self.extract(member, target_dir)
         return out_filename
-
-    def read(self, member):
-        with self.lock:
-            return ZipFile.read(self, member)
 
     def exists(self, path):
         if self.isdir(path):

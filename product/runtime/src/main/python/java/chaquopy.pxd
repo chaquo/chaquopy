@@ -1,5 +1,3 @@
-# Classes and functions used by the Java module
-
 from .jni cimport *
 
 # === conversion ==============================================================
@@ -46,8 +44,8 @@ cdef class WeakRef(JNIRef):
 
 # === jvm =====================================================================
 
+cdef JNIEnv *get_jnienv() except NULL
 cdef set_jvm(JavaVM *new_jvm)
-
 
 # === license =================================================================
 

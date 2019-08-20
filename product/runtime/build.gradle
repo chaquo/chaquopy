@@ -5,11 +5,12 @@ import com.chaquo.python.Common;
 
 group = "com.chaquo.python.runtime"
 
-void addArtifact(String name, Task task, Object filename, String abi=null) {
+void addArtifact(Task task, Object filename, String abi=null) {
     File f = file(filename)
     def dotPos = f.name.lastIndexOf(".")
+    def name = f.name.substring(0, dotPos)
     def pub = publishing.publications.maybeCreate(name, MavenPublication)
-    pub.artifactId = f.name.substring(0, dotPos)
+    pub.artifactId = name
     pub.artifact(f) {
         builtBy task
         if (abi != null) {
@@ -22,7 +23,7 @@ void addArtifact(String name, Task task, Object filename, String abi=null) {
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
 jar { archiveName = "chaquopy_java.jar" }
-addArtifact("java", jar, jar.archivePath)
+addArtifact(jar, jar.archivePath)
 
 task("zipPython", type: Zip, group: "build") {
     from fileTree("src/main/python") {
@@ -33,7 +34,7 @@ task("zipPython", type: Zip, group: "build") {
     destinationDir buildDir
     archiveName Common.assetZip(Common.ASSET_BOOTSTRAP)
 }
-addArtifact("python", zipPython, zipPython.archivePath)
+addArtifact(zipPython, zipPython.archivePath)
 
 
 // The following properties file should be created manually. It's also used in
@@ -138,7 +139,7 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
 
 cythonTask("cythonPython") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
-        include "*.pyx", "*.pxi", "*.pxd"
+        include "chaquopy.pyx", "*.pxi", "*.pxd"
     }
     inputs.property("licenseMode", licenseMode)
     if (licenseMode.isEmpty()) {
@@ -146,8 +147,14 @@ cythonTask("cythonPython") {
     }
 }
 cythonTask("cythonJava") {
-    inputs.files "$projectDir/src/main/python/chaquopy_java.pyx"
-    inputs.files fileTree("$projectDir/src/main/python/java") { include "*.pxd" }
+    inputs.files fileTree("$projectDir/src/main/python") {
+        include "chaquopy_java.pyx", "java/*.pxd"
+    }
+}
+cythonTask("cythonAndroid") {
+    inputs.files fileTree("$projectDir/src/main/python/java") {
+        include "chaquopy_android.pyx", "*.pxd"
+    }
 }
 
 
@@ -222,6 +229,7 @@ for (abi in ["host"] + Common.ABIS) {
                                              "$javaHome/include;$javaHome/include/linux"
             }
         } else {
+            dependsOn cythonAndroid
             def pyDir = "$crystaxDir/sources/python/$Common.PYTHON_VERSION_SHORT"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
@@ -241,8 +249,9 @@ for (abi in ["host"] + Common.ABIS) {
         args "--build", cmakeBuildSubdir
     }
     if (abi != "host") {
-        addArtifact("jni", cmakeBuild, "$cmakeBuildSubdir/libchaquopy_java.so", abi)
-        addArtifact("module", cmakeBuild, "$cmakeBuildSubdir/chaquopy.so", abi)
+        addArtifact(cmakeBuild, "$cmakeBuildSubdir/libchaquopy_java.so", abi)
+        addArtifact(cmakeBuild, "$cmakeBuildSubdir/chaquopy.so", abi)
+        addArtifact(cmakeBuild, "$cmakeBuildSubdir/chaquopy_android.so", abi)
     }
 
     if (abi == "host") {

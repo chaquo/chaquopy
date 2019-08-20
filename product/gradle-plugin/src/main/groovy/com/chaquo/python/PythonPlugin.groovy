@@ -215,7 +215,9 @@ class PythonPlugin implements Plugin<Project> {
             }
             buildscript.dependencies {
                 add(getConfig("runtimeJni", variant).name, runtimeDep("libchaquopy_java.so", abi))
-                add(getConfig("runtimeModule", variant).name, runtimeDep("chaquopy.so", abi))
+                for (name in ["chaquopy", "chaquopy_android"]) {
+                    add(getConfig("runtimeModules", variant).name, runtimeDep("${name}.so", abi))
+                }
                 add(getConfig("targetNative", variant).name, targetDep(abi))
             }
         }
@@ -602,10 +604,10 @@ class PythonPlugin implements Plugin<Project> {
 
         def miscAssetsTask = assetTask(variant, "misc") {
             def runtimePython = getConfig("runtimePython")
-            def runtimeModule = getConfig("runtimeModule", variant)
+            def runtimeModules = getConfig("runtimeModules", variant)
             def targetStdlib = getConfig("targetStdlib", variant)
             def targetNative = getConfig("targetNative", variant)
-            inputs.files(runtimePython, runtimeModule, targetStdlib, targetNative)
+            inputs.files(runtimePython, runtimeModules, targetStdlib, targetNative)
             doLast {
                 project.copy {
                     into assetDir
@@ -640,9 +642,13 @@ class PythonPlugin implements Plugin<Project> {
                         from("$assetDir/lib-dynload/$abi") {
                             include BOOTSTRAP_NATIVE_STDLIB
                         }
-                        from(getNativeArtifact(runtimeModule, abi)) {
-                            into "java"
-                            rename { "chaquopy.so" }
+                        runtimeModules.resolvedConfiguration.resolvedArtifacts.each { ra ->
+                            if (ra.classifier == abi) {
+                                from(ra.file) {
+                                    into "java"
+                                    rename { "${ra.name}.${ra.extension}" }
+                                }
+                            }
                         }
                     }
                     new File("$bootstrapDir/java/__init__.py").text = ""

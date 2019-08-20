@@ -24,3 +24,11 @@ add_library(chaquopy_java SHARED
 target_link_libraries(chaquopy_java ${CHAQUOPY_LIBS})
 set_target_properties(chaquopy_java PROPERTIES PREFIX "${JAVA_LIB_PREFIX}")
 set_target_properties(chaquopy_java PROPERTIES SUFFIX "${JAVA_LIB_SUFFIX}")
+
+if(ANDROID)
+    add_library(chaquopy_android SHARED
+        build/cython/chaquopy_android.c)
+    target_link_libraries(chaquopy_android ${CHAQUOPY_LIBS} android)
+    set_target_properties(chaquopy_android PROPERTIES PREFIX "${PY_LIB_PREFIX}")
+    set_target_properties(chaquopy_android PROPERTIES SUFFIX "${PY_LIB_SUFFIX}")
+endif()
