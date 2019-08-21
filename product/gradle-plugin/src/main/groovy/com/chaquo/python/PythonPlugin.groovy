@@ -6,6 +6,7 @@ import org.gradle.api.file.*
 import org.gradle.api.initialization.dsl.ScriptHandler
 import org.gradle.api.plugins.*
 import org.gradle.process.ExecResult
+import org.gradle.process.internal.ExecException
 import org.gradle.util.*
 import org.json.*
 
@@ -444,6 +445,9 @@ class PythonPlugin implements Plugin<Project> {
                 execBuildPython(python, buildPackagesTask) {
                     args "-m", "chaquopy.pyc"
                     args "--quiet"  // TODO #5411: option to display syntax errors
+                    if (!setting) {
+                        args "--warning"
+                    }
                     args inDir, outDir
                 }
                 return outDir
@@ -451,8 +455,10 @@ class PythonPlugin implements Plugin<Project> {
                 if (setting) {
                     throw e
                 } else {
-                    println("Warning: " + e.message)
-                    println("Warning: can't compile '$tag' files to .pyc format. This will " +
+                    if (e instanceof BuildPythonInvalidException) {
+                        println("Warning: " + e.message)
+                    }
+                    println("Warning: Can't compile '$tag' files to .pyc format. This will " +
                             "cause the app to start up slower and use more storage space. See " +
                             "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
                 }
@@ -507,9 +513,10 @@ class PythonPlugin implements Plugin<Project> {
                 closure.delegate = delegate
                 closure()
             }
-        } catch (Exception e) {
-            throw new BuildPythonInvalidException(
-                "'$python.buildPython' failed to start ($e). Please " + ADVICE)
+        } catch (ExecException e) {
+            // Message will be something like "A problem occurred starting process 'command
+            // 'python''".
+            throw new BuildPythonInvalidException("${e.message}. Please " + ADVICE)
         }
         if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
             // Before Python 3.6, stderr from the `py` command was lost
@@ -520,16 +527,13 @@ class PythonPlugin implements Plugin<Project> {
         }
         try {
             execResult.assertNormalExitValue()
-        } catch (Exception e) {
+        } catch (ExecException e) {
             // The Build window opens in tree mode by default, with the root node focused. This
-            // displays only the message of the lowest- level exception in the chain, which
-            // will be something vague like "Process 'command 'python'' finished with non-zero
-            // exit value 1". So we need to tell the user how to see the full pip output.
-            //
-            // These instructions are currently the same for all supported Android Studio
-            // versions. If that ever changes, see Chaquopy 5.0 for how to format the message.
+            // displays only the exception message, which will be something like "Process
+            // 'command 'python'' finished with non-zero exit value 1", but won't include any
+            // of the command's output. So we need to tell the user how to see that.
             throw new BuildPythonFailedException(
-                "buildPython failed ($e). For full details, open the 'Build' window and " +
+                "${e.message}. For full details, open the 'Build' window and " +
                 "switch to text mode with the 'Toggle view' button on the left.")
         }
     }

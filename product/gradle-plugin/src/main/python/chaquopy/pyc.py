@@ -25,6 +25,9 @@ EXPECTED_MAGIC_NUMBER = b'3\r\r\n'
 def main():
     args = parse_args()
     if importlib.util.MAGIC_NUMBER != EXPECTED_MAGIC_NUMBER:
+        if args.warning:
+            # Causes Android Studio to show the line as a warning in tree view.
+            print("Warning: ", end="")
         print("buildPython version is {}.{}.{}, so bytecode format is different."
               .format(*sys.version_info[:3]))
         sys.exit(1)
@@ -50,6 +53,7 @@ def main():
 def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--warning", action="store_true")
     ap.add_argument("in_dir")
     ap.add_argument("out_dir")
     return ap.parse_args()

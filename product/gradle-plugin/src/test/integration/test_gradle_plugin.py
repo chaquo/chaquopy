@@ -26,7 +26,9 @@ repo_root = abspath(join(integration_dir, "../../../../.."))
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["AGP_VERSION"]
 
-# This pattern causes Android Studio to show a line as a warning in tree view.
+# This pattern causes Android Studio to show the line as a warning in tree view. However, the
+# "Warning: " prefix will be removed, so the rest of the message should start with a capital
+# letter.
 WARNING = "^Warning: "
 
 
@@ -368,7 +370,7 @@ class ExtractPackages(GradleTestCase):
 
 class Pyc(GradleTestCase):
     MAGIC = r"buildPython version is {}.\d+, so bytecode format is different."
-    CANT = ("can't compile '{}' files to .pyc format. This will cause the app to start "
+    CANT = ("Can't compile '{}' files to .pyc format. This will cause the app to start "
             "up slower and use more storage space. See "
             "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
 
@@ -404,8 +406,7 @@ class Pyc(GradleTestCase):
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning", pyc=["stdlib"])
-        self.assertInLong(self.MAGIC.format("3.5") + "\n" +
-                          WARNING + BuildPython.FAILED + "\n" +
+        self.assertInLong(WARNING + self.MAGIC.format("3.5") + "\n" +
                           WARNING + self.CANT.format("src"),
                           run.stdout, re=True)
         self.assertNotInLong(self.CANT.format("pip"), run.stdout)
@@ -419,9 +420,10 @@ class Pyc(GradleTestCase):
 class BuildPython(GradleTestCase):
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
     ADVICE = "set buildPython to your Python executable path. " + SEE
-    INVALID = r"'{}' failed to start \(.+\). Please " + ADVICE
-    FAILED = (r"buildPython failed \(.+\). For full details, open the 'Build' window and " +
-              r"switch to text mode with the 'Toggle view' button on the left.")
+    INVALID = "A problem occurred starting process 'command '{}''. Please " + ADVICE
+    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1. For full "
+              r"details, open the 'Build' window and switch to text mode with the "
+              r"'Toggle view' button on the left.")
 
     def test_change(self):
         run = self.RunGradle("base", "BuildPython/change_1", requirements=["apple/__init__.py"])
