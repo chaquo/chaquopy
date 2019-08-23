@@ -463,10 +463,11 @@ class BuildPython(GradleTestCase):
                           "either install it, or " + self.ADVICE, run.stderr)
 
     def test_variant(self):
-        run = self.RunGradle("base", "BuildPython/variant",
-                             requirements=["apple/__init__.py"], variants=["good-debug"])
-        run.rerun(variants=["bad-debug"], succeed=False)
-        self.assertInLong(self.INVALID.format("pythoninvalid"), run.stderr, re=True)
+        run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
+                             succeed=False)
+        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
+        run.rerun(variants=["blue-debug"], succeed=False)
+        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
