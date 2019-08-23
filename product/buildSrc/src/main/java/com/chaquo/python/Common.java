@@ -15,6 +15,8 @@ public class Common {
     public static final String PYTHON_VERSION = "3.6.5";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
+    public static final String PYTHON_VERSION_MAJOR =
+        PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
     public static final String PYTHON_BUILD_NUM = "10";
 
     // Library name suffix: may contain flags from PEP 3149.

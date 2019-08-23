@@ -9,6 +9,7 @@ from os.path import abspath, dirname, join, relpath
 import re
 import shutil
 import subprocess
+from subprocess import run
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
@@ -19,8 +20,10 @@ from retrying import retry
 
 PYTHON_VERSION = "3.6.5"
 PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
+PYTHON_VERSION_MAJOR = PYTHON_VERSION[:PYTHON_VERSION.index(".")]
 
 integration_dir = abspath(dirname(__file__))
+data_dir = join(integration_dir, "data")
 repo_root = abspath(join(integration_dir, "../../../../.."))
 
 # Android Gradle Plugin version (passed from Gradle task).
@@ -275,7 +278,7 @@ class PythonSrc(GradleTestCase):
         #
         # Git can't track a directory hierarchy containing no files, and in this case even a
         # .gitignore file would invalidate the point of the test.
-        empty_src = join(integration_dir, "data/PythonSrc/empty/app/src/main/python")
+        empty_src = join(data_dir, "PythonSrc/empty/app/src/main/python")
         if not os.path.isdir(empty_src):
             os.makedirs(empty_src)
         run = self.RunGradle("base", "PythonSrc/empty")
@@ -430,6 +433,23 @@ class BuildPython(GradleTestCase):
         run.apply_layers("BuildPython/change_2")
         run.rerun(succeed=False)
         self.assertInLong(self.INVALID.format("pythoninvalid"), run.stderr, re=True)
+
+    def test_missing(self):
+        run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
+        self.assertInLong("Couldn't find Python: please either install it, or " + self.ADVICE,
+                          run.stderr)
+
+    def test_missing_minor(self):
+        run = self.RunGradle("base", "BuildPython/missing_minor", add_path=["bin"],
+                             succeed=False)
+        self.assertNotInLong("Minor version was used", run.stdout)
+        self.assertInLong("Major version was used", run.stdout)
+
+    def test_missing_major(self):
+        run = self.RunGradle("base", "BuildPython/missing_major", add_path=["bin"],
+                             succeed=False)
+        self.assertInLong("Minor version was used", run.stdout)
+        self.assertNotInLong("Major version was used", run.stdout)
 
     def test_old(self):
         run = self.RunGradle("base", "BuildPython/old", succeed=False)
@@ -817,24 +837,31 @@ class PythonReqs(GradleTestCase):
         return (r"\nOr try using one of the following versions, which are available as pre-built "
                 r"wheels: \[{}\].".format(", ".join("'{}'".format(v) for v in versions)))
 
+    # We want to verify that packages are selected based on the target Python version, not the
+    # build Python version, and we can only do that if the two versions are different. If this
+    # ever becomes difficult to arrange on a test machine, switch to using add_path like in
+    # TestBuildPython.test_missing.
     def get_different_build_python_version(self):
         version = self.get_build_python_version()
         if version == PYTHON_VERSION:
-            # We want to verify that packages are selected based on the target Python version,
-            # not the build Python version, and we can only do that if the two versions are
-            # different.
             self.fail(f"Build Python and target Python have the same version ({version})")
         return version
 
     def get_build_python_version(self):
-        if os.name == "nt":
-            build_python = ["py", "-" + PYTHON_VERSION[0]]
-        else:
-            build_python = ["python" + PYTHON_VERSION[0]]
-        version_proc = subprocess.run(build_python + ["--version"], stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, universal_newlines=True)
-        _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
-        return version
+        for version in [PYTHON_VERSION_SHORT, PYTHON_VERSION_MAJOR]:
+            if os.name == "nt":
+                build_python = ["py", "-" + version]
+            else:
+                build_python = ["python" + version]
+            try:
+                version_proc = run(build_python + ["--version"], check=True,
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   universal_newlines=True)
+                _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
+                return version
+            except subprocess.CalledProcessError:
+                pass
+        raise Exception("Couldn't find buildPython")
 
 
 class StaticProxy(GradleTestCase):
@@ -887,7 +914,7 @@ class RunGradle(object):
             # We use dir_utils.copy_tree because shutil.copytree can't merge into a destination
             # that already exists.
             dir_util._path_created.clear()  # https://bugs.python.org/issue10948
-            dir_util.copy_tree(join(integration_dir, "data", layer), self.project_dir,
+            dir_util.copy_tree(join(data_dir, layer), self.project_dir,
                                preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
             if layer == "base":
                 self.apply_layers("base-" + agp_version)
@@ -902,7 +929,24 @@ class RunGradle(object):
             if key is not None:
                 print("\nchaquopy.license=" + key, file=out_file)
 
-    def rerun(self, *, succeed=True, variants=["debug"],  env={}, **kwargs):
+    def rerun(self, *, succeed=True, variants=["debug"],  env={}, add_path=[], **kwargs):
+        if add_path:
+            add_path = [join(self.project_dir, path) for path in add_path]
+            if os.name == "nt":
+                # Gradle runs subprocesses using Java's ProcessBuilder, which in turn uses
+                # CreateProcessW. This uses a search algorithm which has some differences from
+                # the one used by the cmd shell:
+                #   * The only extension it tries is .exe, so we can't use a .bat file here.
+                #   * It searches the Windows directory (where the real py.exe is installed)
+                #     before trying the PATH, so overriding PATH is no use here. Instead, we
+                #     copy the files to the working directory, which has even higher priority.
+                for path in add_path:
+                    for entry in os.scandir(path):
+                        if entry.is_file():
+                            shutil.copy(entry.path, self.project_dir)
+            else:
+                env["PATH"] = os.pathsep.join(add_path + os.environ["PATH"])
+
         status, self.stdout, self.stderr = self.run_gradle(variants, env)
         if status == 0:
             if succeed is False:  # (succeed is None) means we don't care
@@ -955,21 +999,20 @@ class RunGradle(object):
         merged_env["integration_dir"] = integration_dir
         merged_env.update(env)
 
-        gradlew = join(self.project_dir,
-                       "gradlew.bat" if sys.platform.startswith("win") else "gradlew")
-
         # `--info` explains why tasks were not considered up to date.
         # `--console plain` prevents "String index out of range: -1" error on Windows.
         gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
         if env:
-            # Even if the Gradle client passes some environment variables to the daemon, that
-            # won't work for TZ, because the JVM will only read it once.
+            # The Gradle client passes its environment to the daemon, but that won't work for
+            # TZ, because the JVM only reads it during startup.
             gradlew_flags.append("--no-daemon")
 
-        process = subprocess.run([gradlew, "-p", self.project_dir] + gradlew_flags +
-                                 [task_name("assemble", v) for v in variants],
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                 universal_newlines=True, env=merged_env, timeout=600)
+        process = run([join(self.project_dir,
+                            "gradlew.bat" if (os.name == "nt") else "gradlew")] +
+                      gradlew_flags + [task_name("assemble", v) for v in variants],
+                      cwd=self.project_dir,  # See add_path above.
+                      stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      universal_newlines=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and

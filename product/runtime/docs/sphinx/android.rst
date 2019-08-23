@@ -110,16 +110,21 @@ download pre-compiled CPython binaries for the selected ABIs.
 Development
 ===========
 
-Some features require Python 3.4 or later to be available on the build machine. By default,
-Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
-standard version of Python installed, no special setup is required.
+Some features require Python 3.4 or later to be available on the build machine. Chaquopy will
+try to find it with the standard command for your operating system, first with a matching minor
+version, and then with a matching major version.
 
-Otherwise, set the Python executable using the `buildPython` setting. For example, on Windows
-you might use the following::
+For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.6.5, then on Linux and
+Mac it will first try `python3.6`, then `python3`. On Windows, it will first try `py -3.6`,
+then `py -3`.
+
+To use a different copy of Python, set its command using the `buildPython` setting. For
+example, on Windows you might use one of the following::
 
       defaultConfig {
           python {
               buildPython "C:/Python36/python.exe"
+              buildPython "py -3.7"
           }
       }
 
@@ -277,6 +282,19 @@ generated and built into the app.
 
 Packaging
 =========
+
+.. _android-data:
+
+Data files
+----------
+
+To save time and space, your app's Python modules are loaded directly from the APK assets at
+runtime and don't exist as separate `.py` files. However, each module's `__file__` and
+`__path__` attributes can be used in the normal way to find any data files which are packaged
+along with the code. Data files in the root directory will be extracted from the APK the first
+time the app is started, while files within a top-level package will be extracted the first
+time that package is imported.
+
 
 .. _android-bytecode:
 

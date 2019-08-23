@@ -45,7 +45,7 @@ class PythonPlugin implements Plugin<Project> {
         androidPluginVer = getAndroidPluginVersion()
 
         extendAaptOptions()
-        extendProductFlavor(android.defaultConfig).setDefaults()
+        extendProductFlavor(android.defaultConfig).setDefaults(project)
         android.productFlavors.all { extendProductFlavor(it) }
         extendSourceSets()
         setupDependencies()
@@ -316,7 +316,7 @@ class PythonPlugin implements Plugin<Project> {
             ext.destinationDir = variantGenDir(variant, "requirements")
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
-            inputs.property("buildPython", python.buildPython)
+            inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pip", python.pip)
             def reqsArgs = []
             for (req in python.pip.reqs) {
@@ -472,7 +472,7 @@ class PythonPlugin implements Plugin<Project> {
         File destinationDir = variantGenDir(variant, "proxies")
         Task proxyTask = project.task(taskName("generate", variant, "proxies")) {
             inputs.files(buildPackagesTask, reqsTask, mergeSrcTask)
-            inputs.property("buildPython", python.buildPython)
+            inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("staticProxy", python.staticProxy)
             outputs.dir(destinationDir)
             doLast {
@@ -496,17 +496,16 @@ class PythonPlugin implements Plugin<Project> {
     void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
         final def ADVICE = "set buildPython to your Python executable path. See " +
                            "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
+        if (python.buildPython == null) {
+            throw new BuildPythonInvalidException(
+                "Couldn't find Python: please either install it, or " + ADVICE)
+        }
+
         ExecResult execResult = null
         try {
             execResult = project.exec {
                 environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
-                python.buildPython.split(/\s+/).eachWithIndex { word, i ->
-                    if (i == 0) {
-                        executable word
-                    } else {
-                        args word
-                    }
-                }
+                commandLine python.buildPython.split(/\s+/)
                 args "-S"  // Avoid interference from system/user site-packages
                            // (this is not inherited by subprocesses).
                 ignoreExitValue true  // A missing executable will still throw an exception.
@@ -525,6 +524,7 @@ class PythonPlugin implements Plugin<Project> {
                 "'$python.buildPython': could not find the requested " +
                 "version of Python. Please either install it, or " + ADVICE);
         }
+
         try {
             execResult.assertNormalExitValue()
         } catch (ExecException e) {
@@ -580,7 +580,7 @@ class PythonPlugin implements Plugin<Project> {
                            Task mergeSrcTask, Task ticketTask) {
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
-            inputs.property("buildPython", python.buildPython)
+            inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pyc", python.pyc.src).optional(true)
             doLast {
                 makeZip(basedir: compilePyc(python, "src", buildPackagesTask,
@@ -592,7 +592,7 @@ class PythonPlugin implements Plugin<Project> {
 
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
-            inputs.property("buildPython", python.buildPython)
+            inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pyc", python.pyc.pip).optional(true)
             doLast {
                 def outDir = compilePyc(python, "pip", buildPackagesTask,
@@ -822,23 +822,30 @@ class PythonExtension extends BaseExtension {
     PipExtension pip = new PipExtension()
     PycExtension pyc = new PycExtension()
 
-    void setDefaults() {
+    void setDefaults(Project project) {
+        for (version in [Common.PYTHON_VERSION_SHORT, Common.PYTHON_VERSION_MAJOR]) {
+            try {
+                if (System.getProperty("os.name").startsWith("Windows")) {
+                    // See PEP 397. After running the official Windows installer with
+                    // default settings, this will be the only Python thing on the PATH.
+                    buildPython = "py -$version"
+                } else {
+                    // See PEP 394.
+                    buildPython = "python$version"
+                }
+                project.exec {
+                    commandLine buildPython.split(/\s+/)
+                    args "--version"
+                    standardOutput = new ByteArrayOutputStream()
+                    errorOutput = new ByteArrayOutputStream()
+                }
+                break
+            } catch (ExecException e) {
+                buildPython = null
+            }
+        }
         pip.setDefaults()
         pyc.setDefaults()
-    }
-    
-    String getBuildPython() {
-        if (this.@buildPython != null) {
-            return this.@buildPython
-        }
-        def targetMajorVer = "3"
-        if (System.getProperty("os.name").startsWith("Windows")) {
-            // See PEP 397. After running the official Windows installer with default settings, this
-            // will be the only Python thing on the PATH.
-            return "py -$targetMajorVer"
-        } else {
-            return "python$targetMajorVer"  // See PEP 394.
-        }
     }
 
     void version(String v) {
