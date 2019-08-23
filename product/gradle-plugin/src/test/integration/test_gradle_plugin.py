@@ -929,7 +929,9 @@ class RunGradle(object):
             if key is not None:
                 print("\nchaquopy.license=" + key, file=out_file)
 
-    def rerun(self, *, succeed=True, variants=["debug"],  env={}, add_path=[], **kwargs):
+    def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
+        if env is None:
+            env = {}
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             if os.name == "nt":
@@ -945,7 +947,7 @@ class RunGradle(object):
                         if entry.is_file():
                             shutil.copy(entry.path, self.project_dir)
             else:
-                env["PATH"] = os.pathsep.join(add_path + os.environ["PATH"])
+                env["PATH"] = os.pathsep.join(add_path + [os.environ["PATH"]])
 
         status, self.stdout, self.stderr = self.run_gradle(variants, env)
         if status == 0:
