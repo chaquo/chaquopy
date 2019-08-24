@@ -294,14 +294,14 @@ class PythonSrc(GradleTestCase):
     @skipIf(os.name == "posix", "For systems which don't support TZ variable")
     def test_reproducible_basic(self):
         self.post_check = make_asset_check(self, {
-            "app.zip": "ace2495dbddff198cbfa9b52cbfb53bb743475dd"})
+            "app.zip": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
         self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"],
                        pyc=["stdlib"])
 
     @skipUnless(os.name == "posix", "For systems which support TZ variable")
     def test_reproducible_timezone(self):
         self.post_check = make_asset_check(self, {
-            "app.zip": "ace2495dbddff198cbfa9b52cbfb53bb743475dd"})
+            "app.zip": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
 
         app = ["one.py", "package/submodule.py"]
         for tz in ["UTC+0", "PST+8", "CET-1"]:  # + and - are reversed compared to normal usage.
@@ -398,21 +398,23 @@ class Pyc(GradleTestCase):
 
     def test_build_python_warning(self):
         run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
-        for tag in ["src", "pip"]:
-            self.assertInLong(WARNING + BuildPython.INVALID.format("pythoninvalid") + "\n" +
-                              WARNING + self.CANT.format(tag),
-                              run.stdout, re=True)
+        self.assertInLong(WARNING + BuildPython.INVALID.format("pythoninvalid") + "\n" +
+                          WARNING + self.CANT.format("src"),
+                          run.stdout, re=True)
+        # pip compilation was enabled, but there were no requirements.
+        self.assertNotInLong(self.CANT.format("pip"), run.stdout)
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
         self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
     def test_magic_warning(self):
-        run = self.RunGradle("base", "Pyc/magic_warning", pyc=["stdlib"])
+        run = self.RunGradle("base", "Pyc/magic_warning", requirements=["six.py"], pyc=["stdlib"])
         self.assertInLong(WARNING + self.MAGIC.format("3.5") + "\n" +
-                          WARNING + self.CANT.format("src"),
+                          WARNING + self.CANT.format("pip"),
                           run.stdout, re=True)
-        self.assertNotInLong(self.CANT.format("pip"), run.stdout)
+        # src compilation was disabled.
+        self.assertNotInLong(self.CANT.format("src"), run.stdout)
 
     def test_magic_error(self):
         run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
@@ -668,9 +670,9 @@ class PythonReqs(GradleTestCase):
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
         self.post_check = make_asset_check(self, {
-            "requirements-common.zip": "498951b8a3ca3313de5f3dccf1e0b7cfa2419c6b",
-            "requirements-armeabi-v7a.zip": "e71ef6f14d410f8c2339b10b16cb30424bcc57c4",
-            "requirements-x86.zip": "e9a6a0d8d9e701ce4ad24c160974182e7ab0e963"})
+            "requirements-common.zip": "ac60921ec3538bde58e9afd5eeda86f22831a447",
+            "requirements-armeabi-v7a.zip": "8ef282896a9a057d363dd7e294d52f89a80ae36a",
+            "requirements-x86.zip": "4d0c2dfb5ac62016df8deceb9d827abd6a16cc48"})
 
         # This is not the same as the filename pattern used in our real wheels, but the point
         # is to test that the multi-ABI packaging works correctly.

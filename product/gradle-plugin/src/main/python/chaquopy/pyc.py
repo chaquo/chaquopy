@@ -13,7 +13,7 @@ check_build_python()
 import argparse
 import importlib.util
 import os
-from os.path import join
+from os.path import abspath, join
 import py_compile
 import shutil
 import sys
@@ -46,7 +46,7 @@ def main():
                 except py_compile.PyCompileError as e:
                     if not args.quiet:
                         print(e)
-            if not compiled:
+            if (not compiled) and (args.in_dir != args.out_dir):
                 shutil.copy(in_filename, out_filename)
 
 
@@ -54,9 +54,12 @@ def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--warning", action="store_true")
-    ap.add_argument("in_dir")
-    ap.add_argument("out_dir")
-    return ap.parse_args()
+    ap.add_argument("in_dir", type=abspath)
+    ap.add_argument("out_dir", type=abspath, nargs="?")
+    args = ap.parse_args()
+    if args.out_dir is None:
+        args.out_dir = args.in_dir
+    return args
 
 
 if __name__ == "__main__":

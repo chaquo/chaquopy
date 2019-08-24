@@ -1,5 +1,6 @@
 package com.chaquo.python
 
+import org.apache.commons.compress.archivers.zip.*
 import org.gradle.api.*
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
@@ -28,6 +29,7 @@ class PythonPlugin implements Plugin<Project> {
     Object android
     VersionNumber androidPluginVer
     File genDir
+    Task buildPackagesTask
 
     public void apply(Project p) {
         project = p
@@ -175,7 +177,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void afterEvaluate() {
-        Task buildPackagesTask = createBuildPackagesTask()
+        buildPackagesTask = createBuildPackagesTask()
         
         for (variant in android.applicationVariants) {
             def python = new PythonExtension()
@@ -192,12 +194,11 @@ class PythonPlugin implements Plugin<Project> {
             }
 
             createConfigs(variant, python)
-            Task reqsTask = createReqsTask(variant, python, buildPackagesTask)
+            Task reqsTask = createReqsTask(variant, python)
             Task mergeSrcTask = createMergeSrcTask(variant, python)
-            createProxyTask(variant, python, buildPackagesTask, reqsTask, mergeSrcTask)
+            createProxyTask(variant, python, reqsTask, mergeSrcTask)
             Task ticketTask = createTicketTask(variant)
-            createAssetsTasks(variant, python, buildPackagesTask, reqsTask, mergeSrcTask,
-                              ticketTask)
+            createAssetsTasks(variant, python, reqsTask, mergeSrcTask, ticketTask)
             createJniLibsTasks(variant, python)
         }
     }
@@ -310,7 +311,7 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    Task createReqsTask(variant, PythonExtension python, Task buildPackagesTask) {
+    Task createReqsTask(variant, PythonExtension python) {
         return project.task(taskName("generate", variant, "requirements")) {
             def abis = getAbis(variant)
             ext.destinationDir = variantGenDir(variant, "requirements")
@@ -318,6 +319,7 @@ class PythonPlugin implements Plugin<Project> {
             inputs.property("abis", abis)
             inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pip", python.pip)
+            inputs.property("pyc", python.pyc.pip).optional(true)
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
@@ -351,7 +353,7 @@ class PythonPlugin implements Plugin<Project> {
                         project.mkdir("$destinationDir/$abi")
                     }
                 } else {
-                    execBuildPython(python, buildPackagesTask) {
+                    execBuildPython(python) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args("--android-abis", *abis)
@@ -378,6 +380,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "--no-compile"
                         args python.pip.options
                     }
+                    compilePyc(python, "pip", destinationDir)
                 }
             }
         }
@@ -395,6 +398,8 @@ class PythonPlugin implements Plugin<Project> {
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
             ext.destinationDir = mergeDir
+            inputs.property("buildPython", python.buildPython)
+            inputs.property("pyc", python.pyc.src).optional(true)
             inputs.files(dirSets.collect { it.sourceFiles })
             outputs.dir(destinationDir)
             doLast {
@@ -422,35 +427,25 @@ class PythonPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                compilePyc(python, "src", mergeDir)
             }
         }
     }
 
-    // We can't modify the input directory because that will break the up-to-date status of the
-    // task which generated it. And we can't *replace* .py files with .pycs within that task,
-    // because the static proxy generator requires the .py files to still be available. So
-    // we compile to a separate directory.
-    //
-    // TODO: We could generate the .pycs *alongside* the .py files in the earlier task, and
-    // then exclude from the ZIP any .py file which has a corresponding .pyc, This would
-    // improve build performance because we would no longer need to copy all the non-Python
-    // files. But I can't see how to specify such an exclusion rule with ant.zip.
-    File compilePyc(python, String tag, Task buildPackagesTask, File inDir) {
+    // We can't remove the .py files here because the static proxy generator needs them.
+    // Instead, they'll be excluded when we call makeZip.
+    void compilePyc(python, String tag, File dir) {
         Boolean setting = python.pyc[tag]
         if (setting == null || setting) {
             try {
-                def outDir = new File("$inDir-pyc")
-                project.delete(outDir)
-                project.mkdir(outDir)
-                execBuildPython(python, buildPackagesTask) {
+                execBuildPython(python) {
                     args "-m", "chaquopy.pyc"
                     args "--quiet"  // TODO #5411: option to display syntax errors
                     if (!setting) {
                         args "--warning"
                     }
-                    args inDir, outDir
+                    args dir
                 }
-                return outDir
             } catch (BuildPythonException e) {
                 if (setting) {
                     throw e
@@ -464,11 +459,9 @@ class PythonPlugin implements Plugin<Project> {
                 }
             }
         }
-        return inDir
     }
 
-    void createProxyTask(variant, PythonExtension python, Task buildPackagesTask, Task reqsTask,
-                          Task mergeSrcTask) {
+    void createProxyTask(variant, PythonExtension python, Task reqsTask, Task mergeSrcTask) {
         File destinationDir = variantGenDir(variant, "proxies")
         Task proxyTask = project.task(taskName("generate", variant, "proxies")) {
             inputs.files(buildPackagesTask, reqsTask, mergeSrcTask)
@@ -479,7 +472,7 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (!python.staticProxy.isEmpty()) {
-                    execBuildPython(python, buildPackagesTask) {
+                    execBuildPython(python) {
                         args "-m", "chaquopy.static_proxy"
                         args "--path", (mergeSrcTask.destinationDir.toString() +
                                         File.pathSeparator +
@@ -493,7 +486,7 @@ class PythonPlugin implements Plugin<Project> {
         variant.registerJavaGeneratingTask(proxyTask, destinationDir)
     }
 
-    void execBuildPython(PythonExtension python, Task buildPackagesTask, Closure closure) {
+    void execBuildPython(PythonExtension python, Closure closure) {
         final def ADVICE = "set buildPython to your Python executable path. See " +
                            "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
         if (python.buildPython == null) {
@@ -576,32 +569,30 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createAssetsTasks(variant, python, Task buildPackagesTask, Task reqsTask,
-                           Task mergeSrcTask, Task ticketTask) {
+    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask,
+                           Task ticketTask) {
+        def excludePy = { FileTreeElement fte ->
+            if (!fte.name.endsWith(".py")) {
+                return false
+            }
+            return new File(fte.file.parent, fte.name + "c").exists()
+        }
+
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
-            inputs.property("buildPython", python.buildPython).optional(true)
-            inputs.property("pyc", python.pyc.src).optional(true)
             doLast {
-                makeZip(basedir: compilePyc(python, "src", buildPackagesTask,
-                                            mergeSrcTask.destinationDir),
-                        destfile: "$assetDir/${assetZip(Common.ASSET_APP)}",
-                        whenempty: "create")
+                makeZip(project.fileTree(mergeSrcTask.destinationDir)
+                            .matching { exclude excludePy },
+                        "$assetDir/${assetZip(Common.ASSET_APP)}")
             }
         }
 
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
-            inputs.property("buildPython", python.buildPython).optional(true)
-            inputs.property("pyc", python.pyc.pip).optional(true)
             doLast {
-                def outDir = compilePyc(python, "pip", buildPackagesTask,
-                                        reqsTask.destinationDir)
-                for (subdir in outDir.listFiles()) {
-                    def filename = assetZip(Common.ASSET_REQUIREMENTS, subdir.name)
-                    makeZip(basedir: subdir,
-                            destfile: "$assetDir/$filename",
-                            whenempty: "create")
+                for (subdir in reqsTask.destinationDir.listFiles()) {
+                    makeZip(project.fileTree(subdir).matching { exclude excludePy },
+                            "$assetDir/${assetZip(Common.ASSET_REQUIREMENTS, subdir.name)}")
                 }
             }
         }
@@ -634,10 +625,9 @@ class PythonPlugin implements Plugin<Project> {
                             include(name: "lib-dynload/**")
                         }
                     }
-                    makeZip(basedir: "$assetDir/lib-dynload/$abi",
-                            destfile: "$assetDir/${assetZip(Common.ASSET_STDLIB, abi)}",
-                            excludes: BOOTSTRAP_NATIVE_STDLIB.join(" "),
-                            whenempty: "fail")
+                    makeZip(project.fileTree("$assetDir/lib-dynload/$abi")
+                                .matching { exclude BOOTSTRAP_NATIVE_STDLIB },
+                            "$assetDir/${assetZip(Common.ASSET_STDLIB, abi)}")
 
                     // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
@@ -672,31 +662,41 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    // Takes the same arguments as project.ant.zip, but makes sure the ZIP is reproducible.
-    def makeZip(Map args) {
-        // We're going to overwrite the timestamps, so make sure we don't accidentally do this
-        // to any source files.
-        def baseDir = project.file(args.get("basedir")).toString()
-        if (!baseDir.startsWith(project.buildDir.toString())) {
-            throw new GradleException("$baseDir is not within $project.buildDir")
+    // Based on org/gradle/api/internal/file/archive/ZipCopyAction.java. This isn't part of
+    // the Gradle public API except via the Zip task, which we're not using because we'd need
+    // to refactor to have one task per ZIP.
+    //
+    // The usual alternative is to use ant.zip, but that has other problems:
+    //   * It only takes simple exclusion patterns, so there's no way to say "exclude .py
+    //     files which have a corresponding .pyc".
+    //   * It has no equivalent to preserveFileTimestamps, so we'd have to actually set the
+    //     timestamps of all the input files.
+    def makeZip(FileTree tree, Object outFile) {
+        new ZipArchiveOutputStream(project.file(outFile)).withCloseable { zip ->
+            // UTF-8 filename encoding is apparently on by default on Linux and off by default on
+            // Windows: this alters the resulting ZIP file even if all filenames are ASCII.
+            zip.setEncoding("UTF-8")
+
+            // This is the same timestamp used by Gradle's preserveFileTimestamps setting.
+            // The UTC timestamp generated here will vary according to the current timezone,
+            // but the local time will be constant, and that's what gets stored in the ZIP.
+            def timestamp = new GregorianCalendar(1980, Calendar.FEBRUARY, 1, 0, 0, 0)
+                .getTimeInMillis()
+
+            tree.visit { FileTreeElement fte ->
+                def name = fte.path
+                if (fte.isDirectory()) {
+                    name += "/"
+                }
+                def entry = new ZipArchiveEntry(name)
+                entry.setTime(timestamp)
+                zip.putArchiveEntry(entry)
+                if (!fte.isDirectory()) {
+                    fte.copyTo(zip)
+                }
+                zip.closeArchiveEntry()
+            }
         }
-
-        // UTF-8 filename encoding is apparently on by default on Linux and off by default on
-        // Windows: this alters the resulting ZIP file even if all filenames are ASCII.
-        args.put("encoding", "UTF-8")
-
-        // This is the same timestamp used by the `preserveFileTimestamps` setting of the
-        // Gradle Zip task, which we're not using because we'd need to refactor to have one
-        // task per ZIP. See
-        // https://github.com/gradle/gradle/blob/e975872ae2cf1d521b73f1107cae772ca09c63cd/subprojects/core/src/main/java/org/gradle/api/internal/file/archive/ZipCopyAction.java#L57.
-        // (By contrast, the APKs generated by the Android Gradle plugin contain all-zero
-        // timestamps, which are interpreted as the invalid date 1980-00-00.)
-        //
-        // The UTC timestamp generated here will vary according to the current timezone,
-        // but the local time will be constant, and that's what gets stored in the ZIP.
-        def timestamp = new GregorianCalendar(1980, Calendar.FEBRUARY, 1, 0, 0, 0).getTimeInMillis()
-        project.fileTree(baseDir).visit { it.file.setLastModified(timestamp) }
-        project.ant.zip(args)
     }
 
     Task assetTask(variant, String name, Closure closure) {

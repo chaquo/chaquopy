@@ -6,9 +6,7 @@ dependencies {
     compile localGroovy()
     compile gradleApi()
 
-    // I experimented with various notations for making this a *minimum* version, but none of them
-    // worked with this 1-level version number format. Anyway, Gradle's default version conflict
-    // resolution strategy is to use the newest version, which will have the same effect.
+    compile "org.apache.commons:commons-compress:1.18"
     compile "org.json:json:20160810"
 
     testCompile "junit:junit:4.12"

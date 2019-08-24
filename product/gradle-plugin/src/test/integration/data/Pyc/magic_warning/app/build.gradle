@@ -12,8 +12,11 @@ android {
         python {
             def pyVer = "3.5"
             buildPython System.getProperty("os.name").startsWith("Windows") ? "py -$pyVer" : "python$pyVer"
+            pip {
+                install "six"
+            }
             pyc {
-                pip false
+                src false
             }
         }
         ndk {
