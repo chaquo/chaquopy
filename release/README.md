@@ -4,6 +4,9 @@
 
 Run `gradlew runtime:check`.
 
+Temporarily set the demo app to a single ABI, and run unit tests on any device. (The multi-ABI
+case is covered below.)
+
 
 ## Gradle plugin
 
@@ -48,10 +51,10 @@ which the public repositories were last updated. If the script reports any files
 manual merging (e.g. build.gradle), examine them and update the public repositories as
 necessary.
 
-Open `public/demo` project. "Clean Project", then "Generate Signed APK". To save time, start
-uploading it to Google Play now.
+Open `public/demo` project. "Clean Project", then "Generate Signed APK".
 
-Test all features on the following devices, with at least one device being a clean install:
+Use `adb` to install the APK on the following devices, with at least one device being a clean
+install, and test all features:
 
 * x86 emulator with minSdkVersion
 * x86 emulator with targetSdkVersion

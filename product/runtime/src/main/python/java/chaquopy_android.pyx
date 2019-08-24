@@ -67,7 +67,9 @@ cdef class AssetFile(object):
         self.assert_open()
         result = AAsset_seek(self.asset, offset, whence)
         if result < 0:
-            raise Exception("AAsset_seek failed")
+            # zipfile expects this exception type when seeking out of range.
+            raise OSError(f"seek({offset}, {whence}) failed at offset {self.tell()} "
+                          f"in {self.path!r}")
         return result
 
     def tell(self):
