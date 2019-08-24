@@ -12,7 +12,8 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
 
     // Very large and not that popular.
     "obspy",
-    "spacy",  // Also requires `extractPackages "en_core_web_sm"`
+    "spacy",
+    "thinc",  // Part of spacy
 ]
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
@@ -76,7 +77,9 @@ android {
 
 def addPackages(flavor, List<String> packages) {
     def inputDir = "../../packages"
+    def allPackages = false
     if (packages == null) {
+        allPackages = true
         packages = []
         for (f in file(inputDir).listFiles()) {
             if (f.isDirectory() && !(f.name in DEFAULT_EXCLUDE_PACKAGES)) {
@@ -90,11 +93,16 @@ def addPackages(flavor, List<String> packages) {
     mkdir(outputDir)
     String suiteSrc = ""
     for (pkgName in packages) {
+        def pkgDir = file("$inputDir/$pkgName")
         def testPaths = ["test.py", "test"]
-            .collect { file("$inputDir/$pkgName/$it") }
+            .collect { file("$pkgDir/$it") }
             .findAll { it.exists() }
         if (testPaths.size() != 1) {
-            throw new GradleException("Found ${testPaths.size()} test files for $pkgName")
+            if (testPaths.isEmpty() && allPackages && pkgName.startsWith("chaquopy-")) {
+                continue  // Probably a non-Python package.
+            } else {
+                throw new GradleException("Found ${testPaths.size()} test files in $pkgDir")
+            }
         }
 
         def testPath = testPaths[0]
