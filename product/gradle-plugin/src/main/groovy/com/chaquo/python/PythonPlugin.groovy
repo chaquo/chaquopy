@@ -683,19 +683,24 @@ class PythonPlugin implements Plugin<Project> {
             def timestamp = new GregorianCalendar(1980, Calendar.FEBRUARY, 1, 0, 0, 0)
                 .getTimeInMillis()
 
-            tree.visit { FileTreeElement fte ->
-                def name = fte.path
-                if (fte.isDirectory()) {
-                    name += "/"
+            tree.visit(new ReproducibleFileVisitor() {
+                boolean isReproducibleFileOrder() {
+                    return true
                 }
-                def entry = new ZipArchiveEntry(name)
-                entry.setTime(timestamp)
-                zip.putArchiveEntry(entry)
-                if (!fte.isDirectory()) {
-                    fte.copyTo(zip)
+                void visitDir(FileVisitDetails details) {
+                    def entry = new ZipArchiveEntry(details.path + "/")
+                    entry.setTime(timestamp)
+                    zip.putArchiveEntry(entry)
+                    zip.closeArchiveEntry()
                 }
-                zip.closeArchiveEntry()
-            }
+                void visitFile(FileVisitDetails details) {
+                    def entry = new ZipArchiveEntry(details.path)
+                    entry.setTime(timestamp)
+                    zip.putArchiveEntry(entry)
+                    details.copyTo(zip)
+                    zip.closeArchiveEntry()
+                }
+            })
         }
     }
 
