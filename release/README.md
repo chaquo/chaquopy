@@ -51,7 +51,7 @@ which the public repositories were last updated. If the script reports any files
 manual merging (e.g. build.gradle), examine them and update the public repositories as
 necessary.
 
-Open `public/demo` project. "Clean Project", then "Generate Signed APK".
+Open `public/demo` project. "Clean Project", then "Generate Signed APK" with "release" variant.
 
 Use `adb` to install the APK on the following devices, with at least one device being a clean
 install, and test all features:
