@@ -24,13 +24,13 @@ android {
 
         applicationId "com.chaquo.python.demo3"
 
-        versionName '6.2.1'
+        versionName '6.3.0'
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 1)
 
         python {
-            // If Chaquopy fails to find Python on your build machine, enable and edit the
-            // following line to point to a Python 3.4+ executable.
+            // If Chaquopy fails to find Python on your build machine, enable the following
+            // line and edit it to point to Python 3.4 or later.
             // buildPython "C:/Python36/python.exe"
 
             // Android UI demo
@@ -48,7 +48,9 @@ android {
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
-            extractPackages "murmurhash"
+            pyc {
+                src false
+            }
         }
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"

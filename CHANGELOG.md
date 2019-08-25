@@ -3,6 +3,11 @@
 This file only records changes to the demo app. For changes to the Chaquopy SDK itself, see
 [its own change log](https://chaquo.com/chaquopy/doc/current/changelog.html).
 
+## 6.3.0 (2019-08-25)
+
+* Target Android Studio 3.5.0.
+* Prevent crash by limiting the console scrollback size.
+
 ## 6.2.1 (2019-04-19)
 
 * No changes except for the SDK update.
