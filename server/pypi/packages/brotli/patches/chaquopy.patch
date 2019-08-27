@@ -1,0 +1,26 @@
+diff -ur src-original/c/common/platform.h src/c/common/platform.h
+--- src-original/c/common/platform.h	2018-10-23 15:03:20.000000000 +0000
++++ src/c/common/platform.h	2019-08-27 10:21:55.842161649 +0000
+@@ -86,7 +86,9 @@
+ #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) && \
+     !defined(__cplusplus)
+ #define BROTLI_RESTRICT restrict
+-#elif BROTLI_GNUC_VERSION_CHECK(3, 1, 0) ||                         \
++
++// Chaquopy: https://github.com/google/brotli/issues/771
++#elif (0 && BROTLI_GNUC_VERSION_CHECK(3, 1, 0)) ||                         \
+     BROTLI_MSVC_VERSION_CHECK(14, 0, 0) ||                          \
+     BROTLI_INTEL_VERSION_CHECK(16, 0, 0) ||                         \
+     BROTLI_ARM_VERSION_CHECK(4, 1, 0) ||                            \
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-10-23 15:03:20.000000000 +0000
++++ src/setup.py	2019-08-27 12:14:35.429712011 +0000
+@@ -179,6 +179,8 @@
+ EXT_MODULES = [
+     Extension(
+         '_brotli',
++        # Chaquopy: https://github.com/google/brotli/issues/771
++        define_macros=[("BROTLI_BUILD_NO_RBIT", None)],
+         sources=[
+             'python/_brotli.cc',
+             'c/common/dictionary.c',

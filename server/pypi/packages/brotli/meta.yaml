@@ -1,0 +1,6 @@
+package:
+  name: Brotli
+  version: 1.0.7
+
+build:
+  number: 10
