@@ -140,6 +140,7 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
 cythonTask("cythonPython") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
         include "chaquopy.pyx", "*.pxi", "*.pxd"
+        exclude "chaquopy_android*"
     }
     inputs.property("licenseMode", licenseMode)
     if (licenseMode.isEmpty()) {
@@ -153,8 +154,9 @@ cythonTask("cythonJava") {
 }
 cythonTask("cythonAndroid") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
-        include "chaquopy_android.pyx", "*.pxd"
+        include "chaquopy_android*", "*.pxd"
     }
+    inputs.property("licenseMode", licenseMode)
 }
 
 
