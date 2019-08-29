@@ -70,7 +70,6 @@ task("doc", group: "documentation")
 javadoc {
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
-    doFirst { delete(destinationDir) }
     title "Java API — Chaquopy"  // Consistent with Sphinx page title style
     executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
     options {

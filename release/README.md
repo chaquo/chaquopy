@@ -73,7 +73,7 @@ Copy APK to Maven repository.
 
 Update `changelog.rst` and `versions.rst`.
 
-Build and upload to server.
+Run `gradlew runtime:doc`, and upload to server.
 
 If major.minor version number has changed:
 * Update "current" symlink.
