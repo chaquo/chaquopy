@@ -195,17 +195,20 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         } else {
             int scrollY = svOutput.getScrollY();
             Layout layout = tvOutput.getLayout();
-            int line = layout.getLineForVertical(scrollY);
-            consoleModel.scrollChar = layout.getLineStart(line);
-            consoleModel.scrollAdjust = scrollY - layout.getLineTop(line);
+            if (layout != null) {  // See note in restoreScroll
+                int line = layout.getLineForVertical(scrollY);
+                consoleModel.scrollChar = layout.getLineStart(line);
+                consoleModel.scrollAdjust = scrollY - layout.getLineTop(line);
+            }
         }
     }
 
     private void restoreScroll() {
         removeCursor();
 
-        // getLayout sometimes returns null even when called from onGlobalLayout, but I haven't
-        // been able to reproduce this (Electron Cash issue #1330, Chaquopy issue #5443).
+        // getLayout sometimes returns null even when called from onGlobalLayout. The
+        // documentation says this can happen if the "text or width has recently changed", but
+        // does not define "recently". See Electron Cash issues #1330 and #1592.
         Layout layout = tvOutput.getLayout();
         if (layout != null) {
             int line = layout.getLineForOffset(consoleModel.scrollChar);
