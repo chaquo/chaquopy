@@ -73,19 +73,23 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
             }
         });
 
+        // At least on API level 28, if an ACTION_UP is lost during a rotation, then the app
+        // (or any other app which takes focus) will receive an endless stream of ACTION_DOWNs
+        // until the key is pressed again. So we react to ACTION_UP instead.
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    (event != null && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                    (event != null && event.getAction() == KeyEvent.ACTION_UP)) {
                     String text = etInput.getText().toString() + "\n";
                     etInput.setText("");
                     output(span(text, new StyleSpan(Typeface.BOLD)));
                     scrollTo(Scroll.BOTTOM);
                     task.onInput(text);
-                    return true;
                 }
-                return false;
+
+                // If we return false on ACTION_DOWN, we won't be given the ACTION_UP.
+                return true;
             }
         });
 
