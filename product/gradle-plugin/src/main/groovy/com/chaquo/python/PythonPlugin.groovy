@@ -170,9 +170,12 @@ class PythonPlugin implements Plugin<Project> {
         def runtimeJava = getConfig("runtimeJava")
         buildscript.dependencies.add(runtimeJava.name, runtimeDep("chaquopy_java.jar"))
         project.dependencies {
+            // Use `api` rather than `implementation` so it's available to dynamic feature
+            // modules.
+            //
             // Can't depend directly on runtimeJava, because "Currently you can only declare
             // dependencies on configurations from the same project."
-            implementation project.files(runtimeJava)
+            api project.files(runtimeJava)
         }
     }
 

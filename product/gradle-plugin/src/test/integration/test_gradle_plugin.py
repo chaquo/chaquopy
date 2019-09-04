@@ -28,6 +28,7 @@ repo_root = abspath(join(integration_dir, "../../../../.."))
 
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["AGP_VERSION"]
+agp_version_info = tuple(map(int, agp_version.split(".")))
 
 # This pattern causes Android Studio to show the line as a warning in tree view. However, the
 # "Warning: " prefix will be removed, so the rest of the message should start with a capital
@@ -121,6 +122,10 @@ class Basic(GradleTestCase):
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
+
+    @skipUnless(agp_version_info >= (3, 2), "Requires dynamic feature support")
+    def test_dynamic_feature(self):
+        self.RunGradle("base", "Basic/dynamic_feature")
 
 
 # Test that new versions of build-packages.zip are correctly extracted and used.
@@ -1178,7 +1183,9 @@ def task_name(prefix, variant, suffix=""):
     def cap_first(s):
         return s if (s == "") else (s[0].upper() + s[1:])
 
-    return (":app:" + prefix +
+    # Don't include the :app: prefix: the project may have multiple modules (e.g. in
+    # test_dynamic_feature).
+    return (prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
 
