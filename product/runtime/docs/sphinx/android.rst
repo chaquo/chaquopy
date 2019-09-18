@@ -340,7 +340,7 @@ ssl
 
 For consistency across different devices, the `ssl` module is configured to use a copy of the CA
 bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version is
-from certifi 2019.3.9.
+from certifi 2019.9.11.
 
 sys
 ---
