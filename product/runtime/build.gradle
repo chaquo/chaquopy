@@ -59,6 +59,7 @@ if (javaHome.endsWith("jre")) {
     javaHome += "/.."
 }
 
+// See product/README.md for Windows build instructions.
 def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
 def EXE_SUFFIX = windowsHost ? ".exe" : ""
 def mingwDir = windowsHost ? getLocalProperty('mingw.dir') : null

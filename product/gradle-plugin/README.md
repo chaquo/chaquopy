@@ -1,8 +1,8 @@
 # Browsing Android Gradle plugin source code
 
-Create a fresh Gradle project in IntelliJ and add the Android Gradle plugin to its compile
-classpath. At least in 3.2.0-beta05, it appears that the JAR contains source code, so you can
-find classes with double-shift and use all the standard IDE navigation functions.
+Create a fresh Gradle project and add the Android Gradle plugin to its compile classpath. At
+least in 3.2.0-beta05, it appears that the JAR contains source code, so you can find classes
+with double-shift and use all the standard IDE navigation functions.
 
 Alternatively, to get the original source repositories, either use the Google "repo" tool, or
 do the following:
