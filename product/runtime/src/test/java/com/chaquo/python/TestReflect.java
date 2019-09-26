@@ -71,6 +71,17 @@ public class TestReflect {
         @Override public String toString() { return "Child object"; }
     }
 
+
+    public interface Interface1 {}
+    public interface Interface11 extends Interface1 {}
+    public interface Interface2 {}
+
+    public static class Order_1_11 implements Interface1, Interface11 {}
+    public static class Order_11_1 implements Interface11, Interface1 {}
+    public static class Order_1_2_11 implements Interface1, Interface2, Interface11 {}
+    public static class Order_11_2_1 implements Interface11, Interface2, Interface1 {}
+
+
     public enum SimpleEnum {
         GOOD, BAD, UGLY,
     }

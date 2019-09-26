@@ -153,11 +153,19 @@ cdef get_bases(klass):
     bases = [jclass(k.getName()) for k in
              ([superclass] if superclass else []) + interfaces]
 
-    # Produce a valid order for the C3 MRO algorithm, if one exists.
-    bases.sort(key=cmp_to_key(lambda a, b: (-1 if issubclass(a, b)
-                                            else 1 if issubclass(b, a)
-                                            else 0)))
-    return tuple(bases)
+    # Java gives us the bases in declaration order, but Python requires them to be in
+    # topological order.
+    bases_sorted = []
+    while bases:
+        for b1 in bases:
+            if all([(b2 is b1) or (not issubclass(b2, b1))
+                    for b2 in bases]):
+                bases_sorted.append(b1)
+                bases.remove(b1)
+                break
+        else:
+            raise TypeError(f"Circular reference in bases: {bases}")
+    return tuple(bases_sorted)
 
 
 cdef setup_object_class():
