@@ -1,0 +1,43 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2019-08-25 09:40:56.000000000 +0000
++++ src/setup.py	2019-09-21 11:50:42.720322362 +0000
+@@ -56,10 +56,9 @@
+     def finalize_options(self):
+         print("Finalizing options")
+         _build_ext.finalize_options(self)
+-        # Prevent numpy from thinking it is still in its setup process:
+-        __builtins__.__NUMPY_SETUP__ = False
+-        import numpy
+-        self.include_dirs.append(numpy.get_include())
++        # Chaquopy
++        self.include_dirs.append(os.path.abspath("../requirements/numpy/core/include"))
++
+ 
+ 
+ def get_packages():
+@@ -113,14 +112,14 @@
+     except:
+         return ""
+ 
+-install_requires = ["numpy", "psutil", "pyzmq", "cython"]
++install_requires = ["numpy", "psutil", "pyzmq"]  # Chaquopy: removed cython
+ if IS_RELEASE:
+     install_requires.append("pyqt5")
+ else:
+     try:
+         import PyQt5
+     except ImportError:
+-        install_requires.append("pyqt5")
++        pass  # Chaquopy: removed install_requires.append("pyqt5")
+ 
+ if sys.version_info < (3, 4):
+     install_requires.append('enum34')
+@@ -140,7 +139,7 @@
+     license="GNU General Public License (GPL)",
+     download_url="https://github.com/jopohl/urh/tarball/v" + str(version.VERSION),
+     install_requires=install_requires,
+-    setup_requires=['numpy'],
++    # Chaquopy: removed setup_requires=['numpy'],
+     packages=get_packages(),
+     ext_modules=get_extensions(),
+     cmdclass={'build_ext': build_ext},

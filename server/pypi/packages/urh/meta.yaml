@@ -1,0 +1,10 @@
+package:
+  name: urh
+  version: 2.7.5
+
+build:
+  number: 3
+
+requirements:
+  host:
+    - numpy 1.14.2
