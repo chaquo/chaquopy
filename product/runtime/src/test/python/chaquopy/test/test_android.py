@@ -62,14 +62,13 @@ class TestAndroidImport(unittest.TestCase):
     def test_init(self):
         self.check_py("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py", "escape",
                       is_package=True)
-        self.check_py("package1", APP_ZIP, "package1/__init__.py", "test_relative",
-                      is_package=True,
-                      source_head="# This package is used by chaquopy.test.test_android.")
+        self.check_py("android1", APP_ZIP, "android1/__init__.py", "x",
+                      source_head="# This package is used by test_android.", is_package=True)
 
     def test_py(self):
         self.check_py("markupsafe._native", REQS_COMMON_ZIP, "markupsafe/_native.py", "escape")
-        self.check_py("package1.package11.python", APP_ZIP, "package1/package11/python.py",
-                      "x", source_head='x = "python 11"')
+        self.check_py("android1.mod1", APP_ZIP, "android1/mod1.py",
+                      "x", source_head='x = "android1.mod1"')
 
     def check_py(self, mod_name, zip_name, zip_path, existing_attr, **kwargs):
         filename = asset_path(zip_name, zip_path)
@@ -400,6 +399,11 @@ class TestAndroidImport(unittest.TestCase):
     # This trick was used by Electron Cash to load modules under a different name. The Electron
     # Cash Android app no longer needs it, but there may be other software which does.
     def test_imp_rename(self):
+        # Clean start to allow test to be run more than once.
+        for name in list(sys.modules):
+            if name.startswith("imp_rename"):
+                del sys.modules[name]
+
         # Renames in stdlib are not currently supported.
         with self.assertRaisesRegexp(ImportError, "zipimporter does not support loading module "
                                      "'json' under a different name 'jason'"):

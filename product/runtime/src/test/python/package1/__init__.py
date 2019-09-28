@@ -1,4 +1,4 @@
-# This package is used by chaquopy.test.test_android.
+# This package is used by test_import and test_android.
 
 
 # Test relative imports from a first-level package (package1/package11/__init__.py

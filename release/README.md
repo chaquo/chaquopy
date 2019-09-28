@@ -4,8 +4,9 @@
 
 Run `gradlew runtime:check`.
 
-Temporarily set the demo app to a single ABI, and run unit tests on any device. (The multi-ABI
-case is covered below.)
+Temporarily set the demo app to a single ABI, and run unit tests on any device.
+
+Restore it to the full set of ABIs, then run unit tests *twice* on any device.
 
 
 ## Gradle plugin
