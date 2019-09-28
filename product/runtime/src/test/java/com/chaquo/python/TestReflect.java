@@ -73,13 +73,21 @@ public class TestReflect {
 
 
     public interface Interface1 {}
-    public interface Interface11 extends Interface1 {}
+    public interface Interface1a extends Interface1 {}
     public interface Interface2 {}
 
-    public static class Order_1_11 implements Interface1, Interface11 {}
-    public static class Order_11_1 implements Interface11, Interface1 {}
-    public static class Order_1_2_11 implements Interface1, Interface2, Interface11 {}
-    public static class Order_11_2_1 implements Interface11, Interface2, Interface1 {}
+    public interface Order_1_2 extends Interface1, Interface2 {}
+    public interface Order_2_1 extends Interface2, Interface1 {}
+    public static class Diamond implements Order_1_2, Order_2_1 {}
+    public static class DiamondChild extends Parent implements Order_1_2, Order_2_1 {}
+
+    public interface Order_1_1a extends Interface1, Interface1a {}
+    public interface Order_1a_1 extends Interface1a, Interface1 {}
+    public interface Order_1_2_1a extends Interface1, Interface2, Interface1a {}
+    public interface Order_1a_2_1 extends Interface1a, Interface2, Interface1 {}
+
+    public interface Order_1a_2 extends Interface1a, Interface2 {}
+    public interface Order_12_1a2 extends Order_1_2, Order_1a_2 {}
 
 
     public enum SimpleEnum {

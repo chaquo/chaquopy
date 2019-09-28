@@ -87,8 +87,7 @@ class JavaClass(type):
                                 f"counterpart")
 
         cls = type.__new__(metacls, cls_name, bases, cls_dict)
-        if six.PY3:
-            cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject".
+        cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject".
         jclass_cache[java_name] = cls
         return cls
 
@@ -147,25 +146,32 @@ class JavaClass(type):
 
 
 cdef get_bases(klass):
-    superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
+    j_superclass = klass.getSuperclass()
+    superclass = jclass(j_superclass.getName()) if j_superclass else None
+    interfaces = [jclass(i.getName()) for i in klass.getInterfaces()]
     if not (superclass or interfaces):  # Class is a top-level interface
-        superclass = JavaObject.getClass()
-    bases = [jclass(k.getName()) for k in
-             ([superclass] if superclass else []) + interfaces]
+        superclass = JavaObject
 
-    # Java gives us the bases in declaration order, but Python requires them to be in
+    # Java gives us the interfaces in declaration order, but Python requires them to be in
     # topological order.
-    bases_sorted = []
-    while bases:
-        for b1 in bases:
-            if all([(b2 is b1) or (not issubclass(b2, b1))
-                    for b2 in bases]):
-                bases_sorted.append(b1)
-                bases.remove(b1)
-                break
-        else:
-            raise TypeError(f"Circular reference in bases: {bases}")
-    return tuple(bases_sorted)
+    bases = []
+    while interfaces:
+        free = [i1 for i1 in interfaces
+                if all([(i2 is i1) or (not issubclass(i2, i1))
+                        for i2 in interfaces])]
+        assert free, interfaces
+        # To allow diamond inheritance, ancestor order must also be consistent (see
+        # test_inheritance_order).
+        free.sort(key=lambda cls: [m.__name__ for m in reversed(cls.__mro__)])
+        bases.append(free[0])
+        interfaces.remove(free[0])
+
+    # Superclass must be positioned for correct method resolution order (see reflect_member and
+    # #5262).
+    if superclass:
+        bases.insert(len(bases) if superclass is JavaObject else 0,
+                     superclass)
+    return tuple(bases)
 
 
 cdef setup_object_class():
@@ -693,7 +699,8 @@ cdef class JavaMethod(JavaSimpleMember):
     # added in a subclass, but we still want to call the subclass overrides of visible
     # overloads. So we'll call virtually whenever the method is got from a cast object.
     # Otherwise we'll call non-virtually, and rely on the Python method resolution rules to
-    # pick the correct override.
+    # pick the correct override. (TODO: this comment is also out of date, because
+    # reflect_member bypasses the Python method resolution rules.)
     def __get__(self, obj, objtype):
         if obj is None and self.name == "getClass":  # Equivalent of Java `.class` syntax.
             return lambda: Class(instance=objtype._chaquopy_j_klass)

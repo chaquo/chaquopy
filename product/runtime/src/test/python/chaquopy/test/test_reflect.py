@@ -27,11 +27,19 @@ class TestReflect(FilterWarningsCase):
         self.assertIsInstance(klass.desiredAssertionStatus(), bool)
 
     def test_jclass(self):
+        Object = jclass("java.lang.Object")
+        self.assertEqual("java.lang", Object.__module__)
+        self.assertEqual("Object", Object.__name__)
+        self.assertEqual("Object", Object.__qualname__)
+
         Stack = jclass('java.util.Stack')
         StackSlash = jclass('java/util/Stack')
         self.assertIs(Stack, StackSlash)
         StackL = jclass('Ljava/util/Stack;')
         self.assertIs(Stack, StackL)
+        self.assertEqual("java.util", Stack.__module__)
+        self.assertEqual("Stack", Stack.__name__)
+        self.assertEqual("Stack", Stack.__qualname__)
 
         stack = Stack()
         self.assertIsInstance(stack, Stack)
@@ -376,18 +384,24 @@ class TestReflect(FilterWarningsCase):
 
     def test_inheritance_order(self):
         Object = jclass("java.lang.Object")
-        Interface1 = self.nested_cls("Interface1")
-        Interface11 = self.nested_cls("Interface11")
-        Interface2 = self.nested_cls("Interface2")
-
         for name, bases in [
-            ("Order_1_11", (Interface11, Interface1, Object)),
-            ("Order_11_1", (Interface11, Interface1, Object)),
-            ("Order_1_2_11", (Interface2, Interface11, Interface1, Object)),
-            ("Order_11_2_1", (Interface11, Interface2, Interface1, Object)),
+            ("Order_1_2", ("Interface1", "Interface2")),
+            ("Order_2_1", ("Interface1", "Interface2")),
+            ("Diamond", ("Order_1_2", "Order_2_1", Object)),
+            ("DiamondChild", ("Parent", "Order_1_2", "Order_2_1")),
+
+            ("Order_1_1a", ("Interface1a", "Interface1")),
+            ("Order_1a_1", ("Interface1a", "Interface1")),
+            ("Order_1_2_1a", ("Interface1a", "Interface1", "Interface2")),
+            ("Order_1a_2_1", ("Interface1a", "Interface1", "Interface2")),
+
+            ("Order_1a_2", ("Interface1a", "Interface2")),
+            ("Order_12_1a2", ("Order_1a_2", "Order_1_2"))
         ]:
             with self.subTest(name=name):
-                self.assertEqual(bases, self.nested_cls(name).__bases__)
+                self.assertEqual([self.nested_cls(base) if isinstance(base, str) else base
+                                  for base in bases],
+                                 list(self.nested_cls(name).__bases__))
 
     def verify_field(self, obj, name, value, modify=True):
         self.assertEqual(value, getattr(obj, name))
@@ -405,7 +419,13 @@ class TestReflect(FilterWarningsCase):
     def test_nested(self):
         TestReflect = jclass("com.chaquo.python.TestReflect")
         for name in ["Interface", "Parent", "SimpleEnum", "Abstract"]:
-            self.assertIs(self.nested_cls(name), getattr(TestReflect, name))
+            cls = self.nested_cls(name)
+            self.assertIs(cls, getattr(TestReflect, name))
+            self.assertEqual("com.chaquo.python", cls.__module__)
+            qualname = "TestReflect$" + name
+            self.assertEqual(qualname, cls.__name__)
+            self.assertEqual(qualname, cls.__qualname__)
+
         self.assertTrue(issubclass(TestReflect.ParentOuter.ChildNested, TestReflect.ParentOuter))
 
     def test_access(self):
