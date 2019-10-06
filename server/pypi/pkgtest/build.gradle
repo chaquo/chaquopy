@@ -9,7 +9,7 @@ buildscript {
         maven { url "../../../maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.5.0'
+        classpath 'com.android.tools.build:gradle:3.5.1'
         classpath "com.chaquo.python:gradle:$version"
     }
 }
