@@ -20,8 +20,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     /** @deprecated Internal use in conversion.pxi */
     public long addr;
 
-    /** @deprecated Internal use in chaquopy_java.pyx.
-     * Always called with the GIL. */
+    /** @deprecated Internal use in chaquopy_java.pyx. */
     public static PyObject getInstance(long addr) {
         synchronized (cache) {
             WeakReference<PyObject> wr = cache.get(addr);
@@ -32,15 +31,15 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
                 PyObject po = wr.get();
                 if (po != null) return po;
             }
-            return new PyObject(addr);
+            PyObject po = new PyObject(addr);
+            cache.put(addr, new WeakReference<>(po));
+            return po;
         }
     }
 
-    /** Always called with the GIL and the cache lock */
     private PyObject(long addr) {
         this.addr = addr;
         openNative();
-        cache.put(addr, new WeakReference<>(this));
     }
     private native void openNative();
 

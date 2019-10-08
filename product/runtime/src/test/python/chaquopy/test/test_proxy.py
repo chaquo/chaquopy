@@ -472,6 +472,29 @@ class TestProxy(FilterWarningsCase):
         with self.assertRaisesRegexp(RuntimeException, "Not implemented: tooMany"):
             p.tooMany(42)
 
+    # Check for deadlocks and other threading errors by creating a large number of proxy
+    # instances in a Python thread and using them on a Java thread.
+    def test_multithreading(self):
+        result = ""
+
+        from java.lang import Runnable
+        class C(dynamic_proxy(Runnable)):
+            def __init__(self, i):
+                super().__init__()
+                self.i = i
+
+            def run(self):
+                nonlocal result
+                result += str(self.i)
+
+        # This count was usually enough to hit the deadlock which was fixed on 2019-10-08.
+        count = 100
+        thread = TP.startQueue(count)
+        for i in range(count):
+            TP.queue.put(C(i))
+        thread.join()
+        self.assertEqual("".join(str(i) for i in range(count)), result)
+
 
 def args_error(expected, given, varargs=False):
     py2_error = (r"takes {} arguments? \({} given\)"

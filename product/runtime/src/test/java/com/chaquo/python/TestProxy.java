@@ -2,6 +2,7 @@ package com.chaquo.python;
 
 import java.io.*;
 import java.lang.reflect.*;
+import java.util.concurrent.*;
 
 public class TestProxy {
 
@@ -80,4 +81,22 @@ public class TestProxy {
         int parse(String s);
     }
 
+
+    public static BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
+
+    public static Thread startQueue(final int count) {
+        Thread thread = new Thread() {
+            @Override public void run() {
+                for (int i = 0; i < count; i++) {
+                    try {
+                        queue.take().run();
+                    } catch (InterruptedException e) {
+                        throw new AssertionError(e);
+                    }
+                }
+            }
+        };
+        thread.start();
+        return thread;
+    }
 }
