@@ -8,6 +8,8 @@ examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy
 Data types
 ==========
 
+.. _data-types-overview:
+
 Overview
 --------
 
@@ -38,14 +40,14 @@ Data types are converted between Python and Java as follows:
 Primitives
 ----------
 
-A Python boolean, integer, float or string can normally be passed directly to a Java method or
-field which takes a compatible type. Java has more primitive types than Python, so when more
+A Python `bool`, `int`, `float` or `str` object can be passed directly to any compatible Java
+method parameter or field. However, Java has more primitive types than Python, so when more
 than one compatible integer or floating-point overload is applicable for a method call, the
-longest one will be used. Similarly, when a Python string is passed to a method which has
+longest one will be used. Similarly, when a 1-character string is passed to a method which has
 overloads for both `String` and `char`, the `String` overload will be used.
 
-If these rules do not give the desired result, the following wrapper classes can be used to be
-more specific about the intended type.
+If these rules do not give the desired result, the following wrapper classes can be used to
+select which Java primitive type you want to use:
 
 .. autoclass:: java.jboolean
 .. autoclass:: java.jbyte
@@ -69,7 +71,7 @@ For example, if `p` is a `PrintStream
 
 The numeric type wrappers take an optional `truncate` parameter. If this is set, any excess
 high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
-passing an out-of-range value will result in an `OverflowError`.
+passing an out-of-range value to a wrapper class will result in an `OverflowError`.
 
 .. note:: When these wrappers are used, Java overload resolution rules will be in effect
           for the wrapped parameter. For example, a `jint` will only be applicable to a
@@ -178,7 +180,7 @@ useful, so the equivalent Python operations are defined as follows:
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 
-`byte[]` arrays can be passed to the Python 3 :any:`bytes` function. This does a signed-to-unsigned
+`byte[]` arrays can be passed to the :any:`bytes` function. This does a signed-to-unsigned
 conversion: Java values -128 to -1 will be mapped to Python values 128 to 255. Direct
 conversion to a :any:`bytearray` is not currently supported: use `bytearray(bytes(...))`
 instead.

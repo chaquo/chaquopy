@@ -84,7 +84,10 @@ double_var = 1e39
 str_var = "hello"
 char_var = "x"
 
-list_var = ["a", "b", "c"]
+char_list_var = ["a", "b", "c"]
+int_list_var = [11, 22, 33]
+bytes_var = b"\x00\x01\x7f\x80\xfe\xff"
+generator_var = (x for x in range(42))
 
 
 class HashObject(object):
