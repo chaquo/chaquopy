@@ -209,9 +209,9 @@ Requirements
 .. note:: This feature requires Python on the build machine, which can be configured with the
           :ref:`buildPython <buildPython>` setting.
 
-External Python packages may be built into the app by adding a `python.pip` block to
-`build.gradle`. Within this block, add `install` lines, each specifying a package in one of the
-following forms:
+External Python packages may be built into the app using the `pip` block in `build.gradle`.
+Within this block, add `install` lines, each specifying a package in one of the following
+forms:
 
 * A `pip requirement specifier
   <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
@@ -225,7 +225,7 @@ Examples::
     defaultConfig {
         python {
             pip {
-                install "six==1.10.0"
+                install "six"
                 install "scipy==1.0.1"
                 install "LocalPackage-1.2.3-py2.py3-none-any.whl"
                 install "-r", "requirements.txt"
