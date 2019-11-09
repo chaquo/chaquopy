@@ -1,9 +1,11 @@
 from __future__ import absolute_import, division, print_function
 
+from os.path import dirname, join
+import pkgutil
 import unittest
 
 
-class TestOpenCV(unittest.TestCase):
+class TestOpenCVContrib(unittest.TestCase):
 
     def test_haarcascade_jpg(self):
         self.check_haarcascade("jpg")
@@ -15,7 +17,6 @@ class TestOpenCV(unittest.TestCase):
     def check_haarcascade(self, ext):
         import cv2.data
         import numpy
-        import pkgutil
 
         classifier = cv2.CascadeClassifier(cv2.data.haarcascades +
                                            "haarcascade_frontalface_default.xml")
@@ -37,3 +38,26 @@ class TestOpenCV(unittest.TestCase):
 
         if noses:
             self.fail("Failed to find expected faces at {}".format(noses))
+
+    def test_sift(self):
+        import cv2.xfeatures2d
+
+        img = cv2.imread(join(dirname(__file__), "triangle.png"))
+        EXPECTED = [
+            (216, 204, 6),      # Top-left corner
+            (472, 114, 10),     # Top-right corner
+            (765, 868, 12),     # Bottom corner
+            (400, 250, 100),    # Apparently represents the triangle as a whole
+        ]
+
+        def close(expected, actual, margin):
+            return abs(expected - actual) <= margin
+
+        for point in cv2.xfeatures2d.SIFT_create().detect(img):
+            for x_expected, y_expected, size_expected in EXPECTED:
+                if close(x_expected, point.pt[0], 50) and \
+                   close(y_expected, point.pt[1], 50) and \
+                   close(size_expected, point.size, size_expected / 2):
+                    break
+            else:
+                self.fail(f"Unexpected point: pt={point.pt}, size={point.size}")

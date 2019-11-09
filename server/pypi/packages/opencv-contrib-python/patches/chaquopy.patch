@@ -44,19 +44,21 @@ index bcaa7d957..14c189805 100644
    set(__disable_python3 ON)
  elseif(BUILD_opencv_world OR (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug"))
 diff --git a/setup.py b/setup.py
-index 7acb02705..08f873e0a 100644
---- a/setup.py
-+++ b/setup.py
-@@ -17,7 +17,7 @@ def main():
+--- src-original/setup.py	2019-11-09 16:01:39.176824795 +0000
++++ src/setup.py	2019-11-09 15:40:49.086580631 +0000
+@@ -15,9 +15,9 @@
+ 
+     # These are neede for source fetching
      cmake_source_dir = "opencv"
-     build_contrib = get_build_env_var_by_name("contrib")
+-    build_contrib = get_build_env_var_by_name("contrib")
++    build_contrib = True  # Chaquopy: was get_build_env_var_by_name("contrib")
      # headless flag to skip GUI deps if needed
 -    build_headless = get_build_env_var_by_name("headless")
 +    build_headless = True  # Chaquopy: was get_build_env_var_by_name("headless")
  
      # Only import 3rd-party modules after having installed all the build dependencies:
      # any of them, or their dependencies, can be updated during that process,
-@@ -29,8 +29,10 @@ def main():
+@@ -29,8 +29,10 @@
      if sys.version_info[:2] >= (3, 7):
          minimum_supported_numpy = "1.14.5"
  
@@ -69,7 +71,7 @@ index 7acb02705..08f873e0a 100644
      import skbuild
  
      if os.path.exists('.git'):
-@@ -45,6 +47,7 @@ def main():
+@@ -45,6 +47,7 @@
              g.run_command(["submodule", "update", "--init", "--recursive", "opencv_contrib"])
  
      # https://stackoverflow.com/questions/1405913/python-32bit-or-64bit-mode
@@ -77,18 +79,18 @@ index 7acb02705..08f873e0a 100644
      x64 = sys.maxsize > 2**32
  
      package_name = "opencv-python"
-@@ -56,7 +59,9 @@ def main():
-         package_name = "opencv-contrib-python-headless"
- 
+@@ -58,6 +61,10 @@
      if build_headless and not build_contrib:
--        package_name = "opencv-python-headless"
-+        # Chaquopy: although our builds are headless, we use the undecorated name because it's
-+        # overwhelmingly more popular on PyPI.
-+        pass
+         package_name = "opencv-python-headless"
  
++    # Chaquopy: although our builds are headless, we use the undecorated name because it's
++    # overwhelmingly more popular on PyPI.
++    package_name = package_name.replace("-headless", "")
++
      long_description = io.open('README.md', encoding="utf-8").read()
      package_version = get_opencv_version()
-@@ -83,8 +88,8 @@ def main():
+ 
+@@ -83,8 +90,8 @@
          ['python/([^/]+/){1,2}cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
  
          'cv2.data': [  # OPENCV_OTHER_INSTALL_PATH
@@ -99,7 +101,7 @@ index 7acb02705..08f873e0a 100644
          ]
      }
  
-@@ -99,8 +104,7 @@ def main():
+@@ -99,8 +106,7 @@
      ] if os.name == 'nt' else [
          "-G", "Unix Makefiles"  # don't make CMake try (and fail) Ninja first
      ]) + [
@@ -109,18 +111,20 @@ index 7acb02705..08f873e0a 100644
          "-DBUILD_opencv_python%d=ON" % sys.version_info[0],
          # Otherwise, opencv scripts would want to install `.pyd' right into site-packages,
          # and skbuild bails out on seeing that
-@@ -113,6 +117,64 @@ def main():
+@@ -113,6 +119,66 @@
          "-DBUILD_DOCS=OFF"
      ] + (["-DOPENCV_EXTRA_MODULES_PATH=" + os.path.abspath("opencv_contrib/modules")] if build_contrib else [])
  
 +    # Chaquopy: BEGIN additions
 +    from distutils.spawn import find_executable
 +
++    python_include_dir = None
 +    for word in os.environ["CFLAGS"].split():
-+        if word.startswith("-I") and "sources/python" in word:
-+            python_include_dir = word[2:]
++        if "sources/python" in word and "include/python" in word:
++            python_include_dir = word
 +    assert python_include_dir, os.environ["CFLAGS"]
 +
++    python_lib_dir = python_lib = None
 +    for word in os.environ["LDFLAGS"].split():
 +        if word.startswith("-L") and "sources/python" in word:
 +            python_lib_dir = word[2:]
@@ -174,7 +178,7 @@ index 7acb02705..08f873e0a 100644
      # OS-specific components
      if (sys.platform == 'darwin' or sys.platform.startswith('linux')) and not build_headless:
          cmake_args.append("-DWITH_QT=4")
-@@ -123,7 +185,7 @@ def main():
+@@ -123,7 +189,7 @@
          cmake_args.append("-DWITH_QT=OFF")
  
      if sys.platform.startswith('linux'):
@@ -183,7 +187,7 @@ index 7acb02705..08f873e0a 100644
          cmake_args.append("-DENABLE_PRECOMPILED_HEADERS=OFF")
  
          if all(v in os.environ for v in ('JPEG_INCLUDE_DIR', 'JPEG_LIBRARY')):
-@@ -168,7 +230,7 @@ def main():
+@@ -168,7 +234,7 @@
          maintainer="Olli-Pekka Heinisuo",
          include_package_data=True,
          ext_modules=EmptyListWithLength(),
@@ -192,7 +196,7 @@ index 7acb02705..08f873e0a 100644
          classifiers=[
            'Development Status :: 5 - Production/Stable',
            'Environment :: Console',
-@@ -197,6 +259,11 @@ def main():
+@@ -197,6 +263,11 @@
          ],
          cmake_args=cmake_args,
          cmake_source_dir=cmake_source_dir,

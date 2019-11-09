@@ -2,7 +2,7 @@
 # also added as a fourth version number component on PyPI.
 
 package:
-  name: opencv-python
+  name: opencv-contrib-python
   version: 3.4.2.16
 
 source:
@@ -12,7 +12,7 @@ source:
   git_rev: 16
 
 build:
-  number: 2
+  number: 3
 
 requirements:
   build:
