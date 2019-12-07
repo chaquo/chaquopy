@@ -153,8 +153,10 @@ class PythonPlugin implements Plugin<Project> {
             Object[] args = null
             if (androidPluginVer < VersionNumber.parse("3.2.0-alpha01")) {
                 args = [name, project]
-            } else {
+            } else if (androidPluginVer < VersionNumber.parse("3.6.0-alpha01")) {
                 args = [name, project, javaSet.type, javaSet.dslScope]
+            } else {
+                args = [name, project, javaSet.type]
             }
             sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(args)
             sourceSet.metaClass.getPython = { return pyDirSet }
