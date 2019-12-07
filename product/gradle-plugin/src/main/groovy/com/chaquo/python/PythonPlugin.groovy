@@ -21,7 +21,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.1.0")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.3.0")
     static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("3.5.3")
 
     Project project
@@ -151,9 +151,7 @@ class PythonPlugin implements Plugin<Project> {
             def name = sourceSet.name + " Python source"
             def javaSet = sourceSet.java
             Object[] args = null
-            if (androidPluginVer < VersionNumber.parse("3.2.0-alpha01")) {
-                args = [name, project]
-            } else if (androidPluginVer < VersionNumber.parse("3.6.0-alpha01")) {
+            if (androidPluginVer < VersionNumber.parse("3.6.0-alpha01")) {
                 args = [name, project, javaSet.type, javaSet.dslScope]
             } else {
                 args = [name, project, javaSet.type]
