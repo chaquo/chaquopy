@@ -113,7 +113,13 @@ class JavaClass(type):
                         real_obj = None  # Setting to `self` would cause a reference cycle with self.__dict__.
                     else:
                         real_sig = klass_sig(env, actual_j_klass)
-                        real_obj = jclass(real_sig)(instance=instance)
+                        real_cls = jclass(real_sig)
+                        assert actual_j_klass == real_cls._chaquopy_j_klass, (
+                            # https://github.com/Electron-Cash/Electron-Cash/issues/1692
+                            f"when instantiating {cls}, signature '{real_sig}' returned "
+                            f"{real_cls} with j_klass {real_cls._chaquopy_j_klass}, which differs "
+                            f"from instance j_klass {actual_j_klass}")
+                        real_obj = real_cls(instance=instance)
                     set_this(self, instance.global_ref(), real_obj)
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
