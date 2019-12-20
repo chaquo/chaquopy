@@ -109,8 +109,8 @@ package release procedure below.
 If this package was blocking others, use the piptest script to retry those packages and check
 whether any new issues have been exposed.
 
-If the package depended on `extractPackages` or other changes in the development version,
-consider postponing the remaining steps until that version is released.
+If the package depended on any changes in the development version, consider postponing the
+remaining steps until that version is released.
 
 Update any GitHub issues.
 
