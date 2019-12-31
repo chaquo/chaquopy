@@ -1,9 +1,9 @@
 package:
   name: cryptography
-  version: 2.2.2
+  version: 2.6.1
 
 build:
-  number: 2
+  number: 1
 
 requirements:
   build:

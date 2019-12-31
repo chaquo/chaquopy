@@ -4,15 +4,21 @@
 
 Run `gradlew runtime:check`.
 
+Temporarily set the demo app to a single ABI, and run unit tests on any device.
+
+Restore it to the full set of ABIs, then run unit tests *twice* on any device.
+
 
 ## Gradle plugin
 
 Free up RAM if necessary. If restarting Android Studio, do it before starting the tests, as
 this may kill the Gradle daemon.
 
-Free up disk space if necessary: the integration tests require about 6 GB per version.
+Free up disk space if necessary: the integration tests require about 6 GB per Android Gradle
+plugin version.
 
-On one supported workstation OS, run `gradlew -P cmakeBuildType=Release gradle-plugin:check`.
+On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
+gradle-plugin:check`.
 
 On the other supported workstation OSes, copy the `gradle` and `runtime` artifacts from the
 first machine. To make sure they're not overwritten, temporarily disable the `dependsOn
@@ -21,8 +27,9 @@ publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:
 
 ## Package tests
 
-Remove any license key from pkgtest app, then test it on the following devices, with at least
-one device being a clean install:
+Remove license key from pkgtest app, and temporarily set it to include all packages by passing
+`null` to `addPackages`. Then test it on the following devices, with at least one device being
+a clean install:
 
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
@@ -45,10 +52,10 @@ which the public repositories were last updated. If the script reports any files
 manual merging (e.g. build.gradle), examine them and update the public repositories as
 necessary.
 
-Open `public/demo` project. "Clean Project", then "Generate Signed APK". To save time, start
-uploading it to Google Play now.
+Open `public/demo` project. "Clean Project", then "Generate Signed APK" with "release" variant.
 
-Test all features on the following devices, with at least one device being a clean install:
+Use `adb` to install the APK on the following devices, with at least one device being a clean
+install, and test all features:
 
 * x86 emulator with minSdkVersion
 * x86 emulator with targetSdkVersion
@@ -67,7 +74,7 @@ Copy APK to Maven repository.
 
 Update `changelog.rst` and `versions.rst`.
 
-Build and upload to server.
+Run `gradlew runtime:doc`, and upload to server.
 
 If major.minor version number has changed:
 * Update "current" symlink.
@@ -102,8 +109,8 @@ package release procedure below.
 If this package was blocking others, use the piptest script to retry those packages and check
 whether any new issues have been exposed.
 
-If the package depended on `extractPackages` or other changes in the development version,
-consider postponing the remaining steps until that version is released.
+If the package depended on any changes in the development version, consider postponing the
+remaining steps until that version is released.
 
 Update any GitHub issues.
 

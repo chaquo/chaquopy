@@ -87,8 +87,7 @@ class JavaClass(type):
                                 f"counterpart")
 
         cls = type.__new__(metacls, cls_name, bases, cls_dict)
-        if six.PY3:
-            cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject".
+        cls.__qualname__ = cls.__name__  # Otherwise repr(Object) would contain "JavaObject".
         jclass_cache[java_name] = cls
         return cls
 
@@ -114,7 +113,13 @@ class JavaClass(type):
                         real_obj = None  # Setting to `self` would cause a reference cycle with self.__dict__.
                     else:
                         real_sig = klass_sig(env, actual_j_klass)
-                        real_obj = jclass(real_sig)(instance=instance)
+                        real_cls = jclass(real_sig)
+                        assert actual_j_klass == real_cls._chaquopy_j_klass, (
+                            # https://github.com/Electron-Cash/Electron-Cash/issues/1692
+                            f"when instantiating {cls}, signature '{real_sig}' returned "
+                            f"{real_cls} with j_klass {real_cls._chaquopy_j_klass}, which differs "
+                            f"from instance j_klass {actual_j_klass}")
+                        real_obj = real_cls(instance=instance)
                     set_this(self, instance.global_ref(), real_obj)
         else:
             self = type.__call__(cls, *args, **kwargs)  # May block
@@ -147,16 +152,31 @@ class JavaClass(type):
 
 
 cdef get_bases(klass):
-    superclass, interfaces = klass.getSuperclass(), klass.getInterfaces()
+    j_superclass = klass.getSuperclass()
+    superclass = jclass(j_superclass.getName()) if j_superclass else None
+    interfaces = [jclass(i.getName()) for i in klass.getInterfaces()]
     if not (superclass or interfaces):  # Class is a top-level interface
-        superclass = JavaObject.getClass()
-    bases = [jclass(k.getName()) for k in
-             ([superclass] if superclass else []) + interfaces]
+        superclass = JavaObject
 
-    # Produce a valid order for the C3 MRO algorithm, if one exists.
-    bases.sort(key=cmp_to_key(lambda a, b: (-1 if issubclass(a, b)
-                                            else 1 if issubclass(b, a)
-                                            else 0)))
+    # Java gives us the interfaces in declaration order, but Python requires them to be in
+    # topological order.
+    bases = []
+    while interfaces:
+        free = [i1 for i1 in interfaces
+                if all([(i2 is i1) or (not issubclass(i2, i1))
+                        for i2 in interfaces])]
+        assert free, interfaces
+        # To allow diamond inheritance, ancestor order must also be consistent (see
+        # test_inheritance_order).
+        free.sort(key=lambda cls: [m.__name__ for m in reversed(cls.__mro__)])
+        bases.append(free[0])
+        interfaces.remove(free[0])
+
+    # Superclass must be positioned for correct method resolution order (see reflect_member and
+    # #5262).
+    if superclass:
+        bases.insert(len(bases) if superclass is JavaObject else 0,
+                     superclass)
     return tuple(bases)
 
 
@@ -685,7 +705,8 @@ cdef class JavaMethod(JavaSimpleMember):
     # added in a subclass, but we still want to call the subclass overrides of visible
     # overloads. So we'll call virtually whenever the method is got from a cast object.
     # Otherwise we'll call non-virtually, and rely on the Python method resolution rules to
-    # pick the correct override.
+    # pick the correct override. (TODO: this comment is also out of date, because
+    # reflect_member bypasses the Python method resolution rules.)
     def __get__(self, obj, objtype):
         if obj is None and self.name == "getClass":  # Equivalent of Java `.class` syntax.
             return lambda: Class(instance=objtype._chaquopy_j_klass)

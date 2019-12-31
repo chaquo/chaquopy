@@ -20,8 +20,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     /** @deprecated Internal use in conversion.pxi */
     public long addr;
 
-    /** @deprecated Internal use in chaquopy_java.pyx.
-     * Always called with the GIL. */
+    /** @deprecated Internal use in chaquopy_java.pyx. */
     public static PyObject getInstance(long addr) {
         synchronized (cache) {
             WeakReference<PyObject> wr = cache.get(addr);
@@ -32,22 +31,22 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
                 PyObject po = wr.get();
                 if (po != null) return po;
             }
-            return new PyObject(addr);
+            PyObject po = new PyObject(addr);
+            cache.put(addr, new WeakReference<>(po));
+            return po;
         }
     }
 
-    /** Always called with the GIL and the cache lock */
     private PyObject(long addr) {
         this.addr = addr;
         openNative();
-        cache.put(addr, new WeakReference<>(this));
     }
     private native void openNative();
 
 
     /** Releases the reference to the Python object. Unless the object represents an expensive
-     * resource, there's no need to call this method manually: it will be called automatically when
-     * the PyObject is garbage-collected.
+     * resource, there's no need to call this method directly: it will be called automatically
+     * when the PyObject is garbage-collected.
      *
      * After calling `close()`, the PyObject can no longer be used. If there are no other
      * references to the underlying object, it may be destroyed by Python. If it continues to exist
@@ -78,27 +77,30 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * There's usually no need to call this method directly: it will be called automatically by the
      * methods of this class which take `Object` parameters.
      *
-     * * If `o` is of an immutable value type (such as `Integer` or `String`), an equivalent Python
-     *   object will be created.
-     * * If `o` is a <a href="../../../../python.html#python-inheriting">proxy</a> for a Python
-     *   object, the underlying Python object will be returned.
-     * * Otherwise, a Python <a href="../../../../python.html#java.jclass">jclass</a> or
-     *   <a href="../../../../python.html#java.jarray">jarray</a> object will be created. */
-    //
-    // TODO #5154... If the given object implements `List`, `Map` or `Set`, the proxy object will
-    // implement the corresponding Python methods (`__len__`, `__getitem__`, etc.).
+     * For details of how Java objects are represented in Python, see the
+     * <a href="../../../../python.html#data-types-overview">Python API</a>. */
     public static native PyObject fromJava(Object o);
 
-    /** Converts the Python object to the given Java type. There's usually no need to call this
-     * method directly, as it's more readable to use {@link #toInt}, {@link #toString}, etc.
+    /** Converts the Python object to the given Java type.
      *
-     * * If `klass` is a primitive type (such as `int`), or an immutable value type (such as
-     *   `Integer` or `String`), and the Python object is compatible with it, an equivalent Java
-     *   object will be returned.
-     * * If the Python object is a <a href="../../../../python.html#java.jclass">jclass</a> or <a
-     *   href="../../../../python.html#java.jarray">jarray</a> object which is compatible with
-     *   `klass`, the underlying Java object will be returned.
-     * * Otherwise, a `ClassCastException` will be thrown. */
+     * If `klass` is a primitive type (such as `int`), or an immutable value type (such as
+     * `Integer` or `String`), and the Python object is compatible with it, an equivalent Java
+     * object will be returned. However, it's more readable to use the type-specific methods
+     * like {@link #toInt}, {@link #toString}, etc.
+     *
+     * If `klass` is an array type, and the Python object is a <a
+     * href="https://docs.python.org/3/glossary.html#term-sequence">sequence</a>, then a copy
+     * of the sequence will be returned as a new array. In general, each element will be
+     * converted as if `toJava` was called on it recursively. However, when converting a Python
+     * `bytes` or `bytearray` object to a Java `byte[]` array, there will be an
+     * unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java values
+     * -128 to -1.
+     *
+     * If the Python object is a <a href="../../../../python.html#java.jclass">jclass</a> or <a
+     * href="../../../../python.html#java.jarray">jarray</a> object which is compatible with
+     * `klass`, the underlying Java object will be returned.
+     *
+     * Otherwise, a `ClassCastException` will be thrown. */
     public native <T> T toJava(Class<T> klass);
 
 

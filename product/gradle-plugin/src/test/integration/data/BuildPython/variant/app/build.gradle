@@ -23,13 +23,13 @@ android {
 
     flavorDimensions "buildPython"
     productFlavors {
-        good {
+        red {
             dimension "buildPython"
-            python { buildPython "python3" }
+            python { buildPython "python-red" }
         }
-        bad {
+        blue {
             dimension "buildPython"
-            python { buildPython "pythoninvalid" }
+            python { buildPython "python-blue" }
         }
     }
 

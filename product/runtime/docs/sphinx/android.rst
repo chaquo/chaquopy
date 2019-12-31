@@ -7,18 +7,18 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 3.1.x and 3.3.x. This is specified as
+* Android Gradle plugin version should be between 3.3 and 3.6. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version. Newer versions may also work, but have
   not been tested with this version of Chaquopy.
 
-  Older versions as far back as 2.2.x are supported by older versions of Chaquopy: for details,
-  see :doc:`this page <../versions>`.
+  Older versions as far back as 2.2 are supported by older versions of Chaquopy: see :doc:`this
+  page <../versions>`.
 
 .. (extra space for consistency)
 
 * `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
-  be at least 15 (Android 4.0.3).
+  be at least 16.
 
 
 Basic setup
@@ -104,21 +104,27 @@ download pre-compiled CPython binaries for the selected ABIs.
                   }
               }
 
-Development
-===========
 
 .. _buildPython:
 
-Some features require Python 3.4 or later to be available on the build machine. By default,
-Chaquopy will execute `python3` on Linux and Mac, or `py -3` on Windows, so if you have a
-standard version of Python installed, no special setup is required.
+Development
+===========
 
-Otherwise, set the Python executable using the `buildPython` setting. For example, on Windows
-you might use the following::
+Some features require Python 3.4 or later to be available on the build machine. Chaquopy will
+try to find it with the standard command for your operating system, first with a matching minor
+version, and then with a matching major version.
+
+For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.6.5, then on Linux and
+Mac it will first try `python3.6`, then `python3`. On Windows, it will first try `py -3.6`,
+then `py -3`.
+
+To use a different copy of Python, set its command using the `buildPython` setting. For
+example, on Windows you might use one of the following::
 
       defaultConfig {
           python {
               buildPython "C:/Python36/python.exe"
+              buildPython "py -3.7"
           }
       }
 
@@ -203,9 +209,9 @@ Requirements
 .. note:: This feature requires Python on the build machine, which can be configured with the
           :ref:`buildPython <buildPython>` setting.
 
-External Python packages may be built into the app by adding a `python.pip` block to
-`build.gradle`. Within this block, add `install` lines, each specifying a package in one of the
-following forms:
+External Python packages may be built into the app using the `pip` block in `build.gradle`.
+Within this block, add `install` lines, each specifying a package in one of the following
+forms:
 
 * A `pip requirement specifier
   <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
@@ -219,7 +225,7 @@ Examples::
     defaultConfig {
         python {
             pip {
-                install "six==1.10.0"
+                install "six"
                 install "scipy==1.0.1"
                 install "LocalPackage-1.2.3-py2.py3-none-any.whl"
                 install "-r", "requirements.txt"
@@ -227,7 +233,7 @@ Examples::
         }
     }
 
-In our most recent tests, Chaquopy could install about 88% of the top 1000 packages on `PyPI
+In our most recent tests, Chaquopy could install about 90% of the top 1000 packages on `PyPI
 <https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
 selection of packages with native components. To see which native packages and versions are
 currently available, you can `browse the repository here <https://chaquo.com/pypi-2.1/>`_. To
@@ -265,9 +271,9 @@ setting specifies which Python modules to search for these classes::
         }
     }
 
-The app's :ref:`source tree <android-source>` and its :ref:`requirements
-<android-requirements>` will be searched, in that order, for the specified modules. Either
-simple modules (e.g. `module/one.py`) or packages (e.g. `module/one/__init__.py`) may be found.
+The app's :ref:`source code <android-source>` and :ref:`requirements <android-requirements>`
+will be searched, in that order, for the specified modules. Either simple modules (e.g.
+`module/one.py`) or packages (e.g. `module/one/__init__.py`) may be used.
 
 Within the modules, static proxy classes must be declared using the syntax described in the
 :ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
@@ -277,81 +283,53 @@ generated and built into the app.
 Packaging
 =========
 
+.. _android-data:
+
+Data files
+----------
+
+To save time and space, your app's Python modules are loaded directly from the APK assets at
+runtime and don't exist as separate `.py` files. However, each module's `__file__` and
+`__path__` attributes can be used in the normal way to find any data files which are packaged
+along with the code. Data files in the root directory will be extracted from the APK the first
+time the app is started, while files within a top-level package will be extracted the first
+time that package is imported.
+
+
 .. _android-bytecode:
 
 Bytecode compilation
 --------------------
 
-Your app will start up faster if its Python code is compiled to `.pyc` format. This is
-currently only supported for the Python standard library, but may be extended to app code and
-pip-installed packages in a future version.
+Your app will start up faster if its Python code is compiled to `.pyc` format, so this is
+enabled by default.
 
-Compilation prevents source code text from appearing in Python stack traces, so you may wish
-to disable it during development. The default settings are as follows::
+Compilation prevents source code text from appearing in stack traces, so during development you
+may wish to disable it. There are individual settings for:
+
+* `src`: :ref:`local source code <android-source>`
+* `pip`: :ref:`requirements <android-requirements>`
+* `stdlib`: the Python standard library
+
+For example, to disable compilation of your local source code::
 
     defaultConfig {
         python {
             pyc {
-                stdlib true
+                src false
             }
         }
     }
 
-.. _extractPackages:
+In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
+bytecode format as :doc:`Chaquopy's own Python version <../versions>`. Usually this means it
+must have the same minor version, e,g. if Chaquopy is using Python 3.6.5, then `buildPython`
+can be any version of Python 3.6.
 
-Resource files
---------------
-
-By default, Python modules are loaded directly from the APK assets at runtime and don't exist
-as separate files. Because of this, any code which depends upon :any:`__file__` to locate
-resource files will fail. There are two ways of dealing with this.
-
-The most efficient way is to change the code to use :any:`pkgutil.get_data` instead. For
-example, to read `package1/subdir/README.txt`:
-
-.. code-block:: python
-
-    from pkgutil import get_data
-
-    # From any Python file directly within package1/:
-    readme_bytes = get_data(__name__, "subdir/README.txt")
-
-    # Or from elsewhere:
-    import package1
-    readme_bytes = get_data(package1.__name__, "subdir/README.txt")
-
-    # Then, to open it like a file:
-    import io
-    readme_file = io.StringIO(readme_bytes.decode())
-
-Alternatively, you can specify certain Python packages to extract at runtime using the
-`extractPackages` setting. For example::
-
-    defaultConfig {
-        python {
-            extractPackages "package1"
-        }
-    }
-
-Then you can use :any:`__file__` in the normal way:
-
-.. code-block:: python
-
-    from os.path import dirname, join
-
-    # From any Python file directly within package1/:
-    readme_file = open(join(dirname(__file__), "subdir/README.txt"))
-
-    # Or from elsewhere:
-    import package1
-    readme_file = open(join(dirname(package1.__file__), "subdir/README.txt"))
-
-Extracted packages will load slower and use more storage space, so you should extract the
-deepest possible package which contains both the module on which `__file__` is looked up, and
-the files being loaded.
-
-`extractPackages` is used by default for certain PyPI packages which are known to require it.
-If you discover any more, please `let us know <https://github.com/chaquo/chaquopy/issues>`_.
+If the bytecode formats do not match, the build will continue with a warning, unless you've
+explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will
+have to be compiled on the target device, which means it will start up slower and use more
+storage space.
 
 
 Python standard library
@@ -360,9 +338,9 @@ Python standard library
 ssl
 ---
 
-Because of inconsistencies in the system certificate authority store formats of different Android
-versions, the `ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://github.com/certifi/python-certifi/>`_. The current version is from certifi 2018.01.18.
+For consistency across different devices, the `ssl` module is configured to use a copy of the CA
+bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version is
+from certifi 2019.9.11.
 
 sys
 ---

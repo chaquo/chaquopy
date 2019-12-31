@@ -12,8 +12,5 @@
 .gradle
 local.properties
 
-__pycache__
 *.pyc
-*.pyd
-*.so
 hs_err*.log

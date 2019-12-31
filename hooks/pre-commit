@@ -1,14 +1,22 @@
 #!/bin/bash
+set -e
+
 # On Unix:      ln -s ../../hooks/pre-commit .git/hooks/pre-commit
 # On Windows:   mklink ..\..\hooks\pre-commit hooks\pre-commit [requires admin shell]
 
 result=0
 
-exclude_re='^(debugger/src)|(hooks/pre-commit)|(product/gradle-plugin/src/main/python/(pip|pkg_resources|setuptools|wheel)/)'
+exclude_re="^(\
+debugger/src/|\
+hooks/pre-commit$|\
+product/gradle-plugin/src/main/python/(pip|pkg_resources|setuptools|wheel)/|\
+product/gradle-plugin/src/test/integration/data/Pyc/syntax_error/|\
+product/runtime/src/main/python/pkg_resources/)"
 files=$(git diff --cached --diff-filter=d --name-only | egrep -v "$exclude_re")
 
 if [ -n "$files" ]; then
-    if grep -Hn FIXME $files; then result=1; fi
+    # -w prevents this from triggering on JUnit's @FixMethodOrder.
+    if grep -Hniw FIXME $files; then result=1; fi
 
     py_files=$(echo $files | tr ' ' '\n' | grep 'py$')
     if [ -n "$py_files" ]; then

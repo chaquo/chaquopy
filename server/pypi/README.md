@@ -1,17 +1,21 @@
 # Introduction
 
-This directory contains processes to build various native Python packages for use with
-Chaquopy. The build process has only been tested on Linux x86-64. However, the resulting
-packages can be used on any supported Android build platform (Windows, Linux or Mac).
+This directory contains the build-wheel tool, which produces Android .whl files for Chaquopy.
+build-wheel itself is only supported on Linux x86-64. However, the resulting .whls can be built
+into an app on any supported Android build platform, as described in the [Chaquopy
+documentation](https://chaquo.com/chaquopy/doc/current/android.html#requirements).
 
-All of these packages, as well as external non-Python libraries which they depend on,
-are packaged as wheel files by the `build-wheel.py` script. Install the requirements in
-`requirements.txt`, then run `build-wheel.py --help` for more information.
+Install the requirements in `requirements.txt`, then run `build-wheel.py --help` for more
+information.
 
 
 # Adding a new package
 
-Create a new subdirectory in `packages`, containing the following:
+Create a new subdirectory in `packages`. Its name must be in PyPI normalized form (PEP 503).
+Alternatively, you can create this subdirectory somewhere else, and use the `--extra-packages`
+option when calling `build-wheel.py`.
+
+Inside the subdirectory, add the following files.
 
 * A `meta.yaml` file. This supports a subset of Conda syntax, defined in `meta-schema.yaml`.
 * A `test.py` file (or `test` package), to run on a target installation. This should contain a

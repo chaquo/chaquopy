@@ -1,0 +1,12 @@
+--- src-original/setup_support.py	2019-05-05 02:53:46.000000000 +0000
++++ src/setup_support.py	2019-08-06 12:23:51.208269830 +0000
+@@ -61,6 +61,9 @@
+ 
+ 
+ def _find_lib():
++    # Chaquopy: library is listed as a requirement in meta.yaml.
++    return True
++
+     if 'COINCURVE_IGNORE_SYSTEM_LIB' in os.environ:
+         return False
+ 

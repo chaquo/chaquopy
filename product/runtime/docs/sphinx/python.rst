@@ -8,6 +8,8 @@ examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy
 Data types
 ==========
 
+.. _data-types-overview:
+
 Overview
 --------
 
@@ -38,14 +40,14 @@ Data types are converted between Python and Java as follows:
 Primitives
 ----------
 
-A Python boolean, integer, float or string can normally be passed directly to a Java method or
-field which takes a compatible type. Java has more primitive types than Python, so when more
+A Python `bool`, `int`, `float` or `str` object can be passed directly to any compatible Java
+method parameter or field. However, Java has more primitive types than Python, so when more
 than one compatible integer or floating-point overload is applicable for a method call, the
-longest one will be used. Similarly, when a Python string is passed to a method which has
+longest one will be used. Similarly, when a 1-character string is passed to a method which has
 overloads for both `String` and `char`, the `String` overload will be used.
 
-If these rules do not give the desired result, the following wrapper classes can be used to be
-more specific about the intended type.
+If these rules do not give the desired result, the following wrapper classes can be used to
+select which Java primitive type you want to use:
 
 .. autoclass:: java.jboolean
 .. autoclass:: java.jbyte
@@ -69,7 +71,7 @@ For example, if `p` is a `PrintStream
 
 The numeric type wrappers take an optional `truncate` parameter. If this is set, any excess
 high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
-passing an out-of-range value will result in an `OverflowError`.
+passing an out-of-range value to a wrapper class will result in an `OverflowError`.
 
 .. note:: When these wrappers are used, Java overload resolution rules will be in effect
           for the wrapped parameter. For example, a `jint` will only be applicable to a
@@ -178,7 +180,7 @@ useful, so the equivalent Python operations are defined as follows:
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 
-`byte[]` arrays can be passed to the Python 3 :any:`bytes` function. This does a signed-to-unsigned
+`byte[]` arrays can be passed to the :any:`bytes` function. This does a signed-to-unsigned
 conversion: Java values -128 to -1 will be mapped to Python values 128 to 255. Direct
 conversion to a :any:`bytearray` is not currently supported: use `bytearray(bytes(...))`
 instead.
@@ -253,7 +255,7 @@ defined by the given interfaces will be visible to Java. If Java code calls an i
 which is not implemented by the Python class, a `PyException
 <java/com/chaquo/python/PyException.html>`_ will be thrown.
 
-Simple example (for more examples, see the `unit tests <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/test_proxy.py>`__)::
+Simple example::
 
     >>> from java.lang import Runnable, Thread
     >>> class R(dynamic_proxy(Runnable)):
@@ -271,6 +273,8 @@ Simple example (for more examples, see the `unit tests <https://github.com/chaqu
     Running hello
     >>> t.getState()
     <java.lang.Thread$State 'TERMINATED'>
+
+For more examples, see the `unit tests <https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/test_proxy.py>`__.
 
 Dynamic proxy classes have the following limitations:
 
@@ -293,10 +297,7 @@ To generate Java methods for the class, use the following decorators:
 .. autofunction:: java.Override(return_type, arg_types, *, modifiers="public", throws=None)
 .. autofunction:: java.constructor(arg_types, *, modifiers="public", throws=None)
 
-Simple example (for more examples, see the `demo app
-<https://github.com/chaquo/chaquopy/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
-and `unit tests
-<https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__)::
+Simple example::
 
     # Python code                                     // Java equivalent
     from com.example import Base, Iface1, Iface1      import com.example.*;
@@ -308,15 +309,20 @@ and `unit tests
         def __init__(self, i, s):                             ...
             ...                                           }
 
-        @method(jvoid, [int], throws=[Exception])         public void f(int x) throws Exception {
+        @method(jvoid, [jint], throws=[Exception])        public void f(int i) throws Exception {
                                                               ...
                                                           }
 
-        @Override(String, [String],                       @Override
-                  modifiers="protected")                  protected String f(String x) {
-        def f(self, x):                                       ...
+        @Override(String, [jint, String],                 @Override
+                  modifiers="protected")                  protected String f(int i, String s) {
+        def f(self, i, s=None):                               ...
             ...                                           }
                                                       }
+
+For more examples, see the `demo app
+<https://github.com/chaquo/chaquopy/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
+and `unit tests
+<https://github.com/chaquo/chaquopy/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__.
 
 Because the :ref:`static proxy generator <static-proxy-generator>` works by static analysis of the
 Python source code, there are some restrictions on the code's structure:
@@ -352,7 +358,8 @@ The following notes apply to both types of proxy:
 
 * If a method is overloaded (i.e. it has multiple Java signatures), the Python signature should
   be able to accept them all. This can usually be achieved by some combination of `duck typing
-  <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax.
+  <https://en.wikipedia.org/wiki/Duck_typing>`_, default arguments, and `*args` syntax. For
+  example, see the method `f` in the static proxy example above.
 
 * To call through to the base class implementation of a method, use the syntax
   `SuperClass.method(self, args)`. Using :any:`super` is not currently supported for Java

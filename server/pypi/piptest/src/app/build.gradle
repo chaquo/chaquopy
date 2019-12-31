@@ -11,6 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
+            buildPython "/usr/bin/python3.6"
             pip {
                 if (System.getenv("piptest_verbose").equals("True")) {
                     options "-v"

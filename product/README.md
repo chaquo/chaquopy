@@ -88,16 +88,17 @@ Prerequisites:
 
 * The test script requires Python 3.6, and the requirements in
   `gradle-plugin/src/test/integration/requirements.txt`. It does not currently work in a
-  virtualenv, so use `pip install --user` instead, making sure that you run the pip for Python
+  virtualenv, so use `pip install --user` instead, making sure that you run pip with Python
   3.6.
 * On Windows, integration tests are not run with the MSYS2 Python, but rather with the `py`
   launcher (PEP 397). This is installed by default by the official Windows releases from
   python.com.
 
-The tests are run by the Gradle task `gradle-plugin:testIntegration-X.Y`, where `X.Y` is the
-Android Studio version to test against (e.g. 3.1). The full set of tests will take a long time.
-To run only some of them, add `-P testPythonArgs=<args>` to the Gradle command line, where
-`<args>` is a space-separated list of test classes or methods (e.g.
-`test_gradle_plugin.Basic.test_variant`). Other [unittest command line
-options](https://docs.python.org/3/library/unittest.html#command-line-interface) can also be
-given here.
+The integration tests are run by the Gradle task `gradle-plugin:testIntegration-X.Y`, where
+`X.Y` is the Android Gradle plugin version to test against (e.g. `3.4`).
+
+The full set of tests will take a long time. To run only some of them, add `-P
+testPythonArgs=<args>` to the Gradle command line, where `<args>` is a space-separated list of
+test classes or methods (e.g. `test_gradle_plugin.Basic.test_variant`). Other [unittest command
+line options](https://docs.python.org/3/library/unittest.html#command-line-interface) can also
+be given here.

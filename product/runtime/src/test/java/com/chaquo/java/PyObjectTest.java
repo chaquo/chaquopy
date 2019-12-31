@@ -121,6 +121,17 @@ public class PyObjectTest {
         assertEquals('x', (char) pyobjecttest.get("char_var").toJava(Character.class));
         assertEquals('x', (char) pyobjecttest.get("char_var").toJava(char.class));
 
+        assertArrayEquals(new char[] { 'a', 'b', 'c'},
+                          pyobjecttest.get("char_list_var").toJava(char[].class));
+        assertArrayEquals(new String[] { "a", "b", "c"},
+                          pyobjecttest.get("char_list_var").toJava(String[].class));
+        assertArrayEquals(new int[] { 11, 22, 33 },
+                          pyobjecttest.get("int_list_var").toJava(int[].class));
+        assertArrayEquals(new byte[] { 0, 1, 127, -128, -2, -1 },
+                          pyobjecttest.get("bytes_var").toJava(byte[].class));
+        assertArrayEquals(new int[] { 0, 1, 127, 128, 254, 255 },
+                          pyobjecttest.get("bytes_var").toJava(int[].class));
+
         assertSame(pyobjecttest, pyobjecttest.toJava(PyObject.class));
 
         Thread t = Thread.currentThread();
@@ -160,6 +171,20 @@ public class PyObjectTest {
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("Cannot convert int object to java.lang.String");
         pyobjecttest.get("int_var").toJava(String.class);
+    }
+
+    @Test
+    public void toJava_fail_array_len() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("object of type 'generator' has no len()");
+        pyobjecttest.get("generator_var").toJava(int[].class);
+    }
+
+    @Test
+    public void toJava_fail_array_type() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert int object to char");
+        pyobjecttest.get("int_list_var").toJava(char[].class);
     }
 
     @Test
@@ -244,7 +269,7 @@ public class PyObjectTest {
 
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("Cannot convert list object to java.lang.Long");
-        pyobjecttest.get("list_var").toLong();
+        pyobjecttest.get("int_list_var").toLong();
     }
 
     @Test

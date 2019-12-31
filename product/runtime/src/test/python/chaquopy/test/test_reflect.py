@@ -17,6 +17,9 @@ class TestReflect(FilterWarningsCase):
         self.Test = jclass('com.chaquo.python.TestBasics')
         self.t = self.Test()
 
+    def nested_cls(self, name):
+        return jclass("com.chaquo.python.TestReflect$" + name)
+
     def test_bootstrap(self):
         # Test a non-inherited method which we are unlikely ever to use in the reflection
         # process.
@@ -24,11 +27,19 @@ class TestReflect(FilterWarningsCase):
         self.assertIsInstance(klass.desiredAssertionStatus(), bool)
 
     def test_jclass(self):
+        Object = jclass("java.lang.Object")
+        self.assertEqual("java.lang", Object.__module__)
+        self.assertEqual("Object", Object.__name__)
+        self.assertEqual("Object", Object.__qualname__)
+
         Stack = jclass('java.util.Stack')
         StackSlash = jclass('java/util/Stack')
         self.assertIs(Stack, StackSlash)
         StackL = jclass('Ljava/util/Stack;')
         self.assertIs(Stack, StackL)
+        self.assertEqual("java.util", Stack.__module__)
+        self.assertEqual("Stack", Stack.__name__)
+        self.assertEqual("Stack", Stack.__qualname__)
 
         stack = Stack()
         self.assertIsInstance(stack, Stack)
@@ -71,7 +82,7 @@ class TestReflect(FilterWarningsCase):
         self.assertIs(a2, self.t.getStringArray())
 
     def test_gc(self):
-        DelTrigger = jclass("com.chaquo.python.TestReflect$DelTrigger")
+        DelTrigger = self.nested_cls("DelTrigger")
         DelTrigger.reset()
         dt = DelTrigger()
         DelTrigger.assertTriggered(False)
@@ -254,12 +265,12 @@ class TestReflect(FilterWarningsCase):
 
     # TODO #5183
     def test_name_clash(self):
-        NameClash = jclass("com.chaquo.python.TestReflect$NameClash")
+        NameClash = self.nested_cls("NameClash")
         self.assertEqual("method", NameClash.member())
         self.assertNotEqual("field", NameClash.member)
 
     def test_enum(self):
-        SimpleEnum = jclass('com.chaquo.python.TestReflect$SimpleEnum')
+        SimpleEnum = self.nested_cls("SimpleEnum")
         self.assertTrue(SimpleEnum.GOOD)
         self.assertTrue(SimpleEnum.BAD)
         self.assertTrue(SimpleEnum.UGLY)
@@ -298,10 +309,10 @@ class TestReflect(FilterWarningsCase):
 
     def test_inheritance(self):
         Object = jclass("java.lang.Object")
-        Interface = jclass("com.chaquo.python.TestReflect$Interface")
-        SubInterface = jclass("com.chaquo.python.TestReflect$SubInterface")
-        Parent = jclass("com.chaquo.python.TestReflect$Parent")
-        Child = jclass("com.chaquo.python.TestReflect$Child")
+        Interface = self.nested_cls("Interface")
+        SubInterface = self.nested_cls("SubInterface")
+        Parent = self.nested_cls("Parent")
+        Child = self.nested_cls("Child")
 
         self.assertEqual((object,), Object.__bases__)
         self.assertEqual((Object,), Interface.__bases__)
@@ -371,6 +382,27 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("Non-overridden static method", c_Parent.oStaticMethod())
         self.assertEqual("Overridden method", c_Parent.oMethod())
 
+    def test_inheritance_order(self):
+        Object = jclass("java.lang.Object")
+        for name, bases in [
+            ("Order_1_2", ("Interface1", "Interface2")),
+            ("Order_2_1", ("Interface1", "Interface2")),
+            ("Diamond", ("Order_1_2", "Order_2_1", Object)),
+            ("DiamondChild", ("Parent", "Order_1_2", "Order_2_1")),
+
+            ("Order_1_1a", ("Interface1a", "Interface1")),
+            ("Order_1a_1", ("Interface1a", "Interface1")),
+            ("Order_1_2_1a", ("Interface1a", "Interface1", "Interface2")),
+            ("Order_1a_2_1", ("Interface1a", "Interface1", "Interface2")),
+
+            ("Order_1a_2", ("Interface1a", "Interface2")),
+            ("Order_12_1a2", ("Order_1a_2", "Order_1_2"))
+        ]:
+            with self.subTest(name=name):
+                self.assertEqual([self.nested_cls(base) if isinstance(base, str) else base
+                                  for base in bases],
+                                 list(self.nested_cls(name).__bases__))
+
     def verify_field(self, obj, name, value, modify=True):
         self.assertEqual(value, getattr(obj, name))
         if modify:
@@ -380,15 +412,19 @@ class TestReflect(FilterWarningsCase):
             self.assertEqual(value, getattr(obj, name))
 
     def test_abstract(self):
-        Abstract = jclass("com.chaquo.python.TestReflect$Abstract")
+        Abstract = self.nested_cls("Abstract")
         with self.assertRaisesRegexp(TypeError, "abstract"):
             Abstract()
 
     def test_nested(self):
         TestReflect = jclass("com.chaquo.python.TestReflect")
-        for cls_name in ["Interface", "Parent", "SimpleEnum", "Abstract"]:
-            self.assertIs(jclass("com.chaquo.python.TestReflect$" + cls_name),
-                          getattr(TestReflect, cls_name))
+        for name in ["Interface", "Parent", "SimpleEnum", "Abstract"]:
+            cls = self.nested_cls(name)
+            self.assertIs(cls, getattr(TestReflect, name))
+            self.assertEqual("com.chaquo.python", cls.__module__)
+            qualname = "TestReflect$" + name
+            self.assertEqual(qualname, cls.__name__)
+            self.assertEqual(qualname, cls.__qualname__)
 
         self.assertTrue(issubclass(TestReflect.ParentOuter.ChildNested, TestReflect.ParentOuter))
 

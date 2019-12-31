@@ -1,0 +1,8 @@
+package:
+  name: chaquopy-secp256k1
+  version: 20190331
+
+source:
+  # This commit no longer seems to be on any branch, but it's the one currently used by
+  # coincurve's setup.py.
+  url: https://github.com/bitcoin-core/secp256k1/archive/b19c000063be11018b4d1a6b0a85871ab9d0bdcf.tar.gz

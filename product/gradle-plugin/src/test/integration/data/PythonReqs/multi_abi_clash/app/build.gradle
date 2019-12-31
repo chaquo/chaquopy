@@ -15,6 +15,7 @@ android {
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
                 install "multi_abi_clash"
             }
+            pyc { pip false }
         }
         ndk {
             abiFilters "armeabi-v7a", "x86"

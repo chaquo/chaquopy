@@ -1,12 +1,38 @@
 Change log
 ##########
 
+6.3.0 (2019-08-25)
+==================
+
+* Android Gradle plugin version 3.5 is now supported.
+* Pre-compile Python code to `.pyc` format by default, so it doesn't have to be compiled on the
+  device. This significantly improves app startup speed and storage usage.
+* Remove the `extractPackages` setting, as data files are now extracted automatically. See
+  :ref:`the documentation <android-data>` for details.
+* Change data file location from cache to files directory, to prevent the user from clearing it
+  while the app is running.
+* Hide importer frames in stack traces, unless the exception originated from the importer
+  itself.
+* Fix another metadata parsing issue, this one affecting the package `astroid
+  <https://github.com/PyCQA/astroid>`_.
+* Fix "has no DT_SONAME" warning (`#112 <https://github.com/chaquo/chaquopy/issues/112>`_).
+
+6.2.1 (2019-04-19)
+==================
+
+* Android Gradle plugin version 3.4 is now supported.
+* Update to OpenSSL 1.1.1b. This enables the BLAKE2 and SHA-3 algorithms in `hashlib`.
+* Update CA bundle to certifi 2019.3.9.
+* Implement `pkgutil.iter_modules`.
+* Build `pkg_resources` into all apps. Many packages require this but don't declare a
+  dependency on setuptools.
+
 6.0.0 (2019-03-08)
 ==================
 
-* The ABI `x86_64` is now supported.
 * Android Gradle plugin version 3.3 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.0 is no longer supported.
+* The ABI `x86_64` is now supported.
 
 5.1.2 (2019-01-19)
 ==================
@@ -26,7 +52,7 @@ Change log
 
 * The ABI `arm64-v8a` is now supported.
 * [**BACKWARD INCOMPATIBLE**] Each Chaquopy version will now include only one Python version,
-  so the `python.version` setting is no longer required. Simply remove it to use the current
+  so the `version` setting is no longer required. Simply remove it to use the current
   version, 3.6.5.
 
   * Python 2 is no longer included. However, for existing Python 2 users, Chaquopy 4.x will
@@ -66,8 +92,8 @@ Change log
   :any:`sysconfig.get_config_vars`.
 * Fix native crash in `lrintf` / `feholdexcept` / `fegetenv` (Crystax issue `#1369
   <https://tracker.crystax.net/issues/1369>`_).
-* Fix :any:`pkgutil.get_data` when used with :ref:`extractPackages <extractPackages>`, and
-  improve extractPackages performance.
+* Fix :any:`pkgutil.get_data` when used with `extractPackages`, and improve `extractPackages`
+  performance.
 
 3.3.0 (2018-06-20)
 ==================
@@ -184,7 +210,7 @@ Change log
 * The following things now return reasonable values: `sys.argv`, `sys.executable`, and
   `platform.platform()`.
 * The following modules now work correctly: `sqlite3`, `ssl` (`#23
-  <https://github.com/chaquo/chaquopy/issues/23>`_), and `tempfile`. (Requires `python.version`
+  <https://github.com/chaquo/chaquopy/issues/23>`_), and `tempfile`. (Requires Python version
   to be 2.7.14 or 3.6.3.)
 * `sys.stdout` and `sys.stderr` are now directed to the Android Logcat.
 * Add `extractPackages`, and use it by default for `certifi
@@ -201,7 +227,7 @@ Change log
 * Ensure pip is re-run if local requirements or wheel file changes.
 * Add Python 2.7.14.
 * Include `distutils` and `doctest` modules (`#20
-  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires `python.version` to be 2.7.14 or
+  <https://github.com/chaquo/chaquopy/issues/20>`_). (Requires Python version to be 2.7.14 or
   3.6.3.)
 
 1.1.0 (2017-12-22)

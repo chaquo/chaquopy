@@ -41,13 +41,9 @@ android {
         // **********************************************************************
 
         python {
-            // Enable and edit the following line if "python" is not on your PATH.
-            // buildPython "C:/Python27/python.exe"
-
-            pip {
-                options "--index-url", "https://pypi.org/simple"  // Disable chaquo.com index.
-                options "--extra-index-url", "../../server/pypi/dist"
-            }
+            // If Chaquopy fails to find Python on your build machine, enable the following
+            // line and edit it to point to Python 3.4 or later.
+            // buildPython "C:/Python36/python.exe"
 
             // Android UI demo
             pip {
@@ -57,14 +53,16 @@ android {
 
             // Python unit tests
             pip {
-                install "MarkupSafe"
-                install "murmurhash"
-                install "certifi==2018.01.18"  // For TestAndroidImport.test_extract_package.
-                install "setuptools==40.4.3"  // For TestAndroidImport.test_pkg_resources.
+                install "MarkupSafe==1.0"
+                install "murmurhash==0.28.0"
+                install "certifi==2018.01.18"  // For TestAndroidImport
+                install "setuptools==40.4.3"   //
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
-            extractPackages "murmurhash"
+            pyc {
+                src false
+            }
         }
 
         // Chaquopy generates extra internal-use constructors on static proxy classes.

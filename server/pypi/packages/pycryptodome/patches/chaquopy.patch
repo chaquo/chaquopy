@@ -1,29 +1,24 @@
 diff -ur src-original/lib/Crypto/Util/_raw_api.py src/lib/Crypto/Util/_raw_api.py
---- src-original/lib/Crypto/Util/_raw_api.py	2018-08-04 22:21:17.000000000 +0000
-+++ src/lib/Crypto/Util/_raw_api.py	2018-09-29 12:53:40.984696656 +0000
-@@ -255,6 +255,23 @@
+--- src-original/lib/Crypto/Util/_raw_api.py    2018-08-04 22:21:17.000000000 +0000
++++ src/lib/Crypto/Util/_raw_api.py     2019-08-24 18:50:56.520037232 +0000
+@@ -255,6 +255,18 @@
                              cdecl)
          except OSError as exp:
              attempts.append("Trying '%s': %s" % (filename, str(exp)))
 +
-+    # Chaquopy: extract to an auto-deleted temporary file.
++    # This technique will work both before and after the importer redesign in Chaquopy 6.3.
 +    import pkgutil
-+    import tempfile
 +    import Crypto
 +    for entry in Crypto.__path__:
-+        zip_file = pkgutil.get_importer(entry).zip_file
++        importer = pkgutil.get_importer(entry)
 +        try:
-+            content = zip_file.read(name.replace(".", "/") + ".so")
++            filename = importer.extract_if_changed(name.replace(".", "/") + ".so")
++            return load_lib(filename, cdecl)
 +        except KeyError:
 +            attempts.append("Trying importer for '%s'" % entry)
-+            continue
-+        with tempfile.NamedTemporaryFile() as temp_file:
-+            temp_file.write(content)
-+            temp_file.flush()
-+            return load_lib(temp_file.name, cdecl)
 +
      raise OSError("Cannot load native module '%s': %s" % (name, ", ".join(attempts)))
- 
+
  def expect_byte_string(data):
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-08-13 19:37:53.000000000 +0000

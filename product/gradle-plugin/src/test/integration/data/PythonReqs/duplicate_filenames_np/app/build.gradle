@@ -16,6 +16,7 @@ android {
                 install "duplicate_filenames_native"
                 install "duplicate_filenames_pure"
             }
+            pyc { pip false }
         }
         ndk {
             abiFilters "armeabi-v7a", "x86"

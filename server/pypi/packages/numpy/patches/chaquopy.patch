@@ -86,6 +86,18 @@ diff -ur src-original/numpy/f2py/__init__.py src/numpy/f2py/__init__.py
  from . import diagnose
  
  run_main = f2py2e.run_main
+diff -ur src-original/numpy/random/setup.py src/numpy/random/setup.py
+--- src-original/numpy/random/setup.py  2019-11-08 08:41:56.000000000 +0000
++++ src/numpy/random/setup.py   2019-12-20 19:40:48.703421754 +0000
+@@ -49,7 +49,7 @@
+     elif not is_msvc:
+         # Some bit generators require c99
+         EXTRA_COMPILE_ARGS += ['-std=c99']
+-        INTEL_LIKE = any(arch in platform.machine() 
++        INTEL_LIKE = any(arch in os.environ['CHAQUOPY_ABI']  # Was `platform.machine()`.
+                          for arch in ('x86', 'i686', 'i386', 'amd64'))
+         if INTEL_LIKE:
+             # Assumes GCC or GCC-like compiler
 diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
 --- src-original/numpy/__init__.py	2018-02-28 17:03:26.000000000 +0000
 +++ src/numpy/__init__.py	2018-04-22 16:48:56.253279855 +0000
@@ -108,12 +120,13 @@ diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py       2018-04-15 20:25:55.769497865 +0000
 +++ src/setup.py        2018-04-15 19:32:59.070017179 +0000
-@@ -39,6 +39,11 @@
+@@ -39,6 +39,12 @@
      import __builtin__ as builtins
  
  
 +# Chaquopy added
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
++os.environ["CFLAGS"] += " -std=gnu99"  # For 'for' loop initial declarations.
 +os.environ["LDFLAGS"] += " -lm"  # NumPy doesn't use this everywhere it should.
 +
 +

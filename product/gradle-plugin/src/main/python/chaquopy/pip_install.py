@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2019 Chaquo Ltd. All rights reserved."""
 
 # Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
@@ -29,6 +29,7 @@ from wheel.util import urlsafe_b64encode  # Not the same as the version in base6
 
 from .util import CommandError
 
+
 ABI_API_LEVELS = {
     "arm64-v8a": 23,
 }
@@ -46,9 +47,10 @@ class PipInstall(object):
         if verbose:
             os.environ["DISTUTILS_DEBUG"] = "1"
 
-        os.mkdir(join(self.target, "common"))
-        abi_trees = {}
         try:
+            os.mkdir(join(self.target, "common"))
+            abi_trees = {}
+
             # Install the first ABI.
             abi = self.android_abis[0]
             req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)

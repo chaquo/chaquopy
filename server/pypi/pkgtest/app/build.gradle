@@ -16,21 +16,20 @@ ext.DEFAULT_INCLUDE_PACKAGES = [
 ext.DEFAULT_EXCLUDE_PACKAGES = [
     // Not in the public package repository.
     "cmake-example",
-
-    // Not applicable to our Python version.
-    //
-    // scandir is not in this category, because even though it's unnecessary on Python 3.5 or
-    // later, it still provides an implementation on every Python version, which some apps may
-    // be using for consistency.
-    "subprocess32",
+    "python-example",
 
     // Very large and not that popular.
     "obspy",
-    "spacy",  // Also requires `extractPackages "en_core_web_sm"`
+    "spacy",
+    "thinc",  // Part of spacy
+
+    // Mutually-incompatible
+    "pycrypto",  // Same package name as pycryptodome, but less popular
 ]
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 ext.TEST_PACKAGES = [
+    "dlib": ["numpy"],
     "grpcio": ["protobuf"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz"],
 ]
@@ -50,11 +49,12 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
-        addPackages(delegate, include: DEFAULT_INCLUDE_PACKAGES)
+        // To test everything except DEFAULT_EXCLUDE_PACKAGES, replace the list with `null`.
+        addPackages(delegate, [])
         python {
             pip {
-                options "--index-url", "https://pypi.org/simple"  // Disable chaquo.com index.
-                options "--extra-index-url", "../../dist"
+                // After a package is tested, remember to move it to the public repository!
+                options "--extra-index-url", "https://chaquo.com/pypi-test/"
             }
         }
 
@@ -86,10 +86,11 @@ android {
 }
 
 
-def addPackages(Map kwargs, flavor) {
+def addPackages(flavor, List<String> packages) {
     def inputDir = "../../packages"
-    List packages = kwargs.getOrDefault("include", null)
+    def allPackages = false
     if (packages == null) {
+        allPackages = true
         packages = []
         for (f in file(inputDir).listFiles()) {
             if (f.isDirectory() && !(f.name in DEFAULT_EXCLUDE_PACKAGES)) {
@@ -97,33 +98,38 @@ def addPackages(Map kwargs, flavor) {
             }
         }
     }
-    List exclude = kwargs.getOrDefault("exclude", [])
-    packages.removeIf({ exclude.contains(it) })
 
     def outputDir = "src/$flavor.name/python/chaquopy/test"
     delete(outputDir)
     mkdir(outputDir)
     String suiteSrc = ""
     for (pkgName in packages) {
-        def testPaths = ["test.py", "test"].collect { file("$inputDir/$pkgName/$it") }
-        for (testPath in testPaths) {
-            if (testPath.exists()) {
-                flavor.python.pip {
-                    install pkgName
-                    TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
-                }
-                def pkgModule = pkgName.replace('-', '_')
-                copy {
-                    from testPath.parentFile
-                    include "${testPath.name}/**"
-                    into outputDir
-                }
-                file("$outputDir/$testPath.name").renameTo(
-                    file("$outputDir/${testPath.name.replace('test', pkgModule)}"))
-                suiteSrc += "from .${pkgModule} import *\n"
-                break
+        def pkgDir = file("$inputDir/$pkgName")
+        def testPaths = ["test.py", "test"]
+            .collect { file("$pkgDir/$it") }
+            .findAll { it.exists() }
+        if (testPaths.size() != 1) {
+            if (testPaths.isEmpty() && allPackages && pkgName.startsWith("chaquopy-")) {
+                continue  // Probably a non-Python package.
+            } else {
+                throw new GradleException("Found ${testPaths.size()} test files in $pkgDir")
             }
         }
+
+        def testPath = testPaths[0]
+        flavor.python.pip {
+            install pkgName
+            TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
+        }
+        def pkgModule = pkgName.replace('-', '_')
+        copy {
+            from testPath.parentFile
+            include "${testPath.name}/**"
+            into outputDir
+        }
+        file("$outputDir/$testPath.name").renameTo(
+            file("$outputDir/${testPath.name.replace('test', pkgModule)}"))
+        suiteSrc += "from .${pkgModule} import *\n"
     }
     file("$outputDir/__init__.py").text = suiteSrc
 }

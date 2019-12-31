@@ -302,6 +302,13 @@ class BuildWheel:
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
+            # Put headers on the include path (used by gevent to build against greenlet).
+            include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
+            if exists(include_src):
+                include_tgt = f"{self.reqs_dir}/chaquopy/include/{package}"
+                run(f"mkdir -p {dirname(include_tgt)}")
+                run(f"mv {include_src} {include_tgt}")
+
         # There is an extension to allow ZIP files to contain symlnks, but the zipfile module
         # doesn't support it, and the links wouldn't survive on Windows anyway. So our library
         # wheels include external shared libraries only under their SONAMEs, and we need to
@@ -368,6 +375,12 @@ class BuildWheel:
     # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
+
+        env["PYTHONPATH"] = join(PYPI_DIR, "build-packages")
+        existing_python_path = os.environ.get("PYTHONPATH")
+        if existing_python_path:
+            env["PYTHONPATH"] += os.pathsep + existing_python_path
+
         abi = ABIS[self.abi]
         self.setup_toolchain(abi)
         for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
@@ -415,13 +428,10 @@ class BuildWheel:
         for var in ["CPPFLAGS", "CXXFLAGS"]:
             env[var] = ""
 
+        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
+        # and typed-ast).
         if self.needs_python:
-            # TODO: distutils adds -I arguments for the build Python's include directory (and
-            # virtualenv include directory if applicable). They're at the end of the command
-            # line so they should be overridden, but may still cause problems if they happen to
-            # have a header which isn't present in the target Python include directory. The
-            # only way I can see to avoid this is to set CC to a wrapper script.
-            env["CFLAGS"] += f" -I{self.python_include_dir}"
+            env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] += f" -lpython{PYTHON_SUFFIX}"
 
         if self.verbose:
@@ -579,8 +589,6 @@ class BuildWheel:
         reqs = []
         for req in self.meta["requirements"][req_type]:
             package, version = req.split()
-            if req_type == "host":
-                package = self.load_meta(package)["package"]["name"]
             reqs.append((package, version))
         return reqs
 

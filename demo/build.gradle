@@ -12,7 +12,7 @@ buildscript {
         // ********************************************************************
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.3.2'
+        classpath 'com.android.tools.build:gradle:3.5.3'
 
         // *** Replace in public repository ***********************************
         classpath "com.chaquo.python:gradle:$version"

@@ -86,10 +86,8 @@ include "import.pxi"
 
 IF CHAQUOPY_LICENSE_MODE == "":
     include "license.pxi"
-ELIF CHAQUOPY_LICENSE_MODE == "free":
+ELIF CHAQUOPY_LICENSE_MODE in ["free", "ec"]:
     include "license_free.pxi"
-ELIF CHAQUOPY_LICENSE_MODE == "ec":
-    include "license_ec.pxi"
 ELSE:
     include "unknown_license_mode.pxi"
 

@@ -102,15 +102,26 @@ cdef j2p_string(JNIEnv *j_env, JNIRef j_string):
 
 
 # jpyobject MUST be a (possibly-null) PyObject reference, or this function will probably crash.
-cdef j2p_pyobject(JNIEnv *env, jobject jpyobject):
+#
+# This function is called from PyObject.getInstance, which is synchronized on PyObject.cache.
+# To avoid deadlocks, it must not do anything which requires a lock, including calling jclass()
+# or creating jclass instances.
+cdef j2p_pyobject(JNIEnv *j_env, jobject jpyobject):
     if jpyobject == NULL:
         return None
-    JPyObject = jclass("com.chaquo.python.PyObject")
-    jpo = JPyObject(instance=GlobalRef.create(env, jpyobject))
-    cdef PyObject *po = <PyObject*><jlong> jpo.addr
+
+    env = CQPEnv.wrap(j_env)
+    global fid_PyObject_addr
+    if not fid_PyObject_addr:
+        j_PyObject = env.FindClass("com.chaquo.python.PyObject")
+        fid_PyObject_addr = env.GetFieldID(j_PyObject, "addr", "J")
+
+    cdef PyObject *po = <PyObject*> j_env[0].GetLongField(j_env, jpyobject, fid_PyObject_addr)
     if po == NULL:
         raise ValueError("PyObject is closed")
     return <object>po
+
+cdef jfieldID fid_PyObject_addr = NULL
 
 
 # If the definition is for a Java object or array, returns a JNIRef.

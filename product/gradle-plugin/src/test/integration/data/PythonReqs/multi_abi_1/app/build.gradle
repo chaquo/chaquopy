@@ -16,6 +16,7 @@ android {
                 install "apple"
                 install "multi_abi_1"
             }
+            pyc { pip false }
         }
         ndk {
             abiFilters "armeabi-v7a", "x86"

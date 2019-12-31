@@ -1,0 +1,14 @@
+--- src-original/setup.py	2019-02-26 03:02:22.000000000 +0000
++++ src/setup.py	2019-04-02 10:43:54.095734653 +0000
+@@ -176,7 +176,10 @@
+                   'macros': c_macros, })
+ 
+ def get_ext_modules(use_cython):
+-    from numpy import get_include as get_numpy_include
++    # Chaquopy
++    def get_numpy_include():
++        return os.path.abspath("../requirements/numpy/core/include")
++
+     cython_modules, cython_sources = get_cython_sources(use_cython)
+     ext_modules = [
+         Extension('pywt._extensions.{0}'.format(module),
