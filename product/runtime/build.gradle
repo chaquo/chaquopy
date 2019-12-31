@@ -232,7 +232,8 @@ for (abi in ["host"] + Common.ABIS) {
             }
         } else {
             dependsOn cythonAndroid
-            def prefixDir = "$projectDir/../../target/toolchains/$abi/sysroot/usr"            args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+            def prefixDir = "$projectDir/../../target/toolchains/$abi/sysroot/usr"
+            args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_NDK=$ndkDir", "-DANDROID_STL=system",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION", "-DANDROID_ABI=$abi",
                  "-DCHAQUOPY_INCLUDE_DIRS=$prefixDir/include/python$Common.PYTHON_SUFFIX",
