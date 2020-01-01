@@ -15,15 +15,11 @@ else
     bits="32"
 fi
 ./Configure linux-generic$bits shared
-
-# Adding `-j` to the make command has no effect because of the way it uses recursive make. This
-# may be fixed in OpenSSL 1.1.0: see https://github.com/openssl/openssl/issues/298 ("jobserver
-# unavailable") and https://github.com/openssl/openssl/issues/5762.
-make
+make -j $(nproc)
 
 tmp_dir="/tmp/openssl-$$"
-make install_sw INSTALL_PREFIX=$tmp_dir
-tmp_prefix="$tmp_dir/usr/local/ssl"
+make install_sw DESTDIR=$tmp_dir
+tmp_prefix="$tmp_dir/usr/local"
 prefix="$sysroot/usr"
 cp -af $tmp_prefix/include/* $prefix/include
 cp -af $tmp_prefix/lib/*.so* $prefix/lib

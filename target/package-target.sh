@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Positional arguments:
-#  * Python major.minor version, e.g. "2.7"
-#  * Python micro-build version, e.g. "14-2" (see Common.java)
+#  * Python major.minor version, e.g. "3.8"
+#  * Python micro version and build number, separated by a dash, e.g. "1-2" (see Common.java)
 #  * Target directory, e.g. /path/to/maven/com/chaquo/python/target
 
 set -eu
@@ -48,7 +48,7 @@ for toolchain_dir in $this_dir/toolchains/*; do
 
     # OpenSSL
     for lib_name in libcrypto libssl; do
-        cp $prefix/lib/$lib_name.so.1.0.0 $jniLibs_dir/${lib_name}_chaquopy.so
+        cp $prefix/lib/$lib_name.so.1.1 $jniLibs_dir/${lib_name}_chaquopy.so
     done
 
     # SQLite
