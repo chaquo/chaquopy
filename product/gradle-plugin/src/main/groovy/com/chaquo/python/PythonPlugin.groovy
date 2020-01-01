@@ -374,8 +374,7 @@ class PythonPlugin implements Plugin<Project> {
                               "-i" in python.pip.options)) {
                             // If the user passes --index-url, disable our repository as well
                             // as the default one.
-                            args "--extra-index-url", "https://chaquo.com/pypi-2.1"
-                            args "--extra-index-url", "https://chaquo.com/pypi-6.2"
+                            args "--extra-index-url", "https://chaquo.com/pypi-7.0"
                         }
                         args "--implementation", Common.PYTHON_IMPLEMENTATION
                         args "--python-version", Common.PYTHON_VERSION

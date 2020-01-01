@@ -357,7 +357,6 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     needed_loaded = {}
 
     def create_module(self, spec):
-        out_filename = self.extract_so()
         # Older versions can't load two .so files with the same basename (#5478). Symlink
         # workaround was removed on this branch because of apparent filesystem corruption on
         # ***REMOVED*** devices (#5530).
@@ -407,8 +406,6 @@ LOADERS = [
     (".py", SourceAssetLoader),
     (".pyc", SourcelessAssetLoader),
     (".so", ExtensionAssetLoader),
-    # No current need for a SourcelessFileLoader, since we never include .pyc files in the
-    # assets.
 ]
 
 

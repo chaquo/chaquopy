@@ -19,7 +19,8 @@ import shutil
 import sys
 
 
-EXPECTED_MAGIC_NUMBER = b'3\r\r\n'
+# See importlib._bootstrap_external.MAGIC_NUMBER.
+EXPECTED_MAGIC_NUMBER = (3394).to_bytes(2, 'little') + b'\r\n'
 
 
 def main():

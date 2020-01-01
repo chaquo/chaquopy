@@ -63,6 +63,9 @@ cdef class AssetFile(object):
         else:
             return buf
 
+    def seekable(self):
+        return True
+
     def seek(self, offset, whence=os.SEEK_SET):
         self.assert_open()
         result = AAsset_seek(self.asset, offset, whence)

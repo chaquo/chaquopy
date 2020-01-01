@@ -33,9 +33,10 @@ else:
     from com.chaquo.python.android import AndroidPlatform
     APP_ZIP = "app.zip"
     REQS_COMMON_ZIP = "requirements-common.zip"
-    REQS_ABI_ZIP = "requirements-{}.zip".format(AndroidPlatform.ABI)
     multi_abi = len([name for name in context.getAssets().list("chaquopy")
                      if name.startswith("requirements")]) > 2
+    REQS_ABI_ZIP = ("requirements-{}.zip".format(AndroidPlatform.ABI) if multi_abi
+                    else REQS_COMMON_ZIP)
 
 def setUpModule():
     if API_LEVEL is None:
@@ -105,7 +106,7 @@ class TestAndroidImport(unittest.TestCase):
             self.assertFalse(hasattr(mod, existing_attr))
 
             # A .pyc with mismatching header timestamp should be written again.
-            new_header = header[0:4] + b"\x00\x01\x02\x03" + header[8:]
+            new_header = header[0:8] + b"\x00\x01\x02\x03" + header[12:]
             self.assertNotEqual(new_header, header)
             self.write_pyc_header(cache_filename, new_header)
             with self.assertModifies(cache_filename):
@@ -114,7 +115,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def read_pyc_header(self, filename):
         with open(filename, "rb") as pyc_file:
-            return pyc_file.read(12)
+            return pyc_file.read(16)
 
     def write_pyc_header(self, filename, header):
         with open(filename, "r+b") as pyc_file:
@@ -122,8 +123,7 @@ class TestAndroidImport(unittest.TestCase):
             pyc_file.write(header)
 
     def test_so(self):
-        reqs_zip = REQS_ABI_ZIP if multi_abi else REQS_COMMON_ZIP
-        filename = asset_path(reqs_zip, "markupsafe/_speedups.so")
+        filename = asset_path(REQS_ABI_ZIP, "markupsafe/_speedups.so")
         mod = self.check_module("markupsafe._speedups", filename, filename)
         self.check_extract_if_changed(mod, filename)
 
@@ -285,7 +285,7 @@ class TestAndroidImport(unittest.TestCase):
                 fr'  File "{asset_path(APP_ZIP)}/package1/recursive_import_error.py", '
                 fr'line 1, in <module>\n'
                 fr'    from os import nonexistent\n'
-                fr"ImportError: cannot import name 'nonexistent'\n$")
+                fr"ImportError: cannot import name 'nonexistent' from 'os'")
         else:
             self.fail()
 
@@ -319,7 +319,7 @@ class TestAndroidImport(unittest.TestCase):
                 format_exc(),
                 test_frame +
                 fr'  File "{asset_path(REQS_COMMON_ZIP)}/markupsafe/_native.py", '
-                fr'line 21, in escape\n'
+                fr'line 27, in escape\n'
                 fr"TypeError: 'NoneType' object is not callable\n$")
         else:
             self.fail()
@@ -332,9 +332,9 @@ class TestAndroidImport(unittest.TestCase):
             self.assertRegexpMatches(
                 format_exc(),
                 test_frame +
-                r'  File "stdlib/json/__init__.py", line 354, in loads\n'
-                r'  File "stdlib/json/decoder.py", line 339, in decode\n'
-                r'  File "stdlib/json/decoder.py", line 357, in raw_decode\n'
+                r'  File "stdlib/json/__init__.py", line 348, in loads\n'
+                r'  File "stdlib/json/decoder.py", line 337, in decode\n'
+                r'  File "stdlib/json/decoder.py", line 355, in raw_decode\n'
                 r'json.decoder.JSONDecodeError: Expecting value: line 1 column 1 \(char 0\)\n$')
         else:
             self.fail()
