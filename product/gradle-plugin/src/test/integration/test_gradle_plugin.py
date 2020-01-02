@@ -135,7 +135,7 @@ class ChaquopyPlugin(GradleTestCase):
     def test_upgrade_3_0_0(self):
         run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_0_0", succeed=False)
         self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
-        run.apply_layers("ChaquopyPlugin/upgrade_current")
+        run.apply_layers("base", "ChaquopyPlugin/upgrade_current")
         run.rerun(abis=["arm64-v8a"])
 
     # Since this version, there has been no change in the build-packages.zip filename. We
@@ -143,7 +143,7 @@ class ChaquopyPlugin(GradleTestCase):
     def test_upgrade_4_0_0(self):
         run = self.RunGradle("base", "ChaquopyPlugin/upgrade_4_0_0", succeed=False)
         self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
-        run.apply_layers("ChaquopyPlugin/upgrade_current")
+        run.apply_layers("base", "ChaquopyPlugin/upgrade_current")
         run.rerun(abis=["arm64-v8a"])
 
 
@@ -1104,7 +1104,7 @@ class RunGradle(object):
                  "_opcode.so", "_pickle.so", "_posixsubprocess.so", "_queue.so", "_random.so",
                  "_sha1.so", "_sha256.so", "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so",
                  "_ssl.so", "_xxtestfuzz.so", "array.so", "audioop.so", "cmath.so", "fcntl.so",
-                 "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so" "select.so",
+                 "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so", "select.so",
                  "syslog.so", "termios.so", "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())
 
