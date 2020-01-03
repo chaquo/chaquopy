@@ -73,7 +73,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def check_py(self, mod_name, zip_name, zip_path, existing_attr, **kwargs):
         filename = asset_path(zip_name, zip_path)
-        # In build.gradle, .pyc pre-compilation is enabled for everything except app.zip.
+        # In build.gradle, .pyc pre-compilation is disabled for app.zip, so it will generate
+        # __pycache__ directories.
         cache_filename = cache_from_source(filename) if (zip_name == APP_ZIP) else None
         mod = self.check_module(mod_name, filename, cache_filename, **kwargs)
         self.assertNotPredicate(exists, filename)

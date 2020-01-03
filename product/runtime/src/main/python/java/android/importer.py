@@ -247,6 +247,7 @@ class AssetFinder:
                     except KeyError:
                         continue
                     if (infix == "/__init__") and ("." not in mod_name):
+                        # This is a top-level package: extract all data files within it.
                         self.extract_dir(prefix)
                     return loader_cls(self, mod_name, zip_info)
         return None
@@ -326,13 +327,15 @@ class AssetLoader:
         return self.path
 
     def get_data(self, path):
-        if exists(path):  # For bytecode and pre-extracted files.
+        if exists(path):
+            # For __pycache__ directories created by SourceAssetLoader, and data files created
+            # by extract_dir.
             with open(path, "rb") as f:
                 return f.read()
         return self.finder.get_data(self.finder.zip_path(path))
 
 
-# SourceFileLoader will access both the source and bytecode files via AssetLoader.get_data.
+# The SourceFileLoader base class will automatically create and use _pycache__ directories.
 class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
     def path_stats(self, path):
         return {"mtime": timegm(self.zip_info.date_time),
