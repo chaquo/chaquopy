@@ -4,7 +4,7 @@ set -eu
 license_mode=${1:-}
 
 cd $(dirname $0)
-docker build -t chaquopy-target --build-arg abi=arm64-v8a --build-arg api=23 target
+docker build -t chaquopy-target --build-arg abis="arm64-v8a x86" --build-arg api=23 target
 container_name=$(docker create chaquopy-target)
 rm -rf target/toolchains
 docker cp $container_name:/root/target/toolchains target

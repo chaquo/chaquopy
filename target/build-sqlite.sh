@@ -22,6 +22,13 @@ C $hash
 D $(date +%Y-%m-%dT%H:%M:%S)
 EOF
 
-./configure --host=$host_triplet
+build_dir="/tmp/sqlite-build-$$"
+rm -rf $build_dir
+mkdir -p $build_dir
+cd $build_dir
+
+$target_dir/sqlite/configure --host=$host_triplet
 make -j $(nproc)
 make install prefix=$sysroot/usr
+
+rm -r $build_dir

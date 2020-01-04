@@ -12,13 +12,11 @@ Alternatively, you might want to use the automated Docker-based build process: s
 
 * JDK 8 or later.
 * Python requirements in `runtime/requirements-build.txt`.
-* Android SDK, including the following packages (names for the command-line `sdkmanager` are in
-  parentheses).
-   * CMake (`cmake;3.6.4111459`)
-   * NDK (`ndk-bundle`)
+* Android SDK, including the following packages:
+   * CMake: see `Dockerfile` for version number.
+   * NDK (side by side): see `target/Dockerfile` for version number.
    * SDK Platform corresponding to `COMPILE_SDK_VERSION` in
-     `product/buildSrc/src/main/java/com/chaquo/python/Common.java` (e.g.
-     `platforms;android-21`).
+     `product/buildSrc/src/main/java/com/chaquo/python/Common.java`.
 * Android sysroots in `../target/toolchains/<abi>/sysroot`. Either generate them using the
   commands in `../build-maven.sh`, or copy them from another machine. For this purpose, you
   only need to copy the Python headers in `usr/include/pythonX.Y` and the library
@@ -28,7 +26,7 @@ Create a `local.properties` file in `product` (i.e. the same directory as this R
 the following content:
 
     sdk.dir=<Android SDK directory>
-    ndk.dir=<Android SDK directory>/ndk-bundle
+    ndk.dir=<Android SDK directory>/ndk/<version>
 
 If building with a non-standard license mode, also add the line:
 

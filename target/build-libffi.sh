@@ -15,9 +15,8 @@ tar -xf libffi-$version.tar.gz
 rm libffi-$version.tar.gz
 
 cd libffi-$version
-./configure --host=$host_triplet --prefix=$sysroot/usr
+./configure --host=$host_triplet --prefix=$sysroot/usr --disable-shared --with-pic
 make -j $(nproc)
 
 make install
 mv $sysroot/usr/lib/libffi-$version/include/* $sysroot/usr/include
-rm $sysroot/usr/lib/libffi.so*  # Shared library will not be available at runtime

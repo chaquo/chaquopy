@@ -9,9 +9,6 @@ set -eu
 # The Google fork has many changes, so it's hard to tell how much work it would be to move to
 # the stock GCC, but it would at least require updating gcc/config/aarch64 to use the correct
 # Android filenames for start files (crt[...].o) and the dynamic linker (/system/bin/linker64).
-#
-# TODO: when building for x86, we may need the patch from
-# https://github.com/buffer51/android-gfortran#other-targets--hosts.
 
 target_dir=$(dirname $(realpath $0))
 toolchain=$(realpath ${1:?})
