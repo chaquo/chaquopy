@@ -17,7 +17,6 @@ import re
 import shlex
 import subprocess
 import sys
-import sysconfig
 import tempfile
 from textwrap import dedent
 
@@ -57,13 +56,17 @@ COMPILER_LIBS = {
 @dataclass
 class Abi:
     name: str                               # Android ABI name.
-    default_api_level: int
     tool_prefix: str                        # GCC target triplet.
     cflags: str = field(default="")
     ldflags: str = field(default="")
 
 ABIS = {abi.name: abi for abi in [
-    Abi("arm64-v8a", 23, "aarch64-linux-android"),
+    Abi("armeabi-v7a", "arm-linux-androideabi",
+        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
+        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
+    Abi("arm64-v8a", "aarch64-linux-android"),
+    Abi("x86", "i686-linux-android"),
+    Abi("x86_64", "x86_64-linux-android"),
 ]}
 
 
@@ -107,7 +110,7 @@ class BuildWheel:
         if self.needs_python:
             self.find_python()
         else:
-            self.compat_tag = f"py2.py3-none-{self.platform_tag}"
+            self.compat_tag = f"py{PYTHON_VERSION[0]}-none-{self.platform_tag}"
 
         build_reqs = self.get_requirements("build")
         if build_reqs:
@@ -160,17 +163,10 @@ class BuildWheel:
                         "multiple times.")
         ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                         help="Path to toolchain")
-        ap.add_argument("--abi", metavar="ABI", required=True, choices=sorted(ABIS.keys()),
-                        help="Choices: %(choices)s")
-        ap.add_argument("--api-level", metavar="N", type=int,
-                        help="Android API level (default: {})".format(
-                            ", ".join(f"{abi.name}:{abi.default_api_level}"
-                                      for abi in ABIS.values())))
         ap.add_argument("package", help="Name of package to build")
         ap.parse_args(namespace=self)
 
-        if not self.api_level:
-            self.api_level = ABIS[self.abi].default_api_level
+        self.setup_toolchain()
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
 
     def find_python(self):
@@ -292,7 +288,8 @@ class BuildWheel:
             for filename in os.listdir(dist_dir):
                 match = re.search(fr"^{normalize_name_wheel(package)}-"
                                   fr"{normalize_version(version)}-(?P<build_num>\d+)-"
-                                  fr"({self.compat_tag}|py2.py3-none-{self.platform_tag})"
+                                  fr"({self.compat_tag}|"
+                                  fr"py{PYTHON_VERSION[0]}-none-{self.platform_tag})"
                                   fr"\.whl$", filename)
                 if match:
                     matches.append(match)
@@ -382,7 +379,6 @@ class BuildWheel:
             env["PYTHONPATH"] += os.pathsep + existing_python_path
 
         abi = ABIS[self.abi]
-        self.setup_toolchain(abi)
         for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
                      ("fc", "gfortran"),   # Used by openblas
                      ("f77", "gfortran"), ("f90", "gfortran"),  # Used by numpy.distutils
@@ -484,7 +480,24 @@ class BuildWheel:
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
 
-    def setup_toolchain(self, abi):
+    def setup_toolchain(self):
+        for abi in ABIS.values():
+            if abi.tool_prefix in os.listdir(self.toolchain):
+                break
+        else:
+            raise CommandError(f"Failed to detect ABI of toolchain {self.toolchain}")
+        self.abi = abi.name
+
+        found_target = False
+        for word in open(f"{self.toolchain}/bin/clang").read().split():
+            if word == "-target":
+                found_target = True
+            elif found_target:
+                self.api_level = int(word[-2:])
+                break
+        else:
+            raise CommandError(f"Failed to detect API level of toolchain {self.toolchain}")
+
         # On Android, these libraries are incorporated into libc. Create empty .a files so we
         # don't have to patch everything that links against them.
         sysroot_lib = f"{self.toolchain}/sysroot/usr/lib"
@@ -520,14 +533,13 @@ class BuildWheel:
         reqs = set()
         if not is_pure:
             log("Processing native libraries")
-            host_soabi = sysconfig.get_config_var("SOABI")
             for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
                 if re.search(r"\.(so(\..*)?|a)$", original_path):
                     # Because distutils doesn't propertly support cross-compilation, native
                     # modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
                     original_path = join(tmp_dir, original_path)
-                    fixed_path = re.sub(fr"\.({host_soabi}|abi\d+)\.so$", ".so", original_path)
+                    fixed_path = re.sub(fr"\.cpython[^.]+\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
                     if fixed_path.endswith(".so"):
