@@ -1,4 +1,4 @@
-"""Copyright (c) 2019 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -276,6 +276,10 @@ class AssetFinder:
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
+        # Unlike AssetZipFile.extract_if_changed, this method may search multiple ZIP files, so
+        # it can't take a ZipInfo argument.
+        assert isinstance(zip_path, str)
+
         for zf in self.zip_files:
             try:
                 return zf.extract_if_changed(zip_path, self.extract_root)
@@ -365,7 +369,7 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
         # ***REMOVED*** devices (#5530).
         assert Build.VERSION.SDK_INT >= 23
 
-        out_filename = self.finder.extract_if_changed(self.zip_info)
+        out_filename = self.finder.extract_if_changed(self.finder.zip_path(self.path))
         self.load_needed(out_filename)
         spec.origin = out_filename
         mod = super().create_module(spec)

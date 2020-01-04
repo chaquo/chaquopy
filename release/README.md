@@ -54,8 +54,8 @@ necessary.
 
 Open `public/demo` project. "Clean Project", then "Generate Signed APK" with "release" variant.
 
-Use `adb` to install the APK on the following devices, with at least one device being a clean
-install, and test all features:
+Install and test the APK on the following devices, with at least one device being a clean
+install, and at least one being an upgrade from the previous public release.
 
 * x86 emulator with minSdkVersion
 * x86 emulator with targetSdkVersion
@@ -68,6 +68,8 @@ Update `public/demo/CHANGELOG.md`.
 Release app on Google Play, updating description and screenshots if necessary.
 
 Copy APK to Maven repository.
+
+Set reminder to check for Google Play crash reports regularly over the next month.
 
 
 ## Documentation

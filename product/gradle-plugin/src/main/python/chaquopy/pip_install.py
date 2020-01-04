@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Copyright (c) 2019 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 # Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
@@ -32,6 +32,7 @@ from .util import CommandError
 
 ABI_API_LEVELS = {
     "arm64-v8a": 23,
+    "x86": 23,
 }
 
 
