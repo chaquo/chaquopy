@@ -1089,7 +1089,7 @@ class RunGradle(object):
         self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
         self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
 
-        # See build_stdlib.py in crystax/platform/ndk.
+        # Data files packaged with stdlib: see target/package_target.sh.
         for grammar_stem in ["Grammar", "PatternGrammar"]:
             self.test.assertIn("lib2to3/{}{}.final.0.pickle"
                                .format(grammar_stem, PYTHON_VERSION), stdlib_files)

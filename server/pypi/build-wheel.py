@@ -96,8 +96,8 @@ class BuildWheel:
                     if name == "python":
                         self.needs_python = True
                     else:
-                        # OpenSSL and SQLite now work without any build flags, but we still
-                        # accept them in meta.yaml for compatibility with the Crystax branch.
+                        # OpenSSL and SQLite currently work without any build flags, but it's
+                        # worth keeping them in existing meta.yaml files in case that changes.
                         self.bundled_reqs.append(name)
 
             self.unpack_and_build()
