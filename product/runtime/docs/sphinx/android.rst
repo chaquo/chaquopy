@@ -335,12 +335,28 @@ storage space.
 Python standard library
 =======================
 
+Unsupported modules
+-------------------
+
+The following standard library modules are not currently supported:
+
+* :any:`bz2`
+* :any:`crypt`
+* :any:`curses`
+* :any:`dbm`
+* :any:`grp`
+* :any:`lzma`
+* :any:`nis`
+* :any:`readline`
+* :any:`spwd`
+* :any:`tkinter`
+
 ssl
 ---
 
-For consistency across different devices, the `ssl` module is configured to use a copy of the CA
-bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version is
-from certifi 2019.9.11.
+For consistency across different devices, the :any:`ssl` module is configured to use a copy of
+the CA bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version
+is from certifi 2019.9.11.
 
 sys
 ---
