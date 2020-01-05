@@ -23,7 +23,6 @@ from zipfile import ZipFile, ZipInfo
 from java._vendor.elftools.elf.elffile import ELFFile
 from java.chaquopy_android import AssetFile
 
-from android.os import Build
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 
@@ -364,17 +363,28 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     needed_loaded = {}
 
     def create_module(self, spec):
-        # Older versions can't load two .so files with the same basename (#5478). Symlink
-        # workaround was removed on this branch because of apparent filesystem corruption on
-        # ***REMOVED*** devices (#5530).
-        assert Build.VERSION.SDK_INT >= 23
-
-        out_filename = self.finder.extract_if_changed(self.finder.zip_path(self.path))
+        out_filename = self.extract_so()
         self.load_needed(out_filename)
         spec.origin = out_filename
         mod = super().create_module(spec)
-        mod.__file__ = self.path  # In case user code depends on the original name.
+        mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
+
+    # In API level 22 and older, when asked to load a library with the same basename as one
+    # already loaded, the dynamic linker will return the existing library. Work around this by
+    # loading through a uniquely-named symlink.
+    #
+    # For example, h5py and pyzmq both have a native submodule called utils.so. Without this
+    # workaround, if you loaded them both, their __file__ attributes would appear different,
+    # but the second one would actually have been loaded from the first one's file.
+    def extract_so(self):
+        filename = self.finder.extract_if_changed(self.finder.zip_path(self.path))
+        linkname = join(dirname(filename), self.name + ".so")
+        if linkname != filename:
+            if exists(linkname):
+                os.remove(linkname)
+            os.symlink(basename(filename), linkname)
+        return linkname
 
     def load_needed(self, filename):
         with self.needed_lock, open(filename, "rb") as so_file:

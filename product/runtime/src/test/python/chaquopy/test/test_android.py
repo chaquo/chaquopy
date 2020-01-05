@@ -75,8 +75,13 @@ class TestAndroidImport(unittest.TestCase):
         filename = asset_path(zip_name, zip_path)
         # In build.gradle, .pyc pre-compilation is disabled for app.zip, so it will generate
         # __pycache__ directories.
-        cache_filename = cache_from_source(filename) if (zip_name == APP_ZIP) else None
-        mod = self.check_module(mod_name, filename, cache_filename, **kwargs)
+        if zip_name == APP_ZIP:
+            cache_filename = cache_from_source(filename)
+            origin = filename
+        else:
+            cache_filename = None
+            origin = filename + "c"
+        mod = self.check_module(mod_name, filename, cache_filename, origin, **kwargs)
         self.assertNotPredicate(exists, filename)
         if cache_filename is None:
             self.assertNotPredicate(exists, cache_from_source(filename))
@@ -125,7 +130,8 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_so(self):
         filename = asset_path(REQS_ABI_ZIP, "markupsafe/_speedups.so")
-        mod = self.check_module("markupsafe._speedups", filename, filename)
+        mod = self.check_module("markupsafe._speedups", filename, filename,
+                                join(dirname(filename), "markupsafe._speedups.so"))
         self.check_extract_if_changed(mod, filename)
 
     def test_data(self):
@@ -213,7 +219,7 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIsNot(new_mod, mod)
         return new_mod
 
-    def check_module(self, mod_name, filename, cache_filename, *, is_package=False,
+    def check_module(self, mod_name, filename, cache_filename, origin, *, is_package=False,
                      source_head=None):
         mod = import_module(mod_name)
         if cache_filename:
@@ -235,6 +241,10 @@ class TestAndroidImport(unittest.TestCase):
             self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
         loader = mod.__loader__
         self.assertIsInstance(loader, importer.AssetLoader)
+        spec = mod.__spec__
+        self.assertEqual(mod_name, spec.name)
+        self.assertIs(loader, spec.loader)
+        self.assertEqual(origin, spec.origin)
 
         # Loader methods (get_data is tested elsewhere)
         self.assertEqual(is_package, loader.is_package(mod_name))
