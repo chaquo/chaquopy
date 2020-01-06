@@ -42,7 +42,7 @@ STANDARD_LIBS = {
     "libz.so",
 
     # Chaquopy-provided libraries (libpythonX.Y.so is added below)
-    "libcrypto.so.1.0.0", "libsqlite3.so.0", "libssl.so.1.0.0",
+    "libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so",
 }
 
 # TODO: break out the build script fragments which get the actual version numbers from the
@@ -174,7 +174,7 @@ class BuildWheel:
         assert_isdir(self.python_include_dir)
         python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
         assert_exists(python_lib)
-        STANDARD_LIBS.add(basename(python_lib) + ".1.0")
+        STANDARD_LIBS.add(basename(python_lib))
 
         # We require the build and target Python versions to be the same, because
         # many setup.py scripts are affected by sys.version.
