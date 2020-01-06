@@ -30,18 +30,23 @@ replacement="#define __ANDROID_API__ $api  /* Chaquopy: see build-toolchain.sh *
 sed -i "s|$pattern|$replacement|" $header
 grep -q "Chaquopy" "$header"
 
-# localeconv isn't available until API level 21, but the implementation is trivial (from
-# android/platform/bionic/libc/bionic/locale.cpp).
+# localeconv isn't available until API level 21. setlocale is always available, but always
+# fails before API 21. Add minimal implementations based on
+# android/platform/bionic/libc/bionic/locale.cpp.
 header="$sysroot/usr/include/locale.h"
-sed -i.old 's|struct lconv\* localeconv(void).*|/* Chaquopy: see build-toolchain.sh */ \
+sed -i.old 's|struct lconv\* localeconv(.*|/* Chaquopy localeconv: see build-toolchain.sh */ \
 #include <limits.h> \
 static struct lconv g_locale = { \
     ".", "", "", "", "", "", "", "", "", "", CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, \
     CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX \
 }; \
-static struct lconv* localeconv(void) { return \&g_locale; } \
+static struct lconv* localeconv(void) { return \&g_locale; }|;
+
+s|char\* setlocale(.*|/* Chaquopy setlocale: see build-toolchain.sh */ \
+static char *setlocale(int category, const char *locale) { return "C.UTF-8"; } \
 |' "$header"
-grep -q "Chaquopy" "$header"
+grep -q "Chaquopy localeconv" "$header"
+grep -q "Chaquopy setlocale" "$header"
 
 # On Android, these libraries are incorporated into libc. Create empty .a files so we
 # don't have to patch everything that links against them.

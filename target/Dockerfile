@@ -1,4 +1,4 @@
-FROM debian:buster-20190228
+FROM debian:buster-20191224
 SHELL ["/bin/bash", "-c"]
 WORKDIR /root
 
