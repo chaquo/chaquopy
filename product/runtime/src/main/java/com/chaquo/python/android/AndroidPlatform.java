@@ -248,11 +248,10 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs() {
-        // This will only work on API level 23 or later: see comment in target/package_target.sh.
+        // Libraries must be loaded in dependency order before API level 18 (#5323).
         System.loadLibrary("crypto_chaquopy");
         System.loadLibrary("ssl_chaquopy");
-        System.loadLibrary("sqlite_chaquopy");
-
+        System.loadLibrary("sqlite3_chaquopy");
         System.loadLibrary("python" + Common.PYTHON_SUFFIX);
         System.loadLibrary("chaquopy_java");
     }

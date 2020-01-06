@@ -1114,7 +1114,7 @@ class RunGradle(object):
             self.test.assertCountEqual(
                 ["libchaquopy_java.so", "libcrypto_chaquopy.so",
                  f"libpython{PYTHON_VERSION_SHORT}m.so", "libssl_chaquopy.so",
-                 "libsqlite_chaquopy.so"],
+                 "libsqlite3_chaquopy.so"],
                 os.listdir(join(apk_dir, "lib", abi)))
 
         # Chaquopy runtime library
