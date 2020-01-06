@@ -4,14 +4,6 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
-// Packages known to work on this branch (see build-***REMOVED***.sh).
-ext.DEFAULT_INCLUDE_PACKAGES = [
-    "markupsafe", "chaquopy-libcxx", "murmurhash", "chaquopy-libgfortran", "chaquopy-openblas",
-    "numpy", "scipy", "pandas", "chaquopy-libzmq", "pyzmq", "kiwisolver", "chaquopy-freetype",
-    "chaquopy-libjpeg", "chaquopy-libpng", "pillow", "matplotlib", "opencv-python",
-    "chaquopy-hdf5", "h5py", "grpcio", "tensorflow"
-]
-
 // Packages not to include in regular pre-release testing.
 ext.DEFAULT_EXCLUDE_PACKAGES = [
     // Not in the public package repository.
@@ -38,7 +30,7 @@ ext.TEST_PACKAGES = [
 android {
     compileSdkVersion 28
     defaultConfig {
-        minSdkVersion 23
+        minSdkVersion 16
         targetSdkVersion 28
 
         applicationId "com.chaquo.python.pkgtest3"

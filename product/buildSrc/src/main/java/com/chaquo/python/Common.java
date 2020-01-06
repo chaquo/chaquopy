@@ -5,9 +5,7 @@ import java.util.*;
 
 /** @deprecated internal use */
 public class Common {
-    // We currently aim for 99% support, based on the numbers at
-    // https://developer.android.com/about/dashboards/.
-    public static final int MIN_SDK_VERSION = 23;
+    public static final int MIN_SDK_VERSION = 16;
 
     // For Build.SUPPORTED_ABIS.
     public static final int COMPILE_SDK_VERSION = 21;
@@ -17,7 +15,7 @@ public class Common {
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
     public static final String PYTHON_VERSION_MAJOR =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "5";
+    public static final String PYTHON_BUILD_NUM = "8";
 
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT + "m";

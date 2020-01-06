@@ -31,8 +31,10 @@ from .util import CommandError
 
 
 ABI_API_LEVELS = {
-    "arm64-v8a": 23,
-    "x86": 23,
+    "armeabi-v7a": 16,
+    "arm64-v8a": 21,
+    "x86": 16,
+    "x86_64": 21,
 }
 
 

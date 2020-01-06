@@ -205,12 +205,12 @@ class ApiLevel(GradleTestCase):
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: This version of Chaquopy requires minSdkVersion 23 or "
+        self.assertInLong("debug: This version of Chaquopy requires minSdkVersion 16 or "
                           "higher. " + self.ADVICE, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 23 or "
+        self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 16 or "
                           "higher. " + self.ADVICE, run.stderr)
 
 
