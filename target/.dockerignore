@@ -1,2 +1,4 @@
-/gcc/gcc-4.8.3
+# TODO change back to /gcc/gcc-4.8.3
+/gcc
+
 /toolchains

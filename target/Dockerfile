@@ -28,21 +28,18 @@ RUN filename=sdk-tools-linux-4333796.zip && \
 
 RUN yes | android-sdk/tools/bin/sdkmanager "ndk;18.1.5063045"
 
-ARG abis
-RUN test -n "$abis"
-ARG api
-RUN test -n "$api"
-COPY build-toolchain.sh target/
-RUN for abi in $abis; do target/build-toolchain.sh android-sdk/ndk/* $abi $api; done
+COPY build-toolchains.sh build-toolchain.sh build-common.sh target/
+RUN target/build-toolchains.sh android-sdk/ndk/* "arm64-v8a x86"
+COPY for-each-abi.sh target/
 
 # Fortran compiler (for OpenBLAS and SciPy)
 RUN apt-get update && \
     apt-get -y install bison flex g++ make
-# TODO restore once all ABIs are enabled.
+# TODO restore once all ABIs are enabled, and update .dockerignore.
 # COPY gcc target/gcc
 # RUN cd target/gcc/gcc-4.9 && contrib/download_prerequisites
-COPY build-fortran.sh build-common.sh target/
-# RUN for abi in $abis; do target/build-fortran.sh target/toolchains/$abi; done
+# COPY build-fortran.sh target/
+# RUN target/for-each-abi.sh target/build-fortran.sh
 
 COPY build-common-tools.sh target/
 
@@ -51,7 +48,7 @@ RUN apt-get update && \
     apt-get install -y patchelf perl-modules
 COPY openssl target/openssl
 COPY build-openssl.sh target/
-RUN for abi in $abis; do target/build-openssl.sh target/toolchains/$abi; done
+RUN target/for-each-abi.sh target/build-openssl.sh
 
 # SQLite
 RUN apt-get update && \
@@ -59,13 +56,13 @@ RUN apt-get update && \
 COPY sqlite target/sqlite
 COPY python/config.sub target/python/
 COPY build-sqlite.sh target/
-RUN for abi in $abis; do target/build-sqlite.sh target/toolchains/$abi; done
+RUN target/for-each-abi.sh target/build-sqlite.sh
 
 # libffi
 COPY build-libffi.sh target/
-RUN for abi in $abis; do target/build-libffi.sh target/toolchains/$abi; done
+RUN target/for-each-abi.sh target/build-libffi.sh
 
 # Python
 COPY python target/python
 COPY build-python.sh target/
-RUN for abi in $abis; do target/build-python.sh target/toolchains/$abi; done
+RUN target/for-each-abi.sh target/build-python.sh
