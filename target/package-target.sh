@@ -33,26 +33,9 @@ for toolchain_dir in $this_dir/toolchains/*; do
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
     cp "$prefix/lib/libpython$short_ver"*.so "$jniLibs_dir"
-
-    # The SONAMEs of our OpenSSL and SQLite libraries are those shown below with a version
-    # number after the .so. Unfortunately the Android Gradle plugin will only package libraries
-    # whose names end with ".so", so we have to rename them.
-    #
-    # We add a _chaquopy suffix in case files of the same name are already present in
-    # /system/lib. (On devices where they are present, their SONAMEs never seem to contain a
-    # version number, so there should be no risk of a clash there.)
-    #
-    # This approach will only work on API level 23 or later. On older versions the dynamic
-    # linker ignores the SONAME attribute, so the SONAMEs and the filenames have to be the
-    # same.
-
-    # OpenSSL
-    for lib_name in libcrypto libssl; do
-        cp $prefix/lib/$lib_name.so.1.1 $jniLibs_dir/${lib_name}_chaquopy.so
+    for name in crypto ssl sqlite3; do
+        cp "$prefix/lib/lib${name}_chaquopy.so" "$jniLibs_dir"
     done
-
-    # SQLite
-    cp $prefix/lib/libsqlite3.so.0 $jniLibs_dir/libsqlite_chaquopy.so
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"

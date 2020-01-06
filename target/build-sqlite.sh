@@ -32,3 +32,19 @@ make -j $(nproc)
 make install prefix=$sysroot/usr
 
 rm -r $build_dir
+
+# Some library SONAMEs have a version number after the .so. Unfortunately the Android Gradle
+# plugin will only package libraries whose names end with ".so", so we have to rename them.
+#
+# We also add a _chaquopy suffix in case libraries of the same name are already present in
+# /system/lib. And we update the SONAME to match, so that anything compiled against the library
+# will store the modified name. This is necessary on API 22 and older, where the dynamic linker
+# ignores the SONAME attribute and uses the filename instead.
+cd $sysroot/usr/lib
+for name in sqlite3; do
+    old_name=$(readlink lib$name.so)
+    new_name="lib${name}_chaquopy.so"
+    mv "$old_name" "$new_name"
+    ln -s "$new_name" "$old_name"
+    patchelf --set-soname "$new_name" "$new_name"
+done

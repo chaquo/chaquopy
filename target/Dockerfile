@@ -48,7 +48,7 @@ COPY build-common-tools.sh target/
 
 # OpenSSL
 RUN apt-get update && \
-    apt-get install -y perl-modules
+    apt-get install -y patchelf perl-modules
 COPY openssl target/openssl
 COPY build-openssl.sh target/
 RUN for abi in $abis; do target/build-openssl.sh target/toolchains/$abi; done

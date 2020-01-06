@@ -27,3 +27,16 @@ pattern="#define __ANDROID_API__ __ANDROID_API_FUTURE__"
 replacement="#define __ANDROID_API__ $api  /* Chaquopy: see build-toolchain.sh */"
 grep -q "$pattern" $header
 sed -i "s|$pattern|$replacement|" $header
+
+# On Android, these libraries are incorporated into libc. Create empty .a files so we
+# don't have to patch everything that links against them.
+for name in pthread rt; do
+    for ext in a so; do
+        filename="$toolchain/sysroot/usr/lib/lib$name.$ext"
+        if [ -e "$filename" ]; then
+            echo "$filename already exists" >&2
+            exit 1
+        fi
+    done
+    $toolchain/bin/*android*-ar r "$toolchain/sysroot/usr/lib/lib$name.a"
+done

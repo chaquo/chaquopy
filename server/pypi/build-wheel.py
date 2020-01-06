@@ -166,7 +166,7 @@ class BuildWheel:
         ap.add_argument("package", help="Name of package to build")
         ap.parse_args(namespace=self)
 
-        self.setup_toolchain()
+        self.detect_toolchain()
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
 
     def find_python(self):
@@ -480,7 +480,7 @@ class BuildWheel:
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
 
-    def setup_toolchain(self):
+    def detect_toolchain(self):
         for abi in ABIS.values():
             if abi.tool_prefix in os.listdir(self.toolchain):
                 break
@@ -497,13 +497,6 @@ class BuildWheel:
                 break
         else:
             raise CommandError(f"Failed to detect API level of toolchain {self.toolchain}")
-
-        # On Android, these libraries are incorporated into libc. Create empty .a files so we
-        # don't have to patch everything that links against them.
-        sysroot_lib = f"{self.toolchain}/sysroot/usr/lib"
-        for name in ["pthread", "rt"]:
-            if not any(exists(f"{sysroot_lib}/lib{name}.{ext}") for ext in ["a", "so"]):
-                run(f"{self.toolchain}/bin/{abi.tool_prefix}-ar r {sysroot_lib}/lib{name}.a")
 
     def fix_wheel(self, in_filename):
         pure_match = re.search(r"^(.+?)-(.+?)-(.+-none-any)\.whl$", basename(in_filename))
