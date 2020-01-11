@@ -21,6 +21,10 @@ import types
 import unittest
 
 
+# Flags from PEP 3149.
+ABI_FLAGS = ""
+
+
 try:
     from android.os import Build
 except ImportError:
@@ -281,7 +285,7 @@ class TestAndroidImport(unittest.TestCase):
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/syntax_error.py", line 1\n'
                 fr'    one two\n'
-                fr'          \^\n'
+                fr'        \^\n'
                 fr'SyntaxError: invalid syntax\n$')
         else:
             self.fail()
@@ -343,9 +347,9 @@ class TestAndroidImport(unittest.TestCase):
             self.assertRegexpMatches(
                 format_exc(),
                 test_frame +
-                r'  File "stdlib/json/__init__.py", line 348, in loads\n'
-                r'  File "stdlib/json/decoder.py", line 337, in decode\n'
-                r'  File "stdlib/json/decoder.py", line 355, in raw_decode\n'
+                r'  File "stdlib/json/__init__.py", line \d+, in loads\n'
+                r'  File "stdlib/json/decoder.py", line \d+, in decode\n'
+                r'  File "stdlib/json/decoder.py", line \d+, in raw_decode\n'
                 r'json.decoder.JSONDecodeError: Expecting value: line 1 column 1 \(char 0\)\n$')
         else:
             self.fail()
@@ -662,7 +666,7 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
 
     def test_sys(self):
-        self.assertEqual("m", sys.abiflags)
+        self.assertEqual(ABI_FLAGS, sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         for p in sys.path:
@@ -673,7 +677,7 @@ class TestAndroidStdlib(unittest.TestCase):
     def test_sysconfig(self):
         import distutils.sysconfig
         import sysconfig
-        ldlibrary = "libpython{}.{}m.so".format(*sys.version_info[:2])
+        ldlibrary = "libpython{}.{}{}.so".format(*sys.version_info[:2], ABI_FLAGS)
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
         self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 

@@ -20,7 +20,7 @@ import sys
 
 
 # See importlib._bootstrap_external.MAGIC_NUMBER.
-EXPECTED_MAGIC_NUMBER = (3394).to_bytes(2, 'little') + b'\r\n'
+EXPECTED_MAGIC_NUMBER = (3413).to_bytes(2, 'little') + b'\r\n'
 
 
 def main():
@@ -29,8 +29,9 @@ def main():
         if args.warning:
             # Causes Android Studio to show the line as a warning in tree view.
             print("Warning: ", end="")
-        print("buildPython version is {}.{}.{}, so bytecode format is different."
-              .format(*sys.version_info[:3]))
+        print("buildPython version is {}.{}.{}".format(*sys.version_info[:3]),
+              "with bytecode magic number {}".format(importlib.util.MAGIC_NUMBER.hex()),
+              "(expected number is {})".format(EXPECTED_MAGIC_NUMBER.hex()))
         sys.exit(1)
 
     os.chdir(args.in_dir)

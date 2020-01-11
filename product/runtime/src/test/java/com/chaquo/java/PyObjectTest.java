@@ -406,7 +406,7 @@ public class PyObjectTest {
     public void call_fail_count() {
         thrown.expect(PyException.class);
         thrown.expectMessage("TypeError");
-        thrown.expectMessage("got 3");
+        thrown.expectMessage("takes at most 2 arguments (3 given)");
         builtins.get("sum").call(1, 2, 3);
     }
 

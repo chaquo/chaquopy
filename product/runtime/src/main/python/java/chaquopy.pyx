@@ -1,4 +1,4 @@
-#cython: binding=True, nonecheck=False, profile=False
+# cython: language_level=2, binding=True, nonecheck=False, profile=False
 #
 # `binding=True` because we assign some methods to a class dictionary, e.g. Throwable_str.
 # (This currently affects profiling results: see https://github.com/cython/cython/issues/2137.)

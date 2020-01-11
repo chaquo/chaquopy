@@ -1,3 +1,5 @@
+# cython: language_level=2
+
 from .jni cimport *
 
 # === conversion ==============================================================

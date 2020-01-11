@@ -10,15 +10,15 @@ public class Common {
     // For Build.SUPPORTED_ABIS.
     public static final int COMPILE_SDK_VERSION = 21;
 
-    public static final String PYTHON_VERSION = "3.7.2";
+    public static final String PYTHON_VERSION = "3.8.1";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
     public static final String PYTHON_VERSION_MAJOR =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "8";
+    public static final String PYTHON_BUILD_NUM = "0";
 
     // Library name suffix: may contain flags from PEP 3149.
-    public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT + "m";
+    public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;
 
     // Wheel tags (PEP 425).
     public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython
@@ -26,7 +26,7 @@ public class Common {
         PYTHON_IMPLEMENTATION + PYTHON_SUFFIX.replace(".", "");
 
     public static final List<String> ABIS = Arrays.asList
-        ("arm64-v8a", "x86");
+        ("armeabi-v7a", "arm64-v8a", "x86", "x86_64");
 
     // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";

@@ -1,3 +1,5 @@
+# cython: language_level=2
+
 import os
 
 from cpython.bytes cimport PyBytes_FromStringAndSize
