@@ -236,7 +236,7 @@ Examples::
 In our most recent tests, Chaquopy could install about 90% of the top 1000 packages on `PyPI
 <https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
 selection of packages with native components. To see which native packages and versions are
-currently available, you can `browse the repository here <https://chaquo.com/pypi-2.1/>`_. To
+currently available, you can `browse the repository here <https://chaquo.com/pypi-7.0/>`_. To
 request a package to be added or updated, or for any other problem with installing
 requirements, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
 

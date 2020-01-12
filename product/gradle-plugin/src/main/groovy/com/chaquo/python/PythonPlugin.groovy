@@ -915,6 +915,8 @@ class PipExtension extends BaseExtension {
         }
     }
 
+    // Options are tracked separately from requirements because when installing the second and
+    // subsequent ABIs, pip_install uses the same options with a different set of requirements.
     void options (String... args) {
         options.addAll(Arrays.asList(args))
     }
