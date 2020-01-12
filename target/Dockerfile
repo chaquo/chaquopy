@@ -1,4 +1,4 @@
-FROM debian:buster-20191224
+FROM debian:bullseye-20191224
 SHELL ["/bin/bash", "-c"]
 WORKDIR /root
 
@@ -29,10 +29,12 @@ RUN filename=sdk-tools-linux-4333796.zip && \
 RUN yes | android-sdk/tools/bin/sdkmanager "ndk;18.1.5063045"
 
 COPY build-toolchains.sh build-toolchain.sh build-common.sh target/
-RUN target/build-toolchains.sh android-sdk/ndk/* "arm64-v8a x86"
+RUN target/build-toolchains.sh android-sdk/ndk/* "arm64-v8a armeabi-v7a x86 x86_64"
 COPY for-each-abi.sh target/
 
-# Fortran compiler (for OpenBLAS and SciPy)
+# Fortran compiler (for OpenBLAS and SciPy). Although this is only required by the pypi
+# Dockerfile, we put it here so we don't have to rebuild it every time we change the versions
+# of any of the things below.
 RUN apt-get update && \
     apt-get -y install bison flex g++ make
 # TODO restore once all ABIs are enabled, and update .dockerignore.
@@ -63,6 +65,8 @@ COPY build-libffi.sh target/
 RUN target/for-each-abi.sh target/build-libffi.sh
 
 # Python
+RUN apt-get update && \
+    apt-get install -y python3.8
 COPY python target/python
 COPY build-python.sh target/
 RUN target/for-each-abi.sh target/build-python.sh

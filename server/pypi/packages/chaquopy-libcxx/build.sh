@@ -9,5 +9,11 @@ if [[ $header_version != $PKG_VERSION ]]; then
     exit 1
 fi
 
+case $CHAQUOPY_ABI in
+    armeabi-v7a) subdir="lib/armv7-a/thumb" ;;
+    x86_64)      subdir="lib64" ;;
+    *)           subdir="lib" ;;
+esac
+
 mkdir -p $PREFIX/lib
-cp $toolchain/*/lib/libc++_shared.so $PREFIX/lib
+cp $toolchain/*/$subdir/libc++_shared.so $PREFIX/lib

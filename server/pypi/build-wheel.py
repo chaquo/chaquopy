@@ -30,12 +30,13 @@ import yaml
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
-PYTHON_VERSION = "3.7"
-PYTHON_SUFFIX = PYTHON_VERSION + "m"
+# The suffix may contain flags from PEP 3149.
+PYTHON_VERSION = "3.8"
+PYTHON_SUFFIX = PYTHON_VERSION
 
 # All libraries are listed under their SONAMEs.
 STANDARD_LIBS = {
-    # Android-provided libraries up to API level 15
+    # Android-provided libraries up to our current minimum API level
     # (https://developer.android.com/ndk/guides/stable_apis).
     "libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so",
     "libjnigraphics.so", "liblog.so", "libm.so", "libOpenMAXAL.so", "libOpenSLES.so",
