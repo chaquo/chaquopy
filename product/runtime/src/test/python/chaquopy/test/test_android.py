@@ -39,8 +39,8 @@ else:
     REQS_COMMON_ZIP = "requirements-common.zip"
     multi_abi = len([name for name in context.getAssets().list("chaquopy")
                      if name.startswith("requirements")]) > 2
-    REQS_ABI_ZIP = ("requirements-{}.zip".format(AndroidPlatform.ABI) if multi_abi
-                    else REQS_COMMON_ZIP)
+    ABI = AndroidPlatform.ABI
+    REQS_ABI_ZIP = ("requirements-{}.zip".format(ABI) if multi_abi else REQS_COMMON_ZIP)
 
 def setUpModule():
     if API_LEVEL is None:
@@ -60,6 +60,18 @@ class TestAndroidPlatform(unittest.TestCase):
         self.assertEqual(python_bits,
                          "64bit" if set(Build.SUPPORTED_ABIS) & set(["arm64-v8a", "x86_64"])
                          else "32bit")
+
+    def test_files(self):
+        chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
+        self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.zip",
+                               "cacert.pem", "stdlib-common.zip", "ticket.txt"],
+                              os.listdir(chaquopy_dir))
+        self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
+        self.assertCountEqual(["java", "_ctypes.so", "_datetime.so",  "_hashlib.so",
+                               "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                              os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
+        self.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
+                              os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
 
 
 class TestAndroidImport(unittest.TestCase):

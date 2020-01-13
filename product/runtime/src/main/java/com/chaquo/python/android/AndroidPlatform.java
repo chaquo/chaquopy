@@ -34,14 +34,6 @@ public class AndroidPlatform extends Python.Platform {
 
         // Renamed to stdlib-common.zip in 6.2.2.
         "stdlib.zip",
-
-        // Removed in 7.0.0
-        // TODO: when extractAssets is passed a directory, it should remove any files in that
-        // directory which aren't in the assets. Then this list would be unnecessary.
-        "bootstrap-native/armeabi-v7a/select.so",
-        "bootstrap-native/arm64-v8a/select.so",
-        "bootstrap-native/x86/select.so",
-        "bootstrap-native/x86_64/select.so",
     };
 
     private static final String[] OBSOLETE_CACHE = {
@@ -144,6 +136,7 @@ public class AndroidPlatform extends Python.Platform {
         // AssetManager.list() is surprisingly slow (20 ms per call on the API 23 emulator), so
         // we'll avoid using it.
         Set<String> unextracted = new HashSet<>(assets);
+        Set<String> directories = new HashSet<>();
         SharedPreferences.Editor spe = sp.edit();
         for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
             String path = (String) i.next();
@@ -151,12 +144,23 @@ public class AndroidPlatform extends Python.Platform {
                 if (path.equals(ea) || path.startsWith(ea + "/")) {
                     extractAsset(assetsJson, spe, path);
                     unextracted.remove(ea);
+                    if (path.startsWith(ea + "/")) {
+                        directories.add(ea);
+                    }
                     break;
                 }
             }
         }
         if (! unextracted.isEmpty()) {
             throw new RuntimeException("Failed to extract assets: " + unextracted);
+        }
+        for (String dir : directories) {
+            File outDir = new File(mContext.getFilesDir(), Common.ASSET_DIR  + "/" + dir);
+            for (String name : outDir.list()) {
+                if (!assetsJson.has(dir + "/" + name)) {
+                    new File(outDir, name).delete();
+                }
+            }
         }
         spe.apply();
     }
