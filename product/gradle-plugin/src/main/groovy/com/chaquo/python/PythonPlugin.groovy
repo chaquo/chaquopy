@@ -622,7 +622,7 @@ class PythonPlugin implements Plugin<Project> {
                     "_ctypes.so",  // java.primitive and java.android.importer
                     "_datetime.so",  // datetime < calendar < java.android.importer (see test_android)
                     "_hashlib.so",  // rsa
-                    "_struct.so",  // java.android.importer
+                    "_struct.so",  // zipfile < java.android.importer
                     "binascii.so",  // zipfile < java.android.importer
                     "math.so",  // datetime < calendar < java.android.importer
                     "mmap.so",  // elftools < java.android.importer

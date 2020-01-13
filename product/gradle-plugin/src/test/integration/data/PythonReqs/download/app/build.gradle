@@ -5,14 +5,14 @@ android {
     compileSdkVersion 23
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdkVersion 23
+        minSdkVersion 16
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
         python {
             pip {
-                install "six"    // From PyPI
-                install "regex"  // From chaquo.com
+                install "six"  // From PyPI
+                install "murmurhash"  // From chaquo.com
             }
         }
         ndk {

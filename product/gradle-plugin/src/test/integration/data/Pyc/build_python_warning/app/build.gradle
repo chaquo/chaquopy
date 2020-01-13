@@ -5,7 +5,7 @@ android {
     compileSdkVersion 23
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdkVersion 23
+        minSdkVersion 16
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"
@@ -13,7 +13,7 @@ android {
             buildPython "pythoninvalid"
         }
         ndk {
-            abiFilters "arm64-v8a"
+            abiFilters "x86"
         }
     }
 }

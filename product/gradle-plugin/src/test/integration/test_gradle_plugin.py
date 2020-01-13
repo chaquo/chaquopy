@@ -18,13 +18,19 @@ import javaproperties
 from retrying import retry
 
 
-PYTHON_VERSION = "3.7.2"
-PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
-PYTHON_VERSION_MAJOR = PYTHON_VERSION[:PYTHON_VERSION.index(".")]
-
 integration_dir = abspath(dirname(__file__))
 data_dir = join(integration_dir, "data")
 repo_root = abspath(join(integration_dir, "../../../../.."))
+
+for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
+    match = re.search(r'PYTHON_VERSION = "(.+)";', line)
+    if match:
+        PYTHON_VERSION = match[1]
+        PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
+        PYTHON_VERSION_MAJOR = PYTHON_VERSION[:PYTHON_VERSION.index(".")]
+        break
+else:
+    raise Exception("Failed to find Python version")
 
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["AGP_VERSION"]
@@ -241,15 +247,14 @@ class AbiFilters(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
         self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
-                          "Supported ABIs are [arm64-v8a].", run.stderr)
+                          "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
+                          run.stderr)
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_variant(self):
         self.RunGradle("base", "AbiFilters/variant",
                        variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},
                                  "x86-debug":         {"abis": ["x86"]}})
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_variant_merge(self):
         self.RunGradle("base", "AbiFilters/variant_merge",
                        variants={"x86-debug":  {"abis": ["x86"]},
@@ -265,7 +270,6 @@ class AbiFilters(GradleTestCase):
     # ....\app\build\intermediates\transforms\stripDebugSymbol\release\folders\2000\1f\main\lib\armeabi-v7a
     # I've reported https://issuetracker.google.com/issues/62291921. Other people have had
     # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
-    @skip("This branch currently supports arm64-v8a only")
     def test_change(self):
         run = self.RunGradle("base")
         run.apply_layers("AbiFilters/2")
@@ -379,7 +383,8 @@ class ExtractPackages(GradleTestCase):
 
 
 class Pyc(GradleTestCase):
-    MAGIC = r"buildPython version is {}.\d+, so bytecode format is different."
+    MAGIC = (r"buildPython version is 3.5.\d+ with bytecode magic number 170d0d0a "
+             r"\(expected number is 550d0d0a\)")
     CANT = ("Can't compile '{}' files to .pyc format. This will cause the app to start "
             "up slower and use more storage space. See "
             "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
@@ -417,7 +422,7 @@ class Pyc(GradleTestCase):
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning", requirements=["six.py"], pyc=["stdlib"])
-        self.assertInLong(WARNING + self.MAGIC.format("3.5") + "\n" +
+        self.assertInLong(WARNING + self.MAGIC + "\n" +
                           WARNING + self.CANT.format("pip"),
                           run.stdout, re=True)
         # src compilation was disabled.
@@ -425,7 +430,7 @@ class Pyc(GradleTestCase):
 
     def test_magic_error(self):
         run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
-        self.assertInLong(self.MAGIC.format("3.5"), run.stdout, re=True)
+        self.assertInLong(self.MAGIC, run.stdout, re=True)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
 
@@ -511,12 +516,15 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("base")
         run.rerun()
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_download(self):
-        self.RunGradle("base", "PythonReqs/download", abis=["armeabi-v7a", "x86"],
-                       requirements={"common": ["_regex_core.py", "regex.py", "test_regex.py",
-                                                "six.py"],
-                                     "armeabi-v7a": ["_regex.so"], "x86": ["_regex.so"]})
+        common_reqs = ["murmurhash/" + name for name in
+                       ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
+                        "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
+                        "tests/__init__.py", "tests/test_import.py"]] + ["six.py"]
+        abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
+        self.RunGradle(
+            "base", "PythonReqs/download", abis=["armeabi-v7a", "x86"],
+            requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs})
 
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
@@ -592,7 +600,6 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_wheel_index(self):
         # If testing on another platform, add it to the list below, and add corresponding
         # wheels to packages/dist.
@@ -619,7 +626,6 @@ class PythonReqs(GradleTestCase):
     #   1.3: compatible native wheel
     #   1.6: incompatible native wheel (should be ignored)
     #   2.0: sdist
-    @skip("This branch currently supports arm64-v8a only")
     def test_mixed_index(self):
         # With no version restriction, the compatible native wheel is preferred over the sdist,
         # despite having a lower version.
@@ -677,7 +683,6 @@ class PythonReqs(GradleTestCase):
                           self.tracker_advice() + r"$",
                           run.stderr, re=True)
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
         self.post_check = make_asset_check(self, {
@@ -704,7 +709,6 @@ class PythonReqs(GradleTestCase):
                                   "pkg/submodule_x86.pyd"]},
             pyc=["stdlib"])
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_variant(self):
         variants = {"armeabi_v7a-debug": {"abis": ["armeabi-v7a"],
                                           "requirements": ["apple/__init__.py",
@@ -720,7 +724,6 @@ class PythonReqs(GradleTestCase):
                                                            "pkg/submodule_x86.pyd"]}}
         self.RunGradle("base", "PythonReqs/multi_abi_variant", variants=variants)
 
-    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_clash(self):
         self.RunGradle(
             "base", "PythonReqs/multi_abi_clash", abis=["armeabi-v7a", "x86"],
@@ -735,7 +738,6 @@ class PythonReqs(GradleTestCase):
 
     # ABIs should be installed in alphabetical order. (In the order specified is not possible
     # because the Android Gradle plugin keeps abiFilters in a HashSet.)
-    @skip("This branch currently supports arm64-v8a only")
     def test_multi_abi_order(self):
         # armeabi-v7a will install a pure-Python wheel, so the requirement will not be
         # installed again for x86, even though an x86 wheel is available.
@@ -766,7 +768,6 @@ class PythonReqs(GradleTestCase):
     #
     # All versions of dd.py are padded out to the same length to verify that the hash is being
     # checked and not just the length.
-    @skip("This branch currently supports arm64-v8a only")
     def test_duplicate_filenames(self):
         run = self.RunGradle(
             "base", "PythonReqs/duplicate_filenames_np",  # Native, then pure.
@@ -806,7 +807,6 @@ class PythonReqs(GradleTestCase):
     # This test also installs 4 additional single_file packages: one each at the beginning and
     # end of the alphabet, both before and after the duplicate_filenames packages. This
     # exercises the .dist-info processing a bit more (see commit on 2018-06-17).
-    @skip("This branch currently supports arm64-v8a only")
     def test_duplicate_filenames_single_abi(self):
         run = self.RunGradle(
             "base", "PythonReqs/duplicate_filenames_single_abi_pn",
@@ -1038,7 +1038,7 @@ class RunGradle(object):
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
-    def check_apk(self, apk_zip, apk_dir, *, abis=["arm64-v8a"], classes=[], app=[],
+    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes=[], app=[],
                   requirements=[], reqs_versions=None, licensed_id=None,
                   pyc=["src", "pip", "stdlib"], **kwargs):
         kwargs = KwargsWrapper(kwargs)
@@ -1103,9 +1103,10 @@ class RunGradle(object):
                  "_json.so", "_lsprof.so", "_md5.so", "_multibytecodec.so", "_multiprocessing.so",
                  "_opcode.so", "_pickle.so", "_posixsubprocess.so", "_queue.so", "_random.so",
                  "_sha1.so", "_sha256.so", "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so",
-                 "_ssl.so", "_xxtestfuzz.so", "array.so", "audioop.so", "cmath.so", "fcntl.so",
-                 "ossaudiodev.so", "parser.so", "pyexpat.so", "resource.so", "select.so",
-                 "syslog.so", "termios.so", "unicodedata.so", "xxlimited.so"],
+                 "_ssl.so", "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so",
+                 "array.so", "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
+                 "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
+                 "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())
 
         # libs
@@ -1113,7 +1114,7 @@ class RunGradle(object):
         for abi in abis:
             self.test.assertCountEqual(
                 ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{PYTHON_VERSION_SHORT}m.so", "libssl_chaquopy.so",
+                 f"libpython{PYTHON_VERSION_SHORT}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
                 os.listdir(join(apk_dir, "lib", abi)))
 
