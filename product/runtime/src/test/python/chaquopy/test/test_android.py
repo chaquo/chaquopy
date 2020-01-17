@@ -77,13 +77,13 @@ class TestAndroidPlatform(unittest.TestCase):
 class TestAndroidImport(unittest.TestCase):
 
     def test_init(self):
-        self.check_py("markupsafe", REQS_COMMON_ZIP, "markupsafe/__init__.py", "escape",
+        self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
                       is_package=True)
         self.check_py("android1", APP_ZIP, "android1/__init__.py", "x",
                       source_head="# This package is used by test_android.", is_package=True)
 
     def test_py(self):
-        self.check_py("markupsafe._native", REQS_COMMON_ZIP, "markupsafe/_native.py", "escape")
+        self.check_py("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py", "__summary__")
         self.check_py("android1.mod1", APP_ZIP, "android1/mod1.py",
                       "x", source_head='x = "android1.mod1"')
 
@@ -145,9 +145,9 @@ class TestAndroidImport(unittest.TestCase):
             pyc_file.write(header)
 
     def test_so(self):
-        filename = asset_path(REQS_ABI_ZIP, "markupsafe/_speedups.so")
-        mod = self.check_module("markupsafe._speedups", filename, filename,
-                                join(dirname(filename), "markupsafe._speedups.so"))
+        filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
+        symlink = join(dirname(filename), "murmurhash.mrmr.so")
+        mod = self.check_module("murmurhash.mrmr", filename, filename, symlink)
         self.check_extract_if_changed(mod, filename)
 
     def test_data(self):
@@ -162,9 +162,8 @@ class TestAndroidImport(unittest.TestCase):
         self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", "alpha", extract=True)
 
         # Requirements ZIP
-        self.check_data(REQS_COMMON_ZIP, "markupsafe", "_constants.pyc", MAGIC_NUMBER,
-                        extract=False)
-        self.check_data(REQS_ABI_ZIP, "markupsafe", "_speedups.so", b"\x7fELF", extract=False)
+        self.check_data(REQS_COMMON_ZIP, "murmurhash", "about.pyc", MAGIC_NUMBER, extract=False)
+        self.check_data(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF", extract=False)
         self.check_data(REQS_COMMON_ZIP, "certifi", "cacert.pem",
                         "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
                         extract=True)
@@ -336,20 +335,22 @@ class TestAndroidImport(unittest.TestCase):
 
         # After import complete.
         # Frames from pre-compiled requirements should have no source code.
-        class C(object):
-            __html__ = None
         try:
-            from markupsafe import _native
-            _native.escape(C)
-        except TypeError:
+            import murmurhash
+            murmurhash_file = murmurhash.__file__
+            del murmurhash.__file__
+            murmurhash.get_include()
+        except NameError:
             self.assertRegexpMatches(
                 format_exc(),
                 test_frame +
-                fr'  File "{asset_path(REQS_COMMON_ZIP)}/markupsafe/_native.py", '
-                fr'line 27, in escape\n'
-                fr"TypeError: 'NoneType' object is not callable\n$")
+                fr'  File "{asset_path(REQS_COMMON_ZIP)}/murmurhash/__init__.py", '
+                fr'line 5, in get_include\n'
+                fr"NameError: name '__file__' is not defined\n$")
         else:
             self.fail()
+        finally:
+            murmurhash.__file__ = murmurhash_file
 
         # Frames from pre-compiled stdlib should have no source code.
         try:
@@ -379,9 +380,9 @@ class TestAndroidImport(unittest.TestCase):
                 ("argparse", imp.PY_COMPILED),                  #
                 ("select", imp.C_EXTENSION),                    #
                 ("errno", imp.C_BUILTIN),                       #
-                ("markupsafe", imp.PKG_DIRECTORY),              # requirements
-                ("markupsafe._native", imp.PY_COMPILED),        #
-                ("markupsafe._speedups", imp.C_EXTENSION),      #
+                ("murmurhash", imp.PKG_DIRECTORY),              # requirements
+                ("murmurhash.about", imp.PY_COMPILED),          #
+                ("murmurhash.mrmr", imp.C_EXTENSION),           #
                 ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
                 ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
             with self.subTest(mod_name=mod_name):
@@ -510,9 +511,9 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_pkg_resources_working_set(self):
         import pkg_resources as pr
-        self.assertCountEqual(["MarkupSafe", "Pygments", "certifi", "chaquopy-libcxx",
-                               "murmurhash", "setuptools"],
-                              [dist.project_name for dist in pr.working_set])
+        self.assertCountEqual(
+            ["certifi", "chaquopy-libcxx", "murmurhash", "Pygments", "setuptools"],
+            [dist.project_name for dist in pr.working_set])
         self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
 
     def test_pkg_resources_resources(self):

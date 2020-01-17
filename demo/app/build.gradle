@@ -53,8 +53,7 @@ android {
 
             // Python unit tests
             pip {
-                install "MarkupSafe==1.1.1"
-                install "murmurhash==0.28.0"
+                install "murmurhash==0.28.0"  // Requires chaquopy-libcxx
                 install "certifi==2018.01.18"
                 install "setuptools==40.4.3"
             }
