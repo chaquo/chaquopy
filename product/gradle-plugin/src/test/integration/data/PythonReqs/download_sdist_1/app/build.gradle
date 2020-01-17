@@ -11,7 +11,7 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "packages/alpha_dep-0.0.1.tar.gz"
+                install "PyYAML==3.12"
             }
         }
         ndk {

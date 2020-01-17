@@ -628,7 +628,16 @@ class WheelBuilder(object):
             if self.__build_one(req, temp_dir.path, python_tag=python_tag):
                 try:
                     wheel_name = os.listdir(temp_dir.path)[0]
-                    wheel_path = os.path.join(output_dir, wheel_name)
+                    # Chaquopy: use the correct compatibility tag so the wheel can be reused.
+                    wheel = Wheel(wheel_name)
+                    if (wheel.abis, wheel.plats) == (["none"], ["any"]):
+                        wheel_name_out = wheel_name
+                    else:
+                        wheel_name_out = "-".join([
+                            wheel.name.replace("-", "_"),
+                            wheel.version.replace("-", "_"),
+                            "-".join(pep425tags.get_supported()[0])]) + wheel_ext
+                    wheel_path = os.path.join(output_dir, wheel_name_out)
                     shutil.move(
                         os.path.join(temp_dir.path, wheel_name), wheel_path
                     )

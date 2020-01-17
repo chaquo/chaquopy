@@ -1,4 +1,4 @@
-# This file requires Python 3.6 or later.
+# This file requires Python 3.6 or later, and the requirements listed in requirements.txt.
 
 from distutils import dir_util
 import distutils.util
@@ -14,6 +14,7 @@ import sys
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
+import appdirs
 import javaproperties
 from retrying import retry
 
@@ -45,6 +46,13 @@ WARNING = "^Warning: "
 class GradleTestCase(TestCase):
     longMessage = True
     maxDiff = None
+
+    def setUp(self):
+        # Note: the appdirs module used in pip._internal.locations is actually imported from
+        # pip._internal.utils, not pip._vendor.
+        cache_dir = appdirs.user_cache_dir("chaquopy/pip", appauthor=False)
+        if exists(cache_dir):
+            rmtree(cache_dir)
 
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
@@ -516,15 +524,44 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("base")
         run.rerun()
 
-    def test_download(self):
+    def test_download_wheel(self):
+        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-4-cp38-cp38-android_16_x86.whl"
+        PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
         common_reqs = ["murmurhash/" + name for name in
                        ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                         "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
-                        "tests/__init__.py", "tests/test_import.py"]] + ["six.py"]
+                        "tests/__init__.py", "tests/test_import.py"]]
         abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
-        self.RunGradle(
-            "base", "PythonReqs/download", abis=["armeabi-v7a", "x86"],
+        kwargs = dict(
+            abis=["armeabi-v7a", "x86"],
             requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs})
+        run = self.RunGradle("base", "PythonReqs/download_wheel_1", **kwargs)
+        self.assertInLong("Downloading " + CHAQUO_URL, run.stdout, re=True)
+        run.apply_layers("PythonReqs/download_wheel_2")
+        common_reqs += ["six.py"]
+        run.rerun(**kwargs)
+        self.assertInLong("Using cached " + CHAQUO_URL, run.stdout, re=True)
+        self.assertInLong("Downloading " + PYPI_URL, run.stdout, re=True)
+
+    # Some packages with optional native components generate a wheel tagged with the build
+    # platform even when the native components are omitted. This wheel must be renamed in order
+    # for it to be used in the rerun.
+    def test_download_sdist(self):
+        URL = r"https://.+/PyYAML-3.12.tar.gz"
+        BUILD = r"Successfully built PyYAML"
+        reqs = ["yaml/" + name + ".py" for name in
+                ["__init__", "composer", "constructor", "cyaml", "dumper", "emitter", "error",
+                 "events", "loader", "nodes", "parser", "reader", "representer", "resolver",
+                 "scanner", "serializer", "tokens"]]
+        run = self.RunGradle("base", "PythonReqs/download_sdist_1", requirements=reqs)
+        self.assertInLong("Downloading " + URL, run.stdout, re=True)
+        self.assertInLong(BUILD, run.stdout, re=True)
+        run.apply_layers("PythonReqs/download_sdist_2")
+        run.rerun(requirements=reqs + ["six.py"])
+        # pip prints lots of detail when it puts a wheel into the cache, but says absolutely
+        # nothing when it takes one out.
+        self.assertNotInLong(URL, run.stdout)
+        self.assertNotInLong(BUILD, run.stdout)
 
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
