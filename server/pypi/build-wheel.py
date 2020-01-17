@@ -399,6 +399,9 @@ class BuildWheel:
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
 
+            # Many packages get away with omitting this on standard Linux.
+            "-lm",
+
             abi.ldflags])
 
         reqs_prefix = f"{self.reqs_dir}/chaquopy"

@@ -1,17 +1,5 @@
 --- src-original/setup.py	2018-07-05 21:25:03.000000000 +0000
 +++ src/setup.py	2019-03-09 20:04:30.234885544 +0000
-@@ -20,6 +20,11 @@
- cmdclass = versioneer.get_cmdclass()
- 
- 
-+
-+# Chaquopy
-+os.environ["LDFLAGS"] += " -lm"  # This isn't used everywhere it should be.
-+
-+
- def is_platform_windows():
-     return sys.platform == 'win32' or sys.platform == 'cygwin'
- 
 @@ -48,7 +53,8 @@
          'pytz >= 2011k',
          'numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver),
