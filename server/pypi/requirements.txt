@@ -1,13 +1,12 @@
-# build-wheel.py requires Python 3.6 or later, and the requirements listed below.
+# These packages are included by default in a new virtualenv, but since we use them directly,
+# specify exact versions for reproducible builds.
+pip==18.1
+setuptools==40.6.3
+wheel==0.33.6
+
 dataclasses==0.6
 jinja2==2.10
 jsonschema==2.6.0
 pyelftools==0.24
 pyyaml==3.12
-wheel==0.30.0
 
-# Python package builds are performed by launching the command `pipX.Y`, where `X.Y` is the
-# target Python version. For reproducible builds, here is a set of requirements for pip itself.
-pip==18.1
-setuptools==40.6.3
-wheel==0.30.0

@@ -1,6 +1,6 @@
 package:
   name: murmurhash
-  version: 0.28.0
+  version: 1.0.2
 
 build:
-  number: 4
+  number: 0

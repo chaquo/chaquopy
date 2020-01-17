@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-#
-# This script requires Python 3.6 or later, and the requirements listed in requirements.txt.
 
 import argparse
 from copy import deepcopy
@@ -22,8 +20,6 @@ from textwrap import dedent
 
 from elftools.elf.elffile import ELFFile
 import jinja2
-from wheel.archive import archive_wheelfile
-from wheel.bdist_wheel import bdist_wheel
 import yaml
 
 
@@ -81,8 +77,8 @@ class BuildWheel:
             self.meta = self.load_meta(self.package)
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
-            self.dist_info = (f"{normalize_name_wheel(self.package)}-"
-                              f"{normalize_version(self.version)}.dist-info")
+            self.name_version = (normalize_name_wheel(self.package) + "-" +
+                                 normalize_version(self.version))
 
             self.needs_cmake = False
             if "cmake" in self.meta["requirements"]["build"]:
@@ -179,6 +175,8 @@ class BuildWheel:
 
         # We require the build and target Python versions to be the same, because
         # many setup.py scripts are affected by sys.version.
+        if "{}.{}".format(*sys.version_info[:2]) != PYTHON_VERSION:
+            raise CommandError("This script requires Python " + PYTHON_VERSION)
         self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
 
         self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
@@ -217,6 +215,10 @@ class BuildWheel:
             # This is pip's equivalent to our requirements mechanism.
             if exists(f"{src_dir}/pyproject.toml"):
                 run(f"rm {src_dir}/pyproject.toml")
+
+        license_file = self.meta["about"]["license_file"]
+        if license_file:
+            assert_exists(join(src_dir, license_file))
 
     def download_pypi(self):
         sdist_filename = self.find_sdist()
@@ -323,6 +325,10 @@ class BuildWheel:
                         run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
 
     def build_with_script(self, build_script):
+        if not self.meta["about"]["license_file"]:
+            raise CommandError("For packages which use build.sh, meta.yaml must always contain "
+                               "a license_file")
+
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
         os.environ.update({  # Conda variable names.
@@ -333,23 +339,6 @@ class BuildWheel:
             "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
         })
         run(build_script)
-
-        # Most scripts will only output into {prefix_dir}/chaquopy, but the TensorFlow script
-        # generates a complete wheel hierarchy.
-        info_dir = f"{prefix_dir}/{self.dist_info}"
-        ensure_dir(info_dir)
-        update_message_file(f"{info_dir}/WHEEL",
-                            {"Wheel-Version": "1.0",
-                             "Root-Is-Purelib": "false"},
-                            replace=False)
-        update_message_file(f"{info_dir}/METADATA",
-                            {"Metadata-Version": "1.2",
-                             "Name": self.package,
-                             "Version": self.version,
-                             "Summary": "",        # Compulsory according to PEP 345,
-                             "Download-URL": ""},  #
-                            replace=False)
-
         return self.package_wheel(prefix_dir, os.getcwd())
 
     def build_with_pip(self):
@@ -510,14 +499,15 @@ class BuildWheel:
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
         run(f"unzip -d {tmp_dir} -q {in_filename}")
-        info_dir = f"{tmp_dir}/{self.dist_info}"
+        info_dir = f"{tmp_dir}/{self.name_version}.dist-info"
 
-        log("Updating WHEEL file")
-        info_wheel = read_message(f"{info_dir}/WHEEL")
-        update_message(info_wheel, {"Generator": PROGRAM_NAME,
-                                    "Build": str(self.meta["build"]["number"]),
-                                    "Tag": expand_compat_tag(self.compat_tag)})
-        write_message(info_wheel, f"{info_dir}/WHEEL")
+        license_file = self.meta["about"]["license_file"]
+        if license_file:
+            run(f"cp {join(self.build_dir, 'src', license_file)} {info_dir}")
+        elif not any(re.search(r"^(LICEN[CS]E|COPYING)", name.upper())
+                     for name in os.listdir(info_dir)):
+            raise CommandError("Couldn't find license file: you must add license_file to "
+                               "meta.yaml")
 
         available_libs = set(STANDARD_LIBS)
         for libs_dir in [f"{self.reqs_dir}/chaquopy/lib", f"{tmp_dir}/chaquopy/lib"]:
@@ -546,11 +536,10 @@ class BuildWheel:
         reqs.update(self.get_requirements("host"))
         if reqs:
             log(f"Adding extra requirements: {reqs}")
-            info_metadata = read_message(f"{info_dir}/METADATA")
-            update_message(info_metadata, {"Requires-Dist": [f"{package} (>={version})"
-                                                             for package, version in reqs]},
-                           replace=False)
-            write_message(info_metadata, f"{info_dir}/METADATA")
+            update_message_file(f"{info_dir}/METADATA",
+                                {"Requires-Dist": [f"{package} (>={version})"
+                                                   for package, version in reqs]},
+                                if_exist="add")
 
             # Remove the optional JSON copy to save us from having to update it too.
             info_metadata_json = f"{info_dir}/metadata.json"
@@ -563,15 +552,27 @@ class BuildWheel:
         return out_filename
 
     def package_wheel(self, in_dir, out_dir):
-        info_dir = f"{in_dir}/{self.dist_info}"
-        bdist_wheel.write_record(None, in_dir, info_dir)
-        return archive_wheelfile(
-            "-".join([
-                f"{out_dir}/{normalize_name_wheel(self.package)}",
-                normalize_version(self.version),
-                str(self.meta["build"]["number"]),
-                self.compat_tag]),
-            in_dir)
+        build_num = str(self.meta["build"]["number"])
+        info_dir = f"{in_dir}/{self.name_version}.dist-info"
+        ensure_dir(info_dir)
+        update_message_file(f"{info_dir}/WHEEL",
+                            {"Wheel-Version": "1.0",
+                             "Root-Is-Purelib": "false"},
+                            if_exist="keep")
+        update_message_file(f"{info_dir}/WHEEL",
+                            {"Generator": PROGRAM_NAME,
+                             "Build": build_num,
+                             "Tag": self.compat_tag},
+                            if_exist="replace")
+        update_message_file(f"{info_dir}/METADATA",
+                            {"Metadata-Version": "1.2",
+                             "Name": self.package,
+                             "Version": self.version,
+                             "Summary": "",        # Compulsory according to PEP 345,
+                             "Download-URL": ""},  #
+                            if_exist="keep")
+        run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {build_num}")
+        return join(out_dir, f"{self.name_version}-{build_num}-{self.compat_tag}.whl")
 
     def check_requirements(self, filename, available_libs):
         reqs = []
@@ -631,27 +632,35 @@ class BuildWheel:
             raise CommandError(f"Couldn't find '{name}' in {packages_dirs}")
 
 
-def update_message_file(filename, d, replace=True):
+def update_message_file(filename, d, *args, **kwargs):
     try:
         msg = read_message(filename)
     except FileNotFoundError:
         msg = message.Message()
-    update_message(msg, d, replace)
+    update_message(msg, d, *args, **kwargs)
     write_message(msg, filename)
     return msg
+
 
 def read_message(filename):
     return parser.Parser().parse(open(filename))
 
-def update_message(msg, d, replace=True):
+
+def update_message(msg, d, *, if_exist):
     for key, values in d.items():
-        if replace:
-            del msg[key]  # Removes all lines with this key.
+        if if_exist == "keep":
+            if key in msg:
+                continue
+        elif if_exist == "replace":
+            del msg[key]  # Removes all items with this key.
+        else:
+            assert if_exist == "add", if_exist
+
         if not isinstance(values, list):
             values = [values]
         for value in values:
-            # __setitem__ doesn't overwrite existing lines here.
-            msg[key] = value
+            msg[key] = value  # In this API, __setitem__ doesn't overwrite existing items.
+
 
 def write_message(msg, filename):
     # I don't know whether maxheaderlen is required, but it's used by bdist_wheel.
@@ -670,16 +679,6 @@ def normalize_name_wheel(name):
 #  e.g. "2017.01.02" -> "2017.1.2"
 def normalize_version(version):
     return str(pkg_resources.parse_version(version))
-
-
-def expand_compat_tag(compat_tag):
-    result = []
-    impl_tags, abi_tags, plat_tags = compat_tag.split("-")
-    for impl in impl_tags.split('.'):
-        for abi in abi_tags.split('.'):
-            for plat in plat_tags.split('.'):
-                result.append('-'.join((impl, abi, plat)))
-    return result
 
 
 def run(command, check=True):

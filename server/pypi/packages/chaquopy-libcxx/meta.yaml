@@ -3,3 +3,9 @@ package:
   version: 7000  # See build.sh, and COMPILER_LIBS in build-wheel.py.
 
 source: null
+
+build:
+  number: 2
+
+about:
+  license_file: ../../../../LICENSE.TXT
