@@ -82,20 +82,23 @@ class GradleTestCase(TestCase):
     # must either be attributes of ZipInfo, or a "content" string which will be compared with
     # the UTF-8 decoded file.
     #
-    # If `dist_infos` is provided, it must be a {package: version} dict, which will be compared
-    # against the top-level `.dist-info` directories in the ZIP.
-    def checkZip(self, zip_filename, files, *, pyc=False, dist_infos=None):
+    # The content of .dist_info directories is ignored unless `include_dist_info` is true.
+    # However, the *names* of .dist_info directories can be tested by passing `dist_versions`
+    # as a list of (name, version) tuples.
+    def checkZip(self, zip_filename, files, *, pyc=False, include_dist_info=False,
+                 dist_versions=None):
         zip_file = ZipFile(zip_filename)
         actual_files = []
-        actual_dist_infos = {}
+        actual_dist_versions = set()
         for info in zip_file.infolist():
             with self.subTest(filename=info.filename):
                 self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
                 di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
                 if di_match:
-                    version = actual_dist_infos.setdefault(di_match.group(1), di_match.group(2))
-                    self.assertEqual(di_match.group(2), version)
-                elif not info.filename.endswith("/"):
+                    actual_dist_versions.add(di_match.groups())
+                    if not include_dist_info:
+                        continue
+                if not info.filename.endswith("/"):
                     actual_files.append(info.filename)
 
         expected_files = []
@@ -120,8 +123,8 @@ class GradleTestCase(TestCase):
 
         self.assertCountEqual(expected_files, actual_files)
 
-        if dist_infos is not None:
-            self.assertEqual(dist_infos, actual_dist_infos)
+        if dist_versions is not None:
+            self.assertCountEqual(dist_versions, list(actual_dist_versions))
 
     def pre_check(self, apk_zip, apk_dir, kwargs):
         pass
@@ -507,18 +510,18 @@ class PythonReqs(GradleTestCase):
         # Add one req.
         run.apply_layers("PythonReqs/1a")
         run.rerun(requirements=["apple/__init__.py"],
-                  reqs_versions={"apple": "0.0.1"})
+                  dist_versions=[("apple", "0.0.1")])
 
         # Replace with a req which has a transitive dependency.
         run.apply_layers("PythonReqs/1")
         run.rerun(requirements=["alpha/__init__.py", "alpha_dep/__init__.py"],
-                  reqs_versions={"alpha": "0.0.1", "alpha_dep": "0.0.1"})
+                  dist_versions=[("alpha", "0.0.1"), ("alpha_dep", "0.0.1")])
 
         # Add another req.
         run.apply_layers("PythonReqs/2")
         run.rerun(
             requirements=["alpha/__init__.py", "alpha_dep/__init__.py", "bravo/__init__.py"],
-            reqs_versions={"alpha": "0.0.1", "alpha_dep": "0.0.1", "bravo": "0.0.1"})
+            dist_versions=[("alpha", "0.0.1"), ("alpha_dep", "0.0.1"), ("bravo", "0.0.1")])
 
         # Remove all.
         run.apply_layers("base")
@@ -527,18 +530,25 @@ class PythonReqs(GradleTestCase):
     def test_download_wheel(self):
         CHAQUO_URL = r"https://.+/murmurhash-0.28.0-4-cp38-cp38-android_16_x86.whl"
         PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
-        common_reqs = ["murmurhash/" + name for name in
-                       ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
-                        "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
-                        "tests/__init__.py", "tests/test_import.py"]]
+        common_reqs = (["murmurhash/" + name for name in
+                        ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
+                         "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
+                         "tests/__init__.py", "tests/test_import.py"]] +
+                       ["chaquopy_libcxx-7000.dist-info/" + name for name in
+                        ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
+                       ["murmurhash-0.28.0.dist-info/" + name for name in
+                        ["DESCRIPTION.rst", "INSTALLER", "METADATA", "top_level.txt"]])
         abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
         kwargs = dict(
             abis=["armeabi-v7a", "x86"],
-            requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs})
+            requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs},
+            include_dist_info=True)
         run = self.RunGradle("base", "PythonReqs/download_wheel_1", **kwargs)
         self.assertInLong("Downloading " + CHAQUO_URL, run.stdout, re=True)
         run.apply_layers("PythonReqs/download_wheel_2")
-        common_reqs += ["six.py"]
+        common_reqs += (["six.py"] +
+                        ["six-1.14.0.dist-info/" + name
+                         for name in ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
         run.rerun(**kwargs)
         self.assertInLong("Using cached " + CHAQUO_URL, run.stdout, re=True)
         self.assertInLong("Downloading " + PYPI_URL, run.stdout, re=True)
@@ -710,7 +720,7 @@ class PythonReqs(GradleTestCase):
             print_link("0.2", build_version)
             print("</body></html>", file=index_file)
 
-        run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
+        run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
@@ -723,7 +733,7 @@ class PythonReqs(GradleTestCase):
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
         self.post_check = make_asset_check(self, {
-            "requirements-common.zip": "ac60921ec3538bde58e9afd5eeda86f22831a447",
+            "requirements-common.zip": "844bc1e437bddd8ec9168fbc3858f70d17e0d0af",
             "requirements-armeabi-v7a.zip": "8ef282896a9a057d363dd7e294d52f89a80ae36a",
             "requirements-x86.zip": "4d0c2dfb5ac62016df8deceb9d827abd6a16cc48"})
 
@@ -780,7 +790,7 @@ class PythonReqs(GradleTestCase):
         # installed again for x86, even though an x86 wheel is available.
         run = self.RunGradle("base", "PythonReqs/multi_abi_order_1", abis=["armeabi-v7a", "x86"],
                              requirements=["multi_abi_order_pure/__init__.py"],
-                             reqs_versions={"multi_abi_order": "0.1"})
+                             dist_versions=[("multi_abi_order", "0.1")])
 
         # armeabi-v7a will install a native wheel, so the requirement will be installed again
         # for x86, which will select the pure-Python wheel.
@@ -789,7 +799,7 @@ class PythonReqs(GradleTestCase):
                   requirements={"common": [],
                                 "armeabi-v7a": ["multi_abi_order_armeabi_v7a.pyd"],
                                 "x86": ["multi_abi_order_pure/__init__.py"]},
-                  reqs_versions={"multi_abi_order": "0.2"})
+                  dist_versions=[("multi_abi_order", "0.2")])
 
     def test_namespace_packages(self):
         self.RunGradle("base", "PythonReqs/namespace_packages",
@@ -883,7 +893,7 @@ class PythonReqs(GradleTestCase):
             print_req("0.1", PYTHON_VERSION)
             print_req("0.2", build_version)
 
-        run.rerun(requirements=["pyver.py"], reqs_versions={"pyver": "0.1"})
+        run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
     def tracker_advice(self):
         return ("\nFor assistance, please raise an issue at "
@@ -1075,8 +1085,8 @@ class RunGradle(object):
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
-    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes=[], app=[],
-                  requirements=[], reqs_versions=None, licensed_id=None,
+    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes=[], app=[], requirements=[],
+                  include_dist_info=False, dist_versions=None, licensed_id=None,
                   pyc=["src", "pip", "stdlib"], **kwargs):
         kwargs = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs)
@@ -1107,7 +1117,8 @@ class RunGradle(object):
                      else requirements if suffix == "common"
                      else []),
                     pyc=("pip" in pyc),
-                    dist_infos=(reqs_versions if (suffix == "common") else None))
+                    include_dist_info=include_dist_info,
+                    dist_versions=(dist_versions if (suffix == "common") else None))
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")

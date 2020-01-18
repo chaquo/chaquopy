@@ -17,7 +17,7 @@ from glob import glob
 import hashlib
 import logging.config
 import os
-from os.path import abspath, dirname, exists, isdir, join
+from os.path import abspath, basename, dirname, exists, isdir, join
 import re
 import subprocess
 import sys
@@ -59,18 +59,25 @@ class PipInstall(object):
             req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)
             self.move_pure([ri.tree for ri in req_infos if ri.is_pure], abi, abi_trees[abi])
 
-            # Create minimal .dist-info directories so pkg_resources will work (see importer.py).
+            # Move .dist-info directories to common as well, but remove any files which may
+            # be ABI-specific.
             for ri in req_infos:
-                dist_info_dir = join(self.target, "common", "{}-{}.dist-info".format(
-                    normalize_name_wheel(ri.dist.name), ri.dist.version))
-                os.mkdir(dist_info_dir)
+                common_path = join(self.target, "common", basename(ri.dist.path))
+                renames(ri.dist.path, common_path)
+                for name in ["RECORD", "WHEEL"]:
+                    abs_name = join(common_path, name)
+                    if exists(abs_name):
+                        os.remove(abs_name)
 
             # Install native requirements for the other ABIs.
             native_reqs = ["{}=={}".format(ri.dist.name, ri.dist.version)
                            for ri in req_infos if not ri.is_pure]
             self.pip_options.append("--no-deps")
             for abi in self.android_abis[1:]:
-                _, abi_trees[abi] = self.pip_install(abi, native_reqs)
+                req_infos, abi_trees[abi] = self.pip_install(abi, native_reqs)
+                for ri in req_infos:
+                    rmtree(ri.dist.path)
+
             self.merge_common(abi_trees)
             logger.debug("Finished")
 
@@ -143,7 +150,6 @@ class PipInstall(object):
                         tree_add_path(req_tree, path, value)
 
                 req_infos.append(ReqInfo(dist, req_tree, is_pure))
-                rmtree(dist_info_dir)
 
             except Exception:
                 logger.error("Failed to process " + dist_info_dir)
@@ -189,13 +195,7 @@ class PipInstall(object):
             else:
                 raise ValueError("File already exists: '{}'".format(common_filename))
         else:
-            try:
-                renames(abi_filename, common_filename)
-            except OSError:
-                # Depending on the OS and Python version, the exception message may not contain any
-                # filenames.
-                logger.error("Failed to rename '{}' to '{}'".format(abi_filename, common_filename))
-                raise
+            renames(abi_filename, common_filename)
 
     def platform_tag(self, abi):
         return "android_{}_{}".format(ABI_API_LEVELS[abi], re.sub(r"[-.]", "_", abi))
@@ -279,7 +279,13 @@ def file_matches_record(filename, hash_str, size):
 # pip does for rmtree.
 @retry(wait_fixed=50, stop_max_delay=3000)
 def renames(src, dst):
-    os.renames(src, dst)
+    try:
+        os.renames(src, dst)
+    except OSError:
+        # On some combinations of OS and Python version (TODO which?), the exception message
+        # may not contain any filenames.
+        logger.error("Failed to rename '{}' to '{}'".format(src, dst))
+        raise
 
 
 def config_logging(verbose):
@@ -325,12 +331,6 @@ class PathExistsError(ValueError):
         ValueError.__init__(self, "{} with value {}".format(path, value))
         self.path = path
         self.existing_value = value
-
-
-# This is what bdist_wheel does both for wheel filenames and .dist-info directory names.
-# NOTE: this is not entirely equivalent to the specifications in PEP 427 and PEP 376.
-def normalize_name_wheel(name):
-    return re.sub(r"[^A-Za-z0-9.]+", '_', name)
 
 
 if __name__ == "__main__":
