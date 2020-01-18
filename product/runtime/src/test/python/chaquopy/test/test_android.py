@@ -6,19 +6,22 @@ from __future__ import absolute_import, division, print_function
 
 from contextlib import contextmanager
 import imp
-from importlib import import_module, reload
+from importlib import import_module, reload, resources
 from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
-from os.path import dirname, exists, join
+from os.path import dirname, exists, join, splitext
 import pkgutil
 import platform
 import shlex
+from shutil import rmtree
 from subprocess import check_output
 import sys
 from traceback import format_exc
 import types
 import unittest
+
+import pkg_resources as pr
 
 
 # Flags from PEP 3149.
@@ -152,21 +155,15 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_data(self):
         # App ZIP
-        # .py files should never be extracted.
         self.check_data(APP_ZIP, "chaquopy", "test/test_android.py",
-                        '"""This file tests internal details of AndroidPlatform.',
-                        extract=False)
-        # .so files should only be extracted when imported (see test_so).
-        self.check_data(APP_ZIP, "chaquopy", "test/resources/b.so", "bravo", extract=False)
-        # Other files should always be extracted.
-        self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", "alpha", extract=True)
+                        b'"""This file tests internal details of AndroidPlatform.')
+        self.check_data(APP_ZIP, "chaquopy", "test/resources/b.so", b"bravo")
+        self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", b"alpha")
 
         # Requirements ZIP
-        self.check_data(REQS_COMMON_ZIP, "murmurhash", "about.pyc", MAGIC_NUMBER, extract=False)
-        self.check_data(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF", extract=False)
-        self.check_data(REQS_COMMON_ZIP, "certifi", "cacert.pem",
-                        "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA",
-                        extract=True)
+        self.check_data(REQS_COMMON_ZIP, "murmurhash", "about.pyc", MAGIC_NUMBER)
+        self.check_data(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+        self.check_data(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
 
         import murmurhash.about
         loader = murmurhash.about.__loader__
@@ -178,7 +175,7 @@ class TestAndroidImport(unittest.TestCase):
         with self.assertRaisesRegexp(FileNotFoundError, "invalid.py"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
 
-    def check_data(self, zip_name, package, filename, start, *, extract):
+    def check_data(self, zip_name, package, filename, start):
         # Extraction is triggered only when a top-level package is imported.
         self.assertNotIn(".", package)
 
@@ -188,16 +185,15 @@ class TestAndroidImport(unittest.TestCase):
 
         mod = import_module(package)
         data = pkgutil.get_data(package, filename)
-        if isinstance(start, str):
-            start = start.encode("UTF-8")
         self.assertTrue(data.startswith(start))
 
-        if extract:
+        if splitext(filename)[1] in [".py", ".pyc", ".so"]:
+            # Importable files are not extracted.
+            self.assertNotPredicate(exists, cache_filename)
+        else:
             self.check_extract_if_changed(mod, cache_filename)
             with open(cache_filename, "rb") as cache_file:
                 self.assertEqual(data, cache_file.read())
-        else:
-            self.assertNotPredicate(exists, cache_filename)
 
     def check_extract_if_changed(self, mod, cache_filename):
         # A missing file should be extracted.
@@ -509,15 +505,13 @@ class TestAndroidImport(unittest.TestCase):
                               [(mi.name, mi.ispkg) for mi in
                                pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
 
-    def test_pkg_resources_working_set(self):
-        import pkg_resources as pr
-        self.assertCountEqual(
-            ["certifi", "chaquopy-libcxx", "murmurhash", "Pygments", "setuptools"],
-            [dist.project_name for dist in pr.working_set])
-        self.assertEqual("40.4.3", pr.get_distribution("setuptools").version)
+    def test_pr_distributions(self):
+        self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
+                              [dist.project_name for dist in pr.working_set])
+        self.assertEqual("0.28.0", pr.get_distribution("murmurhash").version)
 
-    def test_pkg_resources_resources(self):
-        import pkg_resources as pr
+    def test_pr_resources(self):
+        # App ZIP
         self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
         self.assertTrue(pr.resource_exists(__package__, "resources"))
         self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
@@ -528,25 +522,96 @@ class TestAndroidImport(unittest.TestCase):
         self.assertTrue(pr.resource_isdir(__package__, "resources"))
         self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
 
-        self.assertCountEqual(["a.txt", "b.so", "subdir"],
+        self.assertCountEqual(["__init__.py", "a.txt", "b.so", "subdir"],
                               pr.resource_listdir(__package__, "resources"))
-        self.assertEqual(b"alpha\n", pr.resource_string(__package__, "resources/a.txt"))
-        self.assertEqual(b"bravo\n", pr.resource_string(__package__, "resources/b.so"))
-        self.assertCountEqual(["c.txt"], pr.resource_listdir(__package__, "resources/subdir"))
-        self.assertEqual(b"charlie\n", pr.resource_string(__package__, "resources/subdir/c.txt"))
+        self.assertCountEqual(["c.txt"],
+                              pr.resource_listdir(__package__, "resources/subdir"))
 
-        # App ZIP
-        a_filename = pr.resource_filename(__package__, "resources/a.txt")
-        self.assertEqual(asset_path(APP_ZIP, "chaquopy/test/resources/a.txt"), a_filename)
-        with open(a_filename) as a_file:
-            self.assertEqual("alpha\n", a_file.read())
+        self.check_pr_resource(APP_ZIP, __package__, "resources/__init__.py",
+                               b"# This directory must be")
+        self.check_pr_resource(APP_ZIP, __package__, "resources/a.txt", b"alpha\n")
+        self.check_pr_resource(APP_ZIP, __package__, "resources/b.so", b"bravo\n")
+        self.check_pr_resource(APP_ZIP, __package__, "resources/subdir/c.txt", b"charlie\n")
 
         # Requirements ZIP
-        cacert_filename = pr.resource_filename("certifi", "cacert.pem")
-        self.assertEqual(asset_path(REQS_COMMON_ZIP, "certifi/cacert.pem"), cacert_filename)
-        with open(cacert_filename) as cacert_file:
-            self.assertTrue(cacert_file.read().startswith(
-                "\n# Issuer: CN=GlobalSign Root CA O=GlobalSign nv-sa OU=Root CA"))
+        self.reset_package("murmurhash")
+        self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+                               "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
+                              pr.resource_listdir("murmurhash", ""))
+        self.assertCountEqual(["MurmurHash2.h", "MurmurHash3.h"],
+                              pr.resource_listdir("murmurhash", "include/murmurhash"))
+
+        self.check_pr_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
+        self.check_pr_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
+        self.check_pr_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+
+    def check_pr_resource(self, zip_name, package, filename, start):
+        with self.subTest(package=package, filename=filename):
+            data = pr.resource_string(package, filename)
+            self.assertPredicate(data.startswith, start)
+
+            abs_filename = pr.resource_filename(package, filename)
+            self.assertEqual(asset_path(zip_name, package.replace(".", "/"), filename),
+                             abs_filename)
+            if splitext(filename)[1] in [".py", ".pyc", ".so"]:
+                # Importable files are not extracted.
+                self.assertNotPredicate(exists, abs_filename)
+            else:
+                with open(abs_filename, "rb") as f:
+                    self.assertEqual(data, f.read())
+
+    def reset_package(self, package_name):
+        package = import_module(package_name)
+        for entry in package.__path__:
+            rmtree(entry)
+        self.clean_reload(package)
+
+    # Unlike pkg_resources, importlib.resources cannot access subdirectories within packages.
+    def test_importlib_resources(self):
+        # App ZIP
+        pkg = "chaquopy.test.resources"
+        self.assertCountEqual(["__init__.py", "a.txt", "b.so", "subdir"],
+                              resources.contents(pkg))
+        self.assertTrue(resources.is_resource(pkg, "a.txt"))
+        self.assertTrue(resources.is_resource(pkg, "b.so"))
+        self.assertFalse(resources.is_resource(pkg, "subdir"))
+
+        self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This directory must be")
+        self.check_ir_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
+        self.check_ir_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
+
+        self.assertFalse(resources.is_resource(pkg, "invalid.py"))
+        with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
+            resources.read_binary(pkg, "invalid.py")
+        with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
+            with resources.path(pkg, "invalid.py"):
+                pass
+
+        # Requirements ZIP
+        self.reset_package("murmurhash")
+        self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+                               "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
+                              resources.contents("murmurhash"))
+
+        self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
+        self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
+        self.check_ir_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+
+    def check_ir_resource(self, zip_name, package, filename, start):
+        with self.subTest(package=package, filename=filename):
+            data = resources.read_binary(package, filename)
+            self.assertPredicate(data.startswith, start)
+
+            with resources.path(package, filename) as abs_path:
+                if splitext(filename)[1] in [".py", ".pyc", ".so"]:
+                    # Importable files are not extracted.
+                    self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
+                                     dirname(abs_path))
+                else:
+                    self.assertEqual(asset_path(zip_name, package.replace(".", "/"), filename),
+                                     str(abs_path))
+                with open(abs_path, "rb") as f:
+                    self.assertEqual(data, f.read())
 
     def assertModifies(self, filename):
         return self.check_modifies(self.assertNotEqual, filename)

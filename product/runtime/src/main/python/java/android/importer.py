@@ -337,6 +337,32 @@ class AssetLoader:
                 return f.read()
         return self.finder.get_data(self.finder.zip_path(path))
 
+    def get_resource_reader(self, mod_name):
+        return self if self.is_package(mod_name) else None
+
+    def open_resource(self, name):
+        return io.BytesIO(self.get_data(self.res_abs_path(name)))
+
+    def resource_path(self, name):
+        path = self.res_abs_path(name)
+        if exists(path):
+            # For __pycache__ directories created by SourceAssetLoader, and data files created
+            # by extract_dir.
+            return path
+        else:
+            # importlib.resources.path will call open_resource and create a temporary file.
+            raise FileNotFoundError()
+
+    def is_resource(self, name):
+        zip_path = self.finder.zip_path(self.res_abs_path(name))
+        return self.finder.exists(zip_path) and not self.finder.isdir(zip_path)
+
+    def contents(self):
+        return self.finder.listdir(self.finder.zip_path(dirname(self.path)))
+
+    def res_abs_path(self, name):
+        return join(dirname(self.path), name)
+
 
 # The SourceFileLoader base class will automatically create and use _pycache__ directories.
 class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
