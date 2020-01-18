@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 
 from contextlib import contextmanager
 import imp
-from importlib import import_module, reload, resources
+from importlib import import_module, metadata, reload, resources
 from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
@@ -70,7 +70,7 @@ class TestAndroidPlatform(unittest.TestCase):
                                "cacert.pem", "stdlib-common.zip", "ticket.txt"],
                               os.listdir(chaquopy_dir))
         self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
-        self.assertCountEqual(["java", "_ctypes.so", "_datetime.so",  "_hashlib.so",
+        self.assertCountEqual(["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so",
                                "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
         self.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
@@ -612,6 +612,16 @@ class TestAndroidImport(unittest.TestCase):
                                      str(abs_path))
                 with open(abs_path, "rb") as f:
                     self.assertEqual(data, f.read())
+
+    def test_importlib_metadata(self):
+        self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
+                              [d.metadata["Name"] for d in metadata.distributions()])
+
+        dist = metadata.distribution("murmurhash")
+        self.assertEqual("0.28.0", dist.version)
+        self.assertIsNone(dist.files)
+        self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
+        self.assertEqual(["chaquopy-libcxx (>=7000)"], dist.requires)
 
     def assertModifies(self, filename):
         return self.check_modifies(self.assertNotEqual, filename)

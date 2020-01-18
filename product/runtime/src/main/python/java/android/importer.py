@@ -7,11 +7,12 @@ from calendar import timegm
 import ctypes
 from functools import partial
 import imp
-from importlib import _bootstrap, machinery, util
+from importlib import _bootstrap, machinery, metadata, util
 from inspect import getmodulename
 import io
 import os.path
 from os.path import basename, dirname, exists, join, relpath
+import pathlib
 from pkgutil import get_importer
 from shutil import copyfileobj, rmtree
 import site
@@ -44,6 +45,13 @@ def initialize_importlib(context, build_json, app_path):
     # of large files because each call to AssetFile.read is relatively expensive (#5596).
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
+
+    for i, finder in enumerate(sys.meta_path):
+        if finder is machinery.PathFinder:
+            sys.meta_path[i] = AssetPathFinder
+            break
+    else:
+        raise Exception("couldn't find PathFinder in sys.meta_path")
 
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
@@ -173,6 +181,43 @@ def initialize_pkg_resources():
             return self.finder.listdir(self.finder.zip_path(path))
 
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
+
+
+class AssetPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
+    @staticmethod
+    def _switch_path(path):
+        return (AssetPath if path.startswith(ASSET_PREFIX + "/") else pathlib.Path)(path)
+
+
+class AssetPath(pathlib.PosixPath):
+    def __new__(cls, *args):
+        return cls._from_parts(args)
+
+    # Base class uses _init rather than __init__.
+    def _init(self, *args):
+        super()._init(*args)
+        root_dir = str(self)
+        while dirname(root_dir) != ASSET_PREFIX:
+            root_dir = dirname(root_dir)
+            assert root_dir, str(self)
+        self.finder = get_importer(root_dir)
+        self.zip_path = self.finder.zip_path(str(self))
+
+    def is_dir(self):
+        return self.finder.isdir(self.zip_path)
+
+    def iterdir(self):
+        for name in self.finder.listdir(self.zip_path):
+            yield AssetPath(join(str(self),  name))
+
+    def open(self, mode="r", buffering=-1, **kwargs):
+        if "r" in mode:
+            bio = io.BytesIO(self.finder.get_data(self.zip_path))
+            if mode == "r":
+                return io.TextIOWrapper(bio, **kwargs)
+            elif sorted(mode) == ["b", "r"]:
+                return bio
+        raise ValueError(f"unsupported mode: {mode!r}")
 
 
 class AssetFinder:
@@ -310,6 +355,8 @@ class AssetFinder:
     def zip_path(self, path):
         # If `path` is absolute then `join` will return it unchanged.
         path = join(self.extract_root, path)
+        if path == self.extract_root:
+            return ""
         if not path.startswith(self.extract_root + "/"):
             raise ValueError(f"{self} can't access '{path}'")
         return path[len(self.extract_root) + 1:]
