@@ -1,3 +1,18 @@
+--- src-original/numpy/core/setup_common.py     2019-11-08 08:42:10.000000000 +0000
++++ src/numpy/core/setup_common.py      2020-01-22 13:54:58.942732551 +0000
+@@ -134,7 +134,11 @@
+                        ("__builtin_bswap32", '5u'),
+                        ("__builtin_bswap64", '5u'),
+                        ("__builtin_expect", '5, 0'),
+-                       ("__builtin_mul_overflow", '5, 5, (int*)5'),
++
++                       # Chaquopy: broken in NDK r18, fixed in r19
++                       # (https://github.com/android/ndk/issues/506).
++                       # ("__builtin_mul_overflow", '5, 5, (int*)5'),
++
+                        # broken on OSX 10.11, make sure its not optimized away
+                        ("volatile int r = __builtin_cpu_supports", '"sse"',
+                         "stdio.h", "__BUILTIN_CPU_SUPPORTS"),
 diff -ur src-original/numpy/distutils/fcompiler/__init__.py src/numpy/distutils/fcompiler/__init__.py
 --- src-original/numpy/distutils/fcompiler/__init__.py	2018-02-28 17:03:26.000000000 +0000
 +++ src/numpy/distutils/fcompiler/__init__.py	2018-04-22 17:09:52.812356493 +0000

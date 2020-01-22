@@ -24,5 +24,5 @@ requirements:
   host:
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3
-    - numpy 1.16.2
+    - numpy 1.17.4
     - python

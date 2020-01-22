@@ -8,5 +8,5 @@ build:
 requirements:
   host:
     - chaquopy-openblas 0.2.20
-    - numpy 1.16.2
+    - numpy 1.17.4
     - scipy 1.1.0

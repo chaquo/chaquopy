@@ -532,12 +532,13 @@ class BuildWheel:
                     fixed_path = re.sub(fr"\.cpython[^.]+\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
-                    if fixed_path.endswith(".so"):
-                        reqs.update(self.check_requirements(fixed_path, available_libs))
 
-                    # https://www.technovelty.org/linux/stripping-shared-libraries.html
                     run(f"chmod +w {fixed_path}")
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
+                    if fixed_path.endswith(".so"):
+                        reqs.update(self.check_requirements(fixed_path, available_libs))
+                        # Paths from the build machine will be useless at runtime.
+                        run(f"patchelf --remove-rpath {fixed_path}")
 
         reqs.update(self.get_requirements("host"))
         if reqs:
