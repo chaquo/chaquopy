@@ -29,12 +29,6 @@ config_args="--target=$host_triplet --enable-languages=c,fortran"
 # binaries if the installation tree is moved" (https://gcc.gnu.org/install/configure.html).
 config_args+=" --prefix=$toolchain --with-sysroot=$sysroot"
 
-if [ $(basename $toolchain) = "x86_64" ]; then
-    # The x86_64 toolchain has no 32-bit libraries, and it would be a waste of time to build
-    # against them anyway.
-    config_args+=" --with-multilib-list=m64"
-fi
-
 # Not simply using `--enable-shared`, because this would also enable a shared libgcc
 # (libgcc_s.so), which has the surprising effect of causing the static libgcc.a to have some
 # things removed from it:
@@ -64,6 +58,12 @@ config_args+=" --enable-shared=libgfortran"
 # (https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md),
 # but would probably be harmless since it won't exist anyway.
 config_args+=" --disable-libquadmath --disable-libquadmath-support"
+
+# These arguments both affect x86_64:
+# * `--disable-bootstrap` prevents the build system from trying to build a native
+#   compiler rather than a cross compiler (https://stackoverflow.com/a/48019473).
+# * `--disable-multilib` prevents it from building x86 copies of everything.
+config_args+=" --disable-bootstrap --disable-multilib"
 
 $src_dir/configure $config_args
 make -j $(nproc)

@@ -57,6 +57,10 @@ case $CHAQUOPY_ABI in
         # doesn't generate.
         export TARGET="ARMV6"
         export ARM_SOFTFP_ABI="1"
+
+        # Update assembly syntax for Clang (https://github.com/xianyi/OpenBLAS/issues/1774).
+        script='s/fldmias/vldmia.f32/; s/fldmiad/vldmia.f64/; s/fstmias/vstmia.f32/; s/fstmiad/vstmia.f64/'
+        find kernel/arm -name '*.S' | xargs sed -i "$script"
         ;;
 
     arm64-v8a)
@@ -65,6 +69,12 @@ case $CHAQUOPY_ABI in
 
     x86)
         export TARGET="ATOM"
+        ;;
+
+    x86_64)
+        # This corresponds to the instruction set extensions listed at
+        # https://developer.android.com/ndk/guides/abis#86-64.
+        export TARGET="NEHALEM"
         ;;
 
     *)
