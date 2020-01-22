@@ -9,8 +9,7 @@ Run the build. If the ABI is unknown it will fail, but should generate the follo
     libhdf5.settings
 
 Copy these files to an Android device or emulator for this ABI, to the directory
-`/data/local/tmp` (`/sdcard` is probably mounted noexec). Also copy the ABI's `libcrystax.so`
-to the same place.
+`/data/local/tmp` (`/sdcard` is probably mounted noexec).
 
 Open a shell on the device, and run the following:
 

@@ -15,5 +15,5 @@ class TestH5py(unittest.TestCase):
             with h5py.File(f.name, "w") as hf:
                 ds = hf.create_dataset("fibonacci", (8,), dtype=numpy.int32)
                 ds[:] = FIBONACCI
-            with h5py.File(f.name) as hf:
+            with h5py.File(f.name, "r") as hf:
                 self.assertEqual(FIBONACCI, list(hf["fibonacci"]))

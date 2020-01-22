@@ -1,10 +1,10 @@
 package:
   name: h5py
-  version: 2.9.0
+  version: 2.10.0
 
 requirements:
   build:
-    - cython 0.28.4
+    - cython 0.29.14
     - pkgconfig 1.3.1
   host:
     - chaquopy-hdf5 1.10.2

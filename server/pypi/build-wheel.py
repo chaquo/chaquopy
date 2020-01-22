@@ -542,12 +542,7 @@ class BuildWheel:
 
         reqs.update(self.get_requirements("host"))
         if reqs:
-            log(f"Adding extra requirements: {reqs}")
-            update_message_file(f"{info_dir}/METADATA",
-                                {"Requires-Dist": [f"{package} (>={version})"
-                                                   for package, version in reqs]},
-                                if_exist="add")
-
+            update_requirements(f"{info_dir}/METADATA", reqs)
             # Remove the optional JSON copy to save us from having to update it too.
             info_metadata_json = f"{info_dir}/metadata.json"
             if exists(info_metadata_json):
@@ -644,6 +639,19 @@ def find_license_files(path):
     if not names:
         raise CommandError("Couldn't find license file: you must add license_file to meta.yaml")
     return names
+
+
+def update_requirements(filename, reqs):
+    msg = read_message(filename)
+    for name, version in reqs:
+        # If the package provides its own requirement, leave it unchanged.
+        if not any(req.split()[0] == name
+                   for req in msg.get_all("Requires-Dist")):
+            req = f"{name} (>={version})"
+            log(f"Adding requirement: {req}")
+            # In this API, __setitem__ doesn't overwrite existing items.
+            msg["Requires-Dist"] = req
+    write_message(msg, filename)
 
 
 def update_message_file(filename, d, *args, **kwargs):
