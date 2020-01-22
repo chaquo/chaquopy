@@ -6,3 +6,6 @@ source: null
 
 build:
   number: 0
+
+about:
+  license_file: ../../../../LICENSE.txt

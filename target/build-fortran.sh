@@ -29,6 +29,12 @@ config_args="--target=$host_triplet --enable-languages=c,fortran"
 # binaries if the installation tree is moved" (https://gcc.gnu.org/install/configure.html).
 config_args+=" --prefix=$toolchain --with-sysroot=$sysroot"
 
+if [ $(basename $toolchain) = "x86_64" ]; then
+    # The x86_64 toolchain has no 32-bit libraries, and it would be a waste of time to build
+    # against them anyway.
+    config_args+=" --with-multilib-list=m64"
+fi
+
 # Not simply using `--enable-shared`, because this would also enable a shared libgcc
 # (libgcc_s.so), which has the surprising effect of causing the static libgcc.a to have some
 # things removed from it:

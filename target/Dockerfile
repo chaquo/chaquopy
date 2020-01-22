@@ -37,11 +37,10 @@ COPY for-each-abi.sh target/
 # of any of the things below.
 RUN apt-get update && \
     apt-get -y install bison flex g++ make
-# TODO restore once all ABIs are enabled, and update .dockerignore.
-# COPY gcc target/gcc
-# RUN cd target/gcc/gcc-4.9 && contrib/download_prerequisites
-# COPY build-fortran.sh target/
-# RUN target/for-each-abi.sh target/build-fortran.sh
+COPY gcc target/gcc
+RUN cd target/gcc/gcc-4.9 && contrib/download_prerequisites
+COPY build-fortran.sh target/
+RUN target/for-each-abi.sh target/build-fortran.sh
 
 COPY build-common-tools.sh target/
 
