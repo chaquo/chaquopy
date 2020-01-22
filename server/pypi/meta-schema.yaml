@@ -96,9 +96,8 @@ properties:
       # Filename, relative to the source directory, to add to the wheel's .dist-info
       # directory. To add a file from `packages/<name>`, prefix this with `../../../..`.
       #
-      # For Python packages, this can be omitted if the package already includes a file whose
-      # name starts with LICEN[CS]E or COPYING, case-insensitive
-      # (https://wheel.readthedocs.io/en/stable/user_guide.html#including-license-files-in-the-generated-wheel-file),
+      # This can be omitted if the source directory already includes a file whose name starts
+      # with LICEN[CS]E or COPYING, case-insensitive.
       license_file:
         type: string
         default: ""

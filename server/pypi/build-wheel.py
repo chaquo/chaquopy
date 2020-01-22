@@ -325,9 +325,9 @@ class BuildWheel:
                         run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
 
     def build_with_script(self, build_script):
+        # Check for license files before starting the build.
         if not self.meta["about"]["license_file"]:
-            raise CommandError("For packages which use build.sh, meta.yaml must always contain "
-                               "a license_file")
+            license_files = find_license_files(".")
 
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
@@ -339,6 +339,11 @@ class BuildWheel:
             "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
         })
         run(build_script)
+
+        info_dir = f"{prefix_dir}/{self.name_version}.dist-info"
+        ensure_dir(info_dir)
+        for name in license_files:
+            run(f"cp {name} {info_dir}")
         return self.package_wheel(prefix_dir, os.getcwd())
 
     def build_with_pip(self):
@@ -507,10 +512,8 @@ class BuildWheel:
         license_file = self.meta["about"]["license_file"]
         if license_file:
             run(f"cp {join(self.build_dir, 'src', license_file)} {info_dir}")
-        elif not any(re.search(r"^(LICEN[CS]E|COPYING)", name.upper())
-                     for name in os.listdir(info_dir)):
-            raise CommandError("Couldn't find license file: you must add license_file to "
-                               "meta.yaml")
+        else:
+            find_license_files(info_dir)
 
         available_libs = set(STANDARD_LIBS)
         for libs_dir in [f"{self.reqs_dir}/chaquopy/lib", f"{tmp_dir}/chaquopy/lib"]:
@@ -557,7 +560,6 @@ class BuildWheel:
     def package_wheel(self, in_dir, out_dir):
         build_num = str(self.meta["build"]["number"])
         info_dir = f"{in_dir}/{self.name_version}.dist-info"
-        ensure_dir(info_dir)
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",
                              "Root-Is-Purelib": "false"},
@@ -633,6 +635,14 @@ class BuildWheel:
                 return package_dir
         else:
             raise CommandError(f"Couldn't find '{name}' in {packages_dirs}")
+
+
+def find_license_files(path):
+    names = [name for name in os.listdir(path)
+             if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
+    if not names:
+        raise CommandError("Couldn't find license file: you must add license_file to meta.yaml")
+    return names
 
 
 def update_message_file(filename, d, *args, **kwargs):
