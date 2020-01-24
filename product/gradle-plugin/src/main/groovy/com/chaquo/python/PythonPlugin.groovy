@@ -317,7 +317,10 @@ class PythonPlugin implements Plugin<Project> {
     Task createReqsTask(variant, PythonExtension python) {
         return project.task(taskName("generate", variant, "requirements")) {
             def abis = getAbis(variant)
-            ext.destinationDir = variantGenDir(variant, "requirements")
+            // Using variantGenDir could cause us to exceed the Windows 260-character filename
+            // limit with some packages (e.g. https://github.com/chaquo/chaquopy/issues/164),
+            // so use something shorter.
+            ext.destinationDir = new File(project.buildDir, "pip/$variant.dirName")
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
             inputs.property("buildPython", python.buildPython).optional(true)

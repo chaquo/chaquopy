@@ -34,8 +34,24 @@ def main():
               "(expected number is {})".format(EXPECTED_MAGIC_NUMBER.hex()))
         sys.exit(1)
 
+    # py_compile uses _bootstrap_external._write_atomic, which writes to a temporary file with
+    # a longer name, potentially pushing us over the Windows 260-character filename limit. But
+    # since there are no other processes accessing the directory, atomicity doesn't matter.
+    try:
+        from importlib import _bootstrap_external
+        if hasattr(_bootstrap_external, "_write_atomic"):
+            def _write_atomic_override(path, data, mode=0o666):
+                with open(path, "wb") as f:
+                    f.write(data)
+                os.chmod(path, mode)
+            _bootstrap_external._write_atomic = _write_atomic_override
+        else:
+            print("Warning: importlib._bootstrap_external._write_atomic doesn't exist")
+    except ImportError:
+        print("Warning: importlib._bootstrap_external doesn't exist")
+
     os.chdir(args.in_dir)
-    for dirpath, dirnames, filenames in os.walk("."):
+    for dirpath, dirnames, filenames in os.walk(os.getcwd()):
         os.makedirs(join(args.out_dir, dirpath), exist_ok=True)
         for filename in filenames:
             in_filename = join(dirpath, filename)
