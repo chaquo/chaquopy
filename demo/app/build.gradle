@@ -42,7 +42,7 @@ android {
 
         python {
             // If Chaquopy fails to find Python on your build machine, enable the following
-            // line and edit it to point to Python 3.4 or later.
+            // line and edit it to point to Python 3.5 or later.
             // buildPython "C:/Python36/python.exe"
 
             // Android UI demo

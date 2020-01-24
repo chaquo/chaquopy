@@ -106,12 +106,12 @@ download pre-compiled CPython binaries for the selected ABIs.
 Development
 ===========
 
-Some features require Python 3.4 or later to be available on the build machine. Chaquopy will
+Some features require Python 3.5 or later to be available on the build machine. Chaquopy will
 try to find it with the standard command for your operating system, first with a matching minor
 version, and then with a matching major version.
 
-For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.6.5, then on Linux and
-Mac it will first try `python3.6`, then `python3`. On Windows, it will first try `py -3.6`,
+For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.1, then on Linux and
+Mac it will first try `python3.8`, then `python3`. On Windows, it will first try `py -3.8`,
 then `py -3`.
 
 To use a different copy of Python, set its command using the `buildPython` setting. For
@@ -319,8 +319,8 @@ For example, to disable compilation of your local source code::
 
 In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
 bytecode format as :doc:`Chaquopy's own Python version <../versions>`. Usually this means it
-must have the same minor version, e,g. if Chaquopy is using Python 3.6.5, then `buildPython`
-can be any version of Python 3.6.
+must have the same minor version, e,g. if Chaquopy is using Python 3.8.1, then `buildPython`
+can be any version of Python 3.8.
 
 If the bytecode formats do not match, the build will continue with a warning, unless you've
 explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will

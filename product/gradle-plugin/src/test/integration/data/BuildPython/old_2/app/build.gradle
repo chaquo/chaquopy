@@ -10,6 +10,9 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
+            def version = "2.7"
+            buildPython (System.getProperty("os.name").startsWith("Windows") ?
+                         "py -$version" : "python$version")
             pip {
                 options "--no-index"
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"

@@ -447,17 +447,24 @@ class Pyc(GradleTestCase):
 
 class BuildPython(GradleTestCase):
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
+    MUST = r"buildPython must be version 3.5 or later: this is version {}.\d+. " + SEE
     ADVICE = "set buildPython to your Python executable path. " + SEE
     INVALID = "A problem occurred starting process 'command '{}''. Please " + ADVICE
     FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1. For full "
               r"details, open the 'Build' window and switch to text mode with the "
               r"'Toggle view' button on the left.")
 
-    def test_change(self):
-        run = self.RunGradle("base", "BuildPython/change_1", requirements=["apple/__init__.py"])
-        run.apply_layers("BuildPython/change_2")
+    def test_minimum(self):  # Also tests making a change
+        run = self.RunGradle("base", "BuildPython/minimum", requirements=["apple/__init__.py"],
+                             pyc=["stdlib"])
+        run.apply_layers("BuildPython/old")
         run.rerun(succeed=False)
-        self.assertInLong(self.INVALID.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInLong(self.MUST.format("3.4"), run.stderr, re=True)
+
+    # Make sure we've kept valid Python 2 syntax so we can produce an actionable error message.
+    def test_old_2(self):
+        run = self.RunGradle("base", "BuildPython/old_2", succeed=False)
+        self.assertInLong(self.MUST.format("2.7"), run.stderr, re=True)
 
     def test_missing(self):
         run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
@@ -475,11 +482,6 @@ class BuildPython(GradleTestCase):
                              succeed=False)
         self.assertInLong("Minor version was used", run.stdout)
         self.assertNotInLong("Major version was used", run.stdout)
-
-    def test_old(self):
-        run = self.RunGradle("base", "BuildPython/old", succeed=False)
-        self.assertInLong(r"buildPython must be version 3.4 or later: this is version "
-                          r"2\.7\.\d+. " + self.SEE, run.stderr, re=True)
 
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):
