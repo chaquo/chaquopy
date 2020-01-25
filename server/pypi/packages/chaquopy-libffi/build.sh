@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
 
@@ -12,9 +12,6 @@ if [ -d $PREFIX/lib64 ]; then
     rmdir $PREFIX/lib64
 fi
 
-rm $PREFIX/lib/libffi.{a,la,so,so.6}
-mv $PREFIX/lib/libffi.so.* $PREFIX/lib/libffi.so.6
-mv $PREFIX/lib/libffi-*/include $PREFIX
-rm -r $PREFIX/lib/libffi-*
+rm $PREFIX/lib/libffi.{a,la}
 rm -r $PREFIX/lib/pkgconfig
 rm -r $PREFIX/share

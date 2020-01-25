@@ -515,16 +515,19 @@ class BuildWheel:
         else:
             find_license_files(info_dir)
 
+        SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(STANDARD_LIBS)
-        for libs_dir in [f"{self.reqs_dir}/chaquopy/lib", f"{tmp_dir}/chaquopy/lib"]:
-            if exists(libs_dir):
-                available_libs.update(os.listdir(libs_dir))
+        for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
+            if exists(dir_name):
+                for _, _, filenames in os.walk(dir_name):
+                    available_libs.update(name for name in filenames
+                                          if re.search(SO_PATTERN, name))
 
         reqs = set()
         if not is_pure:
             log("Processing native libraries")
             for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
-                if re.search(r"\.(so(\..*)?|a)$", original_path):
+                if re.search(fr"{SO_PATTERN}|\.a$", original_path):
                     # Because distutils doesn't propertly support cross-compilation, native
                     # modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
@@ -535,9 +538,11 @@ class BuildWheel:
 
                     run(f"chmod +w {fixed_path}")
                     run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
-                    if fixed_path.endswith(".so"):
+                    if re.search(SO_PATTERN, fixed_path):
                         reqs.update(self.check_requirements(fixed_path, available_libs))
-                        # Paths from the build machine will be useless at runtime.
+                        # Paths from the build machine will be useless at runtime, unless they
+                        # use $ORIGIN, but that isn't supported until API level 24
+                        # (https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md).
                         run(f"patchelf --remove-rpath {fixed_path}")
 
         reqs.update(self.get_requirements("host"))
@@ -646,7 +651,7 @@ def update_requirements(filename, reqs):
     for name, version in reqs:
         # If the package provides its own requirement, leave it unchanged.
         if not any(req.split()[0] == name
-                   for req in msg.get_all("Requires-Dist")):
+                   for req in msg.get_all("Requires-Dist", failobj=[])):
             req = f"{name} (>={version})"
             log(f"Adding requirement: {req}")
             # In this API, __setitem__ doesn't overwrite existing items.

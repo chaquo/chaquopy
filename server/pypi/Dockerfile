@@ -1,3 +1,6 @@
+Deliberate syntax error: this file has not been updated for the current structure of
+chaquopy-target.
+
 # This image takes the same command-line arguments as build-wheel.py, except for `--toolchain`,
 # which should be omitted.
 #
