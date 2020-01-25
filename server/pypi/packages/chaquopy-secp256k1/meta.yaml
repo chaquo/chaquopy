@@ -1,8 +1,10 @@
+# We distribute this as a shared library, rather than building it statically into coincurve,
+# because Electron Cash accesses it directly via ctypes.
+
 package:
   name: chaquopy-secp256k1
-  version: 20190331
+  version: 20191011  # Date of below commit.
 
 source:
-  # This commit no longer seems to be on any branch, but it's the one currently used by
-  # coincurve's setup.py.
-  url: https://github.com/bitcoin-core/secp256k1/archive/b19c000063be11018b4d1a6b0a85871ab9d0bdcf.tar.gz
+  # Commit ID from coincurve's setup.py.
+  url: https://github.com/bitcoin-core/secp256k1/archive/0d9540b13ffcd7cd44cc361b8744b93d88aa76ba.tar.gz

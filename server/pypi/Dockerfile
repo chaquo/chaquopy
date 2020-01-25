@@ -21,7 +21,7 @@ RUN apt-get update && \
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get install -y autoconf cmake git patch
+    apt-get install -y autoconf automake cmake git libtool patch
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \

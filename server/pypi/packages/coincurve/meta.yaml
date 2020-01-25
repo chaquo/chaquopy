@@ -1,7 +1,13 @@
 package:
   name: coincurve
-  version: 12.0.0
+  # When updating, check setup.py and update chaquopy-secp256k1 as well:
+  # * Commit ID and version number in meta.yaml
+  # * configure script arguments in build.sh
+  version: 13.0.0
 
 requirements:
   host:
-    - chaquopy-secp256k1 20190331
+    - chaquopy-secp256k1 20191011
+
+about:
+  license_file: ../../../../LICENSE.rst

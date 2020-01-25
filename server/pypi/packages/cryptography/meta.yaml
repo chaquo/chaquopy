@@ -1,12 +1,9 @@
 package:
   name: cryptography
-  version: 2.6.1
-
-build:
-  number: 1
+  version: 2.8
 
 requirements:
   build:
-    - cffi 1.11.5
+    - cffi 1.13.2
   host:
     - openssl
