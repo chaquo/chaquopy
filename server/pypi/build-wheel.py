@@ -532,7 +532,7 @@ class BuildWheel:
                     # modules will be tagged with the build platform, e.g.
                     # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
                     original_path = join(tmp_dir, original_path)
-                    fixed_path = re.sub(fr"\.cpython[^.]+\.so$", ".so", original_path)
+                    fixed_path = re.sub(r"\.(cpython-[^.]+|abi3)\.so$", ".so", original_path)
                     if fixed_path != original_path:
                         run(f"mv {original_path} {fixed_path}")
 
