@@ -1,38 +1,37 @@
---- src-original/setupext.py	2019-03-01 03:33:38.000000000 +0000
-+++ src/setupext.py	2019-03-14 17:40:25.157405925 +0000
-@@ -243,6 +243,9 @@
-     """
-     Returns a list of standard base directories on this platform.
-     """
-+    # Chaquopy
-+    return [os.path.abspath("../requirements/chaquopy")]
-+
-     if options['basedirlist']:
-         return options['basedirlist']
+--- src-original/setupext.py	2019-11-21 22:47:05.000000000 +0000
++++ src/setupext.py	2020-01-26 19:16:23.926678121 +0000
+@@ -604,8 +604,7 @@
+     name = "numpy"
  
-@@ -960,6 +963,7 @@
- 
-     @staticmethod
-     def include_dirs_hook():
-+        return [os.path.abspath("../requirements/numpy/core/include")]  # Chaquopy
-         if hasattr(builtins, '__NUMPY_SETUP__'):
-             del builtins.__NUMPY_SETUP__
-         import numpy
-@@ -1004,7 +1008,7 @@
-         ext.define_macros.append(('__STDC_FORMAT_MACROS', 1))
+     def add_flags(self, ext):
+-        import numpy as np
+-        ext.include_dirs.append(np.get_include())
++        ext.include_dirs.append(os.path.abspath("../requirements/numpy/core/include"))  # Chaquopy
+         ext.define_macros.extend([
+             # Ensure that PY_ARRAY_UNIQUE_SYMBOL is uniquely defined for each
+             # extension.
+@@ -617,7 +616,7 @@
+         ])
  
      def get_setup_requires(self):
--        return ['numpy>=1.10.0']
-+        return []  # Chaquopy: removed numpy
+-        return ['numpy>=1.11']
++        return []  # Chaquopy: was ['numpy>=1.11']
  
      def get_install_requires(self):
-         return ['numpy>=1.10.0']
-@@ -1057,7 +1061,7 @@
-         if options.get('local_freetype'):
-             return "Using local version for testing"
+         return ['numpy>=1.11']
+@@ -679,14 +678,7 @@
+                 0, os.path.join(src_path, 'objs', '.libs', libfreetype))
+             ext.define_macros.append(('FREETYPE_BUILD_TYPE', 'local'))
+         else:
+-            pkg_config.setup_extension(
+-                # FreeType 2.3 has libtool version 9.11.3 as can be checked
+-                # from the tarball.  For FreeType>=2.4, there is a conversion
+-                # table in docs/VERSIONS.txt in the FreeType source tree.
+-                ext, 'freetype2',
+-                atleast_version='9.11.3',
+-                alt_exec=['freetype-config'],
+-                default_libraries=['freetype', 'z'])
++            ext.libraries.append("freetype")  # Chaquopy
+             ext.define_macros.append(('FREETYPE_BUILD_TYPE', 'system'))
  
--        if sys.platform == 'win32':
-+        if True:  # Chaquopy: was `if sys.platform == 'win32':`
-             try:
-                 check_include_file(get_include_dirs(), 'ft2build.h', 'freetype')
-             except CheckFailed:
+     def do_custom_build(self):

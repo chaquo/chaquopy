@@ -326,8 +326,8 @@ class BuildWheel:
 
     def build_with_script(self, build_script):
         # Check for license files before starting the build.
-        if not self.meta["about"]["license_file"]:
-            license_files = find_license_files(".")
+        license_files = ([] if self.meta["about"]["license_file"]
+                         else find_license_files("."))
 
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)

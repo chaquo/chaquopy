@@ -1,6 +1,6 @@
 package:
   name: lxml
-  version: 4.2.4
+  version: 4.4.2
 
 requirements:
   host:
