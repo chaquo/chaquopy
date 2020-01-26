@@ -11,7 +11,7 @@
 
     <Preference android:title="@string/app_name">
         <intent android:targetPackage="@string/app_id"
-            android:targetClass="com.chaquo.python.demo.PythonTestActivity"/>
+            android:targetClass="com.chaquo.python.demo.PackageTestActivity"/>
     </Preference>
 
 </PreferenceScreen>

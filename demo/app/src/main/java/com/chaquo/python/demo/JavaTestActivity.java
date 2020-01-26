@@ -1,7 +1,6 @@
 package com.chaquo.python.demo;
 
 import android.app.*;
-import com.chaquo.java.*;
 import com.chaquo.python.utils.*;
 import org.junit.runner.*;
 import org.junit.runner.notification.*;
@@ -23,7 +22,13 @@ public class JavaTestActivity extends ConsoleActivity {
         @Override public void run() {
             JUnitCore juc = new JUnitCore();
             juc.addListener(new Listener());
-            juc.run(TestSuite.class);
+            try {
+                // We use reflection so that this directory can be included in another app
+                // using srcDir in build.gradle without pulling in the whole test suite too.
+                juc.run(Class.forName("com.chaquo.java.TestSuite"));
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         private class Listener extends RunListener {

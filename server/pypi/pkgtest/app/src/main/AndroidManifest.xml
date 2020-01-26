@@ -27,7 +27,7 @@
             android:launchMode="singleInstance"
             android:windowSoftInputMode="adjustResize"/>
 
-        <activity android:name=".PythonTestActivity"
+        <activity android:name=".PackageTestActivity"
             android:label="@string/app_name"/>
 
     </application>

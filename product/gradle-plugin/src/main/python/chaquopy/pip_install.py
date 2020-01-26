@@ -279,13 +279,7 @@ def file_matches_record(filename, hash_str, size):
 # pip does for rmtree.
 @retry(wait_fixed=50, stop_max_delay=3000)
 def renames(src, dst):
-    try:
-        os.renames(src, dst)
-    except OSError:
-        # On some combinations of OS and Python version (TODO which?), the exception message
-        # may not contain any filenames.
-        logger.error("Failed to rename '{}' to '{}'".format(src, dst))
-        raise
+    os.renames(src, dst)
 
 
 def config_logging(verbose):
