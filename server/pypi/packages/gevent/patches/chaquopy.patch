@@ -17,6 +17,18 @@ diff -ur src-original/_setuplibev.py src/_setuplibev.py
      " && cp config.h \"$OLDPWD\"",
      ")",
      '> configure-output.txt'
+--- src-original/deps/libev/ev.c        2019-01-04 11:51:44.000000000 +0000
++++ src/deps/libev/ev.c 2020-01-26 14:27:44.895063112 +0000
+@@ -4401,7 +4401,8 @@
+ inline_size int
+ infy_newfd (void)
+ {
+-#if defined IN_CLOEXEC && defined IN_NONBLOCK
++/* Chaquopy: added __ANDROID_API__ */
++#if __ANDROID_API__ >= 21 && defined IN_CLOEXEC && defined IN_NONBLOCK
+   int fd = inotify_init1 (IN_CLOEXEC | IN_NONBLOCK);
+   if (fd >= 0)
+     return fd;
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py       2019-01-04 11:51:44.000000000 +0000
 +++ src/setup.py        2019-08-05 20:46:00.204601700 +0000
@@ -51,11 +63,11 @@ diff -ur src-original/setup.py src/setup.py
 +# # greenlet, we have *NO* access to greenlet.h at all. So include
 +# # our own copy as a fallback.
 +# include_dirs.append('deps')
-
+ 
  SEMAPHORE = Extension(name="gevent.__semaphore",
                        sources=["src/gevent/_semaphore.py"],
 @@ -160,7 +165,8 @@
-
+ 
  EXT_MODULES = [
      CORE,
 -    ARES,
