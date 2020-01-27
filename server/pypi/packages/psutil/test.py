@@ -12,7 +12,7 @@ class TestPsutil(unittest.TestCase):
     def test_disk(self):
         import psutil
         parts = psutil.disk_partitions(all=True)
-        if IS_ANDROID and not IS_64BIT:
+        if IS_ANDROID and not IS_64BIT:  # See __ANDROID_API__ in patch.
             self.assertFalse(parts)
         else:
             self.assertIn("/", [p.mountpoint for p in parts])
