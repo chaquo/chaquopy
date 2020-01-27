@@ -29,7 +29,7 @@ def make_model(num_outputs):
         layers.Dense(num_outputs, activation='relu'),
         layers.Dense(64, activation='relu'),
         layers.Dense(num_outputs, activation='softmax')])
-    model.compile(optimizer=tf.train.RMSPropOptimizer(0.01),
+    model.compile(optimizer=tf.keras.optimizers.RMSprop(0.01),
                   loss=tf.keras.losses.categorical_crossentropy,
                   metrics=[tf.keras.metrics.categorical_accuracy])
     return model

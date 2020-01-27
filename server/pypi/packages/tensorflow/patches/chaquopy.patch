@@ -24,201 +24,44 @@ diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
      name = "android_x86",
      values = {
          "crosstool_top": "//external:android/crosstool",
-@@ -608,7 +617,7 @@
-     visibility = ["//visibility:public"],
-     deps = select({
-         "api_version_2": [],
--        "//conditions:default": ["//tensorflow/contrib:contrib_py"],
-+        "//conditions:default": [],  # Chaquopy: removed to simplify build: "//tensorflow/contrib:contrib_py"
-     }) + [
-         ":tensorflow_py_no_contrib",
-         "//tensorflow/python/estimator:estimator_py",
-diff -urN --no-dereference src-original/tensorflow/compiler/jit/xla_compilation_cache.cc src/tensorflow/compiler/jit/xla_compilation_cache.cc
---- src-original/tensorflow/compiler/jit/xla_compilation_cache.cc	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/compiler/jit/xla_compilation_cache.cc	2019-03-11 16:26:02.478431336 +0000
-@@ -38,6 +38,9 @@
+--- src-original/tensorflow/core/platform/BUILD 2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/core/platform/BUILD  2020-01-26 13:56:50.320587878 +0000
+@@ -275,6 +275,10 @@
+     name = "logging",
+     textual_hdrs = ["logging.h"],
+     deps = tf_logging_deps(),
++    linkopts = select({
++        "//tensorflow:chaquopy": ["-llog"],
++        "//conditions:default": []
++    }),
+ )
  
- namespace tensorflow {
- 
-+// Chaquopy: https://github.com/tensorflow/tensorflow/issues/23648
-+constexpr int64 XlaCompilationCache::kDefaultCompilationThreshold;
-+
- XlaCompilationCache::XlaCompilationCache(xla::LocalClient* client,
-                                          DeviceType device_type)
-     : client_(client), device_type_(std::move(device_type)) {}
-diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/context.cc src/tensorflow/core/common_runtime/eager/context.cc
---- src-original/tensorflow/core/common_runtime/eager/context.cc	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/context.cc	2019-03-11 11:45:06.002689803 +0000
-@@ -151,7 +151,6 @@
-   return policy_;
- }
- 
--#ifndef __ANDROID__
- void EagerContext::CloseRemoteContexts() {
-   // Close all remote contexts.
-   std::vector<eager::CloseContextRequest> requests(remote_contexts_.size());
-@@ -180,10 +179,8 @@
- 
-   counter.Wait();
- }
--#endif
- 
- EagerContext::~EagerContext() {
--#ifndef __ANDROID__
-   if (server_) {
-     // TODO(nareshmodi): Fix this.
-     LOG(WARNING) << "Unable to destroy server_ object, so releasing instead. "
-@@ -199,7 +196,6 @@
-   keep_alive_thread_.reset();
- 
-   CloseRemoteContexts();
--#endif
- 
-   executor_.WaitForAllPendingNodes().IgnoreError();
-   ClearCaches();
-@@ -262,7 +258,6 @@
- 
- Status EagerContext::MaybeRegisterFunctionRemotely(const FunctionDef& fdef) {
-   if (remote_device_manager_ == nullptr) return Status::OK();
--#ifndef __ANDROID__
-   BlockingCounter blocking_counter(static_cast<int>(remote_contexts_.size()));
- 
-   std::vector<eager::RegisterFunctionRequest> requests(remote_contexts_.size());
-@@ -292,7 +287,6 @@
-   for (int i = 0; i < remote_contexts_.size(); i++) {
-     TF_RETURN_IF_ERROR(statuses[i]);
-   }
--#endif
-   return Status::OK();
- }
- 
-@@ -333,7 +327,6 @@
- }
- }  // namespace
- 
--#ifndef __ANDROID__
- Status EagerContext::GetClientAndContextID(Device* device,
-                                            eager::EagerClient** client,
-                                            uint64* context_id) {
-@@ -462,6 +455,5 @@
-         }));
-   }
- }
--#endif
- 
- }  // namespace tensorflow
-diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/context.h src/tensorflow/core/common_runtime/eager/context.h
---- src-original/tensorflow/core/common_runtime/eager/context.h	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/context.h	2019-03-11 11:45:55.752346633 +0000
-@@ -29,10 +29,8 @@
- #include "tensorflow/core/common_runtime/eager/kernel_and_device.h"
- #include "tensorflow/core/common_runtime/function.h"
- #include "tensorflow/core/common_runtime/rendezvous_mgr.h"
--#ifndef __ANDROID__
- #include "tensorflow/core/distributed_runtime/eager/eager_client.h"
- #include "tensorflow/core/distributed_runtime/server_lib.h"
--#endif
- #include "tensorflow/core/framework/collective.h"
- #include "tensorflow/core/framework/log_memory.h"
- #include "tensorflow/core/framework/rendezvous.h"
-@@ -177,7 +175,6 @@
- 
-   FunctionLibraryDefinition* FuncLibDef() { return &func_lib_def_; }
- 
--#ifndef __ANDROID__
-   Status GetClientAndContextID(Device* device, eager::EagerClient** client,
-                                uint64* context_id);
- 
-@@ -204,7 +201,6 @@
-     return active_remote_contexts_.find(context_id) !=
-            active_remote_contexts_.end();
-   }
--#endif
- 
-   // If true, then tensors should be shipped across processes via the
-   // EagerService.SendTensor RPC. If false, _Send/_Recv ops should be used
-@@ -281,7 +277,6 @@
- 
-   std::unique_ptr<CollectiveExecutorMgrInterface> collective_executor_mgr_;
- 
--#ifndef __ANDROID__
-   void CloseRemoteContexts();
- 
-   // The server_ is not const since we release it when the context is destroyed.
-@@ -304,7 +299,6 @@
-   mutex keep_alive_thread_shutdown_mu_;
-   condition_variable keep_alive_thread_cv_;
-   bool shutting_down_ GUARDED_BY(keep_alive_thread_shutdown_mu_) = false;
--#endif
- 
-   bool use_send_tensor_rpc_;
-   const bool pin_small_ops_to_cpu_;
-diff -urN --no-dereference src-original/tensorflow/core/common_runtime/eager/execute.cc src/tensorflow/core/common_runtime/eager/execute.cc
---- src-original/tensorflow/core/common_runtime/eager/execute.cc	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/core/common_runtime/eager/execute.cc	2019-03-11 11:47:54.760309847 +0000
-@@ -25,10 +25,8 @@
- #include "tensorflow/core/common_runtime/eager/kernel_and_device.h"
- #include "tensorflow/core/common_runtime/eager/tensor_handle.h"
- #include "tensorflow/core/lib/core/errors.h"
--#ifndef __ANDROID__
- #include "tensorflow/core/distributed_runtime/eager/eager_client.h"
- #include "tensorflow/core/distributed_runtime/eager/remote_execute_node.h"
--#endif
- #include "tensorflow/core/framework/step_stats.pb.h"
- #include "tensorflow/core/framework/tensor.h"
- #include "tensorflow/core/framework/types.h"
-@@ -355,7 +353,6 @@
-   return status;
- }
- 
--#ifndef __ANDROID__
- std::function<void()> GetRemoteTensorDestructor(
-     EagerContext* ctx, eager::EagerClient* eager_client, uint64 context_id,
-     uint64 op_id, int output_num) {
-@@ -393,7 +390,6 @@
-     return tensorflow::Status::OK();
-   };
- }
--#endif
- 
- // When !ctx->UseSendTensorRPC(), then tensors are shipped between remote
- // devices by the receiver invoking the WorkerService.RecvTensor RPC *on the
-@@ -405,10 +401,6 @@
- // *on the receiver*.
- Status EagerRemoteSendTensor(EagerContext* ctx, TensorHandle* h,
-                              Device* recv_device, TensorHandle** result) {
--#ifdef __ANDROID__
--  return errors::Unimplemented(
--      "Eager's remote execution is not available on Android devices.");
--#else
-   eager::EagerClient* eager_client;
-   uint64 context_id;
-   TF_RETURN_IF_ERROR(
-@@ -464,15 +456,10 @@
-   actual_handle->Unref();
- 
-   return Status::OK();
--#endif
- }
- 
- Status EagerRemoteExecute(EagerOperation* op, TensorHandle** retvals,
-                           int* num_retvals) {
--#ifdef __ANDROID__
--  return errors::Unimplemented(
--      "Eager's remote execution is not available on Android devices.");
--#else
-   EagerContext* ctx = op->EagerContext();
- 
-   eager::EagerClient* eager_client;
-@@ -590,7 +577,6 @@
-   }
- 
-   return Status::OK();
--#endif
- }
- 
- // These ops are not pinnable since they generate data. It can be slower to
+ cc_library(
 diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/tensorflow/core/platform/platform.h
+--- src-original/tensorflow/core/platform/default/stacktrace.h  2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/core/platform/default/stacktrace.h   2020-01-23 16:55:47.716796388 +0000
+@@ -21,7 +21,8 @@
+ // clang-format on
+ 
+ #if !defined(IS_MOBILE_PLATFORM) && (defined(__clang__) || defined(__GNUC__))
+-#define TF_HAS_STACKTRACE
++// Chaquopy: disabled
++// #define TF_HAS_STACKTRACE
+ #endif
+ 
+ #if defined(TF_HAS_STACKTRACE)
+--- src-original/tensorflow/core/platform/default/stacktrace_handler.cc 2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/core/platform/default/stacktrace_handler.cc  2020-01-23 16:03:55.829830861 +0000
+@@ -17,7 +17,8 @@
+ 
+ #if !defined(IS_MOBILE_PLATFORM) && defined(PLATFORM_POSIX) && \
+     (defined(__clang__) || defined(__GNUC__))
+-#define TF_GENERATE_STACKTRACE
++// Chaquopy: disabled
++// #define TF_GENERATE_STACKTRACE
+ #endif
+ 
+ #if defined(TF_GENERATE_STACKTRACE)
 --- src-original/tensorflow/core/platform/platform.h	2018-08-23 19:58:44.000000000 +0000
 +++ src/tensorflow/core/platform/platform.h	2018-09-20 20:49:57.361222382 +0000
 @@ -26,7 +26,10 @@
@@ -233,126 +76,89 @@ diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/
  
  #elif defined(__APPLE__)
  #define PLATFORM_POSIX
-diff -urN --no-dereference src-original/tensorflow/lite/kernels/internal/optimized/cpu_check.h src/tensorflow/lite/kernels/internal/optimized/cpu_check.h
---- src-original/tensorflow/lite/kernels/internal/optimized/cpu_check.h	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/lite/kernels/internal/optimized/cpu_check.h	2019-03-11 13:41:42.646395999 +0000
-@@ -18,7 +18,10 @@
- namespace tflite {
+--- src-original/tensorflow/lite/toco/toco_port.cc      2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/toco/toco_port.cc       2020-01-24 11:37:06.401541122 +0000
+@@ -20,7 +20,7 @@
+ #include "tensorflow/core/lib/core/status.h"
+ #include "tensorflow/core/platform/logging.h"
  
- #ifdef __ANDROID__
--#include "ndk/sources/android/cpufeatures/cpu-features.h"
-+// Chaquopy: cpufeatures is made available via @androidndk//:cpufeatures in ./BUILD,
-+// conditional on //tensorflow:android, which we've not enabled for the reasons explained in
-+// tensorflow/BUILD.
-+// #include "ndk/sources/android/cpufeatures/cpu-features.h"
+-#if defined(__ANDROID__) && defined(__ARM_ARCH_7A__)
++#if 0 && defined(__ANDROID__) && defined(__ARM_ARCH_7A__)  // Chaquopy: all this is now in the NDK headers.
+ namespace std {
+ double round(double x) { return ::round(x); }
+ }  // namespace std
+--- src-original/tensorflow/lite/toco/toco_port.h       2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/toco/toco_port.h        2020-01-24 11:37:06.413541550 +0000
+@@ -34,7 +34,7 @@
+ #define TFLITE_PROTO_NS google::protobuf
+ #endif
  
- // Runtime check for Neon support on Android.
- inline bool TestCPUFeatureNeon() {
-@@ -26,11 +29,9 @@
-   // ARM-64 always has NEON support.
-   return true;
- #else
--  static bool kUseAndroidNeon =
--      (android_getCpuFamily() == ANDROID_CPU_FAMILY_ARM &&
--       android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_ARMv7 &&
--       android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON);
--  return kUseAndroidNeon;
-+  // Chaquopy: removed call to cpufeatures: see above. Returning false because NEON is not
-+  // guaranteed on armeabi-v7a: see chaquopy-openblas/build.sh.
-+  return false;
- #endif  // __aarch64__
- }
+-#ifdef __ANDROID__
++#if 0  // Chaquopy: was #ifdef __ANDROID__, but all this is now in the NDK headers.
+ #include <sstream>
+ namespace std {
  
-diff -urN --no-dereference src-original/tensorflow/python/BUILD src/tensorflow/python/BUILD
---- src-original/tensorflow/python/BUILD	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/python/BUILD	2019-03-11 11:27:51.076213806 +0000
-@@ -69,7 +69,7 @@
-     ],
-     deps = [
-         ":no_contrib",
--        "//tensorflow/contrib:contrib_py",
-+        # Chaquopy: removed to simplify build: "//tensorflow/contrib:contrib_py",
-         "//tensorflow/python/estimator:estimator_py",
-     ],
- )
+--- src-original/tensorflow/python/platform/resource_loader.py  2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/python/platform/resource_loader.py   2020-01-26 16:57:51.561690191 +0000
+@@ -114,7 +114,18 @@
+     IOError: If the path is not found, or the resource can't be opened.
+   """
+   data_files_path = _os.path.dirname(_inspect.getfile(_sys._getframe(1)))
+-  return _os.path.join(data_files_path, path)
++  # Chaquopy: this function is used to find .so files, which aren't automatically extracted
++  # unless they're loaded as Python modules.
++  result = _os.path.join(data_files_path, path)
++  if path.endswith(".so") and hasattr(__loader__, "finder"):  # This function also runs during the build.
++    importer = __loader__.finder
++    try:
++      importer.extract_if_changed(importer.zip_path(_os.path.abspath(result)))
++    except FileNotFoundError:
++      # Despite the docstring above, calling code expects us to return the path whether it
++      # exists or not (e.g. in tensorflow/lite/python/convert.py).
++      pass
++  return result
+ 
+ 
+ @tf_export(v1=['resource_loader.readahead_file_path'])
 diff -urN --no-dereference src-original/tensorflow/tensorflow.bzl src/tensorflow/tensorflow.bzl
 --- src-original/tensorflow/tensorflow.bzl	2019-02-25 20:37:04.000000000 +0000
 +++ src/tensorflow/tensorflow.bzl	2019-03-11 11:51:06.758703356 +0000
-@@ -1669,6 +1669,12 @@
+@@ -1669,6 +1669,11 @@
              "-Wl,-exported_symbols_list,$(location %s.lds)" % vscriptname,
          ],
          clean_dep("//tensorflow:windows"): [],
 +        clean_dep("//tensorflow:chaquopy"): [
-+            "-Wl,--no-undefined",  # See note in build.sh.
-+            "-llog",               #
++            "-llog",
 +            "-Wl,--version-script",
 +            "$(location %s.lds)"%vscriptname,
 +        ],
          "//conditions:default": [
              "-Wl,--version-script",
              "$(location %s.lds)" % vscriptname,
-diff -urN --no-dereference src-original/tensorflow/tools/pip_package/BUILD src/tensorflow/tools/pip_package/BUILD
---- src-original/tensorflow/tools/pip_package/BUILD	2019-02-25 20:37:04.000000000 +0000
-+++ src/tensorflow/tools/pip_package/BUILD	2019-03-11 11:59:12.694882636 +0000
-@@ -248,7 +248,9 @@
-         "api_version_2": COMMON_PIP_DEPS + [
-             ":simple_console",
-         ],
--        "//conditions:default": COMMON_PIP_DEPS_V1 + [
-+        # Chaquopy: to simplify build, changed COMMON_PIP_DEPS_V1 to COMMON_PIP_DEPS below.
-+        # This removes everything under //tensorflow/contrib.
-+        "//conditions:default": COMMON_PIP_DEPS + [
-             ":simple_console",
-         ],
-     }) + if_mkl_ml(["//third_party/mkl:intel_binary_blob"]),
+--- src-original/tensorflow/tools/pip_package/setup.py  2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/tools/pip_package/setup.py   2020-01-22 21:04:51.015956206 +0000
+@@ -75,6 +75,7 @@
+     'six >= 1.12.0',
+     # scipy < 1.4.1 causes segfaults due to pybind11
+     # Latest scipy pip for py2 is scipy==1.2.2
+-    'scipy == 1.4.1;python_version>="3"',
+-    'scipy == 1.2.2;python_version<"3"',
++    # Chaquopy: SciPy isn't required (https://github.com/tensorflow/tensorflow/issues/35709)
++    # 'scipy == 1.4.1;python_version>="3"',
++    # 'scipy == 1.2.2;python_version<"3"',
+ ]
+
+ if sys.byteorder == 'little':
 diff -urN --no-dereference src-original/tensorflow/workspace.bzl src/tensorflow/workspace.bzl
 --- src-original/tensorflow/workspace.bzl	2019-02-25 20:37:04.000000000 +0000
 +++ src/tensorflow/workspace.bzl	2019-03-11 14:28:54.452389887 +0000
-@@ -136,11 +136,12 @@
-     tf_http_archive(
-         name = "eigen_archive",
-         build_file = clean_dep("//third_party:eigen.BUILD"),
--        sha256 = "753fbb58d0a49b6bcbcfb126ebfa2e21fc97f7471529ba835a096008ce588d8a",
--        strip_prefix = "eigen-eigen-9f48e814419e",
-+        # Chaquopy: cherry-pick from https://github.com/tensorflow/tensorflow/issues/24457
-+        sha256 = "9de38f2d162c51599b802f7c36d9f3773980d19ac908c61638f8344d2c10e1ca",
-+        strip_prefix = "eigen-eigen-88fc23324517",
-         urls = [
--            "https://mirror.bazel.build/bitbucket.org/eigen/eigen/get/9f48e814419e.tar.gz",
--            "https://bitbucket.org/eigen/eigen/get/9f48e814419e.tar.gz",
-+            "https://mirror.bazel.build/bitbucket.org/eigen/eigen/get/88fc23324517.tar.gz",
-+            "https://bitbucket.org/eigen/eigen/get/88fc23324517.tar.gz",
-         ],
-     )
- 
-@@ -437,13 +438,15 @@
-     tf_http_archive(
-         name = "swig",
-         build_file = clean_dep("//third_party:swig.BUILD"),
--        sha256 = "58a475dbbd4a4d7075e5fe86d4e54c9edde39847cdb96a3053d87cb64a23a453",
--        strip_prefix = "swig-3.0.8",
-+        # Chaquopy: upgrade from SWIG 3.0.8, which incorrectly used __file__ to find submodules
-+        # rather than __path__.
-+        sha256 = "4f3a4afb22ac1a9dd9c8725175451bda8bae5c564761edc01e0edd2c672857f0",
-+        strip_prefix = "swig-3.0.9",
-         system_build_file = clean_dep("//third_party/systemlibs:swig.BUILD"),
-         urls = [
--            "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
--            "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
--            "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.8/swig-3.0.8.tar.gz",
-+            "https://mirror.bazel.build/ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-+            "http://ufpr.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-+            "http://pilotfiber.dl.sourceforge.net/project/swig/swig/swig-3.0.9/swig-3.0.9.tar.gz",
-         ],
-     )
- 
 @@ -462,6 +465,7 @@
      # WARNING: make sure ncteisen@ and vpai@ are cc-ed on any CL to change the below rule
      tf_http_archive(
          name = "grpc",
 +        patch_file = clean_dep("//third_party/grpc:chaquopy.patch"),
-         sha256 = "1aa84387232dda273ea8fdfe722622084f72c16f7b84bfc519ac7759b71cdc91",
-         strip_prefix = "grpc-69b6c047bc767b4d80e7af4d00ccb7c45b683dae",
+         sha256 = "67a6c26db56f345f7cee846e681db2c23f919eba46dd639b09462d1b6203d28c",
+         strip_prefix = "grpc-4566c2a29ebec0835643b972eb99f4306c4234a3",
          system_build_file = clean_dep("//third_party/systemlibs:grpc.BUILD"),
 @@ -532,6 +536,7 @@
  
@@ -554,28 +360,57 @@ diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaq
 + extern "C" {
 + #ifdef __linux__
 +-#if defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
-++// Chaquopy: disabled
+++// Chaquopy disabled: build succeeds, but function hangs at runtime.
 ++#if 0 && defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
 + __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 + void* __wrap_memcpy(void* destination, const void* source, size_t num) {
 +   return memcpy(destination, source, num);
+--- src-original/third_party/hwloc/BUILD.bazel  2020-01-07 16:57:39.000000000 +0000
++++ src/third_party/hwloc/BUILD.bazel   2020-01-24 11:13:46.451645375 +0000
+@@ -110,7 +110,7 @@
+     "#undef HAVE_SYS_MMAN_H": "#define HAVE_SYS_MMAN_H 1",
+     "#undef HAVE_SYS_PARAM_H": "#define HAVE_SYS_PARAM_H 1",
+     "#undef HAVE_SYS_STAT_H": "#define HAVE_SYS_STAT_H 1",
+-    "#undef HAVE_SYS_SYSCTL_H": "#define HAVE_SYS_SYSCTL_H 1",
++    # "#undef HAVE_SYS_SYSCTL_H": "#define HAVE_SYS_SYSCTL_H 1",  # Chaquopy: not available on Android
+     "#undef HAVE_SYS_TYPES_H": "#define HAVE_SYS_TYPES_H 1",
+     "#undef HAVE_SYS_UTSNAME_H": "#define HAVE_SYS_UTSNAME_H 1",
+     "#undef HAVE_TIME_H": "#define HAVE_TIME_H 1",
+@@ -201,7 +201,7 @@
+ }
+ 
+ _INCLUDE_PRIVATE_HWLOC_AUTOIGEN_CONFIG_H_LINUX_SUBS = {
+-    "#undef HAVE_PROGRAM_INVOCATION_NAME": "#define HAVE_PROGRAM_INVOCATION_NAME 1",
++    # "#undef HAVE_PROGRAM_INVOCATION_NAME": "#define HAVE_PROGRAM_INVOCATION_NAME 1",  # Chaquopy: not available on Android
+     "#undef HWLOC_LINUX_SYS": "#define HWLOC_LINUX_SYS 1",
+ }
+ 
 diff -urN --no-dereference src-original/third_party/llvm/llvm.bzl src/third_party/llvm/llvm.bzl
---- src-original/third_party/llvm/llvm.bzl	2019-02-25 20:37:04.000000000 +0000
-+++ src/third_party/llvm/llvm.bzl	2019-03-11 14:03:47.578289993 +0000
-@@ -201,8 +201,11 @@
+--- src-original/third_party/llvm/llvm.bzl      2020-01-07 16:57:39.000000000 +0000
++++ src/third_party/llvm/llvm.bzl       2020-01-23 15:32:55.791574412 +0000
+@@ -201,10 +201,10 @@
      "HAVE_ZLIB_H": 1,
  
      # Features
 -    "HAVE_BACKTRACE": 1,
 -    "BACKTRACE_HEADER": "execinfo.h",
-+
-+    # Chaquopy: this header isn't available on Android.
-+    # "HAVE_BACKTRACE": 1,
++    # "HAVE_BACKTRACE": 1,  # Chaquopy: not available on Android
 +    # "BACKTRACE_HEADER": "execinfo.h",
-+
      "HAVE_DLOPEN": 1,
-     "HAVE_FUTIMES": 1,
+-    "HAVE_FUTIMES": 1,
++    # "HAVE_FUTIMES": 1,  # Chaquopy: requires API level 26
      "HAVE_GETCWD": 1,
+     "HAVE_GETPAGESIZE": 1,
+     "HAVE_GETRLIMIT": 1,
+@@ -244,7 +244,7 @@
+     "HAVE_MALLOC_H": 1,
+     "HAVE_LINK_H": 1,
+     "HAVE_MALLINFO": 1,
+-    "HAVE_FUTIMENS": 1,
++    # "HAVE_FUTIMENS": 1,  # Chaquopy: requires API level 19
+ }
+ 
+ # CMake variables specific to the FreeBSD platform
 diff -urN --no-dereference src-original/third_party/lmdb.BUILD src/third_party/lmdb.BUILD
 --- src-original/third_party/lmdb.BUILD	2018-08-23 19:58:44.000000000 +0000
 +++ src/third_party/lmdb.BUILD	2018-09-20 20:49:57.365222384 +0000
@@ -587,6 +422,17 @@ diff -urN --no-dereference src-original/third_party/lmdb.BUILD src/third_party/l
      ],
      linkopts = select({
          ":windows": ["-DEFAULTLIB:advapi32.lib"],  # InitializeSecurityDescriptor, SetSecurityDescriptorDacl
+--- src-original/third_party/mlir/lib/Transforms/DialectConversion.cpp  2020-01-07 16:57:39.000000000 +0000
++++ src/third_party/mlir/lib/Transforms/DialectConversion.cpp   2020-01-23 17:53:12.507867527 +0000
+@@ -686,7 +686,7 @@
+   for (auto &pair : llvm::enumerate(region)) {
+     Block &block = pair.value();
+     unsigned position = pair.index();
+-    blockActions.push_back(BlockAction::getMove(&block, {&region, position}));
++    blockActions.push_back(BlockAction::getMove(&block, {&region, (int)position}));  // Chaquopy: added cast
+   }
+ }
+ 
 diff -urN --no-dereference src-original/third_party/py/BUILD.tpl src/third_party/py/BUILD.tpl
 --- src-original/third_party/py/BUILD.tpl	2018-08-23 19:58:44.000000000 +0000
 +++ src/third_party/py/BUILD.tpl	2018-09-20 20:49:57.365222384 +0000
@@ -654,79 +500,60 @@ diff -urN --no-dereference src-original/third_party/py/BUILD.tpl src/third_party
 diff -urN --no-dereference src-original/third_party/py/python_configure.bzl src/third_party/py/python_configure.bzl
 --- src-original/third_party/py/python_configure.bzl	2018-08-23 19:58:44.000000000 +0000
 +++ src/third_party/py/python_configure.bzl	2018-09-20 20:49:57.365222384 +0000
-@@ -273,6 +273,13 @@
-   python_include_rule = _symlink_genrule_for_dir(
-       repository_ctx, python_include, 'python_include', 'python_include')
-   python_import_lib_genrule = ""
-+
-+  chaquopy_python_include = repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"]
-+  chaquopy_numpy_include = (repository_ctx.os.environ["SRC_DIR"] +
-+                            "/../requirements/numpy/core/include/numpy")
-+  chaquopy_python_include_rule = _symlink_genrule_for_dir(
-+      repository_ctx, chaquopy_python_include, 'chaquopy_python_include', 'chaquopy_python_include')
+@@ -273,6 +273,12 @@
+     )
+     python_import_lib_genrule = ""
+ 
++    chaquopy_python_include = repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"]
++    chaquopy_numpy_include = (repository_ctx.os.environ["SRC_DIR"] +
++                              "/../requirements/numpy/core/include/numpy")
++    chaquopy_python_include_rule = _symlink_genrule_for_dir(
++        repository_ctx, chaquopy_python_include, 'chaquopy_python_include', 'chaquopy_python_include')
 +  
-   # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
-   # See https://docs.python.org/3/extending/windows.html
-   if _is_windows(repository_ctx):
-@@ -282,12 +289,27 @@
-     python_import_lib_genrule = _symlink_genrule_for_dir(
-       repository_ctx, None, '', 'python_import_lib',
-       [python_import_lib_src], [python_import_lib_name])
+     # To build Python C/C++ extension on Windows, we need to link to python import library pythonXY.lib
+     # See https://docs.python.org/3/extending/windows.html
+     if _is_windows(repository_ctx):
+@@ -282,17 +289,32 @@
+             [python_import_lib_src],
+             [python_import_lib_name],
+         )
 +
-+  # Chaquopy: no point in generating separate host and target rules for libpython, because
-+  # we'll never support building TensorFlow on Windows.
-+  python_import_lib_name = "lib" + repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB"] + ".so"
-+  python_import_lib_src = (repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"] +
-+                           "/../../lib/" + python_import_lib_name)
-+  python_import_lib_genrule = _symlink_genrule_for_dir(
-+    repository_ctx, None, '', 'python_import_lib',
-+    [python_import_lib_src], [python_import_lib_name])
++    # Chaquopy: no point in generating separate host and target rules for libpython, because
++    # we'll never support building TensorFlow on Windows.
++    python_import_lib_name = "lib" + repository_ctx.os.environ["CHAQUOPY_PYTHON_LIB"] + ".so"
++    python_import_lib_src = (repository_ctx.os.environ["CHAQUOPY_PYTHON_INCLUDE_DIR"] +
++                             "/../../lib/" + python_import_lib_name)
++    python_import_lib_genrule = _symlink_genrule_for_dir(
++        repository_ctx, None, '', 'python_import_lib',
++        [python_import_lib_src], [python_import_lib_name])
 +
-   numpy_include_rule = _symlink_genrule_for_dir(
-       repository_ctx, numpy_include, 'numpy_include/numpy', 'numpy_include')
-+  chaquopy_numpy_include_rule = _symlink_genrule_for_dir(
-+      repository_ctx, chaquopy_numpy_include, 'chaquopy_numpy_include/numpy', 'chaquopy_numpy_include')
+     numpy_include_rule = _symlink_genrule_for_dir(
+         repository_ctx,
+         numpy_include,
+         "numpy_include/numpy",
+         "numpy_include",
+     )
++    chaquopy_numpy_include_rule = _symlink_genrule_for_dir(
++        repository_ctx, chaquopy_numpy_include, 'chaquopy_numpy_include/numpy', 'chaquopy_numpy_include')
 +
-   _tpl(repository_ctx, "BUILD", {
-       "%{PYTHON_INCLUDE_GENRULE}": python_include_rule,
-+      "%{CHAQUOPY_PYTHON_INCLUDE_GENRULE}": chaquopy_python_include_rule,
-       "%{PYTHON_IMPORT_LIB_GENRULE}": python_import_lib_genrule,
-       "%{NUMPY_INCLUDE_GENRULE}": numpy_include_rule,
-+      "%{CHAQUOPY_NUMPY_INCLUDE_GENRULE}": chaquopy_numpy_include_rule,
-   })
+     _tpl(repository_ctx, "BUILD", {
+         "%{PYTHON_BIN_PATH}": python_bin,
+         "%{PYTHON_INCLUDE_GENRULE}": python_include_rule,
++        "%{CHAQUOPY_PYTHON_INCLUDE_GENRULE}": chaquopy_python_include_rule,
+         "%{PYTHON_IMPORT_LIB_GENRULE}": python_import_lib_genrule,
+         "%{NUMPY_INCLUDE_GENRULE}": numpy_include_rule,
++        "%{CHAQUOPY_NUMPY_INCLUDE_GENRULE}": chaquopy_numpy_include_rule,
+     })
  
- 
-diff -urN --no-dereference src-original/third_party/swig.BUILD src/third_party/swig.BUILD
---- src-original/third_party/swig.BUILD	2019-02-25 20:37:04.000000000 +0000
-+++ src/third_party/swig.BUILD	2019-03-11 11:27:51.076213806 +0000
-@@ -1,3 +1,5 @@
-+# Chaquopy: updated for SWIG 3.0.9 (see tensorflow/workspace.bzl).
-+
- licenses(["restricted"])  # GPLv3
- 
- exports_files(["LICENSE"])
-@@ -28,6 +30,7 @@
-         "Source/Modules/contract.cxx",
-         "Source/Modules/directors.cxx",
-         "Source/Modules/emit.cxx",
-+        "Source/Modules/interface.cxx",
-         "Source/Modules/lang.cxx",
-         "Source/Modules/main.cxx",
-         "Source/Modules/module.cxx",
-@@ -126,7 +129,6 @@
-         "Lib/python/defarg.swg",
-         "Lib/python/director.swg",
-         "Lib/python/embed.i",
--        "Lib/python/embed15.i",
-         "Lib/python/exception.i",
-         "Lib/python/factory.i",
-         "Lib/python/file.i",
-@@ -291,7 +293,7 @@
-           "#define HAVE_PCRE\n" +
-           "#define HAVE_POPEN\n" +
-           "#define PACKAGE_BUGREPORT \"http://www.swig.org\"\n" +
--          "#define PACKAGE_VERSION \"3.0.8\"\n" +
-+          "#define PACKAGE_VERSION \"3.0.9\"\n" +
-           "#define STDC_HEADERS\n" +
-           "#define SWIG_CXX \"bazel4lyfe\"\n" +
-           "#define SWIG_LIB \"external/swig/Lib\"\n" +
+ def _create_remote_python_repository(repository_ctx, remote_config_repo):
+--- src-original/third_party/sqlite.BUILD       2020-01-07 16:57:39.000000000 +0000
++++ src/third_party/sqlite.BUILD        2020-01-23 17:10:59.757380996 +0000
+@@ -25,7 +25,7 @@
+         "-DHAVE_FDATASYNC=1",
+         "-DHAVE_GMTIME_R=1",
+         "-DHAVE_LOCALTIME_R=1",
+-        "-DHAVE_POSIX_FALLOCATE=1",
++        # "-DHAVE_POSIX_FALLOCATE=1",  # Chaquopy: requires API level 21
+         "-DHAVE_USLEEP=1",
+     ],
+ })

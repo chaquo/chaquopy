@@ -1,22 +1,21 @@
-{% set version = "1.13.1" %}
+{% set version = "2.1.0" %}
 
 package:
   name: tensorflow
   version: {{ version }}
 
 build:
-  number: 0
+  number: 6
 
 source:
   url: https://github.com/tensorflow/tensorflow/archive/v{{ version }}.tar.gz
 
 requirements:
-
-  # See https://www.tensorflow.org/install/source.
   build:
     - numpy 1.17.4
-    - keras_applications 1.0.6      # Version numbers from tensorflow/tools/pip_package/setup.py
-    - keras_preprocessing 1.0.5     #
+
+    # Required by create_python_api.py (version from tensorflow/tools/pip_package/setup.py).
+    - keras_preprocessing 1.1.0
 
   host:
     - python
