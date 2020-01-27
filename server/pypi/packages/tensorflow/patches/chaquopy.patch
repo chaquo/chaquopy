@@ -1,3 +1,16 @@
+--- src-original/configure.py   2020-01-07 16:57:39.000000000 +0000
++++ src/configure.py    2020-01-27 18:00:45.517619461 +0000
+@@ -475,7 +475,9 @@
+     print('Cannot find bazel. Please install bazel.')
+     sys.exit(0)
+   curr_version = run_shell(
+-      ['bazel', '--batch', '--bazelrc=/dev/null', 'version'])
++      # Chaquopy: removed --batch, which causes any running bazel server to restart, slowing
++      # down reruns with build-wheel.py --no-unpack.
++      ['bazel', 'version'])
+ 
+   for line in curr_version.split('\n'):
+     if 'Build label: ' in line:
 diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
 --- src-original/tensorflow/BUILD	2019-02-25 20:37:04.000000000 +0000
 +++ src/tensorflow/BUILD	2019-03-11 11:40:27.633418445 +0000
@@ -11,7 +24,7 @@ diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
  config_setting(
      name = "android",
      values = {"crosstool_top": "//external:android/crosstool"},
-@@ -64,6 +67,12 @@
+@@ -84,6 +87,19 @@
  )
  
  config_setting(
@@ -20,10 +33,25 @@ diff -urN --no-dereference src-original/tensorflow/BUILD src/tensorflow/BUILD
 +    visibility = ["//visibility:public"],
 +)
 +
++# Used in third_party/hwloc/BUILD.bazel
++config_setting(
++    name = "chaquopy_x86_64",
++    values = {"cpu": "x86_64"},
++    visibility = ["//visibility:public"],
++)
++
 +config_setting(
      name = "android_x86",
      values = {
          "crosstool_top": "//external:android/crosstool",
+@@ -588,6 +604,7 @@
+             "-lexecinfo",
+         ],
+         "//conditions:default": [
++            "-Wl,--no-undefined",  # Chaquopy: see build.sh
+             "-Wl,--version-script,$(location //tensorflow:tf_framework_version_script.lds)",
+         ],
+     }),
 --- src-original/tensorflow/core/platform/BUILD 2020-01-07 16:57:39.000000000 +0000
 +++ src/tensorflow/core/platform/BUILD  2020-01-26 13:56:50.320587878 +0000
 @@ -275,6 +275,10 @@
@@ -98,6 +126,19 @@ diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/
  #include <sstream>
  namespace std {
  
+--- src-original/tensorflow/python/BUILD        2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/python/BUILD 2020-01-27 17:03:35.450629139 +0000
+@@ -5393,6 +5393,10 @@
+          tf_additional_plugin_deps()) + if_ngraph([
+         "@ngraph_tf//:ngraph_tf",
+     ]),
++    linkopts = select({
++        "//tensorflow:chaquopy": ["-Wl,--no-undefined"],  # See build.sh
++        "//conditions:default": []
++    }),
+ )
+ 
+ # ** Targets for Windows build (start) **
 --- src-original/tensorflow/python/platform/resource_loader.py  2020-01-07 16:57:39.000000000 +0000
 +++ src/tensorflow/python/platform/resource_loader.py   2020-01-26 16:57:51.561690191 +0000
 @@ -114,7 +114,18 @@
@@ -123,18 +164,23 @@ diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/
 diff -urN --no-dereference src-original/tensorflow/tensorflow.bzl src/tensorflow/tensorflow.bzl
 --- src-original/tensorflow/tensorflow.bzl	2019-02-25 20:37:04.000000000 +0000
 +++ src/tensorflow/tensorflow.bzl	2019-03-11 11:51:06.758703356 +0000
-@@ -1669,6 +1669,11 @@
-             "-Wl,-exported_symbols_list,$(location %s.lds)" % vscriptname,
-         ],
-         clean_dep("//tensorflow:windows"): [],
-+        clean_dep("//tensorflow:chaquopy"): [
-+            "-llog",
-+            "-Wl,--version-script",
-+            "$(location %s.lds)"%vscriptname,
-+        ],
-         "//conditions:default": [
-             "-Wl,--version-script",
-             "$(location %s.lds)" % vscriptname,
+@@ -1912,6 +1912,7 @@
+         swig_includes = [],
+         deps = [],
+         copts = [],
++        linkopts = [],  # Chaquopy: added for //tensorflow/python:pywrap_tensorflow_internal
+         version_script = None,
+         **kwargs):
+     """Builds a Python extension module."""
+@@ -1980,7 +1981,7 @@
+             "-Wno-sign-compare",
+             "-Wno-write-strings",
+         ]),
+-        linkopts = extra_linkopts,
++        linkopts = linkopts + extra_linkopts,
+         linkstatic = 1,
+         deps = deps + extra_deps,
+         **kwargs
 --- src-original/tensorflow/tools/pip_package/setup.py  2020-01-07 16:57:39.000000000 +0000
 +++ src/tensorflow/tools/pip_package/setup.py   2020-01-22 21:04:51.015956206 +0000
 @@ -75,6 +75,7 @@
@@ -367,6 +413,17 @@ diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaq
 +   return memcpy(destination, source, num);
 --- src-original/third_party/hwloc/BUILD.bazel  2020-01-07 16:57:39.000000000 +0000
 +++ src/third_party/hwloc/BUILD.bazel   2020-01-24 11:13:46.451645375 +0000
+@@ -66,8 +66,8 @@
+     "#undef HAVE_DECL_GETPROGNAME": "#define HAVE_DECL_GETPROGNAME 0",
+     "#undef HAVE_DECL_HW_NCPU": "#define HAVE_DECL_HW_NCPU 0",
+     "#undef HAVE_DECL_MODFF": "#define HAVE_DECL_MODFF 1",
+-    "#undef HAVE_DECL_PTHREAD_GETAFFINITY_NP": "#define HAVE_DECL_PTHREAD_GETAFFINITY_NP 1",
+-    "#undef HAVE_DECL_PTHREAD_SETAFFINITY_NP": "#define HAVE_DECL_PTHREAD_SETAFFINITY_NP 1",
++    # "#undef HAVE_DECL_PTHREAD_GETAFFINITY_NP": "#define HAVE_DECL_PTHREAD_GETAFFINITY_NP 1",  # Chaquopy: not available on Android
++    # "#undef HAVE_DECL_PTHREAD_SETAFFINITY_NP": "#define HAVE_DECL_PTHREAD_SETAFFINITY_NP 1",  # Chaquopy: not available on Android
+     "#undef HAVE_DECL_RUNNING_ON_VALGRIND": "#define HAVE_DECL_RUNNING_ON_VALGRIND 0",
+     "#undef HAVE_DECL_SCHED_GETCPU": "#define HAVE_DECL_SCHED_GETCPU 1",
+     "#undef HAVE_DECL_SNPRINTF": "#define HAVE_DECL_SNPRINTF 1",
 @@ -110,7 +110,7 @@
      "#undef HAVE_SYS_MMAN_H": "#define HAVE_SYS_MMAN_H 1",
      "#undef HAVE_SYS_PARAM_H": "#define HAVE_SYS_PARAM_H 1",
@@ -385,6 +442,19 @@ diff -urN src-original/third_party/grpc/chaquopy.patch src/third_party/grpc/chaq
      "#undef HWLOC_LINUX_SYS": "#define HWLOC_LINUX_SYS 1",
  }
  
+@@ -260,6 +260,12 @@
+             "hwloc/topology-linux.c",
+             "include/hwloc/linux.h",
+             "hwloc/topology-x86.c",
++            "include/private/cpuid-x86.h",
++        ],
++        "@org_tensorflow//tensorflow:chaquopy_x86_64": [
++            "hwloc/topology-linux.c",
++            "include/hwloc/linux.h",
++            "hwloc/topology-x86.c",
+             "include/private/cpuid-x86.h",
+         ],
+         "@org_tensorflow//tensorflow:freebsd": [
 diff -urN --no-dereference src-original/third_party/llvm/llvm.bzl src/third_party/llvm/llvm.bzl
 --- src-original/third_party/llvm/llvm.bzl      2020-01-07 16:57:39.000000000 +0000
 +++ src/third_party/llvm/llvm.bzl       2020-01-23 15:32:55.791574412 +0000

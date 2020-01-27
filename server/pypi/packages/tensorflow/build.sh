@@ -44,7 +44,8 @@ for flag in $LDFLAGS; do
         # We can't use this flag, because the secondary Python native modules (e.g.
         # tensorflow/contrib/framework/python/ops/_variable_ops.so) contain references to
         # TensorFlow symbols which will be satisfied at runtime by the main module
-        # _pywrap_tensorflow_internal.so.
+        # _pywrap_tensorflow_internal.so. So we remove it here, and patch the build files to
+        # restore it for the main module and the libtensorflow_framework library.
         true
     else
         linker_flags+=" $flag"
