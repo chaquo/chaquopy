@@ -31,21 +31,22 @@ index b6c7a2535..9282ad0d8 100644
  
    # Export return values
 diff --git a/opencv/modules/python/CMakeLists.txt b/opencv/modules/python/CMakeLists.txt
-index bcaa7d957..14c189805 100644
+index 27874283e..ee76ea661 100644
 --- a/opencv/modules/python/CMakeLists.txt
 +++ b/opencv/modules/python/CMakeLists.txt
-@@ -5,7 +5,7 @@ if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
- 
- add_subdirectory(bindings)
+@@ -3,7 +3,7 @@
+ # ----------------------------------------------------------------------------
+ if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
  
 -if(ANDROID OR APPLE_FRAMEWORK OR WINRT)
 +if(APPLE_FRAMEWORK OR WINRT)  # Chaquopy: removed ANDROID exclusion
-   set(__disable_python2 ON)
-   set(__disable_python3 ON)
- elseif(BUILD_opencv_world OR (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug"))
+   ocv_module_disable_(python2)
+   ocv_module_disable_(python3)
+   return()
 diff --git a/setup.py b/setup.py
---- src-original/setup.py	2019-11-09 16:01:39.176824795 +0000
-+++ src/setup.py	2019-11-09 15:40:49.086580631 +0000
+index 7acb02705..08f873e0a 100644
+--- a/setup.py
++++ b/setup.py
 @@ -15,9 +15,9 @@
  
      # These are neede for source fetching
@@ -58,7 +59,7 @@ diff --git a/setup.py b/setup.py
  
      # Only import 3rd-party modules after having installed all the build dependencies:
      # any of them, or their dependencies, can be updated during that process,
-@@ -29,8 +29,10 @@
+@@ -29,8 +29,10 @@ def main():
      if sys.version_info[:2] >= (3, 7):
          minimum_supported_numpy = "1.14.5"
  
@@ -71,7 +72,7 @@ diff --git a/setup.py b/setup.py
      import skbuild
  
      if os.path.exists('.git'):
-@@ -45,6 +47,7 @@
+@@ -45,6 +47,7 @@ def main():
              g.run_command(["submodule", "update", "--init", "--recursive", "opencv_contrib"])
  
      # https://stackoverflow.com/questions/1405913/python-32bit-or-64bit-mode
@@ -79,7 +80,7 @@ diff --git a/setup.py b/setup.py
      x64 = sys.maxsize > 2**32
  
      package_name = "opencv-python"
-@@ -58,6 +61,10 @@
+@@ -60,6 +63,10 @@
      if build_headless and not build_contrib:
          package_name = "opencv-python-headless"
  
@@ -90,18 +91,16 @@ diff --git a/setup.py b/setup.py
      long_description = io.open('README.md', encoding="utf-8").read()
      package_version = get_opencv_version()
  
-@@ -83,8 +90,8 @@
-         ['python/([^/]+/){1,2}cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
+@@ -83,7 +88,7 @@ def main():
+         ['python/cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
  
          'cv2.data': [  # OPENCV_OTHER_INSTALL_PATH
--            ('etc' if os.name == 'nt' else 'share/OpenCV') +
--            r'/haarcascades/.*\.xml'
-+            # Chaquopy: opencv/CMakeLists.txt uses a different path for Android.
-+            r'sdk/etc/haarcascades/.*\.xml'
+-            ('etc' if os.name == 'nt' else 'share/opencv4') +
++            'sdk/etc' +  # Chaquopy: opencv/CMakeLists.txt uses a different path for Android.
+             r'/haarcascades/.*\.xml'
          ]
      }
- 
-@@ -99,8 +106,7 @@
+@@ -99,8 +104,7 @@ def main():
      ] if os.name == 'nt' else [
          "-G", "Unix Makefiles"  # don't make CMake try (and fail) Ninja first
      ]) + [
@@ -111,7 +110,7 @@ diff --git a/setup.py b/setup.py
          "-DBUILD_opencv_python%d=ON" % sys.version_info[0],
          # Otherwise, opencv scripts would want to install `.pyd' right into site-packages,
          # and skbuild bails out on seeing that
-@@ -113,6 +119,66 @@
+@@ -122,6 +126,73 @@
          "-DBUILD_DOCS=OFF"
      ] + (["-DOPENCV_EXTRA_MODULES_PATH=" + os.path.abspath("opencv_contrib/modules")] if build_contrib else [])
  
@@ -119,16 +118,20 @@ diff --git a/setup.py b/setup.py
 +    from distutils.spawn import find_executable
 +
 +    python_include_dir = None
++    in_dirafter = False
 +    for word in os.environ["CFLAGS"].split():
-+        if "sources/python" in word and "include/python" in word:
-+            python_include_dir = word
++        if word == "-idirafter":
++            in_dirafter = True
++        elif in_dirafter:
++            in_dirafter = False
++            if "include/python" in word:
++                python_include_dir = word
 +    assert python_include_dir, os.environ["CFLAGS"]
 +
-+    python_lib_dir = python_lib = None
++    python_lib_dir = os.path.abspath(python_include_dir + "/../../lib")
++    python_lib = None
 +    for word in os.environ["LDFLAGS"].split():
-+        if word.startswith("-L") and "sources/python" in word:
-+            python_lib_dir = word[2:]
-+        elif word.startswith("-lpython"):
++        if word.startswith("-lpython"):
 +            python_lib = "lib{}.so".format(word[2:])
 +    assert python_lib_dir and python_lib, os.environ["LDFLAGS"]
 +
@@ -136,6 +139,9 @@ diff --git a/setup.py b/setup.py
 +    cmake_args += [
 +        # Enable CMake's cross-compilation mode.
 +        "-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake"),
++
++        # Enable the widely-used SURF and SIFT algorithms.
++        "-DOPENCV_ENABLE_NONFREE=ON",
 +
 +        # Unnecessary, and requires an old version of the SDK.
 +        "-DBUILD_ANDROID_PROJECTS=OFF", "-DBUILD_ANDROID_EXAMPLES=OFF",
@@ -178,7 +184,7 @@ diff --git a/setup.py b/setup.py
      # OS-specific components
      if (sys.platform == 'darwin' or sys.platform.startswith('linux')) and not build_headless:
          cmake_args.append("-DWITH_QT=4")
-@@ -123,7 +189,7 @@
+@@ -123,7 +185,7 @@ def main():
          cmake_args.append("-DWITH_QT=OFF")
  
      if sys.platform.startswith('linux'):
@@ -187,7 +193,7 @@ diff --git a/setup.py b/setup.py
          cmake_args.append("-DENABLE_PRECOMPILED_HEADERS=OFF")
  
          if all(v in os.environ for v in ('JPEG_INCLUDE_DIR', 'JPEG_LIBRARY')):
-@@ -168,7 +234,7 @@
+@@ -168,7 +230,7 @@ def main():
          maintainer="Olli-Pekka Heinisuo",
          include_package_data=True,
          ext_modules=EmptyListWithLength(),
@@ -196,7 +202,7 @@ diff --git a/setup.py b/setup.py
          classifiers=[
            'Development Status :: 5 - Production/Stable',
            'Environment :: Console',
-@@ -197,6 +263,11 @@
+@@ -197,6 +259,11 @@ def main():
          ],
          cmake_args=cmake_args,
          cmake_source_dir=cmake_source_dir,

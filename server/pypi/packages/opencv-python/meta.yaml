@@ -1,8 +1,8 @@
 # The OpenCV releases on PyPI come from the unofficial skvark repository. Each release is
 # tagged with a sequence number, which is appended to the underlying OpenCV version to
 # form a 4-component version number on PyPI.
-{% set version = "4.0.0" %}
-{% set build = "21" %}
+{% set version = "4.1.2" %}
+{% set build = "30" %}
 
 package:
   name: opencv-python
@@ -14,13 +14,10 @@ source:
   git_url: https://github.com/skvark/opencv-python.git
   git_rev: {{ build }}
 
-build:
-  number: 0
-
 requirements:
   build:
     - cmake
-    - scikit-build 0.7.1
+    - scikit-build 0.10.0
   host:
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3

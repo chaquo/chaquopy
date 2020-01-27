@@ -37,7 +37,7 @@ index 27874283e..ee76ea661 100644
 @@ -3,7 +3,7 @@
  # ----------------------------------------------------------------------------
  if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
-
+ 
 -if(ANDROID OR APPLE_FRAMEWORK OR WINRT)
 +if(APPLE_FRAMEWORK OR WINRT)  # Chaquopy: removed ANDROID exclusion
    ocv_module_disable_(python2)
@@ -107,7 +107,7 @@ index 7acb02705..08f873e0a 100644
          "-DBUILD_opencv_python%d=ON" % sys.version_info[0],
          # Otherwise, opencv scripts would want to install `.pyd' right into site-packages,
          # and skbuild bails out on seeing that
-@@ -113,6 +117,65 @@ def main():
+@@ -122,6 +126,70 @@
          "-DBUILD_DOCS=OFF"
      ] + (["-DOPENCV_EXTRA_MODULES_PATH=" + os.path.abspath("opencv_contrib/modules")] if build_contrib else [])
  
@@ -115,9 +115,14 @@ index 7acb02705..08f873e0a 100644
 +    from distutils.spawn import find_executable
 +
 +    python_include_dir = None
++    in_dirafter = False
 +    for word in os.environ["CFLAGS"].split():
-+        if word.startswith("-I") and "include/python" in word:
-+            python_include_dir = word[2:]
++        if word == "-idirafter":
++            in_dirafter = True
++        elif in_dirafter:
++            in_dirafter = False
++            if "include/python" in word:
++                python_include_dir = word
 +    assert python_include_dir, os.environ["CFLAGS"]
 +
 +    python_lib_dir = os.path.abspath(python_include_dir + "/../../lib")

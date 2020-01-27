@@ -18,35 +18,17 @@
              _add_directory(library_dirs, os.path.join(prefix, "lib"))
              _add_directory(include_dirs, os.path.join(prefix, "include"))
  
-@@ -465,6 +465,12 @@
-                 _add_directory(include_dirs,
-                                os.path.join(best_path, 'include'))
+@@ -538,6 +538,13 @@
+                 _add_directory(library_dirs, os.path.join(best_path, "lib"))
+                 _add_directory(include_dirs, os.path.join(best_path, "include"))
  
-+        # Chaquopy: added
++        # Chaquopy
 +        sysroot_dir = os.path.abspath(os.path.join(os.path.dirname(os.environ["CC"]),
 +                                                   "../sysroot/usr"))
 +        _add_directory(library_dirs, os.path.join(sysroot_dir, "lib"))
++        _add_directory(library_dirs, os.path.join(sysroot_dir, "lib64"))
 +        _add_directory(include_dirs, os.path.join(sysroot_dir, "include"))
 +
          #
          # insert new dirs *before* default libs, to avoid conflicts
          # between Python PYD stub libs and real libraries
-@@ -621,7 +627,7 @@
-         for src_file in _LIB_IMAGING:
-             files.append(os.path.join("src/libImaging", src_file + ".c"))
- 
--        libs = self.add_imaging_libs.split()
-+        libs = self.add_imaging_libs.split() + ["m"]  # Chaquopy: added "m"
-         defs = []
-         if feature.jpeg:
-             libs.append(feature.jpeg)
-@@ -693,7 +699,8 @@
-                               include_dirs=['src/Tk'],
-                               libraries=tk_libs))
- 
--        exts.append(Extension("PIL._imagingmath", ["src/_imagingmath.c"]))
-+        exts.append(Extension("PIL._imagingmath", ["src/_imagingmath.c"],
-+                              libraries=["m"]))  # Chaquopy: added
-         exts.append(Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]))
- 
-         self.extensions[:] = exts
