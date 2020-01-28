@@ -1,22 +1,22 @@
---- src-original/setup.py	2018-07-05 21:25:03.000000000 +0000
-+++ src/setup.py	2019-03-09 20:04:30.234885544 +0000
-@@ -48,7 +53,8 @@
-         'pytz >= 2011k',
-         'numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver),
+--- src-original/setup.py	2019-10-31 20:16:52.000000000 +0000
++++ src/setup.py	2020-01-26 21:25:12.875573933 +0000
+@@ -40,7 +40,8 @@
+         "pytz >= 2017.2",
+         "numpy >= {numpy_ver}".format(numpy_ver=min_numpy_ver),
      ],
--    'setup_requires': ['numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver)],
+-    "setup_requires": ["numpy >= {numpy_ver}".format(numpy_ver=min_numpy_ver)],
 +    # Chaquopy: disabled
-+    # 'setup_requires': ['numpy >= {numpy_ver}'.format(numpy_ver=min_numpy_ver)],
-     'zip_safe': False,
++    # "setup_requires": ["numpy >= {numpy_ver}".format(numpy_ver=min_numpy_ver)],
+     "zip_safe": False,
  }
  
-@@ -125,7 +131,8 @@
-                 with open(outfile, "w") as f:
-                     f.write(pyxcontent)
+@@ -134,7 +135,8 @@
+         if cython:
+             self.render_templates(_pxifiles)
  
--        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+-        numpy_incl = pkg_resources.resource_filename("numpy", "core/include")
 +        # Chaquopy: edited
 +        numpy_incl = os.path.abspath("../requirements/numpy/core/include")
  
          for ext in self.extensions:
-             if (hasattr(ext, 'include_dirs') and
+             if hasattr(ext, "include_dirs") and numpy_incl not in ext.include_dirs:

@@ -1147,14 +1147,15 @@ class RunGradle(object):
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.zip"))
             self.test.assertCountEqual(
-                ["_asyncio.so", "_bisect.so", "_blake2.so", "_codecs_cn.so", "_codecs_hk.so",
-                 "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so", "_codecs_tw.so",
-                 "_contextvars.so", "_decimal.so", "_elementtree.so", "_heapq.so", "_json.so",
-                 "_lsprof.so", "_md5.so", "_multibytecodec.so", "_multiprocessing.so",
-                 "_opcode.so", "_pickle.so", "_posixsubprocess.so", "_queue.so", "_random.so",
-                 "_sha1.so", "_sha256.so", "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so",
-                 "_ssl.so", "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so",
-                 "array.so", "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
+                ["_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
+                 "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
+                 "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
+                 "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
+                 "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
+                 "_posixsubprocess.so", "_queue.so", "_random.so", "_sha1.so", "_sha256.so",
+                 "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so", "_ssl.so",
+                 "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
+                 "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
                  "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
                  "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())

@@ -336,12 +336,10 @@ Unsupported modules
 
 The following standard library modules are not currently supported:
 
-* :any:`bz2`
 * :any:`crypt`
 * :any:`curses`
 * :any:`dbm`
 * :any:`grp`
-* :any:`lzma`
 * :any:`nis`
 * :any:`readline`
 * :any:`spwd`

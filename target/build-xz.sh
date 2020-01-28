@@ -8,15 +8,15 @@ cd $target_dir
 . build-common.sh
 . build-common-tools.sh
 
-version="3.3"
-rm -rf libffi-$version*
-wget ftp://sourceware.org/pub/libffi/libffi-$version.tar.gz
-tar -xf libffi-$version.tar.gz
+version="5.2.4"
+rm -rf xz-$version*
+wget https://tukaani.org/xz/xz-$version.tar.gz
+tar -xf xz-$version.tar.gz
 
-cd libffi-$version
+cd xz-$version
 ./configure --host=$host_triplet --prefix=$sysroot/usr --disable-shared --with-pic
 make -j $(nproc)
 make install
 
 cd ..
-rm -rf libffi-$version*
+rm -rf xz-$version*

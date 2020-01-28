@@ -63,6 +63,14 @@ RUN target/for-each-abi.sh target/build-sqlite.sh
 COPY build-libffi.sh target/
 RUN target/for-each-abi.sh target/build-libffi.sh
 
+# bzip2
+COPY build-bzip2.sh target
+RUN target/for-each-abi.sh target/build-bzip2.sh
+
+# xz (for lzma module)
+COPY build-xz.sh target
+RUN target/for-each-abi.sh target/build-xz.sh
+
 # Python
 RUN apt-get update && \
     apt-get install -y python3.8

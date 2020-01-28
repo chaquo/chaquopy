@@ -1,9 +1,9 @@
 package:
   name: pandas
-  version: 0.24.2
+  version: 0.25.3
 
 build:
-  number: 0
+  number: 1
 
 requirements:
   host:
