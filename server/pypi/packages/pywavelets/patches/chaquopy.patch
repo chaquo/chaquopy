@@ -1,6 +1,11 @@
---- src-original/setup.py	2019-02-26 03:02:22.000000000 +0000
-+++ src/setup.py	2019-04-02 10:43:54.095734653 +0000
-@@ -176,7 +176,10 @@
+--- src-original/setup.py	2019-10-19 08:15:34.000000000 +0000
++++ src/setup.py	2020-01-28 15:38:11.363424620 +0000
+@@ -175,11 +175,14 @@
+ # C files must be built once only for coverage to work
+ c_lib = ('c_wt', {'sources': sources,
+                   'depends': source_templates + header_templates + headers,
+-                  'include_dirs': [make_ext_path("c"), get_python_inc()],
++                  'include_dirs': [make_ext_path("c")],  # Chaquopy: removed get_python_inc()
                    'macros': c_macros, })
  
  def get_ext_modules(use_cython):

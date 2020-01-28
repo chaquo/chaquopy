@@ -4,7 +4,7 @@ diff -ur src-original/buildutils/detect.py src/buildutils/detect.py
 @@ -102,6 +102,14 @@
          `library_dirs`, `libs`, etc.
      """
-     
+ 
 +    # Chaquopy: we can't run the test program when cross-compiling, so do this instead.
 +    import re
 +    for filename in os.listdir("../requirements"):
