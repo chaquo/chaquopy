@@ -3,7 +3,7 @@ package:
   version: 1.17.4
 
 build:
-  number: 2
+  number: 3
 
 requirements:
   host:

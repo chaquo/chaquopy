@@ -6,4 +6,8 @@ source:
   url: https://github.com/xianyi/OpenBLAS/archive/v0.2.20.tar.gz
 
 build:
-  number: 3
+  number: 5
+
+requirements:
+  host:
+    - chaquopy-libgfortran 4.9

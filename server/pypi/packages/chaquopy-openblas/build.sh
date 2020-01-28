@@ -21,12 +21,6 @@ export USE_THREAD=0
 # memory regions."
 export NUM_THREADS=8
 
-# Remove architecture-specific variables set by build-wheel: OpenBLAS has its own architecture
-# handling controlled by TARGET below.
-unset CFLAGS
-unset FFLAGS
-unset LDFLAGS
-
 # Prevent large local variables silently being treated as static, thus destroying thread-safety
 # (http://wwwf.imperial.ac.uk/~mab201/20120814.html and
 # https://github.com/xianyi/OpenBLAS/issues/477#issuecomment-222378330).
@@ -51,10 +45,6 @@ case $CHAQUOPY_ABI in
         # based on Cortex-A9. One person in 2012 (https://stackoverflow.com/a/9406914) said
         # that the Tegra 2 was the *only* ARMv7 processor in an Android device he knew of which
         # didn't support NEON. But we'll target ARMv6 for now anyway, just to be safe.
-        #
-        # When not targeting ARMv7, --fix-cortex-a8 will not automatically be applied, but
-        # that's fine because it only affects Thumb code, which the OpenBLAS build system
-        # doesn't generate.
         export TARGET="ARMV6"
         export ARM_SOFTFP_ABI="1"
 

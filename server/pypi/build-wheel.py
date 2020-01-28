@@ -42,10 +42,13 @@ STANDARD_LIBS = {
     "libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so",
 }
 
+# Not including chaquopy-libgfortran: the few packages which require it must specify it in
+# meta.yaml. That way its location will always be passed to the linker with an -L flag, and we
+# won't need to worry about the multilib subdirectory structure of the armeabi-v7a toolchain.
+#
 # TODO: break out the build script fragments which get the actual version numbers from the
 # toolchain, and call them here.
 COMPILER_LIBS = {
-    "libgfortran.so.3": ("chaquopy-libgfortran", "4.9"),
     "libc++_shared.so": ("chaquopy-libcxx", "7000"),
 }
 
@@ -57,6 +60,7 @@ class Abi:
     cflags: str = field(default="")
     ldflags: str = field(default="")
 
+# If any flags are changed, consider also updating target/build-common-tools.sh.
 ABIS = {abi.name: abi for abi in [
     Abi("armeabi-v7a", "arm-linux-androideabi",
         cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
@@ -385,12 +389,16 @@ class BuildWheel:
             env[var.upper()] = filename
         env["LDSHARED"] = f"{env['CC']} -shared"
 
+        # If any flags are changed, consider also updating target/build-common-tools.sh.
         gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
+
             abi.cflags])
         env["CFLAGS"] = gcc_flags
         env["FARCH"] = gcc_flags  # Used by numpy.distutils Fortran compilation.
 
+        # If any flags are changed, consider also updating target/build-common-tools.sh.
+        #
         # Not including -pie despite recommendation in standalone toolchain docs, because it
         # causes the linker to forget it's supposed to be building a shared library
         # (https://lists.debian.org/debian-devel/2016/05/msg00302.html). It can be added
@@ -403,6 +411,16 @@ class BuildWheel:
             # I tried also adding -Werror=implicit-function-declaration to CFLAGS, but that
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
+
+            # This currently only affects armeabi-v7a, but could affect other ABIs if the
+            # unwinder implementation changes in a future NDK version
+            # (https://android.googlesource.com/platform/ndk/+/ndk-release-r21/docs/BuildSystemMaintainers.md#Unwinding).
+            # See also comment in build-fortran.sh.
+            #
+            # FIXME make sure "unwind" is in this commit message in case this comes up again.
+            "-Wl,--exclude-libs,libgcc.a",       # NDK r18
+            "-Wl,--exclude-libs,libgcc_real.a",  # NDK r19 and later
+            "-Wl,--exclude-libs,libunwind.a",
 
             # Many packages get away with omitting this on standard Linux.
             "-lm",

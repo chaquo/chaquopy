@@ -30,26 +30,23 @@ config_args="--target=$host_triplet --enable-languages=c,fortran"
 config_args+=" --prefix=$toolchain --with-sysroot=$sysroot"
 
 # Not simply using `--enable-shared`, because this would also enable a shared libgcc
-# (libgcc_s.so), which has the surprising effect of causing the static libgcc.a to have some
-# things removed from it:
+# (libgcc_s.so), which has the surprising effect of causing the static libgcc.a, which all
+# builds use by default, to have some things removed from it:
 #
-# * "Unwinding" logic for C++ exception handlers.
+# * "Unwinding" logic for C++ exception handlers (see also comment in build-wheel.py).
 #
 # * Thread-local storage emulation (emutls), which is required on Android to work around
 #   limitations in the dynamic linker (https://bugs.llvm.org/show_bug.cgi?id=23566#c4 and
 #   https://stackoverflow.com/a/27195324).
 #
 # These things are moved to a separate file libgcc_eh.a, intended for linking into an
-# executable build, on the basis that they should only exist once per program (see
+# executable build, because on some platforms they should only exist once per program (see
 # https://gcc.gnu.org/ml/gcc/2012-03/msg00104.html, and LIB2ADDEH in libgcc/Makefile.in).
 #
-# We could package libgcc_s.so somehow, but the fact that the Google NDK has never included it
-# implies that it's safe to use the static libgcc.a, and have a separate copy of these things
-# in each library, as long as all the copies are the same. This is confirmed by an NDK
-# developer in the case of the unwinder
-# (https://github.com/android-ndk/ndk/issues/289#issuecomment-289170461). I can't find a clear
-# answer for the case of emultls, but I think it's implied by the same developer's statement
-# that the Google NDK's GCC does support this feature (StackOverflow link above),
+# However, the NDK's recommendation is to use a static libgcc.a, and build so that "each linked
+# binary has a full (and hidden!) copy of the unwinder it was built against"
+# (https://github.com/android-ndk/ndk/issues/289#issuecomment-289170461). This is done using
+# the -Wl,--exclude-libs flags in build-common-tools.sh and build-wheel.py.
 config_args+=" --enable-shared=libgfortran"
 
 # libquadmath isn't available for ARM, so be consistent and disable it on all ABIs. This also
@@ -59,11 +56,14 @@ config_args+=" --enable-shared=libgfortran"
 # but would probably be harmless since it won't exist anyway.
 config_args+=" --disable-libquadmath --disable-libquadmath-support"
 
-# These arguments both affect x86_64:
-# * `--disable-bootstrap` prevents the build system from trying to build a native
-#   compiler rather than a cross compiler (https://stackoverflow.com/a/48019473).
-# * `--disable-multilib` prevents it from building x86 copies of everything.
-config_args+=" --disable-bootstrap --disable-multilib"
+# On x86_64, prevent it from trying to build a native compiler rather than a cross compiler
+# (https://stackoverflow.com/a/48019473).
+config_args+=" --disable-bootstrap"
+
+# Avoid building alternative variants:
+#   * On armeabi-v7a, all 4 combinations of armv5/armv7 and thumb/no-thumb.
+#   * On x86_64, the m32 and mx32 ABIs.
+config_args+=" --disable-multilib"
 
 $src_dir/configure $config_args
 make -j $(nproc)
