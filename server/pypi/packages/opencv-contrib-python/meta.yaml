@@ -9,7 +9,7 @@ package:
   version: {{ version }}.{{ build }}
 
 build:
-  number: 1
+  number: 2
 
 source:
   # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43), and

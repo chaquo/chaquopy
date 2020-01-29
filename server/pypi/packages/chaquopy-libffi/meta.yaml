@@ -4,5 +4,8 @@ package:
   name: chaquopy-libffi
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: ftp://sourceware.org/pub/libffi/libffi-{{ version }}.tar.gz

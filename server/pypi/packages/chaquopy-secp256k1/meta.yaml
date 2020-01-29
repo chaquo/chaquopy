@@ -5,6 +5,9 @@ package:
   name: chaquopy-secp256k1
   version: 20191011  # Date of below commit.
 
+build:
+  number: 1
+
 source:
   # Commit ID from coincurve's setup.py.
   url: https://github.com/bitcoin-core/secp256k1/archive/0d9540b13ffcd7cd44cc361b8744b93d88aa76ba.tar.gz

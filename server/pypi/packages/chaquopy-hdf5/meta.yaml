@@ -4,5 +4,8 @@ package:
   name: chaquopy-hdf5
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://github.com/live-clones/hdf5/archive/hdf5-{{ version | replace(".", "_") }}.tar.gz

@@ -2,6 +2,9 @@ package:
   name: matplotlib
   version: 3.1.2
 
+build:
+  number: 1
+
 requirements:
   host:
     - chaquopy-freetype 2.9.1

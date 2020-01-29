@@ -2,6 +2,9 @@ package:
   name: cryptography
   version: 2.8
 
+build:
+  number: 1
+
 requirements:
   build:
     - cffi 1.13.2

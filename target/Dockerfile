@@ -26,6 +26,10 @@ RUN filename=sdk-tools-linux-4333796.zip && \
     unzip -q -d android-sdk $filename && \
     rm $filename
 
+# When moving to a new version of the NDK, carefully review the following:
+# * The release notes (https://developer.android.com/ndk/downloads/revision_history)
+# * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
+#   where XX is the NDK version. Check over the `master` version of that document as well.
 RUN yes | android-sdk/tools/bin/sdkmanager "ndk;18.1.5063045"
 
 COPY build-toolchains.sh build-toolchain.sh build-common.sh target/

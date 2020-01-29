@@ -2,6 +2,9 @@ package:
   name: Pillow
   version: 7.0.0
 
+build:
+  number: 1
+
 requirements:
   host:
     - chaquopy-libjpeg 1.5.3

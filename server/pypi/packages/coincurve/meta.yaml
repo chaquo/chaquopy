@@ -5,6 +5,9 @@ package:
   # * configure script arguments in build.sh
   version: 13.0.0
 
+build:
+  number: 1
+
 requirements:
   host:
     - chaquopy-secp256k1 20191011

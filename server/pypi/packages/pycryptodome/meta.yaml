@@ -5,4 +5,4 @@ package:
   version: 3.9.4
 
 build:
-  number: 0
+  number: 1

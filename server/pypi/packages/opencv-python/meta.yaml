@@ -8,6 +8,9 @@ package:
   name: opencv-python
   version: {{ version }}.{{ build }}
 
+build:
+  number: 1
+
 source:
   # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43), and
   # we can't use the GitHub-generated archive files because they don't contain submodules.

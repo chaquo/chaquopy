@@ -29,28 +29,28 @@ diff -ur src-original/setup.py src/setup.py
 +    EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
    elif "darwin" in sys.platform:
      EXTRA_ENV_COMPILE_ARGS += ' -stdlib=libc++ -fvisibility=hidden -fno-wrapv -fno-exceptions'
-
+ 
 @@ -209,6 +211,7 @@
  CYTHON_HELPER_C_FILES = ()
-
+ 
  CORE_C_FILES = tuple(grpc_core_dependencies.CORE_SOURCE_FILES)
 +CORE_C_FILES += ("third_party/cares/cares/ares_android.c",)  # Chaquopy
  if "win32" in sys.platform:
    CORE_C_FILES = filter(lambda x: 'third_party/cares' not in x, CORE_C_FILES)
-
+ 
 @@ -237,7 +240,7 @@
-
+ 
  EXTENSION_LIBRARIES = ()
  if "linux" in sys.platform:
 -  EXTENSION_LIBRARIES += ('rt',)
-+  EXTENSION_LIBRARIES += ('rt', 'log')  # Chaquopy: added 'log'
++  EXTENSION_LIBRARIES += ('rt', 'log', 'dl')  # Chaquopy: added 'log' and 'dl'
  if not "win32" in sys.platform:
    EXTENSION_LIBRARIES += ('m',)
  if "win32" in sys.platform:
 --- src-original/src/core/lib/gpr/wrap_memcpy.cc        2018-06-01 23:53:55.000000000 +0000
 +++ src/src/core/lib/gpr/wrap_memcpy.cc 2019-03-07 19:58:46.900378870 +0000
 @@ -28,7 +28,8 @@
-
+ 
  extern "C" {
  #ifdef __linux__
 -#if defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
