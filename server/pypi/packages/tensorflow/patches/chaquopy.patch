@@ -104,6 +104,31 @@ diff -urN --no-dereference src-original/tensorflow/core/platform/platform.h src/
  
  #elif defined(__APPLE__)
  #define PLATFORM_POSIX
+--- src-original/tensorflow/lite/kernels/internal/BUILD 2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/kernels/internal/BUILD  2020-01-27 19:42:25.344688600 +0000
+@@ -27,7 +27,7 @@
+     ],
+     ":armeabi-v7a": [
+         "-O3",
+-        "-mfpu=neon",
++        # Chaquopy: removed "-mfpu=neon" for reasons explained in chaquopy-openblas/build.sh.
+     ],
+     ":armv7a": [
+         "-O3",
+@@ -664,7 +664,12 @@
+             ":neon_tensor_utils",
+         ],
+         ":armeabi-v7a": [
+-            ":neon_tensor_utils",
++            # Chaquopy: removed neon_tensor_utils for reasons explained in
++            # chaquopy-openblas/build.sh. Also, neon_tensor_utils will fail to link, because it
++            # calls functions defined in tensorflow/lite/experimental/ruy, which guard NEON
++            # implementations with preprocessor macros such as __ARM_NEON, which won't be
++            # defined when building for this ABI.
++            ":portable_tensor_utils",
+         ],
+         ":armv7a": [
+             ":neon_tensor_utils",
 --- src-original/tensorflow/lite/toco/toco_port.cc      2020-01-07 16:57:39.000000000 +0000
 +++ src/tensorflow/lite/toco/toco_port.cc       2020-01-24 11:37:06.401541122 +0000
 @@ -20,7 +20,7 @@

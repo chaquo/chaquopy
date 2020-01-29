@@ -6,7 +6,7 @@ set -eu
 #
 
 # The Python lib and include locations will be passed using environment variables below. All
-# other flags are added to the CROSSTOOL file. Unknown lib and include flags are an error
+# other flags are passed using --copt and --linkopt. Unknown include flags are an error
 # because, with bazel's very strict dependency tracking, merely adding them to CROSSTOOL will
 # probably not be good enough.
 compiler_flags=""
@@ -30,16 +30,8 @@ done
 
 linker_flags=""
 for flag in $LDFLAGS; do
-    if [[ "$flag" =~ ^-L ]]; then
-        echo "Unknown flag: $flag"; exit 1
-    elif [[ "$flag" =~ ^-l ]]; then
-        if [[ "$flag" =~ ^-lpython ]]; then
-            python_lib=$(echo $flag | sed 's/^..//')
-        elif [ "$flag" = "-lm" ]; then
-            true  # Not needed for this build.
-        else
-            echo "Unknown flag: $flag"; exit 1
-        fi
+    if [[ "$flag" =~ ^-lpython ]]; then
+        python_lib=$(echo $flag | sed 's/^..//')
     elif [ $flag = "-Wl,--no-undefined" ]; then
         # We can't use this flag, because the secondary Python native modules (e.g.
         # tensorflow/contrib/framework/python/ops/_variable_ops.so) contain references to
