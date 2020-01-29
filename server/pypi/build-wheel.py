@@ -354,12 +354,9 @@ class BuildWheel:
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
         # setuptools-aware setup.py files. We pass -v unconditionally, because we always want
         # to see the build process output.
-        #
-        # --no-clean doesn't currently work (https://github.com/pypa/pip/issues/5661). If this
-        # impedes debugging a build failure, you can temporarily disable the clean command by
-        # adding cmdclass={'clean': object} to setup().
         run(f"{self.pip} wheel -v --no-deps "
-            f"--no-clean --build-option --keep-temp "  # Doesn't work: see above.
+            # --no-clean doesn't currently work: see build-packages/sitecustomize.py
+            f"--no-clean --build-option --keep-temp "
             f"-e .")
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)

@@ -1,12 +1,9 @@
 package:
   name: scikit-image
-  version: 0.14.2
-
-build:
-  number: 1
+  version: 0.16.2
 
 requirements:
   build:
-    - cython 0.29.6
+    - cython 0.29.14
   host:
     - numpy 1.17.4

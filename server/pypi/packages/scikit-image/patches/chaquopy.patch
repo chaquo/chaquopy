@@ -6,7 +6,7 @@ diff -ur src-original/setup.py src/setup.py
  
  if __name__ == "__main__":
 +    # Chaquopy
-+    sys.path.append(os.path.abspath("../requirements"))  # For numpy.distutils
++    sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
 +    builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +
      try:

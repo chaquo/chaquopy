@@ -1,7 +1,6 @@
-diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
---- src-original/scipy/__init__.py	2018-03-17 21:04:47.000000000 +0000
-+++ src/scipy/__init__.py	2018-10-16 22:06:56.116131775 +0000
-@@ -58,32 +58,6 @@
+--- src-original/scipy/__init__.py	2019-12-18 19:27:46.000000000 +0000
++++ src/scipy/__init__.py	2020-01-29 16:07:52.673532778 +0000
+@@ -60,59 +60,60 @@
  
  __all__ = ['test']
  
@@ -9,15 +8,44 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
 -if show_numpy_config is None:
 -    raise ImportError(
 -        "Cannot import scipy when running from numpy source directory.")
--from numpy import __version__ as __numpy_version__
--
--# Import numpy symbols to scipy name space
++# Chaquopy: removed `from numpy import show_config` test
+ from numpy import __version__ as __numpy_version__
+ 
+-# Import numpy symbols to scipy name space (DEPRECATED)
+-from ._lib.deprecation import _deprecated
 -import numpy as _num
 -linalg = None
--from numpy import *
+-_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
+-        'use numpy.{0} instead')
+-# deprecate callable objects, skipping classes
+-for _key in _num.__all__:
+-    _fun = getattr(_num, _key)
+-    if callable(_fun) and not isinstance(_fun, type):
+-        _fun = _deprecated(_msg.format(_key))(_fun)
+-    globals()[_key] = _fun
 -from numpy.random import rand, randn
+-_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
+-        'use numpy.random.{0} instead')
+-rand = _deprecated(_msg.format('rand'))(rand)
+-randn = _deprecated(_msg.format('randn'))(randn)
 -from numpy.fft import fft, ifft
--from numpy.lib.scimath import *
+-# fft is especially problematic, so we deprecate it with a shorter window
+-fft_msg = ('Using scipy.fft as a function is deprecated and will be '
+-           'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
+-# for wrapping in scipy.fft.__call__, so the stacklevel is one off from the
+-# usual (2)
+-_dep_fft = _deprecated(fft_msg, stacklevel=3)(fft)
+-fft = _deprecated(fft_msg)(fft)
+-ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
+-                   '2.0.0, use scipy.fft.ifft instead')(ifft)
+-import numpy.lib.scimath as _sci
+-_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
+-        'use numpy.lib.scimath.{0} instead')
+-for _key in _sci.__all__:
+-    _fun = getattr(_sci, _key)
+-    if callable(_fun):
+-        _fun = _deprecated(_msg.format(_key))(_fun)
+-    globals()[_key] = _fun
 -
 -# Allow distributors to run custom init code
 -from . import _distributor_init
@@ -30,34 +58,45 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
 -# imported.
 -del linalg
 -__all__.remove('linalg')
--
- # We first need to detect if we're being called as part of the scipy
- # setup procedure itself in a reliable manner.
- try:
-@@ -96,7 +70,40 @@
-     import sys as _sys
-     _sys.stderr.write('Running from scipy source directory.\n')
-     del _sys
-+
-+    # Chaquopy: the module namespace was originally empty in this mode, but the following
-+    # things are neded by the scikit-learn build.
-+    from scipy.version import version as __version__
-+
- else:
-+    # Chaquopy: BEGIN section moved from top level
-+    from numpy import show_config as show_numpy_config
-+    if show_numpy_config is None:
-+        raise ImportError(
-+            "Cannot import scipy when running from numpy source directory.")
-+    from numpy import __version__ as __numpy_version__
-+
-+    # Import numpy symbols to scipy name space
++# Chaquopy: don't import numpy during build.
++try:
++    __SCIPY_SETUP__
++except NameError:
++    # Import numpy symbols to scipy name space (DEPRECATED)
++    from ._lib.deprecation import _deprecated
 +    import numpy as _num
 +    linalg = None
-+    from numpy import *
++    _msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
++            'use numpy.{0} instead')
++    # deprecate callable objects, skipping classes
++    for _key in _num.__all__:
++        _fun = getattr(_num, _key)
++        if callable(_fun) and not isinstance(_fun, type):
++            _fun = _deprecated(_msg.format(_key))(_fun)
++        globals()[_key] = _fun
 +    from numpy.random import rand, randn
++    _msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
++            'use numpy.random.{0} instead')
++    rand = _deprecated(_msg.format('rand'))(rand)
++    randn = _deprecated(_msg.format('randn'))(randn)
 +    from numpy.fft import fft, ifft
-+    from numpy.lib.scimath import *
++    # fft is especially problematic, so we deprecate it with a shorter window
++    fft_msg = ('Using scipy.fft as a function is deprecated and will be '
++               'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
++    # for wrapping in scipy.fft.__call__, so the stacklevel is one off from the
++    # usual (2)
++    _dep_fft = _deprecated(fft_msg, stacklevel=3)(fft)
++    fft = _deprecated(fft_msg)(fft)
++    ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
++                       '2.0.0, use scipy.fft.ifft instead')(ifft)
++    import numpy.lib.scimath as _sci
++    _msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
++            'use numpy.lib.scimath.{0} instead')
++    for _key in _sci.__all__:
++        _fun = getattr(_sci, _key)
++        if callable(_fun):
++            _fun = _deprecated(_msg.format(_key))(_fun)
++        globals()[_key] = _fun
 +
 +    # Allow distributors to run custom init code
 +    from . import _distributor_init
@@ -70,11 +109,21 @@ diff -ur src-original/scipy/__init__.py src/scipy/__init__.py
 +    # imported.
 +    del linalg
 +    __all__.remove('linalg')
-+    # Chaquopy: END section moved from top level
+ 
+ # We first need to detect if we're being called as part of the scipy
+ # setup procedure itself in a reliable manner.
+@@ -126,6 +127,11 @@
+     import sys as _sys
+     _sys.stderr.write('Running from scipy source directory.\n')
+     del _sys
 +
++    # Chaquopy: the module namespace was originally empty in this mode, but the following
++    # things are neded by the scikit-learn build.
++    from scipy.version import version as __version__
++
+ else:
      try:
          from scipy.__config__ import show as show_config
-     except ImportError:
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2018-05-05 17:10:14.000000000 +0000
 +++ src/setup.py	2018-12-20 11:40:38.859887187 +0000
@@ -93,22 +142,22 @@ diff -ur src-original/setup.py src/setup.py
 +                    .format(reqs_dir=os.path.abspath("../requirements/chaquopy")))
 +
 +# Chaquopy added
-+sys.path.append(os.path.abspath("../requirements"))  # For numpy.distutils
++sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
 +builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
 +
 +
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -429,7 +449,7 @@
-         classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
-         platforms=["Windows", "Linux", "Solaris", "Mac OS-X", "Unix"],
-         test_suite='nose.collector',
--        setup_requires=build_requires,
-+        # Chaquopy: removed setup_requires=build_requires
-         install_requires=build_requires,
-         python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*',
-     )
+@@ -472,7 +487,7 @@
+                           else [])
+ 
+     install_requires = build_requires
+-    setup_requires = build_requires + ['pybind11>=2.4.0']
++    setup_requires = ['pybind11>=2.4.0']  # Chaquopy: removed build_requires
+ 
+     metadata = dict(
+         name='scipy',
 --- src-original/scipy/special/utils/makenpz.py	2018-05-05 17:10:11.000000000 +0000
 +++ src/scipy/special/utils/makenpz.py	2018-12-15 13:47:45.525539590 +0000
 @@ -8,7 +8,8 @@

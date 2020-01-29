@@ -1,27 +1,38 @@
-# distutils adds -I arguments for the build Python's include directory (and virtualenv include
-# directory if applicable). Since we're using -idirafter for the target Python include (to
-# enable building typed-ast), they will take priority no matter where they are on the command
-# line. So we monkey-patch distutils to remove them.
-
-from distutils import sysconfig
-from distutils.command.build_ext import build_ext
 import os
 import sys
 
 
-finalize_options_original = build_ext.finalize_options
+# --no-clean currently has no effect when running `pip wheel`
+# (https://github.com/pypa/pip/issues/5661), so disable the clean command to prevent it
+# destroying the evidence after a build failure. Monkey-patching at this level also handles
+# packages overriding the `clean` command using `cmdclass.`
+from distutils.dist import Distribution
+run_command_original = Distribution.run_command
 
-def finalize_options_override(self):
-    finalize_options_original(self)
-    for item in [sysconfig.get_python_inc(),
-                 sysconfig.get_python_inc(plat_specific=True),
-                 os.path.join(sys.exec_prefix, 'include')]:
-        try:
-            self.include_dirs.remove(item)
-        except ValueError:
-            pass
+def run_command_override(self, command):
+    if command == "clean":
+        print("Chaquopy: clean command disabled")
+    else:
+        run_command_original(self, command)
 
-build_ext.finalize_options = finalize_options_override
+Distribution.run_command = run_command_override
+
+
+# Remove include paths for the build Python, including any virtualenv. Monkey-patching at this
+# level handles both default paths added by distutils itself, and paths added explicitly by
+# setup.py scripts.
+import distutils.ccompiler
+gen_preprocess_options_original = distutils.ccompiler.gen_preprocess_options
+
+def gen_preprocess_options_override(macros, include_dirs):
+    include_dirs = [
+        item for item in include_dirs
+        if item not in [distutils.sysconfig.get_python_inc(),
+                        distutils.sysconfig.get_python_inc(plat_specific=True),
+                        os.path.join(sys.exec_prefix, 'include')]]
+    return gen_preprocess_options_original(macros, include_dirs)
+
+distutils.ccompiler.gen_preprocess_options = gen_preprocess_options_override
 
 
 # Call the next sitecustomize script if there is one

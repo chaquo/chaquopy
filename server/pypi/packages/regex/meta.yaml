@@ -1,6 +1,6 @@
 package:
   name: regex
-  version: 2017.11.09
+  version: 2020.1.8
 
-build:
-  number: 2
+about:
+  license_file: ../../../../LICENSE.txt
