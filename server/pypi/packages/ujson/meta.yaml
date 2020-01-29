@@ -3,7 +3,7 @@ package:
   version: 1.35
 
 build:
-  number: 3
+  number: 4
 
 about:
   license_file: ../../../../LICENSE.txt
