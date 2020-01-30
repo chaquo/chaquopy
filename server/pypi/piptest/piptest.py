@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime
 from distutils.dir_util import copy_tree
+import io
 import os
 from os.path import abspath, basename, dirname, exists, join
 from shutil import rmtree
@@ -11,6 +12,7 @@ import sys
 
 
 PROGRAM_NAME = basename(__file__)
+TIME_LIMIT = 300  # seconds
 piptest_dir = abspath(dirname(__file__))
 
 
@@ -24,18 +26,21 @@ def main():
 
     log_dir = ensure_dir(join(piptest_dir, "log"))
     with open(join(log_dir, args.package + ".txt"), "wb", buffering=0) as log_file:
-        log_file.write(
-            "{}: testing '{}' at {}\n"
-            .format(PROGRAM_NAME, args.package, datetime.utcnow().isoformat() + "Z")
-            .encode("UTF-8"))
+        log_file_text = io.TextIOWrapper(log_file, write_through=True)
+        timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        print(f"{PROGRAM_NAME}: testing '{args.package}' at {timestamp}", file=log_file_text)
         os.chdir(build_dir)
         os.environ.update(piptest_verbose=str(args.v), piptest_package=args.package)
         try:
             subprocess.run(["./gradlew", "--console", "plain", "--stacktrace",
                             "generateDebugPythonRequirementsAssets"],
-                           stdout=log_file, stderr=subprocess.STDOUT, timeout=300, check=True)
+                           stdout=log_file, stderr=subprocess.STDOUT, timeout=TIME_LIMIT,
+                           check=True)
         except subprocess.TimeoutExpired:
-            print("TIMEOUT")
+            # To help search for failures, use the same "BUILD FAILED" phrase as Gradle.
+            print(f"{PROGRAM_NAME}: BUILD FAILED: timeout after {TIME_LIMIT} seconds",
+                  file=log_file_text)
+            print("FAIL (timeout)")
             sys.exit(1)
         except subprocess.CalledProcessError:
             print("FAIL")
