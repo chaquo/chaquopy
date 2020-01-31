@@ -149,8 +149,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_so(self):
         filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
-        symlink = join(dirname(filename), "murmurhash.mrmr.so")
-        mod = self.check_module("murmurhash.mrmr", filename, filename, symlink)
+        mod = self.check_module("murmurhash.mrmr", filename, filename, filename)
         self.check_extract_if_changed(mod, filename)
 
     def test_data(self):
@@ -232,12 +231,11 @@ class TestAndroidImport(unittest.TestCase):
 
     def check_module(self, mod_name, filename, cache_filename, origin, *, is_package=False,
                      source_head=None):
+        if cache_filename and exists(cache_filename):
+            os.remove(cache_filename)
         mod = import_module(mod_name)
+        mod = self.clean_reload(mod)
         if cache_filename:
-            # A missing cache file should be created.
-            if exists(cache_filename):
-                os.remove(cache_filename)
-            mod = self.clean_reload(mod)
             self.assertPredicate(exists, cache_filename)
 
         # Module attributes

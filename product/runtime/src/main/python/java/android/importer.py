@@ -432,7 +432,8 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
-    needed_lock = RLock()
+    lock = RLock()
+    basenames_loaded = {}
     needed_loaded = {}
 
     def create_module(self, spec):
@@ -444,23 +445,35 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
         return mod
 
     # In API level 22 and older, when asked to load a library with the same basename as one
-    # already loaded, the dynamic linker will return the existing library. Work around this by
-    # loading through a uniquely-named symlink.
+    # already loaded, the dynamic linker will return the existing library
+    # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
+    # For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
+    # loaded two of them from their original filenames, their __file__ attributes would appear
+    # different, but the second one would actually have been loaded from the first one's file.
     #
-    # For example, h5py and pyzmq both have a native submodule called utils.so. Without this
-    # workaround, if you loaded them both, their __file__ attributes would appear different,
-    # but the second one would actually have been loaded from the first one's file.
+    # We can work around this by loading through a uniquely-named symlink. However, we only do
+    # that when we actually encounter a duplicate name, because there's at least one package
+    # (tensorflow) where one Python module has a DT_NEEDED entry for another one, which on API
+    # level 22 and older will only work if the other module has already been loaded from its
+    # original filename.
     def extract_so(self):
-        filename = self.finder.extract_if_changed(self.finder.zip_path(self.path))
-        linkname = join(dirname(filename), self.name + ".so")
-        if linkname != filename:
-            if exists(linkname):
-                os.remove(linkname)
-            os.symlink(basename(filename), linkname)
-        return linkname
+        self.finder.extract_if_changed(self.finder.zip_path(self.path))
+        original_name = basename(self.path)
+        with self.lock:
+            load_name = original_name
+            while (load_name in self.basenames_loaded and
+                   self.basenames_loaded[load_name] != self.path):  # In case of reloads.
+                load_name = f"{original_name}-{os.urandom(4).hex()}"
+            self.basenames_loaded[load_name] = self.path
+        load_name_abs = join(dirname(self.path), load_name)
+        if load_name_abs != self.path:
+            if exists(load_name_abs):
+                os.remove(load_name_abs)
+            os.symlink(original_name, load_name_abs)
+        return load_name_abs
 
     def load_needed(self, filename):
-        with self.needed_lock, open(filename, "rb") as so_file:
+        with self.lock, open(filename, "rb") as so_file:
             ef = ELFFile(so_file)
             dynamic = ef.get_section_by_name(".dynamic")
             if not dynamic:
