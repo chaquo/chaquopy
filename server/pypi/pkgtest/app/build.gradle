@@ -10,20 +10,17 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
     "cmake-example",
     "python-example",
 
-    // Very large and not that popular.
-    "obspy",
-    "spacy",
-    "thinc",  // Part of spacy
-
-    // Mutually-incompatible
-    "pycrypto",  // Same package name as pycryptodome, but less popular
+    // Conflicts with more popular packages
+    "opencv-contrib-python",  // opencv-python
+    "pycrypto",  // pycryptodome
 ]
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
+def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
-    "spacy": ["https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.0.0/en_core_web_sm-2.0.0.tar.gz"],
+    "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
 ]
 
 
@@ -65,14 +62,9 @@ android {
     sourceSets {
         def demoSrc = "../../../../demo/app/src"
         main {
-            java {
-                srcDirs = ["$demoSrc/main/java"]
-                includes = ["**/App.java", "**/MainActivity.java",
-                            "**/PythonTestActivity.java", "**/ReplActivity.java",
-                            "com/chaquo/python/utils/**"]
-            }
+            java { srcDir "$demoSrc/main/java" }
             python { srcDir "$demoSrc/main/python" }
-            res { srcDirs = ["$demoSrc/main/res"] }
+            res { srcDir "$demoSrc/main/res" }  // Overrides are in pkgtest/app/src/debug.
         }
     }
 }
@@ -133,5 +125,6 @@ dependencies {
     implementation 'com.android.support:appcompat-v7:28.0.0'
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
     implementation 'com.android.support:preference-v14:28.0.0'
+    implementation 'junit:junit:4.12'
     testImplementation 'junit:junit:4.12'
 }
