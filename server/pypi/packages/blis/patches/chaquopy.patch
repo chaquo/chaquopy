@@ -1,0 +1,40 @@
+diff -ur src-original/blis/_src/include/linux-x86_64/blis.h src/blis/_src/include/linux-x86_64/blis.h
+--- src-original/blis/_src/include/linux-x86_64/blis.h	2019-02-25 08:58:58.000000000 +0000
++++ src/blis/_src/include/linux-x86_64/blis.h	2019-06-27 19:04:24.832349421 +0000
+@@ -1296,7 +1296,8 @@
+ typedef pthread_condattr_t     bli_pthread_condattr_t;
+ typedef pthread_once_t         bli_pthread_once_t;
+ 
+-#if defined(__APPLE__)
++// Chaquopy: added __ANDROID__ since these types aren't available until API level 24,
++#if defined(__APPLE__) || defined(__ANDROID__)
+ 
+ // For OS X, we must define the barrier types ourselves since Apple does
+ // not implement barriers in their variant of pthreads.
+diff -ur src-original/blis.egg-info/PKG-INFO src/blis.egg-info/PKG-INFO
+--- src-original/setup.py	2019-02-27 14:07:38.000000000 +0000
++++ src/setup.py	2019-06-27 20:11:49.476746495 +0000
+@@ -136,7 +136,7 @@
+         if 'BLIS_ARCH' in os.environ:
+             return os.environ['BLIS_ARCH']
+         else:
+-            return 'x86_64'
++            return 'generic'  # Chaquopy, changed from 'x86_64'
+ 
+     def get_compiler_name(self):
+         if 'BLIS_COMPILER' in os.environ:
+@@ -239,7 +239,13 @@
+         Extension('blis.cy', [os.path.join('blis', 'cy.c')], extra_compile_args=['-std=c99']),
+         Extension('blis.py', [os.path.join('blis', 'py.c')], extra_compile_args=['-std=c99'])
+     ],
+-    cmdclass={'build_ext': ExtensionBuilder},
++    cmdclass={'build_ext': ExtensionBuilder,
++
++              # Chaquopy: Since `pip wheel --no-clean` doesn't work
++              # (https://github.com/pypa/pip/issues/5661), and this build takes a very long
++              # time, disable the clean command so failures can be investigated.
++              'clean': object},
++
+     package_data={'': ['*.json', '*.jsonl', '*.pyx', '*.pxd', os.path.join(INCLUDE, '*.h')] + c_files},
+ 
+     name=about['__title__'],
