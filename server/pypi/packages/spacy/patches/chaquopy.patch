@@ -20,19 +20,14 @@ diff -ur src-original/setup.py src/setup.py
  
          if (
 diff -ur src-original/spacy/util.py src/spacy/util.py
---- src-original/spacy/util.py	2019-05-11 20:58:14.000000000 +0000
-+++ src/spacy/util.py	2019-06-27 13:43:42.080570359 +0000
-@@ -29,7 +29,12 @@
+--- src-original/spacy/util.py 2019-05-11 20:58:14.000000000 +0000
++++ src/spacy/util.py  2019-06-27 13:43:42.080570359 +0000
+@@ -33,6 +33,8 @@
  
  
- LANGUAGES = {}
--_data_path = Path(__file__).parent / "data"
-+
-+# Chaquopy: look up __file__ on spacy/data/__init__.py rather than spacy/util.py, so spacy/
-+# doesn't all have to be extracted.
-+from . import data
-+_data_path = Path(data.__file__).parent
-+
+ _data_path = Path(__file__).parent / "data"
++# Chaquopy: directory contains only an __init__.py, so the importer won't create it.
++os.makedirs(_data_path, exist_ok=True)
  _PRINT_ENV = False
  
  

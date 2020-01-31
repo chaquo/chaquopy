@@ -1,36 +1,15 @@
-from __future__ import absolute_import, division, print_function
-
 import unittest
 
 
 class TestSpacy(unittest.TestCase):
-
     maxDiff = None
 
-    # Based on https://spacy.io/usage/models#usage
     def test_basic(self):
         import spacy
         nlp = spacy.load("en_core_web_sm")
-        tree = nlp(u"This is Sparta").print_tree()
+        result = nlp("This is Sparta").to_json()
         self.assertEqual(
-            [{'NE': '',
-              'POS_coarse': 'VERB',
-              'POS_fine': 'VBZ',
-              'arc': 'ROOT',
-              'lemma': 'be',
-              'modifiers': [{'NE': '',
-                             'POS_coarse': 'DET',
-                             'POS_fine': 'DT',
-                             'arc': 'nsubj',
-                             'lemma': 'this',
-                             'modifiers': [],
-                             'word': 'This'},
-                            {'NE': 'GPE',
-                             'POS_coarse': 'PROPN',
-                             'POS_fine': 'NNP',
-                             'arc': 'attr',
-                             'lemma': 'Sparta',
-                             'modifiers': [],
-                             'word': 'Sparta'}],
-              'word': 'is'}],
-            tree)
+            [{'id': 0, 'start': 0, 'end': 4, 'pos': 'DET', 'tag': 'DT', 'dep': 'nsubj', 'head': 1},
+             {'id': 1, 'start': 5, 'end': 7, 'pos': 'AUX', 'tag': 'VBZ', 'dep': 'ROOT', 'head': 1},
+             {'id': 2, 'start': 8, 'end': 14, 'pos': 'PROPN', 'tag': 'NNP', 'dep': 'attr', 'head': 1}],
+            result["tokens"])

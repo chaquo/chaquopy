@@ -1,6 +1,17 @@
-diff -ur src-original/blis/_src/include/linux-x86_64/blis.h src/blis/_src/include/linux-x86_64/blis.h
---- src-original/blis/_src/include/linux-x86_64/blis.h	2019-02-25 08:58:58.000000000 +0000
-+++ src/blis/_src/include/linux-x86_64/blis.h	2019-06-27 19:04:24.832349421 +0000
+--- src-original/blis/_src/frame/thread/bli_pthread.c   2019-09-30 15:48:55.000000000 +0000
++++ src/blis/_src/frame/thread/bli_pthread.c    2020-01-31 13:17:25.522009752 +0000
+@@ -319,7 +319,8 @@
+ 
+ // -- pthread_barrier_*() --
+ 
+-#if defined(__APPLE__) || defined(_MSC_VER)
++// Chaquopy: added __ANDROID__ since these types aren't available until API level 24.
++#if defined(__APPLE__) || defined(_MSC_VER) || defined(__ANDROID__)
+ 
+ // For OS X and Windows, we define barriers ourselves in terms of the rest
+ // of the API, though for slightly different reasons: For Windows, we must
+--- src-original/blis/_src/include/linux-generic/blis.h	2019-02-25 08:58:58.000000000 +0000
++++ src/blis/_src/include/linux-generic/blis.h	2019-06-27 19:04:24.832349421 +0000
 @@ -1296,7 +1296,8 @@
  typedef pthread_condattr_t     bli_pthread_condattr_t;
  typedef pthread_once_t         bli_pthread_once_t;
@@ -11,30 +22,27 @@ diff -ur src-original/blis/_src/include/linux-x86_64/blis.h src/blis/_src/includ
  
  // For OS X, we must define the barrier types ourselves since Apple does
  // not implement barriers in their variant of pthreads.
-diff -ur src-original/blis.egg-info/PKG-INFO src/blis.egg-info/PKG-INFO
 --- src-original/setup.py	2019-02-27 14:07:38.000000000 +0000
 +++ src/setup.py	2019-06-27 20:11:49.476746495 +0000
-@@ -136,7 +136,7 @@
-         if 'BLIS_ARCH' in os.environ:
-             return os.environ['BLIS_ARCH']
-         else:
--            return 'x86_64'
-+            return 'generic'  # Chaquopy, changed from 'x86_64'
+@@ -31,6 +31,10 @@
  
-     def get_compiler_name(self):
-         if 'BLIS_COMPILER' in os.environ:
-@@ -239,7 +239,13 @@
-         Extension('blis.cy', [os.path.join('blis', 'cy.c')], extra_compile_args=['-std=c99']),
-         Extension('blis.py', [os.path.join('blis', 'py.c')], extra_compile_args=['-std=c99'])
-     ],
--    cmdclass={'build_ext': ExtensionBuilder},
-+    cmdclass={'build_ext': ExtensionBuilder,
-+
-+              # Chaquopy: Since `pip wheel --no-clean` doesn't work
-+              # (https://github.com/pypa/pip/issues/5661), and this build takes a very long
-+              # time, disable the clean command so failures can be investigated.
-+              'clean': object},
-+
-     package_data={'': ['*.json', '*.jsonl', '*.pyx', '*.pxd', os.path.join(INCLUDE, '*.h')] + c_files},
+ MOD_NAMES = ["blis.cy", "blis.py"]
  
-     name=about['__title__'],
++# Chaquopy
++os.environ["BLIS_ARCH"] = "generic"
++os.environ["BLIS_COMPILER"] = os.environ["CC"]
++
+ print("BLIS_COMPILER?", os.environ.get("BLIS_COMPILER", "None"))
+ 
+ 
+@@ -222,7 +223,8 @@
+ 
+ c_files = []  # get_c_sources(SRC)
+ 
+-if len(sys.argv) > 1 and sys.argv[1] == "clean":
++# Chaquopy disabled: this bypasses our build-packages monkey patch.
++if False and len(sys.argv) > 1 and sys.argv[1] == "clean":
+     clean(PWD)
+ 
+ OBJ_DIR = tempfile.mkdtemp()
+ 
