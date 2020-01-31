@@ -1,0 +1,199 @@
+Submodule opencv contains modified content
+diff --git a/opencv/cmake/OpenCVDetectPython.cmake b/opencv/cmake/OpenCVDetectPython.cmake
+index b6c7a2535..9282ad0d8 100644
+--- a/opencv/cmake/OpenCVDetectPython.cmake
++++ b/opencv/cmake/OpenCVDetectPython.cmake
+@@ -86,7 +86,7 @@ if(NOT ${found})
+   if(_found)
+     set(_version_major_minor "${_version_major}.${_version_minor}")
+ 
+-    if(NOT ANDROID AND NOT APPLE_FRAMEWORK)
++    if(NOT APPLE_FRAMEWORK)  # Chaquopy: removed ANDROID exclusion
+       ocv_check_environment_variables(${library_env} ${include_dir_env})
+       if(NOT ${${library_env}} STREQUAL "")
+           set(PYTHON_LIBRARY "${${library_env}}")
+@@ -138,7 +138,7 @@ if(NOT ${found})
+       endif()
+     endif()
+ 
+-    if(NOT ANDROID AND NOT IOS)
++    if(NOT IOS)  # Chaquopy: removed ANDROID exclusion
+       if(CMAKE_HOST_UNIX)
+         execute_process(COMMAND ${_executable} -c "from distutils.sysconfig import *; print(get_python_lib())"
+                         RESULT_VARIABLE _cvpy_process
+@@ -207,7 +207,7 @@ if(NOT ${found})
+                           OUTPUT_STRIP_TRAILING_WHITESPACE)
+         endif()
+       endif()
+-    endif(NOT ANDROID AND NOT IOS)
++    endif()
+   endif()
+ 
+   # Export return values
+diff --git a/opencv/modules/python/CMakeLists.txt b/opencv/modules/python/CMakeLists.txt
+index 27874283e..ee76ea661 100644
+--- a/opencv/modules/python/CMakeLists.txt
++++ b/opencv/modules/python/CMakeLists.txt
+@@ -3,7 +3,7 @@
+ # ----------------------------------------------------------------------------
+ if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
+ 
+-if(ANDROID OR APPLE_FRAMEWORK OR WINRT)
++if(APPLE_FRAMEWORK OR WINRT)  # Chaquopy: removed ANDROID exclusion
+   ocv_module_disable_(python2)
+   ocv_module_disable_(python3)
+   return()
+diff --git a/setup.py b/setup.py
+index 7acb02705..08f873e0a 100644
+--- a/setup.py
++++ b/setup.py
+@@ -17,7 +17,7 @@ def main():
+     cmake_source_dir = "opencv"
+     build_contrib = get_build_env_var_by_name("contrib")
+     # headless flag to skip GUI deps if needed
+-    build_headless = get_build_env_var_by_name("headless")
++    build_headless = True  # Chaquopy: was get_build_env_var_by_name("headless")
+ 
+     # Only import 3rd-party modules after having installed all the build dependencies:
+     # any of them, or their dependencies, can be updated during that process,
+@@ -29,8 +29,10 @@ def main():
+     if sys.version_info[:2] >= (3, 7):
+         minimum_supported_numpy = "1.14.5"
+ 
+-    numpy_version = get_or_install("numpy", minimum_supported_numpy)
+-    get_or_install("scikit-build")
++    # Chaquopy: handled by meta.yaml
++    # numpy_version = get_or_install("numpy", minimum_supported_numpy)
++    # get_or_install("scikit-build")
++
+     import skbuild
+ 
+     if os.path.exists('.git'):
+@@ -45,6 +47,7 @@ def main():
+             g.run_command(["submodule", "update", "--init", "--recursive", "opencv_contrib"])
+ 
+     # https://stackoverflow.com/questions/1405913/python-32bit-or-64bit-mode
++    # Chaquopy: no need to worry about this: it only affects Windows builds.
+     x64 = sys.maxsize > 2**32
+ 
+     package_name = "opencv-python"
+@@ -83,7 +88,7 @@ def main():
+         ['python/cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
+ 
+         'cv2.data': [  # OPENCV_OTHER_INSTALL_PATH
+-            ('etc' if os.name == 'nt' else 'share/opencv4') +
++            'sdk/etc' +  # Chaquopy: opencv/CMakeLists.txt uses a different path for Android.
+             r'/haarcascades/.*\.xml'
+         ]
+     }
+@@ -99,8 +104,7 @@ def main():
+     ] if os.name == 'nt' else [
+         "-G", "Unix Makefiles"  # don't make CMake try (and fail) Ninja first
+     ]) + [
+-        # skbuild inserts PYTHON_* vars. That doesn't satisfy opencv build scripts in case of Py3
+-        "-DPYTHON%d_EXECUTABLE=%s" % (sys.version_info[0], sys.executable),
++        # Chaquopy: moved PYTHON...EXECUTABLE to below.
+         "-DBUILD_opencv_python%d=ON" % sys.version_info[0],
+         # Otherwise, opencv scripts would want to install `.pyd' right into site-packages,
+         # and skbuild bails out on seeing that
+@@ -122,6 +126,70 @@
+         "-DBUILD_DOCS=OFF"
+     ] + (["-DOPENCV_EXTRA_MODULES_PATH=" + os.path.abspath("opencv_contrib/modules")] if build_contrib else [])
+ 
++    # Chaquopy: BEGIN additions
++    from distutils.spawn import find_executable
++
++    python_include_dir = None
++    in_dirafter = False
++    for word in os.environ["CFLAGS"].split():
++        if word == "-idirafter":
++            in_dirafter = True
++        elif in_dirafter:
++            in_dirafter = False
++            if "include/python" in word:
++                python_include_dir = word
++    assert python_include_dir, os.environ["CFLAGS"]
++
++    python_lib_dir = os.path.abspath(python_include_dir + "/../../lib")
++    python_lib = None
++    for word in os.environ["LDFLAGS"].split():
++        if word.startswith("-lpython"):
++            python_lib = "lib{}.so".format(word[2:])
++    assert python_lib_dir and python_lib, os.environ["LDFLAGS"]
++
++    py_major_ver = sys.version_info[0]
++    cmake_args += [
++        # Enable CMake's cross-compilation mode.
++        "-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake"),
++
++        # Unnecessary, and requires an old version of the SDK.
++        "-DBUILD_ANDROID_PROJECTS=OFF", "-DBUILD_ANDROID_EXAMPLES=OFF",
++
++        # External dependencies which we've built as wheels (listed in meta.yaml).
++        "-DBUILD_JPEG=OFF", "-DBUILD_PNG=OFF",
++
++        # External dependencies which we can do without for now.
++        "-DWITH_TIFF=OFF", "-DWITH_JASPER=OFF", "-DWITH_OPENEXR=OFF", "-DWITH_WEBP=OFF",
++
++        # These are only available for x86, so disable for consistency between ABIs.
++        "-DWITH_IPP=OFF", "-DWITH_ITT=OFF",
++
++        # Comment in original: "skbuild inserts PYTHON_* vars. That doesn't satisfy opencv
++        # build scripts in case of Py3." Setting both Python 2 and 3: see
++        # https://github.com/opencv/opencv/issues/10771#issuecomment-408431295.
++        "-DPYTHON2_EXECUTABLE=" + find_executable("python2"),
++        "-DPYTHON3_EXECUTABLE=" + find_executable("python3"),
++
++        # These variables are redundant because we've already added the necessary things to
++        # CFLAGS and LDFLAGS, but they need to be set to get the CMake script to build the
++        # Python module. See opencv/cmake/OpenCVDetectPython.cmake and
++        # opencv/modules/python/python3/CMakeLists.txt.
++        "-DPYTHON{}_LIBRARIES={}".format(py_major_ver, os.path.join(python_lib_dir, python_lib)),
++        "-DPYTHON{}_INCLUDE_PATH={}".format(py_major_ver, python_include_dir),
++
++        # Python native modules aren't usually linked against libpython on Linux, but our
++        # configuration requires it (see opencv/modules/python/common.cmake).
++        "-DOPENCV_FORCE_PYTHON_LIBS=ON",
++
++        "-DPYTHON{}_NUMPY_INCLUDE_DIRS={}".format(
++            py_major_ver, os.path.abspath("../requirements/numpy/core/include")),
++    ]
++
++    os.environ["VERBOSE"] = "1"  # Otherwise even failed command lines aren't printed.
++    os.environ["MAKEFLAGS"] = "-j" + os.environ["CPU_COUNT"]  # Set by build-wheel.py.
++
++    # Chaquopy: END additions
++
+     # OS-specific components
+     if (sys.platform == 'darwin' or sys.platform.startswith('linux')) and not build_headless:
+         cmake_args.append("-DWITH_QT=4")
+@@ -123,7 +185,7 @@ def main():
+         cmake_args.append("-DWITH_QT=OFF")
+ 
+     if sys.platform.startswith('linux'):
+-        cmake_args.append("-DWITH_V4L=ON")
++        # Chaquopy disabled: cmake_args.append("-DWITH_V4L=ON")
+         cmake_args.append("-DENABLE_PRECOMPILED_HEADERS=OFF")
+ 
+         if all(v in os.environ for v in ('JPEG_INCLUDE_DIR', 'JPEG_LIBRARY')):
+@@ -168,7 +230,7 @@ def main():
+         maintainer="Olli-Pekka Heinisuo",
+         include_package_data=True,
+         ext_modules=EmptyListWithLength(),
+-        install_requires="numpy>=%s" % numpy_version,
++        # Chaquopy: install_requires numpy is handled by meta.yaml.
+         classifiers=[
+           'Development Status :: 5 - Production/Stable',
+           'Environment :: Console',
+@@ -197,6 +259,11 @@ def main():
+         ],
+         cmake_args=cmake_args,
+         cmake_source_dir=cmake_source_dir,
++
++        # Since `pip wheel --no-clean` doesn't work (https://github.com/pypa/pip/issues/5661),
++        # and this build takes a very long time, disable the clean command so failures can be
++        # investigated.
++        cmdclass={'clean': object},
+           )
+ 
+ 

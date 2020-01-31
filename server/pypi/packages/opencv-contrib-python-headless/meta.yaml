@@ -1,0 +1,28 @@
+# The OpenCV releases on PyPI come from the unofficial skvark repository. Each release is
+# tagged with a sequence number, which is appended to the underlying OpenCV version to
+# form a 4-component version number on PyPI.
+{% set version = "4.1.2" %}
+{% set build = "30" %}
+
+package:
+  name: opencv-contrib-python-headless
+  version: {{ version }}.{{ build }}
+
+build:
+  number: 2
+
+source:
+  # sdists are not currently available (https://github.com/skvark/opencv-python/issues/43), and
+  # we can't use the GitHub-generated archive files because they don't contain submodules.
+  git_url: https://github.com/skvark/opencv-python.git
+  git_rev: {{ build }}
+
+requirements:
+  build:
+    - cmake
+    - scikit-build 0.10.0
+  host:
+    - chaquopy-libpng 1.6.34
+    - chaquopy-libjpeg 1.5.3
+    - numpy 1.17.4
+    - python
