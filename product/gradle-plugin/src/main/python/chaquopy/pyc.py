@@ -17,6 +17,7 @@ from os.path import abspath, join
 import py_compile
 import shutil
 import sys
+import warnings
 
 
 # See importlib._bootstrap_external.MAGIC_NUMBER.
@@ -33,6 +34,9 @@ def main():
               "with bytecode magic number {}".format(importlib.util.MAGIC_NUMBER.hex()),
               "(expected number is {})".format(EXPECTED_MAGIC_NUMBER.hex()))
         sys.exit(1)
+
+    if args.quiet:
+        warnings.filterwarnings("ignore", category=SyntaxWarning)
 
     # py_compile uses _bootstrap_external._write_atomic, which writes to a temporary file with
     # a longer name, potentially pushing us over the Windows 260-character filename limit. But
