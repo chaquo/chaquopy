@@ -1,5 +1,6 @@
 # This file requires Python 3.6 or later, and the requirements listed in requirements.txt.
 
+from contextlib import contextmanager
 from distutils import dir_util
 import distutils.util
 import hashlib
@@ -44,7 +45,6 @@ WARNING = "^Warning: "
 
 
 class GradleTestCase(TestCase):
-    longMessage = True
     maxDiff = None
 
     def setUp(self):
@@ -56,6 +56,13 @@ class GradleTestCase(TestCase):
 
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
+
+    @contextmanager
+    def setLongMessage(self, value):
+        old_value = self.longMessage
+        self.longMessage = value
+        yield
+        self.longMessage = old_value
 
     def assertInLong(self, a, b, re=False, msg=None):
         self.assertLong(a, b, self.assertIn, self.assertRegex, "not found in", re, msg)
@@ -87,42 +94,44 @@ class GradleTestCase(TestCase):
     # as a list of (name, version) tuples.
     def checkZip(self, zip_filename, files, *, pyc=False, include_dist_info=False,
                  dist_versions=None):
-        zip_file = ZipFile(zip_filename)
-        actual_files = []
-        actual_dist_versions = set()
-        for info in zip_file.infolist():
-            with self.subTest(filename=info.filename):
-                self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
-                di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
-                if di_match:
-                    actual_dist_versions.add(di_match.groups())
-                    if not include_dist_info:
-                        continue
-                if not info.filename.endswith("/"):
-                    actual_files.append(info.filename)
+        with ZipFile(zip_filename) as zip_file:
+            actual_files = []
+            actual_dist_versions = set()
+            for info in zip_file.infolist():
+                with self.subTest(filename=info.filename):
+                    self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
+                    di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
+                    if di_match:
+                        actual_dist_versions.add(di_match.groups())
+                        if not include_dist_info:
+                            continue
+                    if not info.filename.endswith("/"):
+                        actual_files.append(info.filename)
 
-        expected_files = []
-        for f in files:
-            with self.subTest(f=f):
-                filename, attrs = f if isinstance(f, tuple) else (f, {})
-                if pyc and filename.endswith(".py"):
-                    filename += "c"
-                expected_files.append(filename)
-                zip_info = zip_file.getinfo(filename)
+            expected_files = []
+            for f in files:
+                with self.subTest(f=f):
+                    filename, attrs = f if isinstance(f, tuple) else (f, {})
+                    if pyc and filename.endswith(".py"):
+                        filename += "c"
+                    expected_files.append(filename)
+                    zip_info = zip_file.getinfo(filename)
 
-                # Build machine paths should not be stored in the .pyc files.
-                if filename.endswith(".pyc"):
-                    self.assertNotIn(repo_root.encode("UTF-8"), zip_file.read(zip_info))
+                    # Build machine paths should not be stored in the .pyc files.
+                    if filename.endswith(".pyc"):
+                        with self.setLongMessage(False):
+                            self.assertNotIn(
+                                repo_root.encode("UTF-8"), zip_file.read(zip_info),
+                                msg=f"{repo_root!r} unexpectedly found in {filename}")
 
-                content_expected = attrs.pop("content", None)
-                if content_expected is not None:
-                    content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
-                    self.assertEqual(content_expected, content_actual)
-                for key, value in attrs.items():
-                    self.assertEqual(value, getattr(zip_info, key))
+                    content_expected = attrs.pop("content", None)
+                    if content_expected is not None:
+                        content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
+                        self.assertEqual(content_expected, content_actual)
+                    for key, value in attrs.items():
+                        self.assertEqual(value, getattr(zip_info, key))
 
         self.assertCountEqual(expected_files, actual_files)
-
         if dist_versions is not None:
             self.assertCountEqual(dist_versions, list(actual_dist_versions))
 
@@ -185,7 +194,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.5.3. If you experience "
+                          "Gradle plugin versions beyond 3.6.0-rc02. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
@@ -530,7 +539,7 @@ class PythonReqs(GradleTestCase):
         run.rerun()
 
     def test_download_wheel(self):
-        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-4-cp38-cp38-android_16_x86.whl"
+        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-5-cp38-cp38-android_16_x86.whl"
         PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
         common_reqs = (["murmurhash/" + name for name in
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
@@ -539,7 +548,7 @@ class PythonReqs(GradleTestCase):
                        ["chaquopy_libcxx-7000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
                        ["murmurhash-0.28.0.dist-info/" + name for name in
-                        ["DESCRIPTION.rst", "INSTALLER", "METADATA", "top_level.txt"]])
+                        ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
         abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
         kwargs = dict(
             abis=["armeabi-v7a", "x86"],

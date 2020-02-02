@@ -54,8 +54,7 @@ def main():
     except ImportError:
         print("Warning: importlib._bootstrap_external doesn't exist")
 
-    os.chdir(args.in_dir)
-    for dirpath, dirnames, filenames in os.walk(os.getcwd()):
+    for dirpath, dirnames, filenames in os.walk(args.in_dir):
         os.makedirs(join(args.out_dir, dirpath), exist_ok=True)
         for filename in filenames:
             in_filename = join(dirpath, filename)
@@ -63,7 +62,11 @@ def main():
             compiled = False
             if filename.endswith(".py"):
                 try:
-                    py_compile.compile(in_filename, out_filename + "c", doraise=True)
+                    # We use the `dfile` argument to make the build reproducible. Its exact
+                    # value doesn't matter, since it'll be overridden at runtime by
+                    # SourcelessAssetLoader.get_code.
+                    py_compile.compile(in_filename, out_filename + "c", dfile=filename,
+                                       doraise=True)
                     compiled = True
                 except py_compile.PyCompileError as e:
                     if not args.quiet:
