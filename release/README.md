@@ -8,6 +8,8 @@ Temporarily set the demo app to a single ABI, and run unit tests on any device.
 
 Restore it to the full set of ABIs, then run unit tests *twice* on any device.
 
+Check app sizes and startup times compared to previous version (#5620).
+
 
 ## Gradle plugin
 
