@@ -1,0 +1,234 @@
+--- src-original/aten/src/ATen/CMakeLists.txt	2020-02-06 11:08:10.439120273 +0000
++++ src/aten/src/ATen/CMakeLists.txt	2020-02-05 15:35:10.000847687 +0000
+@@ -188,7 +188,10 @@
+     ADD_DEFINITIONS(-DHAVE_MMAP=1)
+   ENDIF(HAVE_MMAP)
+   # done for lseek: https://www.gnu.org/software/libc/manual/html_node/File-Position-Primitive.html
+-  ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++
++  # Chaquopy: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
++  # ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++
+   CHECK_FUNCTION_EXISTS(shm_open HAVE_SHM_OPEN)
+   IF(HAVE_SHM_OPEN)
+     ADD_DEFINITIONS(-DHAVE_SHM_OPEN=1)
+--- src-original/c10/macros/Macros.h	2020-02-06 11:08:10.527119881 +0000
++++ src/c10/macros/Macros.h	2020-02-05 18:09:54.813189200 +0000
+@@ -205,7 +205,8 @@
+ 
+ #if defined(__ANDROID__)
+ #define C10_ANDROID 1
+-#define C10_MOBILE 1
++// Chaquopy: this disables things required by the Python build.
++// #define C10_MOBILE 1
+ #elif (                   \
+     defined(__APPLE__) && \
+     (TARGET_IPHONE_SIMULATOR || TARGET_OS_SIMULATOR || TARGET_OS_IPHONE))
+--- src-original/cmake/Dependencies.cmake	2020-02-06 11:08:10.683119187 +0000
++++ src/cmake/Dependencies.cmake	2020-02-05 19:59:52.054372612 +0000
+@@ -1164,7 +1164,7 @@
+   # In mobile build we care about code size, and so we need drop
+   # everything (e.g. checker, optimizer) in onnx but the pb definition.
+   if (ANDROID OR IOS)
+-    caffe2_interface_library(onnx_proto onnx_library)
++    caffe2_interface_library(onnx onnx_library)  # Chaquopy: `onnx` was `onnx_proto`.
+   else()
+     caffe2_interface_library(onnx onnx_library)
+   endif()
+@@ -1340,7 +1340,8 @@
+     add_compile_options(-DUSE_GCC_GET_CPUID)
+   ENDIF()
+ 
+-  FIND_PACKAGE(AVX) # checks AVX and AVX2
++  # Chaquopy: AVX isn't supported by Android even on x86_64.
++  # FIND_PACKAGE(AVX) # checks AVX and AVX2
+ 
+   # we don't set -mavx and -mavx2 flags globally, but only for specific files
+   # however, we want to enable the AVX codepaths, so we still need to
+@@ -1426,7 +1427,10 @@
+       ADD_DEFINITIONS(-DHAVE_MMAP=1)
+     ENDIF(HAVE_MMAP)
+     # done for lseek: https://www.gnu.org/software/libc/manual/html_node/File-Position-Primitive.html
+-    ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++
++    # Chaquopy: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
++    # ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++
+     CHECK_FUNCTION_EXISTS(shm_open HAVE_SHM_OPEN)
+     IF(HAVE_SHM_OPEN)
+       ADD_DEFINITIONS(-DHAVE_SHM_OPEN=1)
+--- src-original/cmake/MiscCheck.cmake	2020-02-06 11:08:10.683119187 +0000
++++ src/cmake/MiscCheck.cmake	2020-02-05 18:18:48.966927626 +0000
+@@ -43,7 +43,8 @@
+   # important because with ASAN you might need to help the compiled library find
+   # some dynamic libraries.
+   cmake_push_check_state(RESET)
+-  CHECK_C_SOURCE_RUNS("
++  # Chaquopy: was CHECK_C_SOURCE_RUNS
++  CHECK_C_SOURCE_COMPILES("
+   int main() { return 0; }
+   " COMPILER_WORKS)
+   if (NOT COMPILER_WORKS)
+@@ -172,6 +173,10 @@
+         _mm256_extract_epi64(x, 0); // we rely on this in our AVX2 code
+         return 0;
+       }" CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
++
++  # Chaquopy: AVX isn't supported by Android even on x86_64.
++  set(CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS "")
++
+   if (CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
+     message(STATUS "Current compiler supports avx2 extension. Will build perfkernels.")
+     # Also see CMakeLists.txt under caffe2/perfkernels.
+@@ -216,6 +221,10 @@
+        __mmask16 m = _mm512_cmp_epi32_mask(a, a, _MM_CMPINT_EQ);
+        __m512i r = _mm512_andnot_si512(a, a);
+      }" CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
++
++# Chaquopy: AVX isn't supported by Android even on x86_64.
++set(CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS "")
++
+ if (CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
+   message(STATUS "Current compiler supports avx512f extension. Will build fbgemm.")
+   # Also see CMakeLists.txt under caffe2/perfkernels.
+--- src-original/CMakeLists.txt	2020-02-06 11:08:10.435120292 +0000
++++ src/CMakeLists.txt	2020-02-05 13:58:13.845305370 +0000
+@@ -286,7 +286,7 @@
+ # Set INTERN_BUILD_MOBILE for all mobile builds. Components that are not
+ # applicable to mobile are disabled by this variable.
+ if (ANDROID OR IOS)
+-  set(INTERN_BUILD_MOBILE ON)
++  # set(INTERN_BUILD_MOBILE ON)  # Chaquopy: this disables things required by the Python build.
+ endif()
+ 
+ # Setting `PYTORCH_BUILD_MOBILE` environment variable can force it to do mobile
+--- src-original/setup.py	2020-02-06 11:08:10.707119080 +0000
++++ src/setup.py	2020-02-05 22:32:19.222917597 +0000
+@@ -194,6 +194,16 @@
+ # Parameters parsed from environment
+ ################################################################################
+ 
++# Chaquopy: CMake variables which setup.py accepts as environment variables are set here, as
++# they may also affect other things in setup.py. Other variables are set in
++# tools/setup_helpers/cmake.py.
++os.environ.update(
++    PYTORCH_BUILD_VERSION=os.environ["PKG_VERSION"],
++    PYTORCH_BUILD_NUMBER="0",
++    BUILD_TEST="0",
++    USE_FBGEMM="0",  # Requires AVX, which isn't supported by Android even on x86_64.
++)
++
+ VERBOSE_SCRIPT = True
+ RUN_BUILD_DEPS = True
+ # see if the user passed a quiet flag to setup.py arguments and respect
+@@ -311,7 +321,7 @@
+     build_caffe2(version=version,
+                  cmake_python_library=cmake_python_library,
+                  build_python=True,
+-                 rerun_cmake=RERUN_CMAKE,
++                 rerun_cmake=True,  # Chaquopy: for rerunning with build-wheel.py --no-unpack.
+                  cmake_only=CMAKE_ONLY,
+                  cmake=cmake)
+ 
+@@ -766,6 +776,7 @@
+         packages=packages,
+         entry_points=entry_points,
+         install_requires=install_requires,
++        data_files=[("chaquopy/lib", glob.glob("torch/lib/*.so*"))],
+         package_data={
+             'torch': [
+                 'py.typed',
+@@ -779,7 +790,7 @@
+                 'nn/*.pyi',
+                 'nn/modules/*.pyi',
+                 'nn/parallel/*.pyi',
+-                'lib/*.so*',
++                # Chaquopy: moved 'lib/*.so*' to data_files.
+                 'lib/*.dylib*',
+                 'lib/*.dll',
+                 'lib/*.lib',
+--- src-original/test/cpp/jit/torch_python_test.cpp	2020-02-06 11:08:10.715119044 +0000
++++ src/test/cpp/jit/torch_python_test.cpp	2020-02-05 21:03:45.929841114 +0000
+@@ -8,6 +8,10 @@
+ void runJITCPPTests(bool runCuda) {
+   TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Windows");
+ }
++#elif defined(__ANDROID__)  // Chaquopy: test code is excluded by BUILD_TEST in setup.py.
++void runJITCPPTests(bool runCuda) {
++  TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Android");
++}
+ #else
+ #define JIT_TEST(name) test##name();
+ TORCH_API void runJITCPPTests(bool runCuda) {
+--- src-original/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-06 11:09:41.410715150 +0000
++++ src/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-05 22:02:20.202885629 +0000
+@@ -118,6 +118,10 @@
+ if(protobuf_WITH_ZLIB)
+     target_link_libraries(libprotobuf ${ZLIB_LIBRARIES})
+ endif()
++
++# Chaquopy: used by src/google/protobuf/stubs/common.cc
++target_link_libraries(libprotobuf INTERFACE log)
++
+ target_include_directories(libprotobuf PUBLIC ${protobuf_source_dir}/src)
+ if(MSVC AND protobuf_BUILD_SHARED_LIBS)
+   target_compile_definitions(libprotobuf
+--- src-original/tools/setup_helpers/cmake.py	2020-02-06 11:08:10.751118883 +0000
++++ src/tools/setup_helpers/cmake.py	2020-02-05 18:13:06.784345402 +0000
+@@ -285,9 +285,13 @@
+         build_options.update(cmake__options)
+ 
+         CMake.defines(args,
+-                      PYTHON_EXECUTABLE=sys.executable,
+-                      PYTHON_LIBRARY=cmake_python_library,
+-                      PYTHON_INCLUDE_DIR=distutils.sysconfig.get_python_inc(),
++                      # Chaquopy: see "CMake variables" comment in setup.py.
++                      CMAKE_TOOLCHAIN_FILE=os.path.abspath("../chaquopy.toolchain.cmake"),
++                      CAFFE2_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
++                      ONNX_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
++                      BLAS="Eigen",
++                      NATIVE_BUILD_DIR=os.path.abspath("build-sleef-native"),  # TODO https://github.com/shibatch/sleef/issues/249
++
+                       TORCH_BUILD_VERSION=version,
+                       NUMPY_INCLUDE_DIR=NUMPY_INCLUDE_DIR,
+                       **build_options)
+--- src-original/tools/setup_helpers/numpy_.py	2020-02-06 11:08:10.751118883 +0000
++++ src/tools/setup_helpers/numpy_.py	2020-02-04 19:24:56.428522703 +0000
+@@ -10,9 +10,16 @@
+ 
+ if USE_NUMPY:
+     try:
++        # Chaquopy
++        import os.path
++        import sys
++        sys.path.insert(0, os.path.abspath("../requirements"))
++        import builtins
++        builtins.__NUMPY_SETUP__ = True  # Prevent NumPy runtime from being imported.
++
+         import numpy as np
+     except ImportError:
+-        pass
++        raise  # Chaquopy: was `pass`
+     else:
+         # To reach here, the user must has not disabled NumPy build and the
+         # NumPy library is present in the system.
+--- src-original/torch/lib/libshm/manager.cpp	2020-02-06 11:08:10.815118599 +0000
++++ src/torch/lib/libshm/manager.cpp	2020-02-05 20:54:45.104188146 +0000
+@@ -63,7 +63,7 @@
+ }
+ 
+ bool object_exists(const char *name) {
+-  int fd = shm_open(name, O_RDONLY, 0);
++  int fd = -1;   // Chaquopy: removed shm_open, which isn't supported on Android.
+   if (fd >= 0) {
+     close(fd);
+     return true;
+@@ -160,7 +160,7 @@
+ 
+   for (auto &obj_name: used_objects) {
+     DEBUG("freeing %s", obj_name.c_str());
+-    shm_unlink(obj_name.c_str());
++    // Chaquopy: removed shm_unlink, which isn't supported on Android.
+   }
+ 
+   DEBUG("manager done");

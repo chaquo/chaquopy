@@ -21,7 +21,13 @@ RUN apt-get update && \
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get install -y autoconf automake cmake git libtool patch
+    apt-get install -y automake cmake git libtool ninja-build patch
+
+# protoc (for PyTorch): needs to be exactly this version.
+RUN version=3.6.1 && \
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v$version/protoc-$version-linux-x86_64.zip && \
+    unzip -d /usr protoc-*.zip && \
+    rm protoc-*.zip
 
 # Bazel (for TensorFlow)
 RUN apt-get update && \

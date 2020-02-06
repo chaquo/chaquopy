@@ -139,8 +139,6 @@ class BuildWheel:
                 log("Skipping requirements extraction due to --no-reqs")
             else:
                 self.extract_requirements()
-            self.update_env()
-            cd(f"{self.build_dir}/src")
             wheel_filename = self.build_wheel()
             return self.fix_wheel(wheel_filename)
 
@@ -268,11 +266,18 @@ class BuildWheel:
                 run(f"patch -p1 -i {patches_dir}/{patch_filename}")
 
     def build_wheel(self):
-        os.environ.update({
+        cd(f"{self.build_dir}/src")
+        self.update_env()
+        os.environ.update({  # Conda variable names, except those starting with CHAQUOPY.
             "CHAQUOPY_ABI": self.abi,
             "CHAQUOPY_PYTHON": PYTHON_VERSION,
-            "CPU_COUNT": str(multiprocessing.cpu_count())  # Conda variable name.
+            "CPU_COUNT": str(multiprocessing.cpu_count()),
+            "PKG_NAME": self.package,
+            "PKG_VERSION": self.version,
+            "RECIPE_DIR": self.package_dir,
+            "SRC_DIR": os.getcwd(),
         })
+
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
@@ -335,13 +340,7 @@ class BuildWheel:
 
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
-        os.environ.update({  # Conda variable names.
-            "PKG_NAME": self.package,
-            "PKG_VERSION": self.version,
-            "RECIPE_DIR": self.package_dir,
-            "SRC_DIR": os.getcwd(),
-            "PREFIX": ensure_dir(f"{prefix_dir}/chaquopy"),
-        })
+        os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
         run(build_script)
 
         info_dir = f"{prefix_dir}/{self.name_version}.dist-info"
@@ -389,7 +388,6 @@ class BuildWheel:
         # If any flags are changed, consider also updating target/build-common-tools.sh.
         gcc_flags = " ".join([
             "-fPIC",  # See standalone toolchain docs, and note below about -pie
-
             abi.cflags])
         env["CFLAGS"] = gcc_flags
         env["FARCH"] = gcc_flags  # Used by numpy.distutils Fortran compilation.
@@ -484,11 +482,13 @@ class BuildWheel:
                 """), file=toolchain_file)
 
             if self.needs_python:
+                python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
                 print(dedent(f"""\
-                    # Variables used by pybind11
+                    # For maximum compatibility, we set both the input and the output variables.
                     SET(PYTHONLIBS_FOUND TRUE)
-                    SET(PYTHON_LIBRARIES
-                        {self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so)
+                    SET(PYTHON_LIBRARY {python_lib})
+                    SET(PYTHON_LIBRARIES {python_lib})
+                    SET(PYTHON_INCLUDE_DIR {self.python_include_dir})
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
