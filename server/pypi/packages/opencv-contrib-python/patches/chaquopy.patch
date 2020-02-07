@@ -34,15 +34,15 @@ diff --git a/opencv/modules/python/CMakeLists.txt b/opencv/modules/python/CMakeL
 index 27874283e..ee76ea661 100644
 --- a/opencv/modules/python/CMakeLists.txt
 +++ b/opencv/modules/python/CMakeLists.txt
-@@ -3,7 +3,7 @@
- # ----------------------------------------------------------------------------
- if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
+@@ -5,7 +5,7 @@ if(DEFINED OPENCV_INITIAL_PASS)  # OpenCV build
+ 
+ add_subdirectory(bindings)
  
 -if(ANDROID OR APPLE_FRAMEWORK OR WINRT)
 +if(APPLE_FRAMEWORK OR WINRT)  # Chaquopy: removed ANDROID exclusion
-   ocv_module_disable_(python2)
-   ocv_module_disable_(python3)
-   return()
+   set(__disable_python2 ON)
+   set(__disable_python3 ON)
+ elseif(BUILD_opencv_world OR (WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug"))
 diff --git a/setup.py b/setup.py
 index 7acb02705..08f873e0a 100644
 --- a/setup.py
@@ -91,15 +91,17 @@ index 7acb02705..08f873e0a 100644
      long_description = io.open('README.md', encoding="utf-8").read()
      package_version = get_opencv_version()
  
-@@ -83,7 +88,7 @@ def main():
-         ['python/cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
+@@ -83,8 +90,8 @@
+         ['python/([^/]+/){1,2}cv2[^/]*%(ext)s' % {'ext': re.escape(sysconfig.get_config_var('SO'))}],
  
          'cv2.data': [  # OPENCV_OTHER_INSTALL_PATH
--            ('etc' if os.name == 'nt' else 'share/opencv4') +
-+            'sdk/etc' +  # Chaquopy: opencv/CMakeLists.txt uses a different path for Android.
-             r'/haarcascades/.*\.xml'
+-            ('etc' if os.name == 'nt' else 'share/OpenCV') +
+-            r'/haarcascades/.*\.xml'
++            # Chaquopy: opencv/CMakeLists.txt uses a different path for Android.
++            r'sdk/etc/haarcascades/.*\.xml'
          ]
      }
+ 
 @@ -99,8 +104,7 @@ def main():
      ] if os.name == 'nt' else [
          "-G", "Unix Makefiles"  # don't make CMake try (and fail) Ninja first
