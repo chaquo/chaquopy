@@ -41,10 +41,12 @@ case $CHAQUOPY_ABI in
         #
         # There do exist devices with API level 15 or higher which are limited to VFPv3-D16,
         # but they are rare and probably from 2013 or older. One example is the Asus
-        # Transformer TF101 (NOT the TF201 which I have), which has an Nvidia Tegra 2 processor
-        # based on Cortex-A9. One person in 2012 (https://stackoverflow.com/a/9406914) said
-        # that the Tegra 2 was the *only* ARMv7 processor in an Android device he knew of which
-        # didn't support NEON. But we'll target ARMv6 for now anyway, just to be safe.
+        # Transformer TF101 (NOT the TF201 which I have), which has an Nvidia Tegra 2
+        # processor. The NDK developers believe that that the Tegra 2 was the *only*
+        # armeabi-v7a processor which didn't support NEON, and its number of active devices is
+        # now so low that they've enabled NEON by default in NDK r21 and later
+        # (https://github.com/android/ndk/issues/859). But we'll target ARMv6 for now anyway,
+        # just to be safe.
         export TARGET="ARMV6"
         export ARM_SOFTFP_ABI="1"
 
