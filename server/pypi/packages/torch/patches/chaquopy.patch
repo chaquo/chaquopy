@@ -45,6 +45,36 @@
  
    # we don't set -mavx and -mavx2 flags globally, but only for specific files
    # however, we want to enable the AVX codepaths, so we still need to
+@@ -1227,7 +1228,8 @@
+     add_compile_options(-DUSE_AVX2)
+   ENDIF()
+ 
+-  CHECK_C_SOURCE_RUNS("
++  # Chaquopy: was CHECK_C_SOURCE_RUNS
++  CHECK_C_SOURCE_COMPILES("
+   #include <stdatomic.h>
+   // ATOMIC_INT_LOCK_FREE is flaky on some older gcc versions
+   // so if this define is not usable a preprocessor definition
+@@ -1249,7 +1251,8 @@
+   " HAS_C11_ATOMICS)
+ 
+   IF (NOT HAS_C11_ATOMICS)
+-    CHECK_C_SOURCE_RUNS("
++    # Chaquopy: was CHECK_C_SOURCE_RUNS
++    CHECK_C_SOURCE_COMPILES("
+   #include <intrin.h>
+   int main()
+   {
+@@ -1262,7 +1265,8 @@
+   }
+   " HAS_MSC_ATOMICS)
+ 
+-    CHECK_C_SOURCE_RUNS("
++    # Chaquopy: was CHECK_C_SOURCE_RUNS
++    CHECK_C_SOURCE_COMPILES("
+   int main()
+   {
+     int a;
 @@ -1426,7 +1427,10 @@
        ADD_DEFINITIONS(-DHAVE_MMAP=1)
      ENDIF(HAVE_MMAP)
@@ -70,16 +100,16 @@
    " COMPILER_WORKS)
    if (NOT COMPILER_WORKS)
 @@ -172,6 +173,10 @@
-         _mm256_extract_epi64(x, 0); // we rely on this in our AVX2 code
-         return 0;
-       }" CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
+        _mm256_extract_epi64(x, 0); // we rely on this in our AVX2 code
+        return 0;
+      }" CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
 +
 +  # Chaquopy: AVX isn't supported by Android even on x86_64.
 +  set(CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS "")
 +
-   if (CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
-     message(STATUS "Current compiler supports avx2 extension. Will build perfkernels.")
-     # Also see CMakeLists.txt under caffe2/perfkernels.
+ if (CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
+   message(STATUS "Current compiler supports avx2 extension. Will build perfkernels.")
+   # Also see CMakeLists.txt under caffe2/perfkernels.
 @@ -216,6 +221,10 @@
         __mmask16 m = _mm512_cmp_epi32_mask(a, a, _MM_CMPINT_EQ);
         __m512i r = _mm512_andnot_si512(a, a);
@@ -128,43 +158,42 @@
  float x[4] = { 1, 2, 3, 4 };
 --- src-original/CMakeLists.txt	2020-02-06 11:08:10.435120292 +0000
 +++ src/CMakeLists.txt	2020-02-05 13:58:13.845305370 +0000
-@@ -286,7 +286,7 @@
- # Set INTERN_BUILD_MOBILE for all mobile builds. Components that are not
- # applicable to mobile are disabled by this variable.
+@@ -166,7 +166,7 @@
+ endif(MSVC)
+ 
  if (ANDROID OR IOS)
--  set(INTERN_BUILD_MOBILE ON)
-+  # set(INTERN_BUILD_MOBILE ON)  # Chaquopy: this disables things required by the Python build.
+-  set(BUILD_ATEN_MOBILE ON)
++  # set(BUILD_ATEN_MOBILE ON)
  endif()
  
- # Setting `PYTORCH_BUILD_MOBILE` environment variable can force it to do mobile
+ if (BUILD_ATEN_ONLY)
 --- src-original/setup.py	2020-02-06 11:08:10.707119080 +0000
 +++ src/setup.py	2020-02-05 22:32:19.222917597 +0000
-@@ -194,6 +194,16 @@
- # Parameters parsed from environment
- ################################################################################
+@@ -159,6 +159,15 @@
+ import glob
+ import importlib
  
 +# Chaquopy: CMake variables which setup.py accepts as environment variables are set here, as
 +# they may also affect other things in setup.py. Other variables are set in
 +# tools/setup_helpers/cmake.py.
 +os.environ.update(
-+    PYTORCH_BUILD_VERSION=os.environ["PKG_VERSION"],
-+    PYTORCH_BUILD_NUMBER="0",
 +    BUILD_TEST="0",
++    USE_DISTRIBUTED="0",  # csrc/distributed/c10d/init.cpp.o: [...] undefined reference to 'typeinfo for c10d::ProcessGroupGloo'
 +    USE_FBGEMM="0",  # Requires AVX, which isn't supported by Android even on x86_64.
 +)
 +
- VERBOSE_SCRIPT = True
- RUN_BUILD_DEPS = True
+ from tools.build_pytorch_libs import build_caffe2
+ from tools.setup_helpers.env import (IS_WINDOWS, IS_DARWIN, IS_LINUX,
+                                      check_env_flag,
+@@ -178,7 +187,7 @@
  # see if the user passed a quiet flag to setup.py arguments and respect
-@@ -311,7 +321,7 @@
-     build_caffe2(version=version,
-                  cmake_python_library=cmake_python_library,
-                  build_python=True,
--                 rerun_cmake=RERUN_CMAKE,
-+                 rerun_cmake=True,  # Chaquopy: for rerunning with build-wheel.py --no-unpack.
-                  cmake_only=CMAKE_ONLY,
-                  cmake=cmake)
- 
+ # that in our parts of the build
+ EMIT_BUILD_WARNING = False
+-RERUN_CMAKE = False
++RERUN_CMAKE = True  # Chaquopy: for rerunning with build-wheel.py --no-unpack.
+ filtered_args = []
+ for i, arg in enumerate(sys.argv):
+     if arg == '--cmake':
 @@ -766,6 +776,7 @@
          packages=packages,
          entry_points=entry_points,
@@ -173,28 +202,15 @@
          package_data={
              'torch': [
                  'py.typed',
-@@ -779,7 +790,7 @@
-                 'nn/*.pyi',
-                 'nn/modules/*.pyi',
-                 'nn/parallel/*.pyi',
+@@ -743,7 +752,7 @@
+                 'optim/*.pyi',
+                 'autograd/*.pyi',
+                 'utils/data/*.pyi',
 -                'lib/*.so*',
 +                # Chaquopy: moved 'lib/*.so*' to data_files.
                  'lib/*.dylib*',
                  'lib/*.dll',
                  'lib/*.lib',
---- src-original/test/cpp/jit/torch_python_test.cpp	2020-02-06 11:08:10.715119044 +0000
-+++ src/test/cpp/jit/torch_python_test.cpp	2020-02-05 21:03:45.929841114 +0000
-@@ -8,6 +8,10 @@
- void runJITCPPTests(bool runCuda) {
-   TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Windows");
- }
-+#elif defined(__ANDROID__)  // Chaquopy: test code is excluded by BUILD_TEST in setup.py.
-+void runJITCPPTests(bool runCuda) {
-+  TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Android");
-+}
- #else
- #define JIT_TEST(name) test##name();
- TORCH_API void runJITCPPTests(bool runCuda) {
 --- src-original/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-06 11:09:41.410715150 +0000
 +++ src/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-05 22:02:20.202885629 +0000
 @@ -118,6 +118,10 @@
@@ -208,44 +224,22 @@
  target_include_directories(libprotobuf PUBLIC ${protobuf_source_dir}/src)
  if(MSVC AND protobuf_BUILD_SHARED_LIBS)
    target_compile_definitions(libprotobuf
---- src-original/tools/setup_helpers/cmake.py	2020-02-06 11:08:10.751118883 +0000
-+++ src/tools/setup_helpers/cmake.py	2020-02-05 18:13:06.784345402 +0000
-@@ -284,10 +284,27 @@
-             sys.exit(1)
-         build_options.update(cmake__options)
+--- src-original/third_party/sleef/Configure.cmake      2020-02-07 15:45:16.973742053 +0000
++++ src/third_party/sleef/Configure.cmake       2020-02-07 16:35:18.664650845 +0000
+@@ -98,7 +98,7 @@
+   command_arguments(ALIAS_PARAMS_ADVSIMD_SP -4 float32x4_t int32x4_t n advsimd)
+ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+   set(SLEEF_ARCH_AARCH32 ON CACHE INTERNAL "True for Aarch32 architecture.")
+-  set(COMPILER_SUPPORTS_NEON32 1)
++  # set(COMPILER_SUPPORTS_NEON32 1)  # Chaquopy: see chaquopy-openblas/build.sh.
  
-+        # Chaquopy: see https://github.com/shibatch/sleef/issues/249
-+        build_sleef_native = os.path.abspath("build-sleef-native")
-+        if not os.path.exists(build_sleef_native):  # For rerunning with build-wheel.py --no-unpack
-+            os.mkdir(build_sleef_native)
-+            sleef_env = os.environ.copy()
-+            for name in ["AR", "ARFLAGS", "AS", "CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX",
-+                         "CXXFLAGS", "F77", "F90", "FARCH", "FC", "LD", "LDFLAGS", "LDSHARED",
-+                         "NM", "RANLIB", "READELF", "STRIP"]:
-+                sleef_env.pop(name, None)
-+            kwargs = dict(cwd=build_sleef_native, env=sleef_env)
-+            check_call(["cmake", "../third_party/sleef"], **kwargs)
-+            check_call(["cmake", "--build", "." , "--", "-j", str(os.cpu_count())], **kwargs)
-+
-         CMake.defines(args,
--                      PYTHON_EXECUTABLE=sys.executable,
--                      PYTHON_LIBRARY=cmake_python_library,
--                      PYTHON_INCLUDE_DIR=distutils.sysconfig.get_python_inc(),
-+                      # Chaquopy: see "CMake variables" comment in setup.py.
-+                      CMAKE_TOOLCHAIN_FILE=os.path.abspath("../chaquopy.toolchain.cmake"),
-+                      CAFFE2_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
-+                      ONNX_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
-+                      BLAS="OpenBLAS",
-+                      NATIVE_BUILD_DIR=build_sleef_native,
-+
-                       TORCH_BUILD_VERSION=version,
-                       NUMPY_INCLUDE_DIR=NUMPY_INCLUDE_DIR,
-                       **build_options)
---- src-original/tools/setup_helpers/numpy_.py	2020-02-06 11:08:10.751118883 +0000
-+++ src/tools/setup_helpers/numpy_.py	2020-02-04 19:24:56.428522703 +0000
-@@ -10,9 +10,16 @@
- 
- if USE_NUMPY:
+   set(SLEEF_HEADER_LIST
+     NEON32_
+--- src-original/tools/build_pytorch_libs.py	2020-02-07 15:43:51.146115289 +0000
++++ src/tools/build_pytorch_libs.py	2020-02-07 16:10:31.079190433 +0000
+@@ -139,10 +139,18 @@
+         else:
+             cmake_args.append('-GVisual Studio 15 2017')
      try:
 +        # Chaquopy
 +        import os.path
@@ -255,12 +249,98 @@
 +        builtins.__NUMPY_SETUP__ = True  # Prevent NumPy runtime from being imported.
 +
          import numpy as np
+         NUMPY_INCLUDE_DIR = np.get_include()
+         USE_NUMPY = True
      except ImportError:
--        pass
-+        raise  # Chaquopy: was `pass`
-     else:
-         # To reach here, the user must has not disabled NumPy build and the
-         # NumPy library is present in the system.
++        raise  # Chaquopy
+         USE_NUMPY = False
+         NUMPY_INCLUDE_DIR = None
+ 
+@@ -155,11 +163,28 @@
+     mkdir_p(install_dir)
+     mkdir_p(build_dir)
+ 
++    # Chaquopy: see https://github.com/shibatch/sleef/issues/249
++    build_sleef_native = os.path.abspath("build-sleef-native")
++    if not os.path.exists(build_sleef_native):  # For rerunning with build-wheel.py --no-unpack
++        os.mkdir(build_sleef_native)
++        sleef_env = os.environ.copy()
++        for name in ["AR", "ARFLAGS", "AS", "CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX",
++                     "CXXFLAGS", "F77", "F90", "FARCH", "FC", "LD", "LDFLAGS", "LDSHARED",
++                     "NM", "RANLIB", "READELF", "STRIP"]:
++            sleef_env.pop(name, None)
++        kwargs = dict(cwd=build_sleef_native, env=sleef_env)
++        check_call(["cmake", "../third_party/sleef"], **kwargs)
++        check_call(["cmake", "--build", "." , "--", "-j", str(os.cpu_count())], **kwargs)
++
+     cmake_defines(
+         cmake_args,
+-        PYTHON_EXECUTABLE=escape_path(sys.executable),
+-        PYTHON_LIBRARY=escape_path(cmake_python_library),
+-        PYTHON_INCLUDE_DIR=escape_path(distutils.sysconfig.get_python_inc()),
++
++        # Chaquopy: see "CMake variables" comment in setup.py.
++        CMAKE_TOOLCHAIN_FILE=os.path.abspath("../chaquopy.toolchain.cmake"),
++        CAFFE2_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
++        ONNX_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
++        NATIVE_BUILD_DIR=build_sleef_native,
++
+         BUILDING_WITH_TORCH_LIBS=os.getenv("BUILDING_WITH_TORCH_LIBS", "ON"),
+         TORCH_BUILD_VERSION=version,
+         CMAKE_BUILD_TYPE=build_type,
+@@ -201,7 +226,7 @@
+         CMAKE_SHARED_LINKER_FLAGS=ldflags,
+         THD_SO_VERSION="1",
+         CMAKE_PREFIX_PATH=os.getenv('CMAKE_PREFIX_PATH') or distutils.sysconfig.get_python_lib(),
+-        BLAS=os.getenv('BLAS'),
++        BLAS="OpenBLAS",  # Chaquopy: was os.getenv('BLAS'),
+         CUDA_NVCC_EXECUTABLE=escape_path(os.getenv('CUDA_NVCC_EXECUTABLE')),
+         USE_REDIS=os.getenv('USE_REDIS'),
+         USE_GLOG=os.getenv('USE_GLOG'),
+--- src-original/torch/csrc/autograd/python_engine.cpp	2020-02-07 15:43:51.162115219 +0000
++++ src/torch/csrc/autograd/python_engine.cpp	2020-02-07 18:51:45.122743059 +0000
+@@ -271,7 +271,8 @@
+ 
+ bool THPEngine_initModule(PyObject *module)
+ {
+-#ifndef _WIN32
++// Chaquopy: added __ANDROID__
++#if !(defined(_WIN32) || defined(__ANDROID__))
+   if (pthread_atfork(nullptr, nullptr, child_atfork) != 0) {
+     throw std::runtime_error("unable to set pthread_atfork handler");
+   }
+--- src-original/torch/csrc/distributed/c10d/init.cpp	2020-02-07 15:43:51.162115219 +0000
++++ src/torch/csrc/distributed/c10d/init.cpp	2020-02-07 18:59:38.964744032 +0000
+@@ -423,7 +423,10 @@
+               // Use the hostname to resolve the network address to
+               // use. Note: if the hostname does not resolve to an address (e.g.
+               // because of misconfigured /etc/hosts file), this will not work.
+-              std::array<char, HOST_NAME_MAX> hostname{};
++
++              // Chaquopy: added _POSIX prefix.
++              std::array<char, _POSIX_HOST_NAME_MAX> hostname{};
++
+               auto rv = gethostname(hostname.data(), hostname.size());
+               if (rv != 0) {
+                 throw std::system_error(errno, std::system_category());
+--- src-original/torch/csrc/jit/fuser/cpu/temp_file.h   2020-02-07 15:43:51.166115201 +0000
++++ src/torch/csrc/jit/fuser/cpu/temp_file.h    2020-02-07 18:36:26.562369681 +0000
+@@ -21,8 +21,13 @@
+   TempFile(const std::string& t, int suffix) {
+     // mkstemps edits its first argument in places
+     // so we make a copy of the string here, including null terminator
+-    std::vector<char> tt(t.c_str(), t.c_str() + t.size() + 1);
+-    int fd = mkstemps(tt.data(), suffix);
++
++    // Chaquopy: mkstemps isn't available with Crystax, so omit the suffix and use mkstemp
++    // instead.
++    std::vector<char> tt(t.c_str(), t.c_str() + t.size() - suffix + 1);
++    tt.back() = '\0';
++    int fd = mkstemp(tt.data());
++
+     AT_ASSERT(fd != -1);
+     file_ = fdopen(fd, "r+");
+ 
 --- src-original/torch/lib/libshm/manager.cpp	2020-02-06 11:08:10.815118599 +0000
 +++ src/torch/lib/libshm/manager.cpp	2020-02-05 20:54:45.104188146 +0000
 @@ -63,7 +63,7 @@
@@ -281,3 +361,37 @@
    }
  
    DEBUG("manager done");
+--- src-original/torch/lib/THD/base/init_methods/InitMethodUtils.cpp	2020-02-07 15:43:51.190115097 +0000
++++ src/torch/lib/THD/base/init_methods/InitMethodUtils.cpp	2020-02-07 18:46:59.215894151 +0000
+@@ -1,6 +1,6 @@
+ #include <THD/base/init_methods/InitMethodUtils.hpp>
+ 
+-#include <ifaddrs.h>
++// Chaquopy: <ifaddrs.h> is missing on Crystax.
+ #include <net/if.h>
+ #include <sys/ioctl.h>
+ #include <sys/types.h>
+@@ -28,12 +28,15 @@
+ } // namespace
+ 
+ std::vector<std::string> getInterfaceAddresses() {
++  /* Chaquopy: getifaddrs requires API level 24.
+   struct ifaddrs* ifa;
+   SYSCHECK(getifaddrs(&ifa));
+   ResourceGuard ifaddrs_guard([ifa]() { ::freeifaddrs(ifa); });
++  * Chaquopy: END disabled code */
+ 
+   std::vector<std::string> addresses;
+ 
++  /* Chaquopy: getifaddrs requires API level 24.
+   while (ifa != nullptr) {
+     struct sockaddr* addr = ifa->ifa_addr;
+     if (addr) {
+@@ -45,6 +48,7 @@
+     }
+     ifa = ifa->ifa_next;
+   }
++  * Chaquopy: END disabled code */
+ 
+   return addresses;
+ }

@@ -498,11 +498,13 @@ class BuildWheel:
                 """), file=toolchain_file)
 
             if self.needs_python:
+                python_lib = f"{self.python_lib_dir}/libpython{PYTHON_SUFFIX}.so"
                 print(dedent(f"""\
-                    # Variables used by pybind11
+                    # For maximum compatibility, we set both the input and the output variables.
                     SET(PYTHONLIBS_FOUND TRUE)
-                    SET(PYTHON_LIBRARIES
-                        {self.python_lib_dir}/libpython{PYTHON_SUFFIX}.so)
+                    SET(PYTHON_LIBRARY {python_lib})
+                    SET(PYTHON_LIBRARIES {python_lib})
+                    SET(PYTHON_INCLUDE_DIR {self.python_include_dir})
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
@@ -586,10 +588,13 @@ class BuildWheel:
                                     "Tag": expand_compat_tag(self.compat_tag)})
         write_message(info_wheel, f"{info_dir}/WHEEL")
 
+        SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(STANDARD_LIBS)
-        for libs_dir in [f"{self.reqs_dir}/chaquopy/lib", f"{tmp_dir}/chaquopy/lib"]:
-            if exists(libs_dir):
-                available_libs.update(os.listdir(libs_dir))
+        for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
+            if exists(dir_name):
+                for _, _, filenames in os.walk(dir_name):
+                    available_libs.update(name for name in filenames
+                                          if re.search(SO_PATTERN, name))
 
         reqs = set()
         if not is_pure:
