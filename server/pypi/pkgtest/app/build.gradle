@@ -12,6 +12,8 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
 
     // Conflicts with more popular packages
     "opencv-contrib-python",  // opencv-python
+    "opencv-contrib-python-headless",  // opencv-python
+    "opencv-python-headless",  // opencv-python
     "pycrypto",  // pycryptodome
 ]
 
@@ -87,7 +89,8 @@ def addPackages(flavor, List<String> packages) {
     delete(outputDir)
     mkdir(outputDir)
     String suiteSrc = ""
-    for (pkgName in packages) {
+    for (req in packages) {
+        def pkgName = req.split("==")[0]
         def pkgDir = file("$inputDir/$pkgName")
         def testPaths = ["test.py", "test"]
             .collect { file("$pkgDir/$it") }
@@ -102,7 +105,7 @@ def addPackages(flavor, List<String> packages) {
 
         def testPath = testPaths[0]
         flavor.python.pip {
-            install pkgName
+            install req
             TEST_PACKAGES.getOrDefault(pkgName, []).each { install it }
         }
         def pkgModule = pkgName.replace('-', '_')
