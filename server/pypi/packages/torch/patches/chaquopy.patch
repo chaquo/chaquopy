@@ -91,6 +91,41 @@
  if (CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
    message(STATUS "Current compiler supports avx512f extension. Will build fbgemm.")
    # Also see CMakeLists.txt under caffe2/perfkernels.
+--- src-original/cmake/Modules/FindBLAS.cmake	2020-02-06 11:08:10.683119187 +0000
++++ src/cmake/Modules/FindBLAS.cmake	2020-02-07 10:52:39.368484856 +0000
+@@ -256,6 +256,13 @@
+ # Determine if blas was compiled with the f2c conventions
+ IF (BLAS_LIBRARIES)
+   SET(CMAKE_REQUIRED_LIBRARIES ${BLAS_LIBRARIES})
++
++  IF(TRUE)
++    # Chaquopy: gfortran does not use the f2c return conventions (see
++    # https://gcc.gnu.org/onlinedocs/gcc-4.6.3/gfortran/Code-Gen-Options.html).
++    SET(BLAS_F2C_DOUBLE_WORKS TRUE)
++    SET(BLAS_F2C_FLOAT_WORKS TRUE)
++  ELSE()
+   CHECK_C_SOURCE_RUNS("
+ #include <stdlib.h>
+ #include <stdio.h>
+@@ -282,13 +289,17 @@
+   double r = sdot_(&four, x, &one, y, &one);
+   exit((float)r != (float).1234);
+ }" BLAS_F2C_FLOAT_WORKS )
++  ENDIF()
++
+   IF (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
+     MESSAGE(STATUS "This BLAS uses the F2C return conventions")
+     SET(BLAS_F2C TRUE)
+   ELSE (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
+     SET(BLAS_F2C FALSE)
+   ENDIF (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
+-  CHECK_C_SOURCE_RUNS("
++
++  # Chaquopy: was CHECK_C_SOURCE_RUNS
++  CHECK_C_SOURCE_COMPILES("
+ #include <stdlib.h>
+ #include <stdio.h>
+ float x[4] = { 1, 2, 3, 4 };
 --- src-original/CMakeLists.txt	2020-02-06 11:08:10.435120292 +0000
 +++ src/CMakeLists.txt	2020-02-05 13:58:13.845305370 +0000
 @@ -286,7 +286,7 @@
@@ -175,9 +210,23 @@
    target_compile_definitions(libprotobuf
 --- src-original/tools/setup_helpers/cmake.py	2020-02-06 11:08:10.751118883 +0000
 +++ src/tools/setup_helpers/cmake.py	2020-02-05 18:13:06.784345402 +0000
-@@ -285,9 +285,13 @@
+@@ -284,10 +284,27 @@
+             sys.exit(1)
          build_options.update(cmake__options)
  
++        # Chaquopy: see https://github.com/shibatch/sleef/issues/249
++        build_sleef_native = os.path.abspath("build-sleef-native")
++        if not os.path.exists(build_sleef_native):  # For rerunning with build-wheel.py --no-unpack
++            os.mkdir(build_sleef_native)
++            sleef_env = os.environ.copy()
++            for name in ["AR", "ARFLAGS", "AS", "CC", "CFLAGS", "CPP", "CPPFLAGS", "CXX",
++                         "CXXFLAGS", "F77", "F90", "FARCH", "FC", "LD", "LDFLAGS", "LDSHARED",
++                         "NM", "RANLIB", "READELF", "STRIP"]:
++                sleef_env.pop(name, None)
++            kwargs = dict(cwd=build_sleef_native, env=sleef_env)
++            check_call(["cmake", "../third_party/sleef"], **kwargs)
++            check_call(["cmake", "--build", "." , "--", "-j", str(os.cpu_count())], **kwargs)
++
          CMake.defines(args,
 -                      PYTHON_EXECUTABLE=sys.executable,
 -                      PYTHON_LIBRARY=cmake_python_library,
@@ -186,8 +235,8 @@
 +                      CMAKE_TOOLCHAIN_FILE=os.path.abspath("../chaquopy.toolchain.cmake"),
 +                      CAFFE2_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
 +                      ONNX_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
-+                      BLAS="Eigen",
-+                      NATIVE_BUILD_DIR=os.path.abspath("build-sleef-native"),  # TODO https://github.com/shibatch/sleef/issues/249
++                      BLAS="OpenBLAS",
++                      NATIVE_BUILD_DIR=build_sleef_native,
 +
                        TORCH_BUILD_VERSION=version,
                        NUMPY_INCLUDE_DIR=NUMPY_INCLUDE_DIR,

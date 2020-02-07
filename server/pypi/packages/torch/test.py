@@ -3,7 +3,7 @@ import unittest
 
 class TestPyTorch(unittest.TestCase):
 
-    # From https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
+    # Based on https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#pytorch-optim
     def test_basic(self):
         import torch
 
@@ -29,14 +29,11 @@ class TestPyTorch(unittest.TestCase):
         # optimizer which Tensors it should update.
         learning_rate = 1e-4
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-        for t in range(500):
+
+        def train():
             # Forward pass: compute predicted y by passing x to the model.
             y_pred = model(x)
-
-            # Compute and print loss.
             loss = loss_fn(y_pred, y)
-            if t % 100 == 99:
-                print(t, loss.item())
 
             # Before the backward pass, use the optimizer object to zero all of the
             # gradients for the variables it will update (which are the learnable
@@ -52,3 +49,12 @@ class TestPyTorch(unittest.TestCase):
             # Calling the step function on an Optimizer makes an update to its
             # parameters
             optimizer.step()
+
+            return loss.item()
+
+        for t in range(100):
+            loss = train()
+        self.assertGreater(loss, 10)
+        for t in range(200):
+            loss = train()
+        self.assertLess(loss, 1)
