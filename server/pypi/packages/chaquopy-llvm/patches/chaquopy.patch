@@ -1,0 +1,12 @@
+--- src-original/tools/llvm-shlib/CMakeLists.txt	2018-10-18 20:07:44.000000000 +0000
++++ src/tools/llvm-shlib/CMakeLists.txt	2020-02-08 18:17:30.460668845 +0000
+@@ -42,7 +42,8 @@
+   add_llvm_library(LLVM SHARED DISABLE_LLVM_LINK_LLVM_DYLIB SONAME ${SOURCES})
+ 
+   list(REMOVE_DUPLICATES LIB_NAMES)
+-  if(("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux") OR (MINGW) OR (HAIKU)
++  # Chaquopy: added ANDROID.
++  if(("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux") OR (MINGW) OR (HAIKU) OR (ANDROID)
+      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "GNU")
+      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "OpenBSD")

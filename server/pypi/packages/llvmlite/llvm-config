@@ -1,0 +1,21 @@
+#!/bin/bash
+set -eu
+
+llvm_version=$(grep chaquopy-llvm $(dirname $0)/meta.yaml | sed 's/.*chaquopy-llvm //')
+chaquopy_dir=$(realpath -e ../../requirements/chaquopy)
+
+# Support arguments used by ffi/build.py.
+if [ "$*" == "--version" ]; then
+    echo $llvm_version
+elif [ "$*" == "--includedir" ]; then
+    echo $chaquopy_dir/include
+elif [ "$*" == "--cxxflags" ]; then
+    echo -I $chaquopy_dir/include
+elif [ "$*" == "--ldflags" ]; then
+    echo -L $chaquopy_dir/lib
+elif [ "$*" == "--system-libs --libs all" ]; then
+    echo -lLLVM-${llvm_version:0:1}
+else
+    echo $0: Unknown arguments: \'$*\'
+    exit 1
+fi

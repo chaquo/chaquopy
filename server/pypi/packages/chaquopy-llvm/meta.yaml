@@ -1,0 +1,15 @@
+{% set version = "8.0.0" %}
+
+package:
+  name: chaquopy-llvm
+  version: {{ version }}
+
+build:
+  number: 1
+
+source:
+  url: http://llvm.org/releases/{{ version }}/llvm-{{ version }}.src.tar.xz
+
+requirements:
+  build:
+    - cmake

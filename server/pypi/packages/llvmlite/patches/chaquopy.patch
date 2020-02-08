@@ -1,0 +1,12 @@
+--- src-original/setup.py	2020-01-03 17:02:39.000000000 +0000
++++ src/setup.py	2020-02-08 21:47:06.900299993 +0000
+@@ -22,6 +22,9 @@
+ import sys
+ import shutil
+ 
++# Chaquopy
++os.environ["LLVM_CONFIG"] = f"{os.environ['RECIPE_DIR']}/llvm-config"
++
+ if os.environ.get('READTHEDOCS', None) == 'True':
+     sys.exit("setup.py disabled on readthedocs: called with %s"
+              % (sys.argv,))

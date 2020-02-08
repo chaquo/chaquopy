@@ -469,6 +469,9 @@ class BuildWheel:
 
                 set(CMAKE_SYSTEM_NAME Android)
                 set(CMAKE_SYSTEM_VERSION {self.api_level})
+                set(ANDROID_PLATFORM_LEVEL {self.api_level})
+                set(ANDROID_NATIVE_API_LEVEL {self.api_level})  # Deprecated, but used by llvm.
+
                 set(CMAKE_SYSTEM_PROCESSOR {CMAKE_PROCESSORS[self.abi]})
 
                 # Our requirements dir comes before the sysroot, because the sysroot include
