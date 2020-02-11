@@ -664,11 +664,29 @@ class TestAndroidStdlib(unittest.TestCase):
         import ctypes
         from ctypes.util import find_library
 
-        self.assertEqual("libc.so", find_library("c"))
-        self.assertEqual("liblog.so", find_library("log"))
+        libc = ctypes.CDLL(find_library("c"))
+        liblog = ctypes.CDLL(find_library("log"))
         self.assertIsNone(find_library("nonexistent"))
 
-        self.assertTrue(ctypes.pythonapi.PyLong_FromString)
+        # Work around double-underscore mangling of __android_log_write.
+        def assertHasSymbol(dll, name):
+            self.assertIsNotNone(getattr(dll, name))
+        def assertNotHasSymbol(dll, name):
+            with self.assertRaises(AttributeError):
+                getattr(dll, name)
+
+        assertHasSymbol(libc, "printf")
+        assertHasSymbol(liblog, "__android_log_write")
+        assertNotHasSymbol(libc, "__android_log_write")
+
+        # Global search (https://bugs.python.org/issue34592): only works on newer API levels.
+        if API_LEVEL >= 21:
+            main = ctypes.CDLL(None)
+            assertHasSymbol(main, "printf")
+            assertHasSymbol(main, "__android_log_write")
+            assertNotHasSymbol(main, "nonexistent")
+
+        assertHasSymbol(ctypes.pythonapi, "PyObject_Str")
 
     def test_datetime(self):
         import datetime

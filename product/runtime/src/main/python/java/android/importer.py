@@ -33,6 +33,7 @@ PATHNAME_PREFIX = "<chaquopy>/"
 
 def initialize(context, build_json, app_path):
     initialize_importlib(context, build_json, app_path)
+    initialize_ctypes()
     initialize_imp()
     initialize_pkg_resources()
 
@@ -73,6 +74,21 @@ def initialize_importlib(context, build_json, app_path):
         for name in finder.listdir(""):
             if name.endswith(".pth"):
                 site.addpackage(finder.extract_root, name, set())
+
+
+# Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
+def initialize_ctypes():
+    CDLL_init_original = ctypes.CDLL.__init__
+
+    def CDLL_init_override(self, name, *args, **kwargs):
+        if name:  # CDLL(None) is equivalent to dlopen(NULL).
+            finder = get_importer(dirname(name))
+            if isinstance(finder, AssetFinder):
+                finder.extract_if_changed(finder.zip_path(name))
+                finder.load_needed(name)
+        CDLL_init_original(self, name, *args, **kwargs)
+
+    ctypes.CDLL.__init__ = CDLL_init_override
 
 
 def initialize_imp():
@@ -221,6 +237,9 @@ class AssetPath(pathlib.PosixPath):
 
 
 class AssetFinder:
+    lock = RLock()
+    needed_loaded = {}
+
     def __init__(self, context, build_json, path):
         if not path.startswith(ASSET_PREFIX + "/"):
             raise ImportError(f"not an asset path: '{path}'")
@@ -309,6 +328,38 @@ class AssetFinder:
                 mod_base_name = getmodulename(filename)
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
+
+    def load_needed(self, filename):
+        with self.lock, open(filename, "rb") as so_file:
+            ef = ELFFile(so_file)
+            dynamic = ef.get_section_by_name(".dynamic")
+            if not dynamic:
+                raise Exception(filename + " has no .dynamic section")
+
+            for tag in dynamic.iter_tags():
+                if tag.entry.d_tag != "DT_NEEDED":
+                    continue
+                soname = tag.needed
+                if soname in self.needed_loaded:
+                    continue
+
+                try:
+                    needed_filename = self.extract_if_changed("chaquopy/lib/" + soname)
+                except FileNotFoundError:
+                    # Maybe it's a system library, or one of the libraries loaded by
+                    # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
+                    # get an exception in ctypes.CDLL or ExtensionFileLoader.create_module.
+                    continue
+                self.load_needed(needed_filename)
+
+                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+                # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
+                # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+                # available to subsequently-loaded libraries.
+                #
+                # It doesn't look like the library is closed when the CDLL object is garbage
+                # collected, but this isn't documented, so keep a reference for safety.
+                self.needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
 
     def extract_dir(self, zip_dir, recursive=True):
         for filename in self.listdir(zip_dir):
@@ -434,11 +485,10 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     lock = RLock()
     basenames_loaded = {}
-    needed_loaded = {}
 
     def create_module(self, spec):
         out_filename = self.extract_so()
-        self.load_needed(out_filename)
+        self.finder.load_needed(out_filename)
         spec.origin = out_filename
         mod = super().create_module(spec)
         mod.__file__ = self.path  # In case user code depends on the original filename.
@@ -471,38 +521,6 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
                 os.remove(load_name_abs)
             os.symlink(original_name, load_name_abs)
         return load_name_abs
-
-    def load_needed(self, filename):
-        with self.lock, open(filename, "rb") as so_file:
-            ef = ELFFile(so_file)
-            dynamic = ef.get_section_by_name(".dynamic")
-            if not dynamic:
-                raise Exception(filename + " has no .dynamic section")
-
-            for tag in dynamic.iter_tags():
-                if tag.entry.d_tag != "DT_NEEDED":
-                    continue
-                soname = tag.needed
-                if soname in self.needed_loaded:
-                    continue
-
-                try:
-                    needed_filename = self.finder.extract_if_changed("chaquopy/lib/" + soname)
-                except FileNotFoundError:
-                    # Maybe it's a system library, or one of the libraries loaded by
-                    # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
-                    # get an exception in ctypes.CDLL or ExtensionFileLoader.create_module.
-                    continue
-                self.load_needed(needed_filename)
-
-                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-                # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
-                # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-                # available to subsequently-loaded libraries.
-                #
-                # It doesn't look like the library is closed when the CDLL object is garbage
-                # collected, but this isn't documented, so keep a reference for safety.
-                self.needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
 
 
 LOADERS = [
