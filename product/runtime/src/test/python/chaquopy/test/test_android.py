@@ -773,6 +773,7 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual(ABI_FLAGS, sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
+        self.assertEqual("siphash24", sys.hash_info.algorithm)
         for p in sys.path:
             self.assertIsInstance(p, str)
             self.assertTrue(exists(p), p)
