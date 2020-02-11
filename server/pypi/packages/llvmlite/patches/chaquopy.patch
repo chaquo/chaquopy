@@ -1,3 +1,34 @@
+--- src-original/ffi/dylib.cpp	2020-01-03 17:02:39.000000000 +0000
++++ src/ffi/dylib.cpp	2020-02-11 00:57:35.986417061 +0000
+@@ -22,6 +22,14 @@
+ LLVMPY_LoadLibraryPermanently(const char *filename, const char **OutError)
+ {
+     std::string error;
++
++    // Chaquopy: without this flag, when LoadLibraryPermanently(NULL) has been called (which
++    // happens in EngineBuilder::create), SearchForAddressOfSymbol would only search via
++    // dlopen(NULL). This never returns anything before API level 21, and even after that
++    // it'll only search libraries loaded with RTLD_GLOBAL. libpython was originally loaded
++    // RTLD_LOCAL by AndroidPlatform, and reloading it with different flags won't change that.
++    llvm::sys::DynamicLibrary::SearchOrder = llvm::sys::DynamicLibrary::SO_LoadedLast;
++
+     bool failed = llvm::sys::DynamicLibrary::LoadLibraryPermanently(filename, &error);
+     if (failed) {
+       *OutError = LLVMPY_CreateString(error.c_str());
+--- src-original/llvmlite/binding/executionengine.py	2020-01-03 17:02:39.000000000 +0000
++++ src/llvmlite/binding/executionengine.py	2020-02-11 00:55:33.462957833 +0000
+@@ -23,6 +23,11 @@
+         if not engine:
+             raise RuntimeError(str(outerr))
+ 
++    # Chaquopy: see comment in ffi/dylib.cpp.
++    import sysconfig
++    from . import dylib
++    dylib.load_library_permanently(sysconfig.get_config_vars()["LDLIBRARY"])
++
+     target_machine._owned = True
+     return ExecutionEngine(engine, module=module)
+ 
 --- src-original/setup.py	2020-01-03 17:02:39.000000000 +0000
 +++ src/setup.py	2020-02-08 21:47:06.900299993 +0000
 @@ -22,6 +22,9 @@

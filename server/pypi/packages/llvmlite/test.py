@@ -52,4 +52,5 @@ class TestLlvmlite(unittest.TestCase):
 
         # Run the function via ctypes
         cfunc = CFUNCTYPE(c_double, c_double, c_double)(func_ptr)
+        self.assertEqual(9, cfunc(2, 7))
         self.assertEqual(4.5, cfunc(1.0, 3.5))

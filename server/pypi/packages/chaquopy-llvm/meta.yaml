@@ -1,3 +1,5 @@
+# When updating, check https://github.com/numba/llvmlite/tree/master/conda-recipes/llvmdev and
+# update patches as necessary.
 {% set version = "8.0.0" %}
 
 package:
@@ -5,7 +7,7 @@ package:
   version: {{ version }}
 
 build:
-  number: 1
+  number: 2
 
 source:
   url: http://llvm.org/releases/{{ version }}/llvm-{{ version }}.src.tar.xz

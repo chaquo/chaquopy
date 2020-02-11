@@ -2,7 +2,7 @@
 set -eu
 
 # Based on https://github.com/numba/llvmlite/tree/master/conda-recipes/llvmdev, which,
-# according to https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html "is the
+# according to https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html, "is the
 # canonical reference for building LLVM for llvmlite".
 
 # There are undefined symbols in plugin modules, e.g lib/Transforms/Hello.
@@ -39,6 +39,7 @@ _cmake_config+=(-DLLVM_BUILD_LLVM_DYLIB=ON)
 _cmake_config+=(-DLLVM_TABLEGEN=$(realpath $build_tblgen/bin/llvm-tblgen))
 
 _cmake_config+=(-DCMAKE_TOOLCHAIN_FILE="../chaquopy.toolchain.cmake")
+_cmake_config+=(-DLLVM_HOST_TRIPLE=$triple)
 _cmake_config+=(-DLLVM_TARGETS_TO_BUILD=$target)
 _cmake_config+=(-DLLVM_TARGET_ARCH=$target)
 _cmake_config+=(-DLLVM_DEFAULT_TARGET_TRIPLE=$triple)

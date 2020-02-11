@@ -1,0 +1,35 @@
+--- src-original/numba/npyufunc/parallel.py	2020-01-29 15:21:49.000000000 +0000
++++ src/numba/npyufunc/parallel.py	2020-02-08 22:41:35.162472017 +0000
+@@ -288,7 +288,7 @@
+     else:
+         # windows uses spawn so is fine, linux uses fork has the lock
+         _backend_init_process_lock = multiprocessing.RLock()
+-except OSError as e:
++except (OSError, ImportError) as e:  # Chaquopy: added ImportError which is thrown by RLock().
+ 
+     # probably lack of /dev/shm for semaphore writes, warn the user
+     msg = ("Could not obtain multiprocessing lock due to OS level error: %s\n"
+--- src-original/setup.py	2020-01-29 15:21:49.000000000 +0000
++++ src/setup.py	2020-02-08 22:14:03.697531223 +0000
+@@ -92,6 +92,12 @@
+     """
+     Return a list of Extension instances for the setup() call.
+     """
++
++    # Chaquopy
++    import builtins
++    sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
++    builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
++
+     # Note we don't import Numpy at the toplevel, since setup.py
+     # should be able to run without Numpy for pip to discover the
+     # build dependencies
+@@ -344,7 +350,7 @@
+     author_email="numba-users@continuum.io",
+     url="http://numba.github.com",
+     packages=packages,
+-    setup_requires=build_requires,
++    # Chaquopy: removed setup_requires=build_requires,
+     install_requires=install_requires,
+     python_requires=f">={min_python_version}",
+     license="BSD",
