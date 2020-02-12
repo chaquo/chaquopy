@@ -9,6 +9,22 @@
  
      # probably lack of /dev/shm for semaphore writes, warn the user
      msg = ("Could not obtain multiprocessing lock due to OS level error: %s\n"
+--- src-original/numba/targets/cpu.py	2020-01-29 15:21:49.000000000 +0000
++++ src/numba/targets/cpu.py	2020-02-12 23:11:23.057858562 +0000
+@@ -52,7 +52,12 @@
+ 
+         # Add ARM ABI functions from libgcc_s
+         if platform.machine() == 'armv7l':
+-            ll.load_library_permanently('libgcc_s.so.1')
++            # Chaquopy: see build-libgcc.sh.
++            import ctypes
++            from os.path import dirname, join
++            libgcc_filename = join(dirname(__file__), "libgcc_numba.so")
++            ctypes.CDLL(libgcc_filename, ctypes.RTLD_GLOBAL)  # Extract the file.
++            ll.load_library_permanently(libgcc_filename)  # CDLL isn't enough on its own.
+ 
+         # Map external C functions.
+         externals.c_math_functions.install(self)
 --- src-original/setup.py	2020-01-29 15:21:49.000000000 +0000
 +++ src/setup.py	2020-02-08 22:14:03.697531223 +0000
 @@ -92,6 +92,12 @@
@@ -24,7 +40,32 @@
      # Note we don't import Numpy at the toplevel, since setup.py
      # should be able to run without Numpy for pip to discover the
      # build dependencies
-@@ -344,7 +350,7 @@
+@@ -309,6 +315,15 @@
+     'setuptools',
+ ]
+ 
++# Chaquopy: see build-libgcc.sh.
++if is_building() and os.environ["CHAQUOPY_ABI"] == "armeabi-v7a":
++    import subprocess
++    libgcc_name = "libgcc_numba.so"
++    subprocess.run([f"{os.environ['RECIPE_DIR']}/build-libgcc.sh",
++                    f"numba/targets/{libgcc_name}"], check=True)
++else:
++    libgcc_name = None
++
+ metadata = dict(
+     name='numba',
+     description="compiling Python code using LLVM",
+@@ -337,14 +353,15 @@
+         "numba.runtime": ["*.c", "*.h"],
+         "numba.cext": ["*.c", "*.h"],
+         # numba gdb hook init command language file
+-        "numba.targets": ["cmdlang.gdb"],
++        "numba.targets": ["cmdlang.gdb"] + \
++            [libgcc_name] if libgcc_name else [],  # Chaquopy
+     },
+     scripts=["numba/pycc/pycc", "bin/numba"],
+     author="Anaconda, Inc.",
      author_email="numba-users@continuum.io",
      url="http://numba.github.com",
      packages=packages,
