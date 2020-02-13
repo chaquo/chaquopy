@@ -1,36 +1,33 @@
-#/bin/bash
+#!/bin/bash
 #
 # Positional arguments:
-#  * Path to Crystax NDK
-#  * Maven repository URL, e.g. "https://chaquo.com/maven/com/chaquo/python/target/3.6.5-11"
+#  * Maven target version directory, e.g. /path/to/com/chaquo/python/target/3.6.5-11
+#  * `toolchains` directory to unpack into: must already contain ABI subdirectories, but can
+#     otherwise be empty.
 
 set -eu
 
-crystax_dir="$(cd ${1:?} && pwd)"
-maven_url="${2:?}"
-full_ver="$(basename $maven_url)"
-short_ver="$(echo $full_ver | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
-
-crystax_python_dir="$crystax_dir/sources/python/$short_ver"
-mkdir "$crystax_python_dir"  # Error if already exists: don't want to overwrite it.
+target_dir="$(realpath ${1:?})"
+toolchains_dir="$(realpath "${2:?}")"
 
 tmp_dir="/tmp/unpackage-target-$$"
 mkdir "$tmp_dir"
 
-for abi in armeabi-v7a arm64-v8a x86 x86_64; do
+cd "$toolchains_dir"
+for abi in *; do
     abi_dir="$tmp_dir/$abi"
     mkdir "$abi_dir"
-    filename="target-$full_ver-$abi.zip"
-    wget -P "$abi_dir" "$maven_url/$filename"
-    unzip -q -d "$abi_dir" "$abi_dir/$filename"
+    unzip -q -d "$abi_dir" "$target_dir/target-"*"-$abi.zip"
 
-    # Include directory is the same for all ABIs.
-    if [[ ! -e "$crystax_python_dir/include" ]]; then
-        cp -a "$abi_dir/include" "$crystax_python_dir"
-    fi
+    prefix="$toolchains_dir/$abi/sysroot/usr"
+    mkdir -p "$prefix/include"
+    cp -a "$abi_dir/include/"* "$prefix/include"
 
-    mkdir -p "$crystax_python_dir/libs/$abi"
-    cp "$abi_dir/jniLibs/$abi/libpython${short_ver}m.so" "$crystax_python_dir/libs/$abi"
+    mkdir -p "$prefix/lib"
+    cp -a "$abi_dir/jniLibs/$abi/"* "$prefix/lib"
+    for name in "$prefix/lib/"*_chaquopy.so; do
+        ln -sf "$(basename "$name")" "$(echo $name | sed 's/_chaquopy//')"
+    done
 done
 
 rm -rf "$tmp_dir"

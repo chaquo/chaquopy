@@ -3,7 +3,7 @@
 # Positional arguments:
 #  * Python major.minor version, e.g. "3.8"
 #  * Python micro version and build number, separated by a dash, e.g. "1-2" (see Common.java)
-#  * Target directory, e.g. /path/to/maven/com/chaquo/python/target
+#  * Maven target directory, e.g. /path/to/com/chaquo/python/target
 
 set -eu
 
@@ -28,8 +28,11 @@ for toolchain_dir in $this_dir/toolchains/*; do
     echo "$abi"
     mkdir "$abi"
     cd "$abi"
-
     prefix="$toolchain_dir/sysroot/usr"
+
+    mkdir include
+    cp -a "$prefix/include/"{python$short_ver*,openssl,sqlite*} include
+
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
     cp "$prefix/lib/libpython$short_ver"*.so "$jniLibs_dir"
