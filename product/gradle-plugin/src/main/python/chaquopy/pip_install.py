@@ -121,6 +121,13 @@ class PipInstall(object):
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
+        # Except for `lib`, the contents of the `chaquopy` directory aren't needed at runtime.
+        chaquopy_dir = join(abi_dir, "chaquopy")
+        if exists(chaquopy_dir):
+            for name in os.listdir(chaquopy_dir):
+                if name != "lib":
+                    rmtree(join(chaquopy_dir, name))
+
         logger.debug("Reading dist-info")
         req_infos = []
         abi_tree = {}
@@ -135,6 +142,8 @@ class PipInstall(object):
                     if not path_abs.startswith(abi_dir):
                         # pip's gone and installed something outside of the target directory.
                         raise ValueError("invalid path in RECORD: '{}'".format(path))
+                    if path.startswith("chaquopy/") and not path.startswith("chaquopy/lib/"):
+                        continue  # See chaquopy_dir above.
                     if not path_abs.startswith(dist_info_dir):
                         value = (hash_str, int(size_str))
                         try:
