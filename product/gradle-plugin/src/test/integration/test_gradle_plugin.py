@@ -149,7 +149,6 @@ class Basic(GradleTestCase):
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
 
-    @skipUnless(agp_version_info >= (3, 2), "Requires dynamic feature support")
     def test_dynamic_feature(self):
         self.RunGradle("base", "Basic/dynamic_feature")
 
@@ -194,7 +193,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.6.0-rc02. If you experience "
+                          "Gradle plugin versions beyond 3.6.0. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
