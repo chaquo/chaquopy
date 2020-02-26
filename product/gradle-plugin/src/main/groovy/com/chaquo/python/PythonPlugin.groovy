@@ -526,13 +526,18 @@ class PythonPlugin implements Plugin<Project> {
         try {
             execResult.assertNormalExitValue()
         } catch (ExecException e) {
-            // The Build window opens in tree mode by default, with the root node focused. This
-            // displays only the exception message, which will be something like "Process
-            // 'command 'python'' finished with non-zero exit value 1", but won't include any
-            // of the command's output. So we need to tell the user how to see that.
+            // By default the Build window displays only the exception message, which will be
+            // something like "Process 'command 'python'' finished with non-zero exit value 1".
+            // So we need to tell the user how to see the command output.
             throw new BuildPythonFailedException(
-                "${e.message}. For full details, open the 'Build' window and " +
-                "switch to text mode with the 'Toggle view' button on the left.")
+                "${e.message}\n\n" +
+                "To view full details in Android Studio:\n" +
+                "* In version 3.6 and newer, click the 'Build: failed' caption to the left " +
+                "of this message.\n" +
+                "* In version 3.5 and older, click the 'Toggle view' button to the left of " +
+                "this message.\n" +
+                "* Then scroll up to see the full output."
+            )
         }
     }
 

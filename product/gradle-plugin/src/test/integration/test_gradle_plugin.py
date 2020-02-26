@@ -454,13 +454,18 @@ class Pyc(GradleTestCase):
 
 
 class BuildPython(GradleTestCase):
+    # Some of these messages are also used in other test classes.
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
     MUST = r"buildPython must be version 3.5 or later: this is version {}.\d+. " + SEE
     ADVICE = "set buildPython to your Python executable path. " + SEE
     INVALID = "A problem occurred starting process 'command '{}''. Please " + ADVICE
-    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1. For full "
-              r"details, open the 'Build' window and switch to text mode with the "
-              r"'Toggle view' button on the left.")
+    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1\n\n"
+              r"To view full details in Android Studio:\n"
+              r"\* In version 3.6 and newer, click the 'Build: failed' caption to the left of "
+              r"this message.\n"
+              r"\* In version 3.5 and older, click the 'Toggle view' button to the left of "
+              r"this message.\n"
+              r"\* Then scroll up to see the full output.")
 
     def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "BuildPython/minimum", requirements=["apple/__init__.py"],
