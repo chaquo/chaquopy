@@ -154,10 +154,11 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_data(self):
         # App ZIP
-        self.check_data(APP_ZIP, "chaquopy", "test/test_android.py",
-                        b'"""This file tests internal details of AndroidPlatform.')
-        self.check_data(APP_ZIP, "chaquopy", "test/resources/b.so", b"bravo")
-        self.check_data(APP_ZIP, "chaquopy", "test/resources/a.txt", b"alpha")
+        pkg = "android1"
+        self.check_data(APP_ZIP, pkg, "__init__.py", b"# This package is")
+        self.check_data(APP_ZIP, pkg, "b.so", b"bravo")
+        self.check_data(APP_ZIP, pkg, "a.txt", b"alpha")
+        self.check_data(APP_ZIP, pkg, "subdir/c.txt", b"charlie")
 
         # Requirements ZIP
         self.check_data(REQS_COMMON_ZIP, "murmurhash", "about.pyc", MAGIC_NUMBER)
@@ -225,6 +226,10 @@ class TestAndroidImport(unittest.TestCase):
 
     def clean_reload(self, mod):
         sys.modules.pop(mod.__name__, None)
+        submod_names = [name for name in sys.modules if name.startswith(mod.__name__ + ".")]
+        for name in submod_names:
+            sys.modules.pop(name)
+
         new_mod = import_module(mod.__name__)
         self.assertIsNot(new_mod, mod)
         return new_mod
@@ -362,7 +367,6 @@ class TestAndroidImport(unittest.TestCase):
             self.fail()
 
     def test_imp(self):
-        self.longMessage = True
         with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent'"):
             imp.find_module("nonexistent")
 
@@ -510,26 +514,26 @@ class TestAndroidImport(unittest.TestCase):
 
     def test_pr_resources(self):
         # App ZIP
-        self.assertTrue(pr.resource_exists(__package__, "test_android.py"))
-        self.assertTrue(pr.resource_exists(__package__, "resources"))
-        self.assertFalse(pr.resource_exists(__package__, "nonexistent"))
-        self.assertTrue(pr.resource_exists(__package__, "resources/a.txt"))
-        self.assertFalse(pr.resource_exists(__package__, "resources/nonexistent.txt"))
+        pkg = "android1"
+        names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
+        self.assertCountEqual(names, pr.resource_listdir(pkg, ""))
+        for name in names:
+            with self.subTest(name=name):
+                self.assertTrue(pr.resource_exists(pkg, name))
+                self.assertEqual(pr.resource_isdir(pkg, name),
+                                 name == "subdir")
+        self.assertFalse(pr.resource_exists(pkg, "nonexistent"))
+        self.assertFalse(pr.resource_isdir(pkg, "nonexistent"))
 
-        self.assertFalse(pr.resource_isdir(__package__, "test_android.py"))
-        self.assertTrue(pr.resource_isdir(__package__, "resources"))
-        self.assertFalse(pr.resource_isdir(__package__, "nonexistent"))
+        self.assertCountEqual(["c.txt"], pr.resource_listdir(pkg, "subdir"))
+        self.assertTrue(pr.resource_exists(pkg, "subdir/c.txt"))
+        self.assertFalse(pr.resource_isdir(pkg, "subdir/c.txt"))
+        self.assertFalse(pr.resource_exists(pkg, "subdir/nonexistent.txt"))
 
-        self.assertCountEqual(["__init__.py", "a.txt", "b.so", "subdir"],
-                              pr.resource_listdir(__package__, "resources"))
-        self.assertCountEqual(["c.txt"],
-                              pr.resource_listdir(__package__, "resources/subdir"))
-
-        self.check_pr_resource(APP_ZIP, __package__, "resources/__init__.py",
-                               b"# This directory must be")
-        self.check_pr_resource(APP_ZIP, __package__, "resources/a.txt", b"alpha\n")
-        self.check_pr_resource(APP_ZIP, __package__, "resources/b.so", b"bravo\n")
-        self.check_pr_resource(APP_ZIP, __package__, "resources/subdir/c.txt", b"charlie\n")
+        self.check_pr_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
+        self.check_pr_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
+        self.check_pr_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
+        self.check_pr_resource(APP_ZIP, pkg, "subdir/c.txt", b"charlie\n")
 
         # Requirements ZIP
         self.reset_package("murmurhash")
@@ -567,14 +571,15 @@ class TestAndroidImport(unittest.TestCase):
     # Unlike pkg_resources, importlib.resources cannot access subdirectories within packages.
     def test_importlib_resources(self):
         # App ZIP
-        pkg = "chaquopy.test.resources"
-        self.assertCountEqual(["__init__.py", "a.txt", "b.so", "subdir"],
-                              resources.contents(pkg))
-        self.assertTrue(resources.is_resource(pkg, "a.txt"))
-        self.assertTrue(resources.is_resource(pkg, "b.so"))
-        self.assertFalse(resources.is_resource(pkg, "subdir"))
+        pkg = "android1"
+        names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
+        self.assertCountEqual(names, resources.contents(pkg))
+        for name in names:
+            with self.subTest(name=name):
+                self.assertEqual(resources.is_resource(pkg, name),
+                                 name != "subdir")
 
-        self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This directory must be")
+        self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
         self.check_ir_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
         self.check_ir_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
 
