@@ -48,8 +48,8 @@ class GradleTestCase(TestCase):
     maxDiff = None
 
     def setUp(self):
-        # Note: the appdirs module used in pip._internal.locations is actually imported from
-        # pip._internal.utils, not pip._vendor.
+        # The appdirs module used in pip._internal.locations is an old or modified version
+        # imported from pip._internal.utils, which is why pip doesn't need to pass `appauthor`.
         cache_dir = appdirs.user_cache_dir("chaquopy/pip", appauthor=False)
         if exists(cache_dir):
             rmtree(cache_dir)
@@ -193,7 +193,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.6.0. If you experience "
+                          "Gradle plugin versions beyond 3.6.1. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
