@@ -28,6 +28,7 @@ cd $build_dir
 # Set some things which can't be autodetected when cross-compiling.
 cat > config.site <<EOF
 ac_cv_aligned_required=no  # Default of "yes" changes hash function to FNV, which breaks Numba.
+ac_cv_func_wcsftime=no  # Broken before API level 21: see build-toolchain.sh.
 ac_cv_file__dev_ptmx=no
 ac_cv_file__dev_ptc=no
 EOF

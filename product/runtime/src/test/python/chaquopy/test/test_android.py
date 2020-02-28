@@ -798,6 +798,12 @@ class TestAndroidStdlib(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as f:
             self.assertEqual(expected_dir, dirname(f.name))
 
+    def test_time(self):
+        import time
+        t = time.gmtime(1582917965)
+        self.assertEqual("Fri, 28 Feb 2020 19:26:05",
+                         time.strftime("%a, %d %b %Y %H:%M:%S", t))
+
 
 class TestAndroidStreams(unittest.TestCase):
 
