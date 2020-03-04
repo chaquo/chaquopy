@@ -71,6 +71,7 @@ def initialize_hashlib(context):
     reload(hashlib)
 
 
+# See also importer.initialize_ctypes.
 def initialize_ctypes(context):
     import ctypes.util
     import sysconfig

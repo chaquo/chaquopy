@@ -134,9 +134,10 @@ cdef bint set_env(JNIEnv *env, const char *name, const char *value):
 
 # For debugging packages which write to native stdout and stderr.
 def redirect_streams():
-    tmpdir = os.environ["TMPDIR"]
-    redirect(STDOUT_FILENO, f"{tmpdir}/stdout.txt".encode())
-    redirect(STDERR_FILENO, f"{tmpdir}/stderr.txt".encode())
+    home = os.environ["HOME"]
+    pid = os.getpid()
+    redirect(STDOUT_FILENO, f"{home}/{pid}-stdout.txt".encode())
+    redirect(STDERR_FILENO, f"{home}/{pid}-stderr.txt".encode())
 
 
 cdef int redirect(int stream_fd, char *filename):
