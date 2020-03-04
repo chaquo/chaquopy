@@ -26,7 +26,9 @@ rm -rf $install_dir
 make install_sw DESTDIR=$install_dir
 tmp_prefix="$install_dir/usr/local"
 prefix="$sysroot/usr"
+rm -rf $prefix/include/openssl
 cp -af $tmp_prefix/include/* $prefix/include
+rm -rf $prefix/lib/lib{crypto,ssl}*.so*
 cp -af $tmp_prefix/lib/*.so* $prefix/lib
 rm -r $install_dir
 
