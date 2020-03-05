@@ -50,8 +50,8 @@ public class JavaDemoActivity extends AppCompatActivity {
 
         PyObject formatter = formatters.callAttr("HtmlFormatter");
         PyObject lexer = lexers.callAttr("get_lexer_for_filename", filename);
-        String body = pygments.callAttr
-            ("highlight", text, lexer, formatter).toJava(String.class);
+        String body = pygments.callAttr("highlight", text, lexer, formatter)
+            .toString();
 
         String html = String.format(
             "<html><head><style>%s\n%s</style></head><body>%s</body></html>",
