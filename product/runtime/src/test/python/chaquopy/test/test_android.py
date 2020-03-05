@@ -782,7 +782,9 @@ class TestAndroidStdlib(unittest.TestCase):
         for p in sys.path:
             self.assertIsInstance(p, str)
             self.assertTrue(exists(p), p)
-        self.assertRegexpMatches(sys.platform, r"^linux")
+        self.assertRegex(sys.platform, r"^linux")
+        self.assertRegex(sys.version,  # Make sure we don't have any "-dirty" caption.
+                         r"^{}.{}.{} \(default, ".format(*sys.version_info[:3]))
 
     def test_sysconfig(self):
         import distutils.sysconfig

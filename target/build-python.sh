@@ -25,12 +25,19 @@ rm -rf $build_dir
 mkdir -p $build_dir
 cd $build_dir
 
-# Set some things which can't be autodetected when cross-compiling.
+# Override some tests.
 cat > config.site <<EOF
+# Prevent "-dirty" appearing in console banner due to editing the configure script below.
+ac_cv_prog_HAS_GIT=no
+
+# Things that can't be autodetected when cross-compiling.
 ac_cv_aligned_required=no  # Default of "yes" changes hash function to FNV, which breaks Numba.
-ac_cv_func_wcsftime=no  # Broken before API level 21: see build-toolchain.sh.
 ac_cv_file__dev_ptmx=no
 ac_cv_file__dev_ptc=no
+
+# Broken before API level 21 (see build-toolchain.sh), but because configure does a link test
+# rather than a header test, it would still detect it.
+ac_cv_func_wcsftime=no
 EOF
 export CONFIG_SITE=$(pwd)/config.site
 
