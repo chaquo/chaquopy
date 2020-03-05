@@ -6,7 +6,9 @@ Run `gradlew runtime:check`.
 
 Temporarily set the demo app to a single ABI, and run unit tests on any device.
 
-Restore it to the full set of ABIs, then run unit tests *twice* on any device.
+Restore it to the full set of ABIs, then run unit tests on any device.
+
+Make sure unit tests work when run twice in succession.
 
 Check app sizes and startup times compared to previous version (#5620).
 
@@ -30,22 +32,31 @@ publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:
 ## Package tests
 
 Remove license key from pkgtest app, and temporarily set it to include all packages by passing
-`null` to `addPackages`. Then test it on the following devices, with at least one device being
-a clean install:
+`null` to `addPackages`.
+
+Temporarily set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case), then test it on
+the following devices, with at least one device being a clean install:
 
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
 * x86\_64 emulator with API 23 (#5563)
+
+Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
+least one device being a clean install:
+
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
-Also, on at least one device, test that the license notification and enforcement works
-correctly.
+On at least one device, test that the license notification and enforcement works correctly.
+
+Do an all-ABI test of opencv-contrib-python and pycrypto, and possibly some of the other
+entries in `DEFAULT_EXCLUDE_PACKAGES`.
 
 
 ## Demo app
 
-Copy `gradle` and `runtime` artifacts to the public Maven repository.
+Copy current versions of `gradle`, `runtime` and (if necessary) `target` to the public Maven
+repository.
 
 Make sure all public repositories are clean.
 
@@ -69,7 +80,7 @@ Update `public/demo/CHANGELOG.md`.
 
 Release app on Google Play, updating description and screenshots if necessary.
 
-Copy APK to Maven repository.
+Copy APK to the public Maven repository.
 
 Set reminder to check for Google Play crash reports regularly over the next month.
 

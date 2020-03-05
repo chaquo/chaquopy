@@ -23,7 +23,7 @@ Data types are converted between Python and Java as follows:
 * When Java code uses a "boxed" type, auto-boxing is done when converting from Python to Java,
   and auto-unboxing when converting from Java to Python.
 
-* Java `String` and `char` both correspond to a Python Unicode string.
+* Java `String` and `char` both correspond to Python `str`.
 
 * A Java object is represented as a :any:`jclass` object.
 
@@ -106,7 +106,7 @@ Overloaded methods are resolved according to Java rules::
     >>> sb.append(cast(String, None))
     >>> sb.append(3.142)
     >>> sb.toString()
-    u'true123null3.142'
+    'true123null3.142'
 
 If a method or field name clashes with a Python reserved word, it can be accessed by
 appending an underscore, e.g. `from` becomes `from_`. The original name is still

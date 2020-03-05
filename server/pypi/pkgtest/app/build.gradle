@@ -4,7 +4,7 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
-// Packages not to include in regular pre-release testing.
+// Packages not to include in the mass pre-release test.
 ext.DEFAULT_EXCLUDE_PACKAGES = [
     // Not in the public package repository.
     "cmake-example",

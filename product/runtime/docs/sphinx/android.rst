@@ -74,8 +74,14 @@ devices, e.g.::
         }
     }
 
-There's no need to actually install the Android native development kit (NDK), as Chaquopy will
-download pre-compiled CPython binaries for the selected ABIs.
+You may see the warning "Compatible side by side NDK version was not found". This is harmless,
+and there's no need to actually install the NDK, as all of Chaquopy's native libraries are
+already pre-compiled and stripped. However, you can silence the warning as follows:
+
+* Go to Tools > SDK Manager.
+* Select the SDK Tools tab.
+* Select "Show Package Details".
+* Under "NDK (Side by side)", select the version mentioned in the warning.
 
 .. note:: Each ABI will add several MB to the size of the app, plus the size of any native
           :ref:`requirements <android-requirements>`. Because of the way the native components
@@ -330,6 +336,8 @@ storage space.
 
 Python standard library
 =======================
+
+.. _stdlib-unsupported:
 
 Unsupported modules
 -------------------

@@ -1,6 +1,31 @@
 Change log
 ##########
 
+7.0.2 (2020-03-05)
+==================
+
+* [**BACKWARD INCOMPATIBLE**] Runtime Python version is now 3.8.1.
+
+  * See compatibility notes for `Python 3.7
+    <https://docs.python.org/3/whatsnew/3.7.html#porting-to-python-3-7>`_ and `Python 3.8
+    <https://docs.python.org/3/whatsnew/3.8.html#porting-to-python-3-8>`_.
+  * All Python standard library modules are now supported except those in :ref:`this list
+    <stdlib-unsupported>`. In particular, support has been added for :any:`bz2`,
+    :any:`importlib.metadata`, :any:`importlib.resources` and :any:`lzma`.
+  * Most native packages have been upgraded to a more recent version. If you've used specific
+    version numbers in a `build.gradle` or `requirements.txt` file, you may need to update
+    them. See `the repository index <https://chaquo.com/pypi-7.0/>`_ for a complete list.
+* Android Gradle plugin version 3.6 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.1 is no longer supported.
+* [**BACKWARD INCOMPATIBLE**] :ref:`buildPython <buildPython>` must now be at least Python 3.5.
+* Expose Java API using `api` configuration so it's available to dynamic feature modules.
+* Update CA bundle to certifi 2019.9.11.
+* Fix "cannot create a consistent method resolution order" error when using `androidx`.
+* Fix a deadlock involving the Java API.
+* Improve local caching of packages which aren't available as wheels.
+* Reduce some temporary filename lengths to avoid the Windows 260-character limit.
+* Improve startup speed.
+
 6.3.0 (2019-08-25)
 ==================
 
@@ -59,7 +84,7 @@ Change log
     continue to be maintained until the end of 2019 (`#39
     <https://github.com/chaquo/chaquopy/issues/39>`_).
 
-* [**BACKWARD INCOMPATIBLE**] `buildPython` must now be at least Python 3.4.
+* [**BACKWARD INCOMPATIBLE**] :ref:`buildPython <buildPython>` must now be at least Python 3.4.
 * [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 16. This still
   covers `99% of active devices <https://developer.android.com/about/dashboards/index.html>`_.
 * Runtime components are now distributed as separate Maven artifacts. This fixes various
