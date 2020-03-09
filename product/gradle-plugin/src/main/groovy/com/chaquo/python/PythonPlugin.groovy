@@ -403,6 +403,7 @@ class PythonPlugin implements Plugin<Project> {
         def mergeDir = variantGenDir(variant, "sources")
         return project.task(taskName("merge", variant, "sources")) {
             ext.destinationDir = mergeDir
+            dependsOn buildPackagesTask
             inputs.property("buildPython", python.buildPython)
             inputs.property("pyc", python.pyc.src).optional(true)
             inputs.files(dirSets.collect { it.sourceFiles })

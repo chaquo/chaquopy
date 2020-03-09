@@ -108,7 +108,9 @@ Increment python/VERSION.txt for next version number.
 
 ## User communication
 
-Post blog entry to website and Facebook.
+Post blog entry to website.
+
+Post links to Facebook and Twitter.
 
 Update any GitHub issues.
 
