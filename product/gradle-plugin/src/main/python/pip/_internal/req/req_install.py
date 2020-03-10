@@ -468,7 +468,8 @@ class InstallRequirement(object):
 
         with indent_log():
             script = SETUPTOOLS_SHIM % self.setup_py
-            base_cmd = [sys.executable, '-c', script]
+            # Chaquopy: added '-S': see comment in wheel.WheelBuilder._base_setup_args.
+            base_cmd = [sys.executable, '-S', '-c', script]
             if self.isolated:
                 base_cmd += ["--no-user-cfg"]
             egg_info_cmd = base_cmd + ['egg_info']

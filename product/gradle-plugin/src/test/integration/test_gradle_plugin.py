@@ -1,4 +1,4 @@
-# This file requires Python 3.6 or later, and the requirements listed in requirements.txt.
+# This file requires the packages listed in requirements.txt.
 
 from contextlib import contextmanager
 from distutils import dir_util
@@ -658,6 +658,17 @@ class PythonReqs(GradleTestCase):
                 run.apply_layers(f"PythonReqs/{name}")
                 run.rerun(requirements=[f"{name}.py"])
 
+    # site-packages should not be visible to setup.py scripts.
+    def test_sdist_site(self):
+        # The default buildPython should be the same Python executable as is running this test
+        # script, but make sure by checking for one of this script's requirements.
+        PKG_NAME = "javaproperties"
+        self.run_build_python(["-c", f"import {PKG_NAME}"])
+
+        run = self.RunGradle("base", "PythonReqs/sdist_site",
+                             env={"CHAQUOPY_PKG_NAME": PKG_NAME}, succeed=False)
+        self.assertInLong(f"No module named '{PKG_NAME}'", run.stdout)
+
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
@@ -929,20 +940,18 @@ class PythonReqs(GradleTestCase):
         return version
 
     def get_build_python_version(self):
-        for version in [PYTHON_VERSION_SHORT, PYTHON_VERSION_MAJOR]:
-            if os.name == "nt":
-                build_python = ["py", "-" + version]
-            else:
-                build_python = ["python" + version]
-            try:
-                version_proc = run(build_python + ["--version"], check=True,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   universal_newlines=True)
-                _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
-                return version
-            except subprocess.CalledProcessError:
-                pass
-        raise Exception("Couldn't find buildPython")
+        version_proc = self.run_build_python(["--version"])
+        _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
+        return version
+
+    def run_build_python(self, args, **kwargs):
+        for k, v in dict(check=True, capture_output=True, text=True).items():
+            kwargs.setdefault(k, v)
+        if os.name == "nt":
+            build_python = ["py", "-" + PYTHON_VERSION_SHORT]
+        else:
+            build_python = ["python" + PYTHON_VERSION_SHORT]
+        return run(build_python + args, **kwargs)
 
 
 class StaticProxy(GradleTestCase):

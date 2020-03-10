@@ -655,7 +655,15 @@ class WheelBuilder(object):
         # relies on site.py to find parts of the standard library outside the
         # virtualenv.
         return [
-            sys.executable, '-u', '-c',
+            # Chaquopy: added '-S' to avoid interference from site-packages. This makes
+            # non-installable packages fail more quickly and consistently. Also, some packages
+            # (e.g. Cython) install distutils hooks which can interfere with our attempts to
+            # disable compilers in setuptools/monkey.py.
+            #
+            # If this does cause a problem in virtualenvs as the comment above says, then it's
+            # a problem we've always had, because we've been running pip_install and pip with
+            # -S for ages, and nobody's ever reported a problem with that.
+            sys.executable, '-u', '-S', '-c',
             SETUPTOOLS_SHIM % req.setup_py
         ] + list(self.global_options)
 

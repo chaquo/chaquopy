@@ -110,8 +110,9 @@ class PipInstall(object):
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
             # altered its behaviour somewhat for performance: see commands/install.py.
             cmdline = ([sys.executable,
-                       "-S",  # Avoid interference from system/user site-packages
-                              # (this is not inherited by subprocesses).
+                       "-S",  # Avoid interference from site-packages. This is not inherited
+                              # by subprocesses, so it's used again in pip (see wheel.py and
+                              # req_install.py).
                         "-m", "pip", "install",
                         "--target", abi_dir,
                         "--platform", self.platform_tag(abi)] +

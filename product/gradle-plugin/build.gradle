@@ -1,3 +1,5 @@
+import com.chaquo.python.Common;
+
 apply plugin: 'groovy'
 
 group = "com.chaquo.python"
@@ -34,8 +36,7 @@ processResources {
 // close (https://github.com/gradle/gradle/issues/3987). This can be reproduced more simply
 // with the command `cmd /c start notepad.exe`: cmd will exit, but the Exec task won't
 // complete until you close Notepad.
-Task testTask(String name, Closure closure) {
-    def version = "3.6"
+Task testPythonTask(String name, String version, Closure closure) {
     def t = task(name, "group": "verification") {
         def pb = new ProcessBuilder()
         def command = new ArrayList<String>()
@@ -93,7 +94,8 @@ Task testTask(String name, Closure closure) {
     return t
 }
 
-testTask("testPython") {
+// Test on the minimum supported buildPython version.
+testPythonTask("testPython", "3.5") {
     workingDir "$projectDir/src/test/python"
 }
 check.dependsOn(testPython)
@@ -101,7 +103,7 @@ check.dependsOn(testPython)
 /** @param version Android Gradle plugin version (corresponds to directory
  *  test/integration/data/base-$version) */
 Task testIntegrationTask(String version) {
-    return testTask("testIntegration-$version") {
+    return testPythonTask("testIntegration-$version", Common.PYTHON_VERSION_SHORT) {
         dependsOn publish, ":runtime:publish"
         workingDir "$projectDir/src/test/integration"
         environment "AGP_VERSION", version

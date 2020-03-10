@@ -505,8 +505,8 @@ class PythonPlugin implements Plugin<Project> {
             execResult = project.exec {
                 environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
                 commandLine python.buildPython.split(/\s+/)
-                args "-S"  // Avoid interference from system/user site-packages
-                           // (this is not inherited by subprocesses).
+                args "-S"  // Avoid interference from site-packages. This is not inherited by
+                           // subprocesses, so it's used again in pip_install.py.
                 ignoreExitValue true  // A missing executable will still throw an exception.
                 closure.delegate = delegate
                 closure()

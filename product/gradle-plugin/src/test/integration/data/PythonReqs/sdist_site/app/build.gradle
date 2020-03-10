@@ -1,0 +1,21 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 16
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            pip {
+                install "packages/sdist_site-1.0.tar.gz"
+            }
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+}
