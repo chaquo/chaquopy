@@ -41,15 +41,6 @@ ac_cv_func_wcsftime=no
 EOF
 export CONFIG_SITE=$(pwd)/config.site
 
-if ! [[ $(basename $toolchain) =~ '64' ]]; then
-    # _FILE_OFFSET_BITS=64 causes many critical functions to disappear on API levels older than
-    # 24 (https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md).
-    # Modifying this in pyconfig.h is too late, because other configure tests may depend on it.
-    sed -i.old 's|_FILE_OFFSET_BITS 64|_FILE_OFFSET_BITS 32  /* Chaquopy: see build-python.sh */|' \
-        "$target_dir/python/configure"
-    grep -q "Chaquopy" "$target_dir/python/configure"
-fi
-
 # --enable-ipv6 prevents the "getaddrinfo bug" test, which can't be run when cross-compiling.
 $target_dir/python/configure --host=$host_triplet --build=x86_64-linux-gnu \
     --enable-shared --enable-ipv6 --without-ensurepip --with-openssl=$sysroot/usr
