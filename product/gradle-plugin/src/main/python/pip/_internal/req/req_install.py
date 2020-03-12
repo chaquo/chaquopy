@@ -838,9 +838,9 @@ class InstallRequirement(object):
                    "at https://github.com/chaquo/chaquopy/issues.".format(self))
         if hasattr(self.link, "chaquopy_candidates"):
             wheel_versions = [str(ver) for ver in
-                              sorted(candidate.version
-                                     for candidate in self.link.chaquopy_candidates
-                                     if candidate.location.is_wheel)]
+                              sorted(set(candidate.version
+                                         for candidate in self.link.chaquopy_candidates
+                                         if candidate.location.is_wheel))]
             if wheel_versions:
                 message += ("\nOr try using one of the following versions, which are available "
                             "as pre-built wheels: {}.".format(wheel_versions))
