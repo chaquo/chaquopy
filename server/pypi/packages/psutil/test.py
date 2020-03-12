@@ -2,9 +2,12 @@ import os
 import platform
 import unittest
 
-
-IS_ANDROID = ("ANDROID_DATA" in os.environ)
-IS_64BIT = (platform.architecture()[0] == "64bit")
+try:
+    from android.os import Build
+except ImportError:
+    API_LEVEL = None
+else:
+    API_LEVEL = Build.VERSION.SDK_INT
 
 
 class TestPsutil(unittest.TestCase):
@@ -12,7 +15,9 @@ class TestPsutil(unittest.TestCase):
     def test_disk(self):
         import psutil
         parts = psutil.disk_partitions(all=True)
-        if IS_ANDROID and not IS_64BIT:  # See __ANDROID_API__ in patch.
+        # See __ANDROID_API__ in patch. The native API was added on API 21, but doesn't work
+        # until API 23.
+        if API_LEVEL and (API_LEVEL < 23 or platform.architecture()[0] == "32bit"):
             self.assertFalse(parts)
         else:
             self.assertIn("/", [p.mountpoint for p in parts])
@@ -20,7 +25,7 @@ class TestPsutil(unittest.TestCase):
     def test_network(self):
         import psutil
         addrs = psutil.net_if_addrs()
-        if IS_ANDROID:
+        if API_LEVEL:
             self.assertFalse(addrs)
         else:
             self.assertIn("lo", addrs)

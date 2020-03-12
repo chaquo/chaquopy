@@ -91,6 +91,7 @@ def initialize_ctypes():
             if isinstance(finder, AssetFinder):
                 finder.extract_if_changed(finder.zip_path(name))
                 finder.load_needed(name)
+                name = finder.prepare_dlopen(name)
         CDLL_init_original(self, name, *args, **kwargs)
 
     ctypes.CDLL.__init__ = CDLL_init_override
@@ -336,27 +337,6 @@ class AssetFinder:
 
     def load_needed(self, filename):
         with self.lock, open(filename, "rb") as so_file:
-            if platform.architecture()[0] == "64bit" and API_LEVEL < 23:
-                # Android ignores DT_SONAME before API level 23. As described in extract_so, on
-                # 32-bit ABIs it uses basenames instead. But on 64-bit ABIs it stores the full
-                # path passed to dlopen
-                # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
-                # This means it has no problem loading multiple libraries with the same
-                # basename. Unfortunately, it also means that basenames are not checked when
-                # resolving DT_NEEDED entries. So on these devices, DT_NEEDED entries can only
-                # be resolved using LD_LIBRARY_PATH and the system library directories.
-                #
-                # Changing the LD_LIBRARY_PATH environment variable at this point will have no
-                # effect. Instead, we update the path using an undocumented libdl function.
-                # This function exists for the use of System.loadLibrary, which sets the path
-                # to the lib directory of the caller's APK. For example, WebView uses a native
-                # library from a different APK, so after WebView is loaded into your process,
-                # your own APK's lib directory is no longer on the path! So the only safe
-                # approach is to reset the path before every call to dlopen.
-                llp = ":".join([self.finder.context.getApplicationInfo().nativeLibraryDir,
-                                join(self.finder.extract_root, CHAQUOPY_LIB)])
-                ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
-
             ef = ELFFile(so_file)
             dynamic = ef.get_section_by_name(".dynamic")
             if not dynamic:
@@ -385,7 +365,44 @@ class AssetFinder:
                 #
                 # It doesn't look like the library is closed when the CDLL object is garbage
                 # collected, but this isn't documented, so keep a reference for safety.
-                self.needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+                self.needed_loaded[soname] = ctypes.CDLL(self.prepare_dlopen(needed_filename),
+                                                         ctypes.RTLD_GLOBAL)
+
+    def prepare_dlopen(self, filename):
+        if platform.architecture()[0] == "64bit" and API_LEVEL < 23:
+            # Android ignores DT_SONAME before API level 23. As described in extract_so, on
+            # 32-bit ABIs it uses basenames instead. But on 64-bit ABIs it stores the full path
+            # passed to dlopen
+            # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
+            # This allows it to load multiple libraries with the same basename. Unfortunately,
+            # it also means that DT_NEEDED entries are no longer resolved against the basenames
+            # of already-loaded libraries. On these devices, DT_NEEDED entries can only be
+            # resolved using (in order):
+            #   * Libraries which were previously loaded via their basenames, which means they
+            #     must have been on LD_LIBRARY_PATH at the time they were loaded.
+            #   * Directories currently on LD_LIBRARY_PATH.
+            #   * System library directories.
+            #
+            # Also, the field that stores the library name is 128 characters, which would be
+            # fine for a basename, but not enough for many absolute paths.
+            #
+            # Since we've already worked around the basename clash problem ourselves in
+            # extract_so, we'll simulate the 32-bit behavior by adding the library's dirname to
+            # LD_LIBRARY_PATH, and then loading it through its basename. However, changing the
+            # LD_LIBRARY_PATH environment variable at this point will have no effect. Instead,
+            # we update the path using an undocumented libdl function.
+            #
+            # This function exists for the use of System.loadLibrary, which sets the path to
+            # the lib directory of the caller's APK. For example, WebView uses a native library
+            # from a different APK, so after WebView is loaded into your process, your own
+            # APK's lib directory is no longer on the path! So the only safe approach is to
+            # reset the path before every call to dlopen.
+            llp = ":".join([dirname(filename),
+                            self.context.getApplicationInfo().nativeLibraryDir])
+            ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
+            return basename(filename)
+        else:
+            return filename
 
     def extract_dir(self, zip_dir, recursive=True):
         for filename in self.listdir(zip_dir):
@@ -515,7 +532,7 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
         out_filename = self.extract_so()
         self.finder.load_needed(out_filename)
-        spec.origin = out_filename
+        spec.origin = self.finder.prepare_dlopen(out_filename)
         mod = super().create_module(spec)
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
@@ -524,7 +541,7 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     # load a library with the same basename as one already loaded, the dynamic linker will
     # return the existing library
     # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
-    # (For 64-bit ABIs, see load_needed.)
+    # (For 64-bit ABIs, see prepare_dlopen.)
     #
     # For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
     # loaded two of them from their original filenames, their __file__ attributes would appear

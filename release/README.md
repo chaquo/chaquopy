@@ -40,6 +40,7 @@ the following devices, with at least one device being a clean install:
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
+  * TensorFlow will fail because of #5563, so test that separately on API 23.
 
 Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
 least one device being a clean install:
