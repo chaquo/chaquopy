@@ -39,7 +39,7 @@ the following devices, with at least one device being a clean install:
 
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
-* x86\_64 emulator with API 23 (#5563)
+* x86\_64 emulator with API 21
 
 Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
 least one device being a clean install:
@@ -72,7 +72,7 @@ install, and at least one being an upgrade from the previous public release.
 
 * x86 emulator with minSdkVersion
 * x86 emulator with targetSdkVersion
-* x86\_64 emulator with API 23 (#5563)
+* x86\_64 emulator with API 21
 * Any armeabi-v7a device
 * Any arm64-v8a device
 

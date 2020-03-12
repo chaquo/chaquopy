@@ -5,7 +5,6 @@ from __future__ import absolute_import, division, print_function
 import _imp
 from calendar import timegm
 import ctypes
-from functools import partial
 import imp
 from importlib import _bootstrap, machinery, metadata, util
 from inspect import getmodulename
@@ -14,6 +13,7 @@ import os.path
 from os.path import basename, dirname, exists, join, relpath
 import pathlib
 from pkgutil import get_importer
+import platform
 from shutil import copyfileobj, rmtree
 import site
 import sys
@@ -24,10 +24,13 @@ from zipfile import ZipFile, ZipInfo
 from java._vendor.elftools.elf.elffile import ELFFile
 from java.chaquopy_android import AssetFile
 
+from android.os import Build
 from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 
 
+API_LEVEL = Build.VERSION.SDK_INT
+CHAQUOPY_LIB = "chaquopy/lib"
 PATHNAME_PREFIX = "<chaquopy>/"
 
 
@@ -56,7 +59,9 @@ def initialize_importlib(context, build_json, app_path):
 
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
-    sys.path_hooks.insert(0, partial(AssetFinder, context, build_json))
+    def hook(path):
+        return AssetFinder(context, build_json, path)
+    sys.path_hooks.insert(0, hook)
 
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
@@ -331,6 +336,27 @@ class AssetFinder:
 
     def load_needed(self, filename):
         with self.lock, open(filename, "rb") as so_file:
+            if platform.architecture()[0] == "64bit" and API_LEVEL < 23:
+                # Android ignores DT_SONAME before API level 23. As described in extract_so, on
+                # 32-bit ABIs it uses basenames instead. But on 64-bit ABIs it stores the full
+                # path passed to dlopen
+                # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
+                # This means it has no problem loading multiple libraries with the same
+                # basename. Unfortunately, it also means that basenames are not checked when
+                # resolving DT_NEEDED entries. So on these devices, DT_NEEDED entries can only
+                # be resolved using LD_LIBRARY_PATH and the system library directories.
+                #
+                # Changing the LD_LIBRARY_PATH environment variable at this point will have no
+                # effect. Instead, we update the path using an undocumented libdl function.
+                # This function exists for the use of System.loadLibrary, which sets the path
+                # to the lib directory of the caller's APK. For example, WebView uses a native
+                # library from a different APK, so after WebView is loaded into your process,
+                # your own APK's lib directory is no longer on the path! So the only safe
+                # approach is to reset the path before every call to dlopen.
+                llp = ":".join([self.finder.context.getApplicationInfo().nativeLibraryDir,
+                                join(self.finder.extract_root, CHAQUOPY_LIB)])
+                ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
+
             ef = ELFFile(so_file)
             dynamic = ef.get_section_by_name(".dynamic")
             if not dynamic:
@@ -344,7 +370,7 @@ class AssetFinder:
                     continue
 
                 try:
-                    needed_filename = self.extract_if_changed("chaquopy/lib/" + soname)
+                    needed_filename = self.extract_if_changed(join(CHAQUOPY_LIB, soname))
                 except FileNotFoundError:
                     # Maybe it's a system library, or one of the libraries loaded by
                     # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
@@ -494,9 +520,12 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
 
-    # In API level 22 and older, when asked to load a library with the same basename as one
-    # already loaded, the dynamic linker will return the existing library
+    # Android ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs, when asked to
+    # load a library with the same basename as one already loaded, the dynamic linker will
+    # return the existing library
     # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
+    # (For 64-bit ABIs, see load_needed.)
+    #
     # For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
     # loaded two of them from their original filenames, their __file__ attributes would appear
     # different, but the second one would actually have been loaded from the first one's file.

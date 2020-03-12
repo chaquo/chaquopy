@@ -38,7 +38,7 @@ Then test the app on the following devices, with at least one device being a cle
 
 * x86 emulator with minSdkVersion, or API 18 if "too many libraries" error occurs (#5316)
 * x86 emulator with targetSdkVersion
-* x86\_64 emulator with API 23 (#5563)
+* x86\_64 emulator with API 21
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
