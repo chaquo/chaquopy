@@ -12,6 +12,9 @@ implementation), it is limited by CPython's global interpreter lock (GIL). This 
 although Python code may be run on any number of threads, only one of those threads will be
 executing at any given moment.
 
+:any:`threading.main_thread` will return the thread on which Python was started. Depending on
+your app's structure, this might not be the same as the main thread in Java.
+
 .. seealso:: The :ref:`multi-threading features <python-multi-threading>` of the Python API.
 
 
