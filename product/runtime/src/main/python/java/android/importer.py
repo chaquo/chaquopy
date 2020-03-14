@@ -76,9 +76,7 @@ def initialize_importlib(context, build_json, app_path):
         # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
         # require the finder to be fully available to the system, which isn't the case until
         # get_importer returns.
-        for name in finder.listdir(""):
-            if name.endswith(".pth"):
-                site.addpackage(finder.extract_root, name, set())
+        site.addsitedir(finder.extract_root)
 
 
 # Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
@@ -282,6 +280,9 @@ class AssetFinder:
 
             if not self.zip_files:
                 raise FileNotFoundError(path)
+
+            # Affects site.addsitedir which is called above (see site._init_pathinfo).
+            os.makedirs(self.extract_root, exist_ok=True)
         else:
             parent = get_importer(parent_path)
             self.extract_root = parent.extract_root

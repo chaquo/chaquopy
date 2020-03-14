@@ -773,9 +773,16 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         self.assertEqual("siphash24", sys.hash_info.algorithm)
+
+        chaquopy_dir = f"{context.getFilesDir()}/chaquopy"
+        self.assertEqual([join(chaquopy_dir, path) for path in
+                          ["AssetFinder/app", "AssetFinder/requirements",
+                           f"AssetFinder/stdlib-{ABI}", "stdlib-common.zip",
+                           "bootstrap.zip", f"bootstrap-native/{ABI}"]],
+                         sys.path)
         for p in sys.path:
-            self.assertIsInstance(p, str)
             self.assertTrue(exists(p), p)
+
         self.assertRegex(sys.platform, r"^linux")
         self.assertRegex(sys.version,  # Make sure we don't have any "-dirty" caption.
                          r"^{}.{}.{} \(default, ".format(*sys.version_info[:3]))

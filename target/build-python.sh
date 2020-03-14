@@ -27,7 +27,7 @@ cd $build_dir
 
 # Override some tests.
 cat > config.site <<EOF
-# Prevent "-dirty" appearing in console banner due to editing the configure script below.
+# Prevent "-dirty" appearing in console banner when building from modified source.
 ac_cv_prog_HAS_GIT=no
 
 # Things that can't be autodetected when cross-compiling.
