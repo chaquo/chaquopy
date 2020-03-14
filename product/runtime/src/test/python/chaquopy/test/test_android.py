@@ -21,8 +21,6 @@ from traceback import format_exc
 import types
 import unittest
 
-import pkg_resources as pr
-
 
 # Flags from PEP 3149.
 ABI_FLAGS = ""
@@ -425,8 +423,8 @@ class TestAndroidImport(unittest.TestCase):
                 del sys.modules[name]
 
         # Renames in stdlib are not currently supported.
-        with self.assertRaisesRegexp(ImportError, "zipimporter does not support loading module "
-                                     "'json' under a different name 'jason'"):
+        with self.assertRaisesRegexp(ImportError, "ChaquopyZipImporter does not support "
+                                     "loading module 'json' under a different name 'jason'"):
             imp.load_module("jason", *imp.find_module("json"))
 
         def check_top_level(real_name, load_name, id):
@@ -501,12 +499,20 @@ class TestAndroidImport(unittest.TestCase):
                               [(mi.name, mi.ispkg) for mi in
                                pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
 
+    # pkg_resources is quite large, so it shouldn't be imported until the app needs it. (This
+    # test will fail if the test suite is run more than once.)
+    def test_pr_0(self):
+        self.assertNotIn("pkg_resources", sys.modules)
+
     def test_pr_distributions(self):
+        import pkg_resources as pr
         self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
                               [dist.project_name for dist in pr.working_set])
         self.assertEqual("0.28.0", pr.get_distribution("murmurhash").version)
 
     def test_pr_resources(self):
+        import pkg_resources as pr
+
         # App ZIP
         pkg = "android1"
         names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
@@ -542,6 +548,7 @@ class TestAndroidImport(unittest.TestCase):
         self.check_pr_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
 
     def check_pr_resource(self, zip_name, package, filename, start):
+        import pkg_resources as pr
         with self.subTest(package=package, filename=filename):
             data = pr.resource_string(package, filename)
             self.assertPredicate(data.startswith, start)

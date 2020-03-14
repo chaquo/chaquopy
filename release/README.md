@@ -8,7 +8,8 @@ Temporarily set the demo app to a single ABI, and run unit tests on any device.
 
 Restore it to the full set of ABIs, then run unit tests on any device.
 
-Make sure unit tests work when run twice in succession.
+Make sure unit tests work when run twice in succession, except for those whose source code
+says otherwise.
 
 Check app sizes and startup times compared to previous version (#5620).
 
@@ -40,7 +41,7 @@ the following devices, with at least one device being a clean install:
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
-  * TensorFlow will fail because of #5563, so test that separately on API 23.
+  * TensorFlow will fail because of #5563, so test that on API 23.
 
 Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
 least one device being a clean install:

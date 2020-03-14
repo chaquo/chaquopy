@@ -20,6 +20,7 @@ import sys
 import time
 from threading import RLock
 from zipfile import ZipFile, ZipInfo
+import zipimport
 
 from java._vendor.elftools.elf.elffile import ELFFile
 from java.chaquopy_android import AssetFile
@@ -38,31 +39,25 @@ def initialize(context, build_json, app_path):
     initialize_importlib(context, build_json, app_path)
     initialize_ctypes()
     initialize_imp()
-    initialize_pkg_resources()
 
 
 def initialize_importlib(context, build_json, app_path):
-    # Remove nonexistent default paths (#5410)
-    sys.path = [p for p in sys.path if exists(p)]
+    sys.meta_path[sys.meta_path.index(machinery.PathFinder)] = AssetPathFinder
 
     # The default copyfileobj buffer size is 16 KB, which significantly slows down extraction
     # of large files because each call to AssetFile.read is relatively expensive (#5596).
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
 
-    for i, finder in enumerate(sys.meta_path):
-        if finder is machinery.PathFinder:
-            sys.meta_path[i] = AssetPathFinder
-            break
-    else:
-        raise Exception("couldn't find PathFinder in sys.meta_path")
-
     global ASSET_PREFIX
     ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
     def hook(path):
         return AssetFinder(context, build_json, path)
     sys.path_hooks.insert(0, hook)
+    sys.path_hooks[sys.path_hooks.index(zipimport.zipimporter)] = ChaquopyZipImporter
+    sys.path_importer_cache.clear()
 
+    sys.path = [p for p in sys.path if exists(p)]  # Remove nonexistent default paths
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
         sys.path.insert(i, entry)
@@ -96,10 +91,10 @@ def initialize_ctypes():
 
 
 def initialize_imp():
-    # The standard implementations of imp.{find,load}_module do not use the PEP 302 import
-    # system. They are therefore only capable of loading from directory trees and built-in
-    # modules, and will ignore both our path_hook and the standard one for zipimport. To
-    # accommodate code which uses these functions, we provide these replacements.
+    # The standard implementations of imp.find_module and imp.load_module do not use the PEP
+    # 302 import system. They are therefore only capable of loading from directory trees and
+    # built-in modules, and will ignore both sys.path_hooks and sys.meta_path. To accommodate
+    # code which uses these functions, we provide these replacements.
     global find_module_original, load_module_original
     find_module_original = imp.find_module
     load_module_original = imp.load_module
@@ -170,12 +165,15 @@ def load_module_override(load_name, file, pathname, description):
         return load_module_original(load_name, file, pathname, description)
 
 
+# Because so much code requires pkg_resources without declaring setuptools as a dependency, we
+# include it in the bootstrap ZIP. We don't include the rest of setuptools, because it's much
+# larger and much less likely to be useful. If the user installs setuptools via pip, then that
+# copy of pkg_resources will take priority because the requirements ZIP is earlier on sys.path.
+#
+# pkg_resources is quite large, so it shouldn't be imported until the app needs it. This
+# function will be be called from AssetLoader if the app contains setuptools, or
+# ChaquopyZipImporter if it doesn't.
 def initialize_pkg_resources():
-    # Because so much code requires pkg_resources without declaring setuptools as a dependency,
-    # we include it in the bootstrap ZIP. We don't include the rest of setuptools, because it's
-    # much larger and much less likely to be useful. If the user installs setuptools via pip,
-    # then that copy of pkg_resources will take priority because the requirements ZIP is
-    # earlier on sys.path.
     import pkg_resources
 
     def distribution_finder(finder, entry, only):
@@ -201,6 +199,19 @@ def initialize_pkg_resources():
             return self.finder.listdir(self.finder.zip_path(path))
 
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
+
+
+class ChaquopyZipImporter(zipimport.zipimporter):
+
+    # See also AssetLoader.exec_module.
+    def load_module(self, mod_name):
+        mod = super().load_module(mod_name)
+        if mod_name == "pkg_resources":
+            initialize_pkg_resources()
+        return mod
+
+    def __repr__(self):
+        return f'<{type(self).__name__} object "{join(self.archive, self.prefix)}">'
 
 
 class AssetPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
@@ -478,6 +489,12 @@ class AssetLoader:
             with open(path, "rb") as f:
                 return f.read()
         return self.finder.get_data(self.finder.zip_path(path))
+
+    # See also ChaquopyZipImporter.load_module.
+    def exec_module(self, mod):
+        super().exec_module(mod)
+        if mod.__name__ == "pkg_resources":
+            initialize_pkg_resources()
 
     def get_resource_reader(self, mod_name):
         return self if self.is_package(mod_name) else None
