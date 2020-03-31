@@ -758,8 +758,14 @@ class PythonPlugin implements Plugin<Project> {
             if (file.isDirectory()) {
                 hashAssets(assetsJson, digest, file, path + "/")
             } else {
-                digest.reset()
-                assetsJson.put(path, digest.digest(file.bytes).encodeHex())
+                // file.bytes may exhaust Java heap space, so read the file in smaller blocks.
+                def is = file.newInputStream()
+                def buf = new byte[1024 * 1024]
+                def len
+                while ((len = is.read(buf)) != -1) {
+                    digest.update(buf, 0, len)
+                }
+                assetsJson.put(path, digest.digest().encodeHex())
             }
         }
     }

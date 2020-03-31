@@ -188,6 +188,10 @@ cythonTask("cythonAndroid") {
 def sdkCmakeParentDir = new File(sdkDir, "cmake")
 def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
+if (!file(androidJar).exists()) {
+    throw new GradleException("Android SDK Platform $Common.COMPILE_SDK_VERSION not found: " +
+                              "install it using the SDK Manager")
+}
 
 dependencies {
     compileOnly files(androidJar)
