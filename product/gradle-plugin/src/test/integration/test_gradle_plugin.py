@@ -193,7 +193,7 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("AndroidPlugin/untested")
         run.rerun(succeed=None)  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 3.6.1. If you experience "
+                          "Gradle plugin versions beyond 3.6.2. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
