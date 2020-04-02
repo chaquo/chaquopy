@@ -686,8 +686,9 @@ class WheelBuilder(object):
             except InstallationError as exc:
                 spinner.finish("error")
                 # Chaquopy: `bdist_wheel` runs `install` internally, so if it fails, trying to
-                # run `install` directly (as standard pip does) is probably a waste of time.
-                # I've never seen a case where it would have succeeded.
+                # run `install` directly (as standard pip does) is probably a waste of time and
+                # will only make the failure message harder to read. The only case I've seen
+                # where it would have succeeded is #5630.
                 #
                 # Also, `install` has complications which we don't want to deal with: instead
                 # of installing directly into <target> and creating a .dist-info subdir, it
