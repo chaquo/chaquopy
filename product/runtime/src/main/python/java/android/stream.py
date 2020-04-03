@@ -1,6 +1,4 @@
-"""Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
-
-from __future__ import absolute_import, division, print_function
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 from android.util import Log
 from io import TextIOBase
@@ -55,15 +53,9 @@ class LogOutputStream(TextIOBase):
     # produce multiple log messages. The only alternatives would be buffering, or ignoring
     # empty lines, both of which would be bad for debugging.
     def write(self, s):
-        if sys.version_info[0] < 3 and isinstance(s, str):
-            u = s.decode(self.encoding, self.errors)
-        else:
-            u = s
-
-        for line in u.splitlines():  # "".splitlines() == [], so nothing will be logged.
-            line = line or " "  # Empty log messages are ignored.
+        for line in s.splitlines():  # "".splitlines() == [], so nothing will be logged.
+            line = line or " "  # Empty lines are droped by logcat, so pass a single space.
             while line:
                 Log.println(self.level, self.tag, line[:MAX_LINE_LEN])
                 line = line[MAX_LINE_LEN:]
-
         return len(s)

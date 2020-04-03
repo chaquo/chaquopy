@@ -146,7 +146,7 @@ cdef class CQPEnv(object):
         with nogil:
             result = self.j_env[0].CallCharMethodA(self.j_env, this.obj, mid, args)
         self.check_exception()
-        return six.unichr(result)
+        return chr(result)
     cdef CallShortMethodA(self, JNIRef this, jmethodID mid, jvalue *args):
         cdef jshort result
         with nogil:
@@ -205,7 +205,7 @@ cdef class CQPEnv(object):
         with nogil:
             result = self.j_env[0].CallNonvirtualCharMethodA(self.j_env, this.obj, j_klass.obj, mid, args)
         self.check_exception()
-        return six.unichr(result)
+        return chr(result)
     cdef CallNonvirtualShortMethodA(self, JNIRef this, JNIRef j_klass, jmethodID mid, jvalue *args):
         cdef jshort result
         with nogil:
@@ -278,7 +278,7 @@ cdef class CQPEnv(object):
         with nogil:
             result = self.j_env[0].CallStaticCharMethodA(self.j_env, j_klass.obj, mid, args)
         self.check_exception()
-        return six.unichr(result)
+        return chr(result)
     cdef CallStaticShortMethodA(self, JNIRef j_klass, jmethodID mid, jvalue *args):
         cdef jshort result
         with nogil:
@@ -393,7 +393,7 @@ cdef class CQPEnv(object):
         cdef jchar j_value = 0
         self.j_env[0].GetCharArrayRegion(self.j_env, array.obj, index, 1, &j_value)
         self.check_exception()
-        return six.unichr(j_value)
+        return chr(j_value)
     cdef LocalRef GetObjectArrayElement(self, JNIRef array, jint index):
         result = self.adopt(self.j_env[0].GetObjectArrayElement(self.j_env, array.obj, index))
         self.check_exception()
@@ -523,9 +523,7 @@ cdef class JNIRef(object):
                 (j_env, j_System.obj, mid_identityHashCode, self.obj)
         return self.hash_code
 
-    def __nonzero__(self):      # Python 2 name
-        return self.obj != NULL
-    def __bool__(self):         # Python 3 name
+    def __bool__(self):
         return self.obj != NULL
 
     cdef GlobalRef global_ref(self):

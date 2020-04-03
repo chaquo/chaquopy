@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from java import method, static_proxy
 from java.lang import String
 from com.chaquo.java import StaticProxyTest as SPT

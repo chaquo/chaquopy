@@ -1,7 +1,5 @@
 """Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
-from __future__ import absolute_import, division, print_function
-
 import _imp
 from calendar import timegm
 import ctypes

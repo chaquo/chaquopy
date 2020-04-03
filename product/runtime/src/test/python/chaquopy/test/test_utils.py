@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from unittest import TestCase
 from warnings import catch_warnings, filterwarnings
 
@@ -7,7 +5,7 @@ from warnings import catch_warnings, filterwarnings
 class FilterWarningsCase(TestCase):
 
     def setUp(self):
-        super(FilterWarningsCase, self).setUp()
+        super().setUp()
         self.cw = catch_warnings()
         self.cw.__enter__()
         filterwarnings("error")
@@ -15,7 +13,7 @@ class FilterWarningsCase(TestCase):
 
     def tearDown(self):
         self.cw.__exit__(None, None, None)
-        super(FilterWarningsCase, self).tearDown()
+        super().tearDown()
 
 
 Object_names = {"clone", "equals", "finalize", "getClass", "hashCode", "notify",

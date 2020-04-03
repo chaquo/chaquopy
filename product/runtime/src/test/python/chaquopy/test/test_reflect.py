@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
-
-import sys
-
 from java import cast, jarray, jclass
 
 from .test_utils import FilterWarningsCase
@@ -13,7 +8,7 @@ class TestReflect(FilterWarningsCase):
     from .test_utils import assertDir
 
     def setUp(self):
-        super(TestReflect, self).setUp()
+        super().setUp()
         self.Test = jclass('com.chaquo.python.TestBasics')
         self.t = self.Test()
 
@@ -98,16 +93,11 @@ class TestReflect(FilterWarningsCase):
         self.assertRegexpMatches(object_str, "^java.lang.Object@")
         self.assertEqual("<" + object_str + ">", repr(o))
 
-        str_u = u"abc olé 中文"
-        repr_u = u"<java.lang.String '{}'>".format(str_u)
+        str_u = "abc olé 中文"
+        repr_u = "<java.lang.String '{}'>".format(str_u)
         s = String(str_u)
-        if sys.version_info[0] < 3:
-            self.assertEqual(str_u.encode("utf-8"), str(s))
-            self.assertEqual(str_u, unicode(s))  # noqa: F821
-            self.assertEqual(repr_u.encode("utf-8"), repr(s))
-        else:
-            self.assertEqual(str_u, str(s))
-            self.assertEqual(repr_u, repr(s))
+        self.assertEqual(str_u, str(s))
+        self.assertEqual(repr_u, repr(s))
 
         self.assertEqual("cast('Ljava/lang/Object;', None)", repr(cast(Object, None)))
         self.assertEqual("cast('Ljava/lang/String;', None)", repr(cast(String, None)))

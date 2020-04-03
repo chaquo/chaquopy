@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from com.chaquo.java import StaticProxyTest as SPT
 from java import constructor, method, Override, static_proxy, jarray, jboolean, jvoid, jdouble, jint
 from java.lang import String, Thread
@@ -34,7 +32,7 @@ class OverloadedCtor(static_proxy()):
     @constructor([jint])
     @constructor([String])
     def __init__(self, value=None):
-        super(OverloadedCtor, self).__init__()
+        super().__init__()
         self.value = str(value)
 
     @method(String, [])

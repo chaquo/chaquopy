@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from java import cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
 
 from .test_utils import FilterWarningsCase
@@ -9,7 +7,7 @@ from com.chaquo.python import TestOverload as TO
 class TestOverload(FilterWarningsCase):
 
     def setUp(self):
-        super(TestOverload, self).setUp()
+        super().setUp()
         self.ambiguous = self.assertRaisesRegexp(TypeError, "ambiguous")
         self.inapplicable = self.assertRaisesRegexp(TypeError, "cannot be applied")
         self.too_big = self.assertRaisesRegexp(OverflowError, "too (big|large)")

@@ -27,8 +27,7 @@ def initialize_stdlib(context):
 
 
 def initialize_sys(context, Common):
-    if sys.version_info[0] >= 3:
-        sys.abiflags = Common.PYTHON_SUFFIX[len(Common.PYTHON_VERSION_SHORT):]
+    sys.abiflags = Common.PYTHON_SUFFIX[len(Common.PYTHON_VERSION_SHORT):]
 
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]

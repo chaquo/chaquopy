@@ -1,8 +1,5 @@
-from __future__ import absolute_import, division, print_function
-
 from math import isnan
 from java import jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint, jlong, jshort
-import sys
 
 from .test_utils import FilterWarningsCase
 
@@ -14,7 +11,7 @@ FLOAT64_EXPONENT_BITS = 11
 class TestConversion(FilterWarningsCase):
 
     def setUp(self):
-        super(TestConversion, self).setUp()
+        super().setUp()
         self.obj = jclass('com.chaquo.python.TestBasics')()
         self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
         self.too_big = self.assertRaisesRegexp(OverflowError, "too (big|large)")
@@ -72,8 +69,6 @@ class TestConversion(FilterWarningsCase):
 
         self.verify_value(obj, name, min_val, wrapper=wrapper)
         self.verify_value(obj, name, max_val, wrapper=wrapper)
-        if sys.version_info[0] < 3:
-            self.verify_value(obj, name, long(123), wrapper=wrapper)  # noqa: F821
 
         # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True, context=self.conv_error_unless(allow_bool))
@@ -109,8 +104,6 @@ class TestConversion(FilterWarningsCase):
         for val in [123,  # Floating-point types always accept an int.
                     min_val, max_val, float("inf"), float("-inf")]:
             self.verify_value(obj, name, val, wrapper=wrapper)
-        if sys.version_info[0] < 3:
-            self.verify_value(obj, name, long(123), wrapper=wrapper)  # noqa: F821
 
         self.verify_value(obj, name, float("nan"),  # NaN is unequal to everything including itself.
                           wrapper=wrapper,
@@ -135,8 +128,8 @@ class TestConversion(FilterWarningsCase):
 
     def verify_char(self, obj, name, allow_bool=False, allow_int=False, allow_null=False,
                     allow_string=False):
-        min_val = u"\u0000"
-        max_val = u"\uFFFF"
+        min_val = "\u0000"
+        max_val = "\uFFFF"
         self.verify_value(obj, name, min_val, wrapper=jchar)
         self.verify_value(obj, name, max_val, wrapper=jchar)
 
@@ -151,7 +144,7 @@ class TestConversion(FilterWarningsCase):
                                    self.assertRaisesRegexp((TypeError, ValueError),
                                                            r"(expected a character|"
                                                            r"only single character).*length 2")))
-        self.verify_value(obj, name, u"\U00010000",
+        self.verify_value(obj, name, "\U00010000",
                           context=(None if allow_string else
                                    self.assertRaisesRegexp(TypeError, "non-BMP")))
 
@@ -170,29 +163,23 @@ class TestConversion(FilterWarningsCase):
             self.verify_value(self.obj, name, value, context=self.conv_error)
 
     def verify_string(self, obj, name):
-        for val in [u"", u"h", u"hello",
-                    u"\u0000",          # Null character       # (handled differently by
-                    u"\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
+        for val in ["", "h", "hello",
+                    "\u0000",          # Null character       # (handled differently by
+                    "\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
             self.verify_value(obj, name, val)
 
-        # Byte strings can be implicitly converted to Java Strings only on Python 2. However,
-        # if the target type is Object, Python 3 will fall back on the default conversion of a
-        # Python iterable to Object[].
+        # Byte strings cannot be implicitly converted to Java Strings. However, if the target
+        # type is Object, we will fall back on the default conversion of a Python iterable to
+        # Object[].
         context = verify = None
         if name == "Object":
             def verify(expected, actual):
                 self.assertEqual(expected, actual)
-                self.assertIsInstance(actual, (unicode if sys.version_info[0] < 3  # noqa: F821
-                                               else jarray("Ljava/lang/Object;")))
-        elif sys.version_info[0] >= 3:
+                self.assertIsInstance(actual, jarray("Ljava/lang/Object;"))
+        else:
             context = self.conv_error
         for val in [b"", b"h", b"hello"]:
             self.verify_value(obj, name, val, context=context, verify=verify)
-
-        # Even on Python 2, only ASCII byte strings can be converted.
-        if sys.version_info[0] < 3:
-            self.verify_value(obj, name, b"\x99",
-                              context=self.assertRaisesRegexp(UnicodeDecodeError, "'ascii' codec"))
 
     def test_class(self):
         for name in ["Klass", "Object"]:

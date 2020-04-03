@@ -61,8 +61,8 @@ cdef new_class(cls_name, bases, cls_dict=None):
     return JavaClass(None, bases, cls_dict)
 
 
-# It might be possible to make this a cdef class, but then we wouldn't be able to use it with
-# six.with_metaclass anymore.
+# This isn't a cdef class because that would make it more difficult to use as a metaclass.
+# TODO: see if this is still true on the current version of Python.
 class JavaClass(type):
     def __new__(metacls, cls_name, bases, cls_dict):
         java_name = cls_dict.pop("_chaquopy_name", None)
@@ -141,11 +141,9 @@ class JavaClass(type):
         else:
             type.__setattr__(cls, name, value)
 
-    # In Python 2, object.__dir__ doesn't exist (https://bugs.python.org/issue12166).
     def __dir__(cls):
-        result = set()
+        result = set(super().__dir__())
         for c in cls.__mro__:
-            result.update(c.__dict__)
             if isinstance(c, JavaClass) and not isinstance(c, ProxyClass):
                 result.update([str(s) for s in get_reflector(c).dir()])
         return list(result)
@@ -185,7 +183,7 @@ cdef setup_object_class():
     # both JavaObject and (Python) Exception, which is *also* a native class. Multiple inheritance
     # from two native classes would give a "multiple bases have instance lay-out conflict" error.
     global JavaObject
-    class JavaObject(six.with_metaclass(JavaClass, object)):
+    class JavaObject(metaclass=JavaClass):
         _chaquopy_name = "java.lang.Object"
 
         def __init__(self, *args):
@@ -240,17 +238,15 @@ cdef setup_object_class():
             if self._chaquopy_this:
                 ts = self.toString()
                 if ts is None:
-                    result = f"<{full_name} [toString returned null]>"
+                    return f"<{full_name} [toString returned null]>"
                 elif ts.startswith(full_name):  # e.g. "java.lang.Object@28d93b30"
-                    result = f"<{ts}>"
+                    return f"<{ts}>"
                 else:
-                    result = f"<{full_name} '{ts}'>"
+                    return f"<{full_name} '{ts}'>"
             else:
-                result = f"<{full_name} [no instance]>"
-            return native_str(result)
+                return f"<{full_name} [no instance]>"
 
-        def __str__(self):       return native_str(self.toString())
-        def __unicode__(self):   return self.toString()
+        def __str__(self):       return self.toString()
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
         def __ne__(self, other): return not (self == other)  # Not automatic in Python 2
@@ -568,7 +564,7 @@ cdef class JavaField(JavaSimpleMember):
         elif r == 'B':
             return j_env[0].GetByteField(j_env, j_self, self.j_field)
         elif r == 'C':
-            return six.unichr(j_env[0].GetCharField(j_env, j_self, self.j_field))
+            return chr(j_env[0].GetCharField(j_env, j_self, self.j_field))
         elif r == 'S':
             return j_env[0].GetShortField(j_env, j_self, self.j_field)
         elif r == 'I':
@@ -626,7 +622,7 @@ cdef class JavaField(JavaSimpleMember):
         elif r == 'B':
             return j_env[0].GetStaticByteField(j_env, j_class, self.j_field)
         elif r == 'C':
-            return six.unichr(j_env[0].GetStaticCharField(j_env, j_class, self.j_field))
+            return chr(j_env[0].GetStaticCharField(j_env, j_class, self.j_field))
         elif r == 'S':
             return j_env[0].GetStaticShortField(j_env, j_class, self.j_field)
         elif r == 'I':
@@ -724,7 +720,7 @@ cdef class JavaMethod(JavaSimpleMember):
         env = CQPEnv()
         obj, args = self.check_args(env, args)
         p2j_args = [p2j(env.j_env, argtype, arg)
-                    for argtype, arg in six.moves.zip(self.args_sig, args)]
+                    for argtype, arg in zip(self.args_sig, args)]
 
         if self.is_constructor:
             result = self.call_constructor(env, p2j_args)
@@ -855,7 +851,7 @@ cdef class JavaMethod(JavaSimpleMember):
     #
     # Luckily, calls through Method.invoke appear to be unaffected.
     cdef call_proxy_method(self, CQPEnv env, obj, p2j_args):
-        for i, (arg_sig, p2j_arg) in enumerate(six.moves.zip(self.args_sig, p2j_args)):
+        for i, (arg_sig, p2j_arg) in enumerate(zip(self.args_sig, p2j_args)):
             box_cls_name = PRIMITIVE_TYPES.get(arg_sig)
             if box_cls_name:
                 p2j_args[i] = jclass(f"java.lang.{box_cls_name}")(p2j_arg)._chaquopy_this

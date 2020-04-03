@@ -1,7 +1,4 @@
-from __future__ import absolute_import, division, print_function
-
 import ctypes
-import sys
 from java import cast, jarray, jboolean, jbyte, jchar, jclass, jint
 
 from .test_utils import FilterWarningsCase
@@ -12,8 +9,7 @@ class TestArray(FilterWarningsCase):
     def test_basic(self):
         array_C = jarray(jchar)("hello")
         self.assertEqual(5, len(array_C))
-        self.assertEqual(repr(array_C).replace("u'", "'"),
-                         "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
+        self.assertEqual(repr(array_C), "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
 
         self.assertTrue(isinstance(array_C, jclass("java.lang.Object")))
         self.assertTrue(isinstance(array_C, jclass("java.lang.Cloneable")))
@@ -28,7 +24,7 @@ class TestArray(FilterWarningsCase):
 
         array_C = jarray(jchar)(3)
         self.assertEqual(3, len(array_C))
-        self.assertEqual([u"\u0000", u"\u0000", u"\u0000"], array_C)
+        self.assertEqual(["\u0000", "\u0000", "\u0000"], array_C)
 
         array_I = jarray(jint)(2)
         self.assertEqual(2, len(array_I))
@@ -101,7 +97,7 @@ class TestArray(FilterWarningsCase):
 
     def test_output_arg(self):
         String = jclass('java.lang.String')
-        string = String(u'\u1156\u2278\u3390\u44AB')
+        string = String('\u1156\u2278\u3390\u44AB')
         for btarray in ([0] * 4,
                         (0,) * 4,
                         jarray(jbyte)([0] * 4)):
@@ -174,9 +170,7 @@ class TestArray(FilterWarningsCase):
         arrayB_from_list = jarray(jbyte)(jbyte_values)
         self.assertEqual(jbyte_values, arrayB_from_list)
 
-        to_bytes = (bytes if sys.version_info[0] >= 3
-                    else lambda x: x.__bytes__())
-        array_bytes = to_bytes(arrayB_from_list)
+        array_bytes = bytes(arrayB_from_list)
         self.assertIsInstance(array_bytes, bytes)
         self.assertEqual(b, array_bytes)
         # TODO #5231: use `bytearray(bytes(...))` instead.
@@ -188,11 +182,11 @@ class TestArray(FilterWarningsCase):
         arrayB_from_bytearray = jarray(jbyte)(bytearray(b))
         self.assertEqual(jbyte_values, arrayB_from_bytearray)
 
-        b_as_ints = b if (sys.version_info[0] >= 3) else map(ord, b)
+        b_as_ints = [int(x) for x in b]
         arrayI_from_bytes = jarray(jint)(b_as_ints)
         self.assertEqual(b_as_ints, arrayI_from_bytes)
         with self.assertRaisesRegexp(TypeError, "Cannot call __bytes__ on int[], only on byte[]"):
-            to_bytes(arrayI_from_bytes)
+            bytes(arrayI_from_bytes)
 
     def test_eq(self):
         tf = jarray(jboolean)([True, False])

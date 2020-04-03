@@ -1,6 +1,7 @@
 # cython: language_level=2
 from __future__ import absolute_import, division, print_function
 
+import builtins
 import ctypes
 from importlib import import_module
 import os
@@ -24,8 +25,6 @@ from posix.stdlib cimport putenv
 from posix.unistd cimport dup2, getpid, STDERR_FILENO, STDOUT_FILENO, write
 
 import java
-from java._vendor import six
-
 from java.jni cimport *
 from java.chaquopy cimport *
 cdef extern from "chaquopy_java_extra.h":
@@ -160,7 +159,7 @@ cdef public jobject Java_com_chaquo_python_Python_getModule \
 cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
     (JNIEnv *env, jobject this) with gil:
     try:
-        return p2j_pyobject(env, import_module("java._vendor.six.moves.builtins"))
+        return p2j_pyobject(env, builtins)
     except BaseException:
         se = SavedException()
     se.throw(env)
@@ -289,8 +288,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
     try:
         self = j2p_pyobject(env, this)
         key = j2p(env, LocalRef.create(env, j_key))
-        # https://github.com/cython/cython/issues/1702
-        return __builtins__.hasattr(self, key)
+        return hasattr(self, key)
     except BaseException:
         se = SavedException()
     se.throw(env)
@@ -410,22 +408,15 @@ fqn_PyException = fqn_PyException_b.decode()
 
 # See note at convert_exception for why local `jclass` proxy objects must be destroyed before
 # calling JNIEnv.Throw. If the exception was a Java exception, this includes the proxy object
-# for the exception itself. In Python 2, the interpreter retains the last-caught exception in
-# sys.exc_info() until the function with the `except` block returns, but we can deal with this
-# by calling exc_clear(). In Python 3, exc_info() is cleared automatically when the `except`
-# block terminates, but there's no way to clear it earlier because exc_clear() has been
-# removed.
-#
-# The best solution I can think of is to save the exception within the `except` block, and call
-# JNIEnv.Throw outside it. This can't be done with a context manager because the system would
-# still have its own reference to the exception while the __exit__ method was running.
+# for the exception itself. exc_info() is cleared automatically when the `except` block
+# terminates, so we save the exception within the `except` block, and call JNIEnv.Throw outside
+# it. This can't be done with a context manager because the system would still have its own
+# reference to the exception while the __exit__ method was running.
 cdef class SavedException(object):
     cdef exc_info
 
     def __init__(self):
         self.exc_info = sys.exc_info()
-        if six.PY2:
-            sys.exc_clear()
 
     cdef throw(self, JNIEnv *env, java_cls_name=fqn_PyException):
         formatted_exc = format_exception(self.exc_info)

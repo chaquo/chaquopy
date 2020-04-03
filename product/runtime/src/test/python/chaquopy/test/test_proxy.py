@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from java import cast, dynamic_proxy, jarray, jfloat, jint
 import traceback
 
@@ -47,7 +45,7 @@ class TestProxy(FilterWarningsCase):
     def test_basic(self):
         class AddN(dynamic_proxy(TP.Adder)):
             def __init__(self, n):
-                super(AddN, self).__init__()
+                super().__init__()
                 self.n = n
             def add(self, x):
                 return self.n + x
@@ -96,7 +94,7 @@ class TestProxy(FilterWarningsCase):
             def __init__(self, n):
                 self.before_init_n = n
                 test.assertEqual(n, self.before_init_n)
-                super(A, self).__init__()
+                super().__init__()
                 self.after_init_n = -n
                 self.dt = DT()
             def add(self, x):

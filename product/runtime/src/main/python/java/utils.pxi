@@ -25,7 +25,7 @@ cdef global_class(full_name, cls_dict=None):
 
 cdef load_global_classes():
     g = globals()
-    for simple_name, (full_name, cls_dict) in six.iteritems(global_classes):
+    for simple_name, (full_name, cls_dict) in global_classes.items():
         g[simple_name] = jclass(full_name, cls_dict)
     global_classes.clear()
 
@@ -64,9 +64,7 @@ class NoneCast(object):
     def __repr__(self):
         return f"cast('{self.sig}', None)"
 
-    def __nonzero__(self):      # Python 2 name
-        return False
-    def __bool__(self):         # Python 3 name
+    def __bool__(self):
         return False
 
 
@@ -93,15 +91,6 @@ cdef str_for_c(s):
     else:
         assert isinstance(s, bytes)
         return s
-
-
-# cpdef because it's called from primitive.py.
-cpdef native_str(s):
-    if isinstance(s, unicode):
-        return s.encode("utf-8") if six.PY2 else s
-    else:
-        assert isinstance(s, bytes)
-        return s if six.PY2 else s.decode("utf-8")
 
 
 # Fast equivalent of cls.__dict__. The result should be considered unmodifiable: I tried modifying

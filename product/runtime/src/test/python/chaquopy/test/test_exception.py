@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from java import jclass
 import re
 
@@ -9,7 +7,7 @@ from .test_utils import FilterWarningsCase
 class TestException(FilterWarningsCase):
 
     def setUp(self):
-        super(TestException, self).setUp()
+        super().setUp()
         self.TE = jclass('com.chaquo.python.TestException')
 
     def test_constructor(self):

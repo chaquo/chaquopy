@@ -79,8 +79,8 @@ public class Python {
      * `os.path`). */
     public native PyObject getModule(String name);
 
-    /** Returns the module `__builtin__` in Python 2 or `builtins` in Python 3. This module contains
-     * Python's built-in functions (e.g. `open`), types (e.g. `dict`), constants (e.g. `True`) and
-     * exceptions (e.g. `ValueError`). */
+    /** Returns the <a href="https://docs.python.org/3/library/builtins.html">`builtins`</a>
+     * module, which contains Python's built-in functions (e.g. `open`), types (e.g. `dict`),
+     * constants (e.g. `True`) and exceptions (e.g. `ValueError`). */
     public native PyObject getBuiltins();
 }

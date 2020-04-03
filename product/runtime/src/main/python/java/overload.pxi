@@ -52,7 +52,7 @@ cdef better_overload(CQPEnv env, JavaMethod jm1, JavaMethod jm2, actual_types, v
 
     return (len(defs1) == len(defs2) and
             all([better_overload_arg(env, d1, d2, at)
-                 for d1, d2, at in six.moves.zip(defs1, defs2, actual_types)]))
+                 for d1, d2, at in zip(defs1, defs2, actual_types)]))
 
 
 cdef extend_varargs(defs, length):
@@ -75,14 +75,14 @@ cdef better_overload_arg(CQPEnv env, def1, def2, actual_type):
 
     # To avoid data loss, we prefer to treat a Python int or float as the largest of the
     # corresponding Java types.
-    elif issubclass(actual_type, six.integer_types) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
+    elif issubclass(actual_type, int) and (def1 in INT_TYPES) and (def2 in INT_TYPES):
         return dict_index(INT_TYPES, def1) <= dict_index(INT_TYPES, def2)
     elif issubclass(actual_type, float) and (def1 in FLOAT_TYPES) and (def2 in FLOAT_TYPES):
         return dict_index(FLOAT_TYPES, def1) <= dict_index(FLOAT_TYPES, def2)
 
     # Similarly, we prefer to treat a Python string as a Java String rather than a character.
     # (Its length cannot be taken into account: see note above about caching.)
-    elif issubclass(actual_type, six.string_types) and \
+    elif issubclass(actual_type, unicode) and \
          def2 in ["C", "Ljava/lang/Character;"] and \
          env.IsAssignableFrom(env.FindClass("Ljava/lang/String;"), env.FindClass(def1)):
         return True

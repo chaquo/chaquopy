@@ -260,7 +260,7 @@ Simple example::
     >>> from java.lang import Runnable, Thread
     >>> class R(dynamic_proxy(Runnable)):
     ...     def __init__(self, name):
-                super(R, self).__init__()
+                super().__init__()
                 self.name = name
     ...     def run(self):
     ...         print("Running " + self.name)

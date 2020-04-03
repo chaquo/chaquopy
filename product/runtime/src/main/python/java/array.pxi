@@ -31,7 +31,7 @@ class ArrayClass(JavaClass):
 
 class JavaArray(object):
     def __init__(self, length_or_value):
-        if isinstance(length_or_value, six.integer_types):
+        if isinstance(length_or_value, int):
             length, value = length_or_value, None
         else:
             length, value = len(length_or_value), length_or_value
@@ -106,7 +106,7 @@ class JavaArray(object):
         return self._chaquopy_len
 
     def __getitem__(self, key):
-        if isinstance(key, six.integer_types):
+        if isinstance(key, int):
             if not (0 <= key < self._chaquopy_len):
                 raise IndexError(str(key))
             return array_get(self, key)
@@ -118,7 +118,7 @@ class JavaArray(object):
             raise TypeError(f"{type(key).__name__} object is not a valid index")
 
     def __setitem__(self, key, value):
-        if isinstance(key, six.integer_types):
+        if isinstance(key, int):
             if not (0 <= key < self._chaquopy_len):
                 raise IndexError(str(key))
             return array_set(self, key, value)
@@ -129,7 +129,7 @@ class JavaArray(object):
             # if len(indices) != len(value):
             #     raise IndexError(f"Can't set slice of length {len(indices)} "
             #                      f"from value of length {len(value)}")
-            # for i, v in six.moves.zip(indices, value):
+            # for i, v in zip(indices, value):
             #     self[i] = v
         else:
             raise TypeError(f"{type(key).__name__} object is not a valid index")
@@ -137,7 +137,7 @@ class JavaArray(object):
     def __eq__(self, other):
         try:
             return ((self._chaquopy_len == len(other)) and
-                    all([s == o for s, o in six.moves.zip(self, other)]))
+                    all([s == o for s, o in zip(self, other)]))
         except TypeError:
             # `other` may be an array cast to Object, in which case returning NotImplemented
             # allows JavaObject.__eq__(other, self) to be tried.
@@ -214,8 +214,6 @@ cdef array_set(self, jint index, value):
 # Formats a possibly-multidimensional array using nested "[]" syntax.
 cdef format_array(array):
     return  ("[" +
-             ", ".join([format_array(value) if isinstance(value, JavaArray)
-                        else f"'{value}'" if isinstance(value, six.text_type)  # Remove 'u' prefix in Python 2 so tests are consistent.
-                        else repr(value)
+             ", ".join([format_array(value) if isinstance(value, JavaArray) else repr(value)
                         for value in array]) +
              "]")

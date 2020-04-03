@@ -1,18 +1,11 @@
-from __future__ import absolute_import, division, print_function
-
+import _thread
 from java import detach, jclass
 from time import time, sleep
 from threading import Thread
-import sys
 
 from .test_utils import FilterWarningsCase
 from com.chaquo.python import TestThread as JavaTestThread
 from java.lang import String
-
-if sys.version_info[0] == 2:
-    import thread as _thread
-else:
-    import _thread
 
 
 class TestThread(FilterWarningsCase):

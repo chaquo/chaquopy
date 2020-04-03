@@ -31,7 +31,7 @@ cdef dict_index(d, key):
 
 # Copy back any modifications the Java method may have made to mutable parameters.
 cdef copy_output_args(definition_args, args, p2j_args):
-    for argtype, arg, p2j_arg in six.moves.zip(definition_args, args, p2j_args):
+    for argtype, arg, p2j_arg in zip(definition_args, args, p2j_args):
         if (argtype[0] == "[") and arg and (not isinstance(arg, JavaArray)):
             ret = jarray(argtype[1:])(instance=p2j_arg)
             try:
@@ -155,20 +155,20 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         #
         # For backwards compatibility with old versions of Python, bool is a subclass of
         # int, but we should be stricter.
-        if isinstance(obj, six.integer_types) and not isinstance(obj, bool):
+        if isinstance(obj, int) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.IntPrimitive) and \
            dict_index(INT_TYPES, obj.sig) >= dict_index(INT_TYPES, definition):
             return obj.value
     elif definition in FLOAT_TYPES:
-        if isinstance(obj, (float, six.integer_types)) and not isinstance(obj, bool):
+        if isinstance(obj, (float, int)) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.NumericPrimitive) and \
            dict_index(NUMERIC_TYPES, obj.sig) >= dict_index(NUMERIC_TYPES, definition):
             return obj.value
     elif definition == "C":
         # We don't check that len(obj) == 1; see note above about range checks.
-        if isinstance(obj, six.string_types):
+        if isinstance(obj, unicode):
             return obj
         if isinstance(obj, java.jchar):
             return obj.value
@@ -183,8 +183,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             if env.IsAssignableFrom(env.FindClass(obj.sig), j_klass):
                 return LocalRef()
 
-        elif isinstance(obj, (six.string_types, java.jchar)):
-            if isinstance(obj, six.string_types):
+        elif isinstance(obj, (unicode, java.jchar)):
+            if isinstance(obj, unicode):
                 if env.IsAssignableFrom(env.FindClass("java.lang.String"), j_klass):
                     return p2j_string(j_env, obj)
             if autobox:
@@ -195,7 +195,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             if autobox:
                 boxed = p2j_box(env, j_klass, "Boolean", obj)
                 if boxed: return boxed
-        elif isinstance(obj, (six.integer_types, java.IntPrimitive)):
+        elif isinstance(obj, (int, java.IntPrimitive)):
             if autobox:
                 # TODO #5174 support BigInteger, and make that a final fallback if clsname is
                 # Number or Object, and Long isn't big enough.
@@ -257,7 +257,7 @@ cdef assignable_to_array(CQPEnv env, definition, obj):
     # introduce too many complications in overload resolution.
     try:
         iter(obj)
-        return not isinstance(obj, six.string_types)
+        return not isinstance(obj, unicode)
     except TypeError:
         return False
 

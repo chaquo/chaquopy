@@ -2,8 +2,6 @@
 and should not be accessed or relied upon by user code.
 """
 
-from __future__ import absolute_import, division, print_function
-
 from contextlib import contextmanager
 import imp
 from importlib import import_module, metadata, reload, resources
@@ -466,9 +464,9 @@ class TestAndroidImport(unittest.TestCase):
         self.assertIs(sys.modules["imp_rename_2.mod_3"], mod_3)
 
         # The standard load_module implementation doesn't add a sub-module as an attribute of
-        # its package. (Despite this, in Python 3 only, it can still be imported under its new
-        # name using `from ... import`. This seems to contradict the documentation of
-        # __import__, but it's not important enough to investigate just now.)
+        # its package. Despite this, it can still be imported under its new name using `from
+        # ... import`. This seems to contradict the documentation of __import__, but it's not
+        # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
 
     # See src/test/python/test.pth.
