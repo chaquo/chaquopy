@@ -8,7 +8,11 @@
                 "modifiers": "public", "throws": []
             },
             {
-                "name": "nothing", "return_type": "void", "arg_types": [],
+                "name": "none", "return_type": "void", "arg_types": [],
+                "modifiers": "public", "throws": []
+            },
+            {
+                "name": "empty", "return_type": "void", "arg_types": [],
                 "modifiers": "public", "throws": []
             },
             {

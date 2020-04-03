@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Copyright (c) 2017 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 # Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
@@ -19,13 +19,11 @@ import json
 import os
 from os.path import exists, isdir, isfile
 import sys
+import tokenize
 
 import attr
 from attr.validators import instance_of, optional
-from kwonly_args import first_kwonly_arg, kwonly_defaults, KWONLY_REQUIRED
-import six
 
-from . import tokenize
 from .util import CommandError
 
 # Consistent output for tests
@@ -133,8 +131,7 @@ class Class(object):
 
 
 # Attrs constructors can't enforce keyword-only arguments, so we use wrapper functions.
-@kwonly_defaults
-def constructor(arg_types, modifiers="public", throws=None):
+def constructor(arg_types, *, modifiers="public", throws=None):
     if throws is None:
         throws = []
     return Constructor(arg_types, modifiers, throws)
@@ -146,13 +143,11 @@ class Constructor(object):
     throws = attr.ib(validator=instance_of((list, tuple)))
 
 
-@kwonly_defaults
-def Override(return_type, arg_types, modifiers="public", throws=None, name=KWONLY_REQUIRED):
+def Override(return_type, arg_types, *, modifiers="public", throws=None, name):
     return method(return_type, arg_types, modifiers=("@Override " + modifiers),
                   throws=throws, name=name)
 
-@kwonly_defaults
-def method(return_type, arg_types, modifiers="public", throws=None, name=KWONLY_REQUIRED):
+def method(return_type, arg_types, *, modifiers="public", throws=None, name):
     if throws is None:
         throws = []
     return Method(name, return_type, arg_types, modifiers, throws)
@@ -178,7 +173,7 @@ class Module(object):
         # When ast.parse is passed a byte string without a PEP 263 encoding declaration, the
         # default encoding is ASCII in Python 2 and UTF-8 in Python 3. We implement the Python
         # 3 behaviour.
-        root = ast.parse(tokenize.read(self.filename), self.filename)
+        root = ast.parse(tokenize.open(self.filename).read(), self.filename)
 
         # These are all the node types which can change global bindings. We map the bound name
         # to its fully-qualified name if it's a usable import, or otherwise to the node which
@@ -250,8 +245,7 @@ class Module(object):
         return None
 
     def process_static_proxy(self, cls, sp_call):
-        @first_kwonly_arg("package")
-        def static_proxy(extends=None, package=None, modifiers="public", *implements):
+        def static_proxy(extends=None, *implements, package=None, modifiers="public"):
             if package is None:
                 package = self.name
             return extends, implements, package, modifiers
@@ -312,13 +306,10 @@ class Module(object):
             return expr.n
         elif isinstance(expr, ast.Str):
             return expr.s
-        elif sys.version_info >= (3, 4) and isinstance(expr, ast.NameConstant):
+        elif isinstance(expr, ast.NameConstant):  # True, False, None
             return expr.value
         elif isinstance(expr, ast.Name):
-            if expr.id in ["True", "False", "None"]:
-                return getattr(six.moves.builtins, expr.id)
-            else:
-                return self.resolve(expr)
+            return self.resolve(expr)
         elif isinstance(expr, (ast.Attribute, ast.Call)):
             return self.resolve(expr)
         elif isinstance(expr, (ast.List, ast.Tuple)):

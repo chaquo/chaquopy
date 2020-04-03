@@ -96,8 +96,8 @@ class TestStaticProxy(FilterWarningsCase):
         self.run_json("constructor", "constructor")
         self.run_json("constructor", "name", False,
                       "name.py:5:6: @constructor can only be used on __init__")
-        self.run_json("constructor", "return", False, r"return.py:5:6: constructor\(\) takes "
-                      r"exactly 1 arguments? \(2 given\)", re=True)
+        self.run_json("constructor", "return", False, "return.py:5:6: constructor() takes "
+                      "1 positional argument but 2 were given")
 
     def test_method(self):
         self.run_json("method", "return")

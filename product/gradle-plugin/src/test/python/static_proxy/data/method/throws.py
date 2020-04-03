@@ -8,8 +8,12 @@ class C(static_proxy(None)):
     def default(*args):
         pass
 
+    @method(jvoid, [], throws=None)
+    def none(*args):
+        pass
+
     @method(jvoid, [], throws=[])
-    def nothing(*args):
+    def empty(*args):
         pass
 
     @method(jvoid, [], throws=[Class1])
