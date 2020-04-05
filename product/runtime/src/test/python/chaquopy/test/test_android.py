@@ -497,11 +497,6 @@ class TestAndroidImport(unittest.TestCase):
                               [(mi.name, mi.ispkg) for mi in
                                pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
 
-    # pkg_resources is quite large, so it shouldn't be imported until the app needs it. (This
-    # test will fail if the test suite is run more than once.)
-    def test_pr_0(self):
-        self.assertNotIn("pkg_resources", sys.modules)
-
     def test_pr_distributions(self):
         import pkg_resources as pr
         self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
