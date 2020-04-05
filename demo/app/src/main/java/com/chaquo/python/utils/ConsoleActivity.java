@@ -1,19 +1,19 @@
 package com.chaquo.python.utils;
 
 import android.app.*;
-import android.arch.lifecycle.*;
 import android.content.*;
 import android.content.res.*;
 import android.graphics.*;
 import android.os.*;
-import android.support.annotation.*;
-import android.support.v4.content.*;
-import android.support.v7.app.*;
 import android.text.*;
 import android.text.style.*;
 import android.view.*;
 import android.view.inputmethod.*;
 import android.widget.*;
+import androidx.annotation.*;
+import androidx.appcompat.app.*;
+import androidx.core.content.*;
+import androidx.lifecycle.*;
 
 public abstract class ConsoleActivity extends AppCompatActivity
 implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollChangedListener {

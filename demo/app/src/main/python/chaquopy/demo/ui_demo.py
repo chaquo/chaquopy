@@ -6,9 +6,9 @@ from android.app import AlertDialog
 from android.content import Context, DialogInterface
 from android.graphics.drawable import ColorDrawable
 from android.os import Bundle
-from android.support.v4.app import DialogFragment
-from android.support.v7.app import AppCompatActivity
-from android.support.v7.preference import Preference, PreferenceFragmentCompat
+from androidx.appcompat.app import AppCompatActivity
+from androidx.fragment.app import DialogFragment
+from androidx.preference import Preference, PreferenceFragmentCompat
 from android.view import Menu, MenuItem, View
 from java.lang import String
 
@@ -80,7 +80,7 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
         ColorDialog().show(self.getFragmentManager(), "color")
 
     def demo_notify(self, activity):
-        from android.support.v4.app import NotificationCompat
+        from androidx.core.app import NotificationCompat
         builder = NotificationCompat.Builder(activity, App.DEFAULT_CHANNEL)
         builder.setSmallIcon(R.drawable.ic_launcher)
         builder.setContentTitle(

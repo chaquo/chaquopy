@@ -2,10 +2,10 @@ package com.chaquo.python.demo;
 
 import android.content.pm.*;
 import android.os.*;
-import android.support.v7.app.*;
-import android.support.v7.preference.*;
 import android.text.method.*;
 import android.widget.*;
+import androidx.appcompat.app.*;
+import androidx.preference.*;
 
 public class MainActivity extends AppCompatActivity {
 

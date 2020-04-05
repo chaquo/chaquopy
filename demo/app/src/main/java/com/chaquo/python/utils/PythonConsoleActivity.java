@@ -1,9 +1,9 @@
 package com.chaquo.python.utils;
 
 import android.app.*;
-import android.arch.lifecycle.*;
 import android.os.*;
 import android.util.*;
+import androidx.lifecycle.*;
 import com.chaquo.python.*;
 
 /** Base class for a console-based activity that will run Python code. sys.stdout and sys.stderr

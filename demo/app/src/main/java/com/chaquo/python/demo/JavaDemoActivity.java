@@ -1,11 +1,11 @@
 package com.chaquo.python.demo;
 
 import android.content.*;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
+import android.os.*;
 import android.util.*;
 import android.webkit.*;
 import android.widget.*;
+import androidx.appcompat.app.*;
 import com.chaquo.python.*;
 import java.io.*;
 

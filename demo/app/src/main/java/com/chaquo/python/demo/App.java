@@ -3,7 +3,7 @@ package com.chaquo.python.demo;
 import android.app.*;
 import android.content.*;
 import android.os.*;
-import android.preference.*;
+import androidx.preference.*;
 import com.chaquo.python.android.*;
 
 

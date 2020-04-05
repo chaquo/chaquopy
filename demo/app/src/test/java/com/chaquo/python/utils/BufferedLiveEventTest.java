@@ -1,14 +1,14 @@
 package com.chaquo.python.utils;
 
-import android.arch.core.executor.testing.*;
-import android.arch.lifecycle.*;
-import android.arch.lifecycle.Observer;
-import android.support.annotation.*;
+import androidx.annotation.*;
+import androidx.arch.core.executor.testing.*;
+import androidx.lifecycle.*;
+import androidx.lifecycle.Observer;
 import java.util.*;
 import org.junit.*;
 import org.junit.rules.*;
 
-import static android.arch.lifecycle.Lifecycle.Event.*;
+import static androidx.lifecycle.Lifecycle.Event.*;
 import static org.junit.Assert.*;
 
 public class BufferedLiveEventTest implements LifecycleOwner {
