@@ -87,7 +87,7 @@ already pre-compiled and stripped. However, you can silence the warning as follo
           :ref:`requirements <android-requirements>`. Because of the way the native components
           are packaged, the `split APK
           <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app
-          bundle <https://developer.android.com/guide/app-bundle/>`_ features cannot currently
+          bundle <https://developer.android.com/guide/app-bundle/>`_ features will not fully
           mitigate this. Instead, if your multi-ABI APKs are too large, try using a `product
           flavor dimension
           <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_::
@@ -376,14 +376,7 @@ may find the `console app template <https://github.com/chaquo/chaquopy-console>`
 Android Studio plugin
 =====================
 
-To add Python suppport to the Android Studio user interface, you may optionally install the
-JetBrains Python plugin.
-
-.. note:: Chaquopy is not fully integrated with this plugin. It will show numerous "unresolved
-          reference" warnings, and it will not support Python debugging. We hope to improve
-          this in a future version.
-
-* In Android Studio, select File > Settings.
-* Go to the Plugins page, and click "Install JetBrains plugin".
-* Select "Python Community Edition", and click "Install".
-* Restart Android Studio when prompted.
+To add Python editing suppport to the Android Studio user interface, you may optionally install
+the "Python Community Edition" plugin. However, Chaquopy isn't integrated with this plugin, so
+you'll see the warning "No Python interpreter configured for the module". Most of the IDE
+assistance will be unavailable, but the build and runtime functionality will still work fine.
