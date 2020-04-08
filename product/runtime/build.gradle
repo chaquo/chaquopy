@@ -371,6 +371,8 @@ for (abi in ["host"] + Common.ABIS) {
         }
 
         task("sphinx", type: Exec, group: "documentation") {
+            // We call a specific Python executable rather than running `sphinx-build`,
+            // because Sphinx needs to be able to import the runtime module.
             executable pyPlusVersionExe
             args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
         }

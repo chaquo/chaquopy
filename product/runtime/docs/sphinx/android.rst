@@ -378,5 +378,7 @@ Android Studio plugin
 
 To add Python editing suppport to the Android Studio user interface, you may optionally install
 the "Python Community Edition" plugin. However, Chaquopy isn't integrated with this plugin, so
-you'll see the warning "No Python interpreter configured for the module". Most of the IDE
-assistance will be unavailable, but the build and runtime functionality will still work fine.
+you'll see the warning "No Python interpreter configured for the module", and your code will
+probably display many error indicators. These are harmless: just go ahead and run your app, and
+if there really is an error, the details will be displayed in the `Logcat
+<https://developer.android.com/studio/debug/am-logcat.html>`_.
