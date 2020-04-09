@@ -1,17 +1,14 @@
-from __future__ import absolute_import, division, print_function
-
+import io
+from os.path import dirname, join
 import unittest
 
 
 class TestPillow(unittest.TestCase):
 
     def test_basic(self):
-        import io
         from PIL import Image
-        import pkgutil
 
-        in_file = io.BytesIO(pkgutil.get_data(__name__, "lena.jpg"))
-        img = Image.open(in_file)
+        img = Image.open(join(dirname(__file__), "lena.jpg"))
         self.assertEqual(512, img.width)
         self.assertEqual(512, img.height)
 
@@ -28,3 +25,9 @@ class TestPillow(unittest.TestCase):
                          b"\x00\x00\x02\x00" +      # Width 512
                          b"\x00\x00\x02\x00",       # Height 512
                          out_bytes[:24])
+
+    def test_font(self):
+        from PIL import ImageFont
+        font = ImageFont.truetype(join(dirname(__file__), "Vera.ttf"), size=20)
+        self.assertEqual((51, 19), font.getsize("Hello"))
+        self.assertEqual((112, 19), font.getsize("Hello world"))

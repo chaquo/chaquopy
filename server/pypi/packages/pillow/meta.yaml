@@ -1,11 +1,9 @@
 package:
   name: Pillow
-  version: 7.0.0
-
-build:
-  number: 1
+  version: 7.1.1
 
 requirements:
   host:
-    - chaquopy-libjpeg 1.5.3
     # PNG support is internal: libpng is not used.
+    - chaquopy-libjpeg 1.5.3
+    - chaquopy-freetype 2.9.1
