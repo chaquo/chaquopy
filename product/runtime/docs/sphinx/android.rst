@@ -120,13 +120,12 @@ For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.1, the
 Mac it will first try `python3.8`, then `python3`. On Windows, it will first try `py -3.8`,
 then `py -3`.
 
-To use a different copy of Python, set its command using the `buildPython` setting. For
-example, on Windows you might use one of the following::
+If you need to use a different copy of Python, set its command using the `buildPython` setting.
+For example, on Windows you might use the following::
 
       defaultConfig {
           python {
-              buildPython "C:/Python36/python.exe"
-              buildPython "py -3.7"
+              buildPython "C:/path/to/python.exe"
           }
       }
 
