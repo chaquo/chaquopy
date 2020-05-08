@@ -12,6 +12,7 @@ from os.path import basename, dirname, exists, join, relpath
 import pathlib
 from pkgutil import get_importer
 import platform
+import re
 from shutil import copyfileobj, rmtree
 import site
 import sys
@@ -213,6 +214,15 @@ class ChaquopyZipImporter(zipimport.zipimporter):
 
 
 class AssetPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
+
+    # Maintain compatibility with the external package importlib_metadata, whose Context
+    # class doesn't have a `pattern` attribute.
+    @classmethod
+    def find_distributions(cls, context=metadata.DistributionFinder.Context()):
+        if not hasattr(context, "pattern"):
+            context.pattern = ".*" if context.name is None else re.escape(context.name)
+        return super().find_distributions(context)
+
     @staticmethod
     def _switch_path(path):
         return (AssetPath if path.startswith(ASSET_PREFIX + "/") else pathlib.Path)(path)

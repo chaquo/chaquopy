@@ -616,6 +616,7 @@ class TestAndroidImport(unittest.TestCase):
 
         dist = metadata.distribution("murmurhash")
         self.assertEqual("0.28.0", dist.version)
+        self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
         self.assertEqual(["chaquopy-libcxx (>=7000)"], dist.requires)
