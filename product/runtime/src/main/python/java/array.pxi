@@ -1,5 +1,8 @@
 import itertools
 
+from cpython cimport Py_buffer
+from cpython.buffer cimport PyBuffer_FillInfo
+
 
 cpdef jarray(element_type):
     """Returns a Python class for a Java array type. The element type may be specified as any of:
@@ -29,7 +32,7 @@ class ArrayClass(JavaClass):
         return self
 
 
-class JavaArray(object):
+cdef class JavaArray(object):
     def __init__(self, length_or_value):
         if isinstance(length_or_value, int):
             length, value = length_or_value, None
@@ -85,22 +88,34 @@ class JavaArray(object):
     def __str__(self):
         return repr(self)
 
-    # This does a signed-to-unsigned conversion: Java values -128 to -1 will be mapped to
-    # Python values 128 to 255.
-    def __bytes__(self, offset=None, length=None):
+    # We currently support calling bytes() and bytearray() on byte[] arrays only. For Java's
+    # other integer types, there are two possible behaviors:
+    #   * Require the elements to have values 0-255, and return one byte per element.
+    #   * Return the elements as stored in memory, e.g. 2 bytes per short[] element.
+    #
+    # In future, when we implement the buffer protocol for other primitive array types to
+    # support NumPy (TODO #5464), we'll automatically get the in-memory behavior. The only way
+    # to stop this would be to implement __bytes__, but that would have no effect on
+    # bytearray(). So we'll have to accept it, and if the user wants the byte-per-element
+    # behavior, they can just call bytes(list(a)).
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
         signature = type(self).__name__
         if signature != "[B":
-            raise TypeError(f"Cannot call __bytes__ on {sig_to_java(signature)}, only on byte[]")
-        if offset is None:
-            offset = 0
-        if length is None:
-            length = self._chaquopy_len - offset
+            raise TypeError(f"__getbuffer__ is not implemented for {sig_to_java(signature)}")
 
         env = CQPEnv()
         elems = env.GetByteArrayElements(self._chaquopy_this)
-        result = elems[offset : offset+length]
-        env.ReleaseByteArrayElements(self._chaquopy_this, elems, JNI_ABORT)
-        return result
+        try:
+            # This does a signed-to-unsigned conversion: Java values -128 to -1 will be mapped
+            # to Python values 128 to 255.
+            PyBuffer_FillInfo(buffer, self, elems, self._chaquopy_len, 1, flags)
+        except:
+            env.ReleaseByteArrayElements(self._chaquopy_this, elems, JNI_ABORT)
+            raise
+        buffer.internal = elems
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        CQPEnv().ReleaseByteArrayElements(self._chaquopy_this, <jbyte*>buffer.internal, JNI_ABORT)
 
     def __len__(self):
         return self._chaquopy_len
@@ -115,13 +130,13 @@ class JavaArray(object):
             raise TypeError("jarray does not support slice syntax")
             # return [self[i] for i in range(key.indices(self._chaquopy_len))]
         else:
-            raise TypeError(f"{type(key).__name__} object is not a valid index")
+            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
             if not (0 <= key < self._chaquopy_len):
                 raise IndexError(str(key))
-            return array_set(self, key, value)
+            array_set(self, key, value)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -132,7 +147,7 @@ class JavaArray(object):
             # for i, v in zip(indices, value):
             #     self[i] = v
         else:
-            raise TypeError(f"{type(key).__name__} object is not a valid index")
+            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
 
     def __eq__(self, other):
         try:

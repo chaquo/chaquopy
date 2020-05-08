@@ -18,19 +18,17 @@ Data types are converted between Python and Java as follows:
 * Java `null` corresponds to Python `None`.
 
 * The Java boolean, integer and floating point types correspond to Python `bool`, `int` and
-  `float` respectively.
-
-* When Java code uses a "boxed" type, auto-boxing is done when converting from Python to Java,
-  and auto-unboxing when converting from Java to Python.
+  `float` respectively. When Java code uses a "boxed" type, auto-boxing is done when converting
+  from Python to Java, and auto-unboxing when converting from Java to Python.
 
 * Java `String` and `char` both correspond to Python `str`.
 
-* A Java object is represented as a :any:`jclass` object.
-
-* A Java array is represented as a :any:`jarray` object. Java array parameters and fields
+* A Java array is represented by a :any:`jarray` object. Java array parameters and fields
   can also be implicitly converted from any Python iterable, except a string.
 
-.. note:: A Java object or array obtained from a method or field will be represented
+* All other Java objects are represented by a :any:`jclass` object.
+
+  .. note:: A Java object or array obtained from a method or field will be represented
           in Python as its actual run-time type, which is not necessarily the declared type
           of the method or field. It can be viewed as another compatible type using the
           :any:`cast` function.
@@ -41,10 +39,12 @@ Primitives
 ----------
 
 A Python `bool`, `int`, `float` or `str` object can be passed directly to any compatible Java
-method parameter or field. However, Java has more primitive types than Python, so when more
-than one compatible integer or floating-point overload is applicable for a method call, the
-longest one will be used. Similarly, when a 1-character string is passed to a method which has
-overloads for both `String` and `char`, the `String` overload will be used.
+method parameter or field.
+
+However, Java has more primitive types than Python, so when more than one compatible integer or
+floating-point overload is applicable for a method call, the longest one will be used.
+Similarly, when a 1-character string is passed to a method which has overloads for both
+`String` and `char`, the `String` overload will be used.
 
 If these rules do not give the desired result, the following wrapper classes can be used to
 select which Java primitive type you want to use:
@@ -82,20 +82,21 @@ Classes
 
 .. autofunction:: java.jclass(cls_name)
 
-.. note:: Rather than calling this function directly, it's usually more convenient to use the
+.. note:: Rather than calling `jclass` directly, it's usually more convenient to use the
           `import hook`_.
 
 Java classes and objects can be used with normal Python syntax::
 
-    >>> Point = jclass("java.awt.Point")
-    >>> p = Point(3, 4)
-    >>> p.x
-    3
-    >>> p.y
-    4
-    >>> p.x = 7
-    >>> p.getX()
-    7.0
+    >>> Calendar = jclass("java.util.Calendar")
+    >>> c = Calendar.getInstance()
+    >>> c.getTimeInMillis()
+    1588934677166
+    >>> c.getTime()
+    <java.util.Date 'Fri May 08 11:44:37 GMT+01:00 2020'>
+    >>> c.get(Calendar.YEAR)
+    2020
+    >>> c.before(Calendar.getInstance())
+    True
 
 Overloaded methods are resolved according to Java rules::
 
@@ -131,37 +132,10 @@ and interface types are also considered subclasses of `java.lang.Object`.
 Arrays
 ------
 
-Any Python iterable (except a string) can normally passed directly to a Java method or field
-which takes an array type. But where a method has multiple equally-specific overloads, the
-value must be converted to a Java array object to disambiguate the call.
-
-For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
-`f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
-`f(jarray(jint)([1,2,3]))`.
-
 .. autofunction:: java.jarray(element_type)
 
-A `jarray` class can be instantiated to create a new Java array. The constructor takes
-a single parameter, which must be one of the following:
-
-* An integer, to create an array filled with zero, `false` or `null`::
-
-    # Python code                                 // Java equivalent
-    jarray(jint)(5)                               new int[5]
-
-* A Python iterable containing objects of compatible types::
-
-    # Python code                                 // Java equivalent
-    jarray(jint)([1, 2, 3])                       new int[]{1, 2, 3}
-    jarray(jarray(jint))([[1, 2], [3, 4]])        new int[][]{{1, 2}, {3, 4}}
-    jarray(String)(["Hello", "world"])            new String[]{"Hello", "world"}
-    jarray(jchar)("hello")                        new char[] {'h', 'e', 'l', 'l', 'o'}
-
-* `byte[]` arrays can be initialized from Python :any:`bytes` and :any:`bytearray` objects.
-  This does an unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java
-  values -128 to -1.
-
-Array objects support the standard Python sequence protocol:
+`jarray` objects represent Java arrays. They support the standard Python sequence protocol,
+including:
 
 * Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
   supported.)
@@ -180,10 +154,54 @@ useful, so the equivalent Python operations are defined as follows:
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
 
-`byte[]` arrays can be passed to the :any:`bytes` function. This does a signed-to-unsigned
-conversion: Java values -128 to -1 will be mapped to Python values 128 to 255. Direct
-conversion to a :any:`bytearray` is not currently supported: use `bytearray(bytes(...))`
-instead.
+Creating arrays
+...............
+
+Any Python iterable (except a string) can be passed directly to a Java method or field which
+takes an array type, so there's usually no need to create `jarray` objects directly.
+
+However, where a method has multiple array-type overloads, you may need to disambiguate the
+call. For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
+`f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
+`f(jarray(jint)([1,2,3]))`.
+
+More examples::
+
+    # Python code                                 // Java equivalent
+    jarray(jint)([1, 2, 3])                       new int[] {1, 2, 3}
+    jarray(jarray(jint))([[1, 2], [3, 4]])        new int[][] {{1, 2}, {3, 4}}
+    jarray(String)(["Hello", "world"])            new String[] {"Hello", "world"}
+    jarray(jchar)("hello")                        new char[] {'h', 'e', 'l', 'l', 'o'}
+
+You can also pass an integer to create an array filled with zero, `false` or `null`::
+
+    # Python code                                 // Java equivalent
+    jarray(jint)(5)                               new int[5]
+
+Byte arrays
+...........
+
+When converting a Python :any:`bytes` or :any:`bytearray` object to a Java `byte[]` array,
+there is an unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java
+values -128 to -1::
+
+    # Python code                                 // Java equivalent
+    jarray(jbyte)(bytes([0, 127, 128, 255]))      new byte[] {0, 127, -128, -1}
+
+Similarly, when converting a `byte[]` array to a :any:`bytes` or :any:`bytearray` object, there
+is a signed-to-unsigned conversion::
+
+    >>> a = jarray(jbyte)([0, 127, -128, -1])
+    >>> bytes(a)
+    b'\x00\x7f\x80\xff'
+
+`int[]`, `short[]` and `long[]` arrays cannot be directly converted to bytes. If you have such
+an array containing values between 0 and 255, then you can convert it indirectly using
+:any:`list`::
+
+    >>> a = jarray(jint)([0, 127, 128, 255])
+    >>> bytes(list(a))
+    b'\x00\x7f\x80\xff'
 
 Casting
 -------

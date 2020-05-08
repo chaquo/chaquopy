@@ -92,7 +92,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * href="https://docs.python.org/3/glossary.html#term-sequence">sequence</a>, then a copy
      * of the sequence will be returned as a new array. In general, each element will be
      * converted as if `toJava` was called on it recursively. However, when converting a Python
-     * `bytes` or `bytearray` object to a Java `byte[]` array, there will be an
+     * `bytes` or `bytearray` object to a Java `byte[]` array, there is an
      * unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java values
      * -128 to -1.
      *
