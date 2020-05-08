@@ -341,7 +341,7 @@ Python standard library
 Unsupported modules
 -------------------
 
-The following standard library modules are not currently supported:
+All standard library modules are supported, except for the following:
 
 * :any:`crypt`
 * :any:`curses`
@@ -357,7 +357,7 @@ ssl
 
 For consistency across different devices, the :any:`ssl` module is configured to use a copy of
 the CA bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version
-is from certifi 2019.9.11.
+is from certifi 2020.4.5.1.
 
 sys
 ---
