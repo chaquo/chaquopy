@@ -3,43 +3,31 @@ import unittest
 
 class TestTensorFlow(unittest.TestCase):
 
-    # Based on https://www.tensorflow.org/guide/keras
-    def test_keras(self):
-        NUM_SAMPLES = 500
-        NUM_OUTPUTS = 5
-        data_1, labels_1 = make_data(NUM_SAMPLES, NUM_OUTPUTS)
-        data_2, labels_2 = make_data(NUM_SAMPLES, NUM_OUTPUTS)
+    # Based on https://www.tensorflow.org/guide/keras/train_and_evaluate
+    def test_mnist(self):
+        from tensorflow import keras
 
-        # There's a lot of variance in this test, so even with these thresholds there's a small
-        # chance of it failing.
-        self.assertGreater(self.get_accuracy(data_1, labels_1), 0.5)  # Matching data and labels
-        self.assertLess(self.get_accuracy(data_1, labels_2), 0.5)  # Mismatching data and labels
+        model = keras.Sequential([
+            keras.Input((784,)),
+            keras.layers.Dense(64, "relu"),
+            keras.layers.Dense(64, "relu"),
+            keras.layers.Dense(10)])
+        model.compile(optimizer=keras.optimizers.RMSprop(),
+                      loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                      metrics=["sparse_categorical_accuracy"])
 
-    def get_accuracy(self, data, labels):
-        model = make_model(data.shape[1])
-        model.fit(data, labels, epochs=20, verbose=0)
-        return model.evaluate(*make_data(*data.shape), verbose=0)[1]
+        (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+        x_train = x_train.reshape(60000, 784).astype("float32") / 255
+        x_test = x_test.reshape(10000, 784).astype("float32") / 255
+        y_train = y_train.astype("float32")
+        y_test = y_test.astype("float32")
 
+        history = model.fit(x_train, y_train, validation_split=0.15, verbose=0)
+        self.assertGreater(history.history["val_sparse_categorical_accuracy"][-1], 0.9)
 
-def make_model(num_outputs):
-    import tensorflow as tf
-    from tensorflow.keras import layers
-
-    model = tf.keras.Sequential([
-        layers.Dense(num_outputs, activation='relu'),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(num_outputs, activation='softmax')])
-    model.compile(optimizer=tf.keras.optimizers.RMSprop(0.01),
-                  loss=tf.keras.losses.categorical_crossentropy,
-                  metrics=[tf.keras.metrics.categorical_accuracy])
-    return model
-
-
-def make_data(rows, cols):
-    import numpy as np
-    data = np.random.random((rows, cols))
-
-    # Replace the highest value in each row with 1, and all other values with 0.
-    labels = np.zeros((rows, cols))
-    labels[np.arange(rows), np.argmax(data, 1)] = 1
-    return data, labels
+        # To see these images:
+        #   >>> (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
+        #   >>> np.set_printoptions(linewidth=150)
+        #   >>> x_test[0] etc.
+        self.assertEqual([7, 2, 1, 0, 4],
+                         model.predict(x_test[:5]).argmax(axis=1).tolist())

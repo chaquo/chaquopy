@@ -1,4 +1,4 @@
-"""Copyright (c) 2018 Chaquo Ltd. All rights reserved."""
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 from importlib import reload
 import os
@@ -15,26 +15,19 @@ def initialize(context, build_json, app_path):
 
 
 def initialize_stdlib(context):
-    from com.chaquo.python import Common
-
     # These are ordered roughly from low to high level.
-    initialize_sys(context, Common)
-    initialize_os(context)
-    initialize_tempfile(context)
-    initialize_ssl(context)
-    initialize_hashlib(context)
-    initialize_ctypes(context)
+    for name in ["sys", "os", "tempfile", "ssl", "hashlib", "ctypes", "multiprocessing"]:
+        globals()[f"initialize_{name}"](context)
 
 
-def initialize_sys(context, Common):
+def initialize_sys(context):
+    from com.chaquo.python import Common
     sys.abiflags = Common.PYTHON_SUFFIX[len(Common.PYTHON_VERSION_SHORT):]
 
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
 
-    # executable defaults to "python" on 2.7, or "" on 3.6. But neither of these values (or
-    # None, which is mentioned in the documentation) will allow platform.platform() to run
-    # without crashing.
+    # executable defaults to the empty string, but this causes platform.platform() to crash.
     try:
         sys.executable = os.readlink("/proc/{}/exe".format(os.getpid()))
     except Exception:
@@ -90,3 +83,25 @@ def initialize_ctypes(context):
     ctypes.util.find_library = find_library_override
 
     ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])
+
+
+def initialize_multiprocessing(context):
+    # multiprocessing.dummy.Pool unnecessarily depends on multiprocessing.Lock, which requires
+    # sem_open, which isn't available on Android. Work around this by replacing all the
+    # multiprocessing primitives with their threading equivalents.
+    import multiprocessing
+    import threading
+
+    # This needs to be wrapped in a function to capture the current value of `cls`.
+    def make_method(name, cls):
+        def method(self, *args, **kwargs):
+            return cls(*args, **kwargs)
+        method.__name__ = method.__qualname__ = name
+        return method
+
+    ctx_cls = type(multiprocessing.get_context())
+    for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
+                 "Semaphore"]:
+        cls = getattr(threading, name)
+        setattr(multiprocessing, name, cls)
+        setattr(ctx_cls, name, make_method(name, cls))

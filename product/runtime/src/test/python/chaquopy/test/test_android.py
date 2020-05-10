@@ -737,6 +737,23 @@ class TestAndroidStdlib(unittest.TestCase):
         self.assertEqual("utf-8", sys.getdefaultencoding())
         self.assertEqual("utf-8", sys.getfilesystemencoding())
 
+    def test_multiprocessing(self):
+        from multiprocessing.dummy import Pool
+        import random
+        import time
+
+        def square_slowly(x):
+            time.sleep(random.uniform(0.1, 0.2))
+            return x ** 2
+
+        pool = Pool(8)
+        start = time.time()
+        self.assertEqual([0, 1, 4, 9, 16, 25, 36, 49],
+                         pool.map(square_slowly, range(8), chunksize=1))
+        duration = time.time() - start
+        self.assertGreater(duration, 0.1)
+        self.assertLess(duration, 0.25)
+
     def test_os(self):
         self.assertEqual("posix", os.name)
         self.assertEqual(str(context.getFilesDir()), os.path.expanduser("~"))
