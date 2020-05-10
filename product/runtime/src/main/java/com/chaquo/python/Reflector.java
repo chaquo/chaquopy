@@ -6,18 +6,25 @@ import java.util.*;
 /** @deprecated */
 public class Reflector {
 
-    private final Class klass;
+    private final Class<?> klass;
     private Map<String,Member> methods;               // We target Java 7, so we can't use
     private Map<String,List<Member>> multipleMethods; // java.lang.reflect.Executable.
     private Map<String,Field> fields;
     private Map<String,Class> classes;
 
-    // See note at get_reflector in class.pxi.
-    public static Reflector newInstance(Class klass) {
-        return new Reflector(klass);
+    private static Map<Class, Reflector> instances = new HashMap<>();
+
+    public static Reflector getInstance(Class klass) {
+        Reflector reflector = instances.get(klass);
+        if (reflector != null) {
+            return reflector;
+        }
+        reflector = new Reflector(klass);
+        instances.put(klass, reflector);
+        return reflector;
     }
 
-    public Reflector(Class klass) {
+    private Reflector(Class klass) {
         this.klass = klass;
     }
 
@@ -54,11 +61,49 @@ public class Reflector {
                 loadMethod(c, "<init>");
             }
         }
-        for (Method m : klass.getDeclaredMethods()) {
+        for (Method m : getDeclaredMethods()) {
             if (isAccessible(m)) {
                 loadMethod(m, m.getName());
             }
         }
+    }
+
+    private Collection<Method> getDeclaredMethods() {
+        try {
+            return Arrays.asList(klass.getDeclaredMethods());
+        } catch (NoClassDefFoundError ignored) {}
+
+        // On Android, getDeclaredMethods fails if any method signature refers to a class that
+        // cannot be loaded
+        // (https://android.googlesource.com/platform/libcore/+/refs/tags/android-5.0.0_r7/libart/src/main/java/java/lang/Class.java#771).
+        // I don't know any perfect workaround for this, but there are a few ways we can
+        // discover at least some of the methods.
+        Set<Method> result = new HashSet<>();
+
+        // Discover public methods: only works on API level 21 and higher.
+        try {
+            for (Method m : klass.getMethods()) {
+                if (m.getDeclaringClass() == klass) {
+                    try {
+                        m.getReturnType();
+                        m.getParameterTypes();
+                        result.add(m);
+                    } catch (NoClassDefFoundError ignored) {}
+                }
+            }
+        } catch (NoClassDefFoundError ignored) {}
+
+        // Discover inherited methods overridden by this class.
+        for (Class c = klass.getSuperclass(); c != null; c = c.getSuperclass()) {
+            for (Method inherited : Reflector.getInstance(c).getDeclaredMethods()) {
+                try {
+                    result.add(klass.getDeclaredMethod(inherited.getName(),
+                                                       inherited.getParameterTypes()));
+                } catch (NoSuchMethodException ignored) {}
+            }
+        }
+
+        return result;
     }
 
     private void loadMethod(Member m, String name) {
@@ -83,11 +128,35 @@ public class Reflector {
 
     private void loadFields() {
         fields = new HashMap<>();
-        for (Field f : klass.getDeclaredFields()) {
+        for (Field f : getDeclaredFields()) {
             if (isAccessible(f)) {
                 fields.put(f.getName(), f);
             }
         }
+    }
+
+    private Collection<Field> getDeclaredFields() {
+        try {
+            return Arrays.asList(klass.getDeclaredFields());
+        } catch (NoClassDefFoundError ignored) {}
+
+        // See comment in getDeclaredMethods.
+        Set<Field> result = new HashSet<>();
+
+        // Discover public fields: this doesn't work on any version of Android as far as I know,
+        // but we might as well keep it in case that changes.
+        try {
+            for (Field f : klass.getFields()) {
+                if (f.getDeclaringClass() == klass) {
+                    try {
+                        f.getType();
+                        result.add(f);
+                    } catch (NoClassDefFoundError ignored) {}
+                }
+            }
+        } catch (NoClassDefFoundError ignored) {}
+
+        return result;
     }
 
     public synchronized Class getNestedClass(String name) {

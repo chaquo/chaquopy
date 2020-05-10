@@ -293,7 +293,7 @@ cdef setup_bootstrap_classes():
     setup_object_class()
 
     Reflector = new_class("com.chaquo.python.Reflector", (JavaObject,))
-    bootstrap_method(Reflector, "newInstance",
+    bootstrap_method(Reflector, "getInstance",
                      "(Ljava/lang/Class;)Lcom/chaquo/python/Reflector;", static=True)
     bootstrap_method(Reflector, "getMethods",
                      "(Ljava/lang/String;)[Ljava/lang/reflect/Member;")
@@ -413,7 +413,7 @@ cdef get_reflector(cls):
     if not reflector:
         # Can't call constructor directly, because JavaObject.__init__ calls some inherited
         # methods which would themselves require a Reflector to resolve.
-        reflector = Reflector.newInstance(Class(instance=cls.__dict__["_chaquopy_j_klass"]))
+        reflector = Reflector.getInstance(Class(instance=cls.__dict__["_chaquopy_j_klass"]))
         type.__setattr__(cls, "_chaquopy_reflector", reflector)
     return reflector
 

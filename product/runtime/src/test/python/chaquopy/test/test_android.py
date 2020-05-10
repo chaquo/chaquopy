@@ -658,6 +658,43 @@ def asset_path(zip_name, *paths):
                 *paths)
 
 
+# On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers to a
+# class that cannot be loaded. Test the partial workaround in Reflector.
+class TestAndroidReflect(unittest.TestCase):
+
+    MEMBERS = ["tcFieldPublic", "tcFieldProtected", "tcMethodPublic", "tcMethodProtected",
+               "iFieldPublic", "iFieldProtected", "iMethodPublic", "iMethodProtected",
+               "finalize"]
+
+    def test_android_reflect(self):
+        from com.chaquo.python.demo import TestAndroidReflect as TAR
+
+        if API_LEVEL >= 26:
+            # TextClassifier is in the platform, so all members should be visible.
+            self.assertMembers(TAR, self.MEMBERS)
+        elif API_LEVEL >= 21:
+            # Overridden methods should be visible, plus public methods that don't involve
+            # TextClassifier.
+            self.assertMembers(TAR, ["iMethodPublic", "finalize"])
+        else:
+            # Only overridden methods should be visible.
+            self.assertMembers(TAR, ["finalize"])
+
+    def assertMembers(self, cls, names):
+        for name in names:
+            with self.subTest(name=name):
+                self.assertTrue(self.declares_member(cls, name))
+
+        for name in self.MEMBERS:
+            if name not in names:
+                with self.subTest(name=name):
+                    self.assertFalse(self.declares_member(cls, name))
+
+    def declares_member(self, cls, name):
+        hasattr(cls, name)  # Adds member to __dict__ if it exists.
+        return name in cls.__dict__
+
+
 class TestAndroidStdlib(unittest.TestCase):
 
     def test_ctypes(self):
