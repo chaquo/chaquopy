@@ -22,16 +22,6 @@ class TestPsutil(unittest.TestCase):
         else:
             self.assertIn("/", [p.mountpoint for p in parts])
 
-    def test_network(self):
-        import psutil
-        addrs = psutil.net_if_addrs()
-        if API_LEVEL:
-            self.assertFalse(addrs)
-        else:
-            self.assertIn("lo", addrs)
-
-        self.assertIn("lo", psutil.net_if_stats())
-
     def test_process(self):
         import getpass
         import psutil
