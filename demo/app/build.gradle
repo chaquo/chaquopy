@@ -116,5 +116,4 @@ dependencies {
     implementation 'androidx.preference:preference:1.0.0'
     implementation 'junit:junit:4.12'
     testImplementation 'junit:junit:4.12'
-    testImplementation 'androidx.arch.core:core-testing:2.0.0'
 }
