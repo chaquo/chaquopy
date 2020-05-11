@@ -1,5 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
 from java import dynamic_proxy, jboolean, jvoid, Override, static_proxy
 
 from android.app import AlertDialog

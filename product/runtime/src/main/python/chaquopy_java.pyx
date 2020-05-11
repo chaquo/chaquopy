@@ -1,4 +1,6 @@
 # cython: language_level=2
+
+# __future__ import may still be required as long as we have language_level=2.
 from __future__ import absolute_import, division, print_function
 
 import builtins

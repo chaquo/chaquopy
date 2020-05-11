@@ -9,7 +9,7 @@
 # `profile` reports entry and exit of all Cython functions to the Python profiling system, but
 # is too expensive to leave on all the time.
 
-
+# __future__ import may still be required as long as we have language_level=2.
 from __future__ import absolute_import, division, print_function
 
 # Workaround for https://github.com/cython/cython/issues/1720, which should ultimately be fixed
