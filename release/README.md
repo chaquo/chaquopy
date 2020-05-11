@@ -54,7 +54,7 @@ Do an all-ABI test of opencv-contrib-python and pycrypto, and possibly some of t
 entries in `DEFAULT_EXCLUDE_PACKAGES`.
 
 
-## Demo app
+## Demo apps
 
 Copy current versions of `gradle`, `runtime` and (if necessary) `target` to the public Maven
 repository.
@@ -66,10 +66,16 @@ which the public repositories were last updated. If the script reports any files
 manual merging (e.g. build.gradle), examine them and update the public repositories as
 necessary.
 
-Open `public/demo` project. "Clean Project", then "Generate Signed APK" with "release" variant.
+For each of the following simple demo apps, "Clean Project", then test it on any device:
 
-Install and test the APK on the following devices, with at least one device being a clean
-install, and at least one being an upgrade from the previous public release.
+* `console`
+* `hello`
+
+Open public `demo` project. "Clean Project", then "Generate Signed APK" with "release" variant
+and all signature schemes.
+
+Use `adb` to install and test the APK on the following devices, with at least one device being
+a clean install, and at least one being an upgrade from the previous public release.
 
 * x86 emulator with minSdkVersion
 * x86 emulator with targetSdkVersion
@@ -77,7 +83,7 @@ install, and at least one being an upgrade from the previous public release.
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
-Update `public/demo/CHANGELOG.md`.
+Update `demo/CHANGELOG.md`.
 
 Release app on Google Play, updating description and screenshots if necessary.
 

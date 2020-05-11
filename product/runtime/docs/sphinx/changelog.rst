@@ -1,6 +1,26 @@
 Change log
 ##########
 
+7.0.3 (2020-05-11)
+==================
+
+* Fix `"This platform lacks a functioning sem_open implementation"
+  <https://stackoverflow.com/questions/61089650>`_ error when using
+  `multiprocessing.dummy.Pool` (aka `multiprocessing.pool.ThreadPool`). This affected many
+  common uses of TensorFlow.
+* Work around dynamic linker bug on 64-bit ABIs before API level 23 (`#228
+  <https://github.com/chaquo/chaquopy/issues/228>`_).
+* Fix `out of memory error <https://stackoverflow.com/questions/60919031>`_ when running Gradle
+  with a small heap size.
+* Fix incompatibility with external package `importlib_metadata` (`#276
+  <https://github.com/chaquo/chaquopy/issues/276>`_).
+* Fix `NoClassDefFoundError` when using Python to access certain `androidx` classes, including
+  `AppCompatTextView`.
+* Fix conversion of Java `byte[]` array to Python :any:`bytearray`.
+* Improve startup speed by deferring `pkg_resources` initialization until the module is first
+  imported.
+* Update CA bundle to certifi 2020.4.5.1.
+
 7.0.2 (2020-03-05)
 ==================
 
@@ -11,7 +31,7 @@ Change log
     <https://docs.python.org/3/whatsnew/3.8.html#porting-to-python-3-8>`_.
   * All Python standard library modules are now supported except those in :ref:`this list
     <stdlib-unsupported>`. In particular, support has been added for :any:`bz2`,
-    :any:`importlib.metadata`, :any:`importlib.resources` and :any:`lzma`.
+    `importlib.metadata`, :any:`importlib.resources` and :any:`lzma`.
   * Most native packages have been upgraded to a more recent version. If you've used specific
     version numbers in a `build.gradle` or `requirements.txt` file, you may need to update
     them. See `the repository index <https://chaquo.com/pypi-7.0/>`_ for a complete list.
@@ -113,7 +133,7 @@ Change log
   <https://pypi.org/project/websockets/>`_).
 * Work around inability of Android dynamic linker on API 22 and older to load multiple modules
   with the same basename (`details here <https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md#correct-sonamepath-handling-available-in-api-level--23>`_).
-* Fix :any:`ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
+* Fix `ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
   :any:`sysconfig.get_config_vars`.
 * Fix native crash in `lrintf` / `feholdexcept` / `fegetenv` (Crystax issue `#1369
   <https://tracker.crystax.net/issues/1369>`_).
