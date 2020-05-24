@@ -15,8 +15,22 @@ full_ver="$short_ver.$micro_build"
 
 mkdir -p "${3:?}"
 target_dir="$(realpath $3)/$full_ver"
-mkdir "$target_dir"
+mkdir "$target_dir"  # Fail if it already exists: we don't want to overwrite things by accident.
 target_prefix="$target_dir/target-$full_ver"
+
+cat > "$target_prefix.pom" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.chaquo.python</groupId>
+    <artifactId>target</artifactId>
+    <version>$full_ver</version>
+    <packaging>pom</packaging>
+</project>
+EOF
 
 tmp_dir="$target_dir/tmp"
 rm -rf "$tmp_dir"
