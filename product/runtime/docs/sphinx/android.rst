@@ -7,7 +7,7 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system.
 
 Prerequisites:
 
-* Android Gradle plugin version should be between 3.3 and 3.6. This is specified as
+* Android Gradle plugin version should be between 3.3 and 4.0. This is specified as
   `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
   usually be the same as your Android Studio version.
 
@@ -74,14 +74,19 @@ devices, e.g.::
         }
     }
 
-You may see the warning "Compatible side by side NDK version was not found". This is harmless,
-and there's no need to actually install the NDK, as all of Chaquopy's native libraries are
-already pre-compiled and stripped. However, you can silence the warning as follows:
+If you get the error "No version of NDK matched the requested version", you can fix this as
+follows:
 
 * Go to Tools > SDK Manager.
-* Select the SDK Tools tab.
-* Select "Show Package Details".
-* Under "NDK (Side by side)", select the version mentioned in the warning.
+* Select the "SDK Tools" tab.
+* Select "Show Package Details" at the bottom.
+* Find "NDK (Side by side)" in the list, and select the version mentioned in the message.
+* Click OK.
+
+You may also see the warning "Compatible side by side NDK version was not found". This is
+harmless, and there's no need to actually install the NDK, as all of Chaquopy's native
+libraries are already pre-compiled and stripped. However, you can silence the warning using the
+same steps as above.
 
 .. note:: Each ABI will add several MB to the size of the app, plus the size of any native
           :ref:`requirements <android-requirements>`. Because of the way the native components
