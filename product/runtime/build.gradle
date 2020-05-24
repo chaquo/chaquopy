@@ -1,5 +1,8 @@
 apply plugin: 'java'
-apply plugin: 'ch.raffael.markdown-doclet'  // For javadoc
+
+// This currently generates a deprecation warning saying it'll fail in Gradle 7.0
+// (https://github.com/Abnaxos/markdown-doclet/issues/91).
+apply plugin: 'ch.raffael.markdown-doclet'
 
 import com.chaquo.python.Common;
 
@@ -33,7 +36,7 @@ void addArtifact(Task task, Object filename, String abi=null) {
 
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
-jar { archiveName = "chaquopy_java.jar" }
+jar { archiveFileName = "chaquopy_java.jar" }
 addArtifact(jar, jar.archivePath)
 
 task("compilePython", type: Copy, group: "build") {
@@ -63,8 +66,8 @@ task("compilePython", type: Copy, group: "build") {
 
 task("zipPython", type: Zip, group: "build") {
     from compilePython
-    destinationDir buildDir
-    archiveName Common.assetZip(Common.ASSET_BOOTSTRAP)
+    destinationDirectory = buildDir
+    archiveFileName = Common.assetZip(Common.ASSET_BOOTSTRAP)
 }
 addArtifact(zipPython, zipPython.archivePath)
 
@@ -195,12 +198,9 @@ if (!file(androidJar).exists()) {
 
 dependencies {
     compileOnly files(androidJar)
+
     testCompileOnly files(androidJar)
-
-    // This is a library project, so use "+" notation for external dependencies.
-    // However, avoid adding dependencies, because they'll inflate the size of the users' APKs.
-
-    testCompile 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.12'
 }
 
 task("generateStaticProxy", type: Exec, group: "verification") {
