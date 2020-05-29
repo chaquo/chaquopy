@@ -3,6 +3,7 @@ and should not be accessed or relied upon by user code.
 """
 
 from contextlib import contextmanager
+import ctypes
 import imp
 from importlib import import_module, metadata, reload, resources
 from importlib.util import cache_from_source, MAGIC_NUMBER
@@ -11,6 +12,7 @@ import os
 from os.path import dirname, exists, join, splitext
 import pkgutil
 import platform
+import re
 import shlex
 from shutil import rmtree
 from subprocess import check_output
@@ -261,10 +263,8 @@ class TestAndroidImport(unittest.TestCase):
         else:
             self.assertIsNone(source)
 
-        expected_file = loader.get_filename(mod_name)
-        if expected_file.endswith(".pyc"):
-            expected_file = expected_file[:-1]
-        self.assertEqual(expected_file, mod.__file__)
+        self.assertEqual(re.sub(r"\.pyc$", ".py", loader.get_filename(mod_name)),
+                         mod.__file__)
 
         return mod
 
@@ -341,7 +341,8 @@ class TestAndroidImport(unittest.TestCase):
         finally:
             murmurhash.__file__ = murmurhash_file
 
-        # Frames from pre-compiled stdlib should have no source code.
+        # Frames from pre-compiled stdlib should have filenames starting with "stdlib/", and no
+        # source code.
         try:
             import json
             json.loads("hello")
@@ -359,6 +360,10 @@ class TestAndroidImport(unittest.TestCase):
     def test_imp(self):
         with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent'"):
             imp.find_module("nonexistent")
+
+        # See comment about torchvision below.
+        from murmurhash import mrmr
+        os.remove(mrmr.__file__)
 
         # If any of the below modules already exist, they will be reloaded. This may have
         # side-effects, e.g. if we'd included sys, then sys.executable would be reset and
@@ -382,28 +387,40 @@ class TestAndroidImport(unittest.TestCase):
                     with self.subTest(prefix=prefix):
                         file, pathname, description = imp.find_module(word, path)
                         suffix, mode, actual_type = description
+
+                        if actual_type in [imp.C_BUILTIN, imp.PKG_DIRECTORY]:
+                            self.assertIsNone(file)
+                            self.assertEqual("", suffix)
+                            self.assertEqual("", mode)
+                        else:
+                            data = file.read()
+                            self.assertGreater(len(data), 0)
+                            if actual_type == imp.PY_SOURCE:
+                                self.assertEqual("r", mode)
+                                self.assertIsInstance(data, str)
+                            else:
+                                self.assertEqual("rb", mode)
+                                self.assertIsInstance(data, bytes)
+                            self.assertPredicate(str.endswith, pathname, suffix)
+
+                        # See comment about torchvision in find_module_override.
+                        if actual_type == imp.C_EXTENSION:
+                            self.assertPredicate(exists, pathname)
+
                         mod = imp.load_module(prefix, file, pathname, description)
                         self.assertEqual(prefix, mod.__name__)
                         self.assertEqual(actual_type == imp.PKG_DIRECTORY,
                                          hasattr(mod, "__path__"))
-
-                        self.assertTrue(hasattr(mod, "__spec__"))
                         self.assertIsNotNone(mod.__spec__)
                         self.assertEqual(mod.__name__, mod.__spec__.name)
 
                         if actual_type == imp.C_BUILTIN:
-                            self.assertIsNone(file)
                             self.assertIsNone(pathname)
+                        elif actual_type == imp.PKG_DIRECTORY:
+                            self.assertEqual(pathname, dirname(mod.__file__))
                         else:
-                            if actual_type == imp.PKG_DIRECTORY:
-                                self.assertIsNone(file)
-                            else:
-                                # Our implementation of load_module doesn't use `file`, but
-                                # user code might, so check it adequately simulates a file.
-                                self.assertTrue(hasattr(file, "read"))
-                                self.assertTrue(hasattr(file, "close"))
-                            self.assertIsNotNone(pathname)
-                            self.assertTrue(hasattr(mod, "__file__"))
+                            self.assertEqual(re.sub(r"\.pyc$", ".py", pathname),
+                                             re.sub(r"\.pyc$", ".py", mod.__file__))
 
                         if i < len(words) - 1:
                             self.assertEqual(imp.PKG_DIRECTORY, actual_type)
@@ -468,6 +485,13 @@ class TestAndroidImport(unittest.TestCase):
         # ... import`. This seems to contradict the documentation of __import__, but it's not
         # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
+
+    # For non-importer-related tests, see TestAndroidStdlib.test_ctypes.
+    def test_ctypes(self):
+        from murmurhash import mrmr
+        os.remove(mrmr.__file__)
+        ctypes.CDLL(mrmr.__file__)
+        self.assertPredicate(exists, mrmr.__file__)
 
     # See src/test/python/test.pth.
     def test_pth(self):
@@ -697,10 +721,9 @@ class TestAndroidReflect(unittest.TestCase):
 
 class TestAndroidStdlib(unittest.TestCase):
 
+    # For importer-related tests, see TestAndroidImport.test_ctypes.
     def test_ctypes(self):
-        import ctypes
         from ctypes.util import find_library
-
         libc = ctypes.CDLL(find_library("c"))
         liblog = ctypes.CDLL(find_library("log"))
         self.assertIsNone(find_library("nonexistent"))

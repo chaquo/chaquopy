@@ -8,7 +8,7 @@ from importlib import _bootstrap, machinery, metadata, util
 from inspect import getmodulename
 import io
 import os.path
-from os.path import basename, dirname, exists, join, relpath
+from os.path import basename, dirname, exists, join, relpath, split, splitext
 import pathlib
 from pkgutil import get_importer
 import platform
@@ -31,7 +31,6 @@ from com.chaquo.python.android import AndroidPlatform
 
 API_LEVEL = Build.VERSION.SDK_INT
 CHAQUOPY_LIB = "chaquopy/lib"
-PATHNAME_PREFIX = "<chaquopy>/"
 
 
 def initialize(context, build_json, app_path):
@@ -75,17 +74,16 @@ def initialize_importlib(context, build_json, app_path):
 
 # Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
 def initialize_ctypes():
-    CDLL_init_original = ctypes.CDLL.__init__
-
     def CDLL_init_override(self, name, *args, **kwargs):
         if name:  # CDLL(None) is equivalent to dlopen(NULL).
             finder = get_importer(dirname(name))
             if isinstance(finder, AssetFinder):
-                finder.extract_if_changed(finder.zip_path(name))
+                name = extract_so(finder, name)
                 finder.load_needed(name)
                 name = finder.prepare_dlopen(name)
         CDLL_init_original(self, name, *args, **kwargs)
 
+    CDLL_init_original = ctypes.CDLL.__init__
     ctypes.CDLL.__init__ = CDLL_init_override
 
 
@@ -101,16 +99,6 @@ def initialize_imp():
     imp.load_module = load_module_override
 
 
-# Unlike the other APIs in this file, find_module does not take names containing dots.
-#
-# The documentation says that if the module "does not live in a file", the returned tuple
-# contains file=None and pathname="". However, the the only thing the user is likely to do with
-# these values is pass them to load_module, so we should be safe to use them however we want:
-#
-#   * file=None causes problems for SWIG-generated code such as pywrap_tensorflow_internal, so
-#     we return a dummy file-like object instead.
-#
-#   * `pathname` is used to communicate the location of the module to load_module_override.
 def find_module_override(base_name, path=None):
     # When calling find_module_original, we can't just replace None with sys.path, because None
     # will also search built-in modules.
@@ -120,48 +108,56 @@ def find_module_override(base_name, path=None):
         path = sys.path
     for entry in path:
         finder = get_importer(entry)
-        if finder is not None and \
-           hasattr(finder, "prefix"):  # AssetFinder and zipimport both have this attribute.
+        if hasattr(finder, "prefix"):  # AssetFinder or zipimporter
             real_name = join(finder.prefix, base_name).replace("/", ".")
             loader = finder.find_module(real_name)
             if loader is not None:
+                filename = loader.get_filename(real_name)
                 if loader.is_package(real_name):
                     file = None
-                    mod_type = imp.PKG_DIRECTORY
+                    pathname = dirname(filename)
+                    suffix, mode, mod_type = ("", "", imp.PKG_DIRECTORY)
                 else:
-                    file = io.BytesIO()
-                    filename = loader.get_filename(real_name)
                     for suffix, mode, mod_type in imp.get_suffixes():
                         if filename.endswith(suffix):
                             break
                     else:
                         raise ValueError("Couldn't determine type of module '{}' from '{}'"
                                          .format(real_name, filename))
+                    if mode == "rb":
+                        file = io.BytesIO(loader.get_data(filename))
+                    else:
+                        file = io.StringIO(loader.get_source(real_name))
+                    pathname = filename
 
-                return (file,
-                        PATHNAME_PREFIX + join(entry, base_name),
-                        ("", "", mod_type))
+                if mod_type == imp.C_EXTENSION:
+                    # torchvision/extension.py uses imp.find_module to find a non-Python .so
+                    # file, which it then loads using CDLL. So we need to extract the file now.
+                    finder.extract_if_changed(finder.zip_path(pathname))
+
+                return (file, pathname, (suffix, mode, mod_type))
 
     return find_module_original(base_name, path_original)
 
 
 def load_module_override(load_name, file, pathname, description):
-    if (pathname is not None) and (pathname.startswith(PATHNAME_PREFIX)):
-        entry, base_name = os.path.split(pathname[len(PATHNAME_PREFIX):])
-        finder = get_importer(entry)
-        real_name = join(finder.prefix, base_name).replace("/", ".")
-        if hasattr(finder, "find_spec"):
-            spec = finder.find_spec(real_name)
-            spec.name = load_name
-            return _bootstrap._load(spec)
-        elif real_name == load_name:
-            return finder.find_module(real_name).load_module(real_name)
-        else:
-            raise ImportError(
-                "{} does not support loading module '{}' under a different name '{}'"
-                .format(type(finder).__name__, real_name, load_name))
-    else:
-        return load_module_original(load_name, file, pathname, description)
+    if pathname is not None:
+        finder = get_importer(dirname(pathname))
+        if hasattr(finder, "prefix"):  # AssetFinder or zipimporter
+            entry, base_name = split(pathname)
+            real_name = join(finder.prefix, splitext(base_name)[0]).replace("/", ".")
+            if hasattr(finder, "find_spec"):
+                spec = finder.find_spec(real_name)
+                spec.name = load_name
+                return _bootstrap._load(spec)
+            elif real_name == load_name:
+                return finder.find_module(real_name).load_module(real_name)
+            else:
+                raise ImportError(
+                    "{} does not support loading module '{}' under a different name '{}'"
+                    .format(type(finder).__name__, real_name, load_name))
+
+    return load_module_original(load_name, file, pathname, description)
 
 
 # Because so much code requires pkg_resources without declaring setuptools as a dependency, we
@@ -200,6 +196,11 @@ def initialize_pkg_resources():
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
+# For consistency with modules which have already been imported by the default zipimporter, we
+# retain the following default behaviours:
+#   * __file__ will end with ".pyc", not ".py"
+#   * co_filename will be taken from the .pycs in the ZIP, which means it'll start with
+#    "stdlib/" or "bootstrap/".
 class ChaquopyZipImporter(zipimport.zipimporter):
 
     # See also AssetLoader.exec_module.
@@ -552,47 +553,47 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
-    lock = RLock()
-    basenames_loaded = {}
-
     def create_module(self, spec):
-        out_filename = self.extract_so()
+        out_filename = extract_so(self.finder, self.path)
         self.finder.load_needed(out_filename)
         spec.origin = self.finder.prepare_dlopen(out_filename)
         mod = super().create_module(spec)
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
 
-    # Android ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs, when asked to
-    # load a library with the same basename as one already loaded, the dynamic linker will
-    # return the existing library
-    # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
-    # (For 64-bit ABIs, see prepare_dlopen.)
-    #
-    # For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
-    # loaded two of them from their original filenames, their __file__ attributes would appear
-    # different, but the second one would actually have been loaded from the first one's file.
-    #
-    # We can work around this by loading through a uniquely-named symlink. However, we only do
-    # that when we actually encounter a duplicate name, because there's at least one package
-    # (tensorflow) where one Python module has a DT_NEEDED entry for another one, which on API
-    # level 22 and older will only work if the other module has already been loaded from its
-    # original filename.
-    def extract_so(self):
-        self.finder.extract_if_changed(self.finder.zip_path(self.path))
-        original_name = basename(self.path)
-        with self.lock:
-            load_name = original_name
-            while (load_name in self.basenames_loaded and
-                   self.basenames_loaded[load_name] != self.path):  # In case of reloads.
-                load_name = f"{original_name}-{os.urandom(4).hex()}"
-            self.basenames_loaded[load_name] = self.path
-        load_name_abs = join(dirname(self.path), load_name)
-        if load_name_abs != self.path:
-            if exists(load_name_abs):
-                os.remove(load_name_abs)
-            os.symlink(original_name, load_name_abs)
-        return load_name_abs
+# Android ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs, when asked to
+# load a library with the same basename as one already loaded, the dynamic linker will
+# return the existing library
+# (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
+# (For 64-bit ABIs, see prepare_dlopen.)
+#
+# For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
+# loaded two of them from their original filenames, their __file__ attributes would appear
+# different, but the second one would actually have been loaded from the first one's file.
+#
+# We can work around this by loading through a uniquely-named symlink. However, we only do
+# that when we actually encounter a duplicate name, because there's at least one package
+# (tensorflow) where one Python module has a DT_NEEDED entry for another one, which on API
+# level 22 and older will only work if the other module has already been loaded from its
+# original filename.
+extract_so_lock = RLock()
+so_basenames_loaded = {}
+
+def extract_so(finder, path):
+    finder.extract_if_changed(finder.zip_path(path))
+    original_name = basename(path)
+    with extract_so_lock:
+        load_name = original_name
+        while (load_name in so_basenames_loaded and
+               so_basenames_loaded[load_name] != path):  # In case of reloads.
+            load_name = f"{original_name}-{os.urandom(4).hex()}"
+        so_basenames_loaded[load_name] = path
+    load_name_abs = join(dirname(path), load_name)
+    if load_name_abs != path:
+        if exists(load_name_abs):
+            os.remove(load_name_abs)
+        os.symlink(original_name, load_name_abs)
+    return load_name_abs
 
 
 LOADERS = [

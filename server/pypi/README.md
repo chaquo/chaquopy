@@ -30,9 +30,9 @@ ABI.
 Copy the resulting wheels from `packages/<subdir>/dist` to a private package repository (edit
 `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
-Temporarily add the new package to `pkgtest/app/build.gradle`. If planning to
-release the package before the next version of the SDK, also temporarily edit
-`pkgtest/build.gradle` to test with the current released version.
+Temporarily add the new package to `pkgtest/app/build.gradle`. If planning to release the
+package before the next version of the SDK, also temporarily edit `pkgtest/build.gradle` to
+test with the current released version.
 
 Then test the app on the following devices, with at least one device being a clean install:
 
@@ -42,5 +42,9 @@ Then test the app on the following devices, with at least one device being a cle
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
-Once everything's working, move the wheels to the public package repository, and go through the
-public release procedure.
+If the package depends on any changes in the development version, consider postponing the
+remaining steps until that version is released.
+
+Move the wheels to the public package repository.
+
+Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.

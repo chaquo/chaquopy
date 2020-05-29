@@ -40,7 +40,7 @@ the following devices, with at least one device being a clean install:
 * x86 emulator with API 18 (#5316)
 * x86 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
-  * TensorFlow will fail because of #5563, so test that on API 23.
+  * TensorFlow will fail because of #5626, so test that on API 23.
 
 Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
 least one device being a clean install:
@@ -119,25 +119,7 @@ Post blog entry to website.
 
 Post links to Facebook and Twitter.
 
-Update any GitHub issues.
-
-Email any affected users, including anyone who commented or gave a thumbs up to a related
-issue.
+Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.
 
 If there are any packages whose announcement was postponed until this release, go through the
-package release procedure below.
-
-
-# Package release procedure
-
-If this package was blocking others, use the piptest script to retry those packages and check
-whether any new issues have been exposed.
-
-If the package depended on any changes in the development version, consider postponing the
-remaining steps until that version is released.
-
-Update any GitHub issues.
-
-Email any affected users, including anyone who emailed, commented or thumbed up a related
-issue. Do the same for Kivy's issue tracker, and subscribe to their issues to discover
-potential users in the future.
+package release procedure in pypi/README.md.
