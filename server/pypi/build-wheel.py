@@ -311,6 +311,12 @@ class BuildWheel:
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
+            # Move data files into place (used by torchvision to build against torch).
+            data_dir = f"{self.reqs_dir}/{package}-{version}.data/data"
+            if exists(data_dir):
+                for name in os.listdir(data_dir):
+                    run(f"mv {data_dir}/{name} {self.reqs_dir}")
+
             # Put headers on the include path (used by gevent to build against greenlet).
             include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
             if exists(include_src):
@@ -330,6 +336,8 @@ class BuildWheel:
             for filename in os.listdir(reqs_lib_dir):
                 for pattern, repl in SONAME_PATTERNS:
                     link_filename = re.sub(pattern, repl, filename)
+                    if link_filename in STANDARD_LIBS:
+                        continue  # e.g. torch has libc10.so, which would become libc.so.
                     if link_filename != filename:
                         run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
 
@@ -368,10 +376,10 @@ class BuildWheel:
     def update_env(self):
         env = {}
 
-        env["PYTHONPATH"] = join(PYPI_DIR, "build-packages")
-        existing_python_path = os.environ.get("PYTHONPATH")
-        if existing_python_path:
-            env["PYTHONPATH"] += os.pathsep + existing_python_path
+        pythonpath = [join(PYPI_DIR, "build-packages"), self.reqs_dir]
+        if "PYTHONPATH" in os.environ:
+            pythonpath.append(os.environ["PYTHONPATH"])
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath)
 
         abi = ABIS[self.abi]
         for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
@@ -411,8 +419,6 @@ class BuildWheel:
             # unwinder implementation changes in a future NDK version
             # (https://android.googlesource.com/platform/ndk/+/ndk-release-r21/docs/BuildSystemMaintainers.md#Unwinding).
             # See also comment in build-fortran.sh.
-            #
-            # FIXME make sure "unwind" is in this commit message in case this comes up again.
             "-Wl,--exclude-libs,libgcc.a",       # NDK r18
             "-Wl,--exclude-libs,libgcc_real.a",  # NDK r19 and later
             "-Wl,--exclude-libs,libunwind.a",

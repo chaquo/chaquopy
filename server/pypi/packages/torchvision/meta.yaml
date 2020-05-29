@@ -1,0 +1,17 @@
+{% set version = "0.5.0" %}
+
+package:
+  name: torchvision
+  version: {{ version }}
+
+build:
+  number: 1
+
+source:
+  git_url: https://github.com/pytorch/vision.git
+  git_rev: v{{ version }}
+
+requirements:
+  host:
+    - python
+    - torch 1.4.0  # https://github.com/pytorch/vision/issues/2148

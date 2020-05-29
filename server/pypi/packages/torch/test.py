@@ -1,7 +1,7 @@
 import unittest
 
 
-class TestPyTorch(unittest.TestCase):
+class TestTorch(unittest.TestCase):
 
     # Based on https://pytorch.org/tutorials/beginner/pytorch_with_examples.html#pytorch-optim
     def test_basic(self):

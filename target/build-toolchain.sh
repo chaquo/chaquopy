@@ -94,12 +94,25 @@ static size_t mbsrtowcs(wchar_t* __dst, const char** __src, size_t __dst_n, mbst
 #endif|;
 
 s|size_t wcsftime(.*| \
-/* Chaquopy: wcsftime is unsafe before API 21. */ \
+/* Chaquopy: wcsftime is unsafe before API 21. Unlike the other functions, we cannot provide a \
+   stub because the function has no way of reporting an error. It can return zero to indicate \
+   the buffer is too small, but that could cause the caller to keep trying with an \
+   ever-increasing buffer size. */ \
 #if __ANDROID_API__ >= 21 \
 & \
 #endif|;
 ' "$header"
 for name in fgetws mbsrtowcs wcsftime; do assert_in "Chaquopy: $name" "$header"; done
+
+# Prevent disabled functions from being referenced in the C++ headers.
+header="$toolchain/include/c++/4.9.x/cwchar"
+sed -i.old 's|using ::wcsftime;| \
+/* Chaquopy: wcsftime is unsafe before API 21: see sysroot/usr/include/wchar.h. */ \
+#if __ANDROID_API__ >= 21 \
+& \
+#endif|;
+' "$header"
+assert_in "Chaquopy: wcsftime" "$header"
 
 header="$sys_include/stdlib.h"
 sed -i.old 's|size_t mbstowcs(.*| \

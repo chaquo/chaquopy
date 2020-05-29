@@ -1,0 +1,170 @@
+diff --git a/setup.py b/setup.py
+index 8ece63c..eb8a39a 100644
+--- a/setup.py
++++ b/setup.py
+@@ -11,8 +11,11 @@ import distutils.spawn
+ import glob
+ import shutil
+ 
+-import torch
+-from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension, CUDA_HOME
++# Chaquopy: importing torch requires importing its native components as well, which won't work
++# when cross-compiling. So whatever we need from these imports, we'll add manually below.
++#
++# import torch
++# from torch.utils.cpp_extension import BuildExtension, CppExtension, CUDAExtension, CUDA_HOME
+ 
+ 
+ def read(*names, **kwargs):
+@@ -41,6 +44,9 @@ try:
+ except Exception:
+     pass
+ 
++# Chaquopy
++os.environ["BUILD_VERSION"] = os.environ["PKG_VERSION"]
++
+ if os.getenv('BUILD_VERSION'):
+     version = os.getenv('BUILD_VERSION')
+ elif sha != 'Unknown':
+@@ -62,6 +68,17 @@ write_version_file()
+ 
+ readme = open('README.rst').read()
+ 
++# Chaquopy
++for path in sys.path:
++    torch_dir = f"{path}/torch"
++    if os.path.exists(torch_dir):
++        break
++else:
++    raise Exception("Failed to find torch on sys.path")
++version_dict = {}
++exec(open(f"{torch_dir}/version.py").read(), version_dict)
++os.environ["PYTORCH_VERSION"] = version_dict["__version__"]
++
+ pytorch_dep = 'torch'
+ if os.getenv('PYTORCH_VERSION'):
+     pytorch_dep += "==" + os.getenv('PYTORCH_VERSION')
+@@ -86,7 +103,7 @@ def get_extensions():
+     source_cuda = glob.glob(os.path.join(extensions_dir, 'cuda', '*.cu'))
+ 
+     sources = main_file + source_cpu
+-    extension = CppExtension
++    extension = distutils.core.Extension  # Chaquopy: was CppExtension
+ 
+     compile_cpp_tests = os.getenv('WITH_CPP_MODELS_TEST', '0') == '1'
+     if compile_cpp_tests:
+@@ -103,7 +120,7 @@ def get_extensions():
+     define_macros = []
+ 
+     extra_compile_args = {}
+-    if (torch.cuda.is_available() and CUDA_HOME is not None) or os.getenv('FORCE_CUDA', '0') == '1':
++    if False:  # Chaquopy: was (torch.cuda.is_available() and CUDA_HOME is not None) or os.getenv('FORCE_CUDA', '0') == '1':
+         extension = CUDAExtension
+         sources += source_cuda
+         define_macros += [('WITH_CUDA', None)]
+@@ -127,7 +144,12 @@ def get_extensions():
+ 
+     include_dirs = [extensions_dir]
+ 
+-    ffmpeg_exe = distutils.spawn.find_executable('ffmpeg')
++    # Chaquopy: since we're not using torch.utils.cpp_extension, add the include paths it would
++    # have added.
++    include_dirs += [f"{torch_dir}/include/{path}"
++                     for path in ["", "torch/csrc/api/include", "TH", "THC"]]
++
++    ffmpeg_exe = None  # Chaquopy: was distutils.spawn.find_executable('ffmpeg')
+     has_ffmpeg = ffmpeg_exe is not None
+     if has_ffmpeg:
+         ffmpeg_bin = os.path.dirname(ffmpeg_exe)
+@@ -143,6 +165,7 @@ def get_extensions():
+             'torchvision._C',
+             sources,
+             include_dirs=include_dirs,
++            libraries=["c10", "torch"],  # Chaquopy: added for -Wl,--no-undefined
+             define_macros=define_macros,
+             extra_compile_args=extra_compile_args,
+         )
+@@ -218,7 +241,7 @@ setup(
+     },
+     ext_modules=get_extensions(),
+     cmdclass={
+-        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True),
++        # Chaquopy: disabled 'build_ext': BuildExtension.with_options(no_python_abi_suffix=True),
+         'clean': clean,
+     }
+ )
+diff --git a/torchvision/models/detection/_utils.py b/torchvision/models/detection/_utils.py
+index 1a4e975..2328df9 100644
+--- a/torchvision/models/detection/_utils.py
++++ b/torchvision/models/detection/_utils.py
+@@ -15,7 +15,7 @@ def zeros_like(tensor, dtype):
+                             device=tensor.device, pin_memory=tensor.is_pinned())
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ class BalancedPositiveNegativeSampler(object):
+     """
+     This class samples batches, ensuring that they contain a fixed proportion of positives
+@@ -85,7 +85,7 @@ class BalancedPositiveNegativeSampler(object):
+         return pos_idx, neg_idx
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ def encode_boxes(reference_boxes, proposals, weights):
+     # type: (torch.Tensor, torch.Tensor, torch.Tensor) -> torch.Tensor
+     """
+@@ -133,7 +133,7 @@ def encode_boxes(reference_boxes, proposals, weights):
+     return targets
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ class BoxCoder(object):
+     """
+     This class encodes and decodes a set of bounding boxes into
+@@ -228,7 +228,7 @@ class BoxCoder(object):
+         return pred_boxes
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ class Matcher(object):
+     """
+     This class assigns to each predicted "element" (e.g., a box) a ground-truth
+diff --git a/torchvision/models/detection/roi_heads.py b/torchvision/models/detection/roi_heads.py
+index 009978d..8c53733 100644
+--- a/torchvision/models/detection/roi_heads.py
++++ b/torchvision/models/detection/roi_heads.py
+@@ -208,7 +208,7 @@ def _onnx_heatmaps_to_keypoints(maps, maps_i, roi_map_width, roi_map_height,
+     return xy_preds_i, end_scores_i
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ def _onnx_heatmaps_to_keypoints_loop(maps, rois, widths_ceil, heights_ceil,
+                                      widths, heights, offset_x, offset_y, num_keypoints):
+     xy_preds = torch.zeros((0, 3, int(num_keypoints)), dtype=torch.float32, device=maps.device)
+@@ -471,7 +471,7 @@ def _onnx_paste_mask_in_image(mask, box, im_h, im_w):
+     return im_mask
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ def _onnx_paste_masks_in_image_loop(masks, boxes, im_h, im_w):
+     res_append = torch.zeros(0, im_h, im_w)
+     for i in range(masks.size(0)):
+diff --git a/torchvision/ops/poolers.py b/torchvision/ops/poolers.py
+index cbf4eec..c7d8c82 100644
+--- a/torchvision/ops/poolers.py
++++ b/torchvision/ops/poolers.py
+@@ -39,7 +39,7 @@ def initLevelMapper(k_min, k_max, canonical_scale=224, canonical_level=4, eps=1e
+     return LevelMapper(k_min, k_max, canonical_scale, canonical_level, eps)
+ 
+ 
+-@torch.jit.script
++# Chaquopy: removed @torch.jit.script, which requires source access at runtime.
+ class LevelMapper(object):
+     """Determine which FPN level each RoI in a set of RoIs should map to based
+     on the heuristic in the FPN paper.
