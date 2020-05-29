@@ -394,7 +394,7 @@ class TestAndroidImport(unittest.TestCase):
                             self.assertEqual("", mode)
                         else:
                             data = file.read()
-                            self.assertGreater(len(data), 0)
+                            self.assertEqual(0, len(data))
                             if actual_type == imp.PY_SOURCE:
                                 self.assertEqual("r", mode)
                                 self.assertIsInstance(data, str)

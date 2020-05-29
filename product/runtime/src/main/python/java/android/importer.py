@@ -124,10 +124,14 @@ def find_module_override(base_name, path=None):
                     else:
                         raise ValueError("Couldn't determine type of module '{}' from '{}'"
                                          .format(real_name, filename))
-                    if mode == "rb":
-                        file = io.BytesIO(loader.get_data(filename))
-                    else:
-                        file = io.StringIO(loader.get_source(real_name))
+
+                    # SWIG-generated code such as
+                    # tensorflow_core/python/pywrap_tensorflow_internal.py requires the file
+                    # object to be not None, so we'll return an object of the correct type.
+                    # However, we won't bother to supply the data, because the file may be as
+                    # large as 200 MB in the case of tensorflow, which would reduce performance
+                    # unnecessarily and maybe even exhaust the device's memory.
+                    file = io.BytesIO() if mode == "rb" else io.StringIO()
                     pathname = filename
 
                 if mod_type == imp.C_EXTENSION:
