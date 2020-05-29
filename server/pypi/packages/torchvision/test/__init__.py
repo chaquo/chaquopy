@@ -69,7 +69,6 @@ def cache_url(url, dir_name, base_name=None):
         base_name = os.path.basename(url)
     filename = f"{dir_name}/{base_name}"
     if not os.path.exists(filename):
-        print(f"Downloading {url} to {filename}")
         os.makedirs(dir_name, exist_ok=True)
         data = read_url(url)
         with open(filename, "wb") as f:
@@ -78,9 +77,9 @@ def cache_url(url, dir_name, base_name=None):
 
 # Downloading a URL with "Connection: close", as urllib does, causes an intermittent network
 # problem on the emulator (see #5601 and https://issuetracker.google.com/issues/150758736). For
-# small files we can just retry until it succeeds (e.g. in the statsmodels test), but for large
-# files a failure is much more likely, and we might have to keep retrying for several minutes.
-# So use the stdlib's low-level HTTP API to make a request with no Connection header.
+# small files we could just retry until it succeeds, but for large files a failure is much more
+# likely, and we might have to keep retrying for several minutes. So use the stdlib's low-level
+# HTTP API to make a request with no Connection header.
 def read_url(url):
     from http.client import HTTPConnection, HTTPSConnection
     from urllib.parse import urlparse
