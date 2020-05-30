@@ -191,7 +191,10 @@ class AndroidPlugin(GradleTestCase):
         self.assertNotInLong("not been tested with Android Gradle plugin", run.stdout)
 
         run.apply_layers("AndroidPlugin/untested")
-        run.rerun(succeed=None)  # We don't care whether it succeeds.
+        try:
+            run.rerun()
+        except Exception:
+            pass  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
                           "Gradle plugin versions beyond 4.0.0. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
@@ -1045,7 +1048,7 @@ class RunGradle(object):
 
         status, self.stdout, self.stderr = self.run_gradle(variants, env)
         if status == 0:
-            if succeed is False:  # (succeed is None) means we don't care
+            if not succeed:
                 self.dump_run("run unexpectedly succeeded")
 
             for variant in variants:
