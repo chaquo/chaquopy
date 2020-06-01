@@ -10,12 +10,12 @@ public class Common {
     // For Build.SUPPORTED_ABIS.
     public static final int COMPILE_SDK_VERSION = 21;
 
-    public static final String PYTHON_VERSION = "3.8.1";
+    public static final String PYTHON_VERSION = "3.8.3";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
     public static final String PYTHON_VERSION_MAJOR =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "7";
+    public static final String PYTHON_BUILD_NUM = "0";
 
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;

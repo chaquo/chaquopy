@@ -40,7 +40,7 @@ def initialize(context, build_json, app_path):
 
 
 def initialize_importlib(context, build_json, app_path):
-    sys.meta_path[sys.meta_path.index(machinery.PathFinder)] = AssetPathFinder
+    sys.meta_path[sys.meta_path.index(machinery.PathFinder)] = ChaquopyPathFinder
 
     # The default copyfileobj buffer size is 16 KB, which significantly slows down extraction
     # of large files because each call to AssetFile.read is relatively expensive (#5596).
@@ -218,19 +218,23 @@ class ChaquopyZipImporter(zipimport.zipimporter):
         return f'<{type(self).__name__} object "{join(self.archive, self.prefix)}">'
 
 
-class AssetPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
-
-    # Maintain compatibility with the external package importlib_metadata, whose Context
-    # class doesn't have a `pattern` attribute.
+# importlib.metadata is still being actively developed, so instead of depending on any internal
+# APIs, provide a self-contained implementation.
+class ChaquopyPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
     @classmethod
     def find_distributions(cls, context=metadata.DistributionFinder.Context()):
-        if not hasattr(context, "pattern"):
-            context.pattern = ".*" if context.name is None else re.escape(context.name)
-        return super().find_distributions(context)
+        name = (".*" if context.name is None
+                # See normalize_name_wheel in build-wheel.py.
+                else re.sub(r"[^A-Za-z0-9.]+", '_', context.name))
+        pattern = fr"^{name}(-.*)?\.(dist|egg)-info$"
 
-    @staticmethod
-    def _switch_path(path):
-        return (AssetPath if path.startswith(ASSET_PREFIX + "/") else pathlib.Path)(path)
+        for entry in context.path:
+            path_cls = AssetPath if entry.startswith(ASSET_PREFIX + "/") else pathlib.Path
+            entry_path = path_cls(entry)
+            if entry_path.is_dir():
+                for sub_path in entry_path.iterdir():
+                    if re.search(pattern, sub_path.name, re.IGNORECASE):
+                        yield metadata.PathDistribution(sub_path)
 
 
 class AssetPath(pathlib.PosixPath):
