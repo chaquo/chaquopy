@@ -63,8 +63,18 @@ def initialize_importlib(context, build_json, app_path):
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
 
-        # Extract .pth files and any other data files in the root directory.
+        # Extract data files from the root directory. This includes .pth files, which will be
+        # read by addsitedir below.
         finder.extract_dir("", recursive=False)
+
+        # Extract data files from top-level directories which aren't Python packages.
+        # (Package directories will be extracted on first import by AssetFinder.find_module.)
+        for name in finder.listdir(""):
+            if finder.isdir(name) and \
+               not name.endswith(".dist-info") and \
+               not any(finder.exists(join(name, "__init__" + ext))
+                       for ext in LOADERS):
+                finder.extract_dir(name)
 
         # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
         # require the finder to be fully available to the system, which isn't the case until
@@ -339,7 +349,7 @@ class AssetFinder:
         # Packages take priority over modules (see FileFinder.find_spec).
         for infix in ["/__init__", ""]:
             for zf in self.zip_files:
-                for suffix, loader_cls in LOADERS:
+                for suffix, loader_cls in LOADERS.items():
                     try:
                         zip_info = zf.getinfo(prefix + infix + suffix)
                     except KeyError:
@@ -439,7 +449,7 @@ class AssetFinder:
             if self.isdir(zip_path):
                 if recursive:
                     self.extract_dir(zip_path)
-            elif not any(filename.endswith(suffix) for suffix, _ in LOADERS):
+            elif not any(filename.endswith(suffix) for suffix in LOADERS):
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
@@ -604,11 +614,11 @@ def extract_so(finder, path):
     return load_name_abs
 
 
-LOADERS = [
-    (".py", SourceAssetLoader),
-    (".pyc", SourcelessAssetLoader),
-    (".so", ExtensionAssetLoader),
-]
+LOADERS = {
+    ".py": SourceAssetLoader,
+    ".pyc": SourcelessAssetLoader,
+    ".so": ExtensionAssetLoader,
+}
 
 
 class AssetZipFile(ZipFile):

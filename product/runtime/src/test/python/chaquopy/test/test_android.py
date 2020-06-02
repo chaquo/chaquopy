@@ -145,7 +145,19 @@ class TestAndroidImport(unittest.TestCase):
         mod = self.check_module("murmurhash.mrmr", filename, filename)
         self.check_extract_if_changed(mod, filename)
 
-    def test_data(self):
+    def test_non_package_data(self):
+        for dir_name, dir_description in [("", "root"), ("non_package_data", "directory"),
+                                          ("non_package_data/subdir", "subdirectory")]:
+            with self.subTest(dir_name=dir_name):
+                extracted_dir = asset_path(APP_ZIP, dir_name)
+                with open(join(extracted_dir, "non_package_data.txt")) as f:
+                    self.assertPredicate(str.startswith, f.read(),
+                                         f"# Text file in {dir_description}")
+                self.assertNotPredicate(exists, join(extracted_dir, "non_package_data.py"))
+
+        self.assertNotPredicate(exists, asset_path(APP_ZIP, "never_imported"))
+
+    def test_package_data(self):
         # App ZIP
         pkg = "android1"
         self.check_data(APP_ZIP, pkg, "__init__.py", b"# This package is")
@@ -635,8 +647,14 @@ class TestAndroidImport(unittest.TestCase):
                     self.assertEqual(data, f.read())
 
     def test_importlib_metadata(self):
+        dists = list(metadata.distributions())
         self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
-                              [d.metadata["Name"] for d in metadata.distributions()])
+                              [d.metadata["Name"] for d in dists])
+        for dist in dists:
+            dist_info = str(dist._path)
+            self.assertPredicate(str.startswith, dist_info, asset_path(REQS_COMMON_ZIP))
+            self.assertPredicate(str.endswith, dist_info, ".dist-info")
+            self.assertNotPredicate(exists, dist_info)
 
         dist = metadata.distribution("murmurhash")
         self.assertEqual("0.28.0", dist.version)
