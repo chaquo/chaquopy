@@ -1,3 +1,4 @@
+import collections.abc
 import itertools
 
 from cpython cimport Py_buffer
@@ -170,6 +171,25 @@ cdef class JavaArray(object):
         return list(itertools.chain(self, other))
     def __radd__(self, other):
         return list(itertools.chain(other, self))
+
+    # Provide a minimal ndarray-style interface for the code at
+    # https://github.com/pandas-dev/pandas/blob/v0.25.3/pandas/core/internals/construction.py#L292
+    @property
+    def ndim(self):
+        return 1
+
+    @property
+    def shape(self):
+        return (self.length,)
+
+    def reshape(self, shape):
+        import numpy
+        return numpy.array(self).reshape(shape)
+
+
+# Because JavaArray is an extension type, it can't inherit an ABC directly.
+collections.abc.MutableSequence.register(JavaArray)
+
 
 cdef array_get(self, jint index):
     env = CQPEnv()

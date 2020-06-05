@@ -235,6 +235,10 @@ class TestArray(FilterWarningsCase):
                         m.release()
                         self.assertEqual(43, a[0])
 
+    def test_abc(self):
+        from collections import abc
+        self.assertIsInstance(jarray(jboolean)([]), abc.MutableSequence)
+
     def test_truth(self):
         self.assertFalse(jarray(jboolean)([]))
         self.assertTrue(jarray(jboolean)([False]))
