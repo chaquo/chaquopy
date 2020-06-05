@@ -28,7 +28,7 @@ cpdef jni_sig(c):
     elif isinstance(c, type):
         if isinstance(c, JavaClass):
             if issubclass(c, JavaArray):
-                return c.__name__
+                return "[" + c._element_sig
             else:
                 return klass_sig(CQPEnv(), c._chaquopy_j_klass)
         elif issubclass(c, (NoneCast, java.Primitive)):

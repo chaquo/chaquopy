@@ -1,5 +1,6 @@
 import ctypes
-from java import cast, jarray, jboolean, jbyte, jchar, jclass, jfloat, jint, jlong, jshort
+from java import (cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint,
+                  jlong, jshort)
 from java.lang import String
 
 from .test_utils import FilterWarningsCase
@@ -155,23 +156,38 @@ class TestArray(FilterWarningsCase):
                              func(jarray(jarray(jboolean))([[True], [False, True]])))
 
     def test_bytes(self):
-        # Java byte arrays work for values -128 to 127.
+        # Java byte arrays (signed) and Python bytes (unsigned) can be converted both ways.
         self.verify_bytes([], b"")
         self.verify_bytes([-128, -127, -2, -1, 0, 1, 126, 127],
                           b"\x80\x81\xFE\xFF\x00\x01\x7E\x7F")
 
-        # Other Java array types cannot be directly converted to bytes.
-        for element_type, value in [(jint, 42), (jfloat, 3.0), (jchar, "x"), (String, "hello")]:
-            a = jarray(element_type)([value])
-            for cls in [bytes, bytearray]:
-                with self.assertRaisesRegexp(TypeError, "__getbuffer__ is not implemented"):
-                    cls(a)
+        # Java integer and float arrays can be converted to their raw data bytes (expected
+        # values are little-endian).
+        for element_type, values, expected in \
+            [(jbyte, [0, 123], bytes(1) + b"\x7b"),
+             (jshort, [0, 12345], bytes(2) + b"\x39\x30"),
+             (jint, [0, 123456789], bytes(4) + b"\x15\xcd\x5b\x07"),
+             (jlong, [0, 1234567890123456789], bytes(8) + b"\x15\x81\xe9\x7d\xf4\x10\x22\x11"),
+             (jfloat, [0, 1.99], bytes(4) + b"\x52\xb8\xfe\x3f"),
+             (jdouble, [0, 1.99], bytes(8) + b"\xd7\xa3\x70\x3d\x0a\xd7\xff\x3f")]:
+            for python_type in [bytes, bytearray]:
+                with self.subTest(element_type=element_type, python_type=python_type):
+                    self.assertEqual(b"", python_type(jarray(element_type)([])))
+                    self.assertEqual(expected, python_type(jarray(element_type)(values)))
 
-        # But integer array types can be converted indirectly for values 0 to 255.
+        # Integer arrays containing values 0 to 255 can be converted element-wise using `list`.
         for element_type in [jshort, jint, jlong]:
-            self.assertEqual(
-                b"\x00\x01\x7E\x7F\x80\x81\xFE\xFF",
-                bytes(list(jarray(element_type)([0, 1, 126, 127, 128, 129, 254, 255]))))
+            with self.subTest(element_type=element_type):
+                self.assertEqual(
+                    b"\x00\x01\x7E\x7F\x80\x81\xFE\xFF",
+                    bytes(list(jarray(element_type)([0, 1, 126, 127, 128, 129, 254, 255]))))
+
+        # Other array types (including multi-dimensional arrays) cannot be converted to bytes.
+        for element_type in [jboolean, jchar, jarray(jbyte), String]:
+            for python_type in [bytes, bytearray]:
+                with self.subTest(element_type=element_type, python_type=python_type):
+                    with self.assertRaisesRegex(TypeError, "buffer protocol is not implemented"):
+                        python_type(jarray(element_type)([]))
 
     def verify_bytes(self, jbyte_values, b):
         arrayB_from_list = jarray(jbyte)(jbyte_values)
@@ -186,6 +202,43 @@ class TestArray(FilterWarningsCase):
         self.assertEqual(jbyte_values, arrayB_from_bytes)
         arrayB_from_bytearray = jarray(jbyte)(bytearray(b))
         self.assertEqual(jbyte_values, arrayB_from_bytearray)
+
+    def test_memoryview(self):
+        for element_type, format, itemsize, values in \
+            [(jbyte, "b", 1, [-100, 0, 100]),
+             (jshort, "h", 2, [-10_000, 0, 10_000]),
+             (jint, "i", 4, [-1_000_000_000, 0, 1_000_000_000]),
+             (jlong, "q", 8, [-1_000_000_000_000, 0, 1_000_000_000_000]),
+             (jfloat, "f", 4, [-float("inf"), -1.5, 0, 1.5, float("inf")]),
+             (jdouble, "d", 8, [-float("inf"), -1e300, 0, 1e300, float("inf")])]:
+            for input in [[], values]:
+                with self.subTest(element_type=element_type, input=input):
+                    a = jarray(element_type)(input)
+                    m = memoryview(a)
+                    self.assertEqual(input, m.tolist())
+                    self.assertEqual(len(input) * itemsize, m.nbytes)
+                    self.assertFalse(m.readonly)
+                    self.assertEqual(format, m.format)
+                    self.assertEqual(itemsize, m.itemsize)
+                    self.assertEqual(1, m.ndim)
+                    self.assertEqual((len(input),), m.shape)
+                    self.assertEqual((itemsize,), m.strides)
+                    self.assertEqual((), m.suboffsets)
+                    self.assertTrue(m.c_contiguous)
+
+                    # Because the JVM may return a copy, we can't guarantee that updates to the
+                    # view will be written to the array until the view is released, and we
+                    # can't guarantee that updates to the array are ever visible to the view.
+                    if a:
+                        m[0] = 43
+                        self.assertEqual(43, m[0])
+                        m.release()
+                        self.assertEqual(43, a[0])
+
+    def test_truth(self):
+        self.assertFalse(jarray(jboolean)([]))
+        self.assertTrue(jarray(jboolean)([False]))
+        self.assertTrue(jarray(jboolean)([True]))
 
     def test_eq(self):
         tf = jarray(jboolean)([True, False])

@@ -321,7 +321,7 @@ cdef class CQPEnv(object):
             self.expect_exception(f'GetStaticFieldID failed for {name}, {definition}')
         return result
 
-    cdef GetArrayLength(self, JNIRef array):
+    cdef jsize GetArrayLength(self, JNIRef array):
         return self.j_env[0].GetArrayLength(self.j_env, array.obj)
 
     cdef LocalRef NewBooleanArray(self, length):
@@ -348,9 +348,44 @@ cdef class CQPEnv(object):
         if result == NULL:
             self.expect_exception("GetByteArrayElements failed")
         return result
+    cdef jshort *GetShortArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetShortArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetShortArrayElements failed")
+        return result
+    cdef jint *GetIntArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetIntArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetIntArrayElements failed")
+        return result
+    cdef jlong *GetLongArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetLongArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetLongArrayElements failed")
+        return result
+    cdef jfloat *GetFloatArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetFloatArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetFloatArrayElements failed")
+        return result
+    cdef jdouble *GetDoubleArrayElements(self, JNIRef array):
+        result = self.j_env[0].GetDoubleArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetDoubleArrayElements failed")
+        return result
 
     cdef void ReleaseByteArrayElements(self, JNIRef array, jbyte *elems, jint mode):
         self.j_env[0].ReleaseByteArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseShortArrayElements(self, JNIRef array, jshort *elems, jint mode):
+        self.j_env[0].ReleaseShortArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseIntArrayElements(self, JNIRef array, jint *elems, jint mode):
+        self.j_env[0].ReleaseIntArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseLongArrayElements(self, JNIRef array, jlong *elems, jint mode):
+        self.j_env[0].ReleaseLongArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseFloatArrayElements(self, JNIRef array, jfloat *elems, jint mode):
+        self.j_env[0].ReleaseFloatArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseDoubleArrayElements(self, JNIRef array, jdouble *elems, jint mode):
+        self.j_env[0].ReleaseDoubleArrayElements(self.j_env, array.obj, elems, mode)
 
     # The primitive type Get...ArrayElement functions are not in the JNI, but are provided for
     # convenience.

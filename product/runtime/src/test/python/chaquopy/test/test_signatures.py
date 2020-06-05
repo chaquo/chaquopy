@@ -109,18 +109,18 @@ class TestSignatures(FilterWarningsCase):
     def test_array(self):
         list_bool = [True, False]
         for jarray_Z in [jarray(jboolean)(list_bool), jarray("Z")(list_bool)]:
-            self.assertEqual("[Z", type(jarray_Z).__name__)
+            self.assertEqual("jarray('Z')", type(jarray_Z).__name__)
             self.assertEqual("jarray('Z')({!r})".format(list_bool), str(jarray_Z))
 
         list_list_bool = [[True, False], [False, True]]
         jarray_jarray_Z = jarray(jarray(jboolean))(list_list_bool)
-        self.assertEqual("[[Z", type(jarray_jarray_Z).__name__)
+        self.assertEqual("jarray('[Z')", type(jarray_jarray_Z).__name__)
         self.assertEqual("jarray('[Z')({!r})".format(list_list_bool), str(jarray_jarray_Z))
 
         list_str = ["one", "two"]
         String = jclass("java.lang.String")
         jarray_String = jarray(String)(list_str)
-        self.assertEqual("[Ljava/lang/String;", type(jarray_String).__name__)
+        self.assertEqual("jarray('Ljava/lang/String;')", type(jarray_String).__name__)
         self.assertEqual("jarray('Ljava/lang/String;')({!r})".format(list_str), str(jarray_String))
 
 

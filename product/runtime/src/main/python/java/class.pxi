@@ -73,7 +73,9 @@ class JavaClass(type):
         # __name__ and __module__ set to the Python-level values the user would expect.
         if "_chaquopy_j_klass" not in cls_dict:
             cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name)
-            if ("." in java_name) and ("[" not in java_name):
+            if "[" in java_name:
+                module, cls_name = "", f"jarray('{java_name[1:]}')"
+            elif "." in java_name:
                 module, _, cls_name = java_name.rpartition(".")
             else:
                 module, cls_name = "", java_name
