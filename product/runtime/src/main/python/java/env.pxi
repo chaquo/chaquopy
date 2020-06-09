@@ -343,37 +343,49 @@ cdef class CQPEnv(object):
     cdef LocalRef NewObjectArray(self, length, JNIRef j_klass):
         return self.adopt_notnull(self.j_env[0].NewObjectArray(self.j_env, length, j_klass.obj, NULL))
 
-    cdef jbyte *GetByteArrayElements(self, JNIRef array):
+    cdef jboolean *GetBooleanArrayElements(self, JNIRef array) except NULL:
+        result = self.j_env[0].GetBooleanArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetBooleanArrayElements failed")
+        return result
+    cdef jbyte *GetByteArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetByteArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetByteArrayElements failed")
         return result
-    cdef jshort *GetShortArrayElements(self, JNIRef array):
+    cdef jshort *GetShortArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetShortArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetShortArrayElements failed")
         return result
-    cdef jint *GetIntArrayElements(self, JNIRef array):
+    cdef jint *GetIntArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetIntArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetIntArrayElements failed")
         return result
-    cdef jlong *GetLongArrayElements(self, JNIRef array):
+    cdef jlong *GetLongArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetLongArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetLongArrayElements failed")
         return result
-    cdef jfloat *GetFloatArrayElements(self, JNIRef array):
+    cdef jfloat *GetFloatArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetFloatArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetFloatArrayElements failed")
         return result
-    cdef jdouble *GetDoubleArrayElements(self, JNIRef array):
+    cdef jdouble *GetDoubleArrayElements(self, JNIRef array) except NULL:
         result = self.j_env[0].GetDoubleArrayElements(self.j_env, array.obj, NULL)
         if result == NULL:
             self.expect_exception("GetDoubleArrayElements failed")
         return result
+    cdef jchar *GetCharArrayElements(self, JNIRef array) except NULL:
+        result = self.j_env[0].GetCharArrayElements(self.j_env, array.obj, NULL)
+        if result == NULL:
+            self.expect_exception("GetCharArrayElements failed")
+        return result
 
+    cdef void ReleaseBooleanArrayElements(self, JNIRef array, jboolean *elems, jint mode):
+        self.j_env[0].ReleaseBooleanArrayElements(self.j_env, array.obj, elems, mode)
     cdef void ReleaseByteArrayElements(self, JNIRef array, jbyte *elems, jint mode):
         self.j_env[0].ReleaseByteArrayElements(self.j_env, array.obj, elems, mode)
     cdef void ReleaseShortArrayElements(self, JNIRef array, jshort *elems, jint mode):
@@ -386,6 +398,8 @@ cdef class CQPEnv(object):
         self.j_env[0].ReleaseFloatArrayElements(self.j_env, array.obj, elems, mode)
     cdef void ReleaseDoubleArrayElements(self, JNIRef array, jdouble *elems, jint mode):
         self.j_env[0].ReleaseDoubleArrayElements(self.j_env, array.obj, elems, mode)
+    cdef void ReleaseCharArrayElements(self, JNIRef array, jchar *elems, jint mode):
+        self.j_env[0].ReleaseCharArrayElements(self.j_env, array.obj, elems, mode)
 
     # The primitive type Get...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
@@ -434,46 +448,59 @@ cdef class CQPEnv(object):
         self.check_exception()
         return result
 
-    cdef SetByteArrayRegion(self, JNIRef array, jint start, jint length, const jbyte *buf):
+    cdef SetBooleanArrayRegion(self, JNIRef array, jsize start, jsize length, const jboolean *buf):
+        self.j_env[0].SetBooleanArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetByteArrayRegion(self, JNIRef array, jsize start, jsize length, const jbyte *buf):
         self.j_env[0].SetByteArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetShortArrayRegion(self, JNIRef array, jsize start, jsize length, const jshort *buf):
+        self.j_env[0].SetShortArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetIntArrayRegion(self, JNIRef array, jsize start, jsize length, const jint *buf):
+        self.j_env[0].SetIntArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetLongArrayRegion(self, JNIRef array, jsize start, jsize length, const jlong *buf):
+        self.j_env[0].SetLongArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetFloatArrayRegion(self, JNIRef array, jsize start, jsize length, const jfloat *buf):
+        self.j_env[0].SetFloatArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetDoubleArrayRegion(self, JNIRef array, jsize start, jsize length, const jdouble *buf):
+        self.j_env[0].SetDoubleArrayRegion(self.j_env, array.obj, start, length, buf)
+        self.check_exception()
+    cdef SetCharArrayRegion(self, JNIRef array, jsize start, jsize length, const jchar *buf):
+        self.j_env[0].SetCharArrayRegion(self.j_env, array.obj, start, length, buf)
         self.check_exception()
 
     # The primitive type Set...ArrayElement functions are not in the JNI, but are provided for
     # convenience.
     cdef SetBooleanArrayElement(self, JNIRef array, jint index, value):
         cdef jboolean j_value = value
-        self.j_env[0].SetBooleanArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetBooleanArrayRegion(array, index, 1, &j_value)
     cdef SetByteArrayElement(self, JNIRef array, jint index, value):
         cdef jbyte j_value = value
-        self.j_env[0].SetByteArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetByteArrayRegion(array, index, 1, &j_value)
     cdef SetShortArrayElement(self, JNIRef array, jint index, value):
         cdef jshort j_value = value
-        self.j_env[0].SetShortArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetShortArrayRegion(array, index, 1, &j_value)
     cdef SetIntArrayElement(self, JNIRef array, jint index, value):
         cdef jint j_value = value
-        self.j_env[0].SetIntArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetIntArrayRegion(array, index, 1, &j_value)
     cdef SetLongArrayElement(self, JNIRef array, jint index, value):
         cdef jlong j_value = value
-        self.j_env[0].SetLongArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetLongArrayRegion(array, index, 1, &j_value)
     cdef SetFloatArrayElement(self, JNIRef array, jint index, value):
         check_range_float32(value)
         cdef jfloat j_value = value
-        self.j_env[0].SetFloatArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetFloatArrayRegion(array, index, 1, &j_value)
     cdef SetDoubleArrayElement(self, JNIRef array, jint index, value):
         cdef jdouble j_value = value
-        self.j_env[0].SetDoubleArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetDoubleArrayRegion(array, index, 1, &j_value)
     cdef SetCharArrayElement(self, JNIRef array, jint index, value):
         check_range_char(value)
         cdef jchar j_value = ord(value)
-        self.j_env[0].SetCharArrayRegion(self.j_env, array.obj, index, 1, &j_value)
-        self.check_exception()
+        self.SetCharArrayRegion(array, index, 1, &j_value)
     cdef SetObjectArrayElement(self, JNIRef array, jint index, JNIRef value):
         self.j_env[0].SetObjectArrayElement(self.j_env, array.obj, index, value.obj)
         self.check_exception()

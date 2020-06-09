@@ -2,16 +2,37 @@ import collections.abc
 import itertools
 
 from cpython cimport Py_buffer
-from cpython.buffer cimport PyBUF_FORMAT, PyBUF_ND, PyBuffer_FillInfo
+from cpython.buffer cimport (PyBUF_FORMAT, PyBUF_ANY_CONTIGUOUS, PyBUF_ND, PyBuffer_FillInfo,
+                             PyBuffer_Release, PyObject_CheckBuffer, PyObject_GetBuffer)
+from libc.string cimport memcpy, memset
 
 
+# Map each Java array type to a list of buffer format codes it accepts, and an itemsize. The
+# first format in the list is the one we will produce in Java-to-Python conversions.
+#
+# We only accept formats where a simple memory copy is guaranteed to give the same result as
+# assigning one element at a time. The one exception is that to provide an easy and efficient
+# way to convert Python bytes or bytearray objects to Java byte[], we allow initializing a
+# byte[] from buffer type `B` (uint8). This maps values 128 to 255 to Java values -128 to -1,
+# even though those values would give an OverflowError on element assignment.
+#
+# We could remove this inconsistency by allowing SetByteArrayElement to take values 128 to 255
+# as well. But that would just increase the inconsistency between byte and the other integer
+# types, and also raise new questions like why can you pass these values to an array element
+# but not to a field of the same type. Better to limit this special case to the one thing it's
+# intended for.
 BUFFER_FORMATS = {
-    "B": (b"b", 1),   # byte
-    "S": (b"h", 2),   # short
-    "I": (b"i", 4),   # int
-    "J": (b"q", 8),   # long
-    "F": (b"f", 4),   # float
-    "D": (b"d", 8),   # double
+    "Z": ([b"?"], 1),
+    "B": ([b"b", b"B"], 1),    # See comment above.
+    "S": ([b"h"], 2),
+    "I": ([b"i", b"l"], 4),    # C `long` may be 32 or 64-bit.
+    "J": ([b"q", b"l"], 8),    #
+    "F": ([b"f"], 4),
+    "D": ([b"d"], 8),
+    # char arrays don't support the buffer protocol. The `array` module mentions a `u` buffer
+    # type, but it's deprecated and isn't guaranteed to be 16 bits. And we can't use type `H`
+    # (uint16) either, because uint16 and char can't be assigned to each other, which would
+    # break the principle of "same result as assigning one element at a time".
 }
 
 
@@ -31,7 +52,8 @@ cpdef jarray(element_type):
     with class_lock:
         cls = jclass_cache.get(name)
         if not cls:
-            cls = ArrayClass(None, (JavaArray, Cloneable, Serializable, JavaObject),
+            base_cls = JavaBufferArray if element_sig in BUFFER_FORMATS else JavaArray
+            cls = ArrayClass(None, (base_cls, Cloneable, Serializable, JavaObject),
                              {"_chaquopy_name": name})
             cls._element_sig = element_sig
         return cls
@@ -40,59 +62,51 @@ cpdef jarray(element_type):
 class ArrayClass(JavaClass):
     def __call__(cls, *args, **kwargs):
         self = JavaClass.__call__(cls, *args, **kwargs)
-        (<JavaArray?>self).length = CQPEnv().GetArrayLength(self._chaquopy_this)
+        if "instance" in kwargs:
+            (<JavaArray?>self).length = CQPEnv().GetArrayLength(self._chaquopy_this)
         return self
 
 
-cdef class JavaArray(object):
+cdef class JavaArray:
+    # This must be a cdef member, because __getbuffer__ returns a pointer to it.
     cdef Py_ssize_t length
 
     def __init__(self, length_or_value):
         if isinstance(length_or_value, int):
-            length, value = length_or_value, None
+            self.length, value = length_or_value, None
         else:
-            length, value = len(length_or_value), length_or_value
+            self.length, value = len(length_or_value), length_or_value
 
         env = CQPEnv()
         r = self._element_sig[0]
         if r == "Z":
-            this = env.NewBooleanArray(length)
+            this = env.NewBooleanArray(self.length)
         elif r == "B":
-            this = env.NewByteArray(length)
+            this = env.NewByteArray(self.length)
         elif r == "S":
-            this = env.NewShortArray(length)
+            this = env.NewShortArray(self.length)
         elif r == "I":
-            this = env.NewIntArray(length)
+            this = env.NewIntArray(self.length)
         elif r == "J":
-            this = env.NewLongArray(length)
+            this = env.NewLongArray(self.length)
         elif r == "F":
-            this = env.NewFloatArray(length)
+            this = env.NewFloatArray(self.length)
         elif r == "D":
-            this = env.NewDoubleArray(length)
+            this = env.NewDoubleArray(self.length)
         elif r == "C":
-            this = env.NewCharArray(length)
+            this = env.NewCharArray(self.length)
         elif r in "L[":
-            this = env.NewObjectArray(length, env.FindClass(self._element_sig))
+            this = env.NewObjectArray(self.length, env.FindClass(self._element_sig))
         else:
             raise ValueError(f"Invalid signature '{self._element_sig}'")
         set_this(self, this.global_ref())
 
-        cdef const uint8_t[:] bytes_view
-        if value is not None and length > 0:
-            if r == "B":
-                try:
-                    bytes_view = value
-                except Exception:
-                    pass
-                else:
-                    # This does an unsigned-to-signed conversion: Python values 128 to 255 will
-                    # be mapped to Java values -128 to -1.
-                    env.SetByteArrayRegion(self._chaquopy_this, 0, length,
-                                           <jbyte*>&bytes_view[0])
-                    return
+        if value is not None:
+            self._init_value(env, value)
 
-            for i, v in enumerate(value):
-                array_set(self, i, v)
+    def _init_value(self, CQPEnv env, value):
+        for i, v in enumerate(value):
+            array_set(self, i, v)
 
     def __repr__(self):
         return f"{type(self).__name__}({format_array(self)})"
@@ -100,24 +114,6 @@ cdef class JavaArray(object):
     # Override JavaObject.__str__, which calls toString()
     def __str__(self):
         return repr(self)
-
-    def __getbuffer__(self, Py_buffer *buffer, int flags):
-        env = CQPEnv()
-        elems = array_get_elements(self, env)
-        try:
-            format, itemsize = BUFFER_FORMATS[self._element_sig]
-            PyBuffer_FillInfo(buffer, self, elems, self.length * itemsize, 0, flags)
-            buffer.itemsize = itemsize
-            if flags & PyBUF_FORMAT:
-                buffer.format = format
-            if flags & PyBUF_ND:
-                buffer.shape = &self.length
-        except:
-            array_release_elements(self, env, elems)
-            raise
-
-    def __releasebuffer__(self, Py_buffer *buffer):
-        array_release_elements(self, CQPEnv(), buffer.buf)
 
     def __len__(self):
         return self.length
@@ -191,6 +187,61 @@ cdef class JavaArray(object):
 collections.abc.MutableSequence.register(JavaArray)
 
 
+# numpy.array calls __getbuffer__ twice without checking for exceptions in between
+# (https://github.com/numpy/numpy/blob/v1.17.4/numpy/core/src/multiarray/ctors.c#L733).
+# Unfortunately this means that if __getbuffer__ throws an exception to indicate that the
+# buffer interface isn't supported, that exception will still be set on the second call, which
+# will cause all kinds of confusion, and probably stop Numpy from falling back on the Python
+# sequence protocol. We work around this by having a specialized class for array types which
+# support the buffer protocol.
+cdef class JavaBufferArray(JavaArray):
+    def _init_value(self, CQPEnv env, value):
+        cdef Py_buffer buffer
+        memset(&buffer, 0, sizeof(buffer))
+        try:
+            if not PyObject_CheckBuffer(value):
+                raise BufferError("object does not support the buffer protocol")
+            PyObject_GetBuffer(value, &buffer, PyBUF_FORMAT|PyBUF_ANY_CONTIGUOUS)
+
+            formats, itemsize = BUFFER_FORMATS[self._element_sig]
+            if not (buffer.format in formats and buffer.itemsize == itemsize):
+                raise BufferError(f"Java array type {self._element_sig} does not accept "
+                                  f"format={buffer.format}, itemsize={buffer.itemsize}")
+            if buffer.ndim != 1:
+                raise BufferError("object has {buffer.ndim} dimensions, only 1 is supported")
+            if buffer.shape[0] != self.length:
+                raise BufferError(f"got {buffer.shape[0]} elements, expected {self.length}")
+            if buffer.len != self.length * itemsize:
+                raise BufferError(f"got {buffer.len} bytes, expected {self.length * itemsize}")
+            array_set_elements(self, env, buffer.buf)
+        except BufferError:
+            # Fall back on assigning one element at a time. Whether this works may depend on
+            # both the data type and the values, e.g. uint32 -> double will always work, but
+            # uint32 -> int will only work if the value is within range.
+            super()._init_value(env, value)
+        finally:
+            if <PyObject*>buffer.obj != NULL:
+                PyBuffer_Release(&buffer)
+
+    def __getbuffer__(self, Py_buffer *buffer, int flags):
+        env = CQPEnv()
+        elems = array_get_elements(self, env)
+        try:
+            formats, itemsize = BUFFER_FORMATS[self._element_sig]
+            PyBuffer_FillInfo(buffer, self, elems, self.length * itemsize, 0, flags)
+            buffer.itemsize = itemsize
+            if flags & PyBUF_FORMAT:
+                buffer.format = formats[0]
+            if flags & PyBUF_ND:
+                buffer.shape = &self.length
+        except:
+            array_release_elements(self, env, elems)
+            raise
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        array_release_elements(self, CQPEnv(), buffer.buf)
+
+
 cdef array_get(self, jint index):
     env = CQPEnv()
     cdef JNIRef this = self._chaquopy_this
@@ -248,7 +299,9 @@ cdef array_set(self, jint index, value):
 
 cdef void *array_get_elements(self, CQPEnv env) except NULL:
     r = self._element_sig[0]
-    if r == "B":
+    if r == "Z":
+        return env.GetBooleanArrayElements(self._chaquopy_this)
+    elif r == "B":
         return env.GetByteArrayElements(self._chaquopy_this)
     elif r == "S":
         return env.GetShortArrayElements(self._chaquopy_this)
@@ -260,14 +313,17 @@ cdef void *array_get_elements(self, CQPEnv env) except NULL:
         return env.GetFloatArrayElements(self._chaquopy_this)
     elif r == "D":
         return env.GetDoubleArrayElements(self._chaquopy_this)
+    elif r == "C":
+        return env.GetCharArrayElements(self._chaquopy_this)
     else:
-        raise TypeError(f"buffer protocol is not implemented for "
-                        f"{sig_to_java(self._element_sig)}[]")
+        raise ValueError(f"Invalid signature '{self._element_sig}'")
 
 
 cdef array_release_elements(self, CQPEnv env, void *elems):
     r = self._element_sig[0]
-    if r == "B":
+    if r == "Z":
+        env.ReleaseBooleanArrayElements(self._chaquopy_this, <jboolean*>elems, 0)
+    elif r == "B":
         env.ReleaseByteArrayElements(self._chaquopy_this, <jbyte*>elems, 0)
     elif r == "S":
         env.ReleaseShortArrayElements(self._chaquopy_this, <jshort*>elems, 0)
@@ -279,6 +335,30 @@ cdef array_release_elements(self, CQPEnv env, void *elems):
         env.ReleaseFloatArrayElements(self._chaquopy_this, <jfloat*>elems, 0)
     elif r == "D":
         env.ReleaseDoubleArrayElements(self._chaquopy_this, <jdouble*>elems, 0)
+    elif r == "C":
+        env.ReleaseCharArrayElements(self._chaquopy_this, <jchar*>elems, 0)
+    else:
+        raise ValueError(f"Invalid signature '{self._element_sig}'")
+
+
+cdef array_set_elements(JavaBufferArray self, CQPEnv env, void *elems):
+    r = self._element_sig[0]
+    if r == "Z":
+        env.SetBooleanArrayRegion(self._chaquopy_this, 0, self.length, <jboolean*>elems)
+    if r == "B":
+        env.SetByteArrayRegion(self._chaquopy_this, 0, self.length, <jbyte*>elems)
+    elif r == "S":
+        env.SetShortArrayRegion(self._chaquopy_this, 0, self.length, <jshort*>elems)
+    elif r == "I":
+        env.SetIntArrayRegion(self._chaquopy_this, 0, self.length, <jint*>elems)
+    elif r == "J":
+        env.SetLongArrayRegion(self._chaquopy_this, 0, self.length, <jlong*>elems)
+    elif r == "F":
+        env.SetFloatArrayRegion(self._chaquopy_this, 0, self.length, <jfloat*>elems)
+    elif r == "D":
+        env.SetDoubleArrayRegion(self._chaquopy_this, 0, self.length, <jdouble*>elems)
+    elif r == "C":
+        env.SetCharArrayRegion(self._chaquopy_this, 0, self.length, <jchar*>elems)
     else:
         raise ValueError(f"Invalid signature '{self._element_sig}'")
 

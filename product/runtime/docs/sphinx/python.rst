@@ -24,7 +24,7 @@ Data types are converted between Python and Java as follows:
 * Java `String` and `char` both correspond to Python `str`.
 
 * A Java array is represented by a :any:`jarray` object. Java array parameters and fields
-  can also be implicitly converted from any Python iterable, except a string.
+  can also be implicitly converted from any Python sequence, except a string.
 
 * All other Java objects are represented by a :any:`jclass` object.
 
@@ -139,8 +139,8 @@ including:
 
 * Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
   supported.)
-* Searching using `in`.
-* Iteration using `for`.
+* Getting length using `len`, and testing for emptiness using `bool`.
+* Iteration using `for`, and searching using `in`.
 * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
   of adding or removing elements.
 
@@ -149,7 +149,7 @@ of `toString`, `equals` and `hashCode`. However, these default implementations a
 useful, so the equivalent Python operations are defined as follows:
 
 * `str` returns a representation of the array contents.
-* `==` and `!=` can compare the contents of the array with any Python iterable (including
+* `==` and `!=` can compare the contents of the array with any Python sequence (including
   another Java array).
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 * `is` is equivalent to Java `==` (i.e. it tests object identity).
@@ -157,7 +157,7 @@ useful, so the equivalent Python operations are defined as follows:
 Creating arrays
 ...............
 
-Any Python iterable (except a string) can be passed directly to a Java method or field which
+Any Python sequence (except a string) can be passed directly to a Java method or field which
 takes an array type, so there's usually no need to create `jarray` objects directly.
 
 However, where a method has multiple array-type overloads, you may need to disambiguate the
@@ -195,13 +195,20 @@ is a signed-to-unsigned conversion::
     >>> bytes(a)
     b'\x00\x7f\x80\xff'
 
-`int[]`, `short[]` and `long[]` arrays cannot be directly converted to bytes. If you have such
-an array containing values between 0 and 255, then you can convert it indirectly using
-:any:`list`::
+Java arrays of `boolean`, `byte`, `short`, `int`, `long`, `float` and `double` all implement
+the Python `buffer protocol <https://docs.python.org/3/c-api/buffer.html>`_, so calling `bytes`
+will return their in-memory representations::
 
-    >>> a = jarray(jint)([0, 127, 128, 255])
-    >>> bytes(list(a))
-    b'\x00\x7f\x80\xff'
+    >>> a = jarray(jshort)([0, 32767])
+    >>> bytes(a)
+    b'\x00\x00\xff\x7f'
+
+And if you convert a Java array to a NumPy array, it will automatically use the correct data
+type::
+
+    >>> numpy.array(a)
+    array([    0, 32767], dtype=int16)
+
 
 Casting
 -------

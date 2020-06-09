@@ -62,7 +62,7 @@ class TestThread(FilterWarningsCase):
 
     def test_detach_python_exception(self):
         def run():
-            raise Exception("Expected Python exception")
+            raise Exception("Expected Python exception (this is not a test failure)")
         thread = Thread(target=run)
         thread.start()
         thread.join()
@@ -70,7 +70,7 @@ class TestThread(FilterWarningsCase):
     def test_detach_java_exception(self):
         def run():
             from java.lang import Integer
-            Integer.parseInt("Expected Java exception")
+            Integer.parseInt("Expected Java exception (this is not a test failure)")
         thread = Thread(target=run)
         thread.start()
         thread.join()
