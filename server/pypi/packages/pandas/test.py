@@ -24,16 +24,19 @@ class TestPandas(unittest.TestCase):
         from pandas import DataFrame
 
         ja = jarray(jshort)([-10000, 0, 10000])
+        ja_2 = jarray(jshort)([-20000, 0, 20000])
         df_col = DataFrame(ja)
-        self.assertEqual((len(ja), 1), df_col.shape)
+        self.assertEqual((3, 1), df_col.shape)
         self.assertEqual(ja, df_col[0].tolist())
 
-        df_cols = DataFrame({"a": ja, "b": ja})
-        self.assertEqual((len(ja), 2), df_cols.shape)
+        df_cols = DataFrame({"a": ja, "b": ja_2})
+        self.assertEqual((3, 2), df_cols.shape)
         self.assertEqual(ja, df_cols["a"])
-        self.assertEqual(ja, df_cols["b"])
+        self.assertEqual(ja_2, df_cols["b"])
 
-        df_rows = DataFrame([ja, ja])
-        self.assertEqual((2, len(ja)), df_rows.shape)
+        ja_2d = jarray(jarray(jshort))([ja, ja_2])
+        df_rows = DataFrame(ja_2d)
+        self.assertEqual((2, 3), df_rows.shape)
+        self.assertEqual(ja_2d, df_rows.to_numpy())
         self.assertEqual(ja, df_rows.loc[0])
-        self.assertEqual(ja, df_rows.loc[1])
+        self.assertEqual(ja_2, df_rows.loc[1])

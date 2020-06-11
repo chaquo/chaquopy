@@ -21,6 +21,7 @@ from threading import RLock
 from zipfile import ZipFile, ZipInfo
 import zipimport
 
+import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
 from java.chaquopy_android import AssetFile
 
@@ -522,6 +523,8 @@ class AssetLoader:
         super().exec_module(mod)
         if mod.__name__ == "pkg_resources":
             initialize_pkg_resources()
+        elif mod.__name__ == "numpy":
+            java.chaquopy.numpy = mod  # See conversion.pxi.
 
     def get_resource_reader(self, mod_name):
         return self if self.is_package(mod_name) else None

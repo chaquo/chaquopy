@@ -256,8 +256,9 @@ class TestArray(FilterWarningsCase):
         sizeof_long = array.array("l").itemsize  # May be 4 or 8.
 
         for element_type, format, itemsize, values in self.BUFFER_TESTS:
-            if element_type == jboolean:
-                continue  # array.array doesn't support this format.
+            if element_type is jboolean:
+                # array.array doesn't support this format, but it's covered by the NumPy tests.
+                continue
             for input in [[], values]:
                 with self.subTest(element_type=element_type, input=input):
                     self.check_buffer_p2j(element_type, format, input)

@@ -345,7 +345,7 @@ cdef array_set_elements(JavaBufferArray self, CQPEnv env, void *elems):
     r = self._element_sig[0]
     if r == "Z":
         env.SetBooleanArrayRegion(self._chaquopy_this, 0, self.length, <jboolean*>elems)
-    if r == "B":
+    elif r == "B":
         env.SetByteArrayRegion(self._chaquopy_this, 0, self.length, <jbyte*>elems)
     elif r == "S":
         env.SetShortArrayRegion(self._chaquopy_this, 0, self.length, <jshort*>elems)

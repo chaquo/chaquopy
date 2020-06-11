@@ -6,6 +6,9 @@ import re
 from cpython.object cimport PyObject
 from libc.float cimport FLT_MAX
 
+numpy = None  # Initialized by importer.py.
+
+
 # In order of size.
 INT_TYPES = OrderedDict([("J", "Long"), ("I", "Integer"), ("S", "Short"), ("B", "Byte")])
 FLOAT_TYPES = OrderedDict([("D", "Double"), ("F", "Float")])
@@ -149,23 +152,29 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             return obj
         if isinstance(obj, java.jboolean):
             return obj.value
+        if numpy and isinstance(obj, numpy.bool_):
+            return obj.item()
     elif definition in INT_TYPES:
         # Java allows a char to be implicitly converted to an int or larger, but this would
         # be surprising in Python. Require the user to be explicit and use the function `ord`.
         #
-        # For backwards compatibility with old versions of Python, bool is a subclass of
-        # int, but we should be stricter.
+        # bool is a subclass of int in Python, but allowing implicit conversion from Python
+        # bool to Java integer types could cause ambiguity in overloads.
         if isinstance(obj, int) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.IntPrimitive) and \
            dict_index(INT_TYPES, obj.sig) >= dict_index(INT_TYPES, definition):
             return obj.value
+        if numpy and isinstance(obj, numpy.integer):
+            return obj.item()
     elif definition in FLOAT_TYPES:
         if isinstance(obj, (float, int)) and not isinstance(obj, bool):
             return obj
         if isinstance(obj, java.NumericPrimitive) and \
            dict_index(NUMERIC_TYPES, obj.sig) >= dict_index(NUMERIC_TYPES, definition):
             return obj.value
+        if numpy and isinstance(obj, (numpy.integer, numpy.floating)):
+            return obj.item()
     elif definition == "C":
         # We don't check that len(obj) == 1; see note above about range checks.
         if isinstance(obj, unicode):
