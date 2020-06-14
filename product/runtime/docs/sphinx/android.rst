@@ -53,6 +53,12 @@ All other configuration will be done in this module-level `build.gradle`. The ex
 will show the configuration within `defaultConfig`, but it can also be done within a `product
 flavor <https://developer.android.com/studio/build/build-variants#product-flavors>`_.
 
+The Chaquopy plugin can also be used in an `Android library module
+<https://developer.android.com/studio/projects/android-library>`_ (AAR). However, it can only
+be used in one module in a project: either in the app module, or in exactly one library module.
+Attempting to use it in multiple modules will give the error "More than one file was found with
+OS independent path".
+
 ABI selection
 -------------
 

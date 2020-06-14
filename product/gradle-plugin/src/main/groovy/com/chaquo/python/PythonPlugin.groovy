@@ -27,6 +27,7 @@ class PythonPlugin implements Plugin<Project> {
     Project project
     ScriptHandler buildscript
     Object android
+    boolean isLibrary
     VersionNumber androidPluginVer
     File genDir
     Task buildPackagesTask
@@ -40,11 +41,13 @@ class PythonPlugin implements Plugin<Project> {
         buildscript = project.rootProject.buildscript
 
         if (!project.hasProperty("android")) {
-            throw new GradleException("project.android not set. Did you apply plugin " +
-                                              "com.android.application before com.chaquo.python?")
+            throw new GradleException(
+                "project.android not set. Did you apply plugin com.android.application or " +
+                "com.android.library before com.chaquo.python?")
         }
         android = project.android
         androidPluginVer = getAndroidPluginVersion()
+        isLibrary = project.pluginManager.hasPlugin("com.android.library")
 
         extendAaptOptions()
         extendProductFlavor(android.defaultConfig).setDefaults(project)
@@ -181,8 +184,8 @@ class PythonPlugin implements Plugin<Project> {
 
     void afterEvaluate() {
         buildPackagesTask = createBuildPackagesTask()
-        
-        for (variant in android.applicationVariants) {
+
+        for (variant in (isLibrary ? android.libraryVariants : android.applicationVariants)) {
             def python = new PythonExtension()
             python.mergeFrom(android.defaultConfig.python)
             for (flavor in variant.getProductFlavors().reverse()) {
@@ -548,23 +551,35 @@ class PythonPlugin implements Plugin<Project> {
     // complicated.)
     Task createTicketTask(variant) {
         def localProps = new Properties()
-        def propsStream = project.rootProject.file('local.properties').newInputStream()
-        localProps.load(propsStream)
-        propsStream.close()  // Otherwise the Gradle daemon may keep the file in use indefinitely.
-
+        project.rootProject.file('local.properties').withInputStream {
+            localProps.load(it)
+        }
         // null input properties give a warning in Gradle 4.4 (Android Studio 3.1). Luckily we're
         // no longer using the empty string to mean anything special.
         def key = localProps.getProperty("chaquopy.license", "")
 
+        def applicationId
+        if (isLibrary) {
+            applicationId = localProps.getProperty("chaquopy.applicationId", "")
+            if (applicationId.isEmpty() && !key.isEmpty()) {
+                throw new GradleException(
+                    "When building a library module with a license key, local.properties " +
+                    "must contain a chaquopy.applicationId line identifying the app which " +
+                    "the library will be built into.")
+            }
+        } else {
+            applicationId = variant.applicationId
+        }
+
         return assetTask(variant, "license") {
-            inputs.property("app", variant.applicationId)
+            inputs.property("app", applicationId)
             inputs.property("key", key)
             doLast {
                 def ticket = "";
                 if (key.length() > 0) {
                     final def TIMEOUT = 10000
                     def url = ("https://chaquo.com/license/get_ticket" +
-                               "?app=$variant.applicationId&key=$key")
+                               "?app=$applicationId&key=$key")
                     def connection = (HttpURLConnection) new URL(url).openConnection()
                     connection.setConnectTimeout(TIMEOUT)
                     connection.setReadTimeout(TIMEOUT)
@@ -739,7 +754,9 @@ class PythonPlugin implements Plugin<Project> {
         }
         closure.delegate = t
         closure()
-        extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}Assets"), t)
+
+        extendMergeTask(project.tasks.getByName(
+            "${isLibrary ? "package" : "merge"}${variant.name.capitalize()}Assets"), t)
         return t
     }
 
@@ -759,11 +776,12 @@ class PythonPlugin implements Plugin<Project> {
                 hashAssets(assetsJson, digest, file, path + "/")
             } else {
                 // file.bytes may exhaust Java heap space, so read the file in smaller blocks.
-                def is = file.newInputStream()
-                def buf = new byte[1024 * 1024]
-                def len
-                while ((len = is.read(buf)) != -1) {
-                    digest.update(buf, 0, len)
+                file.withInputStream {
+                    def buf = new byte[1024 * 1024]
+                    def len
+                    while ((len = it.read(buf)) != -1) {
+                        digest.update(buf, 0, len)
+                    }
                 }
                 assetsJson.put(path, digest.digest().encodeHex())
             }

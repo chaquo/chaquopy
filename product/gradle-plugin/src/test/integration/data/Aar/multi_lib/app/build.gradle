@@ -1,0 +1,18 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 23
+
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 16
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+    }
+}
+
+dependencies {
+    implementation project(":lib1")
+    implementation project(":lib2")
+}

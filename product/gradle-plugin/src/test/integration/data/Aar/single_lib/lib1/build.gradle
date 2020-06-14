@@ -1,0 +1,28 @@
+apply plugin: 'com.android.library'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        ndk {
+            abiFilters "x86", "armeabi-v7a"
+        }
+        python {
+            pip {
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "apple"
+                install "multi_abi_clash"
+            }
+            pyc {
+                src false
+                pip false
+            }
+        }
+    }
+}
