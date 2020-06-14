@@ -300,12 +300,14 @@ Packaging
 Data files
 ----------
 
-To save time and space, your app's Python modules are loaded directly from the APK assets at
-runtime and don't exist as separate `.py` files. However, each module's `__file__` and
-`__path__` attributes can be used in the normal way to find any data files which are packaged
-along with the code. Data files in the root directory will be extracted from the APK the first
-time the app is started, while files within a top-level package will be extracted the first
-time that package is imported.
+To save time and space, your app's Python modules are loaded directly from the APK at runtime
+and don't exist as separate files on the device. However, each module's `__file__` and
+`__path__` attributes can still be used in the normal way to find any data files which you
+included in your :ref:`source directory <android-source>`.
+
+To speed up app startup, data files within a top-level package (i.e. a directory containing an
+`__init__.py` file) won't be extracted from the APK until the first time that package is
+imported. All other data files will be extracted the first time the app is started.
 
 
 .. _android-bytecode:

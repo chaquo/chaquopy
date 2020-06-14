@@ -329,8 +329,8 @@ class BuildWheel:
         # wheels include external shared libraries only under their SONAMEs, and we need to
         # create links from the other names so the compiler can find them.
         SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
-                           (r"^(lib.*?)\d+\.so$", r"\1.so"),
-                           (r"^(lib.*)_chaquopy\.so$", r"\1.so")]
+                           (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
+                           (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
         reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
         if exists(reqs_lib_dir):
             for filename in os.listdir(reqs_lib_dir):

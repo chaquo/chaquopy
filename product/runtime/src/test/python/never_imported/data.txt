@@ -1,1 +1,1 @@
-This package is never imported, so this file will never be extracted.
+See TestAndroidImport.test_non_package_data.

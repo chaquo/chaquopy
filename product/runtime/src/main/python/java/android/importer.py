@@ -30,10 +30,6 @@ from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
 
 
-API_LEVEL = Build.VERSION.SDK_INT
-CHAQUOPY_LIB = "chaquopy/lib"
-
-
 def initialize(context, build_json, app_path):
     initialize_importlib(context, build_json, app_path)
     initialize_ctypes()
@@ -68,8 +64,9 @@ def initialize_importlib(context, build_json, app_path):
         # read by addsitedir below.
         finder.extract_dir("", recursive=False)
 
-        # Extract data files from top-level directories which aren't Python packages.
-        # (Package directories will be extracted on first import by AssetFinder.find_module.)
+        # Extract data files from top-level directories which aren't Python packages. The
+        # `chaquopy` directory doesn't need to be special-cased, because extract_dir detects
+        # libraries from their filenames and doesn't extract them.
         for name in finder.listdir(""):
             if finder.isdir(name) and \
                not name.endswith(".dist-info") and \
@@ -390,7 +387,7 @@ class AssetFinder:
                     continue
 
                 try:
-                    needed_filename = self.extract_if_changed(join(CHAQUOPY_LIB, soname))
+                    needed_filename = self.extract_if_changed(f"chaquopy/lib/{soname}")
                 except FileNotFoundError:
                     # Maybe it's a system library, or one of the libraries loaded by
                     # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
@@ -409,7 +406,7 @@ class AssetFinder:
                                                          ctypes.RTLD_GLOBAL)
 
     def prepare_dlopen(self, filename):
-        if platform.architecture()[0] == "64bit" and API_LEVEL < 23:
+        if platform.architecture()[0] == "64bit" and Build.VERSION.SDK_INT < 23:
             # Android ignores DT_SONAME before API level 23. As described in extract_so, on
             # 32-bit ABIs it uses basenames instead. But on 64-bit ABIs it stores the full path
             # passed to dlopen
@@ -450,7 +447,8 @@ class AssetFinder:
             if self.isdir(zip_path):
                 if recursive:
                     self.extract_dir(zip_path)
-            elif not any(filename.endswith(suffix) for suffix in LOADERS):
+            elif not (any(filename.endswith(suffix) for suffix in LOADERS) or
+                      re.search(r"^lib.*\.so\.", filename)):  # e.g. libgfortran
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):

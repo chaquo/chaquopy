@@ -127,7 +127,7 @@ class PipInstall(object):
         if exists(chaquopy_dir):
             for name in os.listdir(chaquopy_dir):
                 if name != "lib":
-                    rmtree(join(chaquopy_dir, name))
+                    remove(join(chaquopy_dir, name))
 
         logger.debug("Reading dist-info")
         req_infos = []
@@ -180,10 +180,7 @@ class PipInstall(object):
             self.move_to_common(self.android_abis[0], path)
             for abi in self.android_abis[1:]:
                 abi_path = join(self.target, abi, path)
-                if isdir(abi_path):
-                    rmtree(abi_path)
-                else:
-                    os.remove(abi_path)
+                remove(abi_path)
                 try:
                     os.removedirs(dirname(abi_path))
                 except OSError:
@@ -283,6 +280,11 @@ def file_matches_record(filename, hash_str, size):
         hash_actual = (urlsafe_b64encode(hashlib.new(hash_algo, f.read()).digest())
                        .decode("ASCII"))
     return hash_actual == hash_expected
+
+
+# Remove either a file or a directory.
+def remove(path):
+    (rmtree if isdir(path) else os.remove)(path)
 
 
 # Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as

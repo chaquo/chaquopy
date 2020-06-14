@@ -150,11 +150,15 @@ class TestAndroidImport(unittest.TestCase):
                                           ("non_package_data/subdir", "subdirectory")]:
             with self.subTest(dir_name=dir_name):
                 extracted_dir = asset_path(APP_ZIP, dir_name)
+                self.assertCountEqual(
+                    ["non_package_data.txt"] + (["test.pth"] if not dir_name else []),
+                    [entry.name for entry in os.scandir(extracted_dir) if entry.is_file()])
                 with open(join(extracted_dir, "non_package_data.txt")) as f:
                     self.assertPredicate(str.startswith, f.read(),
                                          f"# Text file in {dir_description}")
-                self.assertNotPredicate(exists, join(extracted_dir, "non_package_data.py"))
 
+        # Package directories shouldn't be extracted on startup, but on first import. This
+        # package is never imported, so it should never be extracted at all.
         self.assertNotPredicate(exists, asset_path(APP_ZIP, "never_imported"))
 
     def test_package_data(self):
@@ -654,6 +658,8 @@ class TestAndroidImport(unittest.TestCase):
             dist_info = str(dist._path)
             self.assertPredicate(str.startswith, dist_info, asset_path(REQS_COMMON_ZIP))
             self.assertPredicate(str.endswith, dist_info, ".dist-info")
+
+            # .dist-info directories shouldn't be extracted.
             self.assertNotPredicate(exists, dist_info)
 
         dist = metadata.distribution("murmurhash")
