@@ -13,7 +13,7 @@ import subprocess
 from subprocess import check_output, run
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
-from zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
+from zipfile import ZipFile, ZIP_STORED
 
 import appdirs
 import javaproperties
@@ -234,32 +234,6 @@ class Aar(GradleTestCase):
                               "Plugin will throw an error in this case.", run.stdout, re=True)
 
 
-# Verify that the user can use noCompress without interfering with our use of it.
-# We test both 1 and 2-argument calls because of the way the overloads are defined.
-class NoCompress(GradleTestCase):
-    def test_1(self):
-        self.RunGradle("base", "NoCompress/nocompress_1",
-                       compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_DEFLATED,
-                                          charlie=ZIP_DEFLATED))
-
-    def test_2(self):
-        self.RunGradle("base", "NoCompress/nocompress_2",
-                       compress_type=dict(alpha=ZIP_STORED, bravo=ZIP_STORED,
-                                          charlie=ZIP_DEFLATED))
-
-    def test_assign(self):
-        with self.assertRaisesRegex(AssertionError, "0 != 8 : assets/chaquopy/app.zip"):
-            run = self.RunGradle("base", "NoCompress/nocompress_assign", run=False)
-            run.rerun()
-        self.assertInLong(WARNING + "aaptOptions.noCompress has been overridden", run.stdout,
-                          re=True)
-
-    def post_check(self, apk_zip, apk_dir, kwargs):
-        for filename, expected in kwargs["compress_type"].items():
-            info = apk_zip.getinfo("assets/file." + filename)
-            self.assertEqual(expected, info.compress_type)
-
-
 class ApiLevel(GradleTestCase):
     ADVICE = "See https://chaquo.com/chaquopy/doc/current/versions.html."
 
@@ -361,14 +335,14 @@ class PythonSrc(GradleTestCase):
     @skipIf(os.name == "posix", "For systems which don't support TZ variable")
     def test_reproducible_basic(self):
         self.post_check = make_asset_check(self, {
-            "app.zip": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
+            "app.imy": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
         self.RunGradle("base", "PythonSrc/1", app=["one.py", "package/submodule.py"],
                        pyc=["stdlib"])
 
     @skipUnless(os.name == "posix", "For systems which support TZ variable")
     def test_reproducible_timezone(self):
         self.post_check = make_asset_check(self, {
-            "app.zip": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
+            "app.imy": "71ef4b2676498a2a2bb2c16d72d58ca2c4715936"})
 
         app = ["one.py", "package/submodule.py"]
         for tz in ["UTC+0", "PST+8", "CET-1"]:  # + and - are reversed compared to normal usage.
@@ -798,9 +772,9 @@ class PythonReqs(GradleTestCase):
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
         self.post_check = make_asset_check(self, {
-            "requirements-common.zip": "844bc1e437bddd8ec9168fbc3858f70d17e0d0af",
-            "requirements-armeabi-v7a.zip": "8ef282896a9a057d363dd7e294d52f89a80ae36a",
-            "requirements-x86.zip": "4d0c2dfb5ac62016df8deceb9d827abd6a16cc48"})
+            "requirements-common.imy": "844bc1e437bddd8ec9168fbc3858f70d17e0d0af",
+            "requirements-armeabi-v7a.imy": "8ef282896a9a057d363dd7e294d52f89a80ae36a",
+            "requirements-x86.imy": "4d0c2dfb5ac62016df8deceb9d827abd6a16cc48"})
 
         # This is not the same as the filename pattern used in our real wheels, but the point
         # is to test that the multi-ABI packaging works correctly.
@@ -1166,29 +1140,28 @@ class RunGradle(object):
         kwargs = KwargsWrapper(kwargs)
         self.test.pre_check(apk_zip, apk_dir, kwargs)
 
-        # All ZIP assets should be stored uncompressed, whether top-level or not.
-        # FIXME #5658: doesn't work for AARs
-        # for info in apk_zip.infolist():
-        #     if re.search(r"^assets/chaquopy/.*\.zip$", info.filename):
-        #         self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
+        # All AssetFinder ZIPs should be stored uncompressed (see comment in Common.assetZip).
+        for info in apk_zip.infolist():
+            if info.filename.endswith(".imy"):
+                self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
 
         # Top-level assets
         asset_dir = join(apk_dir, "assets/chaquopy")
         abi_suffixes = ["common"] + abis
         self.test.assertCountEqual(
-            ["app.zip", "bootstrap-native", "bootstrap.zip", "build.json", "cacert.pem",
-             "ticket.txt"] + [f"{stem}-{suffix}.zip" for stem in ["requirements", "stdlib"]
+            ["app.imy", "bootstrap-native", "bootstrap.imy", "build.json", "cacert.pem",
+             "ticket.txt"] + [f"{stem}-{suffix}.imy" for stem in ["requirements", "stdlib"]
                               for suffix in abi_suffixes],
             os.listdir(asset_dir))
 
         # Python source
-        self.test.checkZip(join(asset_dir, "app.zip"), app, pyc=("src" in pyc))
+        self.test.checkZip(join(asset_dir, "app.imy"), app, pyc=("src" in pyc))
 
         # Python requirements
         for suffix in abi_suffixes:
             with self.test.subTest(suffix=suffix):
                 self.test.checkZip(
-                    join(asset_dir, "requirements-{}.zip".format(suffix)),
+                    join(asset_dir, "requirements-{}.imy".format(suffix)),
                     (requirements[suffix] if isinstance(requirements, dict)
                      else requirements if suffix == "common"
                      else []),
@@ -1209,7 +1182,7 @@ class RunGradle(object):
                 os.listdir(join(bootstrap_native_dir, abi, "java")))
 
         # Python stdlib
-        stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.zip")).namelist())
+        stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.imy")).namelist())
         self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
         self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
 
@@ -1219,7 +1192,7 @@ class RunGradle(object):
                                .format(grammar_stem, PYTHON_VERSION), stdlib_files)
 
         for abi in abis:
-            stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.zip"))
+            stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
             self.test.assertCountEqual(
                 ["_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
                  "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",

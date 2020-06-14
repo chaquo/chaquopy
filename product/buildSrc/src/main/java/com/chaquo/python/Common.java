@@ -31,17 +31,32 @@ public class Common {
     // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";
 
-    public static String assetZip(String type) { return assetZip(type, null); }
+    public static String assetZip(String type) {
+        return assetZip(type, null);
+    }
+
     public static String assetZip(String type, String abi) {
+        // We need to prevent our ZIP files from being compressed within the APK. This wouldn't
+        // save much space (because the files within the ZIP are already compressed), but it
+        // would seriously harm performance of AssetFinder, because it would have to read and
+        // decompress all the intermediate data every time it seeks within the ZIP (see
+        // measurements in #5658).
+        //
+        // Unfortunately .zip is not one of the default noCompress extensions
+        // (frameworks/base/tools/aapt2/cmd/Link.cpp). We used to monkey-patch the noCompress
+        // method, but that doesn't carry over from an AAR to the final APK. So we'll just have
+        // to rename the AssetFinder ZIPs to one of the extensions in the default list. We use
+        // something obscure so that Chaquopy developers can configure their file explorer to
+        // treat it as a ZIP without causing any inconvenience.
+        String ext = ".imy";
         if (abi == null) {
-            return type + ".zip";
+            return type + ext;
         } else {
-            return type + "-" + abi + ".zip";
+            return type + "-" + abi + ext;
         }
     }
 
     // Parameters for assetZip
-
     public static final String ABI_COMMON = "common";
     public static final String ASSET_BOOTSTRAP = "bootstrap";
     public static final String ASSET_APP = "app";

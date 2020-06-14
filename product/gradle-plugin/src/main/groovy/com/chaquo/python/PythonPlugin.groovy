@@ -49,7 +49,6 @@ class PythonPlugin implements Plugin<Project> {
         androidPluginVer = getAndroidPluginVersion()
         isLibrary = project.pluginManager.hasPlugin("com.android.library")
 
-        extendAaptOptions()
         extendProductFlavor(android.defaultConfig).setDefaults(project)
         android.productFlavors.all { extendProductFlavor(it) }
         extendSourceSets()
@@ -85,61 +84,6 @@ class PythonPlugin implements Plugin<Project> {
                     "version, " + ADVICE)
         }
         return depVer
-    }
-
-    // For extraction performance, we want to avoid compressing our .zip files a second time,
-    // but .zip is not one of the default noCompress extensions (frameworks/base/tools/aapt/Package.cpp
-    // and tools/base/build-system/builder/src/main/java/com/android/builder/packaging/PackagingUtils.java).
-    // We don't want to set noCompress "zip" because the user might have an uncompressed .zip
-    // which they were relying on the APK to compress.
-    //
-    // Luckily this option works just as well with entire filenames. Unluckily, it replaces the
-    // existing list rather than adds to it, so if we only called noCompress now, it would be lost
-    // if the build.gradle used it as well. afterEvaluate is too late to do this, as the Android
-    // plugin's own afterEvaluate has already been run by that point and it's copied the noCompress
-    // settings elsewhere.
-    void extendAaptOptions() {
-        def ao = android.aaptOptions
-
-        def originalSet = ao.getClass().getMethod("noCompress", [String[].class] as Class[])
-        def newSet = {String... nc ->
-            def mergedNc = []
-            for (asset in [Common.ASSET_APP, Common.ASSET_BOOTSTRAP]) {
-                mergedNc.add(assetZip(asset))
-            }
-            for (asset in [Common.ASSET_REQUIREMENTS, Common.ASSET_STDLIB]) {
-                for (abi in Common.ABIS + [Common.ABI_COMMON]) {
-                    mergedNc.add(assetZip(asset, abi))
-                }
-            }
-            mergedNc.addAll(nc)
-            originalSet.invoke(ao, [mergedNc as String[]] as Object[])
-        }
-        ao.metaClass.noCompress = newSet
-
-        // It also defines a 1-argument overload for some reason. (The metaclass assignment operator
-        // will create overloads if closure parameter types are different.)
-        ao.metaClass.noCompress = { String nc -> newSet(nc) }
-
-        // We don't currently override setNoCompress to handle `=` notation. Unlike elsewhere in
-        // the Android plugin, it doesn't accept an Iterable, only a single String or a String[]
-        // array, which would require the syntax `[...] as String[]`. I tried overriding it to
-        // support this anyway, but the array somehow got passed straight through as if it was a
-        // String, ignoring the parameter type declarations on the closures.
-        //
-        // From searches I couldn't find an example of anyone actualy using `=` notation here, so
-        // the current situation is probably fine. However, we'll check and display a warning just
-        // in case.
-        project.afterEvaluate {
-            if (! ao.noCompress.contains(assetZip(Common.ASSET_APP))) {
-                println("Warning: aaptOptions.noCompress has been overridden: this may reduce " +
-                        "Chaquopy performance. Consider replacing `noCompress =` with simply " +
-                        "`noCompress`.")
-            }
-        }
-
-        // Set initial state.
-        ao.noCompress()
     }
 
     PythonExtension extendProductFlavor(ExtensionAware ea) {

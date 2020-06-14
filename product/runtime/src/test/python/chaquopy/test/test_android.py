@@ -36,12 +36,12 @@ else:
     context = __loader__.finder.context  # noqa: F821
 
     from com.chaquo.python.android import AndroidPlatform
-    APP_ZIP = "app.zip"
-    REQS_COMMON_ZIP = "requirements-common.zip"
+    APP_ZIP = "app"
+    REQS_COMMON_ZIP = "requirements-common"
     multi_abi = len([name for name in context.getAssets().list("chaquopy")
                      if name.startswith("requirements")]) > 2
     ABI = AndroidPlatform.ABI
-    REQS_ABI_ZIP = ("requirements-{}.zip".format(ABI) if multi_abi else REQS_COMMON_ZIP)
+    REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
 
 def setUpModule():
     if API_LEVEL is None:
@@ -64,8 +64,8 @@ class TestAndroidPlatform(unittest.TestCase):
 
     def test_files(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
-        self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.zip",
-                               "cacert.pem", "stdlib-common.zip", "ticket.txt"],
+        self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
+                               "cacert.pem", "stdlib-common.imy", "ticket.txt"],
                               os.listdir(chaquopy_dir))
         self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
         self.assertCountEqual(["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so",
@@ -90,8 +90,7 @@ class TestAndroidImport(unittest.TestCase):
 
     def check_py(self, mod_name, zip_name, zip_path, existing_attr, **kwargs):
         filename = asset_path(zip_name, zip_path)
-        # In build.gradle, .pyc pre-compilation is disabled for app.zip, so it will generate
-        # __pycache__ directories.
+        # build.gradle has pyc { src false }, so APP_ZIP will generate __pycache__ directories.
         cache_filename = cache_from_source(filename) if zip_name == APP_ZIP else None
         mod = self.check_module(mod_name, filename, cache_filename, **kwargs)
         self.assertNotPredicate(exists, filename)
@@ -700,10 +699,8 @@ class TestAndroidImport(unittest.TestCase):
 
 
 def asset_path(zip_name, *paths):
-    return join(context.getFilesDir().toString(),
-                "chaquopy/AssetFinder",
-                os.path.splitext(zip_name)[0].partition("-")[0],
-                *paths)
+    return join(context.getFilesDir().toString(), "chaquopy/AssetFinder",
+                zip_name.partition("-")[0], *paths)
 
 
 # On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers to a
@@ -879,8 +876,8 @@ class TestAndroidStdlib(unittest.TestCase):
         chaquopy_dir = f"{context.getFilesDir()}/chaquopy"
         self.assertEqual([join(chaquopy_dir, path) for path in
                           ["AssetFinder/app", "AssetFinder/requirements",
-                           f"AssetFinder/stdlib-{ABI}", "stdlib-common.zip",
-                           "bootstrap.zip", f"bootstrap-native/{ABI}"]],
+                           f"AssetFinder/stdlib-{ABI}", "stdlib-common.imy",
+                           "bootstrap.imy", f"bootstrap-native/{ABI}"]],
                          sys.path)
         for p in sys.path:
             self.assertTrue(exists(p), p)

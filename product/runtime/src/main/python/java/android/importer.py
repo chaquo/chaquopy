@@ -298,8 +298,8 @@ class AssetFinder:
             # modules whose __file__ and __path__ point to that directory. This is most easily
             # done by accessing both ZIPs through the same finder.
             self.zip_files = []
-            for suffix in [".zip", f"-{Common.ABI_COMMON}.zip", f"-{AndroidPlatform.ABI}.zip"]:
-                asset_name = basename(self.extract_root) + suffix
+            for abi in [None, Common.ABI_COMMON, AndroidPlatform.ABI]:
+                asset_name = Common.assetZip(basename(self.extract_root), abi)
                 try:
                     self.zip_files.append(
                         AssetZipFile(self.context, join(Common.ASSET_DIR, asset_name)))

@@ -34,6 +34,10 @@ public class AndroidPlatform extends Python.Platform {
 
         // Renamed to stdlib-common.zip in 6.2.2.
         "stdlib.zip",
+
+        // Renamed to .imy in 8.0.0.
+        "bootstrap.zip",
+        "stdlib-common.zip"
     };
 
     private static final String[] OBSOLETE_CACHE = {
