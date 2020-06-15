@@ -120,7 +120,7 @@ class TestNumpyJarray(unittest.TestCase):
         import numpy as np
 
         SIZE = 1000000
-        TIME_LIMIT = 0.1  # Without the buffer protocol, this takes over 10 seconds.
+        TIME_LIMIT = 0.5  # Without the buffer protocol, this takes over 10 seconds.
         for element_type, n2j_dtype, j2n_dtype, values in self.TESTS:
             # NumPy to Java
             na = np.zeros(SIZE, n2j_dtype)

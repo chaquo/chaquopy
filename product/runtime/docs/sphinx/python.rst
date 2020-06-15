@@ -178,7 +178,7 @@ You can also pass an integer to create an array filled with zero, `false` or `nu
     # Python code                                 // Java equivalent
     jarray(jint)(5)                               new int[5]
 
-Byte arrays
+Conversions
 ...........
 
 When converting a Python :any:`bytes` or :any:`bytearray` object to a Java `byte[]` array,

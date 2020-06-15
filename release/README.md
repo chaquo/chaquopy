@@ -10,16 +10,16 @@ Restore it to the full set of ABIs, then run unit tests on any device.
 
 Make sure unit tests work when run twice in succession.
 
-Check app sizes and startup times compared to previous version (#5620).
+Check app sizes and startup times compared to previous version (#5495).
 
 
 ## Gradle plugin
 
-Free up RAM if necessary. If restarting Android Studio, do it before starting the tests, as
-this may kill the Gradle daemon.
+On each test machine:
 
-Free up disk space if necessary: the integration tests require about 6 GB per Android Gradle
-plugin version.
+* Pull the current version of this repository.
+* Free up disk space if necessary: the integration tests require about 6 GB per Android Gradle
+  plugin version.
 
 On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
 gradle-plugin:check`.

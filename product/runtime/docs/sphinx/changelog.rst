@@ -1,6 +1,19 @@
 Change log
 ##########
 
+8.0.0 (2020-06-15)
+==================
+
+* Android Gradle plugin version 4.0 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.2 is no longer supported.
+* Runtime Python version is now 3.8.3.
+* Using Chaquopy in an Android library module (AAR) is now supported (`#94
+  <https://github.com/chaquo/chaquopy/issues/94>`_).
+* Java primitive arrays now support the Python buffer protocol, allowing high-performance data
+  transfer between the two languages.
+* Data files in top-level non-package directories are now extracted from the APK the first time
+  the app is started, so they can be accessed using a path relative to `__file__`.
+
 7.0.3 (2020-05-11)
 ==================
 
