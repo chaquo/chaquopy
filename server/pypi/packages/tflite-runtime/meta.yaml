@@ -1,0 +1,13 @@
+{% set version = "2.1.0" %}
+
+package:
+  name: tflite-runtime
+  version: {{ version }}
+
+source:
+  url: https://github.com/tensorflow/tensorflow/archive/v{{ version }}.tar.gz
+
+requirements:
+  host:
+    - python
+    - numpy 1.17.4

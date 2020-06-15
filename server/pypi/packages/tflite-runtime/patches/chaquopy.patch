@@ -1,0 +1,96 @@
+diff -ur src-original/tensorflow/lite/tools/make/download_dependencies.sh src/tensorflow/lite/tools/make/download_dependencies.sh
+--- src-original/tensorflow/lite/tools/make/download_dependencies.sh	2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/tools/make/download_dependencies.sh	2020-06-15 21:57:26.789468173 +0000
+@@ -29,7 +29,8 @@
+   exit 1;
+ fi
+ 
+-EIGEN_URL="$(grep -o 'http.*bitbucket.org/eigen/eigen/get/.*tar\.gz' "${BZL_FILE_PATH}" | grep -v mirror.tensorflow | head -n1)"
++# Chaquopy: fixed Eigen URL (https://github.com/tensorflow/tensorflow/issues/36249)
++EIGEN_URL="$(grep -o 'https.*gitlab.com/libeigen/eigen/-/archive/.*tar\.gz' "${BZL_FILE_PATH}" | grep -v mirror.tensorflow | head -n1)"
+ GEMMLOWP_URL="$(grep -o 'https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/gemmlowp/.*zip' "${BZL_FILE_PATH}" | head -n1)"
+ GOOGLETEST_URL="https://github.com/google/googletest/archive/release-1.8.0.tar.gz"
+ ABSL_URL="$(grep -o 'https://github.com/abseil/abseil-cpp/.*tar.gz' "${BZL_FILE_PATH}" | head -n1)"
+diff -ur src-original/tensorflow/lite/tools/make/Makefile src/tensorflow/lite/tools/make/Makefile
+--- src-original/tensorflow/lite/tools/make/Makefile	2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/tools/make/Makefile	2020-06-15 21:57:36.577472844 +0000
+@@ -38,11 +38,16 @@
+ -I$(MAKEFILE_DIR)/downloads/gemmlowp \
+ -I$(MAKEFILE_DIR)/downloads/neon_2_sse \
+ -I$(MAKEFILE_DIR)/downloads/farmhash/src \
+--I$(MAKEFILE_DIR)/downloads/flatbuffers/include \
+--I$(OBJDIR)
++-I$(MAKEFILE_DIR)/downloads/flatbuffers/include
++# Chaquopy: OBJDIR hasn't been assigned yet, so this would previously have generated
++# "-I -I/usr/local/include", which would have no effect. But since we've removed the
++# /usr/local/include below, we have to remove this as well.
++# -I$(OBJDIR)
++
+ # This is at the end so any globally-installed frameworks like protobuf don't
+ # override local versions in the source tree.
+-INCLUDES += -I/usr/local/include
++# Chaquopy: disabled
++# INCLUDES += -I/usr/local/include
+ 
+ # These are the default libraries needed, but they can be added to or
+ # overridden by the platform-specific settings in target makefiles.
+@@ -59,7 +64,8 @@
+ CXXFLAGS += $(EXTRA_CXXFLAGS)
+ CFLAGS := ${CXXFLAGS}
+ CXXFLAGS += --std=c++11
+-LDOPTS := -L/usr/local/lib
++# Chaquopy: disabled
++# LDOPTS := -L/usr/local/lib
+ ARFLAGS := -r
+ TARGET_TOOLCHAIN_PREFIX :=
+ CC_PREFIX :=
+@@ -229,9 +235,10 @@
+ BENCHMARK_PERF_OPTIONS_BINARY := $(BINDIR)$(BENCHMARK_PERF_OPTIONS_BINARY_NAME)
+ MINIMAL_BINARY := $(BINDIR)minimal
+ 
+-CXX := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}g++
+-CC := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}gcc
+-AR := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}ar
++# Chaquopy: disabled
++# CXX := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}g++
++# CC := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}gcc
++# AR := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}ar
+ 
+ MINIMAL_OBJS := $(addprefix $(OBJDIR), \
+ $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(MINIMAL_SRCS))))
+diff -ur src-original/tensorflow/lite/tools/pip_package/setup.py src/tensorflow/lite/tools/pip_package/setup.py
+--- src-original/tensorflow/lite/tools/pip_package/setup.py	2020-01-07 16:57:39.000000000 +0000
++++ src/tensorflow/lite/tools/pip_package/setup.py	2020-06-15 22:11:16.297871255 +0000
+@@ -28,6 +28,10 @@
+ import os
+ import subprocess
+ 
++# Chaquopy: Prevent the native parts of NumPy from being imported.
++import builtins
++builtins.__NUMPY_SETUP__ = True
++
+ from distutils.command.build_ext import build_ext
+ import numpy
+ 
+@@ -61,7 +65,9 @@
+ # with more than 4GB, use all the CPUs, otherwisxe only 1.
+ def get_build_cpus():
+   physical_bytes = os.sysconf('SC_PAGESIZE') * os.sysconf('SC_PHYS_PAGES')
+-  if physical_bytes < (1<<30) * 4:
++  # Chaquopy: reduced threshold to 3.5 GB, since DigitalOcean 4 GB servers have about 3.86
++  # according to the above formula.
++  if physical_bytes < (1<<30) * 3.5:
+     return 1
+   else:
+     return multiprocessing.cpu_count()
+@@ -73,7 +79,9 @@
+            'BUILD_WITH_NNAPI=false', '-C', TENSORFLOW_DIR]
+           + MAKE_CROSS_OPTIONS +
+           ['-f', RELATIVE_MAKEFILE_PATH, '-j',
+-           str(get_build_cpus())])
++           str(get_build_cpus()),
++           # Chaquopy: the "all" target includes some unnecessary binaries which fail to build.
++           "lib"])
+   if quiet:
+     args.append('--quiet')
+   if target:
