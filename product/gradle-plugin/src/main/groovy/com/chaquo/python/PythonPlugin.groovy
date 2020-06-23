@@ -155,7 +155,7 @@ class PythonPlugin implements Plugin<Project> {
 
     void createConfigs(variant, PythonExtension python) {
         buildscript.dependencies {
-            add(getConfig("runtimePython").name, runtimeDep("bootstrap.zip"))
+            add(getConfig("runtimePython").name, runtimeDep(assetZip(Common.ASSET_BOOTSTRAP)))
             add(getConfig("targetStdlib", variant).name,
                 targetDep(python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
         }
