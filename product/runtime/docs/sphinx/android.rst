@@ -123,15 +123,16 @@ same steps as above.
 Development
 ===========
 
-Some features require Python 3.5 or later to be available on the build machine. Chaquopy will
-try to find it with the standard command for your operating system, first with a matching minor
-version, and then with a matching major version.
+Some features require Python 3.5 or later to be available on the build machine. These features
+are indicated by a note in their documentation sections.
 
-For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then on Linux and
-Mac it will first try `python3.8`, then `python3`. On Windows, it will first try `py -3.8`,
-then `py -3`.
+By default, Chaquopy will try to run Python with the standard command for your operating
+system, first with a matching minor version, and then with a matching major version. For
+example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then on Linux and Mac
+it will first try `python3.8`, then `python3`. On Windows, it will first try `py -3.8`, then
+`py -3`.
 
-If you need to use a different copy of Python, set its command using the `buildPython` setting.
+If this doesn't work for you, set your Python command using the `buildPython` setting.
 For example, on Windows you might use the following::
 
       defaultConfig {
@@ -149,17 +150,14 @@ By default, Chaquopy will look for Python source code in the `python` subdirecto
 `source set <https://developer.android.com/studio/build/index.html#sourcesets>`_. For example,
 the Python code for the `main` source set should go in `src/main/python`.
 
-To add or change source directories, use the `android.sourceSets
+To include Python source code from other directories, use the `android.sourceSets
 <https://developer.android.com/studio/build/build-variants.html#configure-sourcesets>`_ block.
 For example::
 
     android {
         sourceSets {
             main {
-                python {
-                    srcDirs = ["replacement/dir"]
-                    srcDir "additional/dir"
-                }
+                python.srcDir "some/other/dir"
             }
         }
     }
@@ -223,23 +221,20 @@ Requirements
 
 External Python packages may be built into the app using the `pip` block in `build.gradle`.
 Within this block, add `install` lines, each specifying a package in one of the following
-forms:
-
-* A `pip requirement specifier
-  <https://pip.pypa.io/en/stable/reference/pip_install/#requirement-specifiers>`_.
-* A local sdist or wheel filename (relative to the project directory).
-* `"-r"` followed by a local `requirements filename
-  <https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format>`_ (relative
-  to the project directory).
-
-Examples::
+forms::
 
     defaultConfig {
         python {
             pip {
-                install "six"
-                install "scipy==1.0.1"
-                install "LocalPackage-1.2.3-py2.py3-none-any.whl"
+                // A pip requirement specifier, with or without a version number:
+                install "scipy"
+                install "requests==2.24.0"
+
+                // An sdist or wheel filename, relative to the project directory:
+                install "MyPackage-1.2.3-py2.py3-none-any.whl"
+
+                // "-r"` followed by a requirements filename, relative to the
+                // project directory:
                 install "-r", "requirements.txt"
             }
         }
@@ -257,7 +252,7 @@ For example::
 
     pip {
         options "--extra-index-url", "https://example.com/private/repository"
-        install "PrivatePackage==1.2.3"
+        install "MyPackage==1.2.3"
     }
 
 Any options in the `pip documentation
@@ -314,6 +309,9 @@ imported. All other data files will be extracted the first time the app is start
 
 Bytecode compilation
 --------------------
+
+.. note:: This feature requires Python on the build machine, which can be configured with the
+          :ref:`buildPython <buildPython>` setting.
 
 Your app will start up faster if its Python code is compiled to `.pyc` format, so this is
 enabled by default.
