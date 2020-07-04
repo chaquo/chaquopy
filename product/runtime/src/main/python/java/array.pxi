@@ -45,10 +45,7 @@ cpdef jarray(element_type):
     * A JNI type signature
     """
     element_sig = jni_sig(element_type)
-    if not isinstance(element_sig, str):
-        element_sig = str(element_sig)
     name = "[" + element_sig
-
     with class_lock:
         cls = jclass_cache.get(name)
         if not cls:

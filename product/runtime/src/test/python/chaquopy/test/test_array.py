@@ -19,6 +19,25 @@ class TestArray(FilterWarningsCase):
         self.assertFalse(isinstance(array_C, jclass("java.io.Closeable")))
         self.assertRegexpMatches(array_C.toString(), r"^\[C")
 
+    def test_type_klass(self):
+        self.assertIs(jarray(String), jarray(String.getClass()))
+
+    def test_type_jni(self):
+        self.assertIs(jarray(String), jarray("Ljava/lang/String;"))
+
+        with self.assertRaisesRegex(jclass("java.lang.NoClassDefFoundError"),
+                                    "java.lang.Nonexistent"):
+            jarray("Ljava/lang/Nonexistent;")
+
+        with self.assertRaisesRegex(ValueError, "Invalid JNI signature: 'java.lang.String'"):
+            jarray("java.lang.String")
+
+    def test_type_invalid(self):
+        for element_type in [0, True, None, int, str]:
+            with self.subTest(element_type=element_type):
+                with self.assertRaisesRegex(TypeError, f"{element_type!r} is not a Java type"):
+                    jarray(element_type)
+
     def test_blank(self):
         array_Z = jarray(jboolean)(2)
         self.assertEqual(2, len(array_Z))

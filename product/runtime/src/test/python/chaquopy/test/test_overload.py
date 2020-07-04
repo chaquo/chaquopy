@@ -130,9 +130,6 @@ class TestOverload(FilterWarningsCase):
         with self.inapplicable:
             child_Parent.resolve(s, i)
 
-        with self.assertRaisesRegexp(TypeError, "int object does not specify a Java type"):
-            cast(42, child)
-
     def test_primitive(self):
         obj = jclass("com.chaquo.python.TestOverload$Primitive")()
 

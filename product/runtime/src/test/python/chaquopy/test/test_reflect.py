@@ -54,9 +54,23 @@ class TestReflect(FilterWarningsCase):
         self.assertIs(b_Object, cast(Object, b))
         self.assertIs(b, cast(Boolean, b_Object))
 
-        with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean proxy from "
-                                     "java.lang.Object instance"):
-            cast(Boolean, Object())
+        for obj in [Boolean, "Ljava/lang/Boolean;"]:
+            with self.subTest(obj=obj):
+                with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean "
+                                             "proxy from java.lang.Object instance"):
+                    cast(obj, Object())
+
+        with self.assertRaisesRegex(jclass("java.lang.NoClassDefFoundError"),
+                                    "java.lang.Nonexistent"):
+            cast("Ljava/lang/Nonexistent;", Object())
+
+        with self.assertRaisesRegex(ValueError, "Invalid JNI signature: 'java.lang.Object'"):
+            cast("java.lang.Object", Object())
+
+        for obj in [0, True, None, int, str]:
+            with self.subTest(obj=obj):
+                with self.assertRaisesRegexp(TypeError, f"{obj!r} is not a Java type"):
+                    cast(obj, Object())
 
     # Interaction of identity and casts is tested in TestReflect.test_cast and
     # TestArray.test_cast.

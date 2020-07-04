@@ -35,8 +35,7 @@ cpdef jni_sig(c):
             return c.sig
     elif isinstance(c, jclass("java.lang.Class")):
         return name_to_sig(c.getName())
-    else:
-        raise TypeError("{} object does not specify a Java type".format(type(c).__name__))
+    raise TypeError(f"{c!r} is not a Java type")
 
 
 # `name` must be in the format returned by Class.getName().
@@ -85,7 +84,7 @@ cdef sig_to_java(sig):
         return sig_to_java(sig[1:]) + "[]"
     if sig.startswith("L") and sig.endswith(";"):
         return sig[1:-1].replace("/", ".")
-    raise ValueError("Invalid definition: '{}'".format(sig))
+    raise ValueError("Invalid JNI signature: '{}'".format(sig))
 
 
 # `split_args_sig` is in the format of the args tuple returned by split_method_sig.

@@ -28,6 +28,14 @@ class TestSignatures(FilterWarningsCase):
         self.assertEquals("[Ljava/lang/Object;", jni_sig(jarray(Object)))
         self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
 
+        with self.assertRaisesRegex(ValueError, "Invalid JNI signature: 'java.lang.Object'"):
+            jni_sig("java.lang.Object")
+
+        for obj in [0, True, None, int, str]:
+            with self.subTest(obj=obj):
+                with self.assertRaisesRegex(TypeError, f"{obj!r} is not a Java type"):
+                    jni_sig(obj)
+
     def test_jvoid(self):
         with self.assertRaisesRegexp(TypeError, "Cannot create"):
             jvoid()
