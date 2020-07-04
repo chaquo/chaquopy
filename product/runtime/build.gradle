@@ -144,10 +144,13 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
                 // some platforms including x86. So alter the generated C code to add it.
                 [/^__PYX_EXTERN_C (\w+)/,
                  '/* cythonTask altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL'],
+
+                // Workaround for https://github.com/cython/cython/issues/3725.
+                [/__pyx_insert_code_object\(c_line/,
+                 '// cythonTask disabled: $0'],
             ]
             def cFile = outputs.files.getSingleFile()
             def tmpFile = new File("${cFile}.tmp")
-            def replacementCount = 0
             tmpFile.withWriter { writer ->
                 for (line in cFile.readLines()) {
                     for (r in replacements) {

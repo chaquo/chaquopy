@@ -383,6 +383,10 @@ class TestProxy(FilterWarningsCase):
             try:
                 e_cast.fnf()
             except catch_cls as e:
+                # There should be no chaining at the Python level.
+                self.assertIsNone(e.__cause__)
+                self.assertTrue(e.__suppress_context__)
+
                 check_e = e.getCause() if check_cause else e
                 self.assertEqual(message, check_e.getMessage())
                 self.assertHasFrames(check_e, fnf_frames)

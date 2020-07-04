@@ -1,5 +1,3 @@
-from functools import cmp_to_key
-from itertools import chain, groupby
 import keyword
 from threading import RLock
 from weakref import WeakValueDictionary
@@ -847,7 +845,7 @@ cdef class JavaMethod(JavaSimpleMember):
     # Android API levels 23 and higher have at least two bugs causing native crashes when
     # calling proxy methods through JNI. This affects all the methods of the interfaces passed
     # to Proxy.getProxyClass, and all the non-final methods of Object. Full details are in
-    # #5274, but the outcome is:
+    # #5274 and https://issuetracker.google.com/issues/64871880, but the outcome is:
     #   * We cannot use CallNonvirtual...Method on a proxy method.
     #   * We cannot use Call...Method if it will resolve to a proxy method.
     #
@@ -862,7 +860,9 @@ cdef class JavaMethod(JavaSimpleMember):
         try:
             return self.reflected.invoke(obj, [JavaObject(instance=r) for r in p2j_args])
         except InvocationTargetException as e:
-            raise e.getCause()
+            # Avoid creating an exception chain which would double the error message size while
+            # adding no useful information.
+            raise e.getCause() from None
 
     cdef call_static_method(self, CQPEnv env, p2j_args):
         cdef JNIRef j_klass = self.cls._chaquopy_j_klass
