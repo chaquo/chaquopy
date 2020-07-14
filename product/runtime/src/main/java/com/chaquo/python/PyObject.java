@@ -155,7 +155,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * changes to the object are reflected in the view, and vice-versa.
      *
      * PyObject already implements the `Map` interface, but that is for attribute access
-     * (Python "`.`" syntax, whereas the `Map` returned by this method is for container access
+     * (Python "`.`" syntax), whereas the `Map` returned by this method is for container access
      * (Python "`[]`" syntax).
      *
      * To add Java objects to the Python container through the view, first convert them using

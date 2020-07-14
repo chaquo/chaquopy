@@ -39,6 +39,7 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
 
 # === com.chaquo.python.Python ================================================
 
+# This runs before Py_Initialize, so it must compile to pure C.
 cdef public void Java_com_chaquo_python_Python_startNative \
     (JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path):
     if getenv("CHAQUOPY_PROCESS_TYPE") == NULL:  # See jvm.pxi
@@ -104,6 +105,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
 # more than once.
 cdef bint init_module(JNIEnv *env) with gil:
     try:
+        # See CYTHON_PEP489_MULTI_PHASE_INIT in chaquopy_java_extra.h.
         PyInit_chaquopy_java()
         return True
     except BaseException:

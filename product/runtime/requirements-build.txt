@@ -1,4 +1,4 @@
-Cython==0.28.3
+Cython==0.29.21
 flake8==3.6.0
 python-docs-theme==2018.7
 Sphinx==1.8.1
