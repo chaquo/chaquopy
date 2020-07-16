@@ -49,15 +49,13 @@
 * Open the console again. The previous output should have gone, and only the initial banner should
   be displayed.
 
-* Enter `context.getPackageName()`. The result should be `com.chaquo.python.demo` (or `demo3`).
+* Enter `context.getPackageName()`. The result should be `com.chaquo.python.demo3`.
 
 * Enter a partial expression with an unclosed parenthesis. The "..." prompt should appear.
 * Rotate the screen and complete the expression. The correct result should appear.
 
 * Use the `print` function to print a non-ASCII Latin-1 character (e.g. "é"), and a non-Latin-1
-  character (e.g. "√"). They should be output correctly both on screen and in the Android log. (This
-  test should be done on both Python 2 and 3, and on Python 2 it should be repeated with a u""
-  string.)
+  character (e.g. "√"). They should be output correctly both on screen and in the Android log.
 
 * Enter the following, and rotate the screen while it runs. No numbers should be missing, and
   auto-scrolling should not stop.

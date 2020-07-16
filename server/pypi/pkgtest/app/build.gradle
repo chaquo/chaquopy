@@ -27,12 +27,12 @@ ext.TEST_PACKAGES = [
 
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 30
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
         minSdkVersion 16
-        targetSdkVersion 29
+        targetSdkVersion 30
 
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
         // builds in the public repo.
@@ -129,7 +129,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.2.0-beta01'
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.1.0'
-    implementation 'androidx.preference:preference:1.0.0'
+    implementation 'androidx.preference:preference:1.1.1'
     implementation 'junit:junit:4.12'
     testImplementation 'junit:junit:4.12'
 }
