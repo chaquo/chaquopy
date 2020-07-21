@@ -215,6 +215,11 @@ def parse_requirement(req):
                         if not ver_remaining or ver_remaining[0] != ',':
                             break
                         ver_remaining = ver_remaining[1:].lstrip()
+
+                        # Chaquopy: allow trailing comma (#5664).
+                        if not ver_remaining:
+                            break
+
                         m = COMPARE_OP.match(ver_remaining)
                         if not m:
                             raise SyntaxError('invalid constraint: %s' % ver_remaining)
