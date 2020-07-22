@@ -1,8 +1,5 @@
-Deliberate syntax error: this file has not been updated for the current structure of
-chaquopy-target.
-
-# This image takes the same command-line arguments as build-wheel.py, except for `--toolchain`,
-# which should be omitted.
+# This image takes the same command-line arguments as build-wheel.py. The required argument
+# --toolchain should be given as "target/toolchains/<abi>".
 #
 # Each run will generate one wheel file in the directory /root/pypi/dist, which is structured
 # as a PyPI respository. If a package requires other packages to build against, then this
@@ -12,16 +9,13 @@ chaquopy-target.
 FROM chaquopy-target
 
 # OpenCV requires Python 2 even when building for Python 3: see its patch.
-#
-# TensorFlow requires python3-dev because it builds various things for the build platform: see
-# its README.
 RUN apt-get update && \
-    apt-get install -y python python3-dev python3-pip && \
+    apt-get install -y python && \
     ln -sf python3 /usr/bin/python
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get install -y automake cmake git libtool ninja-build patch swig
+    apt-get install -y automake cmake git libtool ninja-build patch patchelf swig
 
 # protoc (for PyTorch): needs to be exactly this version.
 RUN version=3.6.1 && \
@@ -30,18 +24,12 @@ RUN version=3.6.1 && \
     rm protoc-*.zip
 
 # Bazel (for TensorFlow)
-RUN apt-get update && \
-    apt-get -y install pkg-config zip g++ zlib1g-dev unzip && \
-    version=0.21.0 && \
-    filename=bazel-$version-installer-linux-x86_64.sh && \
-    wget https://github.com/bazelbuild/bazel/releases/download/$version/$filename && \
-    chmod +x $filename && \
-    ./$filename && \
-    rm $filename
+RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.2.1/bazelisk-linux-amd64 && \
+    mv bazelisk-linux-amd64 /usr/local/bin/bazel
 
 COPY requirements.txt pypi/
 RUN pip3 install -r pypi/requirements.txt
 
 COPY . pypi/
 ENV LC_ALL="C.UTF-8"
-ENTRYPOINT ["pypi/docker-entrypoint.sh"]
+ENTRYPOINT ["pypi/build-wheel.py"]

@@ -8,7 +8,8 @@ COPY product/buildSrc product/buildSrc
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
                    product/buildSrc/src/main/java/com/chaquo/python/Common.java \
                    | sed 's|.* = \(.*\);.*|\1|'); \
-    yes | android-sdk/tools/bin/sdkmanager "cmake;3.6.4111459" "platforms;android-$platform_ver"
+    yes | android-sdk/cmdline-tools/tools/bin/sdkmanager \
+        "cmake;3.6.4111459" "platforms;android-$platform_ver"
 
 COPY product/runtime/requirements-build.txt product/runtime/
 RUN pip3 install -r product/runtime/requirements-build.txt
