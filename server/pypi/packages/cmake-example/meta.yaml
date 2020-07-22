@@ -4,7 +4,7 @@ package:
 
 source:
   git_url: https://github.com/pybind/cmake_example.git
-  git_rev: master
+  git_rev: 8818f493e3698a3ab936cdd8e7144afae85df3f8
 
 requirements:
   build:

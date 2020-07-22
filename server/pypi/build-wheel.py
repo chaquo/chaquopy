@@ -191,10 +191,17 @@ class BuildWheel:
         if not source:
             ensure_dir(src_dir)
         elif "git_url" in source:
-            # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
-            # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
-            run(f"git clone -b {source['git_rev']} --depth 1 --recurse-submodules "
-                f"{source['git_url']} {src_dir}")
+            git_rev = source["git_rev"]
+            is_hash = len(git_rev) == 40
+            clone_cmd = "git clone --recurse-submodules"
+            if not is_hash:
+                # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
+                # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
+                clone_cmd += f" -b {git_rev} --depth 1 "
+            run(f"{clone_cmd} {source['git_url']} {src_dir}")
+            if is_hash:
+                run(f"git -C {src_dir} checkout {git_rev}")
+                run(f"git -C {src_dir} submodule update --init")
         elif "path" in source:
             abs_path = abspath(join(self.package_dir, source["path"]))
             run(f"cp -a {abs_path} {src_dir}")
