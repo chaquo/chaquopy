@@ -1,0 +1,90 @@
+--- src-original/setup.py       2020-05-17 08:26:01.000000000 +0000
++++ src/setup.py        2020-07-23 17:13:37.590350086 +0000
+@@ -121,6 +121,12 @@
+         '''Configure and build using CMake'''
+         src_dir = 'xgboost'
+         try:
++            # Chaquopy: the first copy_tree should fail when running from an sdist. But we
++            # happen to unpack the sdist into a directory called `src`, which causes copy_tree
++            # to try and copy that directory recursively into one of its own subdirectories,
++            # which never completes.
++            raise Exception()
++
+             copy_tree(os.path.join(CURRENT_DIR, os.path.pardir),
+                       os.path.join(self.build_temp, src_dir))
+         except Exception:  # pylint: disable=broad-except
+@@ -302,7 +308,9 @@
+           maintainer_email='chohyu01@cs.washington.edu',
+           zip_safe=False,
+           packages=find_packages(),
+-          include_package_data=True,
++          # Chaquopy: when building from an sdist, include_package_data unnecessarily includes
++          # the entire native library source code. Use package_data instead.
++          package_data = {"xgboost": ["VERSION"]},
+           license='Apache-2.0',
+           classifiers=['License :: OSI Approved :: Apache Software License',
+                        'Development Status :: 5 - Production/Stable',
+--- src-original/xgboost/src/c_api/c_api.cc	2020-05-17 08:26:02.000000000 +0000
++++ src/xgboost/src/c_api/c_api.cc	2020-07-23 14:15:12.236156255 +0000
+@@ -181,7 +181,8 @@
+         << "slice does not support group structure";
+   }
+   DMatrix* dmat = static_cast<std::shared_ptr<DMatrix>*>(handle)->get();
+-  *out = new std::shared_ptr<DMatrix>(dmat->Slice({idxset, len}));
++  // Chaquopy: added static_cast for 32-bit ABIs (https://github.com/dmlc/xgboost/issues/5246).
++  *out = new std::shared_ptr<DMatrix>(dmat->Slice({idxset, static_cast<size_t>(len)}));
+   API_END();
+ }
+ 
+--- src-original/xgboost/src/common/io.cc	2020-05-17 08:26:02.000000000 +0000
++++ src/xgboost/src/common/io.cc	2020-07-23 14:18:30.420561238 +0000
+@@ -117,7 +117,7 @@
+   size_t f_size_bytes = fs.st_size;
+   buffer.resize(f_size_bytes + 1);
+   int32_t fd = open(fname.c_str(), O_RDONLY);
+-#if defined(__linux__)
++#if defined(__linux__) && __ANDROID_API__ >= 21  // Chaquopy: added __ANDROID_API__.
+   posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+ #endif  // defined(__linux__)
+   ssize_t bytes_read = read(fd, &buffer[0], f_size_bytes);
+--- src-original/xgboost/src/common/json.cc	2020-05-17 08:26:02.000000000 +0000
++++ src/xgboost/src/common/json.cc	2020-07-23 14:26:46.805574293 +0000
+@@ -641,11 +641,12 @@
+     // multiply zero by inf which gives nan.
+     if (f != 0.0) {
+       // Only use exp10 from libc on gcc+linux
+-#if !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
++      // Chaquopy: added `#if 1`, as exp10 isn't available on Android.
++#if 1 || !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
+ #define exp10(val) std::pow(10, (val))
+ #endif  // !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
+       f *= exp10(exponent);
+-#if !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
++#if 1 || !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
+ #undef exp10
+ #endif  // !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__) || !defined(__linux__)
+     }
+--- src-original/xgboost/CMakeLists.txt	2020-06-07 04:05:28.000000000 +0000
++++ src/xgboost/CMakeLists.txt	2020-07-23 16:10:16.802417071 +0000
+@@ -147,6 +147,7 @@
+ 
+ # core xgboost
+ list(APPEND LINKED_LIBRARIES_PRIVATE Threads::Threads ${CMAKE_THREAD_LIBS_INIT})
++list(APPEND LINKED_LIBRARIES_PRIVATE atomic)  # Chaquopy
+ add_subdirectory(${xgboost_SOURCE_DIR}/plugin)
+ add_subdirectory(${xgboost_SOURCE_DIR}/src)
+ target_link_libraries(objxgboost PUBLIC dmlc)
+--- src-original/xgboost/libpath.py	2020-05-17 08:26:01.000000000 +0000
++++ src/xgboost/libpath.py	2020-07-23 17:07:28.345582832 +0000
+@@ -46,7 +46,10 @@
+     elif sys.platform == 'cygwin':
+         dll_path = [os.path.join(p, 'cygxgboost.dll') for p in dll_path]
+ 
+-    lib_path = [p for p in dll_path if os.path.exists(p) and os.path.isfile(p)]
++    # Chaquopy: checking whether the file exists is redundant, because core._load_lib already
++    # catches OSError from cdll.LoadLibrary, which we've monkey-patched to extract the library
++    # on demand.
++    lib_path = dll_path  # Was [p for p in dll_path if os.path.exists(p) and os.path.isfile(p)]
+ 
+     # XGBOOST_BUILD_DOC is defined by sphinx conf.
+     if not lib_path and not os.environ.get('XGBOOST_BUILD_DOC', False):
