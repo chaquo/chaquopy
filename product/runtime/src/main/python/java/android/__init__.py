@@ -16,7 +16,7 @@ def initialize(context, build_json, app_path):
 
 def initialize_stdlib(context):
     # These are ordered roughly from low to high level.
-    for name in ["sys", "os", "tempfile", "ssl", "hashlib", "ctypes", "multiprocessing"]:
+    for name in ["sys", "os", "tempfile", "ssl", "hashlib", "multiprocessing"]:
         globals()[f"initialize_{name}"](context)
 
 
@@ -61,28 +61,6 @@ def initialize_hashlib(context):
     # OpenSSL interface in `_hashlib` is on sys.path.
     import hashlib
     reload(hashlib)
-
-
-# See also importer.initialize_ctypes.
-def initialize_ctypes(context):
-    import ctypes.util
-    import sysconfig
-
-    # The standard implementation of find_library requires external tools, so will always fail
-    # on Android. I can't see any easy way of finding the absolute library pathname ourselves
-    # (there is no LD_LIBRARY_PATH on Android), but we can at least support the case where the
-    # user passes the return value of find_library to CDLL().
-    def find_library_override(name):
-        filename = "lib{}.so".format(name)
-        try:
-            ctypes.CDLL(filename)
-        except OSError:
-            return None
-        else:
-            return filename
-    ctypes.util.find_library = find_library_override
-
-    ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])
 
 
 def initialize_multiprocessing(context):

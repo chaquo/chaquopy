@@ -80,19 +80,47 @@ def initialize_importlib(context, build_json, app_path):
         site.addsitedir(finder.extract_root)
 
 
-# Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
 def initialize_ctypes():
+    import ctypes.util
+    import sysconfig
+
+    # The standard implementation of find_library requires external tools, so will always fail
+    # on Android.
+    def find_library_override(name):
+        # First look in the requirements. For example, this is needed by soundfile, which
+        # passes the return value of find_library to ffi.dlopen.
+        filename = "lib{}.so".format(name)
+        reqs_finder = get_importer(f"{ASSET_PREFIX}/requirements")
+        try:
+            return extract_so(reqs_finder, f"chaquopy/lib/{filename}")
+        except FileNotFoundError:
+            pass
+
+        # For system libraries I can't see any easy way of finding the absolute library
+        # filename, but we can at least support the case where the user passes the return value
+        # of find_library to CDLL().
+        try:
+            ctypes.CDLL(filename)
+            return filename
+        except OSError:
+            return None
+
+    ctypes.util.find_library = find_library_override
+
+    # Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
     def CDLL_init_override(self, name, *args, **kwargs):
         if name:  # CDLL(None) is equivalent to dlopen(NULL).
             finder = get_importer(dirname(name))
             if isinstance(finder, AssetFinder):
                 name = extract_so(finder, name)
-                finder.load_needed(name)
-                name = finder.prepare_dlopen(name)
         CDLL_init_original(self, name, *args, **kwargs)
 
     CDLL_init_original = ctypes.CDLL.__init__
     ctypes.CDLL.__init__ = CDLL_init_override
+
+    # The standard library initializes pythonapi to PyDLL(None), which only works on API level
+    # 21 or higher.
+    ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])
 
 
 def initialize_imp():
@@ -573,9 +601,7 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
-        out_filename = extract_so(self.finder, self.path)
-        self.finder.load_needed(out_filename)
-        spec.origin = self.finder.prepare_dlopen(out_filename)
+        spec.origin = extract_so(self.finder, self.path)
         mod = super().create_module(spec)
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
@@ -599,7 +625,7 @@ extract_so_lock = RLock()
 so_basenames_loaded = {}
 
 def extract_so(finder, path):
-    finder.extract_if_changed(finder.zip_path(path))
+    path = finder.extract_if_changed(finder.zip_path(path))
     original_name = basename(path)
     with extract_so_lock:
         load_name = original_name
@@ -607,12 +633,15 @@ def extract_so(finder, path):
                so_basenames_loaded[load_name] != path):  # In case of reloads.
             load_name = f"{original_name}-{os.urandom(4).hex()}"
         so_basenames_loaded[load_name] = path
+
     load_name_abs = join(dirname(path), load_name)
     if load_name_abs != path:
         if exists(load_name_abs):
             os.remove(load_name_abs)
         os.symlink(original_name, load_name_abs)
-    return load_name_abs
+
+    finder.load_needed(load_name_abs)
+    return finder.prepare_dlopen(load_name_abs)
 
 
 LOADERS = {

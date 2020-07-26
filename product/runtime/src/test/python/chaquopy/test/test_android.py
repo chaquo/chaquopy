@@ -3,7 +3,6 @@ and should not be accessed or relied upon by user code.
 """
 
 from contextlib import contextmanager
-import ctypes
 import imp
 from importlib import import_module, metadata, reload, resources
 from importlib.util import cache_from_source, MAGIC_NUMBER
@@ -47,6 +46,16 @@ def setUpModule():
     if API_LEVEL is None:
         raise unittest.SkipTest("Not running on Android")
 
+class AndroidTestCase(unittest.TestCase):
+    def assertPredicate(self, f, *args):
+        self.check_predicate(self.assertTrue, f, *args)
+
+    def assertNotPredicate(self, f, *args):
+        self.check_predicate(self.assertFalse, f, *args)
+
+    def check_predicate(self, assertion, f, *args):
+        assertion(f(*args), f"{f.__name__}{args!r}")
+
 
 class TestAndroidPlatform(unittest.TestCase):
 
@@ -75,7 +84,7 @@ class TestAndroidPlatform(unittest.TestCase):
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
 
 
-class TestAndroidImport(unittest.TestCase):
+class TestAndroidImport(AndroidTestCase):
 
     def test_init(self):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
@@ -501,13 +510,6 @@ class TestAndroidImport(unittest.TestCase):
         # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
 
-    # For non-importer-related tests, see TestAndroidStdlib.test_ctypes.
-    def test_ctypes(self):
-        from murmurhash import mrmr
-        os.remove(mrmr.__file__)
-        ctypes.CDLL(mrmr.__file__)
-        self.assertPredicate(exists, mrmr.__file__)
-
     # See src/test/python/test.pth.
     def test_pth(self):
         import pth_generated
@@ -688,15 +690,6 @@ class TestAndroidImport(unittest.TestCase):
         finally:
             os.utime(filename, (original_mtime, original_mtime))
 
-    def assertPredicate(self, f, *args):
-        self.check_predicate(self.assertTrue, f, *args)
-
-    def assertNotPredicate(self, f, *args):
-        self.check_predicate(self.assertFalse, f, *args)
-
-    def check_predicate(self, assertion, f, *args):
-        assertion(f(*args), f"{f.__name__}{args!r}")
-
 
 def asset_path(zip_name, *paths):
     return join(context.getFilesDir().toString(), "chaquopy/AssetFinder",
@@ -740,14 +733,28 @@ class TestAndroidReflect(unittest.TestCase):
         return name in cls.__dict__
 
 
-class TestAndroidStdlib(unittest.TestCase):
+class TestAndroidStdlib(AndroidTestCase):
 
-    # For importer-related tests, see TestAndroidImport.test_ctypes.
     def test_ctypes(self):
+        import ctypes
         from ctypes.util import find_library
+
         libc = ctypes.CDLL(find_library("c"))
         liblog = ctypes.CDLL(find_library("log"))
         self.assertIsNone(find_library("nonexistent"))
+
+        from murmurhash import mrmr
+        os.remove(mrmr.__file__)
+        ctypes.CDLL(mrmr.__file__)
+        self.assertPredicate(exists, mrmr.__file__)
+
+        libcxx_filename = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
+        os.remove(libcxx_filename)
+        find_library_result = find_library("c++_shared")
+        self.assertIsInstance(find_library_result, str)
+        if platform.architecture()[0] == "32bit" or Build.VERSION.SDK_INT >= 23:
+            self.assertRegex(find_library_result, r"^/")
+        self.assertPredicate(exists, libcxx_filename)
 
         # Work around double-underscore mangling of __android_log_write.
         def assertHasSymbol(dll, name):
