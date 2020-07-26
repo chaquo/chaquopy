@@ -1,4 +1,5 @@
 /maven
 
+__pycache__/
 *.pyc
 hs_err*.log

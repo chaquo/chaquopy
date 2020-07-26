@@ -1,3 +1,25 @@
+--- src-original/numba/caching.py       2020-01-29 15:21:49.000000000 +0000
++++ src/numba/caching.py        2020-07-26 21:33:10.601661853 +0000
+@@ -162,7 +162,9 @@
+     """
+ 
+     def get_source_stamp(self):
+-        if getattr(sys, 'frozen', False):
++        # Chaquopy: added True. The timestamp doesn't matter, as the importer will delete the
++        # whole AssetFinder tree whenever its corresponding ZIP changes.
++        if True or getattr(sys, 'frozen', False):
+             st = os.stat(sys.executable)
+         else:
+             st = os.stat(self._py_file)
+@@ -175,7 +177,7 @@
+ 
+     @classmethod
+     def from_function(cls, py_func, py_file):
+-        if not os.path.exists(py_file):
++        if False and not os.path.exists(py_file):  # Chaquopy: disabled
+             # Perhaps a placeholder (e.g. "<ipython-XXX>")
+             return
+         self = cls(py_func, py_file)
 --- src-original/numba/npyufunc/parallel.py	2020-01-29 15:21:49.000000000 +0000
 +++ src/numba/npyufunc/parallel.py	2020-02-08 22:41:35.162472017 +0000
 @@ -288,7 +288,7 @@

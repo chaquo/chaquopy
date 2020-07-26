@@ -6,16 +6,10 @@ class TestSoundfile(unittest.TestCase):
     def test_basic(self):
         import io
         from os.path import dirname, join
-        import numpy as np
         import soundfile
 
-        def check_data(data, rate):
-            self.assertEqual((17792, 2), data.shape)
-            self.assertEqual(44100, rate)
-            self.assertAlmostEqual(0.0112, np.mean(abs(data[:,0])), 4)
-
         data, rate = soundfile.read(join(dirname(__file__), "test.wav"))
-        check_data(data, rate)
+        self.check_data(data, rate)
         for format, magic, size in [("WAV", b"RIFF", 71212),
                                     ("FLAC", b"fLaC", 14045),
                                     ("OGG", b"OggS", 9758)]:
@@ -28,4 +22,21 @@ class TestSoundfile(unittest.TestCase):
 
                 f.seek(0)
                 data, rate = soundfile.read(f)
-                check_data(data, rate)
+                self.check_data(data, rate)
+
+    # Most users of soundfile are only installing it as a requirement of librosa, so do a basic
+    # test of that.
+    def test_librosa(self):
+        from os.path import dirname, join
+        import librosa
+        from librosa.util import normalize
+
+        data, rate = librosa.load(join(dirname(__file__), "test.wav"), sr=None, mono=False)
+        self.check_data(data.T, rate)
+        data_norm = normalize(data, axis=1)
+        self.assertAlmostEqual(1, max(data_norm[0]))
+
+    def check_data(self, data, rate):
+        self.assertEqual((17792, 2), data.shape)
+        self.assertEqual(44100, rate)
+        self.assertAlmostEqual(0.14, max(data[:,0]), 2)
