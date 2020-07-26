@@ -5,6 +5,7 @@ import os
 from os.path import exists, join
 import sys
 import traceback
+from types import ModuleType
 from . import stream, importer
 
 
@@ -64,7 +65,8 @@ def initialize_hashlib(context):
 
 
 def initialize_multiprocessing(context):
-    from multiprocessing import context, pool
+    import _multiprocessing
+    from multiprocessing import context, heap, pool
     import threading
 
     # multiprocessing.dummy.Pool (aka multiprocessing.pool.ThreadPool) unnecessarily depends on
@@ -88,3 +90,31 @@ def initialize_multiprocessing(context):
                  "Semaphore"]:
         cls = getattr(threading, name)
         setattr(ThreadingContext, name, make_method(name, cls))
+
+    # multiprocessing.synchronize throws an exception on import if the synchronization
+    # primitives are unavailable. But this breaks some packages like librosa (via joblib and
+    # loky) which import the primitives but never actually use them. So defer the exception
+    # until one of the primitives is actually instantiated.
+    try:
+        import multiprocessing.synchronize  # noqa: F401
+    except ImportError as e:
+        error_message = str(e)
+    else:
+        raise Exception("multiprocessing.synchronize now imports successfully: check if its "
+                        "workaround can be removed")
+
+    class SemLock:
+        SEM_VALUE_MAX = _multiprocessing.SemLock.SEM_VALUE_MAX
+        def __init__(self, *args, **kwargs):
+            raise OSError(error_message)
+
+    def sem_unlink(*args, **kwargs):
+        raise OSError(error_message)
+
+    _mp_override = ModuleType("_multiprocessing")
+    _mp_override.SemLock = SemLock
+    _mp_override.sem_unlink = sem_unlink
+    sys.modules["_multiprocessing"] = _mp_override
+
+    # This attempts to access /dev/shm, which doesn't exist on Android.
+    heap.Arena._dir_candidates = []

@@ -842,6 +842,17 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertGreater(duration, 0.1)
         self.assertLess(duration, 0.25)
 
+        from multiprocessing import get_context, synchronize
+        ctx = get_context()
+        for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
+                     "Semaphore"]:
+            cls = getattr(synchronize, name)
+            with self.assertRaisesRegex(OSError, "This platform lacks a functioning sem_open"):
+                if name == "Barrier":
+                    cls(1, ctx=ctx)
+                else:
+                    cls(ctx=ctx)
+
     def test_os(self):
         self.assertEqual("posix", os.name)
         self.assertEqual(str(context.getFilesDir()), os.path.expanduser("~"))
