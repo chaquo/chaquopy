@@ -64,11 +64,18 @@ def initialize_hashlib(context):
 
 
 def initialize_multiprocessing(context):
-    # multiprocessing.dummy.Pool unnecessarily depends on multiprocessing.Lock, which requires
-    # sem_open, which isn't available on Android. Work around this by replacing all the
-    # multiprocessing primitives with their threading equivalents.
-    import multiprocessing
+    from multiprocessing import context, pool
     import threading
+
+    # multiprocessing.dummy.Pool (aka multiprocessing.pool.ThreadPool) unnecessarily depends on
+    # the multiprocessing synchronization primitives, which don't work on Android. Make it use
+    # the threading primitives instead.
+    def ThreadPool_init_override(self, *args, **kwargs):
+        pool.Pool.__init__(self, *args, context=ThreadingContext(), **kwargs)
+    pool.ThreadPool.__init__ = ThreadPool_init_override
+
+    class ThreadingContext(context.BaseContext):
+        pass
 
     # This needs to be wrapped in a function to capture the current value of `cls`.
     def make_method(name, cls):
@@ -77,9 +84,7 @@ def initialize_multiprocessing(context):
         method.__name__ = method.__qualname__ = name
         return method
 
-    ctx_cls = type(multiprocessing.get_context())
     for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
                  "Semaphore"]:
         cls = getattr(threading, name)
-        setattr(multiprocessing, name, cls)
-        setattr(ctx_cls, name, make_method(name, cls))
+        setattr(ThreadingContext, name, make_method(name, cls))
