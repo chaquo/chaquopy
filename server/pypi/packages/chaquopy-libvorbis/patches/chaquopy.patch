@@ -1,0 +1,12 @@
+--- src-original/configure	2020-07-04 06:20:13.000000000 +0000
++++ src/configure	2020-07-23 20:52:58.833532074 +0000
+@@ -12718,7 +12718,8 @@
+ 	case $host in
+ 	*86-*-linux*)
+ 		DEBUG="-g -Wall -Wextra -D_REENTRANT -D__NO_MATH_INLINES -fsigned-char"
+-		CFLAGS="-O3 -Wall -Wextra -ffast-math -mno-ieee-fp -D_REENTRANT -fsigned-char"
++		# Chaquopy: removed -mno-ieee-fp, which is not supported by Clang.
++		CFLAGS="-O3 -Wall -Wextra -ffast-math -D_REENTRANT -fsigned-char"
+ #              	PROFILE="-Wall -Wextra -pg -g -O3 -ffast-math -D_REENTRANT -fsigned-char -fno-inline -static"
+ 		PROFILE="-Wall -Wextra -pg -g -O3 -ffast-math -mno-ieee-fp -D_REENTRANT -fsigned-char -fno-inline"
+ 

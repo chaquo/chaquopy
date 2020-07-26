@@ -440,6 +440,8 @@ class BuildWheel:
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
             env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
                                f" -Wl,--rpath-link,{reqs_prefix}/lib")
+            env["PKG_CONFIG"] = "pkg-config --define-prefix"
+            env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
 
         env["ARFLAGS"] = "rc"
 
@@ -528,13 +530,6 @@ class BuildWheel:
             raise CommandError(f"Failed to detect API level of toolchain {self.toolchain}")
 
     def fix_wheel(self, in_filename):
-        pure_match = re.search(r"^(.+?)-(.+?)-(.+-none-any)\.whl$", basename(in_filename))
-        if pure_match:
-            is_pure = True
-            self.compat_tag = pure_match.group(3)
-        else:
-            is_pure = False
-
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
         run(f"unzip -d {tmp_dir} -q {in_filename}")
@@ -555,26 +550,31 @@ class BuildWheel:
                                           if re.search(SO_PATTERN, name))
 
         reqs = set()
-        if not is_pure:
-            log("Processing native libraries")
-            for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
-                if re.search(fr"{SO_PATTERN}|\.a$", original_path):
-                    # Because distutils doesn't propertly support cross-compilation, native
-                    # modules will be tagged with the build platform, e.g.
-                    # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
-                    original_path = join(tmp_dir, original_path)
-                    fixed_path = re.sub(r"\.(cpython-[^.]+|abi3)\.so$", ".so", original_path)
-                    if fixed_path != original_path:
-                        run(f"mv {original_path} {fixed_path}")
+        log("Processing native binaries")
+        for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
+            is_shared = bool(re.search(SO_PATTERN, original_path))
+            is_static = original_path.endswith(".a")
+            is_executable = original_path.startswith("chaquopy/bin")
+            if not any([is_executable, is_shared, is_static]):
+                continue
 
-                    run(f"chmod +w {fixed_path}")
-                    run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
-                    if re.search(SO_PATTERN, fixed_path):
-                        reqs.update(self.check_requirements(fixed_path, available_libs))
-                        # Paths from the build machine will be useless at runtime, unless they
-                        # use $ORIGIN, but that isn't supported until API level 24
-                        # (https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md).
-                        run(f"patchelf --remove-rpath {fixed_path}")
+            # Because distutils doesn't propertly support cross-compilation, native
+            # modules will be tagged with the build platform, e.g.
+            # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
+            original_path = join(tmp_dir, original_path)
+            fixed_path = re.sub(r"\.(cpython-[^.]+|abi3)\.so$", ".so", original_path)
+            if fixed_path != original_path:
+                run(f"mv {original_path} {fixed_path}")
+
+            run(f"chmod +w {fixed_path}")
+            run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
+
+            if is_shared or is_executable:
+                reqs.update(self.check_requirements(fixed_path, available_libs))
+                # Paths from the build machine will be useless at runtime, unless they
+                # use $ORIGIN, but that isn't supported until API level 24
+                # (https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md).
+                run(f"patchelf --remove-rpath {fixed_path}")
 
         reqs.update(self.get_requirements("host"))
         if reqs:

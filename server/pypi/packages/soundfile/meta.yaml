@@ -1,0 +1,10 @@
+# This is a pure-Python package, but we rebuild it to add a requirement on the native library
+# which it uses.
+
+package:
+  name: SoundFile
+  version: 0.10.3.post1
+
+requirements:
+  host:
+    - chaquopy-libsndfile 1.0.28
