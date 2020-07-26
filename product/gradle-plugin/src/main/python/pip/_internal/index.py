@@ -283,13 +283,13 @@ class PackageFinder(object):
         but only sdists for newer ones.
 
         Older native wheels must also be preferred over newer pure-Python wheels. For example,
-        consider an index with native 1.5, pure 1.6 and sdist 1.7. If pure 1.6 is preferred
-        over native 1.5, and native 1.5 is preferred over sdist 1.7, then for the ordering to
-        be consistent, pure 1.6 must be preferred over sdist 1.7, which was exactly the
-        situation we wanted to avoid.
+        soundfile is a pure-Python package, but we've released it as a native wheel in order
+        to add a requirement on libsndfile.
 
-        This could be inconvenient if a native package in our repository releases a new
-        pure-Python version, but hopefully that'll be a rare situation.
+        Even if we didn't have any packages like this, consider a stuation with native 1.5,
+        pure 1.6 and sdist 1.7. If pure 1.6 is preferred over native 1.5, and native 1.5 is
+        preferred over sdist 1.7, then for the ordering to be consistent, pure 1.6 must be
+        preferred over sdist 1.7, which was exactly the situation we wanted to avoid.
         """
         support_num = len(self.valid_tags)
         build_tag = tuple()

@@ -706,13 +706,13 @@ class PythonReqs(GradleTestCase):
                        requirements=["build2/__init__.py"])
 
     # This package has the following versions:
-    #   1.0: pure wheel
     #   1.3: compatible native wheel
     #   1.6: incompatible native wheel (should be ignored)
+    #   1.8: pure wheels (with two build numbers)
     #   2.0: sdist
     def test_mixed_index(self):
-        # With no version restriction, the compatible native wheel is preferred over the sdist,
-        # despite having a lower version.
+        # With no version restriction, the compatible native wheel is preferred over the sdist
+        # and the pure wheels, despite having a lower version.
         run = self.RunGradle("base", "PythonReqs/mixed_index_1",
                              requirements=[("native3_android_15_x86/__init__.py",
                                             {"content": "# Version 1.3"})],
@@ -721,14 +721,20 @@ class PythonReqs(GradleTestCase):
                           "native wheels", run.stdout)
 
         # With "!=1.3", the sdist is selected, but it will fail at the egg_info stage. (Failure
-        # at later stages is covered by test_sdist_native.) Version 1.0 has two build numbers
+        # at later stages is covered by test_sdist_native.) Version 1.8 has two build numbers
         # available, but should only be listed once in the message.
         run.apply_layers("PythonReqs/mixed_index_2")
         run.rerun(succeed=False)
         self.assertInLong(r"Failed to install native3!=1.3 from "
                           r"file:.*dist/native3-2.0.tar.gz." + self.tracker_advice() +
-                          self.wheel_advice(["1.0", "1.3"]) + r"$",
+                          self.wheel_advice(["1.3", "1.8"]) + r"$",
                           run.stderr, re=True)
+
+        # With "!=1.3,!=2.0", the pure wheel with the higher build number is selected.
+        run.apply_layers("PythonReqs/mixed_index_3")
+        run.rerun(requirements=[("native3_pure_1/__init__.py",
+                                 {"content": "# Version 1.8"})],
+                  pyc=["stdlib"])
 
     def test_no_binary_fail(self):
         # This is the same as mixed_index_2, except the wheels are excluded from consideration
