@@ -1,6 +1,16 @@
 Change log
 ##########
 
+8.0.1 (2020-07-28)
+==================
+
+* Make missing :any:`multiprocessing` primitives throw an exception on use rather than on
+  import. This affected the packages `joblib` and `librosa` (`#21
+  <https://github.com/chaquo/chaquopy/issues/21>`_).
+* Make :any:`ctypes.util.find_library` search libraries installed with pip. This affected the
+  package `soundfile` (`#201 <https://github.com/chaquo/chaquopy/issues/201>`_).
+* Fix "invalid constraint" error affecting the packages `openpyxl` and `webcolors`.
+
 8.0.0 (2020-06-15)
 ==================
 
@@ -71,8 +81,7 @@ Change log
   while the app is running.
 * Hide importer frames in stack traces, unless the exception originated from the importer
   itself.
-* Fix another metadata parsing issue, this one affecting the package `astroid
-  <https://github.com/PyCQA/astroid>`_.
+* Fix another metadata parsing issue, this one affecting the package `astroid`.
 * Fix "has no DT_SONAME" warning (`#112 <https://github.com/chaquo/chaquopy/issues/112>`_).
 
 6.2.1 (2019-04-19)

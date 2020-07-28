@@ -10,7 +10,8 @@ Restore it to the full set of ABIs, then run unit tests on any device.
 
 Make sure unit tests work when run twice in succession.
 
-Check app sizes and startup times compared to previous version (#5495).
+Check app sizes and startup times compared to previous version (#5495), and investigate if
+significantly worse.
 
 
 ## Gradle plugin
@@ -24,8 +25,8 @@ On each test machine:
 On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
 gradle-plugin:check`.
 
-On the other supported workstation OSes, copy the `gradle` and `runtime` artifacts from the
-first machine. To make sure they're not overwritten, temporarily disable the `dependsOn
+On the other supported workstation OSes, copy `gradle`, `runtime` and (if necessary) `target`
+from the first machine. To make sure they're not overwritten, temporarily disable the `dependsOn
 publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:check` command.
 
 
@@ -105,8 +106,7 @@ If major.minor version number has changed:
 
 ## Version control
 
-Commit public/demo, public/console and public/hello repositories, and push to chaquo.com and
-GitHub.
+Commit public `console`, `demo` and `hello` repositories, and push to chaquo.com and GitHub.
 
 Commit this repository, add version number tag, and push.
 
