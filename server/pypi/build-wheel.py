@@ -139,6 +139,7 @@ class BuildWheel:
                 log("Skipping requirements extraction due to --no-reqs")
             else:
                 self.extract_requirements()
+            self.update_env()
             wheel_filename = self.build_wheel()
             return self.fix_wheel(wheel_filename)
 
@@ -274,17 +275,6 @@ class BuildWheel:
 
     def build_wheel(self):
         cd(f"{self.build_dir}/src")
-        self.update_env()
-        os.environ.update({  # Conda variable names, except those starting with CHAQUOPY.
-            "CHAQUOPY_ABI": self.abi,
-            "CHAQUOPY_PYTHON": PYTHON_VERSION,
-            "CPU_COUNT": str(multiprocessing.cpu_count()),
-            "PKG_NAME": self.package,
-            "PKG_VERSION": self.version,
-            "RECIPE_DIR": self.package_dir,
-            "SRC_DIR": os.getcwd(),
-        })
-
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
@@ -456,9 +446,21 @@ class BuildWheel:
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] += f" -lpython{PYTHON_SUFFIX}"
 
+        env.update({  # Conda variable names, except those starting with CHAQUOPY.
+            "CHAQUOPY_ABI": self.abi,
+            "CHAQUOPY_PYTHON": PYTHON_VERSION,
+            "CPU_COUNT": str(multiprocessing.cpu_count()),
+            "PKG_BUILDNUM": str(self.meta["build"]["number"]),
+            "PKG_NAME": self.package,
+            "PKG_VERSION": self.version,
+            "RECIPE_DIR": self.package_dir,
+            "SRC_DIR": os.getcwd(),
+        })
+
         if self.verbose:
+            # Format variables so they can be pasted into a shell when troubleshooting.
             log("Environment set as follows:\n" +
-                "\n".join(f"export {name}='{env[name]}'" for name in sorted(env.keys())))
+                "\n".join(f"export {key}='{value}'" for key, value in env.items()))
         os.environ.update(env)
 
         if self.needs_cmake:
@@ -590,7 +592,7 @@ class BuildWheel:
         return out_filename
 
     def package_wheel(self, in_dir, out_dir):
-        build_num = str(self.meta["build"]["number"])
+        build_num = os.environ["PKG_BUILDNUM"]
         info_dir = f"{in_dir}/{self.name_version}.dist-info"
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",

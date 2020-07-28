@@ -140,3 +140,9 @@ unzip -q -d ../prefix *.whl
 rm *.whl
 mkdir -p ../prefix/chaquopy/lib
 mv ../prefix/tensorflow_core/libtensorflow_framework.so.2 ../prefix/chaquopy/lib
+
+# Generate a matching tensorflow-gpu wheel.
+cd "$RECIPE_DIR/tensorflow-gpu"
+dist_dir=$(realpath "../../../dist/tensorflow-gpu")
+mkdir -p "$dist_dir"
+./setup.py bdist_wheel --build-number $PKG_BUILDNUM --dist-dir "$dist_dir"

@@ -1,5 +1,6 @@
 # This is a pure-Python package, but we rebuild it to add a requirement on the native library
-# which it uses.
+# which it uses. And we release it as a set of identical native-tagged wheels so that our
+# modified copy of pip will prefer it over any newer versions on PyPI.
 
 package:
   name: SoundFile
