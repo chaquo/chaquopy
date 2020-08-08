@@ -42,6 +42,14 @@ def initialize_os(context):
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
 
+    # Many devices include inaccessible directories on the PATH. This may cause subprocess.run
+    # to raise a PermissionError when passed a nonexistent executable, rather than the
+    # FileNotFoundError which user code is probably expecting.
+    def get_exec_path_override(*args, **kwargs):
+        return [name for name in get_exec_path_original(*args, **kwargs)
+                if os.access(name, os.X_OK)]  # Read permission is not required.
+    get_exec_path_original = os.get_exec_path
+    os.get_exec_path = get_exec_path_override
 
 def initialize_tempfile(context):
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")

@@ -12,9 +12,8 @@ from os.path import dirname, exists, join, splitext
 import pkgutil
 import platform
 import re
-import shlex
 from shutil import rmtree
-from subprocess import check_output
+import subprocess
 import sys
 from traceback import format_exc
 import types
@@ -855,7 +854,12 @@ class TestAndroidStdlib(AndroidTestCase):
 
     def test_os(self):
         self.assertEqual("posix", os.name)
-        self.assertEqual(str(context.getFilesDir()), os.path.expanduser("~"))
+        self.assertTrue(os.access(os.environ["HOME"], os.R_OK | os.W_OK | os.X_OK))
+
+        self.assertTrue(os.get_exec_path())
+        for name in os.get_exec_path():
+            with self.subTest(name=name):
+                self.assertTrue(os.access(name, os.X_OK))
 
     def test_platform(self):
         # Requires sys.executable to exist.
@@ -884,6 +888,16 @@ class TestAndroidStdlib(AndroidTestCase):
         resp = urlopen("https://chaquo.com/chaquopy/")
         self.assertEqual(200, resp.getcode())
         self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
+
+    def test_subprocess(self):
+        # An executable on the PATH.
+        subprocess.run(["ls", os.environ["HOME"]])
+
+        # A nonexistent executable.
+        for name in ["nonexistent",                 # PATH search
+                     "/system/bin/nonexistent"]:    # Absolute filename
+            with self.subTest(name=name), self.assertRaises(FileNotFoundError):
+                subprocess.run([name])
 
     def test_sys(self):
         self.assertEqual(ABI_FLAGS, sys.abiflags)
@@ -941,7 +955,8 @@ class TestAndroidStreams(unittest.TestCase):
     def tearDown(self):
         actual_log = None
         marker = "I/{}: {}".format(*self.get_marker())
-        for line in check_output(shlex.split("logcat -d -v tag")).decode("UTF-8").splitlines():
+        for line in subprocess.run(["logcat", "-d", "-v", "tag"],
+                                   capture_output=True, text=True).stdout.splitlines():
             if line == marker:
                 actual_log = []
             elif actual_log is not None and "/python.std" in line:
