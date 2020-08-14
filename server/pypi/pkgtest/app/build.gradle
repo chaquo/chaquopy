@@ -23,6 +23,7 @@ def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
+    "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
     "soundfile": ["librosa", "numpy"],
 ]

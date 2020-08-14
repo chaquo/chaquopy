@@ -1,0 +1,74 @@
+--- src-original/setup.py	2020-01-28 17:21:32.000000000 +0000
++++ src/setup.py	2020-08-13 22:40:42.501283313 +0000
+@@ -82,8 +82,10 @@
+ 
+ # Get geos_version from GEOS dynamic library, which depends on
+ # GEOS_LIBRARY_PATH and/or GEOS_CONFIG environment variables
+-from shapely._buildcfg import geos_version_string, geos_version, \
+-        geos_config, get_geos_config
++#
++# Chaquopy: these imports aren't actually used.
++# from shapely._buildcfg import geos_version_string, geos_version, \
++#         geos_config, get_geos_config
+ 
+ logging.basicConfig()
+ log = logging.getLogger(__file__)
+@@ -135,6 +137,7 @@
+ 
+ # Allow GEOS_CONFIG to be bypassed in favor of CFLAGS and LDFLAGS
+ # vars set by build environment.
++os.environ["NO_GEOS_CONFIG"] = "1"  # Chaquopy
+ if os.environ.get('NO_GEOS_CONFIG'):
+     geos_config = None
+ else:
+@@ -251,7 +254,7 @@
+ # Prepare build opts and args for the speedups extension module.
+ include_dirs = []
+ library_dirs = []
+-libraries = []
++libraries = ["geos_c"]  # Chaquopy
+ extra_link_args = []
+ 
+ # If NO_GEOS_CONFIG is set in the environment, geos-config will not
+@@ -320,6 +323,14 @@
+ pyx_file = "shapely/speedups/_speedups.pyx"
+ c_file = "shapely/speedups/_speedups.c"
+ 
++# Chaquopy: the .c files in the sdist aren't compatible with Python 3.8, so Cython needs to be
++# re-run. Touch all .pyx files: this will cause force_cython to be set (for `speedups`), and
++# also affect Cython.Distutils.build_ext (for `vectorize`).
++for dirpath, dirnames, filenames in os.walk("."):
++    for name in filenames:
++        if name.endswith(".pyx"):
++            os.utime(f"{dirpath}/{name}")
++
+ force_cython = False
+ # Always regenerate for sdist or absent c file
+ if 'sdist' in sys.argv or not os.path.exists(c_file):
+@@ -337,6 +348,10 @@
+ cmd_classes = setup_args.setdefault('cmdclass', {})
+ 
+ try:
++    # Chaquopy
++    import builtins
++    builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
++
+     import numpy
+     from Cython.Distutils import build_ext as cython_build_ext
+     from distutils.extension import Extension as DistutilsExtension
+@@ -358,6 +373,7 @@
+         extra_link_args=extra_link_args,))
+ 
+ except ImportError:
++    raise  # Chaquopy: don't continue without the module.
+     log.info("Numpy or Cython not available, shapely.vectorized submodule "
+              "not being built.")
+     force_cython = False
+@@ -382,6 +398,7 @@
+         construct_build_ext(existing_build_ext)
+     setup(ext_modules=ext_modules, **setup_args)
+ except BuildFailed as ex:
++    raise  # Chaquopy: don't continue without the module.
+     BUILD_EXT_WARNING = "The C extension could not be compiled, " \
+                         "speedups are not enabled."
+     log.warning(ex)

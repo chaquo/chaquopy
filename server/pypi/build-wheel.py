@@ -373,6 +373,8 @@ class BuildWheel:
     def update_env(self):
         env = {}
 
+        # reqs_dir is needed by some setup.py scripts, for example those which call
+        # numpy.get_include().
         pythonpath = [join(PYPI_DIR, "build-packages"), self.reqs_dir]
         if "PYTHONPATH" in os.environ:
             pythonpath.append(os.environ["PYTHONPATH"])
