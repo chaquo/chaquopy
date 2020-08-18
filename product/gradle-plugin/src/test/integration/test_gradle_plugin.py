@@ -154,6 +154,8 @@ class Basic(GradleTestCase):
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
 
+    # The Chaquopy plugin can't be used directly within a dynamic feature module, but if it's
+    # used in the base module, then the Java API should be available to the feature module.
     def test_dynamic_feature(self):
         self.RunGradle("base", "Basic/dynamic_feature")
 
@@ -202,7 +204,7 @@ class AndroidPlugin(GradleTestCase):
         except Exception:
             pass  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 4.0.1. If you experience "
+                          "Gradle plugin versions beyond 4.1.0. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
@@ -393,7 +395,13 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/metaclass_leak_1", app=["two.py"])
         run.apply_layers("PythonSrc/metaclass_leak_2")  # Non-Chaquopy project
         run.rerun(succeed=False)
-        self.assertInLong("Could not find method python()", run.stderr)
+        if agp_version_info < (4, 1):
+            self.assertInLong("Could not find method python()", run.stderr)
+        else:
+            # This is a much worse error message because it no longer indicates the line with
+            # the unknown name, but it doesn't look as if there's anything we can do about it.
+            self.assertInLong(r"No signature of method: build_\w+\.android\(\) is applicable",
+                              run.stderr, re=True)
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
