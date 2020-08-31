@@ -521,6 +521,12 @@ class BuildPython(GradleTestCase):
         self.assertInLong("'py -2.8': could not find the requested version of Python. Please "
                           "either install it, or " + self.ADVICE, run.stderr)
 
+    # Test a buildPython which returns success without doing anything (#5631).
+    def test_silent_failure(self):
+        run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
+        self.assertInLong("common was not created: please check your buildPython setting",
+                          run.stderr)
+
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
                              succeed=False)

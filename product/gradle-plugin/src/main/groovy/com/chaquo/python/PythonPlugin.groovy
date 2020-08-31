@@ -299,13 +299,7 @@ class PythonPlugin implements Plugin<Project> {
             doLast {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
-                if (reqsArgs.isEmpty()) {
-                    // Subdirectories must exist, or their ZIPs won't be created.
-                    project.mkdir("$destinationDir/common")
-                    for (abi in abis) {
-                        project.mkdir("$destinationDir/$abi")
-                    }
-                } else {
+                if (!reqsArgs.isEmpty()) {
                     execBuildPython(python) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
@@ -333,6 +327,20 @@ class PythonPlugin implements Plugin<Project> {
                         args python.pip.options
                     }
                     compilePyc(python, "pip", destinationDir)
+                }
+
+                // Requirements subdirectories must exist, or their ZIPs won't be created,
+                // and the app will crash (#5631).
+                for (subdirName in [Common.ABI_COMMON] + abis) {
+                    def subdir = new File("$destinationDir/$subdirName")
+                    if (!subdir.exists()) {
+                        if (reqsArgs.isEmpty()) {
+                            project.mkdir(subdir)
+                        } else {
+                            throw new GradleException("$subdir was not created: please " +
+                                                      "check your buildPython setting")
+                        }
+                    }
                 }
             }
         }
