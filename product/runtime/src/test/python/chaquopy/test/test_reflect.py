@@ -56,8 +56,8 @@ class TestReflect(FilterWarningsCase):
 
         for obj in [Boolean, "Ljava/lang/Boolean;"]:
             with self.subTest(obj=obj):
-                with self.assertRaisesRegexp(TypeError, "cannot create java.lang.Boolean "
-                                             "proxy from java.lang.Object instance"):
+                with self.assertRaisesRegex(TypeError, "cannot create java.lang.Boolean "
+                                            "proxy from java.lang.Object instance"):
                     cast(obj, Object())
 
         with self.assertRaisesRegex(jclass("java.lang.NoClassDefFoundError"),
@@ -69,7 +69,7 @@ class TestReflect(FilterWarningsCase):
 
         for obj in [0, True, None, int, str]:
             with self.subTest(obj=obj):
-                with self.assertRaisesRegexp(TypeError, f"{obj!r} is not a Java type"):
+                with self.assertRaisesRegex(TypeError, f"{obj!r} is not a Java type"):
                     cast(obj, Object())
 
     # Interaction of identity and casts is tested in TestReflect.test_cast and
@@ -104,7 +104,7 @@ class TestReflect(FilterWarningsCase):
 
         o = Object()
         object_str = str(o)
-        self.assertRegexpMatches(object_str, "^java.lang.Object@")
+        self.assertRegex(object_str, "^java.lang.Object@")
         self.assertEqual("<" + object_str + ">", repr(o))
 
         str_u = "abc olé 中文"
@@ -150,7 +150,7 @@ class TestReflect(FilterWarningsCase):
         # Unlike Java instance objects, Java class objects are persistent, so there's no reason
         # to prevent setting new attributes on them. This also makes them consistent with
         # static and dynamic proxy class object.
-        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+        with self.assertRaisesRegex(AttributeError, "has no attribute"):
             self.Test.staticNonexistent
         self.Test.staticNonexistent = "hello"
         self.assertEqual("hello", self.Test.staticNonexistent)
@@ -158,50 +158,50 @@ class TestReflect(FilterWarningsCase):
         self.assertFalse(hasattr(self.Test, "staticNonexistent"))
 
         for obj in [self.Test, self.t]:
-            with self.assertRaisesRegexp(AttributeError, "final"):
+            with self.assertRaisesRegex(AttributeError, "final"):
                 obj.fieldStaticFinalZ = True
-            with self.assertRaisesRegexp(AttributeError, "not a field"):
+            with self.assertRaisesRegex(AttributeError, "not a field"):
                 obj.setStaticZ = True
-            with self.assertRaisesRegexp(TypeError, "not callable"):
+            with self.assertRaisesRegex(TypeError, "not callable"):
                 obj.fieldStaticZ()
-            with self.assertRaisesRegexp(TypeError, r"takes 0 arguments \(1 given\)"):
+            with self.assertRaisesRegex(TypeError, r"takes 0 arguments \(1 given\)"):
                 obj.staticNoArgs(True)
-            with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
+            with self.assertRaisesRegex(TypeError, r"takes at least 1 argument \(0 given\)"):
                 obj.staticVarargs1()
-            with self.assertRaisesRegexp(TypeError, r"takes 1 argument \(0 given\)"):
+            with self.assertRaisesRegex(TypeError, r"takes 1 argument \(0 given\)"):
                 obj.setStaticZ()
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_instance(self):
-        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+        with self.assertRaisesRegex(AttributeError, "has no attribute"):
             self.t.nonexistent
-        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+        with self.assertRaisesRegex(AttributeError, "has no attribute"):
             self.t.nonexistent = True
-        with self.assertRaisesRegexp(AttributeError, "final"):
+        with self.assertRaisesRegex(AttributeError, "final"):
             self.t.fieldFinalZ = True
-        with self.assertRaisesRegexp(AttributeError, "not a field"):
+        with self.assertRaisesRegex(AttributeError, "not a field"):
             self.t.setZ = True
-        with self.assertRaisesRegexp(TypeError, "not callable"):
+        with self.assertRaisesRegex(TypeError, "not callable"):
             self.t.fieldZ()
-        with self.assertRaisesRegexp(TypeError, r"takes 0 arguments \(1 given\)"):
+        with self.assertRaisesRegex(TypeError, r"takes 0 arguments \(1 given\)"):
             self.t.noArgs(True)
-        with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
+        with self.assertRaisesRegex(TypeError, r"takes at least 1 argument \(0 given\)"):
             self.t.varargs1()
-        with self.assertRaisesRegexp(TypeError, r"takes at least 1 argument \(0 given\)"):
+        with self.assertRaisesRegex(TypeError, r"takes at least 1 argument \(0 given\)"):
             self.Test.varargs1(self.t)
-        with self.assertRaisesRegexp(TypeError, r"takes 1 argument \(0 given\)"):
+        with self.assertRaisesRegex(TypeError, r"takes 1 argument \(0 given\)"):
             self.t.setZ()
 
         Object = jclass("java.lang.Object")
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+        with self.assertRaisesRegex(AttributeError, "static context"):
             self.Test.fieldZ
-        with self.assertRaisesRegexp(AttributeError, "static context"):
+        with self.assertRaisesRegex(AttributeError, "static context"):
             self.Test.fieldZ = True
-        with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
-                                     r"as first argument \(got nothing instead\)"):
+        with self.assertRaisesRegex(TypeError, "must be called with .*TestBasics instance "
+                                    r"as first argument \(got nothing instead\)"):
             self.Test.getZ()
-        with self.assertRaisesRegexp(TypeError, "must be called with .*TestBasics instance "
-                                     r"as first argument \(got Object instance instead\)"):
+        with self.assertRaisesRegex(TypeError, "must be called with .*TestBasics instance "
+                                    r"as first argument \(got Object instance instead\)"):
             self.Test.getZ(Object())
         self.assertEqual(False, self.Test.getZ(self.t))
 
@@ -213,33 +213,33 @@ class TestReflect(FilterWarningsCase):
         test1.fieldB = 127
         test2.fieldB = 10
 
-        self.assertEquals(test2.fieldB, 10)
-        self.assertEquals(test1.fieldB, 127)
-        self.assertEquals(test2.fieldB, 10)
-        self.assertEquals(test2.getB(), 10)
-        self.assertEquals(test1.getB(), 127)
-        self.assertEquals(test2.getB(), 10)
+        self.assertEqual(test2.fieldB, 10)
+        self.assertEqual(test1.fieldB, 127)
+        self.assertEqual(test2.fieldB, 10)
+        self.assertEqual(test2.getB(), 10)
+        self.assertEqual(test1.getB(), 127)
+        self.assertEqual(test2.getB(), 10)
 
         method1 = test1.getB
         method2 = test2.getB
-        self.assertEquals(method1(), 127)
-        self.assertEquals(method2(), 10)
-        self.assertEquals(method1(), 127)
+        self.assertEqual(method1(), 127)
+        self.assertEqual(method2(), 10)
+        self.assertEqual(method1(), 127)
         test3 = self.Test()
         test3.fieldB = 42
-        self.assertEquals(method1(), 127)
-        self.assertEquals(method2(), 10)
+        self.assertEqual(method1(), 127)
+        self.assertEqual(method2(), 10)
 
         test1.fieldB = 11
         test2.fieldB = 22
-        self.assertEquals(test1.fieldB, 11)
-        self.assertEquals(test2.fieldB, 22)
-        self.assertEquals(test1.getB(), 11)
-        self.assertEquals(test2.getB(), 22)
+        self.assertEqual(test1.fieldB, 11)
+        self.assertEqual(test2.fieldB, 22)
+        self.assertEqual(test1.getB(), 11)
+        self.assertEqual(test2.getB(), 22)
 
     def test_mixed_params(self):
         test = jclass('com.chaquo.python.TestBasics')()
-        self.assertEquals(test.methodParamsZBCSIJFD(
+        self.assertEqual(test.methodParamsZBCSIJFD(
             True, 127, 'k', 32767, 2147483467, 9223372036854775807, 1.23, 9.87), True)
 
     def test_out(self):
@@ -250,7 +250,7 @@ class TestReflect(FilterWarningsCase):
 
     def test_unconstructible(self):
         System = jclass("java.lang.System")
-        with self.assertRaisesRegexp(TypeError, "no accessible constructors"):
+        with self.assertRaisesRegex(TypeError, "no accessible constructors"):
             System()
 
     def test_reserved_words(self):
@@ -288,16 +288,16 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual(SimpleEnum.values()[1], SimpleEnum.BAD)
 
     def test_interface(self):
-        with self.assertRaisesRegexp(TypeError, "Interface is abstract and cannot be instantiated"):
+        with self.assertRaisesRegex(TypeError, "Interface is abstract and cannot be instantiated"):
             TR.Interface()
 
         self.assertEqual("Interface constant", TR.Interface.iConstant)
-        with self.assertRaisesRegexp(AttributeError, "final"):
+        with self.assertRaisesRegex(AttributeError, "final"):
             TR.Interface.iConstant = "not constant"
 
         c = TR.Child()
-        abstract = self.assertRaisesRegexp(NotImplementedError, "Interface.iMethod is abstract "
-                                           "and cannot be called")
+        abstract = self.assertRaisesRegex(NotImplementedError, "Interface.iMethod is abstract "
+                                          "and cannot be called")
         with abstract:
             TR.Interface.iMethod()
         with abstract:
@@ -305,8 +305,8 @@ class TestReflect(FilterWarningsCase):
 
         # Getting an Object method directly from an interface class should return the Object
         # implementation.
-        self.assertRegexpMatches(TR.Interface.toString(c),
-                                 r"^com.chaquo.python.TestReflect\$Child@")
+        self.assertRegex(TR.Interface.toString(c),
+                         r"^com.chaquo.python.TestReflect\$Child@")
 
         # But calling an Object method through an interface cast should be done virtually.
         self.assertEqual("Child object", cast(TR.Interface, c).toString())
@@ -373,9 +373,9 @@ class TestReflect(FilterWarningsCase):
         self.assertFalse(isinstance(c_Parent, Interface))
         self.assertTrue(isinstance(c_Parent, Object))
         self.assertDir(c_Parent, Parent_names)
-        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+        with self.assertRaisesRegex(AttributeError, "has no attribute"):
             c_Parent.iConstant
-        with self.assertRaisesRegexp(AttributeError, "has no attribute"):
+        with self.assertRaisesRegex(AttributeError, "has no attribute"):
             c_Parent.iMethod()
         self.verify_field(c_Parent, "pStaticField", "Parent static field")
         self.verify_field(c_Parent, "pField", "Parent field")
@@ -417,7 +417,7 @@ class TestReflect(FilterWarningsCase):
 
     def test_abstract(self):
         Abstract = self.nested_cls("Abstract")
-        with self.assertRaisesRegexp(TypeError, "abstract"):
+        with self.assertRaisesRegex(TypeError, "abstract"):
             Abstract()
 
     def test_nested(self):

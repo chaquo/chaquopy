@@ -23,6 +23,6 @@ def test_relative(self):
 
     # Relative imports can't pass through the top level (http://bugs.python.org/issue30840).
     # Error wording varies across Python versions.
-    with self.assertRaisesRegexp(ValueError,
+    with self.assertRaisesRegex(ValueError,
                                  r"^[Aa]ttempted relative import beyond top(-?)level package$"):
         from ... import whatever

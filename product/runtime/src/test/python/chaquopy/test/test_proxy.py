@@ -11,34 +11,34 @@ class TestProxy(FilterWarningsCase):
     def test_direct_inherit(self):
         from java.lang import Object, Runnable
         for base in [Object, Runnable]:
-            with self.assertRaisesRegexp(TypeError, "Java classes can only be inherited using "
-                                         "static_proxy or dynamic_proxy"):
+            with self.assertRaisesRegex(TypeError, "Java classes can only be inherited using "
+                                        "static_proxy or dynamic_proxy"):
                 class P(base):
                     pass
 
     def test_dynamic_errors(self):
         from java.lang import Object, Runnable
-        with self.assertRaisesRegexp(TypeError, "'hello' is not a Java interface"):
+        with self.assertRaisesRegex(TypeError, "'hello' is not a Java interface"):
             class P1(dynamic_proxy("hello")):
                 pass
-        with self.assertRaisesRegexp(TypeError,
-                                     "<class 'java.lang.Object'> is not a Java interface"):
+        with self.assertRaisesRegex(TypeError,
+                                    "<class 'java.lang.Object'> is not a Java interface"):
             class P2(dynamic_proxy(Object)):
                 pass
-        with self.assertRaisesRegexp(TypeError, "<class 'chaquopy.test.test_proxy.P3'> "
-                                     "is not a Java interface"):
+        with self.assertRaisesRegex(TypeError, "<class 'chaquopy.test.test_proxy.P3'> "
+                                    "is not a Java interface"):
             class P3(dynamic_proxy(Runnable)):
                 pass
             class P4(dynamic_proxy(P3)):
                 pass
 
-        with self.assertRaisesRegexp(TypeError, "dynamic_proxy must be used first in class bases"):
+        with self.assertRaisesRegex(TypeError, "dynamic_proxy must be used first in class bases"):
             class B(object):
                 pass
             class P5(B, dynamic_proxy(Runnable)):
                 pass
-        with self.assertRaisesRegexp(TypeError,
-                                     "dynamic_proxy can only be used once in class bases"):
+        with self.assertRaisesRegex(TypeError,
+                                    "dynamic_proxy can only be used once in class bases"):
             class P6(dynamic_proxy(Runnable), dynamic_proxy(Runnable)):
                 pass
 
@@ -135,8 +135,8 @@ class TestProxy(FilterWarningsCase):
                 pass
 
         a = A()
-        error = self.assertRaisesRegexp(AttributeError, "'A' object's superclass __init__ must be "
-                                        "called before using it as a Java object")
+        error = self.assertRaisesRegex(AttributeError, "'A' object's superclass __init__ must be "
+                                       "called before using it as a Java object")
         with error:
             TP.a1 = a
         with error:
@@ -158,7 +158,7 @@ class TestProxy(FilterWarningsCase):
         self.assertEqual(123, a.constant)
         self.assertEqual(123, AddConstant.constant)
         self.assertEqual(125, a.add(2))
-        final = self.assertRaisesRegexp(AttributeError, "constant is a final field")
+        final = self.assertRaisesRegex(AttributeError, "constant is a final field")
         with final:
             a.constant = 321
         with final:
@@ -177,7 +177,7 @@ class TestProxy(FilterWarningsCase):
         self.assertEqual(0, AddCounter.count)
         self.assertEqual(0, a.count)
 
-        with self.assertRaisesRegexp(AttributeError, "'AddCounter' object has no attribute 'n'"):
+        with self.assertRaisesRegex(AttributeError, "'AddCounter' object has no attribute 'n'"):
             a.n
 
         self.assertEqual(10, a.add(10))
@@ -203,22 +203,22 @@ class TestProxy(FilterWarningsCase):
                 return 42
 
         a = Add()
-        self.assertEquals("classmethod", a.non_data())
+        self.assertEqual("classmethod", a.non_data())
         a.non_data = lambda: "instance override"
         self.assertEqual("instance override", a.non_data())
         del a.non_data
-        self.assertEquals("classmethod", a.non_data())
+        self.assertEqual("classmethod", a.non_data())
 
         self.assertEqual(42, a.data)
-        with self.assertRaisesRegexp(AttributeError, "can't set attribute"):
+        with self.assertRaisesRegex(AttributeError, "can't set attribute"):
             a.data = 99
-        with self.assertRaisesRegexp(AttributeError, "can't delete attribute"):
+        with self.assertRaisesRegex(AttributeError, "can't delete attribute"):
             del a.data
 
     def test_unimplemented(self):
         class A(dynamic_proxy(TP.Adder)):
             pass
-        with self.assertRaisesRegexp(PyException, r"TestProxy\$Adder.add is abstract"):
+        with self.assertRaisesRegex(PyException, r"TestProxy\$Adder.add is abstract"):
             cast(TP.Adder, A()).add(5)
 
     def test_object_methods_unimplemented(self):
@@ -227,7 +227,7 @@ class TestProxy(FilterWarningsCase):
         a1, a2 = Unimplemented(), Unimplemented()
 
         ts = cast(TP.Adder, a1).toString()
-        self.assertRegexpMatches(ts, r"\$Proxy.*@")
+        self.assertRegex(ts, r"\$Proxy.*@")
         self.assertEqual(ts, str(a1))
         self.assertNotEqual(str(a1), str(a2))
 
@@ -240,7 +240,7 @@ class TestProxy(FilterWarningsCase):
 
         a1.foo = 99
         for name in ["toString", "equals", "hashCode"]:
-            with self.assertRaisesRegexp(AttributeError, name + " is not a field"):
+            with self.assertRaisesRegex(AttributeError, name + " is not a field"):
                 setattr(a1, name, 99)
 
     def test_object_methods_implemented(self):
@@ -255,7 +255,7 @@ class TestProxy(FilterWarningsCase):
         a1, a2 = Implemented(), Implemented()
 
         ts = cast(TP.Adder, a1).toString()
-        self.assertRegexpMatches(ts, r"^Override .*\$Proxy.*@")
+        self.assertRegex(ts, r"^Override .*\$Proxy.*@")
         self.assertEqual(ts, str(a1))
         self.assertNotEqual(str(a1), str(a2))
 
@@ -303,18 +303,18 @@ class TestProxy(FilterWarningsCase):
         self.assertIsNone(c_GS.getString())
 
         c.result = 42
-        with self.assertRaisesRegexp(ClassCastException, "Cannot convert int object to void"):
+        with self.assertRaisesRegex(ClassCastException, "Cannot convert int object to void"):
             c_Runnable.run()
         self.assertEqual(42, c_Adder.add(99))
-        with self.assertRaisesRegexp(ClassCastException, "Cannot convert int object to "
-                                     "java.lang.String"):
+        with self.assertRaisesRegex(ClassCastException, "Cannot convert int object to "
+                                    "java.lang.String"):
             c_GS.getString()
 
         c.result = "hello"
-        with self.assertRaisesRegexp(ClassCastException, "Cannot convert str object to void"):
+        with self.assertRaisesRegex(ClassCastException, "Cannot convert str object to void"):
             c_Runnable.run()
-        with self.assertRaisesRegexp(ClassCastException, "Cannot convert str object to "
-                                     "java.lang.Integer"):
+        with self.assertRaisesRegex(ClassCastException, "Cannot convert str object to "
+                                    "java.lang.Integer"):
             c_Adder.add(99)
         self.assertEqual("hello", c_GS.getString())
 
@@ -337,9 +337,9 @@ class TestProxy(FilterWarningsCase):
         c = C()
         c_Args = cast(TP.Args, c)
 
-        with self.assertRaisesRegexp(PyException, args_error(1, 2)):
+        with self.assertRaisesRegex(PyException, args_error(1, 2)):
             c_Args.tooMany(42)
-        with self.assertRaisesRegexp(PyException, args_error(2, 1)):
+        with self.assertRaisesRegex(PyException, args_error(2, 1)):
             c_Args.tooFew()
 
         self.assertEqual(3, c_Args.addDuck(jint(1), jint(2)))
@@ -349,11 +349,11 @@ class TestProxy(FilterWarningsCase):
         self.assertEqual("", c_Args.star())
         self.assertEqual("hello", c_Args.star("hello"))
         self.assertEqual("hello,world", c_Args.star("hello", "world"))
-        with self.assertRaisesRegexp(TypeError, "cannot be applied"):
+        with self.assertRaisesRegex(TypeError, "cannot be applied"):
             c_Args.star("hello", "world", "again")
         self.assertEqual("hello,world,again", c.star("hello", "world", "again"))
 
-        with self.assertRaisesRegexp(TypeError, args_error(1, 0, varargs=True)):
+        with self.assertRaisesRegex(TypeError, args_error(1, 0, varargs=True)):
             c_Args.varargs()
         self.assertEqual("", c_Args.varargs(":"))
         self.assertEqual("hello", c_Args.varargs("|", "hello"))
@@ -471,7 +471,7 @@ class TestProxy(FilterWarningsCase):
         self.assertEqual("helloworldX", p.addDuck("hello", "world"))
 
         from java.lang import RuntimeException
-        with self.assertRaisesRegexp(RuntimeException, "Not implemented: tooMany"):
+        with self.assertRaisesRegex(RuntimeException, "Not implemented: tooMany"):
             p.tooMany(42)
 
     # Check for deadlocks and other threading errors by creating a large number of proxy

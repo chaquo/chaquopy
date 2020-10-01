@@ -11,22 +11,22 @@ class TestSignatures(FilterWarningsCase):
     def test_jni_sig(self):
         Object = jclass("java.lang.Object")
 
-        self.assertEquals("V", jni_sig(jvoid))
-        self.assertEquals("Z", jni_sig(jboolean))
-        self.assertEquals("B", jni_sig(jbyte))
-        self.assertEquals("C", jni_sig(jchar))
-        self.assertEquals("D", jni_sig(jdouble))
-        self.assertEquals("F", jni_sig(jfloat))
-        self.assertEquals("I", jni_sig(jint))
-        self.assertEquals("J", jni_sig(jlong))
-        self.assertEquals("S", jni_sig(jshort))
-        self.assertEquals("Ljava/lang/Object;", jni_sig(Object))
+        self.assertEqual("V", jni_sig(jvoid))
+        self.assertEqual("Z", jni_sig(jboolean))
+        self.assertEqual("B", jni_sig(jbyte))
+        self.assertEqual("C", jni_sig(jchar))
+        self.assertEqual("D", jni_sig(jdouble))
+        self.assertEqual("F", jni_sig(jfloat))
+        self.assertEqual("I", jni_sig(jint))
+        self.assertEqual("J", jni_sig(jlong))
+        self.assertEqual("S", jni_sig(jshort))
+        self.assertEqual("Ljava/lang/Object;", jni_sig(Object))
 
-        self.assertEquals("[Z", jni_sig(jarray(jboolean)))
-        self.assertEquals("[[Z", jni_sig(jarray(jarray(jboolean))))
+        self.assertEqual("[Z", jni_sig(jarray(jboolean)))
+        self.assertEqual("[[Z", jni_sig(jarray(jarray(jboolean))))
 
-        self.assertEquals("[Ljava/lang/Object;", jni_sig(jarray(Object)))
-        self.assertEquals("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
+        self.assertEqual("[Ljava/lang/Object;", jni_sig(jarray(Object)))
+        self.assertEqual("[[Ljava/lang/Object;", jni_sig(jarray(jarray(Object))))
 
         with self.assertRaisesRegex(ValueError, "Invalid JNI signature: 'java.lang.Object'"):
             jni_sig("java.lang.Object")
@@ -37,16 +37,16 @@ class TestSignatures(FilterWarningsCase):
                     jni_sig(obj)
 
     def test_jvoid(self):
-        with self.assertRaisesRegexp(TypeError, "Cannot create"):
+        with self.assertRaisesRegex(TypeError, "Cannot create"):
             jvoid()
 
     # Tests for passing the wrappers to fields and methods are in test_conversion.
     def test_boolean(self):
-        self.assertEquals("jboolean(True)", str(jboolean(True)))
-        self.assertEquals("jboolean(True)", str(jboolean(42)))
-        self.assertEquals("jboolean(True)", str(jboolean("hello")))
-        self.assertEquals("jboolean(False)", str(jboolean("")))
-        self.assertEquals("jboolean(False)", str(jboolean([])))
+        self.assertEqual("jboolean(True)", str(jboolean(True)))
+        self.assertEqual("jboolean(True)", str(jboolean(42)))
+        self.assertEqual("jboolean(True)", str(jboolean("hello")))
+        self.assertEqual("jboolean(False)", str(jboolean("")))
+        self.assertEqual("jboolean(False)", str(jboolean([])))
 
     def test_int(self):
         self.verify_int(jbyte, 8)
@@ -59,20 +59,20 @@ class TestSignatures(FilterWarningsCase):
         min_val = -max_val - 1
 
         for val in [min_val, max_val]:
-            self.assertEquals("{}({})".format(cls.__name__, val),
-                              str(cls(val)))
+            self.assertEqual("{}({})".format(cls.__name__, val),
+                             str(cls(val)))
 
         for val in [min_val - 1, max_val + 1]:
-            with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
+            with self.assertRaisesRegex(OverflowError, "too (big|large)"):
                 cls(val)
-            self.assertEquals("{}({})".format(cls.__name__, truncate(val, bits)),
-                              str(cls(val, truncate=True)))
+            self.assertEqual("{}({})".format(cls.__name__, truncate(val, bits)),
+                             str(cls(val, truncate=True)))
 
-        with self.assertRaisesRegexp(TypeError, "an integer is required"):
+        with self.assertRaisesRegex(TypeError, "an integer is required"):
             cls("42")
-        with self.assertRaisesRegexp(TypeError, "an integer is required"):
+        with self.assertRaisesRegex(TypeError, "an integer is required"):
             cls(42.0)
-        with self.assertRaisesRegexp(TypeError, "an integer is required"):
+        with self.assertRaisesRegex(TypeError, "an integer is required"):
             cls(True)
 
     def test_float(self):
@@ -85,33 +85,33 @@ class TestSignatures(FilterWarningsCase):
         min_val = -max_val
 
         for val in [42, 42.0, min_val, max_val, float("inf"), float("-inf"), float("nan")]:
-            self.assertEquals("{}({})".format(cls.__name__, float(val)), str(cls(val)))
+            self.assertEqual("{}({})".format(cls.__name__, float(val)), str(cls(val)))
 
         if exponent_bits < 11:
             for val in [2.0 ** (max_exponent + 1),
                         -2.0 ** (max_exponent + 1)]:
-                with self.assertRaisesRegexp(OverflowError, "too (big|large)"):
+                with self.assertRaisesRegex(OverflowError, "too (big|large)"):
                     cls(val)
-                self.assertEquals("{}({})".format(cls.__name__,
-                                                  math.copysign(1, val) * float("inf")),
-                                  str(cls(val, truncate=True)))
+                self.assertEqual("{}({})".format(cls.__name__,
+                                                 math.copysign(1, val) * float("inf")),
+                                 str(cls(val, truncate=True)))
 
-        with self.assertRaisesRegexp(TypeError, "a float or integer is required"):
+        with self.assertRaisesRegex(TypeError, "a float or integer is required"):
             cls("42")
-        with self.assertRaisesRegexp(TypeError, "a float or integer is required"):
+        with self.assertRaisesRegex(TypeError, "a float or integer is required"):
             cls(True)
 
     def test_char(self):
-        self.assertEquals("jchar('x')", str(jchar("x")))
+        self.assertEqual("jchar('x')", str(jchar("x")))
 
         zhong_j = jchar("中")
         zhong_j_u = "jchar('中')"
         self.assertEqual(zhong_j_u, str(zhong_j))
 
-        with self.assertRaisesRegexp((TypeError, ValueError),
-                                     r"(expected a character|only single character).*length 2"):
+        with self.assertRaisesRegex((TypeError, ValueError),
+                                    r"(expected a character|only single character).*length 2"):
             jchar("ab")
-        with self.assertRaisesRegexp(TypeError, "non-BMP"):
+        with self.assertRaisesRegex(TypeError, "non-BMP"):
             jchar("\U00010000")
 
     def test_array(self):

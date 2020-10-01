@@ -13,8 +13,8 @@ class TestConversion(FilterWarningsCase):
     def setUp(self):
         super().setUp()
         self.obj = jclass('com.chaquo.python.TestBasics')()
-        self.conv_error = self.assertRaisesRegexp(TypeError, "Cannot convert")
-        self.too_big = self.assertRaisesRegexp(OverflowError, "too (big|large)")
+        self.conv_error = self.assertRaisesRegex(TypeError, "Cannot convert")
+        self.too_big = self.assertRaisesRegex(OverflowError, "too (big|large)")
 
     def conv_error_unless(self, flag):
         return None if flag else self.conv_error
@@ -141,12 +141,12 @@ class TestConversion(FilterWarningsCase):
         self.verify_value(obj, name, None, context=self.conv_error_unless(allow_null))
         self.verify_value(obj, name, "ab",
                           context=(None if allow_string else
-                                   self.assertRaisesRegexp((TypeError, ValueError),
-                                                           r"(expected a character|"
-                                                           r"only single character).*length 2")))
+                                   self.assertRaisesRegex((TypeError, ValueError),
+                                                          r"(expected a character|"
+                                                          r"only single character).*length 2")))
         self.verify_value(obj, name, "\U00010000",
                           context=(None if allow_string else
-                                   self.assertRaisesRegexp(TypeError, "non-BMP")))
+                                   self.assertRaisesRegex(TypeError, "non-BMP")))
 
         self.verify_array(obj, name, min_val, max_val)
 

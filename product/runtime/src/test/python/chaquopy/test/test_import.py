@@ -7,10 +7,10 @@ from .test_utils import FilterWarningsCase
 class TestImport(FilterWarningsCase):
 
     def no_module_error(self, module):
-        return self.assertRaisesRegexp(ImportError, r"^No module named '{}'".format(module))
+        return self.assertRaisesRegex(ImportError, r"^No module named '{}'".format(module))
 
     def no_name_error(self, name):
-        return self.assertRaisesRegexp(ImportError, r"^cannot import name '{}'".format(name))
+        return self.assertRaisesRegex(ImportError, r"^cannot import name '{}'".format(name))
 
     def test_enable(self):
         # Should be enabled by default
@@ -65,7 +65,7 @@ class TestImport(FilterWarningsCase):
             from sys import path, Nonexistent  # noqa: F401, F811
 
         # These test files are also used in test_android.py.
-        with self.assertRaisesRegexp(SyntaxError, "invalid syntax"):
+        with self.assertRaisesRegex(SyntaxError, "invalid syntax"):
             from package1 import syntax_error  # noqa: F401
         with self.no_name_error("nonexistent"):
             from package1 import recursive_import_error  # noqa: F401

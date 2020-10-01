@@ -184,11 +184,11 @@ class TestAndroidImport(AndroidTestCase):
         import murmurhash.about
         loader = murmurhash.about.__loader__
         zip_name = REQS_COMMON_ZIP
-        with self.assertRaisesRegexp(ValueError,
-                                     r"AssetFinder\('{}'\) can't access '/invalid.py'"
-                                     .format(asset_path(zip_name, "murmurhash"))):
+        with self.assertRaisesRegex(ValueError,
+                                    r"AssetFinder\('{}'\) can't access '/invalid.py'"
+                                    .format(asset_path(zip_name, "murmurhash"))):
             loader.get_data("/invalid.py")
-        with self.assertRaisesRegexp(FileNotFoundError, "invalid.py"):
+        with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
             loader.get_data(asset_path(zip_name, "invalid.py"))
 
     def check_data(self, zip_name, package, filename, start):
@@ -226,7 +226,7 @@ class TestAndroidImport(AndroidTestCase):
         original_mtime = os.stat(cache_filename).st_mtime
         os.utime(cache_filename, None)
         with self.set_mode(cache_filename, "444"):
-            with self.assertRaisesRegexp(OSError, "Permission denied"):
+            with self.assertRaisesRegex(OSError, "Permission denied"):
                 self.clean_reload(mod)
         self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
@@ -303,7 +303,7 @@ class TestAndroidImport(AndroidTestCase):
         try:
             from package1 import syntax_error  # noqa
         except SyntaxError:
-            self.assertRegexpMatches(
+            self.assertRegex(
                 format_exc(),
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/syntax_error.py", line 1\n'
@@ -317,7 +317,7 @@ class TestAndroidImport(AndroidTestCase):
         try:
             from package1 import recursive_import_error  # noqa
         except ImportError:
-            self.assertRegexpMatches(
+            self.assertRegex(
                 format_exc(),
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/recursive_import_error.py", '
@@ -331,7 +331,7 @@ class TestAndroidImport(AndroidTestCase):
         try:
             from package1 import recursive_other_error  # noqa
         except ValueError:
-            self.assertRegexpMatches(
+            self.assertRegex(
                 format_exc(),
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/recursive_other_error.py", '
@@ -353,7 +353,7 @@ class TestAndroidImport(AndroidTestCase):
             del murmurhash.__file__
             murmurhash.get_include()
         except NameError:
-            self.assertRegexpMatches(
+            self.assertRegex(
                 format_exc(),
                 test_frame +
                 fr'  File "{asset_path(REQS_COMMON_ZIP)}/murmurhash/__init__.py", '
@@ -370,7 +370,7 @@ class TestAndroidImport(AndroidTestCase):
             import json
             json.loads("hello")
         except json.JSONDecodeError:
-            self.assertRegexpMatches(
+            self.assertRegex(
                 format_exc(),
                 test_frame +
                 r'  File "stdlib/json/__init__.py", line \d+, in loads\n'
@@ -381,7 +381,7 @@ class TestAndroidImport(AndroidTestCase):
             self.fail()
 
     def test_imp(self):
-        with self.assertRaisesRegexp(ImportError, "No module named 'nonexistent'"):
+        with self.assertRaisesRegex(ImportError, "No module named 'nonexistent'"):
             imp.find_module("nonexistent")
 
         # See comment about torchvision below.
@@ -461,8 +461,8 @@ class TestAndroidImport(AndroidTestCase):
                 del sys.modules[name]
 
         # Renames in stdlib are not currently supported.
-        with self.assertRaisesRegexp(ImportError, "ChaquopyZipImporter does not support "
-                                     "loading module 'json' under a different name 'jason'"):
+        with self.assertRaisesRegex(ImportError, "ChaquopyZipImporter does not support "
+                                    "loading module 'json' under a different name 'jason'"):
             imp.load_module("jason", *imp.find_module("json"))
 
         def check_top_level(real_name, load_name, id):
@@ -865,7 +865,7 @@ class TestAndroidStdlib(AndroidTestCase):
         # Requires sys.executable to exist.
         import platform
         p = platform.platform()
-        self.assertRegexpMatches(p, r"^Linux")
+        self.assertRegex(p, r"^Linux")
 
     def test_select(self):
         import select
@@ -887,7 +887,7 @@ class TestAndroidStdlib(AndroidTestCase):
         from urllib.request import urlopen
         resp = urlopen("https://chaquo.com/chaquopy/")
         self.assertEqual(200, resp.getcode())
-        self.assertRegexpMatches(resp.info()["Content-type"], r"^text/html")
+        self.assertRegex(resp.info()["Content-type"], r"^text/html")
 
     def test_subprocess(self):
         # An executable on the PATH.

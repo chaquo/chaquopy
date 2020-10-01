@@ -12,24 +12,24 @@ class TestException(FilterWarningsCase):
 
     def test_constructor(self):
         from java.lang import RuntimeException
-        with self.assertRaisesRegexp(RuntimeException,
-                                     r"^hello constructor" + trace_line("<init>")):
+        with self.assertRaisesRegex(RuntimeException,
+                                    r"^hello constructor" + trace_line("<init>")):
             self.TE(True)
 
     def test_simple(self):
         from java.lang import RuntimeException
-        with self.assertRaisesRegexp(RuntimeException,
-                                     r"^hello method\s*\n" + trace_line("simple")):
+        with self.assertRaisesRegex(RuntimeException,
+                                    r"^hello method\s*\n" + trace_line("simple")):
             self.TE.simple(0)
 
-        with self.assertRaisesRegexp(RuntimeException,
-                                     (r"^hello method\s*\n" + trace_line("simple") +
-                                      trace_line("simple"))):
+        with self.assertRaisesRegex(RuntimeException,
+                                    (r"^hello method\s*\n" + trace_line("simple") +
+                                     trace_line("simple"))):
             self.TE.simple(1)
 
     def test_chained(self):
         from java.lang import RuntimeException
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
                 RuntimeException,
                 re.compile(r"^2\s*\n" +
                            trace_line("chain2") +

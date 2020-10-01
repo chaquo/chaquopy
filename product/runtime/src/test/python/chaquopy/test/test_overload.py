@@ -8,9 +8,9 @@ class TestOverload(FilterWarningsCase):
 
     def setUp(self):
         super().setUp()
-        self.ambiguous = self.assertRaisesRegexp(TypeError, "ambiguous")
-        self.inapplicable = self.assertRaisesRegexp(TypeError, "cannot be applied")
-        self.too_big = self.assertRaisesRegexp(OverflowError, "too (big|large)")
+        self.ambiguous = self.assertRaisesRegex(TypeError, "ambiguous")
+        self.inapplicable = self.assertRaisesRegex(TypeError, "cannot be applied")
+        self.too_big = self.assertRaisesRegex(OverflowError, "too (big|large)")
 
     def test_constructors(self):
         String = jclass('java.lang.String')
@@ -69,14 +69,14 @@ class TestOverload(FilterWarningsCase):
         i = Integer(42)
         ts = r"^com.chaquo.python.TestOverload\$MixedStaticInstance@"
 
-        self.assertRegexpMatches(m.toString(), ts)
+        self.assertRegex(m.toString(), ts)
         self.assertEqual(m.toString(i), "Integer")
 
         with self.inapplicable:
             MSI.toString()
         self.assertEqual(MSI.toString(i), "Integer")
 
-        self.assertRegexpMatches(MSI.toString(m), ts)
+        self.assertRegex(MSI.toString(m), ts)
         with self.inapplicable:
             MSI.toString(m, i)
 
@@ -250,8 +250,8 @@ class TestOverload(FilterWarningsCase):
         self.assertEqual("char x", obj.resolve_C_Character("x"))
         self.assertEqual("char x", obj.resolve_C_Character(jchar("x")))
         self.assertEqual("Character x", obj.resolve_C_Character(Character("x")))
-        with self.assertRaisesRegexp((TypeError, ValueError),
-                                     r"(expected a character|only single character).*length 2"):
+        with self.assertRaisesRegex((TypeError, ValueError),
+                                    r"(expected a character|only single character).*length 2"):
             obj.resolve_C_Character("xy")
 
         self.assertEqual("String x", obj.resolve_C_String("x"))
