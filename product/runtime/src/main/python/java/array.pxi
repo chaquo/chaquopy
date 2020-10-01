@@ -117,21 +117,17 @@ cdef class JavaArray:
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            if not (0 <= key < self.length):
-                raise IndexError(str(key))
-            return array_get(self, key)
+            return array_get(self, self._int_key(key))
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
             # return [self[i] for i in range(key.indices(self.length))]
         else:
-            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
+            self._invalid_key(key)
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
-            if not (0 <= key < self.length):
-                raise IndexError(str(key))
-            array_set(self, key, value)
+            array_set(self, self._int_key(key), value)
         elif isinstance(key, slice):
             # TODO #5192 disabled until tested
             raise TypeError("jarray does not support slice syntax")
@@ -142,7 +138,19 @@ cdef class JavaArray:
             # for i, v in zip(indices, value):
             #     self[i] = v
         else:
-            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
+            self._invalid_key(key)
+
+    def _int_key(self, key):
+        if key < 0:
+            key = len(self) + key
+        if not (0 <= key < self.length):
+            # Same wording as the built-in list type.
+            raise IndexError("array index out of range")
+        return key
+
+    def _invalid_key(self, key):
+        # Same wording as the built-in list type.
+        raise TypeError(f"array indices must be integers or slices, not {type(key).__name__}")
 
     def __eq__(self, other):
         try:

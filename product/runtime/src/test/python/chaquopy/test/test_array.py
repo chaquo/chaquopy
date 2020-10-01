@@ -8,6 +8,10 @@ from .test_utils import FilterWarningsCase
 
 class TestArray(FilterWarningsCase):
 
+    def setUp(self):
+        super().setUp()
+        self.index_error = self.assertRaisesRegex(IndexError, "array index out of range")
+
     def test_basic(self):
         array_C = jarray(jchar)("hello")
         self.assertEqual(5, len(array_C))
@@ -134,6 +138,51 @@ class TestArray(FilterWarningsCase):
                   [7, 8, 9]]
         self.assertEquals(Arrays.methodParamsMatrixI(matrix), True)
         self.assertEquals(Arrays.methodReturnMatrixI(), matrix)
+
+    def test_get_int(self):
+        a = jarray(jint)([2, 3, 5, 7, 11])
+
+        self.assertEqual(2, a[0])
+        self.assertEqual(3, a[1])
+        self.assertEqual(11, a[4])
+        with self.index_error:
+            a[5]
+        with self.index_error:
+            jarray(jint)([])[0]
+
+        self.assertEqual(11, a[-1])
+        self.assertEqual(7, a[-2])
+        self.assertEqual(2, a[-5])
+        with self.index_error:
+            a[-6]
+
+    def test_set_int(self):
+        a = jarray(jint)([2, 3, 5, 7, 11])
+
+        a[0] = 0
+        a[1] = 10
+        a[4] = 40
+        self.assertEqual([0, 10, 5, 7, 40], a)
+        with self.index_error:
+            a[5] = 50
+        with self.index_error:
+            jarray(jint)([])[0] = 99
+
+        a[-1] = -10
+        a[-2] = -20
+        a[-5] = -50
+        self.assertEqual([-50, 10, 5, -20, -10], a)
+        with self.index_error:
+            a[-6] = -60
+
+    def test_invalid_index(self):
+        a = jarray(jint)([2, 3, 5, 7, 11])
+        index_type_error = \
+            self.assertRaisesRegex(TypeError, "array indices must be integers or slices, not str")
+        with index_type_error:
+            a["hello"]
+        with index_type_error:
+            a["hello"] = 4
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_modify(self):
