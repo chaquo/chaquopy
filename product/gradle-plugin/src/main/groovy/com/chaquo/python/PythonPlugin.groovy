@@ -395,7 +395,7 @@ class PythonPlugin implements Plugin<Project> {
 
     // We can't remove the .py files here because the static proxy generator needs them.
     // Instead, they'll be excluded when we call makeZip.
-    void compilePyc(python, String tag, File dir) {
+    void compilePyc(PythonExtension python, String tag, File dir) {
         Boolean setting = python.pyc[tag]
         if (setting == null || setting) {
             try {
@@ -411,12 +411,10 @@ class PythonPlugin implements Plugin<Project> {
                 if (setting) {
                     throw e
                 } else {
-                    if (e instanceof BuildPythonInvalidException) {
-                        println("Warning: " + e.message)
-                    }
-                    println("Warning: Can't compile '$tag' files to .pyc format. This will " +
-                            "cause the app to start up slower and use more storage space. See " +
-                            "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
+                    // Messages should be formatted the same as those from chaquopy.pyc.
+                    println(
+                        "Warning: Failed to compile to .pyc format: ${e.shortMessage}. See " +
+                        "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
                 }
             }
         }
@@ -448,11 +446,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     void execBuildPython(PythonExtension python, Closure closure) {
-        final def ADVICE = "set buildPython to your Python executable path. See " +
-                           "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
         if (python.buildPython == null) {
-            throw new BuildPythonInvalidException(
-                "Couldn't find Python: please either install it, or " + ADVICE)
+            throw new BuildPythonMissingException("Couldn't find Python")
         }
 
         ExecResult execResult = null
@@ -467,33 +462,19 @@ class PythonPlugin implements Plugin<Project> {
                 closure()
             }
         } catch (ExecException e) {
-            // Message will be something like "A problem occurred starting process 'command
-            // 'python''".
-            throw new BuildPythonInvalidException("${e.message}. Please " + ADVICE)
+            throw new BuildPythonInvalidException(e.message)
         }
         if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
             // Before Python 3.6, stderr from the `py` command was lost
             // (https://bugs.python.org/issue25789). This is the only likely error.
-            throw new BuildPythonInvalidException(
-                "'$python.buildPython': could not find the requested " +
-                "version of Python. Please either install it, or " + ADVICE);
+            throw new BuildPythonMissingException(
+                "'$python.buildPython': couldn't find the requested version of Python")
         }
 
         try {
             execResult.assertNormalExitValue()
         } catch (ExecException e) {
-            // By default the Build window displays only the exception message, which will be
-            // something like "Process 'command 'python'' finished with non-zero exit value 1".
-            // So we need to tell the user how to see the command output.
-            throw new BuildPythonFailedException(
-                "${e.message}\n\n" +
-                "To view full details in Android Studio:\n" +
-                "* In version 3.6 and newer, click the 'Build: failed' caption to the left " +
-                "of this message.\n" +
-                "* In version 3.5 and older, click the 'Toggle view' button to the left of " +
-                "this message.\n" +
-                "* Then scroll up to see the full output."
-            )
+            throw new BuildPythonFailedException(e.message)
         }
     }
 
@@ -958,13 +939,41 @@ class BaseExtension implements Serializable {
 
 
 class BuildPythonException extends GradleException {
-    BuildPythonException(String message) { super(message) }
+    static final String ADVICE = (
+        "set buildPython to your Python executable path. See " +
+        "https://chaquo.com/chaquopy/doc/current/android.html#buildpython.")
+    String shortMessage
+
+    BuildPythonException(String shortMessage, String suffix) {
+        super(shortMessage + suffix)
+        this.shortMessage = shortMessage
+    }
 }
 
+// Message will be something like "Couldn't find Python".
+class BuildPythonMissingException extends BuildPythonException {
+    BuildPythonMissingException(String message) {
+        super(message, ". Please either install it, or " + ADVICE)
+    }
+}
+
+// Message will be something like "Process 'command 'py'' finished with non-zero exit value 1",
+// so we need to tell the user how to see the command output.
 class BuildPythonFailedException extends BuildPythonException {
-    BuildPythonFailedException(String message) { super(message) }
+    BuildPythonFailedException(String message) {
+        super(message,
+              "\n\nTo view full details in Android Studio:\n" +
+              "* In version 3.6 and newer, click the 'Build: failed' caption to the left " +
+              "of this message.\n" +
+              "* In version 3.5 and older, click the 'Toggle view' button to the left of " +
+              "this message.\n" +
+              "* Then scroll up to see the full output.")
+    }
 }
 
+// Message will be something like "A problem occurred starting process 'command 'python''".
 class BuildPythonInvalidException extends BuildPythonException {
-    BuildPythonInvalidException(String message) { super(message) }
+    BuildPythonInvalidException(String message) {
+        super(message, ". Please " + ADVICE)
+    }
 }

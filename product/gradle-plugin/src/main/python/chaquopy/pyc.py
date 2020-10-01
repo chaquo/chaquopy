@@ -27,13 +27,17 @@ EXPECTED_MAGIC_NUMBER = (3413).to_bytes(2, 'little') + b'\r\n'
 def main():
     args = parse_args()
     if importlib.util.MAGIC_NUMBER != EXPECTED_MAGIC_NUMBER:
+        # Messages should be formatted the same as those from the Gradle plugin.
+        message = (
+            "Failed to compile to .pyc format: buildPython version {}.{}.{} is incompatible. "
+            "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
+            .format(*sys.version_info[:3]))
         if args.warning:
-            # Causes Android Studio to show the line as a warning in tree view.
-            print("Warning: ", end="")
-        print("buildPython version is {}.{}.{}".format(*sys.version_info[:3]),
-              "with bytecode magic number {}".format(importlib.util.MAGIC_NUMBER.hex()),
-              "(expected number is {})".format(EXPECTED_MAGIC_NUMBER.hex()))
-        sys.exit(1)
+            print("Warning:", message)
+            sys.exit(0)
+        else:
+            print(message)
+            sys.exit(1)
 
     if args.quiet:
         warnings.filterwarnings("ignore", category=SyntaxWarning)

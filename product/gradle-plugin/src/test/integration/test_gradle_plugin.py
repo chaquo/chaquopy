@@ -421,11 +421,9 @@ class ExtractPackages(GradleTestCase):
 
 
 class Pyc(GradleTestCase):
-    MAGIC = (r"buildPython version is 3.5.\d+ with bytecode magic number 170d0d0a "
-             r"\(expected number is 550d0d0a\)")
-    CANT = ("Can't compile '{}' files to .pyc format. This will cause the app to start "
-            "up slower and use more storage space. See "
-            "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
+    FAILED = "Failed to compile to .pyc format: "
+    INCOMPATIBLE = r"buildPython version 3.5.\d+ is incompatible. "
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
 
     def test_change(self):
         kwargs = dict(app=["hello.py"], requirements=["six.py"])
@@ -448,11 +446,13 @@ class Pyc(GradleTestCase):
 
     def test_build_python_warning(self):
         run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
-        self.assertInLong(WARNING + BuildPython.INVALID.format("pythoninvalid") + "\n" +
-                          WARNING + self.CANT.format("src"),
-                          run.stdout, re=True)
-        # pip compilation was enabled, but there were no requirements.
-        self.assertNotInLong(self.CANT.format("pip"), run.stdout)
+        self.assertInLong(WARNING + self.FAILED + BuildPython.PROBLEM.format("pythoninvalid") +
+                          self.SEE, run.stdout, re=True)
+
+        run.apply_layers("Pyc/build_python_warning_suppress")
+        run.rerun(pyc=["stdlib"])
+        self.assertNotInLong(self.FAILED, run.stdout)
+        self.assertNotInLong("pythoninvalid", run.stdout)
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
@@ -460,15 +460,12 @@ class Pyc(GradleTestCase):
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning", requirements=["six.py"], pyc=["stdlib"])
-        self.assertInLong(WARNING + self.MAGIC + "\n" +
-                          WARNING + self.CANT.format("pip"),
+        self.assertInLong(WARNING + self.FAILED + self.INCOMPATIBLE + self.SEE,
                           run.stdout, re=True)
-        # src compilation was disabled.
-        self.assertNotInLong(self.CANT.format("src"), run.stdout)
 
     def test_magic_error(self):
         run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
-        self.assertInLong(self.MAGIC, run.stdout, re=True)
+        self.assertInLong(self.FAILED + self.INCOMPATIBLE + self.SEE, run.stdout, re=True)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
 
@@ -477,7 +474,9 @@ class BuildPython(GradleTestCase):
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
     MUST = r"buildPython must be version 3.5 or later: this is version {}.\d+. " + SEE
     ADVICE = "set buildPython to your Python executable path. " + SEE
-    INVALID = "A problem occurred starting process 'command '{}''. Please " + ADVICE
+    PROBLEM = "A problem occurred starting process 'command '{}''. "
+    INVALID = PROBLEM + "Please " + ADVICE
+    INSTALL = "Please either install it, or " + ADVICE
     FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1\n\n"
               r"To view full details in Android Studio:\n"
               r"\* In version 3.6 and newer, click the 'Build: failed' caption to the left of "
@@ -500,8 +499,7 @@ class BuildPython(GradleTestCase):
 
     def test_missing(self):
         run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python: please either install it, or " + self.ADVICE,
-                          run.stderr)
+        self.assertInLong("Couldn't find Python. " + self.INSTALL, run.stderr)
 
     def test_missing_minor(self):
         run = self.RunGradle("base", "BuildPython/missing_minor", add_path=["bin"],
@@ -518,8 +516,8 @@ class BuildPython(GradleTestCase):
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):
         run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
-        self.assertInLong("'py -2.8': could not find the requested version of Python. Please "
-                          "either install it, or " + self.ADVICE, run.stderr)
+        self.assertInLong("'py -2.8': couldn't find the requested version of Python. " +
+                          self.INSTALL, run.stderr)
 
     # Test a buildPython which returns success without doing anything (#5631).
     def test_silent_failure(self):
@@ -566,6 +564,12 @@ class PythonReqs(GradleTestCase):
         # Remove all.
         run.apply_layers("base")
         run.rerun()
+
+    # When pip fails, make sure we tell the user how to see the full output.
+    def test_fail(self):
+        run = self.RunGradle("base", "PythonReqs/fail", succeed=False)
+        self.assertInLong("No matching distribution found for chaquopy-nonexistent", run.stderr)
+        self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
     def test_download_wheel(self):
         CHAQUO_URL = r"https://.+/murmurhash-0.28.0-5-cp38-cp38-android_16_x86.whl"
