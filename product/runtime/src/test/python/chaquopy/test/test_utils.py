@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+from time import time
 from unittest import TestCase
 from warnings import catch_warnings, filterwarnings
 
@@ -24,3 +26,10 @@ def assertDir(self, obj, expected):
                       not (s.startswith("__") or s.startswith("_chaquopy") or
                            s in ["<init>",               # Java constructor
                                  "serialVersionUID"])])  # Android adds this to some classes
+
+
+@contextmanager
+def assertTimeLimit(self, limit):
+    start = time()
+    yield
+    self.assertLess(time() - start, limit)

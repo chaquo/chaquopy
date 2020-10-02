@@ -24,7 +24,7 @@ Data types are converted between Python and Java as follows:
 * Java `String` and `char` both correspond to Python `str`.
 
 * A Java array is represented by a :any:`jarray` object. Java array parameters and fields
-  can also be implicitly converted from any Python sequence, except a string.
+  can also be implicitly converted from any sequence, except a string.
 
 * All other Java objects are represented by a :any:`jclass` object.
 
@@ -119,9 +119,9 @@ Aside from attribute access, Java objects also support the following operations:
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#toString()>`_.
 * `==` and `!=` call `equals
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals(java.lang.Object)>`_.
+* `is` is equivalent to Java `==` (i.e. it tests object identity).
 * :any:`hash` calls `hashCode
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
-* `is` is equivalent to Java `==` (i.e. it tests object identity).
 * The equivalent of the Java syntax `ClassName.class` is `ClassName.getClass()`; i.e. the
   `getClass()` method can be called on a class as well as an instance.
 
@@ -137,8 +137,8 @@ Arrays
 `jarray` objects represent Java arrays. They support the standard Python sequence protocol,
 including:
 
-* Getting and setting individual items using `[]` syntax. (Slice syntax is not currently
-  supported.)
+* Getting and setting elements using `[]` syntax. Negative indices and slices are also
+  supported.
 * Getting length using `len`, and testing for emptiness using `bool`.
 * Iteration using `for`, and searching using `in`.
 * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
@@ -149,15 +149,13 @@ of `toString`, `equals` and `hashCode`. However, these default implementations a
 useful, so the equivalent Python operations are defined as follows:
 
 * `str` returns a representation of the array contents.
-* `==` and `!=` can compare the contents of the array with any Python sequence (including
-  another Java array).
+* `==` and `!=` can compare the contents of the array with any sequence.
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
-* `is` is equivalent to Java `==` (i.e. it tests object identity).
 
 Creating arrays
 ...............
 
-Any Python sequence (except a string) can be passed directly to a Java method or field which
+Any sequence (except a string) can be passed directly to a Java method or field which
 takes an array type, so there's usually no need to create `jarray` objects directly.
 
 However, where a method has multiple array-type overloads, you may need to disambiguate the
@@ -206,9 +204,9 @@ will return their in-memory representations::
 And if you convert a Java array to a NumPy array, it will automatically use the correct data
 type::
 
+    >>> a = jarray(jshort)([0, 32767])
     >>> numpy.array(a)
     array([    0, 32767], dtype=int16)
-
 
 Casting
 -------

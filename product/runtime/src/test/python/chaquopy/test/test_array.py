@@ -6,7 +6,76 @@ from java.lang import String
 from .test_utils import FilterWarningsCase
 
 
+# In order for test_set_slice to work, all elements must be different.
+SLICE_DATA = [2, 3, 5, 7, 11]
+
+SLICE_TESTS = [
+    # Basic
+    (slice(0, 1), [2]),
+    (slice(0, 2), [2, 3]),
+    (slice(0, 5), [2, 3, 5, 7, 11]),
+    (slice(1, 2), [3]),
+    (slice(1, 3), [3, 5]),
+
+    (slice(-5, -4), [2]),
+    (slice(-5, -3), [2, 3]),
+    (slice(-5, 5), [2, 3, 5, 7, 11]),
+    (slice(-4, -3), [3]),
+    (slice(-4, -2), [3, 5]),
+
+    # Open-ended
+    (slice(None, None), [2, 3, 5, 7, 11]),
+    (slice(0, None), [2, 3, 5, 7, 11]),
+    (slice(None, 1), [2]),
+    (slice(None, 2), [2, 3]),
+    (slice(1, None), [3, 5, 7, 11]),
+
+    (slice(-5, None), [2, 3, 5, 7, 11]),
+    (slice(None, -4), [2]),
+    (slice(None, -3), [2, 3]),
+    (slice(-4, None), [3, 5, 7, 11]),
+
+    # Truncated
+    (slice(2, 6), [5, 7, 11]),
+    (slice(-6, -2), [2, 3, 5]),
+
+    # Empty
+    (slice(0, 0), []),
+    (slice(1, 1), []),
+    (slice(1, 0), []),
+
+    (slice(-5, -5), []),
+    (slice(-4, -4), []),
+    (slice(-4, -5), []),
+
+    # Non-contiguous
+    (slice(None, None, 2), [2, 5, 11]),
+    (slice(1, None, 2), [3, 7]),
+    (slice(1, 3, 2), [3]),
+    (slice(None, None, 3), [2, 7]),
+    (slice(None, None, 4), [2, 11]),
+    (slice(None, None, 5), [2]),
+
+    (slice(-4, None, 2), [3, 7]),
+    (slice(-4, -2, 2), [3]),
+
+    # Reversed
+    (slice(None, None, -1), [11, 7, 5, 3, 2]),
+    (slice(None, None, -2), [11, 5, 2]),
+    (slice(3, None, -2), [7, 3]),
+    (slice(0, None, -1), [2]),
+    (slice(1, None, -1), [3, 2]),
+    (slice(4, 2, -1), [11, 7]),
+
+    (slice(-2, None, -2), [7, 3]),
+    (slice(-5, None, -1), [2]),
+    (slice(-4, None, -1), [3, 2]),
+    (slice(-1, -3, -1), [11, 7]),
+]
+
+
 class TestArray(FilterWarningsCase):
+    from .test_utils import assertTimeLimit
 
     def setUp(self):
         super().setUp()
@@ -174,6 +243,53 @@ class TestArray(FilterWarningsCase):
         self.assertEqual([-50, 10, 5, -20, -10], a)
         with self.index_error:
             a[-6] = -60
+
+    def test_get_slice(self):
+        a = jarray(jint)(SLICE_DATA)
+        for key, expected in SLICE_TESTS:
+            actual = a[key]
+            self.assertIsInstance(actual, jarray(jint))
+            self.assertEqual(expected, actual)
+
+        # Without optimization, this takes over 5 seconds.
+        a = jarray(jint)(500000)
+        with self.assertTimeLimit(0.5):
+            self.assertIsNot(a[:], a)
+
+    def test_set_slice(self):
+        for key, replaced in SLICE_TESTS:
+            with self.subTest(key=key, replaced=replaced):
+                a = jarray(jint)(SLICE_DATA)
+                expected = [99 if x in replaced else x
+                            for x in a]
+                a[key] = [99] * len(replaced)
+                self.assertEqual(expected, a)
+
+        # Length mismatch
+        a = jarray(jint)(SLICE_DATA)
+        for value in [[], [99, 99]]:
+            with self.subTest(value=value), \
+                 self.assertRaisesRegex(ValueError, f"can't set slice of length 1 from value "
+                                        f"of length {len(value)}"):
+                a[0:1] = value
+
+        # Arrays of different types.
+        a = jarray(jint)(SLICE_DATA)
+        with self.assertRaisesRegex(TypeError, "Cannot convert float object to int"):
+            a[:2] = jarray(jfloat)([99, 99])
+
+        a = jarray(jfloat)(SLICE_DATA)
+        a[:2] = jarray(jint)([99, 99])
+        self.assertEqual([99, 99, 5, 7, 11], a)
+
+        # Without optimization, this takes over 200 seconds. The test_get_slice equivalent is
+        # probably faster because Cython compiles the __getitem__ loop into native code, so
+        # leave the array size unchanged in case a future Cython version extends this to more
+        # situations.
+        a = jarray(jint)(500000)
+        b = jarray(jint)(500000)
+        with self.assertTimeLimit(0.5):
+            a[:] = b
 
     def test_invalid_index(self):
         a = jarray(jint)([2, 3, 5, 7, 11])

@@ -6,6 +6,9 @@ from cpython.buffer cimport (PyBUF_FORMAT, PyBUF_ANY_CONTIGUOUS, PyBUF_ND, PyBuf
                              PyBuffer_Release, PyObject_CheckBuffer, PyObject_GetBuffer)
 from libc.string cimport memcpy, memset
 
+global_class("java.lang.System")
+global_class("java.util.Arrays")
+
 
 # Map each Java array type to a list of buffer format codes it accepts, and an itemsize. The
 # first format in the list is the one we will produce in Java-to-Python conversions.
@@ -116,27 +119,37 @@ cdef class JavaArray:
         return self.length
 
     def __getitem__(self, key):
+        global Arrays
         if isinstance(key, int):
             return array_get(self, self._int_key(key))
         elif isinstance(key, slice):
-            # TODO #5192 disabled until tested
-            raise TypeError("jarray does not support slice syntax")
-            # return [self[i] for i in range(key.indices(self.length))]
+            r = range(*key.indices(self.length))
+            if r.step == 1:
+                return Arrays.copyOfRange(self, r.start, max(r.start, r.stop))
+            else:
+                return type(self)([array_get(self, i) for i in r])
         else:
             self._invalid_key(key)
 
     def __setitem__(self, key, value):
+        global System
         if isinstance(key, int):
             array_set(self, self._int_key(key), value)
         elif isinstance(key, slice):
-            # TODO #5192 disabled until tested
-            raise TypeError("jarray does not support slice syntax")
-            # indices = range(key.indices(self.length))
-            # if len(indices) != len(value):
-            #     raise IndexError(f"Can't set slice of length {len(indices)} "
-            #                      f"from value of length {len(value)}")
-            # for i, v in zip(indices, value):
-            #     self[i] = v
+            r = range(*key.indices(self.length))
+            if len(r) != len(value):
+                raise ValueError(
+                    f"can't set slice of length {len(r)} from value of length {len(value)}")
+            if r.step == 1:
+                # It's not enough just to test whether `value` is an array, because `arraycopy`
+                # can't copy between primitive array types even where the elements could have
+                # been assigned one at a time, such as int[] to float[].
+                if not isinstance(value, type(self)):
+                    value = type(self)(value)
+                System.arraycopy(value, 0, self, r.start, len(value))
+            else:
+                for i, v in zip(r, value):
+                    array_set(self, i, v)
         else:
             self._invalid_key(key)
 
