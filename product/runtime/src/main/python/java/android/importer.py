@@ -4,7 +4,7 @@ import _imp
 from calendar import timegm
 import ctypes
 import imp
-from importlib import _bootstrap, machinery, metadata, util
+from importlib import _bootstrap, _bootstrap_external, machinery, metadata, util
 from inspect import getmodulename
 import io
 import os.path
@@ -19,7 +19,7 @@ import sys
 import time
 from threading import RLock
 from zipfile import ZipFile, ZipInfo
-import zipimport
+from zipimport import zipimporter
 
 import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
@@ -49,7 +49,7 @@ def initialize_importlib(context, build_json, app_path):
     def hook(path):
         return AssetFinder(context, build_json, path)
     sys.path_hooks.insert(0, hook)
-    sys.path_hooks[sys.path_hooks.index(zipimport.zipimporter)] = ChaquopyZipImporter
+    sys.path_hooks[sys.path_hooks.index(zipimporter)] = ChaquopyZipImporter
     sys.path_importer_cache.clear()
 
     sys.path = [p for p in sys.path if exists(p)]  # Remove nonexistent default paths
@@ -205,9 +205,7 @@ def load_module_override(load_name, file, pathname, description):
 # larger and much less likely to be useful. If the user installs setuptools via pip, then that
 # copy of pkg_resources will take priority because the requirements ZIP is earlier on sys.path.
 #
-# pkg_resources is quite large, so it shouldn't be imported until the app needs it. This
-# function will be be called from AssetLoader if the app contains setuptools, or
-# ChaquopyZipImporter if it doesn't.
+# pkg_resources is quite large, so this function shouldn't be called until the app needs it.
 def initialize_pkg_resources():
     import pkg_resources
 
@@ -236,19 +234,23 @@ def initialize_pkg_resources():
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
+# Patch zipimporter to provide the new loader API, which is required by dateparser
+# (https://stackoverflow.com/questions/63574951). Once the standard zipimporter implements the
+# new API, this should be removed.
+for name in ["create_module", "exec_module"]:
+    assert not hasattr(zipimporter, name), name
+    setattr(zipimporter, name, getattr(_bootstrap_external._LoaderBasics, name))
+
 # For consistency with modules which have already been imported by the default zipimporter, we
 # retain the following default behaviours:
 #   * __file__ will end with ".pyc", not ".py"
 #   * co_filename will be taken from the .pycs in the ZIP, which means it'll start with
 #    "stdlib/" or "bootstrap/".
-class ChaquopyZipImporter(zipimport.zipimporter):
+class ChaquopyZipImporter(zipimporter):
 
-    # See also AssetLoader.exec_module.
-    def load_module(self, mod_name):
-        mod = super().load_module(mod_name)
-        if mod_name == "pkg_resources":
-            initialize_pkg_resources()
-        return mod
+    def exec_module(self, mod):
+        super().exec_module(mod)
+        exec_module_trigger(mod)
 
     def __repr__(self):
         return f'<{type(self).__name__} object "{join(self.archive, self.prefix)}">'
@@ -544,13 +546,9 @@ class AssetLoader:
                 return f.read()
         return self.finder.get_data(self.finder.zip_path(path))
 
-    # See also ChaquopyZipImporter.load_module.
     def exec_module(self, mod):
         super().exec_module(mod)
-        if mod.__name__ == "pkg_resources":
-            initialize_pkg_resources()
-        elif mod.__name__ == "numpy":
-            java.chaquopy.numpy = mod  # See conversion.pxi.
+        exec_module_trigger(mod)
 
     def get_resource_reader(self, mod_name):
         return self if self.is_package(mod_name) else None
@@ -577,6 +575,13 @@ class AssetLoader:
 
     def res_abs_path(self, name):
         return join(dirname(self.path), name)
+
+
+def exec_module_trigger(mod):
+    if mod.__name__ == "pkg_resources":
+        initialize_pkg_resources()
+    elif mod.__name__ == "numpy":
+        java.chaquopy.numpy = mod  # See conversion.pxi.
 
 
 # The SourceFileLoader base class will automatically create and use _pycache__ directories.

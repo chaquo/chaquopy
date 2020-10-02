@@ -5,6 +5,7 @@ and should not be accessed or relied upon by user code.
 from contextlib import contextmanager
 import imp
 from importlib import import_module, metadata, reload, resources
+import importlib.util
 from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
@@ -508,6 +509,23 @@ class TestAndroidImport(AndroidTestCase):
         # ... import`. This seems to contradict the documentation of __import__, but it's not
         # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
+
+    # Make sure the standard library importer implements the new loader API
+    # (https://stackoverflow.com/questions/63574951).
+    def test_zipimport(self):
+        for mod_name in ["zipfile",  # Imported during bootstrap
+                         "wave"]:    # Imported after bootstrap
+            with self.subTest(mod_name=mod_name):
+                old_mod = import_module(mod_name)
+                spec = importlib.util.find_spec(mod_name)
+                new_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(new_mod)
+
+                self.assertIsNot(new_mod, old_mod)
+                for attr_name in ["__name__", "__file__"]:
+                    with self.subTest(attr_name=attr_name):
+                        self.assertEqual(getattr(new_mod, attr_name),
+                                         getattr(old_mod, attr_name))
 
     # See src/test/python/test.pth.
     def test_pth(self):
