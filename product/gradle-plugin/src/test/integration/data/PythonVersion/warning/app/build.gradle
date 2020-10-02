@@ -11,7 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "3.8.3"
+            version "3.8.6"
         }
         ndk {
             abiFilters "x86"

@@ -10,7 +10,7 @@ public class Common {
     // For Build.SUPPORTED_ABIS.
     public static final int COMPILE_SDK_VERSION = 21;
 
-    public static final String PYTHON_VERSION = "3.8.3";
+    public static final String PYTHON_VERSION = "3.8.6";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
     public static final String PYTHON_VERSION_MAJOR =
