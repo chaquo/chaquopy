@@ -13,6 +13,7 @@ check_build_python()
 import argparse
 from collections import namedtuple
 import email.parser
+from fnmatch import fnmatch
 from glob import glob
 import hashlib
 import logging.config
@@ -36,6 +37,14 @@ ABI_API_LEVELS = {
     "x86": 16,
     "x86_64": 21,
 }
+
+# Files which aren't needed at runtime should be omitted from the APK.
+EXCLUDE_PATTERNS = [
+    "chaquopy/include/*",
+    "chaquopy/lib/*.la",
+    "chaquopy/lib/cmake/*",
+    "chaquopy/lib/pkgconfig/*",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -122,13 +131,6 @@ class PipInstall(object):
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
-        # Except for `lib`, the contents of the `chaquopy` directory aren't needed at runtime.
-        chaquopy_dir = join(abi_dir, "chaquopy")
-        if exists(chaquopy_dir):
-            for name in os.listdir(chaquopy_dir):
-                if name != "lib":
-                    remove(join(chaquopy_dir, name))
-
         logger.debug("Reading dist-info")
         req_infos = []
         abi_tree = {}
@@ -143,9 +145,11 @@ class PipInstall(object):
                     if not path_abs.startswith(abi_dir):
                         # pip's gone and installed something outside of the target directory.
                         raise ValueError("invalid path in RECORD: '{}'".format(path))
-                    if path.startswith("chaquopy/") and not path.startswith("chaquopy/lib/"):
-                        continue  # See chaquopy_dir above.
-                    if not path_abs.startswith(dist_info_dir):
+                    if any(fnmatch(path, pattern) for pattern in EXCLUDE_PATTERNS):
+                        remove(path_abs, remove_empty_dirs=True)
+                    elif path_abs.startswith(dist_info_dir):
+                        pass
+                    else:
                         value = (hash_str, int(size_str))
                         try:
                             tree_add_path(abi_tree, path, value)
@@ -180,11 +184,7 @@ class PipInstall(object):
             self.move_to_common(self.android_abis[0], path)
             for abi in self.android_abis[1:]:
                 abi_path = join(self.target, abi, path)
-                remove(abi_path)
-                try:
-                    os.removedirs(dirname(abi_path))
-                except OSError:
-                    pass  # Directory is not empty.
+                remove(abi_path, remove_empty_dirs=True)
 
         # If an ABI directory ended up empty, os.removedirs or os.renames will have deleted it.
         for abi in self.android_abis:
@@ -283,8 +283,13 @@ def file_matches_record(filename, hash_str, size):
 
 
 # Remove either a file or a directory.
-def remove(path):
+def remove(path, remove_empty_dirs=False):
     (rmtree if isdir(path) else os.remove)(path)
+    if remove_empty_dirs:
+        try:
+            os.removedirs(dirname(path))
+        except OSError:
+            pass  # Directory is not empty.
 
 
 # Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as

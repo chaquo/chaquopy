@@ -871,10 +871,13 @@ class PythonReqs(GradleTestCase):
                                      "pkg2/pkg21/a.py", "pkg2/pkg21/b.py",
                                      "pkg3/pkg31/a.py", "pkg3/pkg31/b.py"])
 
-    # Except for `lib`, the `chaquopy` directory should be omitted from the APK.
+    # Files which aren't needed at runtime should be omitted from the APK.
     def test_chaquopy_dir(self):
         self.RunGradle("base", "PythonReqs/chaquopy_dir",
-                       requirements=["chaquopy/lib/lib_file.txt"])
+                       requirements=["chaquopy/chaquopy_file.txt",
+                                     "chaquopy/bin/bin_file.txt",
+                                     "chaquopy/lib/lib_file.txt",
+                                     "chaquopy/lib/subdir/lib_subdir_file.txt"])
 
     # See comment in pip_install.py. The file naming scheme is "d" for different and "i" for
     # identical content, where the things being compared are:
