@@ -153,9 +153,9 @@ cdef class JavaArray:
         else:
             self._invalid_key(key)
 
-    def _int_key(self, key):
+    cdef int _int_key(self, int key) except -1:
         if key < 0:
-            key = len(self) + key
+            key = self.length + key
         if not (0 <= key < self.length):
             # Same wording as the built-in list type.
             raise IndexError("array index out of range")
