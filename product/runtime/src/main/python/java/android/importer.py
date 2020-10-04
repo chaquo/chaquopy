@@ -413,9 +413,6 @@ class AssetFinder:
                 if tag.entry.d_tag != "DT_NEEDED":
                     continue
                 soname = tag.needed
-                if soname in self.needed_loaded:
-                    continue
-
                 try:
                     needed_filename = self.extract_if_changed(f"chaquopy/lib/{soname}")
                 except FileNotFoundError:
@@ -432,8 +429,9 @@ class AssetFinder:
                 #
                 # It doesn't look like the library is closed when the CDLL object is garbage
                 # collected, but this isn't documented, so keep a reference for safety.
-                self.needed_loaded[soname] = ctypes.CDLL(self.prepare_dlopen(needed_filename),
-                                                         ctypes.RTLD_GLOBAL)
+                if soname not in self.needed_loaded:
+                    self.needed_loaded[soname] = ctypes.CDLL(self.prepare_dlopen(needed_filename),
+                                                             ctypes.RTLD_GLOBAL)
 
     def prepare_dlopen(self, filename):
         if platform.architecture()[0] == "64bit" and Build.VERSION.SDK_INT < 23:

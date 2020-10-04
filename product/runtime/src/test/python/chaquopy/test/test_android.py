@@ -42,6 +42,13 @@ else:
     ABI = AndroidPlatform.ABI
     REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
 
+    def asset_path(zip_name, *paths):
+        return join(context.getFilesDir().toString(), "chaquopy/AssetFinder",
+                    zip_name.partition("-")[0], *paths)
+
+    LIBCXX_FILENAME = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
+
+
 def setUpModule():
     if API_LEVEL is None:
         raise unittest.SkipTest("Not running on Android")
@@ -152,6 +159,9 @@ class TestAndroidImport(AndroidTestCase):
         filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
         mod = self.check_module("murmurhash.mrmr", filename, filename)
         self.check_extract_if_changed(mod, filename)
+
+        # Library extraction caused by importing a Python module linked against it.
+        self.check_extract_if_changed(mod, LIBCXX_FILENAME)
 
     def test_non_package_data(self):
         for dir_name, dir_description in [("", "root"), ("non_package_data", "directory"),
@@ -708,11 +718,6 @@ class TestAndroidImport(AndroidTestCase):
             os.utime(filename, (original_mtime, original_mtime))
 
 
-def asset_path(zip_name, *paths):
-    return join(context.getFilesDir().toString(), "chaquopy/AssetFinder",
-                zip_name.partition("-")[0], *paths)
-
-
 # On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers to a
 # class that cannot be loaded. Test the partial workaround in Reflector.
 class TestAndroidReflect(unittest.TestCase):
@@ -760,18 +765,21 @@ class TestAndroidStdlib(AndroidTestCase):
         liblog = ctypes.CDLL(find_library("log"))
         self.assertIsNone(find_library("nonexistent"))
 
+        # Library extraction caused by CDLL.
         from murmurhash import mrmr
         os.remove(mrmr.__file__)
+        os.remove(LIBCXX_FILENAME)
         ctypes.CDLL(mrmr.__file__)
         self.assertPredicate(exists, mrmr.__file__)
+        self.assertPredicate(exists, LIBCXX_FILENAME)
 
-        libcxx_filename = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
-        os.remove(libcxx_filename)
+        # Library extraction caused by find_library.
+        os.remove(LIBCXX_FILENAME)
         find_library_result = find_library("c++_shared")
         self.assertIsInstance(find_library_result, str)
         if platform.architecture()[0] == "32bit" or Build.VERSION.SDK_INT >= 23:
             self.assertRegex(find_library_result, r"^/")
-        self.assertPredicate(exists, libcxx_filename)
+        self.assertPredicate(exists, LIBCXX_FILENAME)
 
         # Work around double-underscore mangling of __android_log_write.
         def assertHasSymbol(dll, name):
