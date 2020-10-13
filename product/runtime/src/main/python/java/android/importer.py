@@ -64,14 +64,11 @@ def initialize_importlib(context, build_json, app_path):
         # read by addsitedir below.
         finder.extract_dir("", recursive=False)
 
-        # Extract data files from top-level directories which aren't Python packages. The
-        # `chaquopy` directory doesn't need to be special-cased, because extract_dir detects
-        # libraries from their filenames and doesn't extract them.
+        # Extract data files from top-level directories which aren't Python packages.
         for name in finder.listdir(""):
             if finder.isdir(name) and \
                not name.endswith(".dist-info") and \
-               not any(finder.exists(join(name, "__init__" + ext))
-                       for ext in LOADERS):
+               not any(finder.exists(f"{name}/__init__{suffix}") for suffix in LOADERS):
                 finder.extract_dir(name)
 
         # We do this here instead of in AssetFinder.__init__ because code in the .pth files may

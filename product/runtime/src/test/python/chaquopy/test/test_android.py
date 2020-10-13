@@ -24,6 +24,7 @@ import unittest
 # Flags from PEP 3149.
 ABI_FLAGS = ""
 
+REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
 
 try:
     from android.os import Build
@@ -230,23 +231,23 @@ class TestAndroidImport(AndroidTestCase):
         self.assertPredicate(exists, cache_filename)
 
         # An unchanged file should not be extracted again.
-        with self.set_mode(cache_filename, "444"):
+        with self.set_mode(cache_filename, 0o444):
             mod = self.clean_reload(mod)
 
         # A file with mismatching mtime should be extracted again.
         original_mtime = os.stat(cache_filename).st_mtime
         os.utime(cache_filename, None)
-        with self.set_mode(cache_filename, "444"):
+        with self.set_mode(cache_filename, 0o444):
             with self.assertRaisesRegex(OSError, "Permission denied"):
                 self.clean_reload(mod)
         self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
 
     @contextmanager
-    def set_mode(self, filename, mode_str):
+    def set_mode(self, filename, mode):
         original_mode = os.stat(filename).st_mode
         try:
-            os.chmod(filename, int(mode_str, 8))
+            os.chmod(filename, mode)
             yield
         finally:
             os.chmod(filename, original_mode)
@@ -567,8 +568,7 @@ class TestAndroidImport(AndroidTestCase):
 
     def test_pr_distributions(self):
         import pkg_resources as pr
-        self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
-                              [dist.project_name for dist in pr.working_set])
+        self.assertCountEqual(REQUIREMENTS, [dist.project_name for dist in pr.working_set])
         self.assertEqual("0.28.0", pr.get_distribution("murmurhash").version)
 
     def test_pr_resources(self):
@@ -680,8 +680,7 @@ class TestAndroidImport(AndroidTestCase):
 
     def test_importlib_metadata(self):
         dists = list(metadata.distributions())
-        self.assertCountEqual(["chaquopy-libcxx", "murmurhash", "Pygments"],
-                              [d.metadata["Name"] for d in dists])
+        self.assertCountEqual(REQUIREMENTS, [d.metadata["Name"] for d in dists])
         for dist in dists:
             dist_info = str(dist._path)
             self.assertPredicate(str.startswith, dist_info, asset_path(REQS_COMMON_ZIP))
