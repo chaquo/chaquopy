@@ -304,8 +304,6 @@ class AssetPath(pathlib.PosixPath):
 
 
 class AssetFinder:
-    lock = RLock()
-    needed_loaded = {}
 
     def __init__(self, context, build_json, path):
         if not path.startswith(ASSET_PREFIX + "/"):
@@ -399,36 +397,29 @@ class AssetFinder:
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
-    def load_needed(self, filename):
-        with self.lock, open(filename, "rb") as so_file:
-            ef = ELFFile(so_file)
+    # Recursively extracts all libraries needed by the given executable or library file, and
+    # returns a list of their absolute filenames in the order they should be loaded.
+    def extract_needed(self, filename):
+        with open(filename, "rb") as file:
+            ef = ELFFile(file)
             dynamic = ef.get_section_by_name(".dynamic")
             if not dynamic:
-                raise Exception(filename + " has no .dynamic section")
+                return []
 
+            result = []
             for tag in dynamic.iter_tags():
-                if tag.entry.d_tag != "DT_NEEDED":
-                    continue
-                soname = tag.needed
-                try:
-                    needed_filename = self.extract_if_changed(f"chaquopy/lib/{soname}")
-                except FileNotFoundError:
-                    # Maybe it's a system library, or one of the libraries loaded by
-                    # AndroidPlatform.loadNativeLibs. If the library is truly missing, we will
-                    # get an exception in ctypes.CDLL or ExtensionFileLoader.create_module.
-                    continue
-                self.load_needed(needed_filename)
+                if tag.entry.d_tag == "DT_NEEDED":
+                    try:
+                        needed_filename = self.extract_if_changed(f"chaquopy/lib/{tag.needed}")
+                    except FileNotFoundError:
+                        # Maybe it's a system library, or one of the libraries loaded by
+                        # AndroidPlatform.loadNativeLibs. If the library is truly missing,
+                        # we'll get an exception when we load the file that needs it.
+                        pass
+                    else:
+                        result += self.extract_needed(needed_filename) + [needed_filename]
 
-                # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-                # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
-                # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-                # available to subsequently-loaded libraries.
-                #
-                # It doesn't look like the library is closed when the CDLL object is garbage
-                # collected, but this isn't documented, so keep a reference for safety.
-                if soname not in self.needed_loaded:
-                    self.needed_loaded[soname] = ctypes.CDLL(self.prepare_dlopen(needed_filename),
-                                                             ctypes.RTLD_GLOBAL)
+            return list(dict.fromkeys(result))  # Remove duplicates.
 
     def prepare_dlopen(self, filename):
         if platform.architecture()[0] == "64bit" and Build.VERSION.SDK_INT < 23:
@@ -623,6 +614,7 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
 # original filename.
 extract_so_lock = RLock()
 so_basenames_loaded = {}
+needed_loaded = {}
 
 def extract_so(finder, path):
     path = finder.extract_if_changed(finder.zip_path(path))
@@ -640,7 +632,20 @@ def extract_so(finder, path):
             os.remove(load_name_abs)
         os.symlink(original_name, load_name_abs)
 
-    finder.load_needed(load_name_abs)
+    for needed_filename in finder.extract_needed(path):
+        # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+        # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
+        # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+        # available to subsequently-loaded libraries.
+        #
+        # It doesn't look like the library is closed when the CDLL object is garbage
+        # collected, but this isn't documented, so keep a reference for safety.
+        soname = basename(needed_filename)
+        with extract_so_lock:
+            if soname not in needed_loaded:
+                needed_loaded[soname] = ctypes.CDLL(finder.prepare_dlopen(needed_filename),
+                                                    ctypes.RTLD_GLOBAL)
+
     return finder.prepare_dlopen(load_name_abs)
 
 
