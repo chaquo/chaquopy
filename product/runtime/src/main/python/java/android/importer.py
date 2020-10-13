@@ -22,7 +22,7 @@ from zipfile import ZipFile, ZipInfo
 from zipimport import zipimporter
 
 import java.chaquopy
-from java._vendor.elftools.elf.elffile import ELFFile
+from java._vendor.elftools.elf.elffile import ELFError, ELFFile
 from java.chaquopy_android import AssetFile
 
 from android.os import Build
@@ -71,10 +71,31 @@ def initialize_importlib(context, build_json, app_path):
                not any(finder.exists(f"{name}/__init__{suffix}") for suffix in LOADERS):
                 finder.extract_dir(name)
 
+        # Extract executables.
+        if finder.isdir("chaquopy/bin"):
+            for name in finder.listdir("chaquopy/bin"):
+                # If chaquopy/ is a Python package, it won't have been extracted above.
+                filename = finder.extract_if_changed(f"chaquopy/bin/{name}")
+                os.chmod(filename, 0o755)
+                try:
+                    finder.extract_needed(filename)
+                except ELFError:
+                    pass  # Maybe it's a shell script or something.
+
+            prepend_path("PATH", f"{finder.path}/chaquopy/bin")
+            prepend_path("LD_LIBRARY_PATH", f"{finder.path}/chaquopy/lib")
+
         # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
         # require the finder to be fully available to the system, which isn't the case until
         # get_importer returns.
         site.addsitedir(finder.extract_root)
+
+
+def prepend_path(variable, path):
+    old_path = os.environ.get(variable)
+    if old_path:
+        path += ":" + old_path
+    os.environ[variable] = path
 
 
 def initialize_ctypes():

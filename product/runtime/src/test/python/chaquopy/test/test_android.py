@@ -24,7 +24,8 @@ import unittest
 # Flags from PEP 3149.
 ABI_FLAGS = ""
 
-REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
+REQUIREMENTS = ["chaquopy-libcxx", "chaquopy-flac", "chaquopy-libogg",
+                "murmurhash", "Pygments"]
 
 try:
     from android.os import Build
@@ -163,6 +164,24 @@ class TestAndroidImport(AndroidTestCase):
 
         # Library extraction caused by importing a Python module linked against it.
         self.check_extract_if_changed(mod, LIBCXX_FILENAME)
+
+    def test_bin(self):
+        chaquopy_dir = asset_path(REQS_ABI_ZIP, "chaquopy")
+        self.assertCountEqual(["bin", "lib"], os.listdir(chaquopy_dir))
+
+        # Execution of flac is covered by test_subprocess.
+        self.assertCountEqual(["flac", "metaflac"], os.listdir(f"{chaquopy_dir}/bin"))
+
+        # Library extraction caused by executables in chaquopy/bin. Notes:
+        #   * libFLAC and libogg are needed by the flac executable.
+        #   * libFLAC++ isn't needed by any executable, so it shouldn't exist at this point.
+        #     However, its presence in the APK is checked by test_ctypes.
+        #   * libc++_shared may exist if the tests have been run before.
+        actual = os.listdir(f"{chaquopy_dir}/lib")
+        expected = ["libFLAC.so", "libogg.so"]
+        if len(actual) > len(expected):
+            expected.append("libc++_shared.so")
+        self.assertCountEqual(expected, actual)
 
     def test_non_package_data(self):
         for dir_name, dir_description in [("", "root"), ("non_package_data", "directory"),
@@ -774,11 +793,14 @@ class TestAndroidStdlib(AndroidTestCase):
 
         # Library extraction caused by find_library.
         os.remove(LIBCXX_FILENAME)
-        find_library_result = find_library("c++_shared")
+        find_library_result = find_library("FLAC++")
         self.assertIsInstance(find_library_result, str)
         if platform.architecture()[0] == "32bit" or Build.VERSION.SDK_INT >= 23:
             self.assertRegex(find_library_result, r"^/")
+        libflacxx_filename = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libFLAC++.so")
+        self.assertPredicate(exists, libflacxx_filename)
         self.assertPredicate(exists, LIBCXX_FILENAME)
+        os.remove(libflacxx_filename)  # Clean up for test_bin.
 
         # Work around double-underscore mangling of __android_log_write.
         def assertHasSymbol(dll, name):
@@ -915,8 +937,13 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertRegex(resp.info()["Content-type"], r"^text/html")
 
     def test_subprocess(self):
-        # An executable on the PATH.
+        # A system executable.
         subprocess.run(["ls", os.environ["HOME"]])
+
+        # An executable in the requirements.
+        self.assertEqual("flac 1.3.3\n",
+                         subprocess.run(["flac", "--version"], capture_output=True, text=True)
+                         .stdout)
 
         # A nonexistent executable.
         for name in ["nonexistent",                 # PATH search

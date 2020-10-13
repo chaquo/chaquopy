@@ -52,7 +52,8 @@ android {
 
             // Python unit tests
             pip {
-                install "murmurhash==0.28.0"  // Requires chaquopy-libcxx
+                install "chaquopy-flac==1.3.3"
+                install "murmurhash==0.28.0"
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
