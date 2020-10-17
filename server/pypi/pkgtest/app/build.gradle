@@ -50,6 +50,9 @@ android {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
             }
+            pyc {
+                src false  // Include test source code in stack traces.
+            }
         }
 
         ndk {

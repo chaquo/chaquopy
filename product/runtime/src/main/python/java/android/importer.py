@@ -8,7 +8,7 @@ from importlib import _bootstrap, _bootstrap_external, machinery, metadata, util
 from inspect import getmodulename
 import io
 import os.path
-from os.path import basename, dirname, exists, join, relpath, split, splitext
+from os.path import basename, dirname, exists, join, normpath, relpath, split, splitext
 import pathlib
 from pkgutil import get_importer
 import platform
@@ -16,6 +16,7 @@ import re
 from shutil import copyfileobj, rmtree
 import site
 import sys
+from tempfile import mktemp, NamedTemporaryFile
 import time
 from threading import RLock
 from zipfile import ZipFile, ZipInfo
@@ -39,8 +40,7 @@ def initialize(context, build_json, app_path):
 def initialize_importlib(context, build_json, app_path):
     sys.meta_path[sys.meta_path.index(machinery.PathFinder)] = ChaquopyPathFinder
 
-    # The default copyfileobj buffer size is 16 KB, which significantly slows down extraction
-    # of large files because each call to AssetFile.read is relatively expensive (#5596).
+    # ZIP file extraction uses copyfileobj, whose default buffer size is quite small (#5596).
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
 
@@ -597,15 +597,17 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
 
+
 # Android ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs, when asked to
 # load a library with the same basename as one already loaded, the dynamic linker will
 # return the existing library
 # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
-# (For 64-bit ABIs, see prepare_dlopen.)
+# On 64-bit ABIs, we simulate the same behaviour: see prepare_dlopen.
 #
 # For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
 # loaded two of them from their original filenames, their __file__ attributes would appear
 # different, but the second one would actually have been loaded from the first one's file.
+# This is covered by pyzmq/test.py.
 #
 # We can work around this by loading through a uniquely-named symlink. However, we only do
 # that when we actually encounter a duplicate name, because there's at least one package
@@ -618,19 +620,23 @@ needed_loaded = {}
 
 def extract_so(finder, path):
     path = finder.extract_if_changed(finder.zip_path(path))
-    original_name = basename(path)
-    with extract_so_lock:
-        load_name = original_name
-        while (load_name in so_basenames_loaded and
-               so_basenames_loaded[load_name] != path):  # In case of reloads.
-            load_name = f"{original_name}-{os.urandom(4).hex()}"
-        so_basenames_loaded[load_name] = path
 
-    load_name_abs = join(dirname(path), load_name)
-    if load_name_abs != path:
-        if exists(load_name_abs):
-            os.remove(load_name_abs)
-        os.symlink(original_name, load_name_abs)
+    if Build.VERSION.SDK_INT < 23:
+        # We used to generate load_name from the zip_path, but that would cause a clash if the
+        # first library (loaded directly) is in a directory, and the second one (loaded through
+        # a symlink) is in the ZIP file root. So now we just add a numeric suffix.
+        load_name = original_name = basename(path)
+        i = 0
+        with extract_so_lock:
+            while (load_name in so_basenames_loaded and
+                   so_basenames_loaded[load_name] != path):  # In case of reloads.
+                i += 1
+                load_name = f"{original_name}.{i}"
+            so_basenames_loaded[load_name] = path
+
+        if load_name != original_name:
+            path = join(dirname(path), load_name)
+            atomic_symlink(original_name, path)
 
     for needed_filename in finder.extract_needed(path):
         # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
@@ -646,7 +652,21 @@ def extract_so(finder, path):
                 needed_loaded[soname] = ctypes.CDLL(finder.prepare_dlopen(needed_filename),
                                                     ctypes.RTLD_GLOBAL)
 
-    return finder.prepare_dlopen(load_name_abs)
+    return finder.prepare_dlopen(path)
+
+
+# This may be added to the standard library in a future version of Python
+# (https://bugs.python.org/issue36656).
+def atomic_symlink(target, link):
+    while True:
+        tmp_link = mktemp(dir=dirname(link), prefix=basename(link) + ".")
+        try:
+            os.symlink(target, tmp_link)
+            break
+        except FileExistsError:
+            pass
+
+    os.replace(tmp_link, link)
 
 
 LOADERS = {
@@ -675,35 +695,51 @@ class AssetZipFile(ZipFile):
                     self.dir_index[parent] = set([base_name] if base_name else [])
         self.dir_index = {k: sorted(v) for k, v in self.dir_index.items()}
 
+    # Based on ZipFile.extract, but fixed to be safe in the presence of multiple threads
+    # creating the same file or directory.
     def extract(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
 
-        # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170),
-        # so set the timestamp manually. See makeZip in PythonPlugin.groovy for how these
-        # timestamps are generated.
-        out_filename = ZipFile.extract(self, member, target_dir)
-        os.utime(out_filename, (time.time(), timegm(member.date_time)))
+        out_filename = normpath(join(target_dir, member.filename))
+        out_dirname = dirname(out_filename)
+        if out_dirname:
+            os.makedirs(out_dirname, exist_ok=True)
+
+        if member.is_dir():
+            os.makedirs(out_filename, exist_ok=True)
+        else:
+            with self.open(member) as source_file, \
+                 NamedTemporaryFile(delete=False, dir=out_dirname,
+                                    prefix=basename(out_filename) + ".") as tmp_file:
+                copyfileobj(source_file, tmp_file)
+            os.replace(tmp_file.name, out_filename)
+
         return out_filename
 
-    # The timestamp is the the last thing set by `extract`, so if the app gets killed in the
+    # ZipFile.extract does not set any metadata (https://bugs.python.org/issue32170), so we set
+    # the timestamp after extraction is complete. That way, if the app gets killed in the
     # middle of an extraction, the timestamps won't match and we'll know we need to extract the
     # file again.
     #
-    # However, since we're resetting all ZIP timestamps for a reproducible build, we can't rely
+    # The Gradle plugin sets all ZIP timestamps to 1980 for reproducibility, so we can't rely
     # on them to tell us which files have changed after an app update. Instead,
     # AssetFinder.__init__ just removes the whole extract_root if any of its ZIPs have changed.
     def extract_if_changed(self, member, target_dir):
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
+
         need_extract = True
         out_filename = join(target_dir, member.filename)
         if exists(out_filename):
             existing_stat = os.stat(out_filename)
             need_extract = (existing_stat.st_size != member.file_size or
                             existing_stat.st_mtime != timegm(member.date_time))
+
         if need_extract:
-            self.extract(member, target_dir)
+            extracted_filename = self.extract(member, target_dir)
+            assert extracted_filename == out_filename, (extracted_filename, out_filename)
+            os.utime(out_filename, (time.time(), timegm(member.date_time)))
         return out_filename
 
     def exists(self, path):

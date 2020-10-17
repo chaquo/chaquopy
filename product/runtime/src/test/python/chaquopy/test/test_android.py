@@ -2,6 +2,7 @@
 and should not be accessed or relied upon by user code.
 """
 
+import calendar
 from contextlib import contextmanager
 import imp
 from importlib import import_module, metadata, reload, resources
@@ -86,7 +87,8 @@ class TestAndroidPlatform(unittest.TestCase):
                               os.listdir(chaquopy_dir))
         self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
         self.assertCountEqual(["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so",
-                               "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                               "_random.so", "_struct.so", "binascii.so", "math.so", "mmap.so",
+                               "zlib.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
         self.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
@@ -123,8 +125,7 @@ class TestAndroidImport(AndroidTestCase):
         self.assertTrue(hasattr(mod, existing_attr))
 
         if cache_filename:
-            # A valid .pyc should not be written again. (We can't use the set_mode technique
-            # here because failure to write a .pyc is silently ignored.)
+            # A valid .pyc should not be written again.
             with self.assertNotModifies(cache_filename):
                 mod = self.clean_reload(mod)
             self.assertFalse(hasattr(mod, new_attr))
@@ -231,26 +232,15 @@ class TestAndroidImport(AndroidTestCase):
         self.assertPredicate(exists, cache_filename)
 
         # An unchanged file should not be extracted again.
-        with self.set_mode(cache_filename, 0o444):
+        with self.assertNotModifies(cache_filename):
             mod = self.clean_reload(mod)
 
         # A file with mismatching mtime should be extracted again.
         original_mtime = os.stat(cache_filename).st_mtime
         os.utime(cache_filename, None)
-        with self.set_mode(cache_filename, 0o444):
-            with self.assertRaisesRegex(OSError, "Permission denied"):
-                self.clean_reload(mod)
-        self.clean_reload(mod)
+        with self.assertModifies(cache_filename):
+            self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
-
-    @contextmanager
-    def set_mode(self, filename, mode):
-        original_mode = os.stat(filename).st_mode
-        try:
-            os.chmod(filename, mode)
-            yield
-        finally:
-            os.chmod(filename, original_mode)
 
     def clean_reload(self, mod):
         sys.modules.pop(mod.__name__, None)
@@ -286,6 +276,7 @@ class TestAndroidImport(AndroidTestCase):
         spec = mod.__spec__
         self.assertEqual(mod_name, spec.name)
         self.assertIs(loader, spec.loader)
+        # spec.origin and the extract_so symlink workaround are covered by pyzmq/test.py.
 
         # Loader methods (get_data is tested elsewhere)
         self.assertEqual(is_package, loader.is_package(mod_name))
@@ -696,25 +687,25 @@ class TestAndroidImport(AndroidTestCase):
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
         self.assertEqual(["chaquopy-libcxx (>=7000)"], dist.requires)
 
+    @contextmanager
     def assertModifies(self, filename):
-        return self.check_modifies(self.assertNotEqual, filename)
-
-    def assertNotModifies(self, filename):
-        return self.check_modifies(self.assertEqual, filename)
+        TEST_MTIME = calendar.timegm((2020, 1, 2, 3, 4, 5))
+        os.utime(filename, (TEST_MTIME, TEST_MTIME))
+        self.assertEqual(TEST_MTIME, os.stat(filename).st_mtime)
+        yield
+        self.assertNotEqual(TEST_MTIME, os.stat(filename).st_mtime)
 
     @contextmanager
-    def check_modifies(self, assertion, filename):
-        # The Android filesystem may only have 1-second resolution, and Device File Explorer
-        # only has 1-minute resolution, so we need to set the mtime to something at least that
-        # far away from the current time.
-        original_mtime = os.stat(filename).st_mtime
-        test_mtime = original_mtime - 60
-        os.utime(filename, (test_mtime, test_mtime))
+    def assertNotModifies(self, filename):
+        before_stat = os.stat(filename)
+        os.chmod(filename, before_stat.st_mode & ~0o222)
         try:
             yield
-            assertion(test_mtime, os.stat(filename).st_mtime)
+            after_stat = os.stat(filename)
+            self.assertEqual(before_stat.st_mtime, after_stat.st_mtime)
+            self.assertEqual(before_stat.st_ino, after_stat.st_ino)
         finally:
-            os.utime(filename, (original_mtime, original_mtime))
+            os.chmod(filename, before_stat.st_mode)
 
 
 # On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers to a
@@ -760,9 +751,11 @@ class TestAndroidStdlib(AndroidTestCase):
         import ctypes
         from ctypes.util import find_library
 
-        libc = ctypes.CDLL(find_library("c"))
-        liblog = ctypes.CDLL(find_library("log"))
-        self.assertIsNone(find_library("nonexistent"))
+        def assertHasSymbol(dll, name):
+            self.assertIsNotNone(getattr(dll, name))
+        def assertNotHasSymbol(dll, name):
+            with self.assertRaises(AttributeError):
+                getattr(dll, name)
 
         # Library extraction caused by CDLL.
         from murmurhash import mrmr
@@ -776,17 +769,28 @@ class TestAndroidStdlib(AndroidTestCase):
         os.remove(LIBCXX_FILENAME)
         find_library_result = find_library("c++_shared")
         self.assertIsInstance(find_library_result, str)
-        if platform.architecture()[0] == "32bit" or Build.VERSION.SDK_INT >= 23:
-            self.assertRegex(find_library_result, r"^/")
+
+        # See prepare_dlopen in importer.py. This test covers non-Python libraries: for Python
+        # modules, see pyzmq/test.py.
+        if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
+            self.assertNotIn("/", find_library_result)
+        else:
+            self.assertEqual(LIBCXX_FILENAME, find_library_result)
+
+        # Whether find_library returned an absolute filename or not, the file should have been
+        # extracted and the return value should be accepted by CDLL.
         self.assertPredicate(exists, LIBCXX_FILENAME)
+        libcxx = ctypes.CDLL(find_library_result)
+        assertHasSymbol(libcxx, "_ZSt9terminatev")  # std::terminate()
+        assertNotHasSymbol(libcxx, "nonexistent")
 
-        # Work around double-underscore mangling of __android_log_write.
-        def assertHasSymbol(dll, name):
-            self.assertIsNotNone(getattr(dll, name))
-        def assertNotHasSymbol(dll, name):
-            with self.assertRaises(AttributeError):
-                getattr(dll, name)
+        # System libraries.
+        self.assertIsNotNone(find_library("c"))
+        self.assertIsNotNone(find_library("log"))
+        self.assertIsNone(find_library("nonexistent"))
 
+        libc = ctypes.CDLL(find_library("c"))
+        liblog = ctypes.CDLL(find_library("log"))
         assertHasSymbol(libc, "printf")
         assertHasSymbol(liblog, "__android_log_write")
         assertNotHasSymbol(libc, "__android_log_write")

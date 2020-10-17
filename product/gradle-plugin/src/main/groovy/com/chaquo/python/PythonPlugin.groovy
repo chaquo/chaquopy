@@ -581,6 +581,7 @@ class PythonPlugin implements Plugin<Project> {
                     "_datetime.so",  // calendar < java.android.importer -- not needed for
                                      //   bootstrap, but see TestAndroidStdlib.test_datetime
                     "_hashlib.so",  // rsa < java.chaquopy (license.pxi)
+                    "_random.so",  // tempfile < random < java.android.importer
                     "_struct.so",  // zipfile < java.android.importer
                     "binascii.so",  // zipfile < java.android.importer
                     "math.so",  // datetime < calendar < java.android.importer

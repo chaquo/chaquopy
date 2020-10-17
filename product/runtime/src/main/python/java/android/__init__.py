@@ -2,7 +2,7 @@
 
 from importlib import reload
 import os
-from os.path import exists, join
+from os.path import join
 import sys
 import traceback
 from types import ModuleType
@@ -51,10 +51,10 @@ def initialize_os(context):
     get_exec_path_original = os.get_exec_path
     os.get_exec_path = get_exec_path_override
 
+
 def initialize_tempfile(context):
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
-    if not exists(tmpdir):
-        os.makedirs(tmpdir)
+    os.makedirs(tmpdir, exist_ok=True)
     os.environ["TMPDIR"] = tmpdir
 
 

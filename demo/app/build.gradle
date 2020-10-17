@@ -57,7 +57,9 @@ android {
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
             pyc {
-                src false  // For testing bytecode compilation on device.
+                // For testing bytecode compilation on device, and also to include test source
+                // code in stack traces.
+                src false
 
                 // *** Remove in public repository ***************************************
                 pip true  // For testing bytecode compilation during build.

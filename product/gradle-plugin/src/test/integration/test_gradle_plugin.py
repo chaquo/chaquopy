@@ -1201,8 +1201,8 @@ class RunGradle(object):
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
             self.test.assertCountEqual(
-                ["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so", "_struct.so",
-                 "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                ["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so", "_random.so",
+                 "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(join(bootstrap_native_dir, abi)))
             self.test.assertCountEqual(
                 ["__init__.py", "chaquopy.so", "chaquopy_android.so"],
@@ -1226,7 +1226,7 @@ class RunGradle(object):
                  "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
                  "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
                  "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
-                 "_posixsubprocess.so", "_queue.so", "_random.so", "_sha1.so", "_sha256.so",
+                 "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
                  "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so", "_ssl.so",
                  "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
                  "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
