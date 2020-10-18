@@ -238,7 +238,10 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs() {
-        // Libraries must be loaded in dependency order before API level 18 (#5323).
+        // Libraries must be loaded in dependency order before API level 18 (#5323). However,
+        // even if our minimum API level increases to 18 or higher in the future, we should
+        // still keep pre-loading the OpenSSL and SQLite libraries, because we can't guarantee
+        // that our lib directory will always be on the LD_LIBRARY_PATH (#5563).
         System.loadLibrary("crypto_chaquopy");
         System.loadLibrary("ssl_chaquopy");
         System.loadLibrary("sqlite3_chaquopy");

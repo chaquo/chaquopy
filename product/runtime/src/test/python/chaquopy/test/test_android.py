@@ -770,8 +770,7 @@ class TestAndroidStdlib(AndroidTestCase):
         find_library_result = find_library("c++_shared")
         self.assertIsInstance(find_library_result, str)
 
-        # See prepare_dlopen in importer.py. This test covers non-Python libraries: for Python
-        # modules, see pyzmq/test.py.
+        # This test covers non-Python libraries: for Python modules, see pyzmq/test.py.
         if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
             self.assertNotIn("/", find_library_result)
         else:

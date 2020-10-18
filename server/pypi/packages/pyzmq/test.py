@@ -31,7 +31,10 @@ class TestPyzmq(unittest.TestCase):
             msg_recv = server.recv()
             self.assertEqual(msg_send, msg_recv)
 
-    # See extract_so in importer.py.
+    # h5py and pyzmq both have modules with the filename utils.so. Before API level 23, if you
+    # loaded both of them from their original filenames, their __file__ attributes would appear
+    # different, but the second one would actually have been loaded from the first one's file.
+    # This tests the workaround from extract_so in importer.py.
     @unittest.skipUnless(API_LEVEL, "Android only")
     def test_importer(self):
         import zmq
@@ -51,8 +54,8 @@ class TestPyzmq(unittest.TestCase):
 
             origin = mod.__spec__.origin
             if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-                # See prepare_dlopen in importer.py. This test covers Python modules: for
-                # non-Python libraries, see test_ctypes in test_android.py.
+                # This test covers Python modules: for non-Python libraries, see test_ctypes in
+                # test_android.py.
                 self.assertNotIn("/", origin)
                 origin = join(dirname(file), origin)
             else:

@@ -2,6 +2,7 @@
 
 import _imp
 from calendar import timegm
+from contextlib import contextmanager, nullcontext
 import ctypes
 import imp
 from importlib import _bootstrap, _bootstrap_external, machinery, metadata, util
@@ -81,17 +82,26 @@ def initialize_ctypes():
     import ctypes.util
     import sysconfig
 
+    reqs_finder = get_importer(f"{ASSET_PREFIX}/requirements")
+
     # The standard implementation of find_library requires external tools, so will always fail
     # on Android.
     def find_library_override(name):
-        # First look in the requirements. For example, this is needed by soundfile, which
-        # passes the return value of find_library to ffi.dlopen.
         filename = "lib{}.so".format(name)
-        reqs_finder = get_importer(f"{ASSET_PREFIX}/requirements")
+
+        # First look in the requirements.
         try:
-            return extract_so(reqs_finder, f"chaquopy/lib/{filename}")
+            filename = reqs_finder.extract_lib(filename)
         except FileNotFoundError:
             pass
+        else:
+            # The return value will probably be passed to CDLL_init_override below. If the
+            # caller loads the library using any other API (e.g. soundfile uses ffi.dlopen),
+            # then on 64-bit devices before API level 23 there's a possible race condition
+            # between updating LD_LIBRARY_PATH and loading the library, but there's nothing we
+            # can do about that.
+            with extract_so(reqs_finder, filename) as dlopen_name:
+                return dlopen_name
 
         # For system libraries I can't see any easy way of finding the absolute library
         # filename, but we can at least support the case where the user passes the return value
@@ -104,13 +114,23 @@ def initialize_ctypes():
 
     ctypes.util.find_library = find_library_override
 
-    # Support packages loading non-Python .so files using ctypes (e.g. llvmlite).
     def CDLL_init_override(self, name, *args, **kwargs):
+        context = nullcontext(name)
         if name:  # CDLL(None) is equivalent to dlopen(NULL).
+            try:
+                # find_library_override may have returned a basename (see extract_so).
+                name = reqs_finder.extract_lib(name)
+            except FileNotFoundError:
+                pass
+
+            # Some packages (e.g. llvmlite) use CDLL to load libraries from their own
+            # directories.
             finder = get_importer(dirname(name))
             if isinstance(finder, AssetFinder):
-                name = extract_so(finder, name)
-        CDLL_init_original(self, name, *args, **kwargs)
+                context = extract_so(finder, name)
+
+        with context as dlopen_name:
+            CDLL_init_original(self, dlopen_name, *args, **kwargs)
 
     CDLL_init_original = ctypes.CDLL.__init__
     ctypes.CDLL.__init__ = CDLL_init_override
@@ -410,7 +430,7 @@ class AssetFinder:
             for tag in dynamic.iter_tags():
                 if tag.entry.d_tag == "DT_NEEDED":
                     try:
-                        needed_filename = self.extract_if_changed(f"chaquopy/lib/{tag.needed}")
+                        needed_filename = self.extract_lib(tag.needed)
                     except FileNotFoundError:
                         # Maybe it's a system library, or one of the libraries loaded by
                         # AndroidPlatform.loadNativeLibs. If the library is truly missing,
@@ -421,41 +441,8 @@ class AssetFinder:
 
             return list(dict.fromkeys(result))  # Remove duplicates.
 
-    def prepare_dlopen(self, filename):
-        if platform.architecture()[0] == "64bit" and Build.VERSION.SDK_INT < 23:
-            # Android ignores DT_SONAME before API level 23. As described in extract_so, on
-            # 32-bit ABIs it uses basenames instead. But on 64-bit ABIs it stores the full path
-            # passed to dlopen
-            # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
-            # This allows it to load multiple libraries with the same basename. Unfortunately,
-            # it also means that DT_NEEDED entries are no longer resolved against the basenames
-            # of already-loaded libraries. On these devices, DT_NEEDED entries can only be
-            # resolved using (in order):
-            #   * Libraries which were previously loaded via their basenames, which means they
-            #     must have been on LD_LIBRARY_PATH at the time they were loaded.
-            #   * Directories currently on LD_LIBRARY_PATH.
-            #   * System library directories.
-            #
-            # Also, the field that stores the library name is 128 characters, which would be
-            # fine for a basename, but not enough for many absolute paths.
-            #
-            # Since we've already worked around the basename clash problem ourselves in
-            # extract_so, we'll simulate the 32-bit behavior by adding the library's dirname to
-            # LD_LIBRARY_PATH, and then loading it through its basename. However, changing the
-            # LD_LIBRARY_PATH environment variable at this point will have no effect. Instead,
-            # we update the path using an undocumented libdl function.
-            #
-            # This function exists for the use of System.loadLibrary, which sets the path to
-            # the lib directory of the caller's APK. For example, WebView uses a native library
-            # from a different APK, so after WebView is loaded into your process, your own
-            # APK's lib directory is no longer on the path! So the only safe approach is to
-            # reset the path before every call to dlopen.
-            llp = ":".join([dirname(filename),
-                            self.context.getApplicationInfo().nativeLibraryDir])
-            ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
-            return basename(filename)
-        else:
-            return filename
+    def extract_lib(self, filename):
+        return self.extract_if_changed(f"chaquopy/lib/{filename}")
 
     def extract_dir(self, zip_dir, recursive=True):
         for filename in self.listdir(zip_dir):
@@ -592,34 +579,44 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
-        spec.origin = extract_so(self.finder, self.path)
-        mod = super().create_module(spec)
+        with extract_so(self.finder, self.path) as spec.origin:
+            mod = super().create_module(spec)
         mod.__file__ = self.path  # In case user code depends on the original filename.
         return mod
 
 
-# Android ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs, when asked to
-# load a library with the same basename as one already loaded, the dynamic linker will
+# The dynamic linker ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs,
+# when asked to load a library with the same basename as one already loaded, it will
 # return the existing library
 # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
-# On 64-bit ABIs, we simulate the same behaviour: see prepare_dlopen.
-#
-# For example, cytoolz, h5py and pyzmq all have modules with the filename utils.so. If you
-# loaded two of them from their original filenames, their __file__ attributes would appear
-# different, but the second one would actually have been loaded from the first one's file.
-# This is covered by pyzmq/test.py.
 #
 # We can work around this by loading through a uniquely-named symlink. However, we only do
 # that when we actually encounter a duplicate name, because there's at least one package
 # (tensorflow) where one Python module has a DT_NEEDED entry for another one, which on API
 # level 22 and older will only work if the other module has already been loaded from its
 # original filename.
+#
+# On 64-bit ABIs the dynamic linker stores the full path passed to dlopen
+# (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
+# This allows it to load multiple libraries with the same basename. Unfortunately, it also
+# means that DT_NEEDED entries can only be resolved using libraries which are either currently
+# on LD_LIBRARY_PATH, or were loaded via their basenames (which means they must have been on
+# LD_LIBRARY_PATH when they were loaded). Also, the field that stores the library name is 128
+# characters, which isn't long enough for many absolute paths.
+#
+# Since we're already working around the basename clash problem, we'll simulate the 32-bit
+# behavior by putting the library's dirname in LD_LIBRARY_PATH using an undocumented libdl
+# function, and then loading it through its basename.
+#
+# This is all tested in pyzmq/test.py.
 extract_so_lock = RLock()
 so_basenames_loaded = {}
 needed_loaded = {}
 
+@contextmanager
 def extract_so(finder, path):
     path = finder.extract_if_changed(finder.zip_path(path))
+    load_needed(finder, path)
 
     if Build.VERSION.SDK_INT < 23:
         # We used to generate load_name from the zip_path, but that would cause a clash if the
@@ -638,6 +635,19 @@ def extract_so(finder, path):
             path = join(dirname(path), load_name)
             atomic_symlink(original_name, path)
 
+    if Build.VERSION.SDK_INT < 23 and platform.architecture()[0] == "64bit":
+        # We need to include the app's lib directory, because our libraries there were
+        # loaded via System.loadLibrary, which passes absolute paths to dlopen (#5563).
+        llp = ":".join([dirname(path),
+                        finder.context.getApplicationInfo().nativeLibraryDir])
+        with extract_so_lock:
+            ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
+            yield basename(path)
+    else:
+        yield path
+
+
+def load_needed(finder, path):
     for needed_filename in finder.extract_needed(path):
         # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
         # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
@@ -649,10 +659,8 @@ def extract_so(finder, path):
         soname = basename(needed_filename)
         with extract_so_lock:
             if soname not in needed_loaded:
-                needed_loaded[soname] = ctypes.CDLL(finder.prepare_dlopen(needed_filename),
-                                                    ctypes.RTLD_GLOBAL)
-
-    return finder.prepare_dlopen(path)
+                # CDLL will cause a recursive call back to extract_so.
+                needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
 
 
 # This may be added to the standard library in a future version of Python
