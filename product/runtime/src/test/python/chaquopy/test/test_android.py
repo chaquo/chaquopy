@@ -162,9 +162,6 @@ class TestAndroidImport(AndroidTestCase):
         mod = self.check_module("murmurhash.mrmr", filename, filename)
         self.check_extract_if_changed(mod, filename)
 
-        # Library extraction caused by importing a Python module linked against it.
-        self.check_extract_if_changed(mod, LIBCXX_FILENAME)
-
     def test_non_package_data(self):
         for dir_name, dir_description in [("", "root"), ("non_package_data", "directory"),
                                           ("non_package_data/subdir", "subdirectory")]:
@@ -760,10 +757,8 @@ class TestAndroidStdlib(AndroidTestCase):
         # Library extraction caused by CDLL.
         from murmurhash import mrmr
         os.remove(mrmr.__file__)
-        os.remove(LIBCXX_FILENAME)
         ctypes.CDLL(mrmr.__file__)
         self.assertPredicate(exists, mrmr.__file__)
-        self.assertPredicate(exists, LIBCXX_FILENAME)
 
         # Library extraction caused by find_library.
         os.remove(LIBCXX_FILENAME)

@@ -417,30 +417,9 @@ class AssetFinder:
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
-    # Recursively extracts all libraries needed by the given executable or library file, and
-    # returns a list of their absolute filenames in the order they should be loaded.
-    def extract_needed(self, filename):
-        with open(filename, "rb") as file:
-            ef = ELFFile(file)
-            dynamic = ef.get_section_by_name(".dynamic")
-            if not dynamic:
-                return []
-
-            result = []
-            for tag in dynamic.iter_tags():
-                if tag.entry.d_tag == "DT_NEEDED":
-                    try:
-                        needed_filename = self.extract_lib(tag.needed)
-                    except FileNotFoundError:
-                        # Maybe it's a system library, or one of the libraries loaded by
-                        # AndroidPlatform.loadNativeLibs. If the library is truly missing,
-                        # we'll get an exception when we load the file that needs it.
-                        pass
-                    else:
-                        result += self.extract_needed(needed_filename) + [needed_filename]
-
-            return list(dict.fromkeys(result))  # Remove duplicates.
-
+    # If this method raises FileNotFoundError, then maybe it's a system library, or one of the
+    # libraries loaded by AndroidPlatform.loadNativeLibs. If the library is truly missing,
+    # we'll get an exception when we load the file that needs it.
     def extract_lib(self, filename):
         return self.extract_if_changed(f"chaquopy/lib/{filename}")
 
@@ -662,20 +641,37 @@ def extract_so(finder, path):
         yield path
 
 
+# CDLL will cause a recursive call back to extract_so, so there's no need for any additional
+# recursion here. If we return to executables in the future, we can implement a separate
+# recursive extraction on top of get_needed.
 def load_needed(finder, path):
-    for needed_filename in finder.extract_needed(path):
-        # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-        # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
-        # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-        # available to subsequently-loaded libraries.
-        #
-        # It doesn't look like the library is closed when the CDLL object is garbage
-        # collected, but this isn't documented, so keep a reference for safety.
-        soname = basename(needed_filename)
-        with extract_so_lock:
+    with extract_so_lock:
+        for soname in get_needed(path):
             if soname not in needed_loaded:
-                # CDLL will cause a recursive call back to extract_so.
-                needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+                try:
+                    needed_filename = finder.extract_lib(soname)
+                except FileNotFoundError:
+                    needed_loaded[soname] = None
+                else:
+                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
+                    # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
+                    # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
+                    # available to subsequently-loaded libraries.
+                    #
+                    # It doesn't look like the library is closed when the CDLL object is garbage
+                    # collected, but this isn't documented, so keep a reference for safety.
+                    needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+
+
+def get_needed(path):
+    with open(path, "rb") as file:
+        ef = ELFFile(file)
+        dynamic = ef.get_section_by_name(".dynamic")
+        if dynamic:
+            return [tag.needed for tag in dynamic.iter_tags()
+                    if tag.entry.d_tag == "DT_NEEDED"]
+        else:
+            return []
 
 
 # This may be added to the standard library in a future version of Python
