@@ -585,9 +585,9 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
         return mod
 
 
-# The dynamic linker ignores DT_SONAME before API level 23. As a result, on 32-bit ABIs,
-# when asked to load a library with the same basename as one already loaded, it will
-# return the existing library
+# On 32-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
+# libraries using their basename. So when asked to load a library with the same basename as one
+# already loaded, it will return the existing library
 # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
 #
 # We can work around this by loading through a uniquely-named symlink. However, we only do
@@ -596,28 +596,19 @@ class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
 # level 22 and older will only work if the other module has already been loaded from its
 # original filename.
 #
-# On 64-bit ABIs the dynamic linker stores the full path passed to dlopen
-# (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
-# This allows it to load multiple libraries with the same basename. Unfortunately, it also
-# means that DT_NEEDED entries can only be resolved using libraries which are either currently
-# on LD_LIBRARY_PATH, or were loaded via their basenames (which means they must have been on
-# LD_LIBRARY_PATH when they were loaded). Also, the field that stores the library name is 128
-# characters, which isn't long enough for many absolute paths.
-#
-# Since we're already working around the basename clash problem, we'll simulate the 32-bit
-# behavior by putting the library's dirname in LD_LIBRARY_PATH using an undocumented libdl
-# function, and then loading it through its basename.
-#
-# This is all tested in pyzmq/test.py.
-extract_so_lock = RLock()
+# On 64-bit ABIs we use the same workaround for a different reason: see extract_so.
 so_basenames_loaded = {}
-needed_loaded = {}
 
-@contextmanager
-def extract_so(finder, path):
-    path = finder.extract_if_changed(finder.zip_path(path))
-    load_needed(finder, path)
+# Detect basename clashes with bootstrap modules. For example, both the standard
+# library and scikit-learn have an extension module called _random.
+if Build.VERSION.SDK_INT < 23:
+    for mod in sys.modules.values():
+        filename = getattr(mod, "__file__", None)
+        if isinstance(filename, str) and filename.endswith(".so"):
+            existing = so_basenames_loaded.setdefault(basename(filename), filename)
+            assert existing == filename, f"basename clash between {existing} and {filename}"
 
+def symlink_if_needed(path):
     if Build.VERSION.SDK_INT < 23:
         # We used to generate load_name from the zip_path, but that would cause a clash if the
         # first library (loaded directly) is in a directory, and the second one (loaded through
@@ -635,6 +626,30 @@ def extract_so(finder, path):
             path = join(dirname(path), load_name)
             atomic_symlink(original_name, path)
 
+    return path
+
+
+extract_so_lock = RLock()
+needed_loaded = {}
+
+@contextmanager
+def extract_so(finder, path):
+    path = finder.extract_if_changed(finder.zip_path(path))
+    path = symlink_if_needed(path)
+    load_needed(finder, path)
+
+    # On 64-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
+    # libraries using the full path passed to dlopen
+    # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
+    # This allows it to load multiple libraries with the same basename. Unfortunately, it also
+    # means that DT_NEEDED entries can only be resolved using libraries which are either
+    # currently on LD_LIBRARY_PATH, or were loaded via their basenames (which means they must
+    # have been on LD_LIBRARY_PATH when they were loaded). Also, the field that stores the
+    # library name is 128 characters, which isn't long enough for many absolute paths.
+    #
+    # Since we're already working around the basename clash problem, we'll simulate the 32-bit
+    # behavior by putting the library's dirname into LD_LIBRARY_PATH using an undocumented
+    # libdl function, and then loading it through its basename.
     if Build.VERSION.SDK_INT < 23 and platform.architecture()[0] == "64bit":
         # We need to include the app's lib directory, because our libraries there were
         # loaded via System.loadLibrary, which passes absolute paths to dlopen (#5563).
