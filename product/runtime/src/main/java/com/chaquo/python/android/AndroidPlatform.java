@@ -169,6 +169,7 @@ public class AndroidPlatform extends Python.Platform {
         spe.apply();
     }
 
+    // TODO #5677: multi-process race conditions.
     private void extractAsset(JSONObject assetsJson, SharedPreferences.Editor spe,
                               String path) throws IOException, JSONException {
         String fullPath = Common.ASSET_DIR  + "/" + path;

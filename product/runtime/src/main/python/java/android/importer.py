@@ -352,6 +352,7 @@ class AssetFinder:
                     continue
 
                 # See also similar code in AndroidPlatform.java.
+                # TODO #5677: multi-process race conditions.
                 sp_key = "asset." + asset_name
                 new_hash = assets_json.get(asset_name)
                 if sp.getString(sp_key, "") != new_hash:
