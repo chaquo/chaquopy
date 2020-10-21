@@ -1,4 +1,5 @@
 from glob import glob
+import importlib
 import os
 from os.path import basename, dirname, isfile, islink, join
 import platform
@@ -31,20 +32,24 @@ class TestPyzmq(unittest.TestCase):
             msg_recv = server.recv()
             self.assertEqual(msg_send, msg_recv)
 
-    # h5py and pyzmq both have modules with the filename utils.so. Before API level 23, if you
-    # loaded both of them from their original filenames, their __file__ attributes would appear
+    # Several packages have modules with the filename utils.so. Before API level 23, if you
+    # loaded two of them from their original filenames, their __file__ attributes would appear
     # different, but the second one would actually have been loaded from the first one's file.
     # This tests the workaround from extract_so in importer.py.
     @unittest.skipUnless(API_LEVEL, "Android only")
     def test_importer(self):
         import zmq
-        try:
-            import h5py
-        except ImportError:
-            self.skipTest("requires h5py")
-
-        h5py_mod = h5py.utils
         zmq_mod = zmq.backend.cython.utils
+
+        OTHER_MODULES = ["cytoolz.utils", "h5py.utils"]  # Alphabetical order.
+        for name in OTHER_MODULES:
+            try:
+                other_mod = importlib.import_module(name)
+                break
+            except ImportError:
+                pass
+        else:
+            self.skipTest(f"requires at least one of {OTHER_MODULES}")
 
         def check_islink(mod, expected):
             file = mod.__file__
@@ -73,5 +78,5 @@ class TestPyzmq(unittest.TestCase):
 
         # The tests run in alphabetical order, so on devices which require symlinks, it should
         # be the zmq module which uses one.
-        check_islink(h5py_mod, False)
+        check_islink(other_mod, False)
         check_islink(zmq_mod, API_LEVEL < 23)
