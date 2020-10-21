@@ -137,12 +137,12 @@
  endif()
  
  # Setting `PYTORCH_BUILD_MOBILE` environment variable can force it to do mobile
---- src-original/setup.py	2020-02-06 11:08:10.707119080 +0000
-+++ src/setup.py	2020-02-05 22:32:19.222917597 +0000
-@@ -194,6 +194,16 @@
+--- a/setup.py
++++ b/setup.py
+@@ -194,6 +194,16 @@ except NameError:
  # Parameters parsed from environment
  ################################################################################
- 
+
 +# Chaquopy: CMake variables which setup.py accepts as environment variables are set here, as
 +# they may also affect other things in setup.py. Other variables are set in
 +# tools/setup_helpers/cmake.py.
@@ -156,7 +156,7 @@
  VERBOSE_SCRIPT = True
  RUN_BUILD_DEPS = True
  # see if the user passed a quiet flag to setup.py arguments and respect
-@@ -311,7 +321,7 @@
+@@ -311,7 +321,7 @@ def build_deps():
      build_caffe2(version=version,
                   cmake_python_library=cmake_python_library,
                   build_python=True,
@@ -164,21 +164,42 @@
 +                 rerun_cmake=True,  # Chaquopy: for rerunning with build-wheel.py --no-unpack.
                   cmake_only=CMAKE_ONLY,
                   cmake=cmake)
- 
-@@ -766,6 +776,7 @@
-         packages=packages,
+
+@@ -756,6 +766,12 @@ if __name__ == '__main__':
+
+     extensions, cmdclass, packages, entry_points = configure_extension_build()
+
++    # Chaquopy: see package_data below.
++    if os.path.exists("chaquopy"):
++        shutil.rmtree("chaquopy")
++    os.mkdir("chaquopy")
++    os.symlink("../torch/lib", "chaquopy/lib")
++
+     setup(
+         name=package_name,
+         version=version,
+@@ -763,10 +779,14 @@ if __name__ == '__main__':
+                      "Python with strong GPU acceleration"),
+         ext_modules=extensions,
+         cmdclass=cmdclass,
+-        packages=packages,
++        packages=packages + ["chaquopy"],
          entry_points=entry_points,
          install_requires=install_requires,
-+        data_files=[("chaquopy/lib", glob.glob("torch/lib/*.so*"))],
          package_data={
++            # Put libraries in chaquopy/lib so the importer can find them.
++            'chaquopy': [
++                'lib/*.so*'
++            ],
              'torch': [
                  'py.typed',
-@@ -779,7 +790,7 @@
+                 'bin/*',
+@@ -779,7 +799,7 @@ if __name__ == '__main__':
                  'nn/*.pyi',
                  'nn/modules/*.pyi',
                  'nn/parallel/*.pyi',
 -                'lib/*.so*',
-+                # Chaquopy: moved 'lib/*.so*' to data_files.
++                # Chaquopy: moved 'lib/*.so*' to 'chaquopy' package.
                  'lib/*.dylib*',
                  'lib/*.dll',
                  'lib/*.lib',
