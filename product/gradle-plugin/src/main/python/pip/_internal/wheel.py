@@ -30,7 +30,7 @@ from pip._internal.exceptions import (
     InstallationError, InvalidWheelFilename, UnsupportedWheel,
 )
 from pip._internal.locations import (
-    PIP_DELETE_MARKER_FILENAME, distutils_scheme, CHAQUOPY_SCHEME_KEYS
+    PIP_DELETE_MARKER_FILENAME, distutils_scheme
 )
 from pip._internal.utils.logging import indent_log
 from pip._internal.utils.misc import (
@@ -320,8 +320,10 @@ def move_wheel_files(name, req, wheeldir, user=False, home=None, root=None,
         fixer = None
         filter = None
         for subdir in os.listdir(os.path.join(wheeldir, datadir)):
-            # Chaquopy added (see locations.py)
-            if subdir not in CHAQUOPY_SCHEME_KEYS:
+            # Chaquopy: only include .data subdirectories which should be installed into the
+            # target directory. Other subdirectories should be skipped to avoid creating
+            # invalid entries in the RECORD file.
+            if subdir not in ["purelib", "platlib"]:
                 continue
 
             fixer = None
@@ -478,9 +480,10 @@ if __name__ == '__main__':
             reader = csv.reader(record_in)
             writer = csv.writer(record_out)
             for row in reader:
-                # Chaquopy modified
+                # Chaquopy: some .data subdirectories may have been skipped (see edit in
+                # move_wheel_files).
                 row[0] = installed.pop(row[0], None)
-                if not row[0]:  # We didn't install this subdir of .data (see above)
+                if not row[0]:
                     continue
 
                 if row[0] in changed:
@@ -685,15 +688,16 @@ class WheelBuilder(object):
                 return True
             except InstallationError as exc:
                 spinner.finish("error")
-                # Chaquopy: `bdist_wheel` runs `install` internally, so if it fails, trying to
-                # run `install` directly (as standard pip does) is probably a waste of time and
-                # will only make the failure message harder to read. The only case I've seen
-                # where it would have succeeded is #5630.
+                # Chaquopy: if `bdist_wheel` failed because of native code, don't fall back on
+                # `install` because it'll definitely fail, wasting the user's time and making
+                # the failure message harder to read. But if `bdist_wheel` failed for some
+                # other reason, then it's still worth trying `install` (#5630).
                 #
-                # Also, `install` has complications which we don't want to deal with: instead
-                # of installing directly into <target> and creating a .dist-info subdir, it
-                # installs into <target>/lib/python and generates a .egg-info directory.
-                req.chaquopy_setup_py_failed(exc)
+                # The error message may use spaces or underscores (see
+                # setuptools.monkey.disable_native).
+                from setuptools.monkey import CHAQUOPY_NATIVE_ERROR
+                if re.search(CHAQUOPY_NATIVE_ERROR.replace(" ", "."), exc.output):
+                    req.chaquopy_setup_py_failed(exc)
 
     def _clean_one(self, req):
         base_args = self._base_setup_args(req)
@@ -716,9 +720,10 @@ class WheelBuilder(object):
         """
         from pip._internal import index
 
-        # Chaquopy: this method used to require that self.wheel_cache.cache_dir was set, but
-        # since we still want to install via wheels even with --no-cache-dir (see note at
-        # bdist_wheel above), we've changed it to use the ephemeral cache in that case.
+        building_is_possible = self._wheel_dir or (
+            autobuilding and self.wheel_cache.cache_dir
+        )
+        assert building_is_possible
 
         buildset = []
         for req in requirements:
@@ -744,17 +749,14 @@ class WheelBuilder(object):
                     if index.egg_info_matches(base, None, link) is None:
                         # E.g. local directory. Build wheel just for this run.
                         ephem_cache = True
-                    elif not self.wheel_cache.cache_dir:  # Chaquopy: see note above.
-                        ephem_cache = True
-                    if False:  # Chaquopy: see note at bdist_wheel above.
-                        if "binary" not in index.fmt_ctl_formats(
-                                self.finder.format_control,
-                                canonicalize_name(req.name)):
-                            logger.info(
-                                "Skipping bdist_wheel for %s, due to binaries "
-                                "being disabled for it.", req.name,
-                            )
-                            continue
+                    if "binary" not in index.fmt_ctl_formats(
+                            self.finder.format_control,
+                            canonicalize_name(req.name)):
+                        logger.info(
+                            "Skipping bdist_wheel for %s, due to binaries "
+                            "being disabled for it.", req.name,
+                        )
+                        continue
                 buildset.append((req, ephem_cache))
 
         if not buildset:

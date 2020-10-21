@@ -699,7 +699,8 @@ def call_subprocess(cmd, show_stdout=True, cwd=None,
                 )
             raise InstallationError(
                 'Command "%s" failed with error code %s in %s'
-                % (command_desc, proc.returncode, cwd))
+                % (command_desc, proc.returncode, cwd),
+                output="".join(all_output))  # Chaquopy: added for _build_one in wheel.py.
         elif on_returncode == 'warn':
             logger.warning(
                 'Command "%s" had error code %s in %s',

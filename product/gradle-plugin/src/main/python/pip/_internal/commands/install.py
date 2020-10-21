@@ -230,13 +230,7 @@ class InstallCommand(RequirementCommand):
             install_options.append('--user')
             install_options.append('--prefix=')
 
-        # Chaquopy: don't create a temp directory, install directly to target_dir.
-        class FakeTempDirectory(object):
-            path = options.target_dir
-            def create(self):
-                pass
-
-        target_temp_dir = FakeTempDirectory()
+        target_temp_dir = TempDirectory(kind="target")
         if options.target_dir:
             options.ignore_installed = True
             options.target_dir = os.path.abspath(options.target_dir)
@@ -309,15 +303,16 @@ class InstallCommand(RequirementCommand):
                     )
                     resolver.resolve(requirement_set)
 
-                    # Chaquopy: always try to build wheels, because we've disabled installing
-                    # via `setup.py install`: see bdist_wheel in wheel.py.
-                    if True:
+                    # If caching is disabled or wheel is not installed don't
+                    # try to build wheels.
+                    if wheel and options.cache_dir:
                         # build wheels before install.
                         wb = WheelBuilder(
                             finder, preparer, wheel_cache,
                             build_options=[], global_options=[],
                         )
-                        # Chaquopy: this will raise a CommandError if any wheel fails.
+                        # Ignore the result: a failed wheel will be
+                        # installed from the sdist/vcs whatever.
                         wb.build(
                             requirement_set.requirements.values(),
                             session=session, autobuilding=True
@@ -394,7 +389,7 @@ class InstallCommand(RequirementCommand):
                         requirement_set.cleanup_files()
                         wheel_cache.cleanup()
 
-        if options.target_dir and False:  # Chaquopy disabled
+        if options.target_dir:
             self._handle_target_dir(
                 options.target_dir, target_temp_dir, options.upgrade
             )

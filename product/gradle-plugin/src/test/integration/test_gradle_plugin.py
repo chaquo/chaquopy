@@ -33,11 +33,27 @@ for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/pyth
     match = re.search(r'PYTHON_VERSION = "(.+)";', line)
     if match:
         PYTHON_VERSION = match[1]
-        PYTHON_VERSION_SHORT = PYTHON_VERSION[:PYTHON_VERSION.rindex(".")]
-        PYTHON_VERSION_MAJOR = PYTHON_VERSION[:PYTHON_VERSION.index(".")]
+        PYTHON_VERSION_SHORT = PYTHON_VERSION.rpartition(".")[0]
         break
 else:
-    raise Exception("Failed to find Python version")
+    raise Exception("Failed to find runtime Python version")
+
+
+def run_build_python(args, **kwargs):
+    for k, v in dict(check=True, capture_output=True, text=True).items():
+        kwargs.setdefault(k, v)
+    if os.name == "nt":
+        build_python = ["py", "-" + PYTHON_VERSION_SHORT]
+    else:
+        build_python = ["python" + PYTHON_VERSION_SHORT]
+    return run(build_python + args, **kwargs)
+
+BUILD_PYTHON_VERSION = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
+                        .split()[1])
+BUILD_PYTHON_VERSION_SHORT = BUILD_PYTHON_VERSION.rpartition(".")[0]
+EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION_SHORT + ".egg-info"
+EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
+
 
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["AGP_VERSION"]
@@ -105,9 +121,10 @@ class GradleTestCase(TestCase):
             for info in zip_file.infolist():
                 with self.subTest(filename=info.filename):
                     self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
-                    di_match = re.match(r"(.+)-(.+).dist-info", info.filename.split("/")[0])
+                    di_match = re.match(r"(.+)-(.+)\.(dist|egg)-info$",
+                                        info.filename.split("/")[0])
                     if di_match:
-                        actual_dist_versions.add(di_match.groups())
+                        actual_dist_versions.add(di_match.groups()[:2])
                         if not include_dist_info:
                             continue
                     if not info.filename.endswith("/"):
@@ -654,6 +671,10 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
+    # By checking that this string is output in tests which fall back on setup.py install, we
+    # can use the absence of the string in other tests to prove that no fallback occurred.
+    RUNNING_INSTALL = "Running setup.py install"
+
     def test_sdist_native(self):
         run = self.RunGradle("base", run=False)
         for name in ["sdist_native_ext", "sdist_native_clib", "sdist_native_compiler",
@@ -667,6 +688,10 @@ class PythonReqs(GradleTestCase):
                 else:
                     setup_error = "Chaquopy cannot compile native code"
                 self.assertInLong(setup_error, run.stdout)
+
+                # If bdist_wheel fails with a "native code" message, we should not fall back on
+                # setup.py install.
+                self.assertNotInLong(self.RUNNING_INSTALL, run.stdout)
 
                 url = fr"file:.*app/{name}-1.0.tar.gz"
                 if name in ["sdist_native_compiler", "sdist_native_cc"]:
@@ -687,12 +712,35 @@ class PythonReqs(GradleTestCase):
                 run.apply_layers(f"PythonReqs/{name}")
                 run.rerun(requirements=[f"{name}.py"])
 
+    # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
+    # install. For example, see acoustics==0.2.4 (#5630).
+    def test_bdist_wheel_fail(self):
+        run = self.RunGradle(
+            "base", "PythonReqs/bdist_wheel_fail", include_dist_info=True,
+            requirements=([f"bdist_wheel_fail-1.0-{EGG_INFO_SUFFIX}/{name}"
+                           for name in EGG_INFO_FILES] +
+                          ["bdist_wheel_fail/__init__.py"]))
+        self.assertInLong("bdist_wheel throwing exception", run.stdout)
+        self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
+        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
+
+    # If bdist_wheel returns success but didn't generate a wheel, we should fall back on
+    # setup.py install. For example, see kiteconnect==3.8.2 (#5630).
+    def test_bdist_wheel_fail_silently(self):
+        run = self.RunGradle(
+            "base", "PythonReqs/bdist_wheel_fail_silently", include_dist_info=True,
+            requirements=([f"bdist_wheel_fail_silently-1.0-{EGG_INFO_SUFFIX}/{name}"
+                           for name in EGG_INFO_FILES] +
+                          ["bdist_wheel_fail_silently/__init__.py"]))
+        self.assertInLong("Failed to build bdist-wheel-fail-silently", run.stdout)
+        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
+
     # site-packages should not be visible to setup.py scripts.
     def test_sdist_site(self):
         # The default buildPython should be the same Python executable as is running this test
         # script, but make sure by checking for one of this script's requirements.
         PKG_NAME = "javaproperties"
-        self.run_build_python(["-c", f"import {PKG_NAME}"])
+        run_build_python(["-c", f"import {PKG_NAME}"])
 
         run = self.RunGradle("base", "PythonReqs/sdist_site",
                              env={"CHAQUOPY_PKG_NAME": PKG_NAME}, succeed=False)
@@ -764,11 +812,13 @@ class PythonReqs(GradleTestCase):
         self.assertNotInLong(self.WHEEL_ADVICE, run.stderr)
 
     def test_no_binary_succeed(self):
-        self.RunGradle("base", "PythonReqs/no_binary_succeed",
-                       requirements=["no_binary_sdist/__init__.py"])
+        run = self.RunGradle("base", "PythonReqs/no_binary_succeed",
+                             requirements=["no_binary_sdist/__init__.py"])
+        self.assertInLong("Skipping bdist_wheel", run.stdout)
+        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     def test_requires_python(self):
-        build_version = self.get_different_build_python_version()
+        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
         run = self.RunGradle("base", "PythonReqs/requires_python", run=False)
         with open(f"{run.project_dir}/app/index/pyver/index.html", "w") as index_file:
             def print_link(whl_version, requires_python):
@@ -780,7 +830,7 @@ class PythonReqs(GradleTestCase):
             # ignored completely, then version 0.2 will be selected.
             print("<html><head></head><body>", file=index_file)
             print_link("0.1", PYTHON_VERSION)
-            print_link("0.2", build_version)
+            print_link("0.2", BUILD_PYTHON_VERSION)
             print("</body></html>", file=index_file)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
@@ -952,8 +1002,8 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
 
     def test_marker_python_version(self):
+        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
         run = self.RunGradle("base", "PythonReqs/marker_python_version", run=False)
-        build_version = self.get_different_build_python_version()
         with open(f"{run.project_dir}/app/requirements.txt", "w") as reqs_file:
             def print_req(whl_version, python_version):
                 print(f'pyver-{whl_version}-py2.py3-none-any.whl; '
@@ -962,7 +1012,7 @@ class PythonReqs(GradleTestCase):
             # If the build Python version is used, or the environment markers are ignored
             # completely, then version 0.2 will be selected.
             print_req("0.1", PYTHON_VERSION)
-            print_req("0.2", build_version)
+            print_req("0.2", BUILD_PYTHON_VERSION)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
@@ -975,30 +1025,6 @@ class PythonReqs(GradleTestCase):
 
     def wheel_advice(self, versions):
         return re.escape(f"\n{self.WHEEL_ADVICE}: {versions!r}.")
-
-    # We want to verify that packages are selected based on the target Python version, not the
-    # build Python version, and we can only do that if the two versions are different. If this
-    # ever becomes difficult to arrange on a test machine, switch to using add_path like in
-    # TestBuildPython.test_missing.
-    def get_different_build_python_version(self):
-        version = self.get_build_python_version()
-        if version == PYTHON_VERSION:
-            self.fail(f"Build Python and target Python have the same version ({version})")
-        return version
-
-    def get_build_python_version(self):
-        version_proc = self.run_build_python(["--version"])
-        _, version = version_proc.stdout.split()  # e.g. "Python 3.7.1"
-        return version
-
-    def run_build_python(self, args, **kwargs):
-        for k, v in dict(check=True, capture_output=True, text=True).items():
-            kwargs.setdefault(k, v)
-        if os.name == "nt":
-            build_python = ["py", "-" + PYTHON_VERSION_SHORT]
-        else:
-            build_python = ["python" + PYTHON_VERSION_SHORT]
-        return run(build_python + args, **kwargs)
 
 
 class StaticProxy(GradleTestCase):

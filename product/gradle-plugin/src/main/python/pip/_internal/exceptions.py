@@ -17,6 +17,11 @@ class ConfigurationError(PipError):
 class InstallationError(PipError):
     """General exception during installation"""
 
+    # Chaquopy: added to allow misc.call_subprocess to return the output of a failing comand.
+    def __init__(self, message, output=None):
+        super().__init__(message)
+        self.output = output
+
 
 class UninstallationError(PipError):
     """General exception during uninstallation"""

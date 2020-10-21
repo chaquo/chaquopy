@@ -132,7 +132,8 @@ class DistributionPath(object):
                 if not r or r.path in seen:
                     continue
                 if self._include_dist and entry.endswith(DISTINFO_EXT):
-                    possible_filenames = [METADATA_FILENAME, WHEEL_METADATA_FILENAME]
+                    possible_filenames = ["METADATA",  # Chaquopy: added.
+                                          METADATA_FILENAME, WHEEL_METADATA_FILENAME]
                     for metadata_filename in possible_filenames:
                         metadata_path = posixpath.join(entry, metadata_filename)
                         pydist = finder.find(metadata_path)

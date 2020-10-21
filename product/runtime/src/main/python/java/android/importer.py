@@ -68,7 +68,7 @@ def initialize_importlib(context, build_json, app_path):
         # Extract data files from top-level directories which aren't Python packages.
         for name in finder.listdir(""):
             if finder.isdir(name) and \
-               not name.endswith(".dist-info") and \
+               not is_dist_info(name) and \
                not any(finder.exists(f"{name}/__init__{suffix}") for suffix in LOADERS):
                 finder.extract_dir(name)
 
@@ -76,6 +76,10 @@ def initialize_importlib(context, build_json, app_path):
         # require the finder to be fully available to the system, which isn't the case until
         # get_importer returns.
         site.addsitedir(finder.extract_root)
+
+
+def is_dist_info(name):
+    return bool(re.search(r"\.(dist|egg)-info$", name))
 
 
 def initialize_ctypes():
@@ -228,7 +232,7 @@ def initialize_pkg_resources():
 
     def distribution_finder(finder, entry, only):
         for name in finder.listdir(""):
-            if name.endswith(".dist-info"):
+            if is_dist_info(name):
                 yield pkg_resources.Distribution.from_location(entry, name)
 
     pkg_resources.register_finder(AssetFinder, distribution_finder)

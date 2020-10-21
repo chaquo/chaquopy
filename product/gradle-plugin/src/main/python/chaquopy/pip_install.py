@@ -14,17 +14,16 @@ import argparse
 from collections import namedtuple
 import email.parser
 from fnmatch import fnmatch
-from glob import glob
 import hashlib
 import logging.config
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join
+from os.path import abspath, basename, dirname, exists, isdir, join, relpath
 import re
 import subprocess
 import sys
 
 from pip._internal.utils.misc import rmtree
-from pip._vendor.distlib.database import InstalledDistribution
+from pip._vendor.distlib.database import DistributionPath
 from pip._vendor.retrying import retry
 from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
@@ -73,7 +72,7 @@ class PipInstall(object):
             for ri in req_infos:
                 common_path = join(self.target, "common", basename(ri.dist.path))
                 renames(ri.dist.path, common_path)
-                for name in ["RECORD", "WHEEL"]:
+                for name in ["installed-files.txt", "RECORD", "WHEEL"]:
                     abs_name = join(common_path, name)
                     if exists(abs_name):
                         os.remove(abs_name)
@@ -131,23 +130,30 @@ class PipInstall(object):
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
-        logger.debug("Reading dist-info")
+        logger.debug("Scanning distributions")
         req_infos = []
         abi_tree = {}
-        for dist_info_dir in sorted(glob(join(abi_dir, "*.dist-info"))):
+        for dist in DistributionPath([abi_dir], include_egg=True).get_distributions():
             try:
-                dist = InstalledDistribution(dist_info_dir)
-                wheel_info = email.parser.Parser().parse(open(join(dist_info_dir, "WHEEL")))
-                is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
+                wheel_filename = join(dist.path, "WHEEL")
+                if exists(wheel_filename):
+                    wheel_info = email.parser.Parser().parse(open(wheel_filename))
+                    is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
+                else:
+                    is_pure = True  # Anything installed from an sdist must be pure.
+
                 req_tree = {}
                 for path, hash_str, size_str in dist.list_installed_files():
+                    # path is relative to abi_dir with dist-info, or absolute with egg-info.
                     path_abs = abspath(join(abi_dir, path))
                     if not path_abs.startswith(abi_dir):
                         # pip's gone and installed something outside of the target directory.
                         raise ValueError("invalid path in RECORD: '{}'".format(path))
+                    path = relpath(path_abs, abi_dir)
+
                     if any(fnmatch(path, pattern) for pattern in EXCLUDE_PATTERNS):
                         remove(path_abs, remove_empty_dirs=True)
-                    elif path_abs.startswith(dist_info_dir):
+                    elif path_abs.startswith(dist.path):
                         pass
                     else:
                         value = (hash_str, int(size_str))
@@ -166,7 +172,7 @@ class PipInstall(object):
                 req_infos.append(ReqInfo(dist, req_tree, is_pure))
 
             except Exception:
-                logger.error("Failed to process " + dist_info_dir)
+                logger.error("Failed to process " + dist.path)
                 raise
 
         return req_infos, abi_tree

@@ -757,11 +757,6 @@ class InstallRequirement(object):
             self.install_succeeded = True
             return
 
-        # If we failed to build a wheel, we should already have terminated: see bdist_wheel in
-        # wheel.py.
-        raise CommandError("Chaquopy: can't happen: requirement {} is still not a wheel."
-                           .format(self))
-
         # Extend the list of global and install options passed on to
         # the setup.py call with the ones from the requirements file.
         # Options specified in requirements file override those

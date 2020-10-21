@@ -11,7 +11,7 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "./chaquopy_dir"
+                install "./bdist_wheel_fail"
             }
         }
         ndk {
