@@ -139,5 +139,5 @@ for name in pthread rt; do
             exit 1
         fi
     done
-    "$toolchain/bin/$host_triplet-ar" r "$sysroot/usr/lib/lib$name.a"
+    "$toolchain/bin/$host_triplet-ar" rc "$sysroot/usr/lib/lib$name.a"
 done
