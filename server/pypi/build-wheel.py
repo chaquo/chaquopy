@@ -294,14 +294,15 @@ class BuildWheel:
         for package, version in reqs:
             dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
             matches = []
-            for filename in os.listdir(dist_dir):
-                match = re.search(fr"^{normalize_name_wheel(package)}-"
-                                  fr"{normalize_version(version)}-(?P<build_num>\d+)-"
-                                  fr"({self.compat_tag}|"
-                                  fr"py{PYTHON_VERSION[0]}-none-{self.platform_tag})"
-                                  fr"\.whl$", filename)
-                if match:
-                    matches.append(match)
+            if exists(dist_dir):
+                for filename in os.listdir(dist_dir):
+                    match = re.search(fr"^{normalize_name_wheel(package)}-"
+                                      fr"{normalize_version(version)}-(?P<build_num>\d+)-"
+                                      fr"({self.compat_tag}|"
+                                      fr"py{PYTHON_VERSION[0]}-none-{self.platform_tag})"
+                                      fr"\.whl$", filename)
+                    if match:
+                        matches.append(match)
             if not matches:
                 raise CommandError(f"Couldn't find wheel for requirement {package} {version}")
             matches.sort(key=lambda match: int(match.group("build_num")))

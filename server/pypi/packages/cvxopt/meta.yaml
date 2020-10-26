@@ -1,0 +1,99 @@
+# A user wanted to use the function neurokit2.eda_phasic. Testing this function with its own
+# unit test worked on every ABI except x86, which failed as follows:
+#
+#    Traceback (most recent call last):
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/misc.py", line 1432, in factor
+#    ArithmeticError: 1
+#
+#    During handling of the above exception, another exception occurred:
+#
+#    Traceback (most recent call last):
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/coneprog.py", line 2065, in coneqp
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/coneprog.py", line 1981, in kktsolver
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/misc.py", line 1447, in factor
+#    ArithmeticError: 1
+#
+#    During handling of the above exception, another exception occurred:
+#
+#    Traceback (most recent call last):
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/app/chaquopy/test/cvxopt.py", line 13, in test_eda_phasic
+#        cvxEDA = nk.eda_phasic(nk.standardize(eda), method="cvxeda")
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/neurokit2/eda/eda_phasic.py", line 72, in eda_phasic
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/neurokit2/eda/eda_phasic.py", line 240, in _eda_phasic_cvxeda
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/coneprog.py", line 4485, in qp
+#      File "/data/user/0/com.chaquo.python.pkgtest3/files/chaquopy/AssetFinder/requirements/cvxopt/coneprog.py", line 2067, in coneqp
+#    ValueError: Rank(A) < p or Rank([P; A; G]) < n
+#
+# Both lines raising an ArithmeticError were calling the module cvxopt.cholmod. I added a
+# direct test of cholmod.linsolve, and while x86 didn't crash, it did give completely different
+# output to the other ABIs (expected output is in test.py):
+#
+#    [-3.75e-01  4.38e-01]
+#    [ 6.88e-01  2.44e+00]
+#    [ 5.00e-01  7.50e-01]
+#    [ 8.75e-01  2.38e+00]
+#
+# In both cases, the PyPI Windows x86 build worked fine.
+#
+# None of the following things made any difference:
+#
+#  * Running the x86 build on an x86_64 emulator
+#  * Upgrading OpenBLAS to the current stable version 0.3.10 (the PyPI Linux builds
+#    currently use 0.2.19, very close to our own 0.2.20).
+#  * Trying other versions of cvxopt / SuiteSparse:
+#     * 1.2.4 / 5.6.0
+#     * 1.2.0 / 5.2.0
+#     * 1.1.9 / 4.5.3
+#  * Removing the libm.a workaround and building against API level 26.
+#  * Building x86 using DLONG, and altering cholmod.c etc. accordingly.
+#
+# Eventually I found [this
+# issue](https://github.com/DrTimothyAldenDavis/SuiteSparse/issues/1#issuecomment-545458627)
+# which mentioned that OpenBLAS has some trouble with the "supernodal" mode which is enabled by
+# default. Sure enough, setting cvxopt.cholmod.options["supernodal"] = 0 fixed the
+# cholmod.linsolve test.
+#
+# However, the eda_phasic test still gives different output on x86:
+#
+#            EDA_Tonic    EDA_Phasic
+#    0     -585.911110  0.000000e+00
+#    1     -585.897707  0.000000e+00
+#    2     -585.884294 -5.622325e+03
+#    3     -585.870873 -4.004758e+05
+#    4     -585.857442 -1.043021e+06
+#    ...           ...           ...
+#    29995  305.384372  2.877671e+11
+#    29996  305.402341  2.872935e+11
+#    29997  305.420310  2.868207e+11
+#    29998  305.438278  2.863485e+11
+#    29999  305.456247  2.858770e+11
+#
+# All other ABIs, and the PyPI Windows x86 build, give something like this:
+#
+#           EDA_Tonic  EDA_Phasic
+#    0      -3.414590    0.000000
+#    1      -3.421066    0.000000
+#    2      -3.427541    1.779744
+#    3      -3.434015    1.788931
+#    4      -3.440489    1.798100
+#    ...          ...         ...
+#    29995 -34.383953   34.046697
+#    29996 -34.384913   34.044347
+#    29997 -34.385873   34.041977
+#    29998 -34.386833   34.039588
+#    29999 -34.387793   34.037179
+#
+# Based on my understanding of this function, neither of these look correct, but at least the
+# other ABIs meet the requirement that tonic + phasic == input, because the input ranges from
+# about 0 to 5.
+
+package:
+  name: cvxopt
+  version: 1.2.5
+
+build:
+  number: 6
+
+requirements:
+  host:
+    - chaquopy-openblas 0.2.20

@@ -1,0 +1,54 @@
+--- src-original/setup.py	2020-04-16 17:41:27.000000000 +0000
++++ src/setup.py	2020-10-24 01:11:44.124612463 +0000
+@@ -4,12 +4,15 @@
+ import versioneer
+ 
+ # Modifiy this if BLAS and LAPACK libraries are not in /usr/lib.
+-BLAS_LIB_DIR = '/usr/lib'
++BLAS_LIB_DIR = '../requirements/chaquopy/lib'  # Chaquopy
+ 
+ # Default names of BLAS and LAPACK libraries
+-BLAS_LIB = ['blas']
+-LAPACK_LIB = ['lapack']
+-BLAS_EXTRA_LINK_ARGS = []
++BLAS_LIB = ['openblas']    # Chaquopy
++LAPACK_LIB = ['openblas']  #
++
++# Chaquopy: the required <complex.h> functions aren't available until API level 26, but we can
++# get them from libm.a, which is from the newest API level known to the NDK.
++BLAS_EXTRA_LINK_ARGS = ["-Wl,-Bstatic", "-lm", "-Wl,-Bdynamic"]
+ 
+ # Set environment variable BLAS_NOUNDERSCORES=1 if your BLAS/LAPACK do
+ # not use trailing underscores
+@@ -78,8 +81,17 @@
+     GSL_MACROS = []
+     FFTW_MACROS = []
+ 
++# Chaquopy: based on .travis.yml.
++from subprocess import run
++SUITESPARSE_VERSION = "5.7.2"
++if "bdist_wheel" in sys.argv:
++    run(["wget", "-c", "--progress=dot:mega",
++         f"https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/v{SUITESPARSE_VERSION}.tar.gz"],
++        check=True)
++    run(["tar", "-xf", f"v{SUITESPARSE_VERSION}.tar.gz"], check=True)
++
+ # Directory containing SuiteSparse source
+-SUITESPARSE_SRC_DIR = ''
++SUITESPARSE_SRC_DIR = f"SuiteSparse-{SUITESPARSE_VERSION}"  # Chaquopy: see above.
+ 
+ # Set to 1 if compiling with MSVC 14 or later
+ MSVC=0
+@@ -202,7 +214,11 @@
+             glob('src/C/SuiteSparse_cvxopt_extra/umfpack/*'))
+ 
+ # Build for int or long?
+-if sys.maxsize > 2**31: MACROS += [('DLONG',None)]
++#
++# Chaquopy: was `if sys.maxsize > 2**31`. Getting this wrong will cause a mismatch between the
++# CHOL macro in src/c/cholmod.c and the CHOLMOD macro in
++# SuiteSparse-5.7.2/CHOLMOD/Include/cholmod_internal.h, ultimately leading to linker errors.
++if os.environ["CHAQUOPY_ABI"] in ["arm64-v8a", "x86_64"]: MACROS += [('DLONG',None)]
+ 
+ if not SUITESPARSE_SRC_DIR:
+     cholmod = Extension('cholmod',

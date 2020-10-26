@@ -4,7 +4,6 @@ pip==18.1
 setuptools==40.6.3
 wheel==0.33.6
 
-dataclasses==0.6
 jinja2==2.10
 jsonschema==2.6.0
 pyelftools==0.24
