@@ -7,10 +7,10 @@ from .test_utils import FilterWarningsCase
 class TestImport(FilterWarningsCase):
 
     def no_module_error(self, module):
-        return self.assertRaisesRegex(ImportError, r"^No module named '{}'".format(module))
+        return self.assertRaisesRegex(ModuleNotFoundError, f"No module named '{module}'")
 
     def no_name_error(self, name):
-        return self.assertRaisesRegex(ImportError, r"^cannot import name '{}'".format(name))
+        return self.assertRaisesRegex(ImportError, f"cannot import name '{name}'")
 
     def test_enable(self):
         # Should be enabled by default
@@ -42,18 +42,20 @@ class TestImport(FilterWarningsCase):
         self.assertIs(Integer, jclass("java.lang.Integer"))
 
     def test_errors(self):
-        # "java" sub-packages give different errors on Python 2.7 because there actually is a
+        # "java" sub-packages give different errors because there actually is a
         # Python module by that name.
-        with self.no_module_error(r"(java.lang|lang.String)"):
+        with self.no_module_error("java.lang"):
             import java.lang.String  # noqa: F401
-        with self.no_module_error(r"(java.)?lang"):
+        with self.no_module_error("java.lang"):
             from java.lang import Nonexistent  # noqa: F401
-        with self.no_module_error(r"(java.)?lang"):
+        with self.no_module_error("java.lang"):
             from package1 import wildcard_java_lang  # noqa: F401
 
-        with self.no_module_error(r"javax(.xml)?"):
+        with self.no_module_error("javax"):
+            import javax.xml.XMLConstants  # noqa: F401
+        with self.no_module_error("javax"):
             from javax.xml import Nonexistent  # noqa: F401, F811
-        with self.no_module_error(r"javax(.xml)?"):
+        with self.no_module_error("javax"):
             from package1 import wildcard_javax_xml  # noqa: F401
 
         # A Java name and a nonexistent one.
@@ -72,12 +74,12 @@ class TestImport(FilterWarningsCase):
 
     def test_package(self):
         # See note above about "java" sub-packages.
-        with self.no_module_error(r"(java.)?lang"):
+        with self.no_module_error("java.lang"):
             import java.lang  # noqa: F401
-        with self.no_name_error(r"(java.)?lang"):
+        with self.no_name_error("lang"):
             from java import lang  # noqa: F401
 
-        with self.no_module_error(r"javax(.xml)?"):
+        with self.no_module_error("javax"):
             import javax.xml  # noqa: F401
         with self.no_module_error("javax"):
             from javax import xml  # noqa: F401

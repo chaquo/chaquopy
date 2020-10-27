@@ -169,10 +169,6 @@ class Module(object):
 
     def process(self):
         classes = []
-
-        # When ast.parse is passed a byte string without a PEP 263 encoding declaration, the
-        # default encoding is ASCII in Python 2 and UTF-8 in Python 3. We implement the Python
-        # 3 behaviour.
         root = ast.parse(tokenize.open(self.filename).read(), self.filename)
 
         # These are all the node types which can change global bindings. We map the bound name

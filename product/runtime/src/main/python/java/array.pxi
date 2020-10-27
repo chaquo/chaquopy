@@ -174,10 +174,6 @@ cdef class JavaArray:
             # allows JavaObject.__eq__(other, self) to be tried.
             return NotImplemented
 
-    def __ne__(self, other):  # Not automatic in Python 2
-        eq = (self == other)
-        return eq if (eq is NotImplemented) else (not eq)
-
     # Like Python lists, jarray objects should be unhashable because they're mutable.
     __hash__ = None
 

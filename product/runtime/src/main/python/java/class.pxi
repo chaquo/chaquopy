@@ -225,7 +225,6 @@ cdef setup_object_class():
             if (name in self.__dict__) and not name.startswith("_chaquopy") and \
                not isinstance(type(self), ProxyClass):
                 del self.__dict__[name]
-                # Exception type and wording are based on Python 2.7.
                 raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         def __dir__(self):
@@ -249,7 +248,6 @@ cdef setup_object_class():
         def __str__(self):       return self.toString()
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
-        def __ne__(self, other): return not (self == other)  # Not automatic in Python 2
 
 
 # Associates a Python object with its Java counterpart.
@@ -734,7 +732,6 @@ cdef class JavaMethod(JavaSimpleMember):
         copy_output_args(self.args_sig, args, p2j_args)
         return result
 
-    # Exception types and wording are based on Python 2.7.
     cdef check_args(self, CQPEnv env, args):
         obj = None
         if not (self.is_static or self.is_constructor):

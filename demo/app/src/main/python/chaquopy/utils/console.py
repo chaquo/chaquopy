@@ -13,8 +13,8 @@ def start_thread(runnable):
 
 
 class ConsoleInputStream(TextIOBase):
-    """Receives input in on_input in one thread (non-blocking), and provides a read interface in
-    another thread (blocking). Reads will return bytes in Python 2 or unicode in Python 3.
+    """Receives input in on_input in one thread (non-blocking), and provides a read interface
+    in another thread (blocking).
     """
     def __init__(self, task):
         TextIOBase.__init__(self)

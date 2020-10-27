@@ -291,25 +291,15 @@ cdef JNIRef p2j_array(element_type, obj):
 cpdef check_range_float32(value):
     if value not in [float("nan"), float("inf"), float("-inf")] and \
        (value < -FLT_MAX or value > FLT_MAX):
+        # Same wording as Cython integer overflow errors.
         raise OverflowError("value too large to convert to float")
 
 
-# `ord` will raise a TypeError if not passed a string of length 1. In "narrow" Python builds, a
-# non-BMP character is represented as a string of length 2, so avoid a potentially confusing
-# error message.
-#
-# I considered whether the TypeError raised here or by `ord` could cause incorrect overload
-# caching. If you pass a Python string to a boxed Character parameter, then is_applicable_arg
-# will indeed catch a TypeError and disregard the overload. But the only *other* Java types a
-# Python string could be applicable to are String and its base classes (which are explicitly
-# preferred over Character in better_overload_arg) and primitive char (which would have already
-# been selected in the earlier phase with autoboxing disabled). So I don't think there's any
-# situation in which the TypeError could change the result.
-#
 # cpdef because it's called from primitive.py.
 cpdef check_range_char(value):
-    if (len(value) == 2 and re.match(u'[\ud800-\udbff][\udc00-\udfff]', value, re.UNICODE)) or \
-       ord(value) > 0xFFFF:
+    # In our current version of Cython, `ord` will raise a ValueError if not passed a string of
+    # length 1.
+    if ord(value) > 0xFFFF:
         raise TypeError("Cannot convert non-BMP character to char")
 
 

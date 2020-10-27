@@ -14,7 +14,7 @@ class TestConversion(FilterWarningsCase):
         super().setUp()
         self.obj = jclass('com.chaquo.python.TestBasics')()
         self.conv_error = self.assertRaisesRegex(TypeError, "Cannot convert")
-        self.too_big = self.assertRaisesRegex(OverflowError, "too (big|large)")
+        self.too_big = self.assertRaisesRegex(OverflowError, "too (big|large) to convert")
 
     def conv_error_unless(self, flag):
         return None if flag else self.conv_error
@@ -132,21 +132,19 @@ class TestConversion(FilterWarningsCase):
         max_val = "\uFFFF"
         self.verify_value(obj, name, min_val, wrapper=jchar)
         self.verify_value(obj, name, max_val, wrapper=jchar)
-
-        self.verify_value(obj, name, "x", wrapper=jchar)  # Will be a byte string in Python 2.
+        self.verify_value(obj, name, "x", wrapper=jchar)
 
         # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True, context=self.conv_error_unless(allow_bool))
         self.verify_value(obj, name, 1, context=self.conv_error_unless(allow_int))
         self.verify_value(obj, name, None, context=self.conv_error_unless(allow_null))
-        self.verify_value(obj, name, "ab",
-                          context=(None if allow_string else
-                                   self.assertRaisesRegex((TypeError, ValueError),
-                                                          r"(expected a character|"
-                                                          r"only single character).*length 2")))
-        self.verify_value(obj, name, "\U00010000",
-                          context=(None if allow_string else
-                                   self.assertRaisesRegex(TypeError, "non-BMP")))
+        self.verify_value(
+            obj, name, "ab", context=(None if allow_string else self.assertRaisesRegex(
+                ValueError, "only single character unicode strings can be converted to "
+                "Py_UCS4, got length 2")))
+        self.verify_value(
+            obj, name, "\U00010000", context=(None if allow_string else self.assertRaisesRegex(
+                TypeError, "Cannot convert non-BMP character to char")))
 
         self.verify_array(obj, name, min_val, max_val)
 

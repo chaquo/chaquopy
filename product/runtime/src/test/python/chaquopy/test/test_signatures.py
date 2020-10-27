@@ -7,6 +7,10 @@ from .test_utils import FilterWarningsCase
 
 class TestSignatures(FilterWarningsCase):
 
+    def setUp(self):
+        super().setUp()
+        self.too_big = self.assertRaisesRegex(OverflowError, "too (big|large) to convert")
+
     # jni_sig is not part of the public API and should not be accessed by user code.
     def test_jni_sig(self):
         Object = jclass("java.lang.Object")
@@ -63,7 +67,7 @@ class TestSignatures(FilterWarningsCase):
                              str(cls(val)))
 
         for val in [min_val - 1, max_val + 1]:
-            with self.assertRaisesRegex(OverflowError, "too (big|large)"):
+            with self.too_big:
                 cls(val)
             self.assertEqual("{}({})".format(cls.__name__, truncate(val, bits)),
                              str(cls(val, truncate=True)))
@@ -90,7 +94,7 @@ class TestSignatures(FilterWarningsCase):
         if exponent_bits < 11:
             for val in [2.0 ** (max_exponent + 1),
                         -2.0 ** (max_exponent + 1)]:
-                with self.assertRaisesRegex(OverflowError, "too (big|large)"):
+                with self.too_big:
                     cls(val)
                 self.assertEqual("{}({})".format(cls.__name__,
                                                  math.copysign(1, val) * float("inf")),
