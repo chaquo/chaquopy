@@ -404,6 +404,7 @@ class TestArray(FilterWarningsCase):
         (jfloat, "f", 4, [-float("inf"), -1.5, 0, 1.5, float("inf")]),
         (jdouble, "d", 8, [-float("inf"), -1e300, 0, 1e300, float("inf")])]
 
+    # See also the NumPy package tests.
     def test_buffer_j2p(self):
         for element_type, format, itemsize, values in self.BUFFER_TESTS:
             for input in [[], values]:
@@ -435,6 +436,7 @@ class TestArray(FilterWarningsCase):
             with self.assertRaisesRegex(TypeError, "a bytes-like object is required"):
                 memoryview(jarray(element_type)([]))
 
+    # See also the NumPy package tests.
     def test_buffer_p2j(self):
         import array
         sizeof_long = array.array("l").itemsize  # May be 4 or 8.

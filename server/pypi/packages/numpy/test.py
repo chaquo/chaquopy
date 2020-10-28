@@ -27,6 +27,7 @@ class TestNumpy(unittest.TestCase):
         self.assertLess(time() - start_time, 1)
 
 
+# See also the "buffer" tests in runtime/src/test/python/chaquopy/test/test_array.py.
 @unittest.skipUnless(Build, "Android only")
 class TestNumpyJarray(unittest.TestCase):
 
@@ -204,3 +205,11 @@ class TestNumpyJarray(unittest.TestCase):
         na = np.array(list("hello"))
         ja = jarray(jchar)(na)
         self.assertEqual(ja, na)
+
+    def test_non_contiguous(self):
+        import numpy as np
+
+        a = np.array([[1, 2, 3], [4, 5, 6]])
+        java_type = jarray(jarray(jdouble))
+        self.assertEqual([[1, 2, 3], [4, 5, 6]], java_type(a))
+        self.assertEqual([[1, 4], [2, 5], [3, 6]], java_type(a.T))

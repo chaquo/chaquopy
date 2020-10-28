@@ -215,7 +215,11 @@ cdef class JavaBufferArray(JavaArray):
         try:
             if not PyObject_CheckBuffer(value):
                 raise BufferError("object does not support the buffer protocol")
-            PyObject_GetBuffer(value, &buffer, PyBUF_FORMAT|PyBUF_ANY_CONTIGUOUS)
+            try:
+                PyObject_GetBuffer(value, &buffer, PyBUF_FORMAT|PyBUF_ANY_CONTIGUOUS)
+            except ValueError as e:
+                # NumPy throws a ValueError when the array is non-contiguous.
+                raise BufferError(str(e))
 
             formats, itemsize = BUFFER_FORMATS[self._element_sig]
             if not (buffer.format in formats and buffer.itemsize == itemsize):
