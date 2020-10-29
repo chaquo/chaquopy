@@ -1,8 +1,10 @@
 buildscript {
     repositories {
+        google()
         jcenter()
     }
     dependencies {
+        classpath 'com.android.tools.build:gradle:4.0.1'
         classpath 'ch.raffael.markdown-doclet:markdown-doclet:1.4'
     }
 }
@@ -12,6 +14,7 @@ subprojects {
     version = file("$repoRoot/VERSION.txt").text.trim()
 
     repositories {
+        google()
         jcenter()
     }
 

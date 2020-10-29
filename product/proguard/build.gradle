@@ -1,0 +1,25 @@
+// This AAR provides a ProGuard rules file which keeps the whole runtime JAR. Otherwise, When
+// using minifyEnabled, classes which are only accessed by Python code would be omitted from
+// the APK.
+//
+// The AAR doesn't actually depend on the JAR, because the way in which PythonPlugin adds it
+// to the APK classpath doesn't work with transitive dependencies.
+apply plugin: "com.android.library"
+
+group = "com.chaquo.python.runtime"
+
+android {
+    compileSdkVersion 30
+    defaultConfig {
+        consumerProguardFiles "proguard-rules.pro"
+    }
+}
+
+// See https://developer.android.com/studio/build/maven-publish-plugin
+afterEvaluate {
+    publishing.publications {
+        release(MavenPublication) {
+            from components.release
+        }
+    }
+}

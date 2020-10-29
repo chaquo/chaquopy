@@ -9,8 +9,7 @@ import os
 from os.path import abspath, dirname, exists, join, relpath
 import re
 import shutil
-import subprocess
-from subprocess import check_output, run
+from subprocess import run
 import sys
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
@@ -268,6 +267,32 @@ class ApiLevel(GradleTestCase):
         self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 16 or "
                           "higher. " + self.ADVICE, run.stderr)
 
+
+class JavaLib(GradleTestCase):
+
+    # See comment in dex_classes. At some point in 2018, I saw the Chaquopy classes sometimes
+    # ending up in classes2.dex when minSdkVersion was 21 or higher. I can't reproduce that now
+    # with any supported Android Gradle plugin version, but include a test in case it changes
+    # again in the future.
+    def test_multidex(self):
+        run = self.RunGradle("base")
+        classes = f"{run.run_dir}/apk/debug/classes.dex"
+        classes2 = f"{run.run_dir}/apk/debug/classes2.dex"
+        self.assertTrue(exists(classes))
+        self.assertFalse(exists(classes2))
+
+        run.apply_layers("JavaLib/multidex")
+        run.rerun()
+        self.assertTrue(exists(classes))
+        self.assertTrue(exists(classes2))
+
+    def test_minify(self):
+        # Without PyApplication in AndroidManifest.
+        run = self.RunGradle("base", "JavaLib/minify")
+
+        # With PyApplication in AndroidManifest.
+        run.apply_layers("JavaLib/minify_pyapplication")
+        run.rerun()
 
 class PythonVersion(GradleTestCase):
     def test_warning(self):
@@ -1181,8 +1206,7 @@ class RunGradle(object):
                             "gradlew.bat" if (os.name == "nt") else "gradlew")] +
                       gradlew_flags + [task_name("assemble", v) for v in variants],
                       cwd=self.project_dir,  # See add_path above.
-                      stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                      universal_newlines=True, env=merged_env, timeout=600)
+                      capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
@@ -1271,6 +1295,14 @@ class RunGradle(object):
 
         # Chaquopy runtime library
         actual_classes = dex_classes(apk_dir)
+        src_root = f"{repo_root}/product/runtime/src/main/java"
+        for dirpath, dirnames, filenames in os.walk(src_root):
+            for name in filenames:
+                if name.endswith(".java") and name != "package-info.java":
+                    self.test.assertIn(relpath(f"{dirpath}/{name}", src_root)
+                                       .replace(".java", "").replace(os.sep, "."),
+                                       actual_classes)
+
         self.test.assertIn("com.chaquo.python.Python", actual_classes)
 
         # App Java classes
@@ -1330,14 +1362,12 @@ def dex_classes(apk_dir):
         # (https://developer.android.com/studio/build/multidex).
         dex_filename = f"{apk_dir}/classes{file_num if (file_num > 1) else ''}.dex"
         if exists(dex_filename):
-            for line in check_output([dexdump_cmd, dex_filename],
-                                     universal_newlines=True).splitlines():
+            for line in run([dexdump_cmd, dex_filename], check=True, capture_output=True,
+                            text=True).stdout.splitlines():
                 match = re.search(r"Class descriptor *: *'L(.*);'", line)
                 if match:
                     classes.append(match.group(1).replace("/", "."))
         else:
-            if file_num == 1:
-                raise Exception(f"{dex_filename} does not exist")
             break
         file_num += 1
 
