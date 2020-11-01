@@ -6,7 +6,7 @@ import distutils.util
 import hashlib
 import json
 import os
-from os.path import abspath, dirname, exists, join, relpath
+from os.path import abspath, basename, dirname, exists, join, relpath
 import re
 import shutil
 from subprocess import run
@@ -103,6 +103,19 @@ class GradleTestCase(TestCase):
             prefix = "regex " if re else ""
             msg = self._formatMessage(msg, f"{prefix}'{a}' {failure_msg}:\n{b}")
             raise self.failureException(msg) from None
+
+    def update_classes(self, dst, src):
+        for package, src_names in src.items():
+            dst_names = dst.setdefault(package, [])
+            for name in src_names:
+                if name not in dst_names:
+                    dst_names.append(name)
+
+    def check_classes(self, expected, actual):
+        self.assertCountEqual(expected.keys(), actual.keys())
+        for package, names in expected.items():
+            with self.subTest(package=package):
+                self.assertCountEqual(names, actual[package])
 
     # Asserts that the ZIP contains exactly the given files (do not include directories). Each
     # element of `files` must be either a filename, or a (filename, dict) tuple. The dict items
@@ -226,7 +239,7 @@ class AndroidPlugin(GradleTestCase):
 
 class Aar(GradleTestCase):
     def test_single_lib(self):
-        self.RunGradle(
+        run = self.RunGradle(
             "base", "Aar/single_lib",
             abis=["armeabi-v7a", "x86"],
             requirements={"common": ["apple/__init__.py"],
@@ -238,6 +251,7 @@ class Aar(GradleTestCase):
                                    {"content": "# Clashing module (x86 copy)"})]},
             app=[("one.py", {"content": "one"})],
             pyc=["stdlib"])
+        self.check_java(run)
 
     MULTI_MESSAGE = "More than one file was found with OS independent path 'lib/x86/"
 
@@ -250,6 +264,22 @@ class Aar(GradleTestCase):
         if agp_version_info >= (4, 0):
             self.assertInLong(self.MULTI_MESSAGE + r".* Future versions of the Android Gradle "
                               "Plugin will throw an error in this case.", run.stdout, re=True)
+
+    def test_minify(self):
+        run = self.RunGradle("base", "Aar/minify")
+        self.check_java(run)
+
+    # Check that the AAR contains the Chaquopy Java classes. Depending on minifyEnabled, they
+    # may be in the root classes.jar or in libs/.
+    def check_java(self, run):
+        with ZipFile(f"{run.project_dir}/lib1/build/outputs/aar/lib1-debug.aar") as aar_file:
+            aar_classes = {}
+            for name in aar_file.namelist():
+                if basename(name).endswith(".jar"):
+                    with ZipFile(aar_file.open(name)) as jar_file:
+                        self.update_classes(aar_classes, jar_classes(jar_file))
+
+        self.check_classes(chaquopy_classes(), aar_classes)
 
 
 class ApiLevel(GradleTestCase):
@@ -286,13 +316,15 @@ class JavaLib(GradleTestCase):
         self.assertTrue(exists(classes))
         self.assertTrue(exists(classes2))
 
+    # See also Aar.test_minify.
     def test_minify(self):
-        # Without PyApplication in AndroidManifest.
-        run = self.RunGradle("base", "JavaLib/minify")
+        self.RunGradle("base", "JavaLib/minify")
 
-        # With PyApplication in AndroidManifest.
-        run.apply_layers("JavaLib/minify_pyapplication")
-        run.rerun()
+    def test_minify_variant(self):
+        self.RunGradle("base", "JavaLib/minify_variant",
+                       variants={"blue-debug": dict(classes={"com.example": ["Blue"]}),
+                                 "red-debug":  dict(classes={"com.example": ["Red"]})})
+
 
 class PythonVersion(GradleTestCase):
     def test_warning(self):
@@ -447,8 +479,8 @@ class PythonSrc(GradleTestCase):
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
-        self.RunGradle("base", "PythonSrc/set_root", app=[("one.py", {"content": "one main2"})],
-                       classes=["One", "One$Main2"], pyc=["stdlib"])
+        self.RunGradle("base", "PythonSrc/set_root", app=["two.py"],
+                       classes={"chaquopy_test": ["Two"]}, pyc=["stdlib"])
 
 
 class ExtractPackages(GradleTestCase):
@@ -1057,28 +1089,31 @@ class StaticProxy(GradleTestCase):
 
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
-                             classes=["a.ReqsA1", "b.ReqsB1"])
+                             classes={"chaquopy_test.a": ["ReqsA1"],
+                                      "chaquopy_test.b": ["ReqsB1"]})
         app = ["chaquopy_test/__init__.py", "chaquopy_test/a.py"]
         run.apply_layers("StaticProxy/src_1")       # Src should take priority over reqs.
-        run.rerun(requirements=self.reqs, app=app, classes=["a.SrcA1", "b.ReqsB1"])
+        run.rerun(requirements=self.reqs, app=app, classes={"chaquopy_test.a": ["SrcA1"],
+                                                            "chaquopy_test.b": ["ReqsB1"]})
         run.apply_layers("StaticProxy/src_only")    # Change staticProxy setting
-        run.rerun(app=app, requirements=self.reqs, classes=["a.SrcA1"])
+        run.rerun(app=app, requirements=self.reqs, classes={"chaquopy_test.a": ["SrcA1"]})
         run.apply_layers("StaticProxy/src_2")       # Change source code
-        run.rerun(app=app, requirements=self.reqs, classes=["a.SrcA2"])
+        run.rerun(app=app, requirements=self.reqs, classes={"chaquopy_test.a": ["SrcA2"]})
         run.apply_layers("base")                    # Remove all
         run.rerun(app=app)
 
     def test_variant(self):
         self.RunGradle("base", "StaticProxy/variant",
                        requirements=self.reqs,
-                       variants={"red-debug":  {"classes": ["a.ReqsA1"]},
-                                 "blue-debug": {"classes": ["b.ReqsB1"]}})
+                       variants={"red-debug":  dict(classes={"chaquopy_test.a": ["ReqsA1"]}),
+                                 "blue-debug": dict(classes={"chaquopy_test.b": ["ReqsB1"]})})
 
     def test_variant_merge(self):
         self.RunGradle("base", "StaticProxy/variant_merge",
                        requirements=self.reqs,
-                       variants={"red-debug":  {"classes": ["a.ReqsA1"]},
-                                 "blue-debug": {"classes": ["a.ReqsA1", "b.ReqsB1"]}})
+                       variants={"red-debug":  dict(classes={"chaquopy_test.a": ["ReqsA1"]}),
+                                 "blue-debug": dict(classes={"chaquopy_test.a": ["ReqsA1"],
+                                                             "chaquopy_test.b": ["ReqsB1"]})})
 
 
 class RunGradle(object):
@@ -1211,7 +1246,7 @@ class RunGradle(object):
 
     # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
     # post_check.
-    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes=[], app=[], requirements=[],
+    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes={}, app=[], requirements=[],
                   include_dist_info=False, dist_versions=None, pyc=["src", "pip", "stdlib"],
                   **kwargs):
         kwargs = KwargsWrapper(kwargs)
@@ -1293,21 +1328,9 @@ class RunGradle(object):
                  "libsqlite3_chaquopy.so"],
                 os.listdir(join(apk_dir, "lib", abi)))
 
-        # Chaquopy runtime library
-        actual_classes = dex_classes(apk_dir)
-        src_root = f"{repo_root}/product/runtime/src/main/java"
-        for dirpath, dirnames, filenames in os.walk(src_root):
-            for name in filenames:
-                if name.endswith(".java") and name != "package-info.java":
-                    self.test.assertIn(relpath(f"{dirpath}/{name}", src_root)
-                                       .replace(".java", "").replace(os.sep, "."),
-                                       actual_classes)
-
-        self.test.assertIn("com.chaquo.python.Python", actual_classes)
-
-        # App Java classes
-        self.test.assertEqual(sorted(("chaquopy_test." + c) for c in classes),
-                              sorted(c for c in actual_classes if c.startswith("chaquopy_test")))
+        # Java classes
+        self.test.update_classes(classes, chaquopy_classes())
+        self.test.check_classes(classes, dex_classes(apk_dir))
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
@@ -1355,7 +1378,7 @@ def dex_classes(apk_dir):
     newest_ver = sorted(os.listdir(build_tools_dir))[-1]
     dexdump_cmd = f"{build_tools_dir}/{newest_ver}/dexdump"
 
-    classes = []
+    classes = {}
     file_num = 1
     while True:
         # Multidex is used by default in debug builds when minSdkVersion is 21 or higher
@@ -1366,11 +1389,40 @@ def dex_classes(apk_dir):
                             text=True).stdout.splitlines():
                 match = re.search(r"Class descriptor *: *'L(.*);'", line)
                 if match:
-                    classes.append(match.group(1).replace("/", "."))
+                    package, _, name = match[1].replace("/", ".").rpartition(".")
+                    if not exclude_class(name):
+                        classes.setdefault(package, []).append(name)
         else:
             break
         file_num += 1
 
+    return classes
+
+
+def jar_classes(zip_file):
+    classes = {}
+    for path in zip_file.namelist():
+        if path.endswith(".class"):
+            path = path.replace(".class", "")
+            package, _, name = path.replace("/", ".").rpartition(".")
+            if not exclude_class(name):
+                classes.setdefault(package, []).append(name)
+    return classes
+
+
+def exclude_class(name):
+    return ("$" in name) or (name in ["BuildConfig", "R"])
+
+
+def chaquopy_classes():
+    classes = {}
+    for module in ["runtime", "buildSrc"]:
+        java_dir = f"{repo_root}/product/{module}/src/main/java"
+        for dirpath, dirnames, filenames in os.walk(java_dir):
+            for name in filenames:
+                if name.endswith(".java") and name != "package-info.java":
+                    package = relpath(dirpath, java_dir).replace(os.sep, ".")
+                    classes.setdefault(package, []).append(name.replace(".java", ""))
     return classes
 
 

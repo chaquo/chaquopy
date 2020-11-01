@@ -49,8 +49,14 @@ class PythonPlugin implements Plugin<Project> {
         androidPluginVer = getAndroidPluginVersion()
         isLibrary = project.pluginManager.hasPlugin("com.android.library")
 
+        File proguardFile = extractResource("proguard-rules.pro", genDir)
+        android.defaultConfig.proguardFile(proguardFile)
+        if (isLibrary) {
+            android.defaultConfig.consumerProguardFile(proguardFile)
+        }
         extendProductFlavor(android.defaultConfig).setDefaults(project)
         android.productFlavors.all { extendProductFlavor(it) }
+
         extendSourceSets()
         setupDependencies()
         project.afterEvaluate { afterEvaluate() }
@@ -115,10 +121,7 @@ class PythonPlugin implements Plugin<Project> {
 
     void setupDependencies() {
         def runtimeJava = getConfig("runtimeJava")
-        buildscript.dependencies {
-            add(runtimeJava.name, runtimeDep("chaquopy_java.jar"))
-            add(runtimeJava.name, runtimeDep("proguard.aar"))
-        }
+        buildscript.dependencies.add(runtimeJava.name, runtimeDep("chaquopy_java.jar"))
         project.dependencies {
             // Use `api` rather than `implementation` so it's available to dynamic feature
             // modules.
@@ -783,11 +786,11 @@ class PythonPlugin implements Plugin<Project> {
         return "$verb${variant.name.capitalize()}${NAME.capitalize()}${object.capitalize()}"
     }
 
-    void extractResource(String name, targetDir) {
-        extractResource(name, targetDir, new File(name).name)
+    File extractResource(String name, targetDir) {
+        return extractResource(name, targetDir, new File(name).name)
     }
 
-    void extractResource(String name, targetDir, String targetName) {
+    File extractResource(String name, targetDir, String targetName) {
         project.mkdir(targetDir)
         def outFile = new File(targetDir, targetName)
         def tmpFile = new File("${outFile.path}.tmp")
@@ -800,6 +803,7 @@ class PythonPlugin implements Plugin<Project> {
         if (! tmpFile.renameTo(outFile)) {
             throw new IOException("Failed to create '$outFile'")
         }
+        return outFile
     }
 }
 
