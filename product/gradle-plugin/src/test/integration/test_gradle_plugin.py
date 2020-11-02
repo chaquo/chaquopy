@@ -169,16 +169,20 @@ class GradleTestCase(TestCase):
         if dist_versions is not None:
             self.assertCountEqual(dist_versions, list(actual_dist_versions))
 
-    def pre_check(self, apk_zip, apk_dir, kwargs):
+    def pre_check(self, run, apk_dir, kwargs):
         pass
 
-    def post_check(self, apk_zip, apk_dir, kwargs):
+    def post_check(self, run, apk_dir, kwargs):
         pass
 
 
 class Basic(GradleTestCase):
     def test_base(self):
         self.RunGradle("base")
+
+    def test_kwargs_wrapper(self):
+        with self.assertRaisesRegex(AssertionError, "{'unused'} is not false"):
+            self.RunGradle("base", unused=None)
 
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
@@ -239,7 +243,7 @@ class AndroidPlugin(GradleTestCase):
 
 class Aar(GradleTestCase):
     def test_single_lib(self):
-        run = self.RunGradle(
+        self.RunGradle(
             "base", "Aar/single_lib",
             abis=["armeabi-v7a", "x86"],
             requirements={"common": ["apple/__init__.py"],
@@ -250,8 +254,7 @@ class Aar(GradleTestCase):
                                   ("multi_abi_1_pure/__init__.py",
                                    {"content": "# Clashing module (x86 copy)"})]},
             app=[("one.py", {"content": "one"})],
-            pyc=["stdlib"])
-        self.check_java(run)
+            pyc=["stdlib"], aar="lib1")
 
     MULTI_MESSAGE = "More than one file was found with OS independent path 'lib/x86/"
 
@@ -266,19 +269,26 @@ class Aar(GradleTestCase):
                               "Plugin will throw an error in this case.", run.stdout, re=True)
 
     def test_minify(self):
-        run = self.RunGradle("base", "Aar/minify")
-        self.check_java(run)
+        self.RunGradle("base", "Aar/minify", aar="lib1")
 
-    # Check that the AAR contains the Chaquopy Java classes. Depending on minifyEnabled, they
-    # may be in the root classes.jar or in libs/.
-    def check_java(self, run):
-        with ZipFile(f"{run.project_dir}/lib1/build/outputs/aar/lib1-debug.aar") as aar_file:
-            aar_classes = {}
-            for name in aar_file.namelist():
-                if basename(name).endswith(".jar"):
-                    with ZipFile(aar_file.open(name)) as jar_file:
+    # AAR equivalent of RunGradle.check_apk.
+    def post_check(self, run, apk_dir, kwargs):
+        aar = kwargs.get("aar")
+        if not aar:
+            return
+
+        aar_file, aar_dir = run.get_output(aar, basename(apk_dir), "aar")
+        run.check_assets(aar_dir, kwargs)
+        run.check_lib(f"{aar_dir}/jni", kwargs)
+
+        # If minifyEnabled is set, the classes are all merged into classes.jar. Otherwise,
+        # they'll be in libs/.
+        aar_classes = {}
+        for dirpath, dirnames, filenames in os.walk(aar_dir):
+            for name in filenames:
+                if name.endswith(".jar"):
+                    with ZipFile(f"{dirpath}/{name}") as jar_file:
                         self.update_classes(aar_classes, jar_classes(jar_file))
-
         self.check_classes(chaquopy_classes(), aar_classes)
 
 
@@ -383,7 +393,7 @@ class AbiFilters(GradleTestCase):
 
 
 def make_asset_check(test, hashes):
-    def post_check(apk_zip, apk_dir, kwargs):
+    def post_check(run, apk_dir, kwargs):
         for asset_path, expected_hash in hashes.items():
             test.assertEqual(expected_hash, file_sha1(f"{apk_dir}/assets/chaquopy/{asset_path}"))
     return post_check
@@ -1183,25 +1193,16 @@ class RunGradle(object):
                 self.dump_run("run unexpectedly succeeded")
 
             for variant in variants:
-                outputs_apk_dir = join(self.project_dir, "app/build/outputs/apk")
-                apk_zip = ZipFile(join(outputs_apk_dir,
-                                       variant.replace("-", "/"),
-                                       "app-{}.apk".format(variant)))
-                apk_dir = join(self.run_dir, "apk", variant)
-                if os.path.exists(apk_dir):
-                    rmtree(apk_dir)
-                os.makedirs(apk_dir)
-                apk_zip.extractall(apk_dir)
-
                 merged_kwargs = kwargs.copy()
+                merged_kwargs.setdefault("abis", ["x86"])
                 if isinstance(variants, dict):
                     merged_kwargs.update(variants[variant])
+                merged_kwargs = KwargsWrapper(merged_kwargs)
                 try:
-                    self.check_apk(apk_zip, apk_dir, **merged_kwargs)
+                    self.check_apk(variant, merged_kwargs)
                 except Exception as e:
-                    # Some tests check the cause type and message: search for
-                    # `assertRaisesRegex(AssertionError`.
                     self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
+                self.test.assertFalse(merged_kwargs.unused_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
             first_stdout = self.stdout
@@ -1244,21 +1245,40 @@ class RunGradle(object):
                       capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
-    # TODO: refactor this into a set of independent methods, all using the same API as pre_check and
-    # post_check.
-    def check_apk(self, apk_zip, apk_dir, *, abis=["x86"], classes={}, app=[], requirements=[],
-                  include_dist_info=False, dist_versions=None, pyc=["src", "pip", "stdlib"],
-                  **kwargs):
-        kwargs = KwargsWrapper(kwargs)
-        self.test.pre_check(apk_zip, apk_dir, kwargs)
+    def check_apk(self, variant, kwargs):
+        apk_zip, apk_dir = self.get_output("app", variant, "apk")
+        self.test.pre_check(self, apk_dir, kwargs)
 
         # All AssetFinder ZIPs should be stored uncompressed (see comment in Common.assetZip).
         for info in apk_zip.infolist():
             if info.filename.endswith(".imy"):
                 self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
 
+        self.check_assets(apk_dir, kwargs)
+        self.check_lib(f"{apk_dir}/lib", kwargs)
+
+        classes = kwargs.get("classes", {})
+        self.test.update_classes(classes, chaquopy_classes())
+        self.test.check_classes(classes, dex_classes(apk_dir))
+
+        self.test.post_check(self, apk_dir, kwargs)
+
+    def get_output(self, module, variant, ext):
+        output_dir = join(self.project_dir, f"{module}/build/outputs/{ext}")
+        if ext == "apk":
+            output_dir = join(output_dir, variant.replace("-", "/"))
+        zip_file = ZipFile(f"{output_dir}/{module}-{variant}.{ext}")
+
+        zip_dir = join(self.run_dir, ext, variant)
+        if exists(zip_dir):
+            rmtree(zip_dir)
+        zip_file.extractall(zip_dir)
+        return zip_file, zip_dir
+
+    def check_assets(self, apk_dir, kwargs):
         # Top-level assets
         asset_dir = join(apk_dir, "assets/chaquopy")
+        abis = kwargs["abis"]
         abi_suffixes = ["common"] + abis
         self.test.assertCountEqual(
             ["app.imy", "bootstrap-native", "bootstrap.imy", "build.json", "cacert.pem",
@@ -1267,19 +1287,23 @@ class RunGradle(object):
             os.listdir(asset_dir))
 
         # Python source
-        self.test.checkZip(join(asset_dir, "app.imy"), app, pyc=("src" in pyc))
+        pyc = kwargs.get("pyc", ["src", "pip", "stdlib"])
+        self.test.checkZip(f"{asset_dir}/app.imy", kwargs.get("app", []),
+                           pyc=("src" in pyc))
 
         # Python requirements
+        requirements = kwargs.get("requirements", [])
         for suffix in abi_suffixes:
             with self.test.subTest(suffix=suffix):
                 self.test.checkZip(
-                    join(asset_dir, "requirements-{}.imy".format(suffix)),
+                    f"{asset_dir}/requirements-{suffix}.imy",
                     (requirements[suffix] if isinstance(requirements, dict)
                      else requirements if suffix == "common"
                      else []),
                     pyc=("pip" in pyc),
-                    include_dist_info=include_dist_info,
-                    dist_versions=(dist_versions if (suffix == "common") else None))
+                    include_dist_info=kwargs.get("include_dist_info", False),
+                    dist_versions=(kwargs.get("dist_versions") if suffix == "common"
+                                   else None))
 
         # Python bootstrap
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
@@ -1319,19 +1343,6 @@ class RunGradle(object):
                  "unicodedata.so", "xxlimited.so"],
                 stdlib_native_zip.namelist())
 
-        # libs
-        self.test.assertCountEqual(abis, os.listdir(join(apk_dir, "lib")))
-        for abi in abis:
-            self.test.assertCountEqual(
-                ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{PYTHON_VERSION_SHORT}.so", "libssl_chaquopy.so",
-                 "libsqlite3_chaquopy.so"],
-                os.listdir(join(apk_dir, "lib", abi)))
-
-        # Java classes
-        self.test.update_classes(classes, chaquopy_classes())
-        self.test.check_classes(classes, dex_classes(apk_dir))
-
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
@@ -1345,8 +1356,15 @@ class RunGradle(object):
              for filename in asset_list if filename != "build.json"},
             build_json["assets"])
 
-        self.test.post_check(apk_zip, apk_dir, kwargs)
-        self.test.assertFalse(kwargs.unused_kwargs)
+    def check_lib(self, lib_dir, kwargs):
+        abis = kwargs["abis"]
+        self.test.assertCountEqual(abis, os.listdir(lib_dir))
+        for abi in abis:
+            self.test.assertCountEqual(
+                ["libchaquopy_java.so", "libcrypto_chaquopy.so",
+                 f"libpython{PYTHON_VERSION_SHORT}.so", "libssl_chaquopy.so",
+                 "libsqlite3_chaquopy.so"],
+                os.listdir(f"{lib_dir}/{abi}"))
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +
@@ -1359,6 +1377,7 @@ def file_sha1(filename):
         return hashlib.sha1(f.read()).hexdigest()
 
 
+# This is tested by Basic.test_kwargs_wrapper.
 class KwargsWrapper(object):
     def __init__(self, kwargs):
         self.kwargs = kwargs
