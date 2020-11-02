@@ -192,11 +192,6 @@ class Basic(GradleTestCase):
     def test_variant(self):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
 
-    # The Chaquopy plugin can't be used directly within a dynamic feature module, but if it's
-    # used in the base module, then the Java API should be available to the feature module.
-    def test_dynamic_feature(self):
-        self.RunGradle("base", "Basic/dynamic_feature")
-
 
 # Test that new versions of build-packages.zip are correctly extracted and used.
 class ChaquopyPlugin(GradleTestCase):
@@ -314,6 +309,11 @@ class ApiLevel(GradleTestCase):
 
 
 class JavaLib(GradleTestCase):
+
+    # The Chaquopy plugin can't be used directly within a dynamic feature module, but if it's
+    # used in the base module, then the Java API should be available to the feature module.
+    def test_dynamic_feature(self):
+        self.RunGradle("base", "JavaLib/dynamic_feature")
 
     # See comment in dex_classes. At some point in 2018, I saw the Chaquopy classes sometimes
     # ending up in classes2.dex when minSdkVersion was 21 or higher. I can't reproduce that now
