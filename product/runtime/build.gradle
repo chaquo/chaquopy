@@ -329,6 +329,12 @@ for (abi in ["host"] + Common.ABIS) {
         testPython.configure(testCommonConfig)
         check.dependsOn(testPython)
 
+        // For `default` interface methods in tests.
+        compileTestJava {
+            sourceCompatibility = "1.8"
+            targetCompatibility = "1.8"
+        }
+
         // Run via test suite for consistency with Android demo app. (NOTE: this will not show
         // test results within IntelliJ for some reason.)
         test.exclude "**"  // Disable the default test task

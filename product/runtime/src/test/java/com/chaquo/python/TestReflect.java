@@ -3,6 +3,7 @@ package com.chaquo.python;
 import static org.junit.Assert.*;
 
 
+@SuppressWarnings("unused")
 public class TestReflect {
 
     // See also equivalent Python implementation in pyobjecttest.py.
@@ -119,4 +120,149 @@ public class TestReflect {
         public String getPubl() { return publ; }
     }
 
+    @SuppressWarnings("Convert2Lambda")
+    public static class Call {
+        
+        // java.util.function is not available until API level 24.
+        public interface Function<T,R> {
+            R apply(T t);
+        }
+        public interface Supplier<T> {
+            T get();
+        }
+
+        public static Function<String,String> anon = new Function<String,String>() {
+            @Override public String apply(String s) { return "anon " + s; }
+        };
+
+        public static Function<String,String> lamb = (String s) -> "lambda " + s;
+
+        public static String staticMethod(String s) { return "static " + s; }
+        public static Function<String,String> staticRef = Call::staticMethod;
+
+        public String s;
+        public Supplier<String> boundInstanceRef;
+        public Call(String s) {
+            this.s = "instance " + s;
+            this.boundInstanceRef = this::getS;
+        }
+        public String getS() { return s; }
+
+        public static Function<Call,String> unboundInstanceRef = Call::getS;
+        public static Function<String,Call> constructorRef = Call::new;
+    }
+
+
+    public static class CallInterfaces {
+
+        // No interfaces.
+        public static class NoInterfaces {}
+
+        // A non-functional interface.
+        public interface INoMethods {}
+        public static class NoMethods implements INoMethods {}
+
+        public interface ITwoMethods {
+            String a();
+            String b();
+        }
+        public static class TwoMethods implements ITwoMethods {
+            public String a() { return "TwoMethods.a"; }
+            public String b() { return "TwoMethods.b"; }
+        }
+
+        public interface IA1 { String a(); }
+        public interface IA2 { String a(); }
+        public interface IAint { String a(int x); }
+        public interface IB { String b(); }
+
+        // A single functional interface.
+        public static class A1 implements IA1 {
+            public String a() { return "A1.a"; }
+        }
+        public static class Aint implements IAint {
+            public String a(int x) { return "Aint.a " + x; }
+        }
+
+        // Multiple functional interfaces with the same method.
+        public static class A1A2 implements IA1, IA2 {
+            public String a() { return "A1A2.a"; }
+        }
+
+        // Multiple functional interfaces with different method names.
+        public static class A1B implements IA1, IB {
+            public String a() { return "A1B.a"; }
+            public String b() { return "A1B.b"; }
+        }
+
+        // Multiple functional interfaces with the same method name but different signatures.
+        public static class A1Aint implements IA1, IAint {
+            public String a() { return "A1Aint.a"; }
+            public String a(int x) { return "A1Aint.a " + x; }
+        }
+
+        // Both functional and non-functional interfaces.
+        public static class A1TwoMethods implements IA1, ITwoMethods {
+            public String a() { return "A1TwoMethods.a"; }
+            public String b() { return "A1TwoMethods.b"; }
+        }
+
+        // An abstract class which would be functional if it was an interface.
+        public static abstract class AbstractC {
+            public abstract String c();
+        }
+        public static class C extends AbstractC {
+            public String c() { return "C.c"; }
+        }
+
+        // Public Object methods don't stop an interface from being functional, but protected
+        // Object methods do.
+        public interface IPublicObjectMethod {
+            String a();
+            String toString();
+        }
+        public static class PublicObjectMethod implements IPublicObjectMethod {
+            public String a() { return "PublicObjectMethod.a"; }
+            public String toString() { return "PublicObjectMethod.toString"; }
+        }
+
+        public interface IProtectedObjectMethod {
+            String a();
+            void finalize();
+        }
+        public static class ProtectedObjectMethod implements IProtectedObjectMethod {
+            public String a() { return "ProtectedObjectMethod.a"; }
+            public void finalize() {}
+        }
+
+        // If an interface declares one method, and a sub-interface adds a second one, then
+        // the sub-interface is not functional.
+        public interface IAB extends IA1 {
+            String b();
+        }
+        public static class AB implements IAB {
+            public String a() { return "AB.a"; }
+            public String b() { return "AB.b"; }
+        }
+
+        // If an interface declares two methods, and a sub-interface provides a default
+        // implementation of one of them, then the sub-interface is functional.
+        public interface IOneMethod extends ITwoMethods {
+            default String a() { return "IOneMethod.a"; }
+        }
+        public static class OneMethod implements IOneMethod {
+            public String b() { return "OneMethod.b"; }
+        }
+
+        // If an interface declares one method, and a sub-interface provides a default
+        // implementation of it while also adding a second method, then both interfaces are
+        // functional.
+        public interface IABDefault extends IA1 {
+            default String a() { return "IABDefault.a"; }
+            String b();
+        }
+        public static class ABDefault implements IABDefault {
+            public String b() { return "ABDefault.b"; }
+        }
+    }
 }

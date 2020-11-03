@@ -443,3 +443,92 @@ class TestReflect(FilterWarningsCase):
         # self.assertFalse(hasattr(a, "getPack"))   # Appears public on Android API 23
         self.assertEqual("protected", a.getProt())
         self.assertEqual("public", a.getPubl())
+
+    def test_call(self):
+        Call = TR.Call
+        self.assertEqual("anon 1", Call.anon("1"))
+        self.assertEqual("lambda 2", Call.lamb("2"))
+        self.assertEqual("static 3", Call.staticRef("3"))
+        self.assertEqual("instance 4", Call("4").boundInstanceRef())
+        self.assertEqual("instance 5", Call.unboundInstanceRef(Call("5")))
+        self.assertEqual("instance 6", Call.constructorRef("6").s)
+
+    def test_call_interfaces(self):
+        CI = TR.CallInterfaces
+
+        no_fi = self.assertRaisesRegex(TypeError, "not callable because it implements no "
+                                       "functional interfaces")
+
+        def multi_fi(*names):
+            names_re = (", ".join(f"{CI.__module__}.{CI.__name__}${name}" for name in names)
+                        .replace("$", r"\$"))
+            return self.assertRaisesRegex(
+                TypeError, fr"implements multiple functional interfaces \({names_re}\): "
+                fr"use cast\(\) to select one")
+
+        # No interfaces.
+        with no_fi:
+            CI.NoInterfaces()()
+
+        # A non-functional interface.
+        with no_fi:
+            CI.NoMethods()()
+        with no_fi:
+            CI.TwoMethods()()
+
+        # A single functional interface.
+        self.assertEqual("A1.a", CI.A1()())
+        self.assertEqual("Aint.a 42", CI.Aint()(42))
+
+        # Multiple functional interfaces with the same method.
+        self.assertEqual("A1A2.a", CI.A1A2()())
+
+        # Multiple functional interfaces with different method names.
+        a1b1 = CI.A1B()
+        with multi_fi("IA1", "IB"):
+            a1b1()
+        self.assertEqual("A1B.a", cast(CI.IA1, a1b1)())
+        self.assertEqual("A1B.b", cast(CI.IB, a1b1)())
+
+        # Multiple functional interfaces with the same method name but different signatures.
+        a1aint = CI.A1Aint()
+        with multi_fi("IA1", "IAint"):
+            a1aint()
+        self.assertEqual("A1Aint.a", cast(CI.IA1, a1aint)())
+        self.assertEqual("A1Aint.a 42", cast(CI.IAint, a1aint)(42))
+
+        # Both functional and non-functional interfaces.
+        self.assertEqual("A1TwoMethods.a", CI.A1TwoMethods()())
+
+        # An abstract class which would be functional if it was an interface.
+        with no_fi:
+            CI.C()()
+
+        # Public Object methods don't stop an interface from being functional, but protected
+        # Object methods do.
+        self.assertEqual("PublicObjectMethod.a", CI.PublicObjectMethod()())
+        with no_fi:
+            CI.ProtectedObjectMethod()()
+
+        # If an interface declares one method, and a sub-interface adds a second one, then
+        # the sub-interface is not functional.
+        self.assertEqual("AB.a", CI.AB()())
+
+        # If an interface declares two methods, and a sub-interface provides a default
+        # implementation for one of them, then the sub-interface is functional.
+        om = CI.OneMethod()
+        self.assertEqual("IOneMethod.a", om.a())
+        self.assertEqual("OneMethod.b", om.b())
+        self.assertEqual("OneMethod.b", om())
+
+        # If an interface declares one method, and a sub-interface provides a default
+        # implementation of it while also adding a second method, then both interfaces are
+        # functional. In this case, the sub-interface cannot be called via cast().
+        abd = CI.ABDefault()
+        self.assertEqual("IABDefault.a", abd.a())
+        self.assertEqual("ABDefault.b", abd.b())
+        with multi_fi("IABDefault", "IA1"):
+            abd()
+        self.assertEqual("IABDefault.a", cast(CI.IA1, abd)())
+        with multi_fi("IABDefault", "IA1"):
+            cast(CI.ABDefault, abd)()

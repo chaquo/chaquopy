@@ -3,7 +3,10 @@ package com.chaquo.python;
 import java.lang.reflect.*;
 import java.util.*;
 
-/** @deprecated */
+/** This class is critical for performance, as it allows us to call the reflection API mostly
+ * from Java, and only create Python class members on demand.
+ *
+ * @deprecated internal use in class.pxi. */
 public class Reflector {
 
     private final Class<?> klass;

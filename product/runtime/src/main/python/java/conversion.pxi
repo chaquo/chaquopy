@@ -75,8 +75,10 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
 
     if not j_object:
         return None
+    env = CQPEnv.wrap(j_env)
+    j_klass = env.GetObjectClass(j_object)
 
-    sig = object_sig(CQPEnv.wrap(j_env), j_object)
+    sig = klass_sig(env, j_klass)
     if sig == 'Ljava/lang/String;':
         return j2p_string(j_env, j_object)
     if sig == 'Lcom/chaquo/python/PyObject;':
@@ -86,7 +88,7 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     if unbox_method:
         return getattr(jclass(sig)(instance=j_object), unbox_method)()
 
-    return jclass(sig)(instance=j_object)
+    return jclass_from_j_klass(sig, j_klass)(instance=j_object)
 
 
 # j_string MUST be a non-null java.lang.String reference, or this function will probably crash.

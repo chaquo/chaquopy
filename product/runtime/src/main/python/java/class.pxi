@@ -17,10 +17,19 @@ cdef instance_cache = WeakValueDictionary()
 cdef set special_attrs = set(dir(type) +                        # Special Python attributes
                              ["_chaquopy_j_klass",              # Chaquopy class attributes
                               "_chaquopy_reflector",            #
+                              "_chaquopy_sam_name",             #
                               "_chaquopy_this",                 # Chaquopy instance attributes
-                              "_chaquopy_real_obj",             #
-                              "_chaquopy_len"])                 # Chaquopy array attributes
+                              "_chaquopy_real_obj"])            #
 
+
+# If you already have a Class object, use one of these functions rather than calling `jclass`
+# directly. This avoids looking up the class by name, which doesn't work with lambda classes on
+# the Oracle JVM.
+cdef jclass_from_klass(klass):
+    return jclass_from_j_klass(klass.getName(), klass._chaquopy_this)
+
+cdef jclass_from_j_klass(cls_name, JNIRef j_klass):
+    return jclass(cls_name, {"_chaquopy_j_klass": j_klass.global_ref()})
 
 cpdef jclass(clsname, cls_dict=None):
     """Returns a Python class for a Java class or interface type. The name must be fully-qualified,
@@ -44,9 +53,8 @@ cpdef jclass(clsname, cls_dict=None):
     with class_lock:
         cls = jclass_cache.get(clsname)
         if cls:
-            if cls_dict:
-                raise ValueError("Can't alter class dict: class has already been reflected")
-            return cls
+            # Can't alter class dict after class has been reflected.
+            assert (cls_dict is None) or (list(cls_dict) == ["_chaquopy_j_klass"]), clsname
         else:
             cls = new_class(clsname, None, cls_dict)
         return cls
@@ -67,10 +75,12 @@ class JavaClass(type):
         if not java_name:
             raise TypeError("Java classes can only be inherited using static_proxy or dynamic_proxy")
 
-        # _chaquopy_j_klass will already be set for a proxy class, in which case we'll leave
-        # __name__ and __module__ set to the Python-level values the user would expect.
         if "_chaquopy_j_klass" not in cls_dict:
             cls_dict["_chaquopy_j_klass"] = CQPEnv().FindClass(java_name)
+
+        # For a proxy class, we should leave __name__ and __module__ set to the Python-level
+        # values the user would expect.
+        if not issubclass(metacls, ProxyClass):
             if "[" in java_name:
                 module, cls_name = "", f"jarray('{java_name[1:]}')"
             elif "." in java_name:
@@ -150,9 +160,9 @@ class JavaClass(type):
 
 
 cdef get_bases(klass):
-    j_superclass = klass.getSuperclass()
-    superclass = jclass(j_superclass.getName()) if j_superclass else None
-    interfaces = [jclass(i.getName()) for i in klass.getInterfaces()]
+    superklass = klass.getSuperclass()
+    superclass = jclass_from_klass(superklass) if superklass else None
+    interfaces = [jclass_from_klass(i) for i in klass.getInterfaces()]
     if not (superclass or interfaces):  # Class is a top-level interface
         superclass = JavaObject
 
@@ -248,6 +258,41 @@ cdef setup_object_class():
         def __str__(self):       return self.toString()
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
+
+        def __call__(self, *args):
+            cls = type(self)
+            sam_name = type_dict(cls).get("_chaquopy_sam_name", None)
+            if sam_name is None:
+                sam_name = cls._chaquopy_sam_name = get_sam(cls).getName()
+            return getattr(self, sam_name)(*args)
+
+
+# If the class implements exactly one functional interface, returns the Method object of the
+# single abstract method (SAM). Otherwise, throws TypeError.
+def get_sam(cls):
+    def signature(m):
+        return (m.getName(), tuple(m.getParameterTypes()))
+
+    object_methods = {signature(m) for m in JavaObject.getClass().getMethods()}
+    sams = {}
+    for mro_cls in cls.__mro__:
+        if isinstance(mro_cls, JavaClass) and mro_cls.getClass().isInterface():
+            methods = [m for m in mro_cls.getClass().getMethods()
+                       if (Modifier.isAbstract(m.getModifiers()) and
+                           signature(m) not in object_methods)]
+            if len(methods) == 1:
+                sams[signature(methods[0])] = methods[0]
+
+    if len(sams) == 0:
+        raise TypeError(f"{cls.__name__} is not callable because it implements no "
+                        f"functional interfaces")
+    elif len(sams) == 1:
+        return sams.popitem()[1]
+    else:
+        interfaces = ", ".join([sam.getDeclaringClass().getName()
+                                for sam in sams.values()])
+        raise TypeError(f"{cls.__name__} implements multiple functional interfaces "
+                        f"({interfaces}): use cast() to select one")
 
 
 # Associates a Python object with its Java counterpart.
