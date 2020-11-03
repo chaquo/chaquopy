@@ -41,7 +41,8 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
     public static abstract class Task extends ConsoleActivity.Task {
 
         protected Python py = Python.getInstance();
-        private PyObject sys;
+        private PyObject console = py.getModule("chaquopy.utils.console");
+        private PyObject sys = py.getModule("sys");
         private PyObject stdin, stdout, stderr;
         private PyObject realStdin, realStdout, realStderr;
 
@@ -51,8 +52,6 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
 
         public Task(Application app, int flags) {
             super(app);
-            sys = py.getModule("sys");
-            PyObject console = py.getModule("chaquopy.utils.console");
             if ((flags & STDIN_ENABLED) != 0) {
                 realStdin = sys.get("stdin");
                 stdin = console.callAttr("ConsoleInputStream", this);
@@ -60,15 +59,16 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
 
             realStdout = sys.get("stdout");
             realStderr = sys.get("stderr");
-            stdout = console.callAttr("ConsoleOutputStream", this, "output", realStdout);
-            stderr = console.callAttr("ConsoleOutputStream", this, "outputError", realStderr);
+            stdout = redirectOutput(realStdout, this::output);
+            stderr = redirectOutput(realStderr, this::outputError);
         }
 
-        /** Create the thread from Python rather than Java, otherwise user code may be surprised
-         * to find its Python Thread object marked as "dummy" and "daemon". */
-        @Override protected void startThread(Runnable runnable) {
-            PyObject console = py.getModule("chaquopy.utils.console");
-            console.callAttr("start_thread", runnable);
+        private PyObject redirectOutput(PyObject stream, OutputFunction func) {
+            return console.callAttr("ConsoleOutputStream", stream, func);
+        }
+
+        private interface OutputFunction {
+            void output(CharSequence text);
         }
 
         public void resumeStreams() {

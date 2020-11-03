@@ -1,15 +1,5 @@
 from io import TextIOBase
-import sys
-import threading
-
-if sys.version_info[0] < 3:
-    from Queue import Queue
-else:
-    from queue import Queue
-
-
-def start_thread(runnable):
-    threading.Thread(target=lambda: runnable.run()).start()
+from queue import Queue
 
 
 class ConsoleInputStream(TextIOBase):
@@ -57,7 +47,7 @@ class ConsoleInputStream(TextIOBase):
 
         result = buffer if (size is None) else buffer[:size]
         self.buffer = buffer[len(result):]
-        return result.encode(self.encoding, self.errors) if (sys.version_info[0] < 3) else result
+        return result
 
     def readline(self, size=None):
         if size is not None and size < 0:
@@ -75,13 +65,13 @@ class ConsoleInputStream(TextIOBase):
 
 
 class ConsoleOutputStream(TextIOBase):
-    """Passes each write to the underlying stream, and also to the given method (which must take a
-    single String argument) on the given Task object.
+    """Passes each write to the underlying stream, and also to the given function, which must take
+    a single string argument.
     """
-    def __init__(self, task, method_name, stream):
+    def __init__(self, stream, func):
         TextIOBase.__init__(self)
         self.stream = stream
-        self.method = getattr(task, method_name)
+        self.func = func
 
     @property
     def encoding(self):
@@ -95,11 +85,7 @@ class ConsoleOutputStream(TextIOBase):
         return True
 
     def write(self, s):
-        if sys.version_info[0] < 3 and isinstance(s, str):
-            u = s.decode(self.encoding, self.errors)
-        else:
-            u = s
-        self.method(u)
+        self.func(s)
         return self.stream.write(s)
 
     def flush(self):

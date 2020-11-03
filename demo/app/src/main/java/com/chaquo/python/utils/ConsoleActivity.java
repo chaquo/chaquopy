@@ -353,22 +353,16 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         private Thread.State state = Thread.State.NEW;
 
         public void start() {
-            startThread(new Runnable() {
-                @Override public void run() {
-                    try {
-                        Task.this.run();
-                        output(spanColor("[Finished]", resId("color", "console_meta")));
-                    } finally {
-                        inputEnabled.postValue(false);
-                        state = Thread.State.TERMINATED;
-                    }
+            new Thread(() -> {
+                try {
+                    Task.this.run();
+                    output(spanColor("[Finished]", resId("color", "console_meta")));
+                } finally {
+                    inputEnabled.postValue(false);
+                    state = Thread.State.TERMINATED;
                 }
-            });
+            }).start();
             state = Thread.State.RUNNABLE;
-        }
-
-        protected void startThread(Runnable runnable) {
-            new Thread(runnable).start();
         }
 
         public Thread.State getState() { return state; }
