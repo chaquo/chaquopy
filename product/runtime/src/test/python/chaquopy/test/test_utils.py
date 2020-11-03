@@ -4,6 +4,15 @@ from unittest import TestCase
 from warnings import catch_warnings, filterwarnings
 
 
+try:
+    from android.os import Build
+except ImportError:
+    API_LEVEL = None
+else:
+    API_LEVEL = Build.VERSION.SDK_INT
+
+
+# Make warnings fatal.
 class FilterWarningsCase(TestCase):
 
     def setUp(self):

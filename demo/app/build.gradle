@@ -76,16 +76,10 @@ android {
         resConfigs "en"
     }
 
-    // With multidex disabled, the compiler marks `default` interface methods as abstract in
-    // the interface itself, and instead generates synthetic methods in the implementing class.
-    // Since this prevents us from identifying functional interfaces, we must enable multidex,
-    // which causes `default` methods to be generated correctly.
+    // For `default` interface methods in tests.
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-    }
-    defaultConfig {
-        multiDexEnabled true
     }
 
     buildTypes {

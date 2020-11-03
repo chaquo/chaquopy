@@ -21,22 +21,20 @@ from traceback import format_exc
 import types
 import unittest
 
+from .test_utils import API_LEVEL, FilterWarningsCase
+
 
 # Flags from PEP 3149.
 ABI_FLAGS = ""
 
 REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
 
-try:
+if API_LEVEL:
     from android.os import Build
-except ImportError:
-    API_LEVEL = None
-else:
-    API_LEVEL = Build.VERSION.SDK_INT
-    from java.android import importer
-    context = __loader__.finder.context  # noqa: F821
-
     from com.chaquo.python.android import AndroidPlatform
+    from java.android import importer
+
+    context = __loader__.finder.context  # noqa: F821
     APP_ZIP = "app"
     REQS_COMMON_ZIP = "requirements-common"
     multi_abi = len([name for name in context.getAssets().list("chaquopy")
@@ -55,7 +53,7 @@ def setUpModule():
     if API_LEVEL is None:
         raise unittest.SkipTest("Not running on Android")
 
-class AndroidTestCase(unittest.TestCase):
+class AndroidTestCase(FilterWarningsCase):
     def assertPredicate(self, f, *args):
         self.check_predicate(self.assertTrue, f, *args)
 
@@ -66,7 +64,7 @@ class AndroidTestCase(unittest.TestCase):
         assertion(f(*args), f"{f.__name__}{args!r}")
 
 
-class TestAndroidPlatform(unittest.TestCase):
+class TestAndroidPlatform(AndroidTestCase):
 
     # 64-bit should be preferred on devices which support it. We use Build.SUPPORTED_ABIS to
     # detect support because Build.CPU_ABI always returns the active ABI of the app, which can
@@ -707,7 +705,7 @@ class TestAndroidImport(AndroidTestCase):
 
 # On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers to a
 # class that cannot be loaded. Test the partial workaround in Reflector.
-class TestAndroidReflect(unittest.TestCase):
+class TestAndroidReflect(AndroidTestCase):
 
     MEMBERS = ["tcFieldPublic", "tcFieldProtected", "tcMethodPublic", "tcMethodProtected",
                "iFieldPublic", "iFieldProtected", "iMethodPublic", "iMethodProtected",
@@ -962,7 +960,7 @@ class TestAndroidStdlib(AndroidTestCase):
                          time.strftime("%a, %d %b %Y %H:%M:%S", t))
 
 
-class TestAndroidStreams(unittest.TestCase):
+class TestAndroidStreams(AndroidTestCase):
 
     maxDiff = None
 

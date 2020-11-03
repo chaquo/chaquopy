@@ -6,9 +6,7 @@ import java.util.*;
 /** @deprecated internal use */
 public class Common {
     public static final int MIN_SDK_VERSION = 16;
-
-    // For Build.SUPPORTED_ABIS.
-    public static final int COMPILE_SDK_VERSION = 21;
+    public static final int COMPILE_SDK_VERSION = 30;
 
     public static final String PYTHON_VERSION = "3.8.6";
     public static final String PYTHON_VERSION_SHORT =

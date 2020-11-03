@@ -153,8 +153,7 @@ public class TestReflect {
     }
 
 
-    public static class CallInterfaces {
-
+    public static class CallInterface {
         // No interfaces.
         public static class NoInterfaces {}
 
@@ -244,10 +243,13 @@ public class TestReflect {
             public String a() { return "AB.a"; }
             public String b() { return "AB.b"; }
         }
+    }
 
+
+    public static class CallInterfaceDefault {
         // If an interface declares two methods, and a sub-interface provides a default
         // implementation of one of them, then the sub-interface is functional.
-        public interface IOneMethod extends ITwoMethods {
+        public interface IOneMethod extends CallInterface.ITwoMethods {
             default String a() { return "IOneMethod.a"; }
         }
         public static class OneMethod implements IOneMethod {
@@ -257,7 +259,7 @@ public class TestReflect {
         // If an interface declares one method, and a sub-interface provides a default
         // implementation of it while also adding a second method, then both interfaces are
         // functional.
-        public interface IABDefault extends IA1 {
+        public interface IABDefault extends CallInterface.IA1 {
             default String a() { return "IABDefault.a"; }
             String b();
         }
