@@ -454,6 +454,17 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("instance 5", Call.unboundInstanceRef(Call("5")))
         self.assertEqual("instance 6", Call.constructorRef("6").s)
 
+    @skipIf(not API_LEVEL, "Android only")  # TODO #5682
+    def test_call_kotlin(self):
+        from com.chaquo.python import TestReflectKt as TRK
+        Call = TRK.Call
+        self.assertEqual("kt anon 1", Call.anon("1"))
+        self.assertEqual("kt lambda 2", Call.lamb("2"))
+        self.assertEqual("kt func 3", Call.funcRef("3"))
+        self.assertEqual("kt instance 4", Call("4").boundInstanceRef())
+        self.assertEqual("kt instance 5", Call.unboundInstanceRef(Call("5")))
+        self.assertEqual("kt instance 6", Call.constructorRef("6").s)
+
     def test_call_interface(self):
         CI = TR.CallInterface
 

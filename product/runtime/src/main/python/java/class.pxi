@@ -274,14 +274,21 @@ def get_sam(cls):
         return (m.getName(), tuple(m.getParameterTypes()))
 
     object_methods = {signature(m) for m in JavaObject.getClass().getMethods()}
+    ignored_interfaces = {
+        "kotlin.jvm.internal.FunctionBase",
+        "kotlin.reflect.KAnnotatedElement"
+    }
+
     sams = {}
     for mro_cls in cls.__mro__:
-        if isinstance(mro_cls, JavaClass) and mro_cls.getClass().isInterface():
-            methods = [m for m in mro_cls.getClass().getMethods()
-                       if (Modifier.isAbstract(m.getModifiers()) and
-                           signature(m) not in object_methods)]
-            if len(methods) == 1:
-                sams[signature(methods[0])] = methods[0]
+        if isinstance(mro_cls, JavaClass):
+            klass = mro_cls.getClass()
+            if klass.isInterface() and (klass.getName() not in ignored_interfaces):
+                methods = [m for m in klass.getMethods()
+                           if (Modifier.isAbstract(m.getModifiers()) and
+                               signature(m) not in object_methods)]
+                if len(methods) == 1:
+                    sams[signature(methods[0])] = methods[0]
 
     if len(sams) == 0:
         raise TypeError(f"{cls.__name__} is not callable because it implements no "
