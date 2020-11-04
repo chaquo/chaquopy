@@ -1,25 +1,29 @@
-# Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in C:\Users\smith\Programs\android-sdk/tools/proguard/proguard-android.txt
-# You can edit the include path and order by changing the proguardFiles
-# directive in build.gradle.
-#
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Add any project specific keep options here:
-
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
-
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Android UI demo
+-keep class chaquopy.demo.ui_demo.** { *; }
+-keep class androidx.appcompat.app.** { *; }
+-keep class androidx.core.app.** { *; }
+-keep class androidx.fragment.app.** { *; }
+-keep class androidx.preference.** { *; }
+
+# Java unit tests
+-keep class com.chaquo.java.** { *; }
+-keep class org.junit.** { *; }
+
+# Python unit tests
+-keep class package1.** { *; }  # TestImport
+-keepattributes Exceptions  # TestProxy.test_exception
+-keep class kotlin.jvm.functions.** { *; }           # TestReflect.test_call_kotlin
+-keep class kotlin.jvm.internal.FunctionBase { *; }  #
+-keep class kotlin.reflect.KAnnotatedElement { *; }  #
+-keep class chaquopy.test.static_proxy.** { *; }  # TestStaticProxy

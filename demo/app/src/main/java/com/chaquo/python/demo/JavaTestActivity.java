@@ -22,13 +22,7 @@ public class JavaTestActivity extends ConsoleActivity {
         @Override public void run() {
             JUnitCore juc = new JUnitCore();
             juc.addListener(new Listener());
-            try {
-                // We use reflection so that this directory can be included in another app
-                // using srcDir in build.gradle without pulling in the whole test suite too.
-                juc.run(Class.forName("com.chaquo.java.TestSuite"));
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
+            juc.run(com.chaquo.java.TestSuite.class);
         }
 
         private class Listener extends RunListener {

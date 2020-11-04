@@ -3,7 +3,7 @@ from java.lang import String
 from com.chaquo.java import StaticProxyTest as SPT
 
 
-class OtherPackage(static_proxy(package="other.pkg")):
+class OtherPackage(static_proxy(package="chaquopy.test.static_proxy.other")):
     @method(String, [])
     def hello(self):
         return "world"

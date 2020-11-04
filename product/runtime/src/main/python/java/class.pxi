@@ -274,6 +274,9 @@ def get_sam(cls):
         return (m.getName(), tuple(m.getParameterTypes()))
 
     object_methods = {signature(m) for m in JavaObject.getClass().getMethods()}
+
+    # Kotlin callable objects implement some additional interfaces which happen to be
+    # functional, so ignore them. (This won't work if the interfaces are minified.)
     ignored_interfaces = {
         "kotlin.jvm.internal.FunctionBase",
         "kotlin.reflect.KAnnotatedElement"

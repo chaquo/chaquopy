@@ -41,7 +41,8 @@ public class StaticProxyTest {
 
     @Test
     public void otherPackage() {
-        other.pkg.OtherPackage op = new other.pkg.OtherPackage();
+        chaquopy.test.static_proxy.other.OtherPackage op =
+            new chaquopy.test.static_proxy.other.OtherPackage();
         assertEquals("world", op.hello());
     }
 
