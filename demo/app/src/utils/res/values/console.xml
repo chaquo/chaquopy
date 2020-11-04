@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <string name="repl">Python console</string>
+    <string name="repl_summary">Interactive read-eval-print loop</string>
+
     <string name="top">Top</string>
     <string name="bottom">Bottom</string>
 
@@ -10,6 +13,10 @@
     <style name="Code">
         <item name="android:textSize">14sp</item>
         <item name="android:typeface">monospace</item>
+
+        <!-- In API level 21 only, the default sans-serif fontFamily takes priority over the
+        `typeface` attribute (https://stackoverflow.com/q/29076599). -->
+        <item name="android:fontFamily">monospace</item>
     </style>
 
     <style name="ConsoleOutput" parent="Code">

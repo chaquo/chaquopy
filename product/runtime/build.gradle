@@ -329,7 +329,6 @@ for (abi in ["host"] + Common.ABIS) {
         testPython.configure(testCommonConfig)
         check.dependsOn(testPython)
 
-        // For `default` interface methods in tests.
         compileTestJava {
             sourceCompatibility = "1.8"
             targetCompatibility = "1.8"

@@ -1,8 +1,6 @@
 package com.chaquo.python.utils;
 
 import android.app.*;
-import android.content.*;
-import android.content.res.*;
 import android.graphics.*;
 import android.os.*;
 import android.text.*;
@@ -122,6 +120,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
 
         tvOutput = findViewById(resId("id", "tvOutput"));
         if (Build.VERSION.SDK_INT >= 23) {
+            // noinspection WrongConstant
             tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
         }
         // Don't start observing task.output yet: we need to restore the scroll position first so
@@ -332,18 +331,11 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         if (selStart >= 0 && selStart == selEnd) {
             Selection.removeSelection(text);
         }
-    }
 
-    /** Make this file easy to copy to other apps by avoiding direct "R" references. (It would be
-     * better to do this by distributing it along with its resources in an AAR, but Chaquoopy
-     * doesn't support getting Python code from an AAR yet.)*/
-    public static int resId(Context context, String type, String name) {
-        Resources resources = context.getResources();
-        return resources.getIdentifier(name, type, context.getApplicationInfo().packageName);
     }
 
     public int resId(String type, String name) {
-        return resId(this, type, name);
+        return Utils.resId(this, type, name);
     }
 
     // =============================================================================================
@@ -398,7 +390,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         }
 
         public int resId(String type, String name) {
-            return ConsoleActivity.resId(getApplication(), type, name);
+            return Utils.resId(getApplication(), type, name);
         }
     }
 

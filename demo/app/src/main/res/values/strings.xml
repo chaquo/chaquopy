@@ -3,14 +3,6 @@
     <string name="app_id">com.chaquo.python.demo3</string>
     <string name="app_name">Chaquopy demo</string>
 
-    <string name="main_caption">For more information see the
-        <a href="https://chaquo.com/chaquopy/">Chaquopy website</a>, or view this app\'s source
-        code <a href="https://github.com/chaquo/chaquopy">on GitHub</a>.
-    </string>
-
-    <string name="repl">Python console</string>
-    <string name="repl_summary">Interactive read-eval-print loop</string>
-
     <string name="ui_demo">Android UI demo</string>
     <string name="ui_demo_summary">Demonstrates writing an app entirely in Python</string>
     <string name="demo_caption">This activity was written entirely in Python using the Chaquopy

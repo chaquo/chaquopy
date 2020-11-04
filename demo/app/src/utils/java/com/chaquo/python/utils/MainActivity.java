@@ -1,4 +1,4 @@
-package com.chaquo.python.demo;
+package com.chaquo.python.utils;
 
 import android.content.pm.*;
 import android.os.*;
@@ -17,19 +17,24 @@ public class MainActivity extends AppCompatActivity {
             setTitle(getTitle() + " " + version);
         } catch (PackageManager.NameNotFoundException ignored) {}
 
-        setContentView(R.layout.activity_menu);
-        ((TextView)findViewById(R.id.tvCaption)).setText(R.string.main_caption);
+        setContentView(resId("layout", "activity_menu"));
+        ((TextView)findViewById(resId("id", "tvCaption")))
+            .setText(resId("string", "main_caption"));
         getSupportFragmentManager().beginTransaction()
-            .replace(R.id.flMenu, new MenuFragment())
+            .replace(resId("id", "flMenu"), new MenuFragment())
             .commit();
 
-        ((TextView)findViewById(R.id.tvCaption)).setMovementMethod(LinkMovementMethod.getInstance());
+        ((TextView)findViewById(resId("id", "tvCaption"))).setMovementMethod(LinkMovementMethod.getInstance());
     }
 
     public static class MenuFragment extends PreferenceFragmentCompat {
         @Override
         public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-            addPreferencesFromResource(R.xml.activity_main);
+            addPreferencesFromResource(Utils.resId(getContext(), "xml", "activity_main"));
         }
+    }
+
+    public int resId(String type, String name) {
+        return Utils.resId(this, type, name);
     }
 }

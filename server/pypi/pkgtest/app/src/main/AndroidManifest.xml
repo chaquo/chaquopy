@@ -1,4 +1,4 @@
-<manifest package="com.chaquo.python.demo"
+<manifest package="com.chaquo.python.pkgtest3"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -7,14 +7,14 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
-        android:name=".App"
+        android:name="com.chaquo.python.utils.App"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <activity android:name=".MainActivity"
+        <activity android:name="com.chaquo.python.utils.MainActivity"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -22,7 +22,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ReplActivity"
+        <activity android:name="com.chaquo.python.utils.ReplActivity"
             android:label="@string/repl"
             android:launchMode="singleInstance"
             android:windowSoftInputMode="adjustResize"/>

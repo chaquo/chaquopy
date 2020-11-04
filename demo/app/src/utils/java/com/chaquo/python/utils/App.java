@@ -1,4 +1,4 @@
-package com.chaquo.python.demo;
+package com.chaquo.python.utils;
 
 import android.app.*;
 import android.content.*;

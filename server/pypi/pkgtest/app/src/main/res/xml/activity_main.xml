@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!-- Using a build variant source set so we can override the values imported from the demo app. -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:orderingFromXml="true">
 
     <Preference android:title="@string/repl" android:summary="@string/repl_summary">
         <intent android:targetPackage="@string/app_id"
-            android:targetClass="com.chaquo.python.demo.ReplActivity"/>
+            android:targetClass="com.chaquo.python.utils.ReplActivity"/>
     </Preference>
 
     <Preference android:title="@string/app_name">
         <intent android:targetPackage="@string/app_id"
-            android:targetClass="com.chaquo.python.demo.PackageTestActivity"/>
+            android:targetClass="com.chaquo.python.pkgtest3.PackageTestActivity"/>
     </Preference>
 
 </PreferenceScreen>

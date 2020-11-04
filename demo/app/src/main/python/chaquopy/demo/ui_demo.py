@@ -10,7 +10,8 @@ from androidx.preference import Preference, PreferenceFragmentCompat
 from android.view import Menu, MenuItem, View
 from java.lang import String
 
-from com.chaquo.python.demo import App, R
+from com.chaquo.python.demo import R
+from com.chaquo.python.utils import App
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):

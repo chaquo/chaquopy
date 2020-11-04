@@ -4,7 +4,7 @@
 
     <Preference android:title="@string/repl" android:summary="@string/repl_summary">
         <intent android:targetPackage="@string/app_id"
-            android:targetClass="com.chaquo.python.demo.ReplActivity"/>
+            android:targetClass="com.chaquo.python.utils.ReplActivity"/>
     </Preference>
 
     <Preference android:title="@string/ui_demo" android:summary="@string/ui_demo_summary">
@@ -24,7 +24,7 @@
 
     <Preference android:title="@string/python_unit_test">
         <intent android:targetPackage="@string/app_id"
-            android:targetClass="com.chaquo.python.demo.PythonTestActivity"/>
+            android:targetClass="com.chaquo.python.utils.PythonTestActivity"/>
     </Preference>
 
 </PreferenceScreen>

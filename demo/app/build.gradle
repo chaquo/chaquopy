@@ -77,7 +77,6 @@ android {
         resConfigs "en"
     }
 
-    // For `default` interface methods in tests.
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -105,10 +104,15 @@ android {
     }
 
     sourceSets {
-        def testSrc = "../../product/runtime/src/test"
-        main {
-            java { srcDir "$testSrc/java" }
-            python { srcDir "$testSrc/python" }
+        for (path in [
+            "../../product/runtime/src/test",   // Unit tests
+            "src/utils"                         // Files shared with pkgtest app
+        ]) {
+            main {
+                java { srcDir "$path/java" }
+                python { srcDir "$path/python" }
+                res { srcDir "$path/res" }
+            }
         }
     }
     // **********************************************************************

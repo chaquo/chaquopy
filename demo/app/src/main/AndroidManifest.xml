@@ -7,14 +7,14 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
-        android:name=".App"
+        android:name="com.chaquo.python.utils.App"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="AllowBackup">
-        <activity android:name=".MainActivity"
+        <activity android:name="com.chaquo.python.utils.MainActivity"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -23,7 +23,7 @@
         </activity>
         <!-- Contrary to documentation, singleTask does not always create a new task:
              https://issuetracker.google.com/issues/36921210-->
-        <activity android:name=".ReplActivity"
+        <activity android:name="com.chaquo.python.utils.ReplActivity"
             android:label="@string/repl"
             android:launchMode="singleInstance">
         </activity>
@@ -36,7 +36,7 @@
         <activity android:name=".JavaTestActivity"
             android:label="@string/java_unit_test">
         </activity>
-        <activity android:name=".PythonTestActivity"
+        <activity android:name="com.chaquo.python.utils.PythonTestActivity"
             android:label="@string/python_unit_test">
         </activity>
     </application>

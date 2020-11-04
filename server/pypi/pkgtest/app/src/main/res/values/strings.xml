@@ -1,4 +1,4 @@
-<!-- Using a build variant source set so we can override the imported main source set -->
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
     <string name="app_id">com.chaquo.python.pkgtest3</string>

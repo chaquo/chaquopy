@@ -60,6 +60,11 @@ android {
         }
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -68,11 +73,11 @@ android {
     }
 
     sourceSets {
-        def demoSrc = "../../../../demo/app/src"
+        def utilsSrc = "../../../../demo/app/src/utils"
         main {
-            java { srcDir "$demoSrc/main/java" }
-            python { srcDir "$demoSrc/main/python" }
-            res { srcDir "$demoSrc/main/res" }  // Overrides are in pkgtest/app/src/debug.
+            java { srcDir "$utilsSrc/java" }
+            python { srcDir "$utilsSrc/python" }
+            res { srcDir "$utilsSrc/res" }
         }
     }
 }
