@@ -82,14 +82,16 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    // *** Remove in public repository ***************************************
+    // For testing with minifyEnabled (see release/README.md).
     buildTypes {
-        release {
+        releaseMinify {
+            initWith release
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 
-    // *** Remove in public repository ***************************************
     def keystore = file('../chaquo.jks')
     if (keystore.exists()) {
         signingConfigs {
