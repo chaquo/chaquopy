@@ -1,6 +1,24 @@
 Change log
 ##########
 
+9.0.0 (2020-11-06)
+==================
+
+* Android Gradle plugin version 4.1 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.3 is no longer supported.
+* Runtime Python version is now 3.8.6.
+* Java objects implementing functional interfaces can now be called using `()` syntax.
+* Java arrays can now be accessed from Python using negative indices and slice syntax.
+* Fix conversion of non-contiguous NumPy arrays to Java arrays.
+* Remove inaccessible directories from :any:`os.get_exec_path` (`#346
+  <https://github.com/chaquo/chaquopy/issues/346>`_).
+* Make :any:`zipimport` implement the new loader API. This affected the package `dateparser`.
+* If `bdist_wheel` fails for an unknown reason, fall back on `setup.py install`. This affected
+  the packages `acoustics` and `kiteconnect` (`#338
+  <https://github.com/chaquo/chaquopy/issues/338>`_).
+* Fix `ClassNotFoundException` when `minifyEnabled` is in use (`#261
+  <https://github.com/chaquo/chaquopy/issues/261>`_).
+
 8.0.1 (2020-07-28)
 ==================
 

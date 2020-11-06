@@ -46,8 +46,11 @@ dependency to the end of the existing `repositories` and `dependencies` blocks:
 Then, in the *module-level* `build.gradle` file (usually in the `app` directory), apply the
 Chaquopy plugin at the top of the file, but *after* the Android plugin::
 
-   apply plugin: 'com.android.application'
-   apply plugin: 'com.chaquo.python'        // Add this line
+   // "apply" syntax                                // "plugins" syntax
+   apply plugin: 'com.android.application'          plugins {
+   apply plugin: 'com.chaquo.python'                    id 'com.android.application'
+                                                        id 'com.chaquo.python'
+                                                    }
 
 All other configuration will be done in this module-level `build.gradle`. The examples below
 will show the configuration within `defaultConfig`, but it can also be done within a `product
@@ -335,7 +338,7 @@ For example, to disable compilation of your local source code::
 
 In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
 bytecode format as Chaquopy itself. Usually this means it must have the same minor version,
-e,g. if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then `buildPython` can be
+e.g. if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then `buildPython` can be
 any version of Python 3.8.
 
 If the bytecode formats do not match, the build will continue with a warning, unless you've

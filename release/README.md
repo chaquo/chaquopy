@@ -4,14 +4,23 @@
 
 Run `gradlew runtime:check`.
 
-Temporarily set the demo app to a single ABI, and run unit tests on any device.
+Run `gradlew publish`.
 
-Restore it to the full set of ABIs, then run unit tests on any device.
+Record pkgtest app sizes and startup times (#5683), and investigate if significantly worse than
+the previous version.
 
-Make sure unit tests work when run twice in succession.
+Run `gradlew -P cmakeBuildType=Release publish`.
 
-Check app sizes and startup times compared to previous version (#5495), and investigate if
-significantly worse.
+Run Java and Python unit tests on any Android device, including the following:
+
+* A clean install.
+* Record Java and Python unit test times (#5683), and investigate if significantly worse than
+  the previous version. Obviously the tests themselves may have changed, so some judgement may
+  be required.
+* Both "debug" and "releaseMinify" variants (minify is not enabled in the "release" variant,
+  because it could prevent users importing classes in the Python console).
+* A single-ABI build (temporarily change abiFilters).
+* Run tests twice in the same process.
 
 
 ## Gradle plugin
@@ -43,8 +52,8 @@ the following devices, with at least one device being a clean install:
 * x86\_64 emulator with API 21
   * TensorFlow will fail because of #5626, so test that on API 23.
 
-Then test the following, in each case setting `abiFilters` to just a single ABI, and with at
-least one device being a clean install:
+Restore the license key, then test the following, in each case setting `abiFilters` to just a
+single ABI, and with at least one device being a clean install:
 
 * Any armeabi-v7a device
 * Any arm64-v8a device

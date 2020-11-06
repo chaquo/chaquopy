@@ -124,6 +124,11 @@ Aside from attribute access, Java objects also support the following operations:
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
 * The equivalent of the Java syntax `ClassName.class` is `ClassName.getClass()`; i.e. the
   `getClass()` method can be called on a class as well as an instance.
+* If a Java object implements exactly one functional interface, then it can be called like a
+  function using `()` syntax. This includes lambdas, method references, and any interface with
+  a single abstract method, such as `java.lang.Runnable`. If an object implements more than one
+  functional interface, you can use :any:`cast` to select the one you want, or simply call the
+  method by name.
 
 The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
 `isinstance(s, Object)` and `isinstance(s, CharSequence)` will both return `True`. All array
