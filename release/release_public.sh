@@ -20,10 +20,9 @@ update_version "$public_root/build.gradle"
 sed -i "s/versionName .*/versionName '${new_ver}'/" "$public_root/app/build.gradle"
 
 public_src_dir="$public_root/app/src"
-for source_set in main; do
-    rm -rf "$public_src_dir/$source_set"
-    cp -a "$private_src_dir/$source_set" "$public_src_dir"
-done
+rm -rf "$public_src_dir/main"
+cp -a "$private_src_dir/main" "$public_src_dir"
+cp -a $private_src_dir/utils/* "$public_src_dir/main"
 cp -a product/runtime/src/test/* "$public_src_dir/main"
 echo "done"
 
@@ -32,24 +31,19 @@ echo -n "console: "
 public_root="../public/console"
 update_version "$public_root/build.gradle"
 
-private_main_dir="$private_src_dir/main"
-public_src_dir="$public_root/app/src"
-public_main_dir="$public_src_dir/main"
-for pattern in "java/com/chaquo/python/utils" \
-               "python/chaquopy/__init__.py" "python/chaquopy/utils" \
+private_utils_dir="$private_src_dir/utils"
+public_main_dir="$public_root/app/src/main"
+for pattern in "java/com/chaquo/python/utils/"{*ConsoleActivity,*LiveEvent,Utils}".java" \
+               "python/chaquopy/__init__.py" "python/chaquopy/utils/"{__init__,console}".py" \
                "res/drawable*/ic_vertical_align_*" "res/layout*/activity_console.xml" \
                "res/menu*/top_bottom.xml" "res/values*/console.xml" ; do
-    for private_file in $private_main_dir/$pattern; do
-        public_file="$(echo "$private_file" | sed "s|$private_main_dir|$public_main_dir|")"
+    for private_file in $private_utils_dir/$pattern; do
+        public_file="$(echo "$private_file" | sed "s|$private_utils_dir|$public_main_dir|")"
         rm -rf "$public_file"
         mkdir -p "$(dirname "$public_file")"
         cp -a "$private_file" "$public_file"
     done
 done
-
-public_test_dir="$public_src_dir/test"
-rm -rf "$public_test_dir"
-cp -a "$private_src_dir/test" "$public_test_dir"
 echo "done"
 
 
