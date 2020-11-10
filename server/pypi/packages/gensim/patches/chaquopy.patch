@@ -1,0 +1,20 @@
+--- src-original/setup.py	2020-05-04 03:30:53.000000000 +0000
++++ src/setup.py	2020-11-09 11:36:45.092169713 +0000
+@@ -108,7 +108,7 @@
+         build_ext.finalize_options(self)
+         # Prevent numpy from thinking it is still in its setup process:
+         # https://docs.python.org/2/library/__builtin__.html#module-__builtin__
+-        __builtins__.__NUMPY_SETUP__ = False
++        __builtins__.__NUMPY_SETUP__ = True  # Chaquopy: was False
+ 
+         import numpy
+         self.include_dirs.append(numpy.get_include())
+@@ -358,7 +358,7 @@
+     SO_STR,
+ ]
+ 
+-setup_requires = [NUMPY_STR]
++setup_requires = []  # Chaquopy: was [NUMPY_STR]
+ 
+ if need_cython():
+     install_requires.append(CYTHON_STR)
