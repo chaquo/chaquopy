@@ -1,10 +1,9 @@
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2019-05-15 09:30:00.000000000 +0000
-+++ src/setup.py	2019-06-28 12:08:03.530448656 +0000
-@@ -17,6 +17,12 @@
-     # Python 2 compat: just to be able to declare that Python >=3.5 is needed.
+--- src-original/setup.py       2020-08-04 12:12:58.924675700 +0000
++++ src/setup.py        2020-11-22 00:05:28.973228427 +0000
+@@ -18,6 +18,12 @@
+     # Python 2 compat: just to be able to declare that Python >=3.6 is needed.
      import __builtin__ as builtins
- 
+
 +# Chaquopy
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
 +sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
@@ -14,7 +13,7 @@ diff -ur src-original/setup.py src/setup.py
  # This is a bit (!) hackish: we are setting a global variable so that the
  # main sklearn __init__ can detect if it is being loaded by the setup
  # routine, to avoid attempting to load components that aren't built yet:
-@@ -133,6 +139,10 @@
+@@ -134,6 +140,10 @@
                      e.extra_compile_args += openmp_flag
                      e.extra_link_args += openmp_flag
  
@@ -54,21 +53,20 @@ diff -ur src-original/setup.py src/setup.py
              output = output.decode(sys.stdout.encoding or 'utf-8').splitlines()
          except Exception:
              raise
-diff -ur src-original/sklearn/utils/_joblib.py src/sklearn/utils/_joblib.py
---- src-original/sklearn/utils/_joblib.py       2019-12-24 14:59:45.000000000 +0000
-+++ src/sklearn/utils/_joblib.py        2020-01-29 16:40:45.239967530 +0000
-@@ -1,5 +1,14 @@
- import warnings as _warnings
+--- src-original/sklearn/__init__.py	2020-08-04 12:12:58.924675700 +0000
++++ src/sklearn/__init__.py	2020-11-22 01:56:25.744400741 +0000
+@@ -21,6 +21,14 @@
+ logger = logging.getLogger(__name__)
  
-+# Chaquopy: workaround for https://github.com/joblib/joblib/issues/825. This will allow the
-+# joblib import to complete, but any scikit-learn features which use process-based parallelism
-+# will still not work. I'm not sure how widely-used these features are, so I'm not taking any
-+# further action on this unless a user reports a problem. If they do, we can advise them to use
-+# the `parallel_backend` context manager to use thread-based parallelism instead, and then
-+# we'll look into whether there's a way to monkey-patch joblib to do that by default.
+ 
++# Chaquopy: workaround for https://github.com/joblib/joblib/issues/825. As of Chaquopy 8.0.1
++# there's a better workaround in Chaquopy itself, but we still need to maintain compatibility
++# with older versions which share the same native package repository.
 +import _multiprocessing
-+_multiprocessing.sem_unlink = None
++if not hasattr(_multiprocessing, "sem_unlink"):
++    _multiprocessing.sem_unlink = None
 +
- with _warnings.catch_warnings():
-     _warnings.simplefilter("ignore")
-     # joblib imports may raise DeprecationWarning on certain Python
++
+ # PEP0440 compatible formatted version, see:
+ # https://www.python.org/dev/peps/pep-0440/
+ #

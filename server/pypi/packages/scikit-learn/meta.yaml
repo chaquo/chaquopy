@@ -1,8 +1,13 @@
 package:
   name: scikit-learn
-  version: 0.22.1
+  version: 0.23.2
+
+build:
+  number: 2
 
 requirements:
+  build:
+    - cython 0.29.14
   host:
     - chaquopy-openblas 0.2.20
     - numpy 1.17.4

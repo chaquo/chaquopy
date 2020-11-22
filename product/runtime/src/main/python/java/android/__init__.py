@@ -101,8 +101,11 @@ def initialize_multiprocessing(context):
 
     # multiprocessing.synchronize throws an exception on import if the synchronization
     # primitives are unavailable. But this breaks some packages like librosa (via joblib and
-    # loky) which import the primitives but never actually use them. So defer the exception
-    # until one of the primitives is actually instantiated.
+    # loky) which import the primitives but don't always use them.
+    #
+    # So we defer the exception until one of the missing functions is actually used. If a user
+    # encounters this with joblib, they can work around it by using the `parallel_backend`
+    # context manager to select thread-based parallelism instead.
     try:
         import multiprocessing.synchronize  # noqa: F401
     except ImportError as e:

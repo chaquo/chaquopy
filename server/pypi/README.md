@@ -24,26 +24,31 @@ Inside the subdirectory, add the following files.
   which are passed to it.
 * If necessary, a `patches` subdirectory containing patch files.
 
-Run `build-wheel.py` once for each desired combination of package version, Python version and
-ABI.
+Run `build-wheel.py` for x86, and copy the resulting wheel from `dist` to a private package
+repository (edit `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
-Copy the resulting wheels from `packages/<subdir>/dist` to a private package repository (edit
-`--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
+Temporarily add the new package to `pkgtest/app/build.gradle`, and set `abiFilters` to x86
+only.
 
-Temporarily add the new package to `pkgtest/app/build.gradle`. If planning to release the
-package before the next version of the SDK, also temporarily edit `pkgtest/build.gradle` to
-test with the current released version.
+If this is a new version of an existing package, we should check that we don't break any
+existing apps with unpinned version numbers. So edit `pkgtest/build.gradle` to use the oldest
+Chaquopy version which uses the current native package repository, and supported a previous
+version of this package. Then run the app on an x86 emulator.
 
-Then test the app on the following devices, with at least one device being a clean install:
+Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
+to use the current stable Chaquopy version, then run the app on an x86 emulator.
+
+Run `build-wheel.py` for all other ABIs, and copy the resulting wheels to the private package
+repository.
+
+Restore `abiFilters` to include all ABIs. Then test the app with the same Chaquopy versions
+used above, on the following devices, with at least one device being a clean install:
 
 * x86 emulator with minSdkVersion, or API 18 if "too many libraries" error occurs (#5316)
 * x86 emulator with targetSdkVersion
-* x86\_64 emulator with API 21
+* x86\_64 emulator with API 21 (or 23 before Chaquopy 7.0.3)
 * Any armeabi-v7a device
 * Any arm64-v8a device
-
-If the package depends on any changes in the development version, consider postponing the
-remaining steps until that version is released.
 
 Move the wheels to the public package repository.
 
