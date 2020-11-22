@@ -22,24 +22,28 @@ Inside the subdirectory, add the following files.
   unittest.TestCase subclass which imports the package and does some basic checks.
 * For non-Python packages, a `build.sh` script. See `build-wheel.py` for environment variables
   which are passed to it.
-* If necessary, a `patches` subdirectory containing patch files.
 
-Run `build-wheel.py` for x86, and copy the resulting wheel from `dist` to a private package
-repository (edit `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
+Run `build-wheel.py` for x86. If any changes are needed to make the build work, edit the
+package source code in the `build` subdirectory, and re-run `build-wheel.py` with the
+`--no-unpack` option. Then copy the resulting wheel from `dist` to a private package repository
+(edit `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
 Temporarily add the new package to `pkgtest/app/build.gradle`, and set `abiFilters` to x86
 only.
 
-If this is a new version of an existing package, we should check that we don't break any
+Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
+to use the current stable Chaquopy version, then run the app on an x86 emulator.
+
+If this is a new version of an existing package, we should also check that we don't break any
 existing apps with unpinned version numbers. So edit `pkgtest/build.gradle` to use the oldest
 Chaquopy version which uses the current native package repository, and supported a previous
 version of this package. Then run the app on an x86 emulator.
 
-Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
-to use the current stable Chaquopy version, then run the app on an x86 emulator.
+If any changes are needed to make the tests work, increment the build number in `meta.yaml`
+before re-running `build-wheel.py` as above.
 
-Run `build-wheel.py` for all other ABIs, and copy the resulting wheels to the private package
-repository.
+Once it's working on x86, save any edits in the package's `patches` subdirectory, then run
+`build-wheel.py` for all other ABIs, and copy their wheels to the private package repository.
 
 Restore `abiFilters` to include all ABIs. Then test the app with the same Chaquopy versions
 used above, on the following devices, with at least one device being a clean install:

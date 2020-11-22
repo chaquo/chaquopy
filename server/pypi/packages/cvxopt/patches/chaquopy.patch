@@ -52,3 +52,22 @@
  
  if not SUITESPARSE_SRC_DIR:
      cholmod = Extension('cholmod',
+--- src-original/src/python/__init__.py	2020-04-16 17:41:27.000000000 +0000
++++ src/src/python/__init__.py	2020-11-22 18:24:25.596693569 +0000
+@@ -278,6 +278,16 @@
+ 
+ from cvxopt import solvers, blas, lapack
+ 
++# Chaquopy: see test.py.
++from android.os import Build
++if Build.CPU_ABI == "x86":
++    from cvxopt import cholmod
++    cvxopt.cholmod.options["supernodal"] = 0
++    import warnings
++    warnings.warn(UserWarning("This cvxopt build is unreliable on x86: see "
++                              "https://github.com/chaquo/chaquopy/issues/388"))
++
++
+ __all__ = [ 'blas', 'lapack', 'amd', 'umfpack', 'cholmod', 'solvers',
+     'modeling', 'printing', 'info', 'matrix', 'spmatrix', 'sparse', 
+     'spdiag', 'sqrt', 'sin', 'cos', 'exp', 'log', 'min', 'max', 'mul', 
