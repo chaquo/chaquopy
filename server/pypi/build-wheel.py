@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 import argparse
 from copy import deepcopy

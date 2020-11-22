@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get install -y automake cmake git libtool ninja-build patch patchelf swig
+    apt-get install -y automake cmake git libtool ninja-build patch patchelf pkg-config swig
 
 # protoc (for PyTorch): needs to be exactly this version.
 RUN version=3.6.1 && \
