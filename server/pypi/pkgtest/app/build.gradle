@@ -9,6 +9,7 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
     // Not in the public package repository.
     "cmake-example",
     "python-example",
+    "rpi-gpio",
     "tflite-runtime",
 
     // Conflicts with more popular packages
