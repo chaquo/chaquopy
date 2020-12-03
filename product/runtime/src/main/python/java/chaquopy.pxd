@@ -12,6 +12,8 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)
 cdef JNIRef p2j_string(JNIEnv *env, s)
 cdef jobject p2j_pyobject(JNIEnv *env, obj) except? NULL
 
+cpdef check_range_float32(value)
+cpdef check_range_char(value)
 cdef box_sig(JNIEnv *j_env, JNIRef j_klass)
 
 # === env =====================================================================

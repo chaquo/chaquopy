@@ -108,35 +108,35 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Converts a Python `bool` to a Java `boolean`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public boolean toBoolean() { return toJava(boolean.class); }
+    public native boolean toBoolean();
 
     /** Converts a Python `int` to a Java `byte`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public byte toByte() { return toJava(byte.class); }
+    public native byte toByte();
 
     /** Converts a 1-character Python string to a Java `char`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public char toChar() { return toJava(char.class); }
+    public native char toChar();
 
     /** Converts a Python `int` to a Java `short`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public short toShort() { return toJava(short.class); }
+    public native short toShort();
 
     /** Converts a Python `int` to a Java `int`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public int toInt() { return toJava(int.class); }
+    public native int toInt();
 
     /** Converts a Python `int` to a Java `long`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public long toLong() { return toJava(long.class); }
+    public native long toLong();
 
     /** Converts a Python `float` or `int`  to a Java `float`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public float toFloat() { return toJava(float.class); }
+    public native float toFloat();
 
     /** Converts a Python `float` or `int` to a Java `double`.
      * @throws ClassCastException if the Python object is not of a compatible type */
-    public double toDouble() { return toJava(double.class); }
+    public native double toDouble();
 
 
     // === Container views ===================================================

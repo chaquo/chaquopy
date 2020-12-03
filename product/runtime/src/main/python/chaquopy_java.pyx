@@ -210,14 +210,125 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
         try:
             return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
         except TypeError:
-            se = SavedException()
-        se.throw(env, "java.lang.ClassCastException")
-        return NULL
+            se = SavedException("java.lang.ClassCastException")
     except BaseException:
         se = SavedException()
     se.throw(env)
     return NULL
 
+
+# Many of these primitive conversion functions are identical apart from the type code, but they
+# can't simply call a common function, because the main return statement has to be inside a
+# SavedException try block in case of numeric overflow.
+cdef public jboolean Java_com_chaquo_python_PyObject_toBoolean \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "Z", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jbyte Java_com_chaquo_python_PyObject_toByte \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "B", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jchar Java_com_chaquo_python_PyObject_toChar \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            result = p2j(env, "C", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+        else:
+            check_range_char(result)
+            return ord(result)
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jshort Java_com_chaquo_python_PyObject_toShort \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "S", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jint Java_com_chaquo_python_PyObject_toInt \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "I", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jlong Java_com_chaquo_python_PyObject_toLong \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "J", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jfloat Java_com_chaquo_python_PyObject_toFloat \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            result = p2j(env, "F", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+        else:
+            check_range_float32(result)
+            return result
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
+
+cdef public jdouble Java_com_chaquo_python_PyObject_toDouble \
+    (JNIEnv *env, jobject this) with gil:
+    try:
+        self = j2p_pyobject(env, this)
+        try:
+            return p2j(env, "D", self)
+        except TypeError:
+            se = SavedException("java.lang.ClassCastException")
+    except BaseException:
+        se = SavedException()
+    se.throw(env)
+    return 0
 
 cdef public jlong Java_com_chaquo_python_PyObject_id \
     (JNIEnv *env, jobject this) with gil:
@@ -244,8 +355,8 @@ cdef public jobject Java_com_chaquo_python_PyObject_callThrows \
     try:
         return call(env, j2p_pyobject(env, this), jargs)
     except BaseException:
-        se = SavedException()
-    se.throw(env, None)
+        se = SavedException(None)
+    se.throw(env)
     return NULL
 
 
@@ -256,8 +367,8 @@ cdef public jobject Java_com_chaquo_python_PyObject_callAttrThrows \
                        j2p_string(env, LocalRef.create(env, j_key)))
         return call(env, attr, jargs)
     except BaseException:
-        se = SavedException()
-    se.throw(env, None)
+        se = SavedException(None)
+    se.throw(env)
     return NULL
 
 
@@ -418,14 +529,16 @@ fqn_PyException = fqn_PyException_b.decode()
 # reference to the exception while the __exit__ method was running.
 cdef class SavedException(object):
     cdef exc_info
+    cdef java_cls_name
 
-    def __init__(self):
+    def __init__(self, java_cls_name=fqn_PyException):
         self.exc_info = sys.exc_info()
+        self.java_cls_name = java_cls_name
 
-    cdef throw(self, JNIEnv *env, java_cls_name=fqn_PyException):
+    cdef throw(self, JNIEnv *env):
         formatted_exc = format_exception(self.exc_info)
         try:
-            j_exc = convert_exception(env, self.exc_info, java_cls_name)
+            j_exc = convert_exception(env, self.exc_info, self.java_cls_name)
             self.exc_info = None
             ret = env[0].Throw(env, j_exc.obj)
             if ret != 0:

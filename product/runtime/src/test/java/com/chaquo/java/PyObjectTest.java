@@ -187,22 +187,39 @@ public class PyObjectTest {
         pyobjecttest.get("int_list_var").toJava(char[].class);
     }
 
-    @Test
-    public void toBoolean() {
-        assertTrue(pyobjecttest.get("bool_var").toBoolean());
+    private static final int TO_PRIMITIVE_COUNT = 1000;
+    private static final int TO_PRIMITIVE_TIMEOUT = 100;
 
-        thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert int object to java.lang.Boolean");
-        pyobjecttest.get("int_var").toBoolean();
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
+    public void toBoolean() {
+        PyObject bool_var = pyobjecttest.get("bool_var");
+        assertTrue(bool_var.toBoolean());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            bool_var.toBoolean();
+        }
     }
 
     @Test
-    public void toByte() {
-        assertEquals(42, pyobjecttest.get("int_var").toByte());
-        assertEquals(-42, pyobjecttest.get("negative_int_var").toByte());
-
+    public void toBoolean_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert float object to java.lang.Byte");
+        thrown.expectMessage("Cannot convert int object to boolean");
+        pyobjecttest.get("int_var").toBoolean();
+    }
+
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
+    public void toByte() {
+        PyObject int_var = pyobjecttest.get("int_var");
+        assertEquals(42, int_var.toByte());
+        assertEquals(-42, pyobjecttest.get("negative_int_var").toByte());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            int_var.toByte();
+        }
+    }
+
+    @Test
+    public void toByte_fail() {
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("Cannot convert float object to byte");
         pyobjecttest.get("float_var").toByte();
     }
 
@@ -213,12 +230,19 @@ public class PyObjectTest {
         pyobjecttest.get("short_int_var").toByte();
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toChar() {
-        assertEquals('x', pyobjecttest.get("char_var").toChar());
+        PyObject char_var = pyobjecttest.get("char_var");
+        assertEquals('x', char_var.toChar());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            char_var.toChar();
+        }
+    }
 
+    @Test
+    public void toChar_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert int object to java.lang.Character");
+        thrown.expectMessage("Cannot convert int object to char");
         pyobjecttest.get("int_var").toChar();
     }
 
@@ -229,12 +253,19 @@ public class PyObjectTest {
         pyobjecttest.get("str_var").toChar();
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toShort() {
-        assertEquals(1234, pyobjecttest.get("short_int_var").toShort());
+        PyObject short_int_var = pyobjecttest.get("short_int_var");
+        assertEquals(1234, short_int_var.toShort());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            short_int_var.toShort();
+        }
+    }
 
+    @Test
+    public void toShort_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert bool object to java.lang.Short");
+        thrown.expectMessage("Cannot convert bool object to short");
         pyobjecttest.get("bool_var").toShort();
     }
 
@@ -246,12 +277,19 @@ public class PyObjectTest {
     }
 
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toInt() {
-        assertEquals(123456, pyobjecttest.get("medium_int_var").toInt());
+        PyObject medium_int_var = pyobjecttest.get("medium_int_var");
+        assertEquals(123456, medium_int_var.toInt());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            medium_int_var.toInt();
+        }
+    }
 
+    @Test
+    public void toInt_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert str object to java.lang.Int");
+        thrown.expectMessage("Cannot convert str object to int");
         pyobjecttest.get("str_var").toInt();
     }
 
@@ -262,13 +300,20 @@ public class PyObjectTest {
         pyobjecttest.get("long_int_var").toInt();
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toLong() {
         assertEquals(123456, pyobjecttest.get("medium_int_var").toLong());
-        assertEquals(9876543210L, pyobjecttest.get("long_int_var").toLong());
+        PyObject long_int_var = pyobjecttest.get("long_int_var");
+        assertEquals(9876543210L, long_int_var.toLong());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            long_int_var.toLong();
+        }
+    }
 
+    @Test
+    public void toLong_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert list object to java.lang.Long");
+        thrown.expectMessage("Cannot convert list object to long");
         pyobjecttest.get("int_list_var").toLong();
     }
 
@@ -280,15 +325,22 @@ public class PyObjectTest {
         pyobjecttest.get("super_long_int_var").toLong();
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toFloat() {
         assertEquals(42.0, pyobjecttest.get("int_var").toFloat(), 1e-5);
         assertEquals(9.87654e9, pyobjecttest.get("long_int_var").toFloat(), 0.00001e9);
         assertEquals(9.87654e18, pyobjecttest.get("super_long_int_var").toFloat(), 0.00001e18);
-        assertEquals(43.5, pyobjecttest.get("float_var").toFloat(), 1e-5);
+        PyObject float_var = pyobjecttest.get("float_var");
+        assertEquals(43.5, float_var.toFloat(), 1e-5);
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            float_var.toFloat();
+        }
+    }
 
+    @Test
+    public void toFloat_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert str object to java.lang.Float");
+        thrown.expectMessage("Cannot convert str object to float");
         pyobjecttest.get("char_var").toFloat();
     }
 
@@ -299,16 +351,23 @@ public class PyObjectTest {
         pyobjecttest.get("double_var").toFloat();
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toDouble() {
         assertEquals(42.0, pyobjecttest.get("int_var").toDouble(), 1e-13);
         assertEquals(9.87654e9, pyobjecttest.get("long_int_var").toDouble(), 0.00001e9);
         assertEquals(9.87654e18, pyobjecttest.get("super_long_int_var").toDouble(), 0.00001e18);
         assertEquals(43.5, pyobjecttest.get("float_var").toDouble(), 1e-13);
-        assertEquals(1e39, pyobjecttest.get("double_var").toDouble(), 1e24);
+        PyObject double_var = pyobjecttest.get("double_var");
+        assertEquals(1e39, double_var.toDouble(), 1e24);
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+            double_var.toDouble();
+        }
+    }
 
+    @Test
+    public void toDouble_fail() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("Cannot convert bool object to java.lang.Double");
+        thrown.expectMessage("Cannot convert bool object to double");
         pyobjecttest.get("bool_var").toDouble();
     }
 
