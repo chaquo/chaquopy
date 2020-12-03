@@ -99,7 +99,7 @@ task("doc", group: "documentation")
 javadoc {
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
-    title "Java API — Chaquopy"  // Consistent with Sphinx page title style
+    title "Chaquopy Java API"
     executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
     options {
         addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
