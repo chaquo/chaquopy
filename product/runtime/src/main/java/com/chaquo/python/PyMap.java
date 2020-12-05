@@ -2,28 +2,28 @@ package com.chaquo.python;
 
 import java.util.*;
 
-import static com.chaquo.python.ContainerUtils.*;
-
 
 class PyMap extends AbstractMap<PyObject, PyObject> {
     private final PyObject obj;
+    private final MethodCache methods;
 
     public PyMap(PyObject obj) {
         this.obj = obj;
-        getAttr(obj, "__contains__");
-        getAttr(obj, "__getitem__");
-        getAttr(obj, "__iter__");
-        getAttr(obj, "__len__");
+        methods = new MethodCache(obj);
+        methods.get("__contains__");
+        methods.get("__getitem__");
+        methods.get("__iter__");
+        methods.get("__len__");
     }
 
     @Override public Set<Entry<PyObject, PyObject>> entrySet() {
         return new AbstractSet<Entry<PyObject, PyObject>>() {
             @Override public int size() {
-                return callAttr(obj, "__len__").toInt();
+                return methods.get("__len__").call().toInt();
             }
 
             @Override public Iterator<Entry<PyObject, PyObject>> iterator() {
-                return new PyIterator<Entry<PyObject, PyObject>>(obj) {
+                return new PyIterator<Entry<PyObject, PyObject>>(methods) {
                     @Override protected Entry<PyObject, PyObject> makeNext(final PyObject key) {
                         return new Entry<PyObject, PyObject>() {
                             @Override public PyObject getKey() { return key; }
@@ -37,7 +37,7 @@ class PyMap extends AbstractMap<PyObject, PyObject> {
             }
 
             @Override public void clear() {
-                callAttr(obj, "clear");
+                methods.get("clear").call();
             }
         };
     }
@@ -46,7 +46,7 @@ class PyMap extends AbstractMap<PyObject, PyObject> {
     // === Read methods ======================================================
 
     @Override public boolean containsKey(Object key) {
-        return callAttr(obj, "__contains__", key).toBoolean();
+        return methods.get("__contains__").call(key).toBoolean();
     }
 
     @Override public PyObject get(Object key) {
@@ -54,7 +54,7 @@ class PyMap extends AbstractMap<PyObject, PyObject> {
         // Python interface accepts the same parameters as the Java one, so we can allow Python
         // to do the validation.
         try {
-            return callAttr(obj, "__getitem__", key);
+            return methods.get("__getitem__").call(key);
         } catch (PyException e) {
             if (e.getMessage().startsWith("KeyError:")) {
                 return null;
@@ -71,12 +71,12 @@ class PyMap extends AbstractMap<PyObject, PyObject> {
 
     @Override public PyObject put(PyObject key, PyObject value) {
         PyObject oldElement = get(key);
-        callAttr(obj, "__setitem__", key, value);
+        methods.get("__setitem__").call(key, value);
         return oldElement;
     }
 
     @Override public PyObject remove(Object key) {
-        return callAttr(obj, "pop", key, null);
+        return methods.get("pop").call(key, null);
     }
 
 }

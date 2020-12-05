@@ -2,16 +2,16 @@ package com.chaquo.python;
 
 import java.util.*;
 
-import static com.chaquo.python.ContainerUtils.*;
-
 
 class PyList extends AbstractList<PyObject> {
     private final PyObject obj;
+    private final MethodCache methods;
 
     public PyList(PyObject obj) {
         this.obj = obj;
-        getAttr(obj, "__getitem__");
-        getAttr(obj, "__len__");
+        methods = new MethodCache(obj);
+        methods.get("__getitem__");
+        methods.get("__len__");
     }
 
     // We check bounds before each call, rather than just trying the call and catching the
@@ -31,12 +31,12 @@ class PyList extends AbstractList<PyObject> {
     // === Read methods ======================================================
 
     @Override public int size() {
-        return callAttr(obj, "__len__").toInt();
+        return methods.get("__len__").call().toInt();
     }
 
     @Override public PyObject get(int index) {
         checkBounds(index, 0, size() - 1);
-        return callAttr(obj, "__getitem__", index);
+        return methods.get("__getitem__").call(index);
     }
 
 
@@ -62,24 +62,28 @@ class PyList extends AbstractList<PyObject> {
     //
     // Since users of this API are more likely to be reading containers than modifying them,
     // we'll prioritize accordingly.
+    //
+    // A possible future improvement would be to add a PyObject method:
+    //     List<T> asList(Class<T> elementType)
+    // which would allow the PyList to call toJava and fromJava automatically.
 
     public PyObject set(int index, PyObject element) {
         PyObject oldElement = get(index);  // Includes bounds check.
-        callAttr(obj, "__setitem__", index, element);
+        methods.get("__setitem__").call(index, element);
         return oldElement;
     }
 
     @Override public void add(int index, PyObject element) {
         checkBounds(index, 0, size());
-        callAttr(obj, "insert", index, element);
+        methods.get("insert").call(index, element);
     }
 
     @Override public PyObject remove(int index) {
         checkBounds(index, 0, size() - 1);
-        return callAttr(obj, "pop", index);
+        return methods.get("pop").call(index);
     }
 
     @Override public void clear() {
-        callAttr(obj, "clear");
+        methods.get("clear").call();
     }
 }

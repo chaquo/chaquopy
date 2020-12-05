@@ -78,6 +78,8 @@ public class SetTest extends ContainerTest {
         assertEquals(3, intSet.size());
         assertTrue(intSet.add(fromJava(13)));
         assertEquals(4, intSet.size());
+        assertFalse(intSet.add(fromJava(13)));
+        assertEquals(4, intSet.size());
     }
 
     @Test
@@ -94,9 +96,11 @@ public class SetTest extends ContainerTest {
 
     @Test
     public void remove() {
+        assertFalse(intSet.remove(fromJava(13)));
+        assertEquals(3, intSet.size());
         assertTrue(intSet.remove(fromJava(10)));
         assertEquals(2, intSet.size());
-        assertFalse(intSet.remove(fromJava(13)));
+        assertFalse(intSet.remove(fromJava(10)));
         assertEquals(2, intSet.size());
     }
 

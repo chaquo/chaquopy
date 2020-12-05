@@ -2,31 +2,31 @@ package com.chaquo.python;
 
 import java.util.*;
 
-import static com.chaquo.python.ContainerUtils.callAttr;
-import static com.chaquo.python.ContainerUtils.getAttr;
 
 class PySet extends AbstractSet<PyObject> {
     private final PyObject obj;
+    private final MethodCache methods;
 
     public PySet(PyObject obj) {
         this.obj = obj;
-        getAttr(obj, "__contains__");
-        getAttr(obj, "__iter__");
-        getAttr(obj, "__len__");
+        methods = new MethodCache(obj);
+        methods.get("__contains__");
+        methods.get("__iter__");
+        methods.get("__len__");
     }
 
     // === Read methods ======================================================
 
     @Override public int size() {
-        return callAttr(obj, "__len__").toInt();
+        return methods.get("__len__").call().toInt();
     }
 
     @Override public boolean contains(Object element) {
-        return callAttr(obj, "__contains__", element).toBoolean();
+        return methods.get("__contains__").call(element).toBoolean();
     }
 
     @Override public Iterator<PyObject> iterator() {
-        return new PyIterator<PyObject>(obj) {
+        return new PyIterator<PyObject>(methods) {
             @Override protected PyObject makeNext(PyObject element) {
                 return element;
             }
@@ -41,7 +41,7 @@ class PySet extends AbstractSet<PyObject> {
     @Override public boolean add(PyObject element) {
         // Consistently throw an exception for an unmodifiable container, whether it contains
         // the element or not.
-        PyObject method = getAttr(obj, "add");
+        PyObject method = methods.get("add");
         if (contains(element)) {
             return false;
         } else {
@@ -51,18 +51,19 @@ class PySet extends AbstractSet<PyObject> {
     }
 
     @Override public boolean remove(Object element) {
-        // Consistently throw an exception for an unmodifiable container, whether it contains
-        // the element or not.
-        PyObject method = getAttr(obj, "remove");
-        if (contains(element)) {
-            method.call(element);
+        try {
+            methods.get("remove").call(element);
             return true;
-        } else {
-            return false;
+        } catch (PyException e) {
+            if (e.getMessage().startsWith("KeyError:")) {
+                return false;
+            } else {
+                throw e;
+            }
         }
     }
 
     @Override public void clear() {
-        callAttr(obj, "clear");
+        methods.get("clear").call();
     }
 }

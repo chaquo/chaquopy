@@ -2,15 +2,14 @@ package com.chaquo.python;
 
 import java.util.*;
 
-import static com.chaquo.python.ContainerUtils.callAttr;
 
 abstract class PyIterator<T> implements Iterator<T> {
     private PyObject iter;
     private boolean hasNextElem = true;
     private PyObject nextElem;
 
-    public PyIterator(PyObject obj) {
-        iter = callAttr(obj, "__iter__");
+    public PyIterator(MethodCache methods) {
+        iter = methods.get("__iter__").call();
         updateNext();
     }
 
