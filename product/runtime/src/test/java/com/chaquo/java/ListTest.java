@@ -18,9 +18,9 @@ public class ListTest extends ContainerTest {
     private List<PyObject> intListRO = mod.callAttr("new_list_ro", 20, 21, 22).asList();
     private List<PyObject> str = fromJava("hello").asList();
 
-    private void expectOutOfBounds(String prefix) {
+    private void expectOutOfBounds(int index, int size) {
         thrown.expect(IndexOutOfBoundsException.class);
-        thrown.expectMessage(prefix + " index out of range");
+        thrown.expectMessage("Invalid index " + index + ", size is " + size);
     }
 
     @Test
@@ -52,20 +52,20 @@ public class ListTest extends ContainerTest {
 
     @Test
     public void get_bounds() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(3, 3);
         intList.get(3);
     }
 
     @Test
     public void get_boundsEmpty() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(0, 0);
         emptyList.get(0);
     }
 
     @Test
     @SuppressWarnings("ConstantConditions")
     public void get_boundsNegative() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(-1, 3);
         intList.get(-1);
     }
 
@@ -101,8 +101,20 @@ public class ListTest extends ContainerTest {
 
     @Test
     public void set_bounds() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(3, 3);
         intList.set(3, fromJava(42));
+    }
+
+    @Test
+    public void set_boundsEmpty() {
+        expectOutOfBounds(0, 0);
+        emptyList.set(0, fromJava(42));
+    }
+
+    @Test
+    public void set_boundsNegative() {
+        expectOutOfBounds(-1, 3);
+        intList.set(-1, fromJava(42));
     }
 
     @Test
@@ -142,8 +154,21 @@ public class ListTest extends ContainerTest {
 
     @Test
     public void add_bounds() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(4, 3);
         intList.add(4, fromJava(42));
+    }
+
+    @Test
+    public void add_empty() {
+        emptyList.add(0, fromJava(42));
+        assertEquals(1, emptyList.size());
+        assertEquals(42, emptyList.get(0).toInt());
+    }
+
+    @Test
+    public void add_boundsNegative() {
+        expectOutOfBounds(-1, 3);
+        intList.add(-1, fromJava(42));
     }
 
     @Test
@@ -163,8 +188,21 @@ public class ListTest extends ContainerTest {
 
     @Test
     public void remove_bounds() {
-        expectOutOfBounds("list");
+        expectOutOfBounds(3, 3);
         intList.remove(3);
+    }
+
+    @Test
+    public void remove_boundsEmpty() {
+        expectOutOfBounds(0, 0);
+        emptyList.remove(0);
+    }
+
+    @Test
+    @SuppressWarnings("ConstantConditions")
+    public void remove_boundsNegative() {
+        expectOutOfBounds(-1, 3);
+        intList.remove(-1);
     }
 
     @Test
@@ -199,7 +237,7 @@ public class ListTest extends ContainerTest {
 
     @Test
     public void str_bounds() {
-        expectOutOfBounds("str");
+        expectOutOfBounds(5, 5);
         str.get(5);
     }
 
