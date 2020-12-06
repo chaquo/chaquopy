@@ -5,11 +5,11 @@ from .jni cimport *
 # === conversion ==============================================================
 
 cdef j2p(JNIEnv *j_env, JNIRef j_object)
-cdef j2p_string(JNIEnv *env, JNIRef j_string)
+cdef unicode j2p_string(JNIEnv *env, JNIRef j_string)
 cdef j2p_pyobject(JNIEnv *env, jobject jpyobject)
 
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=?)
-cdef JNIRef p2j_string(JNIEnv *env, s)
+cdef JNIRef p2j_string(JNIEnv *env, unicode s)
 cdef jlong p2j_pyobject(JNIEnv *env, obj) except? 0
 
 cpdef check_range_float32(value)

@@ -255,7 +255,10 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
     @Override public boolean isEmpty() { return super.isEmpty(); }
 
     /** Equivalent to Python `hasattr()`. */
-    @Override public native boolean containsKey(Object key);
+    @Override public boolean containsKey(Object key) {
+        return containsKeyNative((String)key);
+    }
+    private native boolean containsKeyNative(String key);
 
     /** The value will be converted as described at {@link #fromJava fromJava()}.*/
     @Override public boolean containsValue(Object o) {
@@ -266,12 +269,14 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * does not exist, this method returns `null` rather than throwing an exception. To distinguish
      * this from an attribute with a value of `None`, use {@link #containsKey containsKey()}. */
     @Override public PyObject get(Object key) {
-        return getInstance(getNative(key));
+        return getInstance(getNative((String)key));
     }
-    private native long getNative(Object key);
+    private native long getNative(String key);
 
     /** Equivalent to Python `setattr()`. */
-    @Override public PyObject put(String key, PyObject value) { return put(key, (Object)value); }
+    @Override public PyObject put(String key, PyObject value) {
+        return put(key, (Object)value);
+    }
 
     /** Equivalent to Python `setattr()`. The value will be converted as described at
      * {@link #fromJava fromJava()}.*/
@@ -287,9 +292,9 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
      * In accordance with the `Map` interface, when the attribute does not exist, this method
      * returns `null` rather than throwing an exception. */
     @Override public PyObject remove(Object key) {
-        return getInstance(removeNative(key));
+        return getInstance(removeNative((String)key));
     }
-    private native long removeNative(Object key);
+    private native long removeNative(String key);
 
     /** Equivalent to Python `dir()`. The returned set is backed by the Python object, so changes to
      * the object are reflected in the set, and vice-versa. If the object is modified while an

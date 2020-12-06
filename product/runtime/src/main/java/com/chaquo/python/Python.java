@@ -77,6 +77,7 @@ public class Python {
 
     /** Returns the module with the given name. Dot notation may be used to get submodules (e.g.
      * `os.path`). */
+    @SuppressWarnings("deprecation")
     public PyObject getModule(String name) {
         return PyObject.getInstance(getModuleNative(name));
     }

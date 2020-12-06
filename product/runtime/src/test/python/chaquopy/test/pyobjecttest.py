@@ -81,6 +81,12 @@ double_var = 1e39
 str_var = "hello"
 char_var = "x"
 
+class ManyAttributes:
+    def __init__(self):
+        for i in range(1000):
+            setattr(self, str(i), str(i))
+many_attributes = ManyAttributes()
+
 char_list_var = ["a", "b", "c"]
 int_list_var = [11, 22, 33]
 bytes_var = b"\x00\x01\x7f\x80\xfe\xff"

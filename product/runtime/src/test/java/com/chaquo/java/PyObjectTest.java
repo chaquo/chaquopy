@@ -539,17 +539,15 @@ public class PyObjectTest {
     @Test
     public void containsKey_fail_null() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expectMessage("String cannot be null");
         builtins.containsKey(null);
     }
 
     @SuppressWarnings("SuspiciousMethodCalls")
     @Test
     public void containsKey_fail_type() {
-        thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
         builtins.containsKey(42);
     }
 
@@ -619,7 +617,7 @@ public class PyObjectTest {
     }
 
     @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")
-    @Test
+    @Test(timeout=200)
     public void get() {
         assertEquals(pyobjecttest.get("nonexistent"), null);
 
@@ -630,22 +628,27 @@ public class PyObjectTest {
         assertEquals(pyobjecttest.get("int_var"), 42.0);
         assertEquals(pyobjecttest.get("float_var"), 43.5);
         assertEquals(pyobjecttest.get("str_var"), "hello");
+
+        // To test the performance of the whole PyObject creation process, we need a loop
+        // which returns a different PyObject every time.
+        PyObject ma = pyobjecttest.get("many_attributes");
+        for (int i = 0; i < 1000; i++) {
+            ma.get(String.valueOf(i));
+        }
     }
 
     @Test
     public void get_fail_null() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expectMessage("String cannot be null");
         pyobjecttest.get(null);
     }
 
     @SuppressWarnings("SuspiciousMethodCalls")
     @Test
     public void get_fail_type() {
-        thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
         pyobjecttest.get(42);
     }
 
@@ -683,8 +686,7 @@ public class PyObjectTest {
     @Test
     public void put_fail_null() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expectMessage("String cannot be null");
         pyobjecttest.put(null, "hello");
     }
 
@@ -692,6 +694,7 @@ public class PyObjectTest {
     @SuppressWarnings("unchecked")
     public void put_fail_type() {
         thrown.expect(ClassCastException.class);
+        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
         ((Map)pyobjecttest).put(11, "hello");
     }
 
@@ -708,17 +711,15 @@ public class PyObjectTest {
     @Test
     public void remove_fail_null() {
         thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expectMessage("String cannot be null");
         pyobjecttest.remove(null);
     }
 
     @SuppressWarnings("SuspiciousMethodCalls")
     @Test
     public void remove_fail_type() {
-        thrown.expect(PyException.class);
-        thrown.expectMessage("TypeError");
-        thrown.expectMessage("attribute name must be string");
+        thrown.expect(ClassCastException.class);
+        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
         pyobjecttest.remove(42);
     }
 
@@ -753,11 +754,15 @@ public class PyObjectTest {
         assertEquals(Integer.MIN_VALUE,  HashObject.call(Integer.MIN_VALUE).hashCode());
     }
 
-    @Test
+    @Test(timeout=TO_PRIMITIVE_TIMEOUT)
     public void toString_() {
-        assertEquals("hello", pyobjecttest.get("str_var").toString());
+        PyObject str_var = pyobjecttest.get("str_var");
+        assertEquals("hello", str_var.toString());
         assertEquals("True", pyobjecttest.get("bool_var").toString());
         assertEquals("43.5", pyobjecttest.get("float_var").toString());
+        for (int i = 0; i < TO_PRIMITIVE_COUNT; i++) {
+             str_var.toString();
+         }
     }
 
     @Test

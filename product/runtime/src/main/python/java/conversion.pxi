@@ -22,7 +22,10 @@ UNBOX_METHODS = {f"Ljava/lang/{boxed};": f"{unboxed}Value" for boxed, unboxed in
 
 ARRAY_CONVERSIONS = ["Ljava/lang/Object;", "Ljava/lang/Cloneable;", "Ljava/io/Serializable;"]
 
-JCHAR_ENCODING = "UTF-16-LE" if sys.byteorder == "little" else "UTF-16-BE"
+# This must be a DEF to allow Cython to generate optimized calls of the decode and encode
+# functions. We don't currently support any big-endian platforms, and the unit tests will
+# detect if that ever changes.
+DEF JCHAR_ENCODING = "UTF-16-LE"
 
 
 # Useful if d is an OrderedDict.
@@ -92,22 +95,21 @@ cdef j2p(JNIEnv *j_env, JNIRef j_object):
     return jclass_from_j_klass(sig, j_klass)(instance=j_object)
 
 
-# j_string MUST be a non-null java.lang.String reference, or this function will probably crash.
-cdef j2p_string(JNIEnv *j_env, JNIRef j_string):
+# j_string MUST be a (possibly-null) String, or there may be a native crash.
+cdef unicode j2p_string(JNIEnv *j_env, JNIRef j_string):
+    if not j_string:
+        raise ValueError("String cannot be null")
+
     cdef const jchar *jchar_str = j_env[0].GetStringChars(j_env, j_string.obj, NULL)
     if jchar_str == NULL:
         raise Exception("GetStringChars failed")
-    str_len = j_env[0].GetStringLength(j_env, j_string.obj)
-
-    # We can't decode directly from a jchar array because of
-    # https://github.com/cython/cython/issues/1696 . This cdef is necessary to prevent Cython
-    # inferring the type of bytes_str and calling the decode function directly.
-    cdef object bytes_str = (<char*>jchar_str)[:str_len * 2]  # See note at bytes_str cdef above
+    cdef int str_len = j_env[0].GetStringLength(j_env, j_string.obj)
+    s = (<char*>jchar_str)[:str_len * 2].decode(JCHAR_ENCODING)  # 2 bytes/char for UTF-16.
     j_env[0].ReleaseStringChars(j_env, j_string.obj, jchar_str)
-    return bytes_str.decode(JCHAR_ENCODING)
+    return s
 
 
-# jpyobject MUST be a (possibly-null) PyObject reference, or this function will probably crash.
+# jpyobject MUST be a (possibly-null) PyObject, or there may be a native crash.
 #
 # This function is called from PyObject.getInstance, which is synchronized on PyObject.cache.
 # To avoid deadlocks, it must not do anything which requires a lock, including calling jclass()
@@ -116,9 +118,9 @@ cdef j2p_pyobject(JNIEnv *j_env, jobject jpyobject):
     if jpyobject == NULL:
         return None
 
-    env = CQPEnv.wrap(j_env)
     global fid_PyObject_addr
     if not fid_PyObject_addr:
+        env = CQPEnv.wrap(j_env)
         j_PyObject = env.FindClass("com.chaquo.python.PyObject")
         fid_PyObject_addr = env.GetFieldID(j_PyObject, "addr", "J")
 
@@ -306,18 +308,10 @@ cpdef check_range_char(value):
         raise TypeError("Cannot convert non-BMP character to char")
 
 
-cdef JNIRef p2j_string(JNIEnv *j_env, s):
-    if isinstance(s, unicode):
-        u = s
-    elif isinstance(s, bytes):
-        u = s.decode('ASCII')
-    else:
-        raise TypeError(f"{type(s).__name__} object is not a string")
-    utf16 = u.encode(JCHAR_ENCODING)
-      # len(u) doesn't necessarily equal len(utf16)//2 on a "narrow" Python build.
-    return LocalRef.adopt(j_env, j_env[0].NewString(j_env,
-                                                    <jchar*><char*>utf16,
-                                                    len(utf16)//2))
+cdef JNIRef p2j_string(JNIEnv *j_env, unicode s):
+    utf16 = s.encode(JCHAR_ENCODING)
+    return LocalRef.adopt(j_env, j_env[0].NewString(
+        j_env, <jchar*><char*>utf16, len(utf16)//2))  # 2 bytes/char for UTF-16.
 
 
 cdef box_sig(JNIEnv *j_env, JNIRef j_klass):

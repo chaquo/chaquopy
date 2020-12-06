@@ -162,8 +162,8 @@ class TestConversion(FilterWarningsCase):
 
     def verify_string(self, obj, name):
         for val in ["", "h", "hello",
-                    "\u0000",          # Null character       # (handled differently by
-                    "\U00012345"]:     # Non-BMP character    #   "modified UTF-8")
+                    "\u0000",          # Null character
+                    "\U00012345"]:     # Non-BMP character
             self.verify_value(obj, name, val)
 
         # Byte strings cannot be implicitly converted to Java Strings. However, if the target

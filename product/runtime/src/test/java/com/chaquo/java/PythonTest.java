@@ -56,6 +56,13 @@ public class PythonTest {
     }
 
     @Test
+    public void getModule_fail_null() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("String cannot be null");
+        python.getModule(null);
+    }
+
+    @Test
     public void getBuiltins() {
         PyObject builtins = python.getBuiltins();
         assertTrue(builtins.containsKey("open"));

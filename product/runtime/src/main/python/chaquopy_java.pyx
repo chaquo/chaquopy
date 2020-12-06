@@ -379,11 +379,11 @@ cdef jlong call(JNIEnv *j_env, obj, jobject jargs) except? 0:
 
 # === com.chaquo.python.PyObject (Map) ========================================
 
-cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
+cdef public jboolean Java_com_chaquo_python_PyObject_containsKeyNative \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, LocalRef.create(env, j_key))
+        key = j2p_string(env, LocalRef.create(env, j_key))
         return hasattr(self, key)
     except BaseException:
         se = SavedException()
@@ -395,7 +395,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_getNative \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, LocalRef.create(env, j_key))
+        key = j2p_string(env, LocalRef.create(env, j_key))
         try:
             value = getattr(self, key)
         except AttributeError:
@@ -411,7 +411,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_putNative \
     (JNIEnv *env, jobject this, jobject j_key, jobject j_value) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, LocalRef.create(env, j_key))
+        key = j2p_string(env, LocalRef.create(env, j_key))
         try:
             old_value = getattr(self, key)
         except AttributeError:
@@ -428,7 +428,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_removeNative \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
-        key = j2p(env, LocalRef.create(env, j_key))
+        key = j2p_string(env, LocalRef.create(env, j_key))
         try:
             old_value = getattr(self, key)
         except AttributeError:
