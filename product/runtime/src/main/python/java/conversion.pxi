@@ -4,6 +4,7 @@ from itertools import chain
 import re
 
 from cpython.object cimport PyObject
+from cpython.ref cimport Py_INCREF
 from libc.float cimport FLT_MAX
 
 numpy = None  # Initialized by importer.py.
@@ -240,7 +241,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         # IsAssignableFrom here, because allowing conversion to Object could cause excessive
         # ambiguity in overload resolution.)
         if definition == "Lcom/chaquo/python/PyObject;":
-            return LocalRef.adopt(j_env, p2j_pyobject(j_env, obj))
+            return p2j_pyobject_ref(env, obj)
 
     elif definition[0] == '[':
         env = CQPEnv.wrap(j_env)
@@ -344,18 +345,25 @@ cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     return jclass(full_box_cls_name)(value)._chaquopy_this
 
 
-cdef jobject p2j_pyobject(JNIEnv *j_env, obj) except? NULL:
+cdef jlong p2j_pyobject(JNIEnv *j_env, obj) except? 0:
     if obj is None:
-        return NULL
+        return 0
+    else:
+        Py_INCREF(obj)  # Matches with DECREF in closeNative.
+        return <jlong><PyObject*>obj
 
+
+cdef GlobalRef j_PyObject
+cdef jmethodID mid_PyObject_getInstance = NULL
+
+cdef JNIRef p2j_pyobject_ref(CQPEnv env, obj):
     # Can't call getInstance() using jclass because that'll immediately unwrap the
     # returned proxy object (see j2p)
-    JPyObject = jclass("com.chaquo.python.PyObject")
-    cdef JavaMethod jm_getInstance = JPyObject.getInstance
-
-    env = CQPEnv.wrap(j_env)
+    global j_PyObject, mid_PyObject_getInstance
+    if not mid_PyObject_getInstance:
+        j_PyObject = env.FindClass("com.chaquo.python.PyObject")
+        mid_PyObject_getInstance = env.GetStaticMethodID(j_PyObject, "getInstance",
+                                                         "(J)Lcom/chaquo/python/PyObject;")
     cdef jvalue j_args[1]
-    j_args[0].j = <jlong><PyObject*>obj
-    return (env.CallStaticObjectMethodA(<JNIRef?>JPyObject._chaquopy_j_klass,
-                                       jm_getInstance.j_method, j_args)
-            .return_ref(j_env))
+    j_args[0].j = p2j_pyobject(env.j_env, obj)
+    return env.CallStaticObjectMethodA(j_PyObject, mid_PyObject_getInstance, j_args)

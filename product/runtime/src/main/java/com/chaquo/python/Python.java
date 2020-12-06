@@ -77,10 +77,15 @@ public class Python {
 
     /** Returns the module with the given name. Dot notation may be used to get submodules (e.g.
      * `os.path`). */
-    public native PyObject getModule(String name);
+    public PyObject getModule(String name) {
+        return PyObject.getInstance(getModuleNative(name));
+    }
+    private native long getModuleNative(String name);
 
     /** Returns the <a href="https://docs.python.org/3/library/builtins.html">`builtins`</a>
      * module, which contains Python's built-in functions (e.g. `open`), types (e.g. `dict`),
      * constants (e.g. `True`) and exceptions (e.g. `ValueError`). */
-    public native PyObject getBuiltins();
+    public PyObject getBuiltins() {
+        return getModule("builtins");
+    }
 }

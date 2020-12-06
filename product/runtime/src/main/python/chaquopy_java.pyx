@@ -3,7 +3,6 @@
 # __future__ import may still be required as long as we have language_level=2.
 from __future__ import absolute_import, division, print_function
 
-import builtins
 import ctypes
 from importlib import import_module
 import os
@@ -12,7 +11,7 @@ import traceback
 
 from cpython.module cimport PyImport_ImportModule
 from cpython.object cimport PyObject
-from cpython.ref cimport Py_INCREF, Py_DECREF
+from cpython.ref cimport Py_DECREF
 cdef extern from "Python.h":
     void Py_Initialize()
     void PyEval_SaveThread()
@@ -150,56 +149,36 @@ cdef int redirect(int stream_fd, char *filename):
     dup2(file_fd, stream_fd)
 
 
-cdef public jobject Java_com_chaquo_python_Python_getModule \
+cdef public jlong Java_com_chaquo_python_Python_getModuleNative \
     (JNIEnv *env, jobject this, jobject j_name) with gil:
     try:
         return p2j_pyobject(env, import_module(j2p_string(env, LocalRef.create(env, j_name))))
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
-
-
-cdef public jobject Java_com_chaquo_python_Python_getBuiltins \
-    (JNIEnv *env, jobject this) with gil:
-    try:
-        return p2j_pyobject(env, builtins)
-    except BaseException:
-        se = SavedException()
-    se.throw(env)
-    return NULL
+    return 0
 
 
 # === com.chaquo.python.PyObject ==============================================
 
-cdef public void Java_com_chaquo_python_PyObject_openNative \
-    (JNIEnv *env, jobject this) with gil:
-    try:
-        Py_INCREF(j2p_pyobject(env, this))
-        return
-    except BaseException:
-        se = SavedException()
-    se.throw(env)
-
-
 cdef public void Java_com_chaquo_python_PyObject_closeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
-        Py_DECREF(j2p_pyobject(env, this))
+        Py_DECREF(j2p_pyobject(env, this))  # Matches with INCREF in p2j_pyobject.
         return
     except BaseException:
         se = SavedException()
     se.throw(env)
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_fromJava \
+cdef public jlong Java_com_chaquo_python_PyObject_fromJavaNative \
     (JNIEnv *env, jobject klass, jobject o) with gil:
     try:
         return p2j_pyobject(env, j2p(env, LocalRef.create(env, o)))
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
+    return 0
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_toJava \
@@ -340,27 +319,29 @@ cdef public jlong Java_com_chaquo_python_PyObject_id \
     return 0
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_type \
+cdef public jlong Java_com_chaquo_python_PyObject_typeNative \
     (JNIEnv *env, jobject this) with gil:
     try:
         return p2j_pyobject(env, type(j2p_pyobject(env, this)))
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
+    return 0
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_callThrows \
+cdef public jlong Java_com_chaquo_python_PyObject_callThrowsNative \
     (JNIEnv *env, jobject this, jobject jargs) with gil:
     try:
         return call(env, j2p_pyobject(env, this), jargs)
     except BaseException:
         se = SavedException(None)
     se.throw(env)
-    return NULL
+    return 0
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_callAttrThrows \
+# It's worth making this a native method in order to avoid the temporary PyObject which would
+# be created by `get(name).call(...)`.
+cdef public jlong Java_com_chaquo_python_PyObject_callAttrThrowsNative \
     (JNIEnv *env, jobject this, jobject j_key, jobject jargs) with gil:
     try:
         attr = getattr(j2p_pyobject(env, this),
@@ -369,10 +350,10 @@ cdef public jobject Java_com_chaquo_python_PyObject_callAttrThrows \
     except BaseException:
         se = SavedException(None)
     se.throw(env)
-    return NULL
+    return 0
 
 
-cdef jobject call(JNIEnv *j_env, obj, jobject jargs) except? NULL:
+cdef jlong call(JNIEnv *j_env, obj, jobject jargs) except? 0:
     if jargs == NULL:
         # User typed ".call(null)", which Java interprets as a null array, rather than the
         # array of one null which they intended.
@@ -410,7 +391,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKey \
     return False
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_get \
+cdef public jlong Java_com_chaquo_python_PyObject_getNative \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
@@ -418,15 +399,15 @@ cdef public jobject Java_com_chaquo_python_PyObject_get \
         try:
             value = getattr(self, key)
         except AttributeError:
-            return NULL
+            return 0
         return p2j_pyobject(env, value)
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
+    return 0
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_put \
+cdef public jlong Java_com_chaquo_python_PyObject_putNative \
     (JNIEnv *env, jobject this, jobject j_key, jobject j_value) with gil:
     try:
         self = j2p_pyobject(env, this)
@@ -440,10 +421,10 @@ cdef public jobject Java_com_chaquo_python_PyObject_put \
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
+    return 0
 
 
-cdef public jobject Java_com_chaquo_python_PyObject_remove \
+cdef public jlong Java_com_chaquo_python_PyObject_removeNative \
     (JNIEnv *env, jobject this, jobject j_key) with gil:
     try:
         self = j2p_pyobject(env, this)
@@ -451,13 +432,13 @@ cdef public jobject Java_com_chaquo_python_PyObject_remove \
         try:
             old_value = getattr(self, key)
         except AttributeError:
-            return NULL
+            return 0
         delattr(self, key)
         return p2j_pyobject(env, old_value)
     except BaseException:
         se = SavedException()
     se.throw(env)
-    return NULL
+    return 0
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_dir \
