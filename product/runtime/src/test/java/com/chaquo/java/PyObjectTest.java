@@ -397,6 +397,8 @@ public class PyObjectTest {
 
     @Test
     public void call() {
+        assertNull(pyobjecttest.get("get_none").call());
+
         PyObject sm = pyobjecttest.get("sum_mul");
         assertEquals(0,  (int)sm.call().toJava(Integer.class));
         assertEquals(3,  (int)sm.call(3).toJava(Integer.class));
@@ -426,6 +428,8 @@ public class PyObjectTest {
 
     @Test
     public void callAttr() {
+        assertNull(pyobjecttest.callAttr("get_none"));
+
         assertEquals(0,  (int)pyobjecttest.callAttr("sum_mul").toJava(Integer.class));
         assertEquals(3,  (int)pyobjecttest.callAttr("sum_mul", 3).toJava(Integer.class));
         assertEquals(6,  (int)pyobjecttest.callAttr("sum_mul", 1, 2, 3).toJava(Integer.class));
@@ -674,7 +678,7 @@ public class PyObjectTest {
     @Test
     public void put() {
         PyObject so = pyobjecttest.callAttr("EmptyObject");
-        assertEquals(null, so.put("a", 11));
+        assertEquals(so.put("a", 11), null);
         assertEquals(so.get("a"), 11);
         assertEquals(so.put("a", 22), 11);
         assertEquals(so.get("a"), 22);
@@ -705,6 +709,9 @@ public class PyObjectTest {
         assertTrue(so.containsKey("one"));
         assertEquals(so.remove("one"), 1);
         assertFalse(so.containsKey("one"));
+        assertEquals(so.remove("one"), null);
+        assertEquals(so.put("one", null), null);
+        assertTrue(so.containsKey("one"));
         assertEquals(so.remove("one"), null);
     }
 
@@ -740,6 +747,7 @@ public class PyObjectTest {
         assertNotEquals(True, False);
         assertEquals(True, true);
         assertEquals(False, false);
+        assertNotEquals(False, null);
     }
 
     @Test

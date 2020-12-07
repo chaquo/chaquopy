@@ -64,6 +64,9 @@ def throws_python(msg="abc olé 中文"):
     raise ValueError(msg)
 
 
+def get_none():
+    return
+
 def is_none(x):
     return x is None
 
