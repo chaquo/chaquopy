@@ -854,13 +854,13 @@ class TestAndroidStdlib(AndroidTestCase):
             time.sleep(random.uniform(0.1, 0.2))
             return x ** 2
 
-        pool = Pool(8)
-        start = time.time()
-        self.assertEqual([0, 1, 4, 9, 16, 25, 36, 49],
-                         pool.map(square_slowly, range(8), chunksize=1))
-        duration = time.time() - start
-        self.assertGreater(duration, 0.1)
-        self.assertLess(duration, 0.25)
+        with Pool(8) as pool:
+            start = time.time()
+            self.assertEqual([0, 1, 4, 9, 16, 25, 36, 49],
+                             pool.map(square_slowly, range(8), chunksize=1))
+            duration = time.time() - start
+            self.assertGreater(duration, 0.1)
+            self.assertLess(duration, 0.25)
 
         from multiprocessing import get_context, synchronize
         ctx = get_context()
