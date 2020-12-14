@@ -131,6 +131,10 @@ cdef class JavaArray:
         else:
             self._invalid_key(key)
 
+    # `copy` is not part of the MutableSequence ABC, but the standard types all provide it.
+    def copy(self):
+        return self[:]
+
     def __setitem__(self, key, value):
         global System
         if isinstance(key, int):

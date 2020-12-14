@@ -256,6 +256,15 @@ class TestArray(FilterWarningsCase):
         with self.assertTimeLimit(0.5):
             self.assertIsNot(a[:], a)
 
+    def test_copy(self):
+        for data in [[], SLICE_DATA]:
+            with self.subTest(data=data):
+                a = jarray(jint)(data)
+                a_copy = a.copy()
+                self.assertIsInstance(a_copy, jarray(jint))
+                self.assertIsNot(a_copy, a)
+                self.assertEqual(a_copy, a)
+
     def test_set_slice(self):
         for key, replaced in SLICE_TESTS:
             with self.subTest(key=key, replaced=replaced):
