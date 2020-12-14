@@ -245,6 +245,9 @@ class InstallCommand(RequirementCommand):
             target_temp_dir.create()
             install_options.append('--home=' + target_temp_dir.path)
 
+            # Chaquopy: avoid conflict between --target and prefix: see note in locations.py.
+            install_options.append('--prefix=')
+
         global_options = options.global_options or []
 
         with self._build_session(options) as session:

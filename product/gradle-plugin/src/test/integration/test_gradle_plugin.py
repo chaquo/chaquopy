@@ -743,6 +743,17 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
+    def test_cfg_wheel(self):
+        self.RunGradle("base", "PythonReqs/cfg_wheel", requirements=["apple/__init__.py"])
+
+    # We need to fall back on setup.py install to test this, because bdist_wheel doesn't use
+    # --prefix or --home.
+    def test_cfg_sdist(self):
+        run = self.RunGradle("base", "PythonReqs/cfg_sdist",
+                             requirements=["bdist_wheel_fail/__init__.py"])
+        self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
+        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
+
     # By checking that this string is output in tests which fall back on setup.py install, we
     # can use the absence of the string in other tests to prove that no fallback occurred.
     RUNNING_INSTALL = "Running setup.py install"
