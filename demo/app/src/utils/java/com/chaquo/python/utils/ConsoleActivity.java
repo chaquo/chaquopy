@@ -1,5 +1,6 @@
 package com.chaquo.python.utils;
 
+import androidx.annotation.NonNull;
 import android.app.*;
 import android.graphics.*;
 import android.os.*;
@@ -127,7 +128,7 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         // we maintain the scrolled-to-bottom state.
     }
 
-    @Override protected void onRestoreInstanceState(Bundle savedInstanceState) {
+    @Override protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         // Don't restore the UI state unless we have the non-UI state as well.
         if (task.getState() != Thread.State.NEW) {
             super.onRestoreInstanceState(savedInstanceState);
