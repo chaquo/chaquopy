@@ -39,4 +39,4 @@ class TestSoundfile(unittest.TestCase):
     def check_data(self, data, rate):
         self.assertEqual((17792, 2), data.shape)
         self.assertEqual(44100, rate)
-        self.assertAlmostEqual(0.14, max(data[:,0]), 2)
+        self.assertAlmostEqual(0.14, max(data[:, 0]), 2)
