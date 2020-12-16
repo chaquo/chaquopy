@@ -62,8 +62,14 @@ for toolchain_dir in $this_dir/toolchains/*; do
     done
     rm $dynload_dir/*_test*.so
 
+    # x86_64 strip segfaults on every file.
+    if [ $abi = "x86_64" ]; then
+        STRIP="strip"
+    else
+        STRIP=$toolchain_dir/*/bin/strip
+    fi
     chmod u+w $(find -name *.so)
-    $toolchain_dir/*/bin/strip $(find -name *.so)
+    $STRIP $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"

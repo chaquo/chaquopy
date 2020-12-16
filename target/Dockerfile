@@ -4,7 +4,7 @@ FROM chaquopy-base
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
 #   where XX is the NDK version. Check over the `master` version of that document as well.
-RUN yes | android-sdk/tools/bin/sdkmanager "ndk;18.1.5063045"
+RUN yes | android-sdk/cmdline-tools/tools/bin/sdkmanager "ndk;18.1.5063045"
 
 COPY build-toolchains.sh build-toolchain.sh build-common.sh target/
 RUN target/build-toolchains.sh android-sdk/ndk/* "arm64-v8a armeabi-v7a x86 x86_64"

@@ -4,6 +4,7 @@ set -eu
 license_mode=${1:-}
 
 cd $(dirname $0)
+docker build -t chaquopy-base -f base.dockerfile .
 docker build -t chaquopy-target target
 container_name=$(docker create chaquopy-target)
 rm -rf target/toolchains
