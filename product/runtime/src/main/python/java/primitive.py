@@ -3,7 +3,7 @@
 import ctypes
 from functools import total_ordering
 
-from .chaquopy import check_range_char, check_range_float32
+from . import chaquopy
 
 __all__ = ["primitives_by_name", "primitives_by_sig",
            "Primitive", "NumericPrimitive", "IntPrimitive", "FloatPrimitive",
@@ -106,7 +106,7 @@ class jfloat(FloatPrimitive):
         FloatPrimitive.__init__(self, value)
         self.value = ctypes.c_float(value).value
         if not truncate:
-            check_range_float32(value)
+            chaquopy.check_range_float32(value)
 
 class jdouble(FloatPrimitive):
     name = "double"
@@ -118,5 +118,5 @@ class jchar(Primitive):
     sig = "C"
 
     def __init__(self, value):
-        check_range_char(value)
+        chaquopy.check_range_char(value)
         self.value = value

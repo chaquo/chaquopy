@@ -31,7 +31,7 @@ cpdef jni_sig(c):
                 return "[" + c._element_sig
             else:
                 return klass_sig(CQPEnv(), c._chaquopy_j_klass)
-        elif issubclass(c, (NoneCast, java.Primitive)):
+        elif issubclass(c, (NoneCast, Primitive)):
             return c.sig
     elif isinstance(c, jclass("java.lang.Class")):
         return name_to_sig(c.getName())
@@ -41,7 +41,7 @@ cpdef jni_sig(c):
 # `name` must be in the format returned by Class.getName().
 cdef name_to_sig(name):
     try:
-        return java.primitives_by_name[name].sig
+        return primitives_by_name[name].sig
     except KeyError: pass
 
     if name.startswith("["):
@@ -77,7 +77,7 @@ cdef split_method_sig(definition):
 
 cdef sig_to_java(sig):
     try:
-        return java.primitives_by_sig[sig].name
+        return primitives_by_sig[sig].name
     except KeyError: pass
 
     if sig.startswith("["):

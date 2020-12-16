@@ -41,7 +41,7 @@ cpdef jclass(clsname, cls_dict=None):
     """
     if clsname.startswith("["):
         return jarray(clsname[1:])
-    if clsname in java.primitives_by_name:
+    if clsname in primitives_by_name:
         raise ValueError("Cannot reflect a primitive type")
     if clsname.startswith("L") and clsname.endswith(";"):
         clsname = clsname[1:-1]

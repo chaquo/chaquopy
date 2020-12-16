@@ -155,7 +155,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     elif definition == 'Z':
         if isinstance(obj, bool):
             return obj
-        if isinstance(obj, java.jboolean):
+        if isinstance(obj, primitive.jboolean):
             return obj.value
         if numpy and isinstance(obj, numpy.bool_):
             return obj.item()
@@ -167,7 +167,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         # bool to Java integer types could cause ambiguity in overloads.
         if isinstance(obj, int) and not isinstance(obj, bool):
             return obj
-        if isinstance(obj, java.IntPrimitive) and \
+        if isinstance(obj, IntPrimitive) and \
            dict_index(INT_TYPES, obj.sig) >= dict_index(INT_TYPES, definition):
             return obj.value
         if numpy and isinstance(obj, numpy.integer):
@@ -175,7 +175,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
     elif definition in FLOAT_TYPES:
         if isinstance(obj, (float, int)) and not isinstance(obj, bool):
             return obj
-        if isinstance(obj, java.NumericPrimitive) and \
+        if isinstance(obj, NumericPrimitive) and \
            dict_index(NUMERIC_TYPES, obj.sig) >= dict_index(NUMERIC_TYPES, definition):
             return obj.value
         if numpy and isinstance(obj, (numpy.integer, numpy.floating)):
@@ -184,7 +184,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
         # We don't check that len(obj) == 1; see note above about range checks.
         if isinstance(obj, unicode):
             return obj
-        if isinstance(obj, java.jchar):
+        if isinstance(obj, primitive.jchar):
             return obj.value
 
     elif definition[0] == 'L':
@@ -197,7 +197,7 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
             if env.IsAssignableFrom(env.FindClass(obj.sig), j_klass):
                 return LocalRef()
 
-        elif isinstance(obj, (unicode, java.jchar)):
+        elif isinstance(obj, (unicode, primitive.jchar)):
             if isinstance(obj, unicode):
                 if env.IsAssignableFrom(env.FindClass("java.lang.String"), j_klass):
                     return p2j_string(j_env, obj)
@@ -205,25 +205,25 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                 boxed = p2j_box(env, j_klass, "Character", obj)
                 if boxed: return boxed
 
-        elif isinstance(obj, (bool, java.jboolean)):
+        elif isinstance(obj, (bool, primitive.jboolean)):
             if autobox:
                 boxed = p2j_box(env, j_klass, "Boolean", obj)
                 if boxed: return boxed
-        elif isinstance(obj, (int, java.IntPrimitive)):
+        elif isinstance(obj, (int, primitive.IntPrimitive)):
             if autobox:
                 # TODO #5174 support BigInteger, and make that a final fallback if clsname is
                 # Number or Object, and Long isn't big enough.
                 #
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_cls_names = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, java.IntPrimitive)
+                box_cls_names = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, IntPrimitive)
                                  else chain(INT_TYPES.values(), FLOAT_TYPES.values()))
                 for box_cls_name in box_cls_names:
                     boxed = p2j_box(env, j_klass, box_cls_name, obj)
                     if boxed: return boxed
-        elif isinstance(obj, (float, java.FloatPrimitive)):
+        elif isinstance(obj, (float, FloatPrimitive)):
             if autobox:
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
-                box_cls_names = ([FLOAT_TYPES[obj.sig]] if isinstance(obj, java.FloatPrimitive)
+                box_cls_names = ([FLOAT_TYPES[obj.sig]] if isinstance(obj, FloatPrimitive)
                                  else FLOAT_TYPES.values())
                 for box_cls_name in box_cls_names:
                     boxed = p2j_box(env, j_klass, box_cls_name, obj)
@@ -326,7 +326,7 @@ cdef JNIRef p2j_box(CQPEnv env, JNIRef j_klass, str box_cls_name, value):
     if not env.IsAssignableFrom(j_box_klass, j_klass):
         return None
 
-    if isinstance(value, java.Primitive):
+    if isinstance(value, Primitive):
         value = value.value
 
     # Uniquely among the boxed types, the Float class has two primitive-typed constructors, one

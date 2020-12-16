@@ -32,7 +32,9 @@ from collections import OrderedDict
 import os
 import sys
 
-import java
+from java import primitive
+from java.primitive import (Primitive, NumericPrimitive, IntPrimitive, FloatPrimitive,
+                            primitives_by_name, primitives_by_sig)
 
 cimport cython
 cdef extern from "alloca.h":
