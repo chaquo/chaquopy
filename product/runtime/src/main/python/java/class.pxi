@@ -275,8 +275,10 @@ def get_sam(cls):
 
     object_methods = {signature(m) for m in JavaObject.getClass().getMethods()}
 
-    # Kotlin callable objects implement some additional interfaces which happen to be
-    # functional, so ignore them. (This won't work if the interfaces are minified.)
+    # Kotlin lambdas and method references implement the functional interface
+    # kotlin.jvm.functions.FunctionN, where N is the number of arguments. However, they also
+    # implement some other interfaces which just happen to be functional, so ignore them. The
+    # Gradle plugin provides a ProGuard file which stops these names from being minified.
     ignored_interfaces = {
         "kotlin.jvm.internal.FunctionBase",
         "kotlin.reflect.KAnnotatedElement"

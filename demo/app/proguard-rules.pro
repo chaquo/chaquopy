@@ -23,7 +23,4 @@
 # Python unit tests
 -keep class package1.** { *; }  # TestImport
 -keepattributes Exceptions  # TestProxy.test_exception
--keep class kotlin.jvm.functions.** { *; }           # TestReflect.test_call_kotlin
--keep class kotlin.jvm.internal.FunctionBase { *; }  #
--keep class kotlin.reflect.KAnnotatedElement { *; }  #
 -keep class chaquopy.test.static_proxy.** { *; }  # TestStaticProxy
