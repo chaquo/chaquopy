@@ -292,6 +292,10 @@ def get_sam(cls):
                                signature(m) not in object_methods)]
                 if len(methods) == 1:
                     sams[signature(methods[0])] = methods[0]
+                    if mro_cls is cls:
+                        # If a jclass object is of an interface type, it must have been created
+                        # using `cast`, so give that interface priority over its ancestors.
+                        break
 
     if len(sams) == 0:
         raise TypeError(f"{cls.__name__} is not callable because it implements no "

@@ -514,9 +514,11 @@ class TestReflect(FilterWarningsCase):
 
         # If an interface declares one method, and a sub-interface adds a second one, then
         # the sub-interface is not functional.
-        self.assertEqual("AB.a", CI.AB()())
+        ab = CI.AB()
+        self.assertEqual("AB.a", ab())
+        self.assertEqual("AB.a", cast(CI.IAB, ab)())
 
-    @skipIf(API_LEVEL, "default methods are not currently supported on Android")  # TODO #5262
+    @skipIf(API_LEVEL, "on Android, default methods require minSdkVersion >= 24")  # TODO #5262
     def test_call_interface_default(self):
         CI = TR.CallInterface
         CID = TR.CallInterfaceDefault
@@ -530,15 +532,14 @@ class TestReflect(FilterWarningsCase):
 
         # If an interface declares one method, and a sub-interface provides a default
         # implementation of it while also adding a second method, then both interfaces are
-        # functional. In this case, the sub-interface cannot be called via cast().
+        # functional.
         abd = CID.ABDefault()
         self.assertEqual("IABDefault.a", abd.a())
         self.assertEqual("ABDefault.b", abd.b())
         with self.multi_fi(CID.IABDefault, CI.IA1):
             abd()
         self.assertEqual("IABDefault.a", cast(CI.IA1, abd)())
-        with self.multi_fi(CID.IABDefault, CI.IA1):
-            cast(CID.IABDefault, abd)()
+        self.assertEqual("ABDefault.b", cast(CID.IABDefault, abd)())
 
     def no_fi(self):
         return self.assertRaisesRegex(TypeError, "not callable because it implements no "
