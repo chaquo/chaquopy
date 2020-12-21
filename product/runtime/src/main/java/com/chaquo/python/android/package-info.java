@@ -1,2 +1,2 @@
-/** Android-related components. */
+/** Android components. */
 package com.chaquo.python.android;

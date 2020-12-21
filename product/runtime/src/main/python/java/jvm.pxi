@@ -1,3 +1,5 @@
+from os.path import dirname
+from shutil import which
 from . import config
 
 from libc.stdint cimport uintptr_t
@@ -83,9 +85,14 @@ cdef jvm_lib_path():
     try:
         java_home = os.environ['JAVA_HOME']
     except KeyError:
-        raise Exception("JAVA_HOME is not set")
-    if not os.path.exists(java_home):
-        raise Exception(f"JAVA_HOME ({java_home}) does not exist")
+        java_executable = which("java")
+        if not java_executable:
+            raise Exception("JAVA_HOME is not set, and 'java' is not on the PATH")
+        java_home = dirname(dirname(java_executable))
+    else:
+        if not os.path.exists(java_home):
+            raise Exception(f"JAVA_HOME ({java_home}) does not exist")
+
     if os.path.exists(f"{java_home}/jre"):
         jre_home = f"{java_home}/jre"
     else:

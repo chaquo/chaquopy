@@ -1,9 +1,5 @@
 apply plugin: 'java'
 
-// This currently generates a deprecation warning saying it'll fail in Gradle 7.0
-// (https://github.com/Abnaxos/markdown-doclet/issues/91).
-apply plugin: 'ch.raffael.markdown-doclet'
-
 import com.chaquo.python.Common;
 
 group = "com.chaquo.python.runtime"
@@ -95,20 +91,20 @@ if (javaHome.endsWith("jre")) {
 
 task("doc", group: "documentation")
 
-// Affected by Markdown plugin above
 javadoc {
+    // JDK 8 messes up indentation of annotated methods
+    // (https://bugs.openjdk.java.net/browse/JDK-8062647).
+    executable "C:\\Program Files\\Amazon Corretto\\jdk11.0.9_12\\bin\\javadoc.exe"
+
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
     title "Chaquopy Java API"
-    executable "$javaHome/bin/javadoc$EXE_SUFFIX"   // Prevents some irrelevant warnings
     options {
-        addBooleanOption("Xdoclint:all,-missing", true)  // Doesn't seem to have any effect within Gradle
-        addStringOption("sourcepath", "$javaHome/src.zip")  // For documentation of inherited members
+        addStringOption("source", "8")
+        addBooleanOption("Xdoclint:all,-missing", true)
         addBooleanOption("nodeprecated", true)
         addStringOption("noqualifier", "all")
         addStringOption("link", "https://developer.android.com/reference/")
-        addStringOption("stylesheetfile", "docs/javadoc/javadoc-chaquo.css")
-        addStringOption("encoding", "UTF-8")  // For em dash in title above
     }
 }
 doc.dependsOn(javadoc)

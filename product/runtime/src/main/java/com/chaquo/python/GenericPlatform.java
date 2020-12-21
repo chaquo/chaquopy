@@ -2,7 +2,7 @@ package com.chaquo.python;
 
 import org.jetbrains.annotations.*;
 
-/** Platform for a normal Python installation. */
+/** Platform for a generic Python installation. */
 public class GenericPlatform extends Python.Platform {
     private String mPath = System.getenv("PYTHONPATH");
 
@@ -20,7 +20,7 @@ public class GenericPlatform extends Python.Platform {
         return mPath;
     }
 
-    /** Sets the value to assign to `PYTHONPATH`. */
+    /** Sets the value to assign to {@code PYTHONPATH}. */
     public @NotNull GenericPlatform setPath(String path) {
         mPath = path;
         return this;

@@ -1,12 +1,12 @@
 package com.chaquo.python;
 
-/** An exception propagating from Python to Java.
+/** <p>An exception thrown from Python to Java.</p>
  *
- * If the exception originated from Java, the original exception object can be retrieved by
- * calling {@link #getCause getCause}.
+ * <p>If the exception originated from Java, the original exception object can be retrieved by
+ * calling {@link #getCause getCause}.</p>
  *
- * {@link #getStackTrace getStackTrace} will return a combined Python and Java stack trace,
- * with Python frames indicated by a package name starting "&lt;python&gt;". */
+ * <p>{@link #getStackTrace getStackTrace} will return a combined Python and Java stack trace,
+ * where Python frames will have a package name starting "&lt;python&gt;".</p> */
 
 // Has to be unchecked because it can be thrown by virtually all the methods in this package,
 // including those inherited from Map which we can't add "throws" declarations to.

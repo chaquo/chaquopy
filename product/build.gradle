@@ -3,7 +3,6 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'ch.raffael.markdown-doclet:markdown-doclet:1.4'
     }
 }
 
