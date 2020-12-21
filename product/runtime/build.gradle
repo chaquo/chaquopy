@@ -201,6 +201,7 @@ if (!file(androidJar).exists()) {
 
 dependencies {
     compileOnly files(androidJar)
+    implementation 'org.jetbrains:annotations-java5:15.0'
 
     testCompileOnly files(androidJar)
     testImplementation 'junit:junit:4.12'

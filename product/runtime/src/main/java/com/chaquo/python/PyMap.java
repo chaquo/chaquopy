@@ -1,6 +1,7 @@
 package com.chaquo.python;
 
 import java.util.*;
+import org.jetbrains.annotations.*;
 
 
 class PyMap extends AbstractMap<PyObject, PyObject> {
@@ -16,13 +17,13 @@ class PyMap extends AbstractMap<PyObject, PyObject> {
         methods.get("__len__");
     }
 
-    @Override public Set<Entry<PyObject, PyObject>> entrySet() {
+    @Override public @NotNull Set<Entry<PyObject, PyObject>> entrySet() {
         return new AbstractSet<Entry<PyObject, PyObject>>() {
             @Override public int size() {
                 return methods.get("__len__").call().toInt();
             }
 
-            @Override public Iterator<Entry<PyObject, PyObject>> iterator() {
+            @Override public @NotNull Iterator<Entry<PyObject, PyObject>> iterator() {
                 return new PyIterator<Entry<PyObject, PyObject>>(methods) {
                     @Override protected Entry<PyObject, PyObject> makeNext(final PyObject key) {
                         return new Entry<PyObject, PyObject>() {

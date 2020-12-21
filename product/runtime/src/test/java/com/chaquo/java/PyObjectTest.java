@@ -139,6 +139,12 @@ public class PyObjectTest {
     }
 
     @Test
+    public void toJava_fail_null() {
+        thrown.expect(NullPointerException.class);
+        pyobjecttest.get("float_var").toJava(null);
+    }
+
+    @Test
     public void toJava_fail_void() {
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("Cannot convert float object to void");
@@ -458,6 +464,13 @@ public class PyObjectTest {
     }
 
     @Test
+    public void callAttr_fail_null() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("String cannot be null");
+        pyobjecttest.callAttr(null);
+    }
+
+    @Test
     public void callAttr_fail_nonexistent() {
         thrown.expect(PyException.class);
         thrown.expectMessage("AttributeError");
@@ -482,6 +495,13 @@ public class PyObjectTest {
     }
 
     @Test
+    public void call_fail_kwarg_null() {
+        thrown.expect(PyException.class);
+        thrown.expectMessage("keywords must be strings");
+        pyobjecttest.get("sum_mul").call(6, new Kwarg(null, 99));
+    }
+
+    @Test
     public void call_fail_kwarg_duplicate() {
         thrown.expect(PyException.class);
         thrown.expectMessage("SyntaxError");
@@ -501,6 +521,7 @@ public class PyObjectTest {
     @Test
     public void none() {
         assertNull(builtins.get("None"));
+        assertEquals(builtins.callAttr("str", (Object)null), "None");
         assertEquals(pyobjecttest.callAttr("is_none", (Object)null), true);
         assertEquals(pyobjecttest.callAttr("is_none", (Object[])null), true);  // Equivalent to an uncasted null
         assertEquals(pyobjecttest.callAttr("is_none", 42), false);

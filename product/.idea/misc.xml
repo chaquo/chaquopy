@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="NullableNotNullManager">
-    <option name="myDefaultNullable" value="android.support.annotation.Nullable" />
-    <option name="myDefaultNotNull" value="android.support.annotation.NonNull" />
+    <option name="myDefaultNullable" value="org.jetbrains.annotations.Nullable" />
+    <option name="myDefaultNotNull" value="org.jetbrains.annotations.NotNull" />
     <option name="myNullables">
       <value>
         <list size="15">

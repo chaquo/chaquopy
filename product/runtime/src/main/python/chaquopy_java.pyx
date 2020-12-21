@@ -185,11 +185,14 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
     (JNIEnv *env, jobject this, jobject to_klass) with gil:
     try:
         self = j2p_pyobject(env, this)
-        to_sig = box_sig(env, LocalRef.create(env, to_klass))
-        try:
-            return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
-        except TypeError:
-            se = SavedException("java.lang.ClassCastException")
+        if not to_klass:
+            se = SavedException("java.lang.NullPointerException")
+        else:
+            to_sig = box_sig(env, LocalRef.create(env, to_klass))
+            try:
+                return (<JNIRef?>p2j(env, to_sig, self)).return_ref(env)
+            except TypeError:
+                se = SavedException("java.lang.ClassCastException")
     except BaseException:
         se = SavedException()
     se.throw(env)
@@ -334,7 +337,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_callThrowsNative \
     try:
         return call(env, j2p_pyobject(env, this), jargs)
     except BaseException:
-        se = SavedException(None)
+        se = SavedException()
     se.throw(env)
     return 0
 
@@ -348,7 +351,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_callAttrThrowsNative \
                        j2p_string(env, LocalRef.create(env, j_key)))
         return call(env, attr, jargs)
     except BaseException:
-        se = SavedException(None)
+        se = SavedException()
     se.throw(env)
     return 0
 
@@ -512,7 +515,7 @@ cdef class SavedException(object):
     cdef exc_info
     cdef java_cls_name
 
-    def __init__(self, java_cls_name=fqn_PyException):
+    def __init__(self, java_cls_name=None):
         self.exc_info = sys.exc_info()
         self.java_cls_name = java_cls_name
 
@@ -541,7 +544,7 @@ cdef class SavedException(object):
 # trace. Otherwise, a new PyException will be returned.
 cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
     _, exc_value, exc_traceback = exc_info
-    python_trace = tb_to_java(exc_traceback)
+    python_trace = tb_to_java(exc_traceback) if exc_traceback else []
 
     Throwable = java.jclass("java.lang.Throwable")
     if isinstance(exc_value, Throwable) and java_cls_name is None:
@@ -551,7 +554,7 @@ cdef JNIRef convert_exception(JNIEnv *env, exc_info, java_cls_name):
         java_exc.setStackTrace(post_trace + python_trace + pre_trace)
     else:
         java_cls = java.jclass(java_cls_name or fqn_PyException)
-        java_exc = java_cls(format_exception_only(exc_value))
+        java_exc = java_cls(format_exception_only(exc_value) if exc_value else "")
         java_exc.setStackTrace(python_trace + java_exc.getStackTrace())
     return java_exc._chaquopy_this
 

@@ -1,6 +1,8 @@
 package com.chaquo.python;
 
 
+import org.jetbrains.annotations.*;
+
 /** Interface to Python.
  *
  * Unless otherwise specified, all methods in this class throw {@link PyException} on failure. */
@@ -13,7 +15,7 @@ public class Python {
         public String getPath() { return null; }
 
         /** Called after Python is started. The default implementation does nothing. */
-        public void onStart(Python py) {}
+        public void onStart(@NotNull Python py) {}
     }
 
     private static Platform platform;
@@ -23,7 +25,7 @@ public class Python {
     /** Gets the interface to Python. This method always returns the same object. If
      * {@link #start start()} has not yet been called, it will be called with a new
      * {@link GenericPlatform}. */
-    public static synchronized Python getInstance() {
+    public static synchronized @NotNull Python getInstance() {
         if (! isStarted()) {
             start(new GenericPlatform());
         }
@@ -38,7 +40,7 @@ public class Python {
      * app. If running on any other platform, there's no need to call this method, unless you want
      * to customize the Python startup process.
      **/
-    public static synchronized void start(Platform platform) {
+    public static synchronized void start(@NotNull Platform platform) {
         if (isStarted()) {
             throw new IllegalStateException("Python already started");
         }
@@ -78,7 +80,7 @@ public class Python {
     /** Returns the module with the given name. Dot notation may be used to get submodules (e.g.
      * `os.path`). */
     @SuppressWarnings("deprecation")
-    public PyObject getModule(String name) {
+    public @NotNull PyObject getModule(@NotNull String name) {
         return PyObject.getInstance(getModuleNative(name));
     }
     private native long getModuleNative(String name);
@@ -86,7 +88,7 @@ public class Python {
     /** Returns the <a href="https://docs.python.org/3/library/builtins.html">`builtins`</a>
      * module, which contains Python's built-in functions (e.g. `open`), types (e.g. `dict`),
      * constants (e.g. `True`) and exceptions (e.g. `ValueError`). */
-    public PyObject getBuiltins() {
+    public @NotNull PyObject getBuiltins() {
         return getModule("builtins");
     }
 }

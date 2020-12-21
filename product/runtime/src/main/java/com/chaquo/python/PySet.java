@@ -1,6 +1,7 @@
 package com.chaquo.python;
 
 import java.util.*;
+import org.jetbrains.annotations.*;
 
 
 class PySet extends AbstractSet<PyObject> {
@@ -25,7 +26,7 @@ class PySet extends AbstractSet<PyObject> {
         return methods.get("__contains__").call(element).toBoolean();
     }
 
-    @Override public Iterator<PyObject> iterator() {
+    @Override public @NotNull Iterator<PyObject> iterator() {
         return new PyIterator<PyObject>(methods) {
             @Override protected PyObject makeNext(PyObject element) {
                 return element;

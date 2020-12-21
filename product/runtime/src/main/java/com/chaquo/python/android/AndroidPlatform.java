@@ -7,14 +7,15 @@ import android.os.*;
 import com.chaquo.python.*;
 import java.io.*;
 import java.util.*;
+import org.jetbrains.annotations.*;
 import org.json.*;
 
 
 /** Platform for Chaquopy on Android. */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({"deprecation", "DeprecatedIsStillUsed"})
 public class AndroidPlatform extends Python.Platform {
 
-    // Used in importer.py and test_android.py.
+    /** @deprecated Internal use in importer.py and test_android.py. */
     public static String ABI;
 
     private static final String[] OBSOLETE_FILES = {
@@ -53,7 +54,7 @@ public class AndroidPlatform extends Python.Platform {
 
     /** Uses the {@link android.app.Application} context of the given context to initialize
      * Python. */
-    public AndroidPlatform(Context context) {
+    public AndroidPlatform(@NotNull Context context) {
         mContext = (Application) context.getApplicationContext();
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
         am = mContext.getAssets();
@@ -79,12 +80,12 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     /** Returns the Application context of the context which was passed to the contructor. */
-    public Application getApplication() {
+    public @NotNull Application getApplication() {
         return mContext;
     }
 
     @Override
-    public String getPath() {
+    public @NotNull String getPath() {
         // These assets will be extracted to separate files and used as the initial PYTHONPATH.
         String path = "";
         String assetDir = mContext.getFilesDir() + "/" + Common.ASSET_DIR;
@@ -121,7 +122,7 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     @Override
-    public void onStart(Python py) {
+    public void onStart(@NotNull Python py) {
         // These assets will be added to the start of sys.path using AssetFinder paths,
         // so their content will be extracted on demand.
         String[] appPath = {
