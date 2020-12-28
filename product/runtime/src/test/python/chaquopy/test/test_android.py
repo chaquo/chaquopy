@@ -85,8 +85,8 @@ class TestAndroidPlatform(AndroidTestCase):
                               os.listdir(chaquopy_dir))
         self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
         self.assertCountEqual(["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so",
-                               "_random.so", "_struct.so", "binascii.so", "math.so", "mmap.so",
-                               "zlib.so"],
+                               "_json.so", "_random.so", "_struct.so", "binascii.so",
+                               "math.so", "mmap.so", "zlib.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
         self.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
@@ -801,7 +801,14 @@ class TestAndroidStdlib(AndroidTestCase):
         # This is the interface to the native _datetime module, which is required by NumPy. The
         # attribute will only exist if _datetime was available when datetime was first
         # imported.
-        self.assertTrue(hasattr(datetime, "datetime_CAPI"))
+        self.assertTrue(datetime.datetime_CAPI)
+
+    def test_json(self):
+        from json import encoder, scanner
+        # These attributes will be None if the native _json module was unavailable when json
+        # was first imported, which would significantly reduce the module's performance.
+        self.assertTrue(encoder.c_make_encoder)
+        self.assertTrue(scanner.c_make_scanner)
 
     def test_lib2to3(self):
         # Requires grammar files to be available in stdlib zip.
@@ -811,12 +818,17 @@ class TestAndroidStdlib(AndroidTestCase):
         import hashlib
         INPUT = b"The quick brown fox jumps over the lazy dog"
         TESTS = [
+            # OpenSSL and built-in, OpenSSL preferred.
             ("sha1", "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"),
+
+            # OpenSSL and built-in, built-in preferred.
             ("sha3_512", ("01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
                           "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450")),
             ("blake2b", ("a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f8240"
                          "1cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918")),
-            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),  # OpenSSL-only
+
+            # OpenSSL only.
+            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),
         ]
         for name, expected in TESTS:
             with self.subTest(algorithm=name):

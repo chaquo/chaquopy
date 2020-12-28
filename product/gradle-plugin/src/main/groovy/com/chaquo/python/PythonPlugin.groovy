@@ -582,16 +582,16 @@ class PythonPlugin implements Plugin<Project> {
                 // The following stdlib native modules are needed during bootstrap and are
                 // pre-extracted; all others are loaded from a .zip using AssetFinder.
                 def BOOTSTRAP_NATIVE_STDLIB = [
-                    "_ctypes.so",  // java.primitive and java.android.importer
-                    "_csv.so",  // importlib.metadata < java.android.importer
-                    "_datetime.so",  // calendar < java.android.importer -- not needed for
-                                     //   bootstrap, but see TestAndroidStdlib.test_datetime
-                    "_hashlib.so",  // rsa < java.chaquopy (license.pxi)
-                    "_random.so",  // tempfile < random < java.android.importer
-                    "_struct.so",  // zipfile < java.android.importer
-                    "binascii.so",  // zipfile < java.android.importer
-                    "math.so",  // datetime < calendar < java.android.importer
-                    "mmap.so",  // elftools < java.android.importer
+                    "_ctypes.so",  // java.primitive and importer
+                    "_csv.so",  // importlib.metadata < importer
+                    "_datetime.so",  // calendar < importer (see test_datetime)
+                    "_hashlib.so",  // rsa < license.pxi (see test_hashlib)
+                    "_json.so",  // check_ticket < license.pxi (see test_json)
+                    "_random.so",  // tempfile < random < importer
+                    "_struct.so",  // zipfile < importer
+                    "binascii.so",  // zipfile < importer
+                    "math.so",  // datetime < calendar < importer
+                    "mmap.so",  // elftools < importer
                     "zlib.so",  // zipimport
                 ]
 

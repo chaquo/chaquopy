@@ -66,8 +66,8 @@ def initialize_ssl(context):
 
 
 def initialize_hashlib(context):
-    # hashlib may already have been imported during bootstrap: reload it now that the the
-    # OpenSSL interface in `_hashlib` is on sys.path.
+    # hashlib may already have been imported during bootstrap: reload it now that all of its
+    # native modules are on sys.path.
     import hashlib
     reload(hashlib)
 
