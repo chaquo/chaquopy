@@ -39,6 +39,8 @@ import tempfile
 import textwrap
 import itertools
 import inspect
+import ntpath
+import posixpath
 from pkgutil import get_importer
 
 try:
@@ -46,6 +48,11 @@ try:
 except ImportError:
     # Python 3.2 compatibility
     import imp as _imp
+
+try:
+    FileExistsError
+except NameError:
+    FileExistsError = OSError
 
 from pkg_resources.extern import six
 from pkg_resources.extern.six.moves import urllib, map, filter
@@ -78,8 +85,11 @@ __import__('pkg_resources.extern.packaging.requirements')
 __import__('pkg_resources.extern.packaging.markers')
 
 
-if (3, 0) < sys.version_info < (3, 3):
-    raise RuntimeError("Python 3.3 or later is required")
+__metaclass__ = type
+
+
+if (3, 0) < sys.version_info < (3, 4):
+    raise RuntimeError("Python 3.4 or later is required")
 
 if six.PY2:
     # Those builtin exceptions are only defined in Python 3
@@ -230,6 +240,9 @@ __all__ = [
     'register_finder', 'register_namespace_handler', 'register_loader_type',
     'fixup_namespace_packages', 'get_importer',
 
+    # Warnings
+    'PkgResourcesDeprecationWarning',
+
     # Deprecated/backward compatibility only
     'run_main', 'AvailableDistributions',
 ]
@@ -320,7 +333,7 @@ class UnknownExtra(ResolutionError):
 
 _provider_factories = {}
 
-PY_MAJOR = sys.version[:3]
+PY_MAJOR = '{}.{}'.format(*sys.version_info)
 EGG_DIST = 3
 BINARY_DIST = 2
 SOURCE_DIST = 1
@@ -377,11 +390,7 @@ def get_build_platform():
     XXX Currently this is the same as ``distutils.util.get_platform()``, but it
     needs some hacks for Linux and Mac OS X.
     """
-    try:
-        # Python 2.7 or >=3.2
-        from sysconfig import get_platform
-    except ImportError:
-        from distutils.util import get_platform
+    from sysconfig import get_platform
 
     plat = get_platform()
     if sys.platform == "darwin" and not plat.startswith('macosx-'):
@@ -541,7 +550,7 @@ class IResourceProvider(IMetadataProvider):
         """List of resource names in the directory (like ``os.listdir()``)"""
 
 
-class WorkingSet(object):
+class WorkingSet:
     """A collection of active distributions on sys.path (or a similar list)"""
 
     def __init__(self, entries=None):
@@ -641,13 +650,12 @@ class WorkingSet(object):
         distributions in the working set, otherwise only ones matching
         both `group` and `name` are yielded (in distribution order).
         """
-        for dist in self:
-            entries = dist.get_entry_map(group)
-            if name is None:
-                for ep in entries.values():
-                    yield ep
-            elif name in entries:
-                yield entries[name]
+        return (
+            entry
+            for dist in self
+            for entry in dist.get_entry_map(group).values()
+            if name is None or name == entry.name
+        )
 
     def run_script(self, requires, script_name):
         """Locate distribution for `requires` and run `script_name` script"""
@@ -948,7 +956,7 @@ class _ReqExtras(dict):
         return not req.marker or any(extra_evals)
 
 
-class Environment(object):
+class Environment:
     """Searchable snapshot of distributions on a search path"""
 
     def __init__(
@@ -963,7 +971,7 @@ class Environment(object):
         `platform` is an optional string specifying the name of the platform
         that platform-specific distributions must be compatible with.  If
         unspecified, it defaults to the current platform.  `python` is an
-        optional string naming the desired version of Python (e.g. ``'3.3'``);
+        optional string naming the desired version of Python (e.g. ``'3.6'``);
         it defaults to the current version.
 
         You may explicitly set `platform` (and/or `python`) to ``None`` if you
@@ -1395,14 +1403,30 @@ class NullProvider:
     def has_resource(self, resource_name):
         return self._has(self._fn(self.module_path, resource_name))
 
+    def _get_metadata_path(self, name):
+        return self._fn(self.egg_info, name)
+
     def has_metadata(self, name):
-        return self.egg_info and self._has(self._fn(self.egg_info, name))
+        if not self.egg_info:
+            return self.egg_info
+
+        path = self._get_metadata_path(name)
+        return self._has(path)
 
     def get_metadata(self, name):
         if not self.egg_info:
             return ""
-        value = self._get(self._fn(self.egg_info, name))
-        return value.decode('utf-8') if six.PY3 else value
+        path = self._get_metadata_path(name)
+        value = self._get(path)
+        if six.PY2:
+            return value
+        try:
+            return value.decode('utf-8')
+        except UnicodeDecodeError as exc:
+            # Include the path in the error message to simplify
+            # troubleshooting, and without changing the exception type.
+            exc.reason += ' in {} file at path: {}'.format(name, path)
+            raise
 
     def get_metadata_lines(self, name):
         return yield_lines(self.get_metadata(name))
@@ -1460,9 +1484,85 @@ class NullProvider:
         )
 
     def _fn(self, base, resource_name):
+        self._validate_resource_path(resource_name)
         if resource_name:
             return os.path.join(base, *resource_name.split('/'))
         return base
+
+    @staticmethod
+    def _validate_resource_path(path):
+        """
+        Validate the resource paths according to the docs.
+        https://setuptools.readthedocs.io/en/latest/pkg_resources.html#basic-resource-access
+
+        >>> warned = getfixture('recwarn')
+        >>> warnings.simplefilter('always')
+        >>> vrp = NullProvider._validate_resource_path
+        >>> vrp('foo/bar.txt')
+        >>> bool(warned)
+        False
+        >>> vrp('../foo/bar.txt')
+        >>> bool(warned)
+        True
+        >>> warned.clear()
+        >>> vrp('/foo/bar.txt')
+        >>> bool(warned)
+        True
+        >>> vrp('foo/../../bar.txt')
+        >>> bool(warned)
+        True
+        >>> warned.clear()
+        >>> vrp('foo/f../bar.txt')
+        >>> bool(warned)
+        False
+
+        Windows path separators are straight-up disallowed.
+        >>> vrp(r'\\foo/bar.txt')
+        Traceback (most recent call last):
+        ...
+        ValueError: Use of .. or absolute path in a resource path \
+is not allowed.
+
+        >>> vrp(r'C:\\foo/bar.txt')
+        Traceback (most recent call last):
+        ...
+        ValueError: Use of .. or absolute path in a resource path \
+is not allowed.
+
+        Blank values are allowed
+
+        >>> vrp('')
+        >>> bool(warned)
+        False
+
+        Non-string values are not.
+
+        >>> vrp(None)
+        Traceback (most recent call last):
+        ...
+        AttributeError: ...
+        """
+        invalid = (
+            os.path.pardir in path.split(posixpath.sep) or
+            posixpath.isabs(path) or
+            ntpath.isabs(path)
+        )
+        if not invalid:
+            return
+
+        msg = "Use of .. or absolute path in a resource path is not allowed."
+
+        # Aggressively disallow Windows absolute paths
+        if ntpath.isabs(path) and not posixpath.isabs(path):
+            raise ValueError(msg)
+
+        # for compatibility, warn; in future
+        # raise ValueError(msg)
+        warnings.warn(
+            msg[:-1] + " and will raise exceptions in a future release.",
+            DeprecationWarning,
+            stacklevel=4,
+        )
 
     def _get(self, path):
         if hasattr(self.loader, 'get_data'):
@@ -1784,6 +1884,9 @@ class FileMetadata(EmptyProvider):
     def __init__(self, path):
         self.path = path
 
+    def _get_metadata_path(self, name):
+        return self.path
+
     def has_metadata(self, name):
         return name == 'PKG-INFO' and os.path.isfile(self.path)
 
@@ -1882,7 +1985,7 @@ def find_eggs_in_zip(importer, path_item, only=False):
     if only:
         # don't yield nested distros
         return
-    for subitem in metadata.resource_listdir('/'):
+    for subitem in metadata.resource_listdir(''):
         if _is_egg_path(subitem):
             subpath = os.path.join(path_item, subitem)
             dists = find_eggs_in_zip(zipimport.zipimporter(subpath), subpath)
@@ -2091,7 +2194,12 @@ def _handle_ns(packageName, path_item):
     importer = get_importer(path_item)
     if importer is None:
         return None
-    loader = importer.find_module(packageName)
+
+    # capture warnings due to #1111
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        loader = importer.find_module(packageName)
+
     if loader is None:
         return None
     module = sys.modules.get(packageName)
@@ -2136,12 +2244,13 @@ def _rebuild_mod_path(orig_path, package_name, module):
         parts = path_parts[:-module_parts]
         return safe_sys_path_index(_normalize_cached(os.sep.join(parts)))
 
-    if not isinstance(orig_path, list):
-        # Is this behavior useful when module.__path__ is not a list?
-        return
+    new_path = sorted(orig_path, key=position_in_sys_path)
+    new_path = [_normalize_cached(p) for p in new_path]
 
-    orig_path.sort(key=position_in_sys_path)
-    module.__path__[:] = [_normalize_cached(p) for p in orig_path]
+    if isinstance(module.__path__, list):
+        module.__path__[:] = new_path
+    else:
+        module.__path__ = new_path
 
 
 def declare_namespace(packageName):
@@ -2152,9 +2261,10 @@ def declare_namespace(packageName):
         if packageName in _namespace_packages:
             return
 
-        path, parent = sys.path, None
-        if '.' in packageName:
-            parent = '.'.join(packageName.split('.')[:-1])
+        path = sys.path
+        parent, _, _ = packageName.rpartition('.')
+
+        if parent:
             declare_namespace(parent)
             if parent not in _namespace_packages:
                 __import__(parent)
@@ -2165,7 +2275,7 @@ def declare_namespace(packageName):
 
         # Track what packages are namespaces, so when new path items are added,
         # they can be updated
-        _namespace_packages.setdefault(parent, []).append(packageName)
+        _namespace_packages.setdefault(parent or None, []).append(packageName)
         _namespace_packages.setdefault(packageName, [])
 
         for path_item in path:
@@ -2218,7 +2328,18 @@ register_namespace_handler(object, null_ns_handler)
 
 def normalize_path(filename):
     """Normalize a file/dir name for comparison purposes"""
-    return os.path.normcase(os.path.realpath(filename))
+    return os.path.normcase(os.path.realpath(os.path.normpath(_cygwin_patch(filename))))
+
+
+def _cygwin_patch(filename):  # pragma: nocover
+    """
+    Contrary to POSIX 2008, on Cygwin, getcwd (3) contains
+    symlink components. Using
+    os.path.abspath() works around this limitation. A fix in os.getcwd()
+    would probably better, in Cygwin even more so, except
+    that this seems to be by design...
+    """
+    return os.path.abspath(filename) if sys.platform == 'cygwin' else filename
 
 
 def _normalize_cached(filename, _cache={}):
@@ -2283,7 +2404,7 @@ EGG_NAME = re.compile(
 ).match
 
 
-class EntryPoint(object):
+class EntryPoint:
     """Object representing an advertised importable object"""
 
     def __init__(self, name, module_name, attrs=(), extras=(), dist=None):
@@ -2314,7 +2435,7 @@ class EntryPoint(object):
             warnings.warn(
                 "Parameters to load are deprecated.  Call .resolve and "
                 ".require separately.",
-                DeprecationWarning,
+                PkgResourcesDeprecationWarning,
                 stacklevel=2,
             )
         if require:
@@ -2437,7 +2558,7 @@ def _version_from_file(lines):
     return safe_version(value.strip()) or None
 
 
-class Distribution(object):
+class Distribution:
     """Wrap an actual or potential sys.path entry w/metadata"""
     PKG_INFO = 'PKG-INFO'
 
@@ -2559,10 +2680,14 @@ class Distribution(object):
         try:
             return self._version
         except AttributeError:
-            version = _version_from_file(self._get_metadata(self.PKG_INFO))
+            version = self._get_version()
             if version is None:
-                tmpl = "Missing 'Version:' header and/or %s file"
-                raise ValueError(tmpl % self.PKG_INFO, self)
+                path = self._get_metadata_path_for_display(self.PKG_INFO)
+                msg = (
+                    "Missing 'Version:' header and/or {} file at path: {}"
+                ).format(self.PKG_INFO, path)
+                raise ValueError(msg, self)
+
             return version
 
     @property
@@ -2620,10 +2745,33 @@ class Distribution(object):
                 )
         return deps
 
+    def _get_metadata_path_for_display(self, name):
+        """
+        Return the path to the given metadata file, if available.
+        """
+        try:
+            # We need to access _get_metadata_path() on the provider object
+            # directly rather than through this class's __getattr__()
+            # since _get_metadata_path() is marked private.
+            path = self._provider._get_metadata_path(name)
+
+        # Handle exceptions e.g. in case the distribution's metadata
+        # provider doesn't support _get_metadata_path().
+        except Exception:
+            return '[could not detect]'
+
+        return path
+
     def _get_metadata(self, name):
         if self.has_metadata(name):
             for line in self.get_metadata_lines(name):
                 yield line
+
+    def _get_version(self):
+        lines = self._get_metadata(self.PKG_INFO)
+        version = _version_from_file(lines)
+
+        return version
 
     def activate(self, path=None, replace=False):
         """Ensure distribution is importable on `path` (default=sys.path)"""
@@ -2666,6 +2814,19 @@ class Distribution(object):
         if attr.startswith('_'):
             raise AttributeError(attr)
         return getattr(self._provider, attr)
+
+    def __dir__(self):
+        return list(
+            set(super(Distribution, self).__dir__())
+            | set(
+                attr for attr in self._provider.__dir__()
+                if not attr.startswith('_')
+            )
+        )
+
+    if not hasattr(object, '__dir__'):
+        # python 2.7 not supported
+        del __dir__
 
     @classmethod
     def from_filename(cls, filename, metadata=None, **kw):
@@ -2830,7 +2991,7 @@ class EggInfoDistribution(Distribution):
         take an extra step and try to get the version number from
         the metadata file itself instead of the filename.
         """
-        md_version = _version_from_file(self._get_metadata(self.PKG_INFO))
+        md_version = self._get_version()
         if md_version:
             self._version = md_version
         return self
@@ -2948,6 +3109,7 @@ class Requirement(packaging.requirements.Requirement):
         self.extras = tuple(map(safe_extra, self.extras))
         self.hashCmp = (
             self.key,
+            self.url,
             self.specifier,
             frozenset(self.extras),
             str(self.marker) if self.marker else None,
@@ -3018,7 +3180,10 @@ def _bypass_ensure_directory(path):
     dirname, filename = split(path)
     if dirname and filename and not isdir(dirname):
         _bypass_ensure_directory(dirname)
-        mkdir(dirname, 0o755)
+        try:
+            mkdir(dirname, 0o755)
+        except FileExistsError:
+            pass
 
 
 def split_sections(s):
@@ -3121,3 +3286,11 @@ def _initialize_master_working_set():
     # match order
     list(map(working_set.add_entry, sys.path))
     globals().update(locals())
+
+class PkgResourcesDeprecationWarning(Warning):
+    """
+    Base class for warning about deprecations in ``pkg_resources``
+
+    This class is not derived from ``DeprecationWarning``, and as such is
+    visible by default.
+    """
