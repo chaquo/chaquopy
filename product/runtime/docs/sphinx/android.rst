@@ -191,12 +191,12 @@ It's important to structure the app so that `Python.start()
 called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
 attempting to run Python code. There are two basic ways to achieve this:
 
-* If the app always uses Python, then call Python.start() from a location which is guaranteed to run
-  exactly once per process, such as `Application.onCreate()
-  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_. A
-  `PyApplication <java/com/chaquo/python/android/PyApplication.html>`_ subclass is provided to make
-  this easy: simply add the following attribute to the `<application>` element in
-  `AndroidManifest.xml`:
+* If the app always uses Python, then call Python.start() from a location which is guaranteed
+  to run exactly once per process, such as `Application.onCreate()
+  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_. The
+  easiest way to do this is to use the `PyApplication
+  <java/com/chaquo/python/android/PyApplication.html>`_ class. Simply add the following
+  attribute to the `<application>` element in `AndroidManifest.xml`:
 
   .. code-block:: xml
 

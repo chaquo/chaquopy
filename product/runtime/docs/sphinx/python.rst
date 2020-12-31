@@ -124,10 +124,10 @@ Aside from attribute access, Java objects also support the following operations:
   <https://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#hashCode()>`_.
 * The equivalent of the Java syntax `ClassName.class` is `ClassName.getClass()`; i.e. the
   `getClass()` method can be called on a class as well as an instance.
-* If a Java object implements exactly one functional interface, then it can be called like a
-  function using `()` syntax. This includes lambdas, method references, and any interface with
-  a single abstract method, such as `java.lang.Runnable`. If an object implements more than one
-  functional interface, you can use :any:`cast` to select the one you want, or simply call the
+* If a Java object implements a functional interface, then it can be called like a function
+  using `()` syntax. This includes lambdas, method references, and any interface with a single
+  abstract method, such as `java.lang.Runnable`. If an object implements more than one
+  functional interface, you must use :any:`cast` to select the one you want, or simply call the
   method by name.
 
 The Java class hierarchy is reflected in Python, e.g. if `s` is a Java `String` object, then
@@ -264,9 +264,8 @@ Inheriting Java classes
 =======================
 
 To allow Python code to be called from Java without using the Chaquopy :doc:`Java API <java>`,
-you can inherit from Java classes in Python. To make your inherited class visible to the Java
-virtual machine, a corresponding Java proxy class must be generated, and there are two ways of
-doing this:
+you can inherit from Java classes in Python. To make your inherited class visible to Java code,
+a corresponding Java proxy class must be generated, and there are two ways of doing this:
 
 * A `dynamic proxy`_ uses the `java.lang.reflect.Proxy
   <https://docs.oracle.com/javase/7/docs/api/java/lang/reflect/Proxy.html>`_ mechanism to

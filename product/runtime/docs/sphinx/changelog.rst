@@ -7,7 +7,9 @@ Change log
 * Android Gradle plugin version 4.1 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.3 is no longer supported.
 * Runtime Python version is now 3.8.6.
-* Java objects implementing functional interfaces can now be called using `()` syntax.
+* Java/Kotlin objects implementing functional interfaces can now be called from Python using
+  `()` syntax. This includes lambdas, method references, and any interface with a single
+  abstract method, such as `java.lang.Runnable`.
 * Java arrays can now be accessed from Python using negative indices and slice syntax.
 * Fix conversion of non-contiguous NumPy arrays to Java arrays.
 * Remove inaccessible directories from :any:`os.get_exec_path` (`#346
