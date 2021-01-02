@@ -284,7 +284,7 @@ class bdist_egg(Command):
                 "or refer to a module" % (ep,)
             )
 
-        pyver = sys.version[:3]
+        pyver = '{}.{}'.format(*sys.version_info)
         pkg = ep.module_name
         full = '.'.join(ep.attrs)
         base = ep.attrs[0]
@@ -411,7 +411,7 @@ def scan_module(egg_dir, base, name, stubs):
         return True  # Extension module
     pkg = base[len(egg_dir) + 1:].replace(os.sep, '.')
     module = pkg + (pkg and '.' or '') + os.path.splitext(name)[0]
-    if sys.version_info < (3, 3):
+    if six.PY2:
         skip = 8  # skip magic & date
     elif sys.version_info < (3, 7):
         skip = 12  # skip magic & date & file size

@@ -48,7 +48,7 @@ class VendorImporter:
                 # on later Python versions to cause relative imports
                 # in the vendor package to resolve the same modules
                 # as those going through this importer.
-                if sys.version_info > (3, 3):
+                if sys.version_info >= (3, ):
                     del sys.modules[extant]
                 return mod
             except ImportError:
@@ -69,5 +69,5 @@ class VendorImporter:
             sys.meta_path.append(self)
 
 
-names = 'six', 'packaging', 'pyparsing',
+names = 'six', 'packaging', 'pyparsing', 'ordered_set',
 VendorImporter(__name__, names, 'setuptools._vendor').install()
