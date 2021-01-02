@@ -537,7 +537,6 @@ class Pyc(GradleTestCase):
         run.apply_layers("Pyc/build_python_warning_suppress")
         run.rerun(pyc=["stdlib"])
         self.assertNotInLong(self.FAILED, run.stdout)
-        self.assertNotInLong("pythoninvalid", run.stdout)
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
