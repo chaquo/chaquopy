@@ -141,6 +141,7 @@ public class PyObjectTest {
     @Test
     public void toJava_fail_null() {
         thrown.expect(NullPointerException.class);
+        //noinspection ConstantConditions
         pyobjecttest.get("float_var").toJava(null);
     }
 
@@ -377,7 +378,6 @@ public class PyObjectTest {
         pyobjecttest.get("bool_var").toDouble();
     }
 
-    @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")
     @Test
     public void id() {
         PyObject True = builtins.get("True"), False = builtins.get("False");
@@ -467,6 +467,7 @@ public class PyObjectTest {
     public void callAttr_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         pyobjecttest.callAttr(null);
     }
 
@@ -498,6 +499,7 @@ public class PyObjectTest {
     public void call_fail_kwarg_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("keywords must be strings");
+        //noinspection ConstantConditions
         pyobjecttest.get("sum_mul").call(6, new Kwarg(null, 99));
     }
 
@@ -530,6 +532,7 @@ public class PyObjectTest {
     // ==== Map ==============================================================
 
     @Test
+    @SuppressWarnings("ConstantConditions")
     public void clear() {
         PyObject so = pyobjecttest.callAttr("SimpleObject");
         assertFalse(so.isEmpty());
@@ -565,6 +568,7 @@ public class PyObjectTest {
     public void containsKey_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         builtins.containsKey(null);
     }
 
@@ -666,6 +670,7 @@ public class PyObjectTest {
     public void get_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         pyobjecttest.get(null);
     }
 
@@ -685,6 +690,7 @@ public class PyObjectTest {
         PyObject so = pyobjecttest.callAttr("SimpleObject");
         assertFalse(so.isEmpty());
         so.clear();
+        //noinspection ConstantConditions
         assertTrue(so.isEmpty());  // Has __dir__ override
     }
 
@@ -712,11 +718,12 @@ public class PyObjectTest {
     public void put_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         pyobjecttest.put(null, "hello");
     }
 
     @Test
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public void put_fail_type() {
         thrown.expect(ClassCastException.class);
         thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
@@ -740,6 +747,7 @@ public class PyObjectTest {
     public void remove_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         pyobjecttest.remove(null);
     }
 

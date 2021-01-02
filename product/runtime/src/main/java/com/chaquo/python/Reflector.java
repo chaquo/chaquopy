@@ -13,11 +13,11 @@ public class Reflector {
     private Map<String,Member> methods;               // We target Java 7, so we can't use
     private Map<String,List<Member>> multipleMethods; // java.lang.reflect.Executable.
     private Map<String,Field> fields;
-    private Map<String,Class> classes;
+    private Map<String,Class<?>> classes;
 
-    private static Map<Class, Reflector> instances = new HashMap<>();
+    private static Map<Class<?>, Reflector> instances = new HashMap<>();
 
-    public static Reflector getInstance(Class klass) {
+    public static Reflector getInstance(Class<?> klass) {
         Reflector reflector = instances.get(klass);
         if (reflector != null) {
             return reflector;
@@ -27,7 +27,7 @@ public class Reflector {
         return reflector;
     }
 
-    private Reflector(Class klass) {
+    private Reflector(Class<?> klass) {
         this.klass = klass;
     }
 
@@ -40,14 +40,14 @@ public class Reflector {
         names.addAll(multipleMethods.keySet());
         names.addAll(fields.keySet());
         names.addAll(classes.keySet());
-        return names.toArray(new String[names.size()]);
+        return names.toArray(new String[0]);
     }
 
     public synchronized Member[] getMethods(String name) {
         if (methods == null) loadMethods();
         List<Member> list = multipleMethods.get(name);
         if (list != null) {
-            return list.toArray(new Member[list.size()]);
+            return list.toArray(new Member[0]);
         }
         Member method = methods.get(name);
         if (method != null) {
@@ -59,7 +59,7 @@ public class Reflector {
     private void loadMethods() {
         methods = new HashMap<>();
         multipleMethods = new HashMap<>();
-        for (Constructor c : klass.getDeclaredConstructors()) {
+        for (Constructor<?> c : klass.getDeclaredConstructors()) {
             if (isAccessible(c)) {
                 loadMethod(c, "<init>");
             }
@@ -97,7 +97,7 @@ public class Reflector {
         } catch (NoClassDefFoundError ignored) {}
 
         // Discover inherited methods overridden by this class.
-        for (Class c = klass.getSuperclass(); c != null; c = c.getSuperclass()) {
+        for (Class<?> c = klass.getSuperclass(); c != null; c = c.getSuperclass()) {
             for (Method inherited : Reflector.getInstance(c).getDeclaredMethods()) {
                 try {
                     result.add(klass.getDeclaredMethod(inherited.getName(),
@@ -162,14 +162,14 @@ public class Reflector {
         return result;
     }
 
-    public synchronized Class getNestedClass(String name) {
+    public synchronized Class<?> getNestedClass(String name) {
         if (classes == null) loadClasses();
         return classes.get(name);
     }
 
     private void loadClasses() {
         classes = new HashMap<>();
-        for (Class k : klass.getDeclaredClasses()) {
+        for (Class<?> k : klass.getDeclaredClasses()) {
             if (isAccessible(k.getModifiers())) {
                 String simpleName = k.getSimpleName();
                 if (simpleName.isEmpty()) continue;   // Anonymous class

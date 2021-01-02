@@ -29,6 +29,7 @@ public class PythonTest {
     public void start() {
         thrown.expect(IllegalStateException.class);
         thrown.expectMessage("Python already started");
+        //noinspection ConstantConditions
         Python.start(null);
     }
 
@@ -59,6 +60,7 @@ public class PythonTest {
     public void getModule_fail_null() {
         thrown.expect(PyException.class);
         thrown.expectMessage("String cannot be null");
+        //noinspection ConstantConditions
         python.getModule(null);
     }
 

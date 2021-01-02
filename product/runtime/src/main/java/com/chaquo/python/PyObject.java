@@ -5,6 +5,8 @@ import java.lang.reflect.*;
 import java.util.*;
 import org.jetbrains.annotations.*;
 
+import static java.util.Objects.requireNonNull;
+
 /** <p>Interface to a Python object.</p>
  *
  * <ul>
@@ -17,7 +19,6 @@ import org.jetbrains.annotations.*;
  *
  * <p>Unless otherwise specified, all methods in this class throw {@link PyException} on
  * failure.</p> */
-@SuppressWarnings({"deprecation", "DeprecatedIsStillUsed"})
 public class PyObject extends AbstractMap<String,PyObject> implements AutoCloseable {
     private static final Map<Long, WeakReference<PyObject>> cache = new HashMap<>();
 
@@ -189,7 +190,7 @@ public class PyObject extends AbstractMap<String,PyObject> implements AutoClosea
 
     /** Equivalent to Python {@code type()}. */
     public @NotNull PyObject type() {
-        return getInstance(typeNative());
+        return requireNonNull(getInstance(typeNative()));
     }
     private native long typeNative();
 

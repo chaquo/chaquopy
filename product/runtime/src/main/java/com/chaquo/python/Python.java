@@ -3,6 +3,8 @@ package com.chaquo.python;
 
 import org.jetbrains.annotations.*;
 
+import static java.util.Objects.requireNonNull;
+
 /** <p>Interface to Python.</p>
  *
  * <p>Unless otherwise specified, all methods in this class throw {@link PyException} on
@@ -78,9 +80,8 @@ public class Python {
 
     /** Returns the Python module with the given name. Dot notation may be used to get
      * submodules (e.g. {@code os.path}). */
-    @SuppressWarnings("deprecation")
     public @NotNull PyObject getModule(@NotNull String name) {
-        return PyObject.getInstance(getModuleNative(name));
+        return requireNonNull(PyObject.getInstance(getModuleNative(name)));
     }
     private native long getModuleNative(String name);
 

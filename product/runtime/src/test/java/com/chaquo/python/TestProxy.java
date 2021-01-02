@@ -51,8 +51,7 @@ public class TestProxy {
     }
 
     public static class JavaInvocationHandler implements InvocationHandler {
-        @Override
-        public Object invoke(Object o, Method method, Object[] objects) throws Throwable {
+        @Override public Object invoke(Object o, Method method, Object[] objects) {
             switch (method.getName()) {
                 case "run":
                     javaRun = true;
@@ -60,7 +59,7 @@ public class TestProxy {
                 case "tooFew":
                     return "tf";
                 case "addDuck":
-                    Class type = method.getParameterTypes()[0];
+                    Class<?> type = method.getParameterTypes()[0];
                     if (type == int.class) {
                         return (int) objects[0] + (int) objects[1] + 1;
                     } else if (type == float.class) {

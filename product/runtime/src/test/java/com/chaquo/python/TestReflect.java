@@ -120,7 +120,6 @@ public class TestReflect {
         public String getPubl() { return publ; }
     }
 
-    @SuppressWarnings("Convert2Lambda")
     public static class Call {
         
         // java.util.function is not available until API level 24.

@@ -12,7 +12,6 @@ import org.json.*;
 
 
 /** Platform for Chaquopy on Android. */
-@SuppressWarnings({"deprecation", "DeprecatedIsStillUsed"})
 public class AndroidPlatform extends Python.Platform {
 
     /** @deprecated Internal use in importer.py and test_android.py. */
@@ -143,8 +142,8 @@ public class AndroidPlatform extends Python.Platform {
         Set<String> unextracted = new HashSet<>(assets);
         Set<String> directories = new HashSet<>();
         SharedPreferences.Editor spe = sp.edit();
-        for (Iterator i = assetsJson.keys(); i.hasNext(); /**/) {
-            String path = (String) i.next();
+        for (Iterator<String> i = assetsJson.keys(); i.hasNext(); /**/) {
+            String path = i.next();
             for (String ea : assets) {
                 if (path.equals(ea) || path.startsWith(ea + "/")) {
                     extractAsset(assetsJson, spe, path);

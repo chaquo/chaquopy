@@ -44,7 +44,7 @@ public class TestBasics {
     public CharSequence fieldCharSequence = "42";
     public String fieldString = "42";
 
-    public Class fieldKlass = TestBasics.class;
+    public Class<?> fieldKlass = TestBasics.class;
 
     public boolean[] fieldZArray = {false, false};
     public byte[] fieldBArray = {42};
@@ -70,11 +70,11 @@ public class TestBasics {
     public CharSequence[] fieldCharSequenceArray = {"42"};
     public String[] fieldStringArray = {"42"};
 
-    public Class[] fieldKlassArray = {TestBasics.class};
+    public Class<?>[] fieldKlassArray = {TestBasics.class};
 
 
-    public void noArgs() {}
-    public void varargs1(Object arg0, Object... args) {}
+    public void noArgs() { /* empty */ }
+    public void varargs1(Object arg0, Object... args) { /* empty */ }
 
     public boolean getZ() {
         return fieldZ;
@@ -236,11 +236,11 @@ public class TestBasics {
         this.fieldString = fieldString;
     }
 
-    public Class getKlass() {
+    public Class<?> getKlass() {
         return fieldKlass;
     }
 
-    public void setKlass(Class fieldClass) {
+    public void setKlass(Class<?> fieldClass) {
         this.fieldKlass = fieldClass;
     }
 
@@ -405,11 +405,11 @@ public class TestBasics {
         this.fieldStringArray = fieldStringArray;
     }
 
-    public Class[] getKlassArray() {
+    public Class<?>[] getKlassArray() {
         return fieldKlassArray;
     }
 
-    public void setKlassArray(Class[] fieldKlassArray) {
+    public void setKlassArray(Class<?>[] fieldKlassArray) {
         this.fieldKlassArray = fieldKlassArray;
     }
 
@@ -443,7 +443,7 @@ public class TestBasics {
     public static CharSequence fieldStaticCharSequence = "42";
     public static String fieldStaticString = "42";
 
-    public static Class fieldStaticKlass = TestBasics.class;
+    public static Class<?> fieldStaticKlass = TestBasics.class;
 
     public static boolean[] fieldStaticZArray = {false, false};
     public static byte[] fieldStaticBArray = {42};
@@ -469,11 +469,11 @@ public class TestBasics {
     public static CharSequence[] fieldStaticCharSequenceArray = {"42"};
     public static String[] fieldStaticStringArray = {"42"};
 
-    public static Class[] fieldStaticKlassArray = {TestBasics.class};
+    public static Class<?>[] fieldStaticKlassArray = {TestBasics.class};
 
 
-    public static void staticNoArgs() {}
-    public static void staticVarargs1(Object arg0, Object... args) {}
+    public static void staticNoArgs() { /* empty */ }
+    public static void staticVarargs1(Object arg0, Object... args) { /* empty */ }
 
     public static boolean getStaticZ() {
         return fieldStaticZ;
@@ -635,11 +635,11 @@ public class TestBasics {
         TestBasics.fieldStaticString = fieldStaticString;
     }
 
-    public static Class getStaticKlass() {
+    public static Class<?> getStaticKlass() {
         return fieldStaticKlass;
     }
 
-    public static void setStaticKlass(Class fieldStaticKlass) {
+    public static void setStaticKlass(Class<?> fieldStaticKlass) {
         TestBasics.fieldStaticKlass = fieldStaticKlass;
     }
 
@@ -804,11 +804,11 @@ public class TestBasics {
         TestBasics.fieldStaticStringArray = fieldStaticStringArray;
     }
 
-    public static Class[] getStaticKlassArray() {
+    public static Class<?>[] getStaticKlassArray() {
         return fieldStaticKlassArray;
     }
 
-    public static void setStaticKlassArray(Class[] fieldStaticKlassArray) {
+    public static void setStaticKlassArray(Class<?>[] fieldStaticKlassArray) {
         TestBasics.fieldStaticKlassArray = fieldStaticKlassArray;
     }
 
