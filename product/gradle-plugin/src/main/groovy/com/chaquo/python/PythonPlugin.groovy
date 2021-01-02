@@ -54,7 +54,7 @@ class PythonPlugin implements Plugin<Project> {
         if (isLibrary) {
             android.defaultConfig.consumerProguardFile(proguardFile)
         }
-        extendProductFlavor(android.defaultConfig).setDefaults(project)
+        extendProductFlavor(android.defaultConfig).setDefaults()
         android.productFlavors.all { extendProductFlavor(it) }
 
         extendSourceSets()
@@ -93,7 +93,7 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     PythonExtension extendProductFlavor(ExtensionAware ea) {
-        def python = new PythonExtension()
+        def python = new PythonExtension(project)
         ea.extensions.add(NAME, python)
         return python
     }
@@ -460,7 +460,7 @@ class PythonPlugin implements Plugin<Project> {
         try {
             execResult = project.exec {
                 environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
-                commandLine python.buildPython.split(/\s+/)
+                commandLine python.buildPython
                 args "-S"  // Avoid interference from site-packages. This is not inherited by
                            // subprocesses, so it's used again in pip_install.py.
                 ignoreExitValue true  // A missing executable will still throw an exception.
@@ -470,11 +470,11 @@ class PythonPlugin implements Plugin<Project> {
         } catch (ExecException e) {
             throw new BuildPythonInvalidException(e.message)
         }
-        if (python.buildPython.startsWith("py ") && (execResult.exitValue == 103)) {
+        if (python.buildPython[0].equals("py") && (execResult.exitValue == 103)) {
             // Before Python 3.6, stderr from the `py` command was lost
             // (https://bugs.python.org/issue25789). This is the only likely error.
             throw new BuildPythonMissingException(
-                "'$python.buildPython': couldn't find the requested version of Python")
+                "$python.buildPython: couldn't find the requested version of Python")
         }
 
         try {
@@ -809,35 +809,48 @@ class PythonPlugin implements Plugin<Project> {
 
 
 class PythonExtension extends BaseExtension {
-    String buildPython
+    Project project
+    String[] buildPython
     Set<String> staticProxy = new TreeSet<>()
     PipExtension pip = new PipExtension()
     PycExtension pyc = new PycExtension()
 
-    void setDefaults(Project project) {
+    PythonExtension(Project project) {
+        this.project = project
+    }
+
+    void setDefaults() {
         for (version in [Common.PYTHON_VERSION_SHORT, Common.PYTHON_VERSION_MAJOR]) {
-            try {
-                if (System.getProperty("os.name").startsWith("Windows")) {
-                    // See PEP 397. After running the official Windows installer with
-                    // default settings, this will be the only Python thing on the PATH.
-                    buildPython = "py -$version"
-                } else {
-                    // See PEP 394.
-                    buildPython = "python$version"
-                }
-                project.exec {
-                    commandLine buildPython.split(/\s+/)
-                    args "--version"
-                    standardOutput = new ByteArrayOutputStream()
-                    errorOutput = new ByteArrayOutputStream()
-                }
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                // See PEP 397. After running the official Windows installer with
+                // default settings, this will be the only Python thing on the PATH.
+                buildPython = ["py", "-$version"] as String[]
+            } else {
+                // See PEP 394.
+                buildPython = ["python$version"] as String[]
+            }
+            if (checkBuildPython()) {
                 break
-            } catch (ExecException e) {
+            } else {
                 buildPython = null
             }
         }
         pip.setDefaults()
         pyc.setDefaults()
+    }
+
+    boolean checkBuildPython() {
+        try {
+            project.exec {
+                commandLine buildPython
+                args "--version"
+                standardOutput = new ByteArrayOutputStream()
+                errorOutput = new ByteArrayOutputStream()
+            }
+            return true
+        } catch (ExecException e) {
+            return false
+        }
     }
 
     void version(String v) {
@@ -851,7 +864,15 @@ class PythonExtension extends BaseExtension {
                 "or see https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
         }
     }
-    void buildPython(String bp)                 { buildPython = bp }
+
+    void buildPython(String... bp) {
+        buildPython = bp
+        if (!checkBuildPython() && bp.length == 1) {
+            // Backward compatibility for when buildPython only took a single string.
+            buildPython = bp[0].split(/\s+/)
+        }
+    }
+
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
     void pip(Closure closure)                   { applyClosure(pip, closure) }
     void pyc(Closure closure)                   { applyClosure(pyc, closure) }
@@ -862,7 +883,7 @@ class PythonExtension extends BaseExtension {
     }
 
     void mergeFrom(PythonExtension overlay) {
-        buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
+        buildPython = chooseNotNull(overlay.buildPython, this.buildPython)
         staticProxy.addAll(overlay.staticProxy)
         pip.mergeFrom(overlay.pip)
         pyc.mergeFrom(overlay.pyc)

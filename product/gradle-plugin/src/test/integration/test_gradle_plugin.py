@@ -574,6 +574,17 @@ class BuildPython(GradleTestCase):
         return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
                 fr"this is version {version}\.\d+\. " + cls.SEE)
 
+    def test_args(self):  # Also tests making a change.
+        run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
+        self.assertInLong("echo_args1", run.stdout)
+        run.apply_layers("BuildPython/args_2")
+        run.rerun(succeed=False)
+        self.assertInLong("echo_args2", run.stdout)
+
+    def test_space(self):
+        run = self.RunGradle("base", "BuildPython/space", succeed=False)
+        self.assertInLong("Hello Chaquopy", run.stdout)
+
     def test_missing(self):
         run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
         self.assertInLong("Couldn't find Python. " + self.INSTALL, run.stderr)
@@ -593,7 +604,7 @@ class BuildPython(GradleTestCase):
     @skipUnless(os.name == "nt", "Windows-specific")
     def test_py_not_found(self):
         run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
-        self.assertInLong("'py -2.8': couldn't find the requested version of Python. " +
+        self.assertInLong("[py, -2.8]: couldn't find the requested version of Python. " +
                           self.INSTALL, run.stderr)
 
     # Test a buildPython which returns success without doing anything (#5631).

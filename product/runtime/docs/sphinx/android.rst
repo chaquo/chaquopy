@@ -129,18 +129,20 @@ Development
 Some features require Python 3.5 or later to be available on the build machine. These features
 are indicated by a note in their documentation sections.
 
-By default, Chaquopy will try to run Python with the standard command for your operating
-system, first with a matching minor version, and then with a matching major version. For
-example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then on Linux and Mac
-it will first try `python3.8`, then `python3`. On Windows, it will first try `py -3.8`, then
-`py -3`.
+By default, Chaquopy will try to find Python on the PATH with the standard command for your
+operating system, first with a matching minor version, and then with a matching major version.
+For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then:
+
+* On Linux and Mac it will try `python3.8`, then `python3`.
+* On Windows, it will try `py -3.8`, then `py -3`.
 
 If this doesn't work for you, set your Python command using the `buildPython` setting.
-For example, on Windows you might use the following::
+For example, on Windows you might use one of the following::
 
       defaultConfig {
           python {
               buildPython "C:/path/to/python.exe"
+              buildPython "C:/path/to/py.exe", "-3.8"
           }
       }
 
