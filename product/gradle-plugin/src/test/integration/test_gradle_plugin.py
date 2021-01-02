@@ -50,6 +50,9 @@ def run_build_python(args, **kwargs):
 BUILD_PYTHON_VERSION = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                         .split()[1])
 BUILD_PYTHON_VERSION_SHORT = BUILD_PYTHON_VERSION.rpartition(".")[0]
+OLD_BUILD_PYTHON_VERSION = "3.4"
+MIN_BUILD_PYTHON_VERSION = "3.5"
+MAX_BUILD_PYTHON_VERSION = "3.9"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION_SHORT + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
@@ -66,13 +69,6 @@ WARNING = "^Warning: "
 
 class GradleTestCase(TestCase):
     maxDiff = None
-
-    def setUp(self):
-        # The appdirs module used in pip._internal.locations is an old or modified version
-        # imported from pip._internal.utils, which is why pip doesn't need to pass `appauthor`.
-        cache_dir = appdirs.user_cache_dir("chaquopy/pip", appauthor=False)
-        if exists(cache_dir):
-            rmtree(cache_dir)
 
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
@@ -561,7 +557,6 @@ class Pyc(GradleTestCase):
 class BuildPython(GradleTestCase):
     # Some of these messages are also used in other test classes.
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
-    MUST = r"buildPython must be version 3.5 or later: this is version {}.\d+. " + SEE
     ADVICE = "set buildPython to your Python executable path. " + SEE
     PROBLEM = "A problem occurred starting process 'command '{}''. "
     INVALID = PROBLEM + "Please " + ADVICE
@@ -574,17 +569,10 @@ class BuildPython(GradleTestCase):
               r"this message.\n"
               r"\* Then scroll up to see the full output.")
 
-    def test_minimum(self):  # Also tests making a change
-        run = self.RunGradle("base", "BuildPython/minimum", requirements=["apple/__init__.py"],
-                             pyc=["stdlib"])
-        run.apply_layers("BuildPython/old")
-        run.rerun(succeed=False)
-        self.assertInLong(self.MUST.format("3.4"), run.stderr, re=True)
-
-    # Make sure we've kept valid Python 2 syntax so we can produce an actionable error message.
-    def test_old_2(self):
-        run = self.RunGradle("base", "BuildPython/old_2", succeed=False)
-        self.assertInLong(self.MUST.format("2.7"), run.stderr, re=True)
+    @classmethod
+    def old_version_error(cls, version):
+        return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
+                fr"this is version {version}\.\d+\. " + cls.SEE)
 
     def test_missing(self):
         run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
@@ -659,6 +647,24 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/fail", succeed=False)
         self.assertInLong("No matching distribution found for chaquopy-nonexistent", run.stderr)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
+
+    def test_buildpython(self):
+        # Use a fresh RunGradle instance for each test in order to clear the pip cache.
+        layers = ["base", "PythonReqs/buildpython"]
+
+        for version in [MIN_BUILD_PYTHON_VERSION, MAX_BUILD_PYTHON_VERSION]:
+            with self.subTest(version=version):
+                self.RunGradle(*layers, env={"buildpython_version": version},
+                               requirements=["apple/__init__.py",
+                                             "no_binary_sdist/__init__.py"],
+                               pyc=["stdlib"])
+
+        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
+        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
+            with self.subTest(version=version):
+                run = self.RunGradle(*layers, env={"buildpython_version": version},
+                                     succeed=False)
+                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
 
     def test_download_wheel(self):
         CHAQUO_URL = r"https://.+/murmurhash-0.28.0-5-cp38-cp38-android_16_x86.whl"
@@ -1113,6 +1119,23 @@ class PythonReqs(GradleTestCase):
 class StaticProxy(GradleTestCase):
     reqs = ["chaquopy_test/__init__.py", "chaquopy_test/a.py", "chaquopy_test/b.py"]
 
+    def test_buildpython(self):
+        layers = ["base", "StaticProxy/buildpython"]
+
+        for version in [MIN_BUILD_PYTHON_VERSION, MAX_BUILD_PYTHON_VERSION]:
+            with self.subTest(version=version):
+                self.RunGradle(*layers, env={"buildpython_version": version},
+                               app=["chaquopy_test/__init__.py", "chaquopy_test/a.py"],
+                               classes={"chaquopy_test.a": ["SrcA1"]},
+                               pyc=["stdlib"])
+
+        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
+        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
+            with self.subTest(version=version):
+                run = self.RunGradle(*layers, env={"buildpython_version": version},
+                                     succeed=False)
+                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
                              classes={"chaquopy_test.a": ["ReqsA1"],
@@ -1150,6 +1173,13 @@ class RunGradle(object):
                             agp_version, cls, func)
         if os.path.exists(self.run_dir):
             rmtree(self.run_dir)
+
+        # Keep each test independent by clearing the pip cache. The appdirs module used in
+        # pip._internal.locations is an old or modified version imported from
+        # pip._internal.utils, which is why pip doesn't need to pass `appauthor`.
+        cache_dir = appdirs.user_cache_dir("chaquopy/pip", appauthor=False)
+        if exists(cache_dir):
+            rmtree(cache_dir)
 
         self.project_dir = join(self.run_dir, "project")
         os.makedirs(self.project_dir)
