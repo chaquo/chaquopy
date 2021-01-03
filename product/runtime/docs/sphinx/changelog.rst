@@ -1,6 +1,22 @@
 Change log
 ##########
 
+9.1.0 (2021-01-02)
+==================
+
+* Fix error "'HTMLParser' object has no attribute 'unescape'" on Python 3.9 (`#416
+  <https://github.com/chaquo/chaquopy/issues/416>`_).
+* Fix error "must supply either home or prefix/exec-prefix -- not both" on Homebrew for Mac
+  (`#405 <https://github.com/chaquo/chaquopy/issues/405>`_).
+* `buildPython` path can now contain spaces.
+* Java API is now annotated with `@NotNull` where appropriate.
+* Java arrays now support the `copy` method in Python.
+* Fix bug when using `cast` to call a functional interface which extends another functional
+  interface.
+* Update CA bundle to certifi 2020.12.5.
+* :any:`json` module performance improvements.
+* Java API performance improvements.
+
 9.0.0 (2020-11-06)
 ==================
 

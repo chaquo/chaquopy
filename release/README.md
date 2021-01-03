@@ -11,16 +11,15 @@ the previous version.
 
 Run `gradlew -P cmakeBuildType=Release publish`.
 
-Run Java and Python unit tests on any Android device, including the following:
+Run Java and Python unit tests on device from #5683:
 
-* A clean install.
-* Record Java and Python unit test times (#5683), and investigate if significantly worse than
-  the previous version. Obviously the tests themselves may have changed, so some judgement may
-  be required.
-* Both "debug" and "releaseMinify" variants (minify is not enabled in the "release" variant,
-  because it could prevent users importing classes in the Python console).
-* A single-ABI build (temporarily change abiFilters).
+* Perform a clean install.
+* Record test times in #5683, and investigate if significantly worse than the previous version.
+  Obviously the tests themselves may have changed, so some judgement may be required.
 * Run tests twice in the same process.
+* Test "releaseMinify" variant (minify is not enabled in the "release" variant, because it
+  could prevent users importing classes in the Python console).
+* Change back to "debug" variant, and test a single-ABI build (temporarily change abiFilters).
 
 
 ## Gradle plugin
@@ -52,13 +51,13 @@ the following devices, with at least one device being a clean install:
 * x86\_64 emulator with API 21
   * TensorFlow will fail because of #5626, so test that on API 23.
 
+On at least one device, test that the license notification and enforcement works correctly.
+
 Restore the license key, then test the following, in each case setting `abiFilters` to just a
 single ABI, and with at least one device being a clean install:
 
 * Any armeabi-v7a device
 * Any arm64-v8a device
-
-On at least one device, test that the license notification and enforcement works correctly.
 
 Do an all-ABI test of opencv-contrib-python and pycrypto, and possibly some of the other
 entries in `DEFAULT_EXCLUDE_PACKAGES`.
@@ -128,7 +127,7 @@ Post blog entry to website.
 
 Post links to Facebook and Twitter.
 
-Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.
+Update any affected GitHub issues, StackOverflow questions, or users who contacted me directly.
 
 If there are any packages whose announcement was postponed until this release, go through the
 package release procedure in pypi/README.md.

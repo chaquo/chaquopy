@@ -142,8 +142,10 @@ Arrays
 `jarray` objects represent Java arrays. They support the standard Python sequence protocol,
 including:
 
-* Getting and setting elements using `[]` syntax. Negative indices and slices are also
-  supported.
+* Getting and setting elements using `[]` syntax. Negative indices are supported.
+* Getting and setting slices using `[:]` syntax. When getting a slice, a new array of the same
+  type will be returned.
+* Copying using `copy`. A new array of the same type will be returned.
 * Getting length using `len`, and testing for emptiness using `bool`.
 * Iteration using `for`, and searching using `in`.
 * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
