@@ -189,7 +189,7 @@ Startup
 -------
 
 It's important to structure the app so that `Python.start()
-<java/com/chaquo/python/Python.html#start-com.chaquo.python.Python.Platform->`_ is always
+<java/com/chaquo/python/Python.html#start(com.chaquo.python.Python.Platform)>`_ is always
 called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
 attempting to run Python code. There are two basic ways to achieve this:
 

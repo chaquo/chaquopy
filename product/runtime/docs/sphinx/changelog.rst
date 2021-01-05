@@ -217,9 +217,9 @@ Change log
 3.2.0 (2018-06-06)
 ==================
 
-* Add `Python.getPlatform <java/com/chaquo/python/Python.html#getPlatform-->`_ and
+* Add `Python.getPlatform <java/com/chaquo/python/Python.html#getPlatform()>`_ and
   `AndroidPlatform.getApplication
-  <java/com/chaquo/python/android/AndroidPlatform.html#getApplication-->`_.
+  <java/com/chaquo/python/android/AndroidPlatform.html#getApplication()>`_.
 * Make sure `__spec__` is set on modules which are loaded by direct calls to the loader, or via
   :any:`imp`.
 * Fix :any:`hashlib` OpenSSL integration.

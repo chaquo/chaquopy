@@ -8,13 +8,13 @@ Summary
 =======
 
 #. If necessary, call `Python.start()
-   <java/com/chaquo/python/Python.html#start-com.chaquo.python.Python.Platform->`_.
+   <java/com/chaquo/python/Python.html#start(com.chaquo.python.Python.Platform)>`_.
 
-#. Call `Python.getInstance() <java/com/chaquo/python/Python.html#getInstance-->`_ to get the
+#. Call `Python.getInstance() <java/com/chaquo/python/Python.html#getInstance()>`_ to get the
    interface to Python.
 
-#. Call `getModule() <java/com/chaquo/python/Python.html#getModule-java.lang.String->`_ or
-   `getBuiltins() <java/com/chaquo/python/Python.html#getBuiltins-->`_ to get a `PyObject
+#. Call `getModule() <java/com/chaquo/python/Python.html#getModule(java.lang.String)>`_ or
+   `getBuiltins() <java/com/chaquo/python/Python.html#getBuiltins()>`_ to get a `PyObject
    <java/com/chaquo/python/PyObject.html>`_ representing a Python module.
 
 #. Use the `PyObject <java/com/chaquo/python/PyObject.html>`_ methods to access the module's
