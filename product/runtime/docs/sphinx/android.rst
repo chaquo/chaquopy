@@ -352,40 +352,58 @@ storage space.
 Python standard library
 =======================
 
+Except as discussed below, Chaquopy supports the entire Python standard library. If you
+discover a problem which isn't mentioned here, please `let us know
+<https://github.com/chaquo/chaquopy/issues>`_.
+
 .. _stdlib-unsupported:
 
 Unsupported modules
 -------------------
 
-All standard library modules are supported, except for the following:
+The following modules are unsupported because they require OS features which aren't available
+on Android:
 
 * :any:`crypt`
-* :any:`curses`
-* :any:`dbm`
 * :any:`grp`
 * :any:`nis`
-* :any:`readline`
 * :any:`spwd`
+
+The following modules are unsupported because they require libraries which we don't currently
+include:
+
+* :any:`curses`
+* :any:`dbm`
+* :any:`readline`
 * :any:`tkinter`
+* :any:`turtle`
+
+multiprocessing
+---------------
+
+Because Android doesn't support POSIX semaphores, most of the :any:`multiprocessing` APIs will
+fail with the error "This platform lacks a functioning sem_open implementation". The simplest
+solution is to edit your code to use :any:`multiprocessing.dummy` instead.
 
 ssl
 ---
 
-For consistency across different devices, the :any:`ssl` module is configured to use a copy of
-the CA bundle from `certifi <https://github.com/certifi/python-certifi/>`_. The current version
-is from certifi 2020.12.5.
+The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
+<https://github.com/certifi/python-certifi/>`_ version 2020.12.5. The system CA store is not
+used.
 
 sys
 ---
 
-`stdout` and `stderr` are redirected to `Logcat
+:any:`sys.stdout` and :any:`sys.stderr` are redirected to `Logcat
 <https://developer.android.com/studio/debug/am-logcat.html>`_ with the tags `python.stdout` and
 `python.stderr` respectively. The streams will produce one log line for each call to `write()`,
 which may result in lines being split up in the log. Lines may also be split if they exceed the
 Logcat message length limit of approximately 4000 bytes.
 
-`stdin` always returns EOF. If you want to run some code which takes interactive text input, you
-may find the `console app template <https://github.com/chaquo/chaquopy-console>`_ useful.
+By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
+interactive text input, have a look at the `console app template
+<https://github.com/chaquo/chaquopy-console>`_.
 
 
 Android Studio plugin
