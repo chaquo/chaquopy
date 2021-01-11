@@ -98,24 +98,33 @@ libraries are already pre-compiled and stripped. However, you can silence the wa
 same steps as above.
 
 .. note:: Each ABI will add several MB to the size of the app, plus the size of any native
-          :ref:`requirements <android-requirements>`. Because of the way the native components
-          are packaged, the `split APK
+          :ref:`requirements <android-requirements>`. Because of the way Chaquopy packages the
+          native components, the `APK splits
           <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app
           bundle <https://developer.android.com/guide/app-bundle/>`_ features will not fully
-          mitigate this. Instead, if your multi-ABI APKs are too large, try using a `product
-          flavor dimension
-          <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_::
+          mitigate this.
+
+          Instead, if your multi-ABI releases are too large, you can use a `product flavor
+          dimension
+          <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to
+          build separate APKs or app bundles for each ABI. If you plan to release your app on
+          Google Play, each flavor must also have a `different version code
+          <https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_.
+          For example::
 
               android {
+                  def versionBase = 123
                   flavorDimensions "abi"
                   productFlavors {
-                      arm {
+                      arm32 {
                           dimension "abi"
                           ndk { abiFilters "armeabi-v7a" }
+                          versionCode 1000000 + versionBase
                       }
-                      x86 {
+                      arm64 {
                           dimension "abi"
-                          ndk { abiFilters "x86" }
+                          ndk { abiFilters "arm64-v8a" }
+                          versionCode 2000000 + versionBase
                       }
                   }
               }
