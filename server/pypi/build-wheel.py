@@ -123,6 +123,7 @@ class BuildWheel:
         ensure_dir(self.version_dir)
         cd(self.version_dir)
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
+        self.src_dir = f"{self.build_dir}/src"
 
         if self.no_unpack:
             log("Skipping download and unpack due to --no-unpack")
@@ -188,10 +189,9 @@ class BuildWheel:
                            f"{self.platform_tag}")
 
     def unpack_source(self):
-        src_dir = f"{self.build_dir}/src"
         source = self.meta["source"]
         if not source:
-            ensure_dir(src_dir)
+            ensure_dir(self.src_dir)
         elif "git_url" in source:
             git_rev = source["git_rev"]
             is_hash = len(git_rev) == 40
@@ -200,13 +200,13 @@ class BuildWheel:
                 # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
                 # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
                 clone_cmd += f" -b {git_rev} --depth 1 "
-            run(f"{clone_cmd} {source['git_url']} {src_dir}")
+            run(f"{clone_cmd} {source['git_url']} {self.src_dir}")
             if is_hash:
-                run(f"git -C {src_dir} checkout {git_rev}")
-                run(f"git -C {src_dir} submodule update --init")
+                run(f"git -C {self.src_dir} checkout {git_rev}")
+                run(f"git -C {self.src_dir} submodule update --init")
         elif "path" in source:
             abs_path = abspath(join(self.package_dir, source["path"]))
-            run(f"cp -a {abs_path} {src_dir}")
+            run(f"cp -a {abs_path} {self.src_dir}")
         else:
             source_filename = (self.download_pypi() if source == "pypi"
                                else self.download_url(source["url"]))
@@ -218,18 +218,14 @@ class BuildWheel:
 
             files = os.listdir(temp_dir)
             if len(files) == 1 and isdir(f"{temp_dir}/{files[0]}"):
-                run(f"mv {temp_dir}/{files[0]} {src_dir}")
+                run(f"mv {temp_dir}/{files[0]} {self.src_dir}")
                 run(f"rm -rf {temp_dir}")
             else:
-                run(f"mv {temp_dir} {src_dir}")
+                run(f"mv {temp_dir} {self.src_dir}")
 
             # This is pip's equivalent to our requirements mechanism.
-            if exists(f"{src_dir}/pyproject.toml"):
-                run(f"rm {src_dir}/pyproject.toml")
-
-        license_file = self.meta["about"]["license_file"]
-        if license_file:
-            assert_exists(join(src_dir, license_file))
+            if exists(f"{self.src_dir}/pyproject.toml"):
+                run(f"rm {self.src_dir}/pyproject.toml")
 
     def download_pypi(self):
         sdist_filename = self.find_sdist()
@@ -270,12 +266,12 @@ class BuildWheel:
     def apply_patches(self):
         patches_dir = f"{self.package_dir}/patches"
         if exists(patches_dir):
-            cd(f"{self.build_dir}/src")
+            cd(self.src_dir)
             for patch_filename in os.listdir(patches_dir):
                 run(f"patch -p1 -i {patches_dir}/{patch_filename}")
 
     def build_wheel(self):
-        cd(f"{self.build_dir}/src")
+        cd(self.src_dir)
         build_script = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
@@ -354,7 +350,7 @@ class BuildWheel:
         ensure_dir(info_dir)
         for name in license_files:
             run(f"cp {name} {info_dir}")
-        return self.package_wheel(prefix_dir, os.getcwd())
+        return self.package_wheel(prefix_dir, self.src_dir)
 
     def build_with_pip(self):
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
@@ -458,7 +454,7 @@ class BuildWheel:
             "PKG_NAME": self.package,
             "PKG_VERSION": self.version,
             "RECIPE_DIR": self.package_dir,
-            "SRC_DIR": os.getcwd(),
+            "SRC_DIR": self.src_dir,
         })
 
         if self.verbose:
