@@ -1,6 +1,3 @@
 package:
   name: regex
   version: 2020.1.8
-
-about:
-  license_file: ../../../../LICENSE.txt

@@ -4,6 +4,3 @@ package:
 
 build:
   number: 1
-
-about:
-  license_file: ../../../../LICENSE

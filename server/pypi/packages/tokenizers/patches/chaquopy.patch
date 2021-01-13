@@ -1,0 +1,51 @@
+--- src-original/setup.py	2020-04-17 16:57:37.000000000 +0000
++++ src/setup.py	2021-01-12 23:57:10.005615920 +0000
+@@ -1,6 +1,38 @@
+ from setuptools import setup
+ from setuptools_rust import Binding, RustExtension
+ 
++
++# BEGIN Chaquopy additions
++import os
++from os.path import abspath, dirname, exists
++from subprocess import check_call
++import sys
++
++triplet = os.environ["CHAQUOPY_TRIPLET"]
++rust_toolchain = open("rust-toolchain").read().strip()
++check_call(["rustup", "toolchain", "install", rust_toolchain])
++check_call(["rustup", "target", "add", "--toolchain", rust_toolchain, triplet])
++
++os.environ["CARGO_BUILD_TARGET"] = triplet
++sysroot = abspath(f"{dirname(os.environ['CC'])}/../sysroot")
++py_version = "{}.{}".format(*sys.version_info[:2])
++os.environ["PYO3_CROSS_INCLUDE_DIR"] = f"{sysroot}/usr/include/python{py_version}"
++os.environ["PYO3_CROSS_LIB_DIR"] = f"{sysroot}/usr/lib"
++
++os.makedirs(".cargo", exist_ok=True)
++config_filename = ".cargo/config.toml"
++config = f"""\
++[target.{triplet}]
++ar = "{os.environ['AR']}"
++linker = "{os.environ['CC']}"
++"""
++if exists(config_filename) and open(config_filename).read() != config:
++    raise Exception(f"{config_filename} exists with different content")
++with open(config_filename, "w") as config_file:
++    config_file.write(config)
++# END Chaquopy additions
++
++
+ extras = {}
+ extras["testing"] = ["pytest"]
+ 
+@@ -15,7 +47,8 @@
+     author_email="anthony@huggingface.co",
+     url="https://github.com/huggingface/tokenizers",
+     license="Apache License 2.0",
+-    rust_extensions=[RustExtension("tokenizers.tokenizers", binding=Binding.PyO3)],
++    rust_extensions=[RustExtension("tokenizers.tokenizers", binding=Binding.PyO3,
++                     rustc_flags=[f"-lpython{py_version}"])],  # Chaquopy
+     extras_require=extras,
+     classifiers=[
+         "Development Status :: 5 - Production/Stable",

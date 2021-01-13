@@ -27,6 +27,13 @@ RUN version=3.6.1 && \
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.2.1/bazelisk-linux-amd64 && \
     mv bazelisk-linux-amd64 /usr/local/bin/bazel
 
+# Rust (for Tokenizers)
+RUN wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && \
+    chmod +x rustup-init && \
+    ./rustup-init -y && \
+    rm rustup-init
+ENV PATH="/root/.cargo/bin:$PATH"
+
 COPY requirements.txt pypi/
 RUN pip3 install -r pypi/requirements.txt
 

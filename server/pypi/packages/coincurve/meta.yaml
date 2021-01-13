@@ -11,6 +11,3 @@ build:
 requirements:
   host:
     - chaquopy-secp256k1 20191011
-
-about:
-  license_file: ../../../../LICENSE.rst

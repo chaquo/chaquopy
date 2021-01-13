@@ -337,19 +337,10 @@ class BuildWheel:
                         run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
 
     def build_with_script(self, build_script):
-        # Check for license files before starting the build.
-        license_files = ([] if self.meta["about"]["license_file"]
-                         else find_license_files("."))
-
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
         os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
         run(build_script)
-
-        info_dir = f"{prefix_dir}/{self.name_version}.dist-info"
-        ensure_dir(info_dir)
-        for name in license_files:
-            run(f"cp {name} {info_dir}")
         return self.package_wheel(prefix_dir, self.src_dir)
 
     def build_with_pip(self):
@@ -449,6 +440,7 @@ class BuildWheel:
         env.update({  # Conda variable names, except those starting with CHAQUOPY.
             "CHAQUOPY_ABI": self.abi,
             "CHAQUOPY_PYTHON": PYTHON_VERSION,
+            "CHAQUOPY_TRIPLET": ABIS[self.abi].tool_prefix,
             "CPU_COUNT": str(multiprocessing.cpu_count()),
             "PKG_BUILDNUM": str(self.meta["build"]["number"]),
             "PKG_NAME": self.package,
@@ -537,11 +529,19 @@ class BuildWheel:
         run(f"unzip -d {tmp_dir} -q {in_filename}")
         info_dir = f"{tmp_dir}/{self.name_version}.dist-info"
 
-        license_file = self.meta["about"]["license_file"]
-        if license_file:
-            run(f"cp {join(self.build_dir, 'src', license_file)} {info_dir}")
+        # This can't be done before the build, because sentencepiece generates a license file
+        # in the source directory during the build.
+        license_files = (find_license_files(self.src_dir) +
+                         find_license_files(self.package_dir))
+        meta_license = self.meta["about"]["license_file"]
+        if meta_license:
+            license_files += [f"{self.src_dir}/{meta_license}"]
+        if license_files:
+            for name in license_files:
+                run(f"cp {name} {info_dir}")
         else:
-            find_license_files(info_dir)
+            raise CommandError("Couldn't find license file: see license_file in "
+                               "meta-schema.yaml")
 
         SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(STANDARD_LIBS)
@@ -594,6 +594,7 @@ class BuildWheel:
     def package_wheel(self, in_dir, out_dir):
         build_num = os.environ["PKG_BUILDNUM"]
         info_dir = f"{in_dir}/{self.name_version}.dist-info"
+        ensure_dir(info_dir)
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",
                              "Root-Is-Purelib": "false"},
@@ -672,11 +673,8 @@ class BuildWheel:
 
 
 def find_license_files(path):
-    names = [name for name in os.listdir(path)
-             if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
-    if not names:
-        raise CommandError("Couldn't find license file: you must add license_file to meta.yaml")
-    return names
+    return [f"{path}/{name}" for name in os.listdir(path)
+            if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
 
 
 def update_requirements(filename, reqs):
