@@ -66,7 +66,7 @@ ABI selection
 -------------
 
 The Python interpreter is a native component, so you must use the `abiFilters
-<https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.internal.dsl.NdkOptions.html#com.android.build.gradle.internal.dsl.NdkOptions:abiFilters>`_
+<https://developer.android.com/studio/projects/gradle-external-native-builds#specify-abi>`_
 setting to specify which ABIs you want the app to support. The currently available ABIs are:
 
 * `armeabi-v7a`, supported by virtually all Android devices.
@@ -74,60 +74,55 @@ setting to specify which ABIs you want the app to support. The currently availab
 * `x86`, for the Android emulator.
 * `x86_64`, for the Android emulator.
 
-During development you will probably want to enable ABIs for both the emulator and your
+During development you'll probably want to enable ABIs for both the emulator and your
 devices, e.g.::
 
     defaultConfig {
         ndk {
-           abiFilters "armeabi-v7a", "x86"
+           abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
         }
     }
 
-If you get the error "No version of NDK matched the requested version", you can fix this as
-follows:
+Each ABI will add several MB to the size of the app, plus the size of any native
+:ref:`requirements <android-requirements>`. Because of the way Chaquopy packages the native
+components, the `APK splits
+<https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
+<https://developer.android.com/guide/app-bundle/>`_ features will not fully mitigate this.
 
-* Go to Tools > SDK Manager.
-* Select the "SDK Tools" tab.
-* Select "Show Package Details" at the bottom.
-* Find "NDK (Side by side)" in the list, and select the version mentioned in the message.
-* Click OK.
+Instead, if you need to reduce the size of your app, use a `product flavor dimension
+<https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to build
+separate APKs or app bundles for each ABI. If you plan to release your app on Google Play, each
+flavor must also have a `different version code
+<https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_. For
+example::
 
-You may also see the warning "Compatible side by side NDK version was not found". This is
-harmless, and there's no need to actually install the NDK, as all of Chaquopy's native
-libraries are already pre-compiled and stripped. However, you can silence the warning using the
-same steps as above.
+    android {
+        def versionBase = 123
+        flavorDimensions "abi"
+        productFlavors {
+            arm32 {
+                dimension "abi"
+                ndk { abiFilters "armeabi-v7a" }
+                versionCode 1000000 + versionBase
+            }
+            arm64 {
+                dimension "abi"
+                ndk { abiFilters "arm64-v8a" }
+                versionCode 2000000 + versionBase
+            }
+        }
+    }
 
-.. note:: Each ABI will add several MB to the size of the app, plus the size of any native
-          :ref:`requirements <android-requirements>`. Because of the way Chaquopy packages the
-          native components, the `APK splits
-          <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app
-          bundle <https://developer.android.com/guide/app-bundle/>`_ features will not fully
-          mitigate this.
+.. note:: There's no need to actually install the NDK, as all of Chaquopy's native libraries
+          are already pre-compiled and stripped. However, if you already have an NDK installed,
+          you may get the error "No version of NDK matched the requested version". This can be
+          fixed by `installing the version
+          <https://developer.android.com/studio/projects/install-ndk#specific-version>`_
+          mentioned in the message.
 
-          Instead, if your multi-ABI releases are too large, you can use a `product flavor
-          dimension
-          <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to
-          build separate APKs or app bundles for each ABI. If you plan to release your app on
-          Google Play, each flavor must also have a `different version code
-          <https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_.
-          For example::
-
-              android {
-                  def versionBase = 123
-                  flavorDimensions "abi"
-                  productFlavors {
-                      arm32 {
-                          dimension "abi"
-                          ndk { abiFilters "armeabi-v7a" }
-                          versionCode 1000000 + versionBase
-                      }
-                      arm64 {
-                          dimension "abi"
-                          ndk { abiFilters "arm64-v8a" }
-                          versionCode 2000000 + versionBase
-                      }
-                  }
-              }
+          You may also see the warning "Compatible side by side NDK version was not found".
+          This is harmless, but you can silence the warning by installing the requested version
+          as above.
 
 
 .. _buildPython:
@@ -256,8 +251,8 @@ forms::
 
 In our most recent tests, Chaquopy could install over 90% of the top 1000 packages on `PyPI
 <https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
-selection of packages with native components. To see which native packages and versions are
-currently available, you can `browse the repository here <https://chaquo.com/pypi-7.0/>`_. To
+selection of packages with native components. To see which native packages are currently
+available, you can `browse the repository here <https://chaquo.com/pypi-7.0/>`_. To
 request a package to be added or updated, or for any other problem with installing
 requirements, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
 
