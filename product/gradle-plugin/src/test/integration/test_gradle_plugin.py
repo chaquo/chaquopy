@@ -233,7 +233,7 @@ class AndroidPlugin(GradleTestCase):
         except Exception:
             pass  # We don't care whether it succeeds.
         self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 4.1.1. If you experience "
+                          "Gradle plugin versions beyond 4.1.2. If you experience "
                           "problems, " + self.ADVICE, run.stdout, re=True)
 
 
