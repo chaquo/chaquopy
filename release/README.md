@@ -103,7 +103,10 @@ Set reminder to check for Google Play crash reports regularly over the next mont
 
 ## Documentation
 
-Update `changelog.rst` and `versions.rst`.
+Update:
+* `changelog.rst`
+* `versions.rst`
+* `release` in `conf.py`
 
 Run `gradlew runtime:doc`, and upload to server.
 

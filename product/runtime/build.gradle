@@ -186,9 +186,10 @@ cythonTask("cythonAndroid") {
     inputs.property("licenseMode", licenseMode)
 }
 
+// With version 3.10.2.4988404, the cmakeBuild-host task alters build.ninja, which causes the
+// slow cmake-host task to be rerun on every build.
+def sdkCmakeDir = "$sdkDir/cmake/3.6.4111459"
 
-def sdkCmakeParentDir = new File(sdkDir, "cmake")
-def sdkCmakeDir = "$sdkCmakeParentDir/${sdkCmakeParentDir.list()[0]}"
 def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
 if (!file(androidJar).exists()) {
     throw new GradleException("Android SDK Platform $Common.COMPILE_SDK_VERSION not found: " +

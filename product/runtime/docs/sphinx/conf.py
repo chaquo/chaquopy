@@ -57,7 +57,10 @@ copyright = u'{} {}'.format(datetime.now().year, author)
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = open("../../../../VERSION.txt").read().strip()
+#
+# Chaquopy: this is no longer auto-generated from VERSION.txt, because that made it awkward to
+# release documentation updates between versions.
+release = "9.1.0"
 # The short X.Y version.
 version = release.rpartition(".")[0]
 
