@@ -1,8 +1,7 @@
 Python API
 ##########
 
-The `java` module provides facilities to use Java classes and objects from Python code. For
-examples of how to use it, see the `demo app <https://github.com/chaquo/chaquopy>`__.
+The `java` module provides facilities to use Java classes and objects from Python code.
 
 
 Data types
@@ -28,10 +27,10 @@ Data types are converted between Python and Java as follows:
 
 * All other Java objects are represented by a :any:`jclass` object.
 
-  .. note:: A Java object or array obtained from a method or field will be represented
-          in Python as its actual run-time type, which is not necessarily the declared type
-          of the method or field. It can be viewed as another compatible type using the
-          :any:`cast` function.
+A :any:`jclass` or :any:`jarray` object received from Java will be represented in Python as its
+actual run-time type, which is not necessarily the declared type of the method, field or
+parameter the object was obtained from. It can be viewed as another compatible type using the
+:any:`cast` function.
 
 .. _primitives:
 
@@ -73,17 +72,17 @@ The numeric type wrappers take an optional `truncate` parameter. If this is set,
 high-order bits of the given value will be discarded, as with a cast in Java. Otherwise,
 passing an out-of-range value to a wrapper class will result in an `OverflowError`.
 
-.. note:: When these wrappers are used, Java overload resolution rules will be in effect
-          for the wrapped parameter. For example, a `jint` will only be applicable to a
-          Java `int` or larger, and the *shortest* applicable overload will be used.
+When these wrappers are used, Java overload resolution rules will be in effect for the wrapped
+parameter. For example, a `jint` will only be applicable to a Java `int` or larger, and the
+*shortest* applicable overload will be used.
 
 Classes
 -------
 
-.. autofunction:: java.jclass(cls_name)
-
 .. note:: Rather than calling `jclass` directly, it's usually more convenient to use the
           `import hook`_.
+
+.. autofunction:: java.jclass(cls_name)
 
 Java classes and objects can be used with normal Python syntax::
 

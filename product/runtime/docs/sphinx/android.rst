@@ -171,8 +171,7 @@ For example::
         }
     }
 
-.. note:: The `setRoot
-          <https://google.github.io/android-gradle-dsl/current/com.android.build.gradle.api.AndroidSourceSet.html#com.android.build.gradle.api.AndroidSourceSet:setRoot(java.lang.String)>`_
+.. note:: The `setRoot <https://developer.android.com/reference/tools/gradle-api/current/com/android/build/api/dsl/AndroidSourceSet#setroot>`_
           method only takes effect on the standard Android directories. If you want to set the
           Python directory as well, you must do so explicitly, e.g.::
 

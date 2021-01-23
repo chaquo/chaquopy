@@ -1,0 +1,18 @@
+/* Overrides for things which can't be customized via html_theme_options in conf.py. */
+
+/* Disable font size increase on large screens
+   (https://github.com/pradyunsg/furo/blob/2020.12.30.beta24/src/furo/assets/styles/_scaffold.sass#L222). */
+html {
+    font-size: 100% !important;
+}
+
+/* Prevent descenders being cut off in search box
+   (https://github.com/necolas/normalize.css/issues/778). */
+input {
+    line-height: normal;
+}
+
+/* Draw lines around table edges. */
+table.docutils {
+    border: 1px solid var(--color-background-border);
+}

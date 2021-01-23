@@ -77,7 +77,8 @@ language = None
 exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+# Leave unset to use the theme's default style.
+# pygments_style = 'sphinx'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -90,32 +91,37 @@ default_role = "code"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'python_docs_theme'
+html_theme = 'furo'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
 html_theme_options = {
-    "collapsiblesidebar": True,
-    "root_name": "Documentation",
-    "root_url": "..",
-    "root_icon": "icon.png",
+    "light_css_variables": {
+        "color-background-border": "#dddddd",                 # Increase contrast
+        "toc-title-font-size": "var(--font-size--small--3)",  # Increase size
+        "toc-font-size": "var(--font-size--small--2)",        #
+    },
+
+    # https://stackoverflow.com/q/57606960
+    "dark_css_variables": {
+        "color-background-border": "#404040",                 # Increase contrast
+    },
+
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-
-def setup(app):
-    app.add_stylesheet("sphinx-chaquo.css")
+html_css_files = ["chaquopy.css"]
+html_js_files = ["chaquopy.js"]
 
 html_title = "Chaquopy {}".format(version)
 html_copy_source = False
-html_show_copyright = True
+html_show_copyright = False
 html_show_sphinx = False
-html_sidebars = {"**": ["localtoc.html"]}
 
 
 # -- Options for HTMLHelp output ------------------------------------------

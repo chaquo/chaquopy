@@ -1,4 +1,4 @@
 Cython==0.29.21
 flake8==3.8.4
-python-docs-theme==2018.7
-Sphinx==1.8.1
+furo==2020.12.30b24
+Sphinx==3.4.3
