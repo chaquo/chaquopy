@@ -1,5 +1,9 @@
-#!/usr/bin/env python3
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
+#!/usr/bin/env python3.8
+#
+# We require the build and target Python versions to be the same, because many setup.py scripts
+# are affected by sys.version.
+
+"""Copyright (c) 2021 Chaquo Ltd. All rights reserved."""
 
 import argparse
 from copy import deepcopy
@@ -28,7 +32,7 @@ PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
 # The suffix may contain flags from PEP 3149.
-PYTHON_VERSION = "3.8"
+PYTHON_VERSION = "3.8"  # Should be the same as the #! line above.
 PYTHON_SUFFIX = PYTHON_VERSION
 
 # All libraries are listed under their SONAMEs.
@@ -174,16 +178,12 @@ class BuildWheel:
     def find_python(self):
         self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{PYTHON_SUFFIX}"
         assert_isdir(self.python_include_dir)
+
         python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
         assert_exists(python_lib)
         STANDARD_LIBS.add(basename(python_lib))
 
-        # We require the build and target Python versions to be the same, because
-        # many setup.py scripts are affected by sys.version.
-        if "{}.{}".format(*sys.version_info[:2]) != PYTHON_VERSION:
-            raise CommandError("This script requires Python " + PYTHON_VERSION)
         self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
-
         self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
                            f"cp{PYTHON_SUFFIX.replace('.', '')}-"
                            f"{self.platform_tag}")
