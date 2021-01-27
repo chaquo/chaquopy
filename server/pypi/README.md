@@ -32,7 +32,7 @@ Temporarily add the new package to `pkgtest/app/build.gradle`, and set `abiFilte
 only.
 
 Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
-to use the current stable Chaquopy version, then run the app on an x86 emulator.
+to use the current stable Chaquopy version. Then run the app on an x86 emulator.
 
 If this is a new version of an existing package, we should also check that we don't break any
 existing apps with unpinned version numbers. So edit `pkgtest/build.gradle` to use the oldest

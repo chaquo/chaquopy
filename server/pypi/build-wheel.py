@@ -31,21 +31,21 @@ import yaml
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 
-# The suffix may contain flags from PEP 3149.
 PYTHON_VERSION = "3.8"  # Should be the same as the #! line above.
-PYTHON_SUFFIX = PYTHON_VERSION
+PYTHON_SUFFIX = PYTHON_VERSION  # May contain flags from PEP 3149.
 
-# All libraries are listed under their SONAMEs.
-STANDARD_LIBS = {
-    # Android-provided libraries up to our current minimum API level
-    # (https://developer.android.com/ndk/guides/stable_apis).
-    "libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so",
-    "libjnigraphics.so", "liblog.so", "libm.so", "libOpenMAXAL.so", "libOpenSLES.so",
-    "libz.so",
+# Libraries are grouped by minimum API level and listed under their SONAMEs.
+STANDARD_LIBS = [
+    # Android native APIs (https://developer.android.com/ndk/guides/stable_apis)
+    (16, ["libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so",
+          "libjnigraphics.so", "liblog.so", "libm.so", "libOpenMAXAL.so", "libOpenSLES.so",
+          "libz.so"]),
+    (21, ["libmediandk.so"]),
 
-    # Chaquopy-provided libraries (libpythonX.Y.so is added below)
-    "libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so",
-}
+    # Chaquopy-provided libraries
+    (0, ["libcrypto_chaquopy.so", f"libpython{PYTHON_SUFFIX}.so", "libsqlite3_chaquopy.so",
+         "libssl_chaquopy.so"]),
+]
 
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
 # meta.yaml. That way its location will always be passed to the linker with an -L flag, and we
@@ -178,10 +178,8 @@ class BuildWheel:
     def find_python(self):
         self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{PYTHON_SUFFIX}"
         assert_isdir(self.python_include_dir)
-
-        python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
-        assert_exists(python_lib)
-        STANDARD_LIBS.add(basename(python_lib))
+        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
+        assert_exists(self.python_lib)
 
         self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
         self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
@@ -194,7 +192,7 @@ class BuildWheel:
             ensure_dir(self.src_dir)
         elif "git_url" in source:
             git_rev = source["git_rev"]
-            is_hash = len(git_rev) == 40
+            is_hash = len(str(git_rev)) == 40
             clone_cmd = "git clone --recurse-submodules"
             if not is_hash:
                 # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
@@ -331,7 +329,7 @@ class BuildWheel:
             for filename in os.listdir(reqs_lib_dir):
                 for pattern, repl in SONAME_PATTERNS:
                     link_filename = re.sub(pattern, repl, filename)
-                    if link_filename in STANDARD_LIBS:
+                    if link_filename in self.standard_libs:
                         continue  # e.g. torch has libc10.so, which would become libc.so.
                     if link_filename != filename:
                         run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
@@ -461,7 +459,7 @@ class BuildWheel:
     # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
     # configure as much as possible via update_env.
     def generate_cmake_toolchain(self):
-        # See build/cmake/android.toolchain.cmake in the Google NDK.
+        # See build/cmake/android.toolchain.cmake in the NDK.
         CMAKE_PROCESSORS = {
             "armeabi-v7a": "armv7-a",
             "arm64-v8a": "aarch64",
@@ -475,12 +473,13 @@ class BuildWheel:
             print(dedent(f"""\
                 set(ANDROID TRUE)
                 set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {self.toolchain})
-
                 set(CMAKE_SYSTEM_NAME Android)
+
                 set(CMAKE_SYSTEM_VERSION {self.api_level})
                 set(ANDROID_PLATFORM_LEVEL {self.api_level})
                 set(ANDROID_NATIVE_API_LEVEL {self.api_level})  # Deprecated, but used by llvm.
 
+                set(ANDROID_ABI {self.abi})
                 set(CMAKE_SYSTEM_PROCESSOR {CMAKE_PROCESSORS[self.abi]})
 
                 # Our requirements dir comes before the sysroot, because the sysroot include
@@ -494,14 +493,17 @@ class BuildWheel:
                 """), file=toolchain_file)
 
             if self.needs_python:
-                python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
                 print(dedent(f"""\
+                    # See https://cmake.org/cmake/help/latest/module/FindPythonLibs.html .
                     # For maximum compatibility, we set both the input and the output variables.
                     SET(PYTHONLIBS_FOUND TRUE)
-                    SET(PYTHON_LIBRARY {python_lib})
-                    SET(PYTHON_LIBRARIES {python_lib})
+                    SET(PYTHON_LIBRARY {self.python_lib})
+                    SET(PYTHON_LIBRARIES {self.python_lib})
                     SET(PYTHON_INCLUDE_DIR {self.python_include_dir})
                     SET(PYTHON_INCLUDE_DIRS {self.python_include_dir})
+                    SET(PYTHON_INCLUDE_PATH {self.python_include_dir})
+
+                    # pybind11's FindPythonLibsNew.cmake has some extra variables.
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
 
@@ -519,6 +521,9 @@ class BuildWheel:
                 found_target = True
             elif found_target:
                 self.api_level = int(word[-2:])
+                self.standard_libs = sum((names for min_level, names in STANDARD_LIBS
+                                          if self.api_level >= min_level),
+                                         start=[])
                 break
         else:
             raise CommandError(f"Failed to detect API level of toolchain {self.toolchain}")
@@ -544,7 +549,7 @@ class BuildWheel:
                                "meta-schema.yaml")
 
         SO_PATTERN = r"\.so(\.|$)"
-        available_libs = set(STANDARD_LIBS)
+        available_libs = set(self.standard_libs)
         for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
             if exists(dir_name):
                 for _, _, filenames in os.walk(dir_name):
