@@ -65,13 +65,13 @@ class ConsoleInputStream(TextIOBase):
 
 
 class ConsoleOutputStream(TextIOBase):
-    """Passes each write to the underlying stream, and also to the given function, which must take
+    """Passes each write to the underlying stream, and also to the given method, which must take
     a single string argument.
     """
-    def __init__(self, stream, func):
+    def __init__(self, stream, obj, method_name):
         TextIOBase.__init__(self)
         self.stream = stream
-        self.func = func
+        self.method = getattr(obj, method_name)
 
     @property
     def encoding(self):
@@ -85,7 +85,7 @@ class ConsoleOutputStream(TextIOBase):
         return True
 
     def write(self, s):
-        self.func(s)
+        self.method(s)
         return self.stream.write(s)
 
     def flush(self):

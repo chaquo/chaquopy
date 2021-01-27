@@ -66,16 +66,14 @@ public abstract class PythonConsoleActivity extends ConsoleActivity {
 
             realStdout = sys.get("stdout");
             realStderr = sys.get("stderr");
-            stdout = redirectOutput(realStdout, this::output);
-            stderr = redirectOutput(realStderr, this::outputError);
+            stdout = redirectOutput(realStdout, "output");
+            stderr = redirectOutput(realStderr, "outputError");
         }
 
-        private PyObject redirectOutput(PyObject stream, OutputFunction func) {
-            return console.callAttr("ConsoleOutputStream", stream, func);
-        }
-
-        private interface OutputFunction {
-            void output(CharSequence text);
+        // We're not using method references, because that would prevent using this code with
+        // old versions of Chaquopy.
+        private PyObject redirectOutput(PyObject stream, String methodName) {
+            return console.callAttr("ConsoleOutputStream", stream, this, methodName);
         }
 
         public void resumeStreams() {
