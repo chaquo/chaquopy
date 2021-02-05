@@ -10,7 +10,7 @@ new_ver=${2:?"$usage"}
 private_src_dir="demo/app/src"
 
 update_version() {
-    sed -i -E "s/python:gradle:[0-9.]+/python:gradle:${new_ver}/" "$1"
+    sed -i -E "s/(com.chaquo.python:gradle):[0-9.]+/\1:${new_ver}/" "$1"
 }
 
 
@@ -59,6 +59,12 @@ sed -i -E "s|commit/[0-9a-f]+|commit/$(git rev-parse HEAD)|" README.md
 git add docs/ISSUE_TEMPLATE.md LICENSE.txt README.md
 git commit -m "Add documentation"
 git branch "$new_ver"
+echo "done"
+
+
+echo -n "matplotlib: "
+public_root="../public/matplotlib"
+update_version "$public_root/build.gradle"
 echo "done"
 
 
