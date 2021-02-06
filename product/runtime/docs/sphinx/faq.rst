@@ -1,0 +1,240 @@
+FAQ
+###
+
+General
+=======
+
+.. _faq-name:
+
+What does Chaquopy's name mean?
+-------------------------------
+
+It comes from Jack London’s use of the word "chechaquo" (now usually spelled `"cheechako"
+<https://en.wiktionary.org/wiki/cheechako>`_), a Native American term meaning “newcomer”. We
+chose it to reflect our goal of opening up new frontiers in how Python can be used.
+
+.. _faq-react:
+
+Does Chaquopy support React Native?
+-----------------------------------
+
+Yes, it can be used with any framework which lets you do the following:
+
+* Add content to your app's build.gradle file.
+* Call Java methods.
+
+.. _faq-ios:
+
+Does Chaquopy support iOS?
+--------------------------
+
+Not at the moment. For a list of ways to use Python in iOS apps, see the `Python wiki
+<https://wiki.python.org/moin/Android>`_ ("iOS" column on the right).
+
+One good option is the `BeeWare <https://beeware.org/>`_ framework. For example, have a look at
+the Electron Cash iOS app (`source code
+<https://github.com/Electron-Cash/Electron-Cash/tree/master/ios>`__, `App Store
+<https://apps.apple.com/us/app/electron-cash/id1359700089>`__), which you can compare with the
+similar Chaquopy-based Android app (`source code
+<https://github.com/Electron-Cash/Electron-Cash/tree/master/android>`__, `Google Play
+<https://play.google.com/store/apps/details?id=org.electroncash.wallet>`__).
+
+
+.. _faq-size:
+
+How can I make my app smaller?
+------------------------------
+
+The main factor in app size is the :ref:`number of ABIs <android-abis>` in your APK. Because of
+the way Chaquopy packages its native components, the `APK splits
+<https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
+<https://developer.android.com/guide/app-bundle/>`_ features will not fully mitigate this.
+
+Instead, if you need to reduce the size of your app, use a `product flavor dimension
+<https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to build
+separate APKs or app bundles for each ABI. If you plan to release your app on Google Play, each
+flavor must also have a `different version code
+<https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_. For
+example:
+
+.. code-block:: groovy
+
+    android {
+        def versionBase = 123
+        flavorDimensions "abi"
+        productFlavors {
+            arm32 {
+                dimension "abi"
+                ndk { abiFilters "armeabi-v7a" }
+                versionCode 1000000 + versionBase
+            }
+            arm64 {
+                dimension "abi"
+                ndk { abiFilters "arm64-v8a" }
+                versionCode 2000000 + versionBase
+            }
+        }
+    }
+
+
+How do I ...
+============
+
+.. _faq-read:
+
+Read files in Python
+--------------------
+
+To read a file from your source code directory, use a path relative to `__file__`, as described
+in the ":ref:`android-data`" section.
+
+To upload files to the device while your app is running, use `os.environ["HOME"]` and the
+Device File Explorer, as described in the ":ref:`android-os`" section.
+
+To read photos, downloads, and other files from the external storage directory ("sdcard"), see
+:ref:`the question below <faq-sdcard>`.
+
+.. _faq-sdcard:
+
+Read files from external storage ("sdcard")
+-------------------------------------------
+
+Since API level 29, Android has a `scoped storage policy
+<https://developer.android.com/training/data-storage#scoped-storage>`_ which prevents direct
+access to external storage, even if your app has the `READ_EXTERNAL_STORAGE` permission.
+Instead, you can use the `system file picker
+<https://developer.android.com/training/data-storage/use-cases#open-document>`_, and pass the
+file to Python as a byte array:
+
+.. code-block:: kotlin
+
+    val REQUEST_OPEN = 0
+
+    fun myMethod() {
+        startActivityForResult(
+            Intent(if (Build.VERSION.SDK_INT >= 19) Intent.ACTION_OPEN_DOCUMENT
+                   else Intent.ACTION_GET_CONTENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                setType("*/*")
+            }, REQUEST_OPEN)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == REQUEST_OPEN && resultCode == RESULT_OK) {
+            val uri = data!!.data!!
+            // For Java, see https://stackoverflow.com/a/10297073
+            val content = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+            myPythonModule.callAttr("process", content)
+        }
+    }
+
+The Python function can then access the file content however you like::
+
+    def process(content):
+        # `content` is already a bytes-like object, but if you need a standard bytes object:
+        content = bytes(content)
+
+        # If you need a file-like object:
+        import io
+        content_file = io.BytesIO(content)
+
+        # If you need a filename (less efficient):
+        import tempfile
+        with tempfile.NamedTemporaryFile() as temp_file:
+            temp_file.write(content)
+            filename = temp_file.name  # Valid only inside the `with` block.
+
+.. _faq-write:
+
+Write files in Python
+---------------------
+
+Use `os.environ["HOME"]`, as described in the ":ref:`android-os`" section.
+
+.. _faq-images:
+
+Pass images to/from Python
+--------------------------
+
+The easiest way is to encode the image as a PNG or JPG file and pass it as a byte array. For an
+example of this, see the `chaquopy-matplotlib <https://github.com/chaquo/chaquopy-matplotlib>`_
+app.
+
+You may get better performance by passing the raw image data as an :ref:`array
+<python-array-convert>`, but then you'll be responsible for using the correct image dimensions
+and pixel format.
+
+.. _faq-callback:
+
+Call back from Python
+---------------------
+
+There are many ways of doing this: here's one example from the Electron Cash project:
+
+* Kotlin code `passes a method reference <https://github.com/Electron-Cash/Electron-Cash/blob/android-4.2.3-2/android/app/src/main/java/org/electroncash/electroncash3/Daemon.kt#L41>`_
+  to Python.
+* The Python code creates a background thread which later `calls the method <https://github.com/Electron-Cash/Electron-Cash/blob/android-4.2.3-2/android/app/src/main/python/electroncash_gui/android/console.py#L235>`_
+  using normal Python syntax.
+
+
+Build errors
+============
+
+First, make sure you're seeing the complete build log in Android Studio:
+
+* In version 3.6 and newer, click the "Build: failed" caption to the left of the message.
+* In version 3.5 and older, click the "Toggle view" button to the left of the message.
+
+Chaquopy cannot compile native code
+-----------------------------------
+
+You're trying to install a native package which we haven't built yet. There may be a different
+version available, in which case there will be a "pre-built wheels" message in the build log.
+Otherwise, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_ for
+help.
+
+No Python interpreter configured for the module
+-----------------------------------------------
+
+This message is harmless: see the ":ref:`android-studio-plugin`" section.
+
+No version of NDK matched the requested version
+-----------------------------------------------
+
+This can be fixed by `installing the NDK version
+<https://developer.android.com/studio/projects/install-ndk#specific-version>`__ mentioned in the
+message, or upgrading to Android Gradle plugin version 4.1 or later.
+
+The warning "Compatible side by side NDK version was not found" is harmless, but can be
+resolved in the same ways.
+
+
+Runtime errors
+==============
+
+Depending on your Android version, a crashing app may show a message that it "has stopped" or
+"keeps stopping", or the app might just disappear. Either way, you can find the stack trace in
+the `Logcat <https://stackoverflow.com/a/23353174>`_. Some of the most common exceptions are
+listed below.
+
+FileNotFoundError
+-----------------
+
+See the questions above about :ref:`reading <faq-read>` and :ref:`writing <faq-write>` files.
+
+Read-only file system
+---------------------
+
+See the question above about :ref:`writing <faq-write>` files.
+
+ModuleNotFoundError
+-------------------
+
+Make sure you've built all required packages into your app using the :ref:`pip block
+<android-requirements>` in build.gradle.
+
+No address associated with hostname
+-----------------------------------
+
+Make sure your app has the `INTERNET permission <https://stackoverflow.com/q/2378607>`_, and
+the device has Internet access.

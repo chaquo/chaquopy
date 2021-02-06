@@ -59,9 +59,6 @@ Container types::
                                                   PyObject.fromJava("HELLO"),
                                                   PyObject.fromJava("world"));
 
-For more examples, see the `demo app <https://github.com/chaquo/chaquopy>`_.
-
-
 Reference
 =========
 

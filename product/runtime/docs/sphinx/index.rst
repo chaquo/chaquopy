@@ -1,40 +1,29 @@
+:hide-toc:
+
 Chaquopy
 ########
-
-.. _quick-start:
 
 Introduction
 ============
 
-For examples of how Chaquopy can be used, see the following open-source apps:
+To start using Chaquopy, see the :doc:`examples <examples>`, then follow the :doc:`setup
+instructions <android>` in your own app.
 
-* `chaquopy-hello <https://github.com/chaquo/chaquopy-hello>`_, a Python version of the Android
-  Studio "Empty Activity" app template.
-* `chaquopy-console <https://github.com/chaquo/chaquopy-console>`_, a template for running Python
-  console scripts in an Android app.
-* The `demo app <https://github.com/chaquo/chaquopy>`_, containing more complex graphical and
-  console activities, as well as the SDK's complete unit test suite.
-
-To start using it in your own app, see the :doc:`setup instructions <android>`.
-
-Reference
-=========
 
 .. toctree::
+   :caption: User guide
    :maxdepth: 1
 
+   examples
    android
    java
    python
    cross
-
-
-Release notes
-=============
+   faq
 
 .. toctree::
+   :caption: History
    :maxdepth: 1
 
    versions
    changelog
-   FAQ <https://chaquo.com/chaquopy/faq/>

@@ -1,25 +1,17 @@
 .. highlight:: groovy
 
-Android
-#######
+Gradle plugin
+#############
 
-Chaquopy is distributed as a plugin for Android's Gradle-based build system.
+Chaquopy is distributed as a plugin for Android's Gradle-based build system. It can be used in
+any app which meets the following requirements:
 
-Prerequisites:
-
-* Android Gradle plugin version should be between 3.4 and 4.1. This is specified as
-  `com.android.tools.build:gradle` in your project's top-level `build.gradle` file, and will
-  usually be the same as your Android Studio version.
-
-  Older versions as far back as 2.2 are supported by older versions of Chaquopy: see :doc:`this
-  page <../versions>`. Newer versions may also work, but have not been tested with this version
-  of Chaquopy.
-
-.. (extra space for consistency)
-
+* In your project's top-level `build.gradle` file, the Android Gradle plugin version
+  (`com.android.tools.build:gradle`) should be between 3.4 and 4.1. Older versions as far back
+  as 2.2 are supported by :doc:`older versions of Chaquopy <../versions>`.
 * `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
-  be at least 16. Older versions as far back as 15 are supported by older versions of
-  Chaquopy: see :doc:`this page <../versions>`.
+  be at least 16. Older versions as far back as 15 are supported by :doc:`older versions of
+  Chaquopy <../versions>`.
 
 
 Basic setup
@@ -62,6 +54,8 @@ be used in one module in a project: either in the app module, or in exactly one 
 Attempting to use it in multiple modules will give the error "More than one file was found with
 OS independent path".
 
+.. _android-abis:
+
 ABI selection
 -------------
 
@@ -74,8 +68,7 @@ setting to specify which ABIs you want the app to support. The currently availab
 * `x86`, for the Android emulator.
 * `x86_64`, for the Android emulator.
 
-During development you'll probably want to enable ABIs for both the emulator and your
-devices, e.g.::
+During development you'll probably want to enable them all, i.e.::
 
     defaultConfig {
         ndk {
@@ -83,52 +76,17 @@ devices, e.g.::
         }
     }
 
+There's no need to actually install the NDK, as all of Chaquopy's native libraries are already
+pre-compiled and stripped.
+
 Each ABI will add several MB to the size of the app, plus the size of any native
-:ref:`requirements <android-requirements>`. Because of the way Chaquopy packages the native
-components, the `APK splits
-<https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
-<https://developer.android.com/guide/app-bundle/>`_ features will not fully mitigate this.
-
-Instead, if you need to reduce the size of your app, use a `product flavor dimension
-<https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to build
-separate APKs or app bundles for each ABI. If you plan to release your app on Google Play, each
-flavor must also have a `different version code
-<https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_. For
-example::
-
-    android {
-        def versionBase = 123
-        flavorDimensions "abi"
-        productFlavors {
-            arm32 {
-                dimension "abi"
-                ndk { abiFilters "armeabi-v7a" }
-                versionCode 1000000 + versionBase
-            }
-            arm64 {
-                dimension "abi"
-                ndk { abiFilters "arm64-v8a" }
-                versionCode 2000000 + versionBase
-            }
-        }
-    }
-
-.. note:: There's no need to actually install the NDK, as all of Chaquopy's native libraries
-          are already pre-compiled and stripped. However, if you already have an NDK installed,
-          you may get the error "No version of NDK matched the requested version". This can be
-          fixed by `installing the version
-          <https://developer.android.com/studio/projects/install-ndk#specific-version>`_
-          mentioned in the message.
-
-          You may also see the warning "Compatible side by side NDK version was not found".
-          This is harmless, but you can silence the warning by installing the requested version
-          as above.
-
+:ref:`requirements <android-requirements>`. If you find this makes your app too large, see
+:ref:`the FAQ <faq-size>`.
 
 .. _buildPython:
 
-Development
-===========
+buildPython
+-----------
 
 Some features require Python 3.5 or later to be available on the build machine. These features
 are indicated by a note in their documentation sections.
@@ -149,6 +107,10 @@ For example, on Windows you might use one of the following::
               buildPython "C:/path/to/py.exe", "-3.8"
           }
       }
+
+
+Development
+===========
 
 .. _android-source:
 
@@ -276,23 +238,18 @@ Static proxy generator
 .. note:: This feature requires Python on the build machine, which can be configured with the
           :ref:`buildPython <buildPython>` setting.
 
-In order for a Python class to extend a Java class, or to be referenced by name in Java code or
-in `AndroidManifest.xml`, a Java proxy class must be generated for it. The `staticProxy`
-setting specifies which Python modules to search for these classes::
+The static proxy feature allows a Python class to extend a Java class, or to be referenced
+directly in Java code or the `AndroidManifest.xml` file without going through the Java API.
+
+To use this feature, write your Python classes using the syntax described in the
+":ref:`static-proxy`" section, then list their containing modules in the `build.gradle` file as
+follows::
 
     defaultConfig {
         python {
             staticProxy "module.one", "module.two"
         }
     }
-
-The app's :ref:`source code <android-source>` and :ref:`requirements <android-requirements>`
-will be searched, in that order, for the specified modules. Either simple modules (e.g.
-`module/one.py`) or packages (e.g. `module/one/__init__.py`) may be used.
-
-Within the modules, static proxy classes must be declared using the syntax described in the
-:ref:`static proxy <static-proxy>` section. For all declarations found, Java proxy classes will be
-generated and built into the app.
 
 
 Packaging
@@ -303,15 +260,30 @@ Packaging
 Data files
 ----------
 
-To save time and space, your app's Python modules are loaded directly from the APK at runtime
-and don't exist as separate files on the device. However, each module's `__file__` and
-`__path__` attributes can still be used in the normal way to find any data files which you
-included in your :ref:`source directory <android-source>`.
+Any data files in your :ref:`source code <android-source>` and :ref:`requirements
+<android-requirements>` will be automatically built into your app. You can read them at runtime
+using a path relative to `__file__`.
 
-To speed up app startup, data files within a top-level package (i.e. a directory containing an
-`__init__.py` file) won't be extracted from the APK until the first time that package is
-imported. All other data files will be extracted the first time the app is started.
+For example, if the data file is in the same directory as the Python file:
 
+.. code-block:: python
+
+    from os.path import dirname, join
+    filename = join(dirname(__file__), "filename.txt")
+
+You can then pass the filename to :any:`open`, or any other function which reads a file.
+
+If the data file and the Python file are in different directories, then change the path
+accordingly. For example, if the Python file is `alpha/hello.py`, and the data file is
+`bravo/filename.txt`, then replace `filename.txt` above with `../bravo/filename.txt`.
+
+Do not write any files to these directories at runtime, as they may be deleted when the app is
+upgraded. Instead, write files to `os.environ["HOME"]`, as described in the ":ref:`android-os`"
+section.
+
+Data files within a top-level package (i.e. a top-level directory containing an `__init__.py`
+file) will not be available until the first time that package is imported. All other data files
+will be available as soon as Python has started.
 
 .. _android-bytecode:
 
@@ -388,6 +360,20 @@ Because Android doesn't support POSIX semaphores, most of the :any:`multiprocess
 fail with the error "This platform lacks a functioning sem_open implementation". The simplest
 solution is to edit your code to use :any:`multiprocessing.dummy` instead.
 
+.. _android-os:
+
+os
+---
+
+`os.environ["HOME"]` is set to your app's `internal storage directory
+<https://developer.android.com/training/data-storage/app-specific>`_. Any files or
+subdirectories created in this location will persist until the app is uninstalled.
+
+If your app is `debuggable <https://developer.android.com/studio/debug#enable-debug>`_, you can
+also read and write this directory from Android Studio using the `Device File Explorer
+<https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
+like `/data/data/your.application.id/files`.
+
 ssl
 ---
 
@@ -398,8 +384,8 @@ used.
 sys
 ---
 
-:any:`sys.stdout` and :any:`sys.stderr` are redirected to `Logcat
-<https://developer.android.com/studio/debug/am-logcat.html>`_ with the tags `python.stdout` and
+:any:`sys.stdout` and :any:`sys.stderr` are redirected to the `Logcat
+<https://developer.android.com/studio/debug/am-logcat.html>`__ with the tags `python.stdout` and
 `python.stderr` respectively. The streams will produce one log line for each call to `write()`,
 which may result in lines being split up in the log. Lines may also be split if they exceed the
 Logcat message length limit of approximately 4000 bytes.
@@ -409,12 +395,14 @@ interactive text input, have a look at the `console app template
 <https://github.com/chaquo/chaquopy-console>`_.
 
 
+.. _android-studio-plugin:
+
 Android Studio plugin
 =====================
 
 To add Python editing suppport to the Android Studio user interface, you may optionally install
 the "Python Community Edition" plugin. However, Chaquopy isn't integrated with this plugin, so
 you'll see the warning "No Python interpreter configured for the module", and your code will
-probably display many error indicators. These are harmless: just go ahead and run your app, and
-if there really is an error, the details will be displayed in the `Logcat
-<https://developer.android.com/studio/debug/am-logcat.html>`_.
+probably display many error indicators such as "Unresolved reference" and "No module named".
+These are harmless: just go ahead and run your app, and if there really is an error, the
+details will be displayed in the `Logcat <https://stackoverflow.com/a/23353174>`__.

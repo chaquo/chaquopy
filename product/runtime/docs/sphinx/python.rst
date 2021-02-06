@@ -144,8 +144,8 @@ including:
 * Getting and setting elements using `[]` syntax. Negative indices are supported.
 * Getting and setting slices using `[:]` syntax. When getting a slice, a new array of the same
   type will be returned.
-* Copying using `copy`. A new array of the same type will be returned.
-* Getting length using `len`, and testing for emptiness using `bool`.
+* Copying using the `copy` method. A new array of the same type will be returned.
+* Getting length using :any:`len`, and testing for emptiness using :any:`bool`.
 * Iteration using `for`, and searching using `in`.
 * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way
   of adding or removing elements.
@@ -158,11 +158,13 @@ useful, so the equivalent Python operations are defined as follows:
 * `==` and `!=` can compare the contents of the array with any sequence.
 * Like Python lists, Java array objects are not hashable in Python because they're mutable.
 
-Creating arrays
-...............
+.. _python-array-create:
 
-Any sequence (except a string) can be passed directly to a Java method or field which
-takes an array type, so there's usually no need to create `jarray` objects directly.
+Creating
+........
+
+There's usually no need to create `jarray` objects directly, because any sequence (except a
+string) can be passed directly to a Java method or field which takes an array type.
 
 However, where a method has multiple array-type overloads, you may need to disambiguate the
 call. For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
@@ -182,37 +184,39 @@ You can also pass an integer to create an array filled with zero, `false` or `nu
     # Python code                                 // Java equivalent
     jarray(jint)(5)                               new int[5]
 
-Conversions
-...........
+.. _python-array-convert:
 
-When converting a Python :any:`bytes` or :any:`bytearray` object to a Java `byte[]` array,
-there is an unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java
-values -128 to -1::
-
-    # Python code                                 // Java equivalent
-    jarray(jbyte)(bytes([0, 127, 128, 255]))      new byte[] {0, 127, -128, -1}
-
-Similarly, when converting a `byte[]` array to a :any:`bytes` or :any:`bytearray` object, there
-is a signed-to-unsigned conversion::
-
-    >>> a = jarray(jbyte)([0, 127, -128, -1])
-    >>> bytes(a)
-    b'\x00\x7f\x80\xff'
+Converting
+..........
 
 Java arrays of `boolean`, `byte`, `short`, `int`, `long`, `float` and `double` all implement
-the Python `buffer protocol <https://docs.python.org/3/c-api/buffer.html>`_, so calling `bytes`
-will return their in-memory representations::
+the Python `buffer protocol <https://docs.python.org/3/c-api/buffer.html>`_. So if you convert
+a Java array to a NumPy array, it will automatically use the correct data type::
+
+    >>> a = jarray(jshort)([0, 32767])
+    >>> numpy.array(a)
+    array([    0, 32767], dtype=int16)
+
+Calling :any:`bytes` on an array will return its in-memory representation::
 
     >>> a = jarray(jshort)([0, 32767])
     >>> bytes(a)
     b'\x00\x00\xff\x7f'
 
-And if you convert a Java array to a NumPy array, it will automatically use the correct data
-type::
+When converting a Python :any:`bytes` or :any:`bytearray` object to a Java `byte[]` array,
+there is an unsigned-to-signed conversion: Python values 128 to 255 will be mapped to Java
+values -128 to -1::
 
-    >>> a = jarray(jshort)([0, 32767])
-    >>> numpy.array(a)
-    array([    0, 32767], dtype=int16)
+    >>> b = bytes([0, 127, 128, 255])
+    >>> jarray(jbyte)(b)
+    jarray('B')([0, 127, -128, -1])
+
+Similarly, when converting a `byte[]` array to a :any:`bytes` or :any:`bytearray` object, there
+is a signed-to-unsigned conversion::
+
+    >>> a = jarray(jbyte)([0, 127, -128, -1])
+    >>> [int(x) for x in bytes(a)]
+    [0, 127, 128, 255]
 
 Casting
 -------
