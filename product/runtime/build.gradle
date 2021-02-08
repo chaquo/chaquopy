@@ -103,7 +103,6 @@ javadoc {
         addStringOption("source", "8")
         addBooleanOption("Xdoclint:all,-missing", true)
         addBooleanOption("nodeprecated", true)
-        addStringOption("noqualifier", "all")
         addStringOption("link", "https://developer.android.com/reference/")
     }
 }

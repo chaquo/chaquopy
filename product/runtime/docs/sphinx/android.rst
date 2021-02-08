@@ -158,28 +158,26 @@ It's important to structure the app so that `Python.start()
 called with an `AndroidPlatform <java/com/chaquo/python/android/AndroidPlatform.html>`_ before
 attempting to run Python code. There are two basic ways to achieve this:
 
-* If the app always uses Python, then call Python.start() from a location which is guaranteed
-  to run exactly once per process, such as `Application.onCreate()
-  <https://developer.android.com/reference/android/app/Application.html#onCreate()>`_. The
-  easiest way to do this is to use the `PyApplication
-  <java/com/chaquo/python/android/PyApplication.html>`_ class. Simply add the following
-  attribute to the `<application>` element in `AndroidManifest.xml`:
+If the app always uses Python, then call Python.start() from a location which is guaranteed
+to run exactly once per process, such as `Application.onCreate()
+<https://developer.android.com/reference/android/app/Application.html#onCreate()>`_. The
+easiest way to do this is to use `PyApplication
+<java/com/chaquo/python/android/PyApplication.html>`_, or your own subclass of it. Simply
+add the following attribute to the `<application>` element in `AndroidManifest.xml`:
 
-  .. code-block:: xml
+.. code-block:: xml
 
-      android:name="com.chaquo.python.android.PyApplication"
+    android:name="com.chaquo.python.android.PyApplication"
 
-  You can also use your own subclass of `PyApplication` here.
+Alternatively, if the app only sometimes uses Python, then call Python.start() after first
+checking whether it's already been started:
 
-* Alternatively, if the app only sometimes uses Python, then call Python.start() after first
-  checking whether it's already been started:
+.. code-block:: java
 
-  .. code-block:: java
-
-      // "context" must be an Activity, Service or Application object from your app.
-      if (! Python.isStarted()) {
-          Python.start(new AndroidPlatform(context));
-      }
+    // "context" must be an Activity, Service or Application object from your app.
+    if (! Python.isStarted()) {
+        Python.start(new AndroidPlatform(context));
+    }
 
 .. _android-requirements:
 
