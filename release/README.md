@@ -75,10 +75,11 @@ which the public repositories were last updated. If the script reports any files
 manual merging (e.g. build.gradle), examine them and update the public repositories as
 necessary.
 
-For each of the following simple demo apps, "Clean Project", then test it on any device:
+For each of the following public demo apps, "Clean Project", then test it on any device:
 
 * `console`
 * `hello`
+* `matplotlib`
 
 Open public `demo` project. "Clean Project", then "Generate Signed APK" with "release" variant
 and all signature schemes.
@@ -117,7 +118,7 @@ If major.minor version number has changed:
 
 ## Version control
 
-Commit public `console`, `demo` and `hello` repositories, and push to chaquo.com and GitHub.
+Commit and push all public repositories.
 
 Commit this repository, add version number tag, and push.
 
