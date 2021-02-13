@@ -484,10 +484,6 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    // No ticket is represented as an empty file rather than a missing one. This saves us
-    // from having to delete the extracted copy if the app is updated to remove the ticket.
-    // (We could pass the ticket to the runtime in some other way, but that would be more
-    // complicated.)
     Task createTicketTask(variant) {
         def localProps = new Properties()
         project.rootProject.file('local.properties').withInputStream {
@@ -514,7 +510,12 @@ class PythonPlugin implements Plugin<Project> {
             inputs.property("app", applicationId)
             inputs.property("key", key)
             doLast {
-                def ticket = "";
+                // No ticket is represented as an empty file rather than a missing one, so we
+                // don't need to delete the extracted copy if the ticket is removed. To work
+                // around https://github.com/Electron-Cash/Electron-Cash/issues/2136, we write
+                // a single space rather than making it completely empty.
+                def ticket = " ";
+
                 if (key.length() > 0) {
                     final def TIMEOUT = 10000
                     def url = ("https://chaquo.com/license/get_ticket" +
@@ -606,7 +607,6 @@ class PythonPlugin implements Plugin<Project> {
                                 .matching { exclude BOOTSTRAP_NATIVE_STDLIB },
                             "$assetDir/${assetZip(Common.ASSET_STDLIB, abi)}")
 
-                    // extend_path is called in runtime/src/main/python/java/__init__.py
                     def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
                     project.copy {
                         into bootstrapDir
@@ -622,7 +622,6 @@ class PythonPlugin implements Plugin<Project> {
                             }
                         }
                     }
-                    new File("$bootstrapDir/java/__init__.py").text = ""
                     project.delete("$assetDir/lib-dynload")
                 }
                 extractResource(Common.ASSET_CACERT, assetDir)

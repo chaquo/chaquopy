@@ -1307,8 +1307,15 @@ class RunGradle(object):
 
         # All AssetFinder ZIPs should be stored uncompressed (see comment in Common.assetZip).
         for info in apk_zip.infolist():
-            if info.filename.endswith(".imy"):
-                self.test.assertEqual(ZIP_STORED, info.compress_type, info.filename)
+            with self.test.subTest(filename=info.filename):
+                if info.filename.endswith(".imy"):
+                    self.test.assertEqual(ZIP_STORED, info.compress_type)
+
+                # Make sure we generate no empty files, as they may be unreadable on API levels
+                # 23-28 if they happen to fall on a 4K boundary
+                # (https://github.com/Electron-Cash/Electron-Cash/issues/2136).
+                self.test.assertGreater(info.compress_size, 0)
+                self.test.assertGreater(info.file_size, 0)
 
         self.check_assets(apk_dir, kwargs)
         self.check_lib(f"{apk_dir}/lib", kwargs)
@@ -1369,9 +1376,8 @@ class RunGradle(object):
                 ["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so", "_json.so",
                  "_random.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(join(bootstrap_native_dir, abi)))
-            self.test.assertCountEqual(
-                ["__init__.py", "chaquopy.so", "chaquopy_android.so"],
-                os.listdir(join(bootstrap_native_dir, abi, "java")))
+            self.test.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
+                                       os.listdir(join(bootstrap_native_dir, abi, "java")))
 
         # Python stdlib
         stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.imy")).namelist())
