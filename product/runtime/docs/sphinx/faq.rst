@@ -20,7 +20,7 @@ Does Chaquopy support React Native?
 
 Yes, it can be used with any framework which lets you do the following:
 
-* Add content to your app's build.gradle file.
+* Add content to your app's build.gradle files.
 * Call Java methods.
 
 .. _faq-ios:
@@ -45,12 +45,21 @@ similar Chaquopy-based Android app (`source code
 How can I make my app smaller?
 ------------------------------
 
-The main factor in app size is the :ref:`number of ABIs <android-abis>` in your APK. Because of
+If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
+<https://www.tensorflow.org/lite/guide>`_:
+
+* Install it by adding `tflite-runtime` to the :ref:`pip block <android-requirements>` of your
+  build.gradle file.
+* `Convert your model <https://www.tensorflow.org/lite/convert/>`_ to tflite format.
+* `Run your model
+  <https://www.tensorflow.org/lite/guide/python#run_an_inference_using_tflite_runtime>`_ using
+  the tflite API.
+
+More generally, try reducing the :ref:`number of ABIs <android-abis>` in your APK. Because of
 the way Chaquopy packages its native components, the `APK splits
 <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
-<https://developer.android.com/guide/app-bundle/>`_ features will not fully mitigate this.
-
-Instead, if you need to reduce the size of your app, use a `product flavor dimension
+<https://developer.android.com/guide/app-bundle/>`_ features won't help much. Instead, use a
+`product flavor dimension
 <https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to build
 separate APKs or app bundles for each ABI. If you plan to release your app on Google Play, each
 flavor must also have a `different version code
@@ -231,7 +240,7 @@ ModuleNotFoundError
 -------------------
 
 Make sure you've built all required packages into your app using the :ref:`pip block
-<android-requirements>` in build.gradle.
+<android-requirements>` in your build.gradle file.
 
 No address associated with hostname
 -----------------------------------
