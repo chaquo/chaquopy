@@ -94,3 +94,13 @@ diff -ur src-original/tensorflow/lite/tools/pip_package/setup.py src/tensorflow/
    if quiet:
      args.append('--quiet')
    if target:
+@@ -124,6 +132,9 @@
+     return super(CustomBuildPy, self).run()
+ 
+ 
++# Chaquopy: needed for make_output below.
++download_dependencies()
++
+ LIB_TFLITE = 'tensorflow-lite'
+ LIB_TFLITE_DIR = make_output('libdir')
+ 

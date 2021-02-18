@@ -4,6 +4,9 @@ package:
   name: tflite-runtime
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://github.com/tensorflow/tensorflow/archive/v{{ version }}.tar.gz
 
