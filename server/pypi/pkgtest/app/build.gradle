@@ -10,7 +10,6 @@ ext.DEFAULT_EXCLUDE_PACKAGES = [
     "cmake-example",
     "python-example",
     "rpi-gpio",
-    "tflite-runtime",
 
     // Conflicts with more popular packages
     "opencv-contrib-python",  // opencv-python
