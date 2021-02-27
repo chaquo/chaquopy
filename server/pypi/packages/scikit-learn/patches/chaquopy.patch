@@ -1,10 +1,11 @@
---- src-original/setup.py       2020-08-04 12:12:58.924675700 +0000
-+++ src/setup.py        2020-11-22 00:05:28.973228427 +0000
-@@ -18,6 +18,12 @@
+--- src-original/setup.py       2021-01-19 11:18:11.824012300 +0000
++++ src/setup.py        2021-02-27 13:51:59.462611504 +0000
+@@ -23,6 +23,13 @@
      # Python 2 compat: just to be able to declare that Python >=3.6 is needed.
      import __builtin__ as builtins
 
 +# Chaquopy
++os.environ["PYTHON_CROSSENV"] = "x"  # Used in sklearn/_build_utils.
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
 +sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
 +builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
@@ -13,46 +14,17 @@
  # This is a bit (!) hackish: we are setting a global variable so that the
  # main sklearn __init__ can detect if it is being loaded by the setup
  # routine, to avoid attempting to load components that aren't built yet:
-@@ -134,6 +140,10 @@
+@@ -139,6 +146,10 @@
                      e.extra_compile_args += openmp_flag
                      e.extra_link_args += openmp_flag
- 
+
 +            # Chaquopy
 +            for e in self.extensions:
 +                e.libraries += ["atomic"]
 +
              build_ext.build_extensions(self)
- 
+
      cmdclass['build_ext'] = build_ext_subclass
---- src-original/sklearn/_build_utils/openmp_helpers.py 2019-12-24 14:59:45.000000000 +0000
-+++ src/sklearn/_build_utils/openmp_helpers.py  2020-01-29 16:48:37.412790263 +0000
-@@ -70,12 +70,9 @@
-         output = compile_test_program(code,
-                                       extra_preargs=extra_preargs,
-                                       extra_postargs=extra_postargs)
--
--        if 'nthreads=' in output[0]:
--            nthreads = int(output[0].strip().split('=')[1])
--            openmp_supported = len(output) == nthreads
--        else:
--            openmp_supported = False
-+        # Chaquopy: removed parsing of output, as compile_test program is patched so it no
-+        # longer runs the program.
-+        openmp_supported = True
- 
-     except (CompileError, LinkError, subprocess.CalledProcessError):
-         openmp_supported = False
---- src-original/sklearn/_build_utils/pre_build_helpers.py      2019-12-24 14:59:45.000000000 +0000
-+++ src/sklearn/_build_utils/pre_build_helpers.py       2020-01-29 16:46:53.489089535 +0000
-@@ -48,7 +48,7 @@
- 
-             # Run test program
-             # will raise a CalledProcessError if return code was non-zero
--            output = subprocess.check_output('./test_program')
-+            output = b"Chaquopy: not running test program"
-             output = output.decode(sys.stdout.encoding or 'utf-8').splitlines()
-         except Exception:
-             raise
 --- src-original/sklearn/__init__.py	2020-08-04 12:12:58.924675700 +0000
 +++ src/sklearn/__init__.py	2020-11-22 01:56:25.744400741 +0000
 @@ -21,6 +21,14 @@

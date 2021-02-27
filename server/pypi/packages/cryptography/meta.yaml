@@ -1,9 +1,6 @@
 package:
   name: cryptography
-  version: 2.8
-
-build:
-  number: 1
+  version: 3.3.2
 
 requirements:
   build:
