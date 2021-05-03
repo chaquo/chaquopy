@@ -221,7 +221,7 @@ class AndroidPlugin(GradleTestCase):
     def test_old(self):
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
-                          "3.4.0 or later: " + self.ADVICE, run.stderr)
+                          "3.5.0 or later: " + self.ADVICE, run.stderr)
 
     def test_untested(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "

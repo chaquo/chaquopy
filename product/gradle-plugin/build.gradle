@@ -109,7 +109,7 @@ Task testIntegrationTask(String version) {
     }
 }
 task("testIntegration", "group": "verification")
-for (version in ["3.4", "3.5", "3.6", "4.0", "4.1", "4.2"]) {
+for (version in ["3.5", "3.6", "4.0", "4.1", "4.2"]) {
     testIntegration.dependsOn(testIntegrationTask(version))
 }
 check.dependsOn(testIntegration)

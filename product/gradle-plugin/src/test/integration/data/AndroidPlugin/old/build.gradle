@@ -2,18 +2,19 @@ buildscript {
     version = file("${System.getenv('chaquopy_root')}/VERSION.txt").text.trim()
 
     repositories {
-        jcenter()
         google()
+        jcenter()
         maven { url "${System.getenv('chaquopy_root')}/maven" }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.3.2'
+        classpath 'com.android.tools.build:gradle:3.4.2'
         classpath "com.chaquo.python:gradle:$version"
     }
 }
 
 allprojects {
     repositories {
+        google()
         jcenter()
     }
 }
