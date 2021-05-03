@@ -22,7 +22,7 @@ class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.4.0")
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("4.1.2")
+    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("4.2.0")
 
     Project project
     ScriptHandler buildscript

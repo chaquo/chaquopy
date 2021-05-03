@@ -224,17 +224,20 @@ class AndroidPlugin(GradleTestCase):
                           "3.4.0 or later: " + self.ADVICE, run.stderr)
 
     def test_untested(self):  # Also tests making a change
+        MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "
+                   "versions beyond 4.2.0.")
         run = self.RunGradle("base")
-        self.assertNotInLong("not been tested with Android Gradle plugin", run.stdout)
+        self.assertNotInLong(MESSAGE, run.stdout)
 
         run.apply_layers("AndroidPlugin/untested")
         try:
-            run.rerun()
+            if os.name == "posix":
+                self.fail("TODO: Java 11 on Linux")
+            run.rerun(env={"JAVA_HOME": r"C:\Program Files\Amazon Corretto\jdk11.0.9_12"})
         except Exception:
             pass  # We don't care whether it succeeds.
-        self.assertInLong(WARNING + "This version of Chaquopy has not been tested with Android "
-                          "Gradle plugin versions beyond 4.1.2. If you experience "
-                          "problems, " + self.ADVICE, run.stdout, re=True)
+        self.assertInLong(f"{WARNING}{MESSAGE} If you experience problems, {self.ADVICE}",
+                          run.stdout, re=True, msg=run.stderr)
 
 
 class Aar(GradleTestCase):
@@ -252,11 +255,12 @@ class Aar(GradleTestCase):
             app=[("one.py", {"content": "one"})],
             pyc=["stdlib"], aar="lib1")
 
-    MULTI_MESSAGE = "More than one file was found with OS independent path 'lib/x86/"
+    MULTI_MESSAGE = (r"(More than one file was found with OS independent|2 files found with) "
+                     r"path 'lib/x86/")
 
     def test_multi_lib(self):
         run = self.RunGradle("base", "Aar/multi_lib", succeed=False)
-        self.assertInLong(self.MULTI_MESSAGE, run.stderr)
+        self.assertInLong(self.MULTI_MESSAGE, run.stderr, re=True)
 
     def test_lib_and_app(self):
         run = self.RunGradle("base", "Aar/lib_and_app")
