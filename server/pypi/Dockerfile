@@ -12,8 +12,8 @@ FROM chaquopy-target
 RUN apt-get update && \
     apt-get install -y automake cmake git libtool ninja-build patch pkg-config swig
 
-# protoc (for PyTorch): needs to be exactly this version.
-RUN version=3.6.1 && \
+# protoc (for PyTorch): use newest version from third_party/protobuf/CHANGES.txt.
+RUN version=3.11.4 && \
     wget https://github.com/protocolbuffers/protobuf/releases/download/v$version/protoc-$version-linux-x86_64.zip && \
     unzip -d /usr protoc-*.zip && \
     rm protoc-*.zip

@@ -1,11 +1,11 @@
-{% set version = "1.4.0" %}
+{% set version = "1.8.1" %}
 
 package:
   name: torch
   version: {{ version }}
 
 build:
-  number: 2
+  number: 1
 
 source:
   git_url: https://github.com/pytorch/pytorch.git
@@ -14,6 +14,7 @@ source:
 requirements:
   build:
     - cmake
+    - typing-extensions 3.10.0.0
   host:
     - python
     - chaquopy-libgfortran 4.9  # arm64-v8a uses ld.bfd, which transitively resolves all symbols.

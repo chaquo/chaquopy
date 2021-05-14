@@ -4,10 +4,10 @@
      ADD_DEFINITIONS(-DHAVE_MMAP=1)
    ENDIF(HAVE_MMAP)
    # done for lseek: https://www.gnu.org/software/libc/manual/html_node/File-Position-Primitive.html
--  ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
+-  add_definitions(-D_FILE_OFFSET_BITS=64)
 +
 +  # Chaquopy: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
-+  # ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++  # add_definitions(-D_FILE_OFFSET_BITS=64)
 +
    CHECK_FUNCTION_EXISTS(shm_open HAVE_SHM_OPEN)
    IF(HAVE_SHM_OPEN)
@@ -24,52 +24,53 @@
  #elif (                   \
      defined(__APPLE__) && \
      (TARGET_IPHONE_SIMULATOR || TARGET_OS_SIMULATOR || TARGET_OS_IPHONE))
---- src-original/cmake/Dependencies.cmake	2020-02-06 11:08:10.683119187 +0000
-+++ src/cmake/Dependencies.cmake	2020-02-05 19:59:52.054372612 +0000
-@@ -1164,7 +1164,7 @@
-   # In mobile build we care about code size, and so we need drop
-   # everything (e.g. checker, optimizer) in onnx but the pb definition.
-   if (ANDROID OR IOS)
--    caffe2_interface_library(onnx_proto onnx_library)
-+    caffe2_interface_library(onnx onnx_library)  # Chaquopy: `onnx` was `onnx_proto`.
-   else()
-     caffe2_interface_library(onnx onnx_library)
+--- src-original/cmake/Dependencies.cmake       2021-05-11 21:00:51.696096396 +0000
++++ src/cmake/Dependencies.cmake        2021-05-11 21:01:28.964119184 +0000
+@@ -1439,7 +1439,7 @@
+     # In mobile build we care about code size, and so we need drop
+     # everything (e.g. checker, optimizer) in onnx but the pb definition.
+     if(ANDROID OR IOS)
+-      caffe2_interface_library(onnx_proto onnx_library)
++      caffe2_interface_library(onnx onnx_library)  # Chaquopy: `onnx` was `onnx_proto`.
+     else()
+       caffe2_interface_library(onnx onnx_library)
+     endif()
+@@ -1642,7 +1642,9 @@
    endif()
-@@ -1340,7 +1340,8 @@
-     add_compile_options(-DUSE_GCC_GET_CPUID)
-   ENDIF()
  
--  FIND_PACKAGE(AVX) # checks AVX and AVX2
+   find_package(VSX) # checks VSX
+-  find_package(AVX) # checks AVX and AVX2
++
 +  # Chaquopy: AVX isn't supported by Android even on x86_64.
-+  # FIND_PACKAGE(AVX) # checks AVX and AVX2
++  # find_package(AVX) # checks AVX and AVX2
  
    # we don't set -mavx and -mavx2 flags globally, but only for specific files
    # however, we want to enable the AVX codepaths, so we still need to
-@@ -1426,7 +1427,10 @@
-       ADD_DEFINITIONS(-DHAVE_MMAP=1)
-     ENDIF(HAVE_MMAP)
+@@ -1740,7 +1742,10 @@
+       add_definitions(-DHAVE_MMAP=1)
+     endif(HAVE_MMAP)
      # done for lseek: https://www.gnu.org/software/libc/manual/html_node/File-Position-Primitive.html
--    ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
+-    add_definitions(-D_FILE_OFFSET_BITS=64)
 +
 +    # Chaquopy: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
-+    # ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
++    # add_definitions(-D_FILE_OFFSET_BITS=64)
 +
      CHECK_FUNCTION_EXISTS(shm_open HAVE_SHM_OPEN)
-     IF(HAVE_SHM_OPEN)
-       ADD_DEFINITIONS(-DHAVE_SHM_OPEN=1)
---- src-original/cmake/MiscCheck.cmake	2020-02-06 11:08:10.683119187 +0000
-+++ src/cmake/MiscCheck.cmake	2020-02-05 18:18:48.966927626 +0000
-@@ -43,7 +43,8 @@
-   # important because with ASAN you might need to help the compiled library find
-   # some dynamic libraries.
-   cmake_push_check_state(RESET)
+     if(HAVE_SHM_OPEN)
+       add_definitions(-DHAVE_SHM_OPEN=1)
+--- src-original/cmake/MiscCheck.cmake  2021-05-11 21:00:51.700096398 +0000
++++ src/cmake/MiscCheck.cmake   2021-05-11 21:11:27.092487443 +0000
+@@ -46,7 +46,8 @@
+   if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_OSX_ARCHITECTURES MATCHES "^(x86_64|arm64)$")
+     list(APPEND CMAKE_REQUIRED_FLAGS "-arch ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+   endif()
 -  CHECK_C_SOURCE_RUNS("
 +  # Chaquopy: was CHECK_C_SOURCE_RUNS
 +  CHECK_C_SOURCE_COMPILES("
    int main() { return 0; }
    " COMPILER_WORKS)
-   if (NOT COMPILER_WORKS)
-@@ -172,6 +173,10 @@
+   if(NOT COMPILER_WORKS)
+@@ -153,6 +154,10 @@
          _mm256_extract_epi64(x, 0); // we rely on this in our AVX2 code
          return 0;
        }" CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
@@ -77,10 +78,10 @@
 +  # Chaquopy: AVX isn't supported by Android even on x86_64.
 +  set(CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS "")
 +
-   if (CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
+   if(CAFFE2_COMPILER_SUPPORTS_AVX2_EXTENSIONS)
      message(STATUS "Current compiler supports avx2 extension. Will build perfkernels.")
      # Also see CMakeLists.txt under caffe2/perfkernels.
-@@ -216,6 +221,10 @@
+@@ -197,6 +202,10 @@
         __mmask16 m = _mm512_cmp_epi32_mask(a, a, _MM_CMPINT_EQ);
         __m512i r = _mm512_andnot_si512(a, a);
       }" CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
@@ -88,7 +89,7 @@
 +# Chaquopy: AVX isn't supported by Android even on x86_64.
 +set(CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS "")
 +
- if (CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
+ if(CAFFE2_COMPILER_SUPPORTS_AVX512_EXTENSIONS)
    message(STATUS "Current compiler supports avx512f extension. Will build fbgemm.")
    # Also see CMakeLists.txt under caffe2/perfkernels.
 --- src-original/cmake/Modules/FindBLAS.cmake	2020-02-06 11:08:10.683119187 +0000
@@ -107,18 +108,18 @@
    CHECK_C_SOURCE_RUNS("
  #include <stdlib.h>
  #include <stdio.h>
-@@ -282,13 +289,17 @@
+@@ -300,13 +307,17 @@
    double r = sdot_(&four, x, &one, y, &one);
    exit((float)r != (float).1234);
  }" BLAS_F2C_FLOAT_WORKS )
-+  ENDIF()
++  ENDIF()  # Chaquopy
 +
    IF (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
      MESSAGE(STATUS "This BLAS uses the F2C return conventions")
      SET(BLAS_F2C TRUE)
    ELSE (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
      SET(BLAS_F2C FALSE)
-   ENDIF (BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
+   ENDIF(BLAS_F2C_DOUBLE_WORKS AND NOT BLAS_F2C_FLOAT_WORKS)
 -  CHECK_C_SOURCE_RUNS("
 +
 +  # Chaquopy: was CHECK_C_SOURCE_RUNS
@@ -126,17 +127,17 @@
  #include <stdlib.h>
  #include <stdio.h>
  float x[4] = { 1, 2, 3, 4 };
---- src-original/CMakeLists.txt	2020-02-06 11:08:10.435120292 +0000
-+++ src/CMakeLists.txt	2020-02-05 13:58:13.845305370 +0000
-@@ -286,7 +286,7 @@
- # Set INTERN_BUILD_MOBILE for all mobile builds. Components that are not
- # applicable to mobile are disabled by this variable.
- if (ANDROID OR IOS)
+--- src-original/CMakeLists.txt 2021-05-11 21:00:51.288096145 +0000
++++ src/CMakeLists.txt  2021-05-11 21:26:01.029029550 +0000
+@@ -444,7 +444,7 @@
+ # force it to do mobile build with host toolchain - which is useful for testing
+ # purpose.
+ if(ANDROID OR IOS OR DEFINED ENV{BUILD_PYTORCH_MOBILE_WITH_HOST_TOOLCHAIN})
 -  set(INTERN_BUILD_MOBILE ON)
 +  # set(INTERN_BUILD_MOBILE ON)  # Chaquopy: this disables things required by the Python build.
- endif()
  
- # Setting `PYTORCH_BUILD_MOBILE` environment variable can force it to do mobile
+   if(DEFINED ENV{BUILD_PYTORCH_MOBILE_WITH_HOST_TOOLCHAIN})
+     # C10_MOBILE is derived from Android/iOS toolchain macros in
 --- a/setup.py
 +++ b/setup.py
 @@ -194,6 +194,16 @@ except NameError:
@@ -165,10 +166,11 @@
                   cmake_only=CMAKE_ONLY,
                   cmake=cmake)
 
-@@ -756,6 +766,12 @@ if __name__ == '__main__':
-
-     extensions, cmdclass, packages, entry_points = configure_extension_build()
-
+@@ -826,6 +836,13 @@
+         long_description = f.read()
+ 
+     version_range_max = max(sys.version_info[1], 8) + 1
++
 +    # Chaquopy: see package_data below.
 +    if os.path.exists("chaquopy"):
 +        shutil.rmtree("chaquopy")
@@ -178,8 +180,8 @@
      setup(
          name=package_name,
          version=version,
-@@ -763,10 +779,14 @@ if __name__ == '__main__':
-                      "Python with strong GPU acceleration"),
+@@ -835,10 +852,16 @@
+         long_description_content_type="text/markdown",
          ext_modules=extensions,
          cmdclass=cmdclass,
 -        packages=packages,
@@ -187,35 +189,35 @@
          entry_points=entry_points,
          install_requires=install_requires,
          package_data={
-+            # Put libraries in chaquopy/lib so the importer can find them.
++            # Chaquopy: move libraries from torch/lib to chaquopy/lib so the importer can find
++            # them, except for libtorch_global_deps.so, which is loaded via a full path in
++            # torch/__init__.py.
 +            'chaquopy': [
-+                'lib/*.so*'
++                'lib/*.so*'  # See exclude_package_data below.
 +            ],
              'torch': [
                  'py.typed',
                  'bin/*',
-@@ -779,7 +799,7 @@ if __name__ == '__main__':
+@@ -851,7 +874,7 @@
                  'nn/*.pyi',
                  'nn/modules/*.pyi',
                  'nn/parallel/*.pyi',
 -                'lib/*.so*',
-+                # Chaquopy: moved 'lib/*.so*' to 'chaquopy' package.
++                'lib/libtorch_global_deps.so',  # Chaquopy: see comment at top of package_data.
                  'lib/*.dylib*',
                  'lib/*.dll',
                  'lib/*.lib',
---- src-original/test/cpp/jit/torch_python_test.cpp	2020-02-06 11:08:10.715119044 +0000
-+++ src/test/cpp/jit/torch_python_test.cpp	2020-02-05 21:03:45.929841114 +0000
-@@ -8,6 +8,10 @@
- void runJITCPPTests(bool runCuda) {
-   TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Windows");
- }
-+#elif defined(__ANDROID__)  // Chaquopy: test code is excluded by BUILD_TEST in setup.py.
-+void runJITCPPTests(bool runCuda) {
-+  TORCH_INTERNAL_ASSERT(false, "JIT tests not yet supported on Android");
-+}
- #else
- #define JIT_TEST(name) test##name();
- TORCH_API void runJITCPPTests(bool runCuda) {
+@@ -969,6 +992,10 @@
+                 'python/serialized_test/data/operator_test/*.zip',
+             ],
+         },
++
++        # Chaquopy: see comment at top of package_data.
++        exclude_package_data={'chaquopy': ['lib/libtorch_global_deps.so']},
++
+         url='https://pytorch.org/',
+         download_url='https://github.com/pytorch/pytorch/tags',
+         author='PyTorch Team',
 --- src-original/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-06 11:09:41.410715150 +0000
 +++ src/third_party/protobuf/cmake/libprotobuf.cmake	2020-02-05 22:02:20.202885629 +0000
 @@ -118,6 +118,10 @@
@@ -229,9 +231,9 @@
  target_include_directories(libprotobuf PUBLIC ${protobuf_source_dir}/src)
  if(MSVC AND protobuf_BUILD_SHARED_LIBS)
    target_compile_definitions(libprotobuf
---- src-original/tools/setup_helpers/cmake.py	2020-02-06 11:08:10.751118883 +0000
-+++ src/tools/setup_helpers/cmake.py	2020-02-05 18:13:06.784345402 +0000
-@@ -284,10 +284,27 @@
+--- src-original/tools/setup_helpers/cmake.py   2021-05-14 14:41:27.789692206 +0000
++++ src/tools/setup_helpers/cmake.py    2021-05-14 13:25:15.685331003 +0000
+@@ -294,12 +294,30 @@
              sys.exit(1)
          build_options.update(cmake__options)
  
@@ -258,10 +260,13 @@
 +                      ONNX_CUSTOM_PROTOC_EXECUTABLE=which("protoc"),
 +                      BLAS="OpenBLAS",
 +                      NATIVE_BUILD_DIR=build_sleef_native,
-+
                        TORCH_BUILD_VERSION=version,
                        NUMPY_INCLUDE_DIR=NUMPY_INCLUDE_DIR,
++                      USE_CUDA="0",
++                      USE_VULKAN="0",  # Disable for now to simplify the build.
                        **build_options)
+ 
+         expected_wrapper = '/usr/local/opt/ccache/libexec'
 --- src-original/tools/setup_helpers/numpy_.py	2020-02-06 11:08:10.751118883 +0000
 +++ src/tools/setup_helpers/numpy_.py	2020-02-04 19:24:56.428522703 +0000
 @@ -10,9 +10,16 @@
