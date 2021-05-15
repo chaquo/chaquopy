@@ -71,9 +71,12 @@ repository.
 Make sure all public repositories are clean.
 
 Run `release_public.sh OLD_VER NEW_VER`, where `OLD_VER` is the label in *this* repository from
-which the public repositories were last updated. If the script reports any files which require
-manual merging (e.g. build.gradle), examine them and update the public repositories as
-necessary.
+which the public repositories were last updated.
+
+If the script reports any files which require manual merging (e.g. build.gradle), examine them
+and update the public repositories as necessary. But do not update the Android Gradle plugin
+version in the public apps until at least one Android Studio release cycle has passed, because
+old versions of Android Studio don't work with new versions of the Android Gradle plugin.
 
 For each of the following public demo apps, "Clean Project", then test it on any device:
 
