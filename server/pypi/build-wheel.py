@@ -191,23 +191,12 @@ class BuildWheel:
         source = self.meta["source"]
         if not source:
             ensure_dir(self.src_dir)
-        elif "git_url" in source:
-            git_rev = source["git_rev"]
-            is_hash = len(str(git_rev)) == 40
-            clone_cmd = "git clone --recurse-submodules"
-            if not is_hash:
-                # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
-                # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
-                clone_cmd += f" -b {git_rev} --depth 1 "
-            run(f"{clone_cmd} {source['git_url']} {self.src_dir}")
-            if is_hash:
-                run(f"git -C {self.src_dir} checkout {git_rev}")
-                run(f"git -C {self.src_dir} submodule update --init")
         elif "path" in source:
             abs_path = abspath(join(self.package_dir, source["path"]))
             run(f"cp -a {abs_path} {self.src_dir}")
         else:
-            source_filename = (self.download_pypi() if source == "pypi"
+            source_filename = (self.download_git(source) if "git_url" in source
+                               else self.download_pypi() if source == "pypi"
                                else self.download_url(source["url"]))
             temp_dir = tempfile.mkdtemp(prefix="build-wheel-")
             if source_filename.endswith("zip"):
@@ -226,10 +215,35 @@ class BuildWheel:
             if exists(f"{self.src_dir}/pyproject.toml"):
                 run(f"rm {self.src_dir}/pyproject.toml")
 
+    def download_git(self, source):
+        git_rev = source["git_rev"]
+        is_hash = len(str(git_rev)) == 40
+
+        # Clones with many submodules can be slow, so cache the clean repository tree.
+        tgz_filename = f"{self.package}-{git_rev}.tar.gz"
+        if exists(tgz_filename):
+            log("Using cached repository")
+        else:
+            clone_cmd = "git clone --recurse-submodules"
+            if not is_hash:
+                # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
+                # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
+                clone_cmd += f" -b {git_rev} --depth 1 "
+            temp_dir = tempfile.mkdtemp(prefix="build-wheel-")
+            run(f"{clone_cmd} {source['git_url']} {temp_dir}")
+            if is_hash:
+                run(f"git -C {temp_dir} checkout {git_rev}")
+                run(f"git -C {temp_dir} submodule update --init")
+
+            run(f"tar -c -C {temp_dir} . -z -f {tgz_filename}")
+            run(f"rm -rf {temp_dir}")
+
+        return tgz_filename
+
     def download_pypi(self):
         sdist_filename = self.find_sdist()
         if sdist_filename:
-            log("Using existing source archive")
+            log("Using cached sdist")
         else:
             result = run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
                          f"--no-binary {self.package} --no-build-isolation "
@@ -257,7 +271,7 @@ class BuildWheel:
     def download_url(self, url):
         source_filename = url[url.rfind("/") + 1:]
         if exists(source_filename):
-            log("Using existing source archive")
+            log("Using cached source archive")
         else:
             run(f"wget {url}")
         return source_filename

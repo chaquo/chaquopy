@@ -267,6 +267,28 @@
                        **build_options)
  
          expected_wrapper = '/usr/local/opt/ccache/libexec'
+--- src-original/third_party/sleef/Configure.cmake      2021-05-16 15:52:44.248780660 +0000
++++ src/third_party/sleef/Configure.cmake       2021-05-16 14:24:56.710089442 +0000
+@@ -101,8 +101,8 @@
+ 
+ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+   set(SLEEF_ARCH_AARCH32 ON CACHE INTERNAL "True for Aarch32 architecture.")
+-  set(COMPILER_SUPPORTS_NEON32 1)
+-  set(COMPILER_SUPPORTS_NEON32VFPV4 1)
++  set(COMPILER_SUPPORTS_NEON32 0)  # Chaquopy: changed from 1 to 0
++  set(COMPILER_SUPPORTS_NEON32VFPV4 0)  # Chaquopy: changed from 1 to 0
+ 
+   set(CLANG_FLAGS_ENABLE_PURECFMA_SCALAR "-mfpu=vfpv4;-fno-strict-aliasing")
+   set(CLANG_FLAGS_ENABLE_PUREC_SCALAR "-fno-strict-aliasing")
+@@ -121,7 +121,7 @@
+ endif()
+ 
+ set(COMPILER_SUPPORTS_PUREC_SCALAR 1)
+-set(COMPILER_SUPPORTS_PURECFMA_SCALAR 1)
++set(COMPILER_SUPPORTS_PURECFMA_SCALAR 0)  # Chaquopy: changed from 1 to 0
+ 
+ # Compiler feature detection
+ 
 --- src-original/tools/setup_helpers/numpy_.py	2020-02-06 11:08:10.751118883 +0000
 +++ src/tools/setup_helpers/numpy_.py	2020-02-04 19:24:56.428522703 +0000
 @@ -10,9 +10,16 @@
