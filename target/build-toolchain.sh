@@ -19,6 +19,27 @@ toolchain=$(realpath -m "toolchains/$abi")
 $ndk/build/tools/make_standalone_toolchain.py --arch $arch --api $api --install-dir $toolchain
 . build-common.sh
 
+# Redirect all compiler scripts to the target-specific ones. In NDK r19, these are the only
+# ones which contain all the workarounds from
+# https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments,
+# such as -mstackrealign for x86.
+clang_target="$(echo $host_triplet | sed 's/^arm-/armv7a-/')$api"
+for name in clang clang++; do
+    # Used by cmake 3.16.3, which ignores the CC and CXX environment variables when it detects
+    # an Android toolchain.
+    ln -sf "$clang_target-$name" "$toolchain/bin/$name"
+
+    # Used by build-common-tools.sh.
+    ln -sf "$clang_target-$name" "$toolchain/bin/$host_triplet-$name"
+
+    # Used by build-wheel.
+    ln -sf "$clang_target-$name" $(echo "$toolchain/bin/$host_triplet-$name" |
+                                   sed 's/clang/gcc/; s/gcc++/g++/')
+
+    # Break what is now an infinite loop.
+    sed -i.old 's|/clang|/clang80|' "$toolchain/bin/$clang_target-$name"
+done
+
 sys_include="$sysroot/usr/include"
 
 function assert_in {
@@ -105,7 +126,7 @@ s|size_t wcsftime(.*| \
 for name in fgetws mbsrtowcs wcsftime; do assert_in "Chaquopy: $name" "$header"; done
 
 # Prevent disabled functions from being referenced in the C++ headers.
-header="$toolchain/include/c++/4.9.x/cwchar"
+header="$sys_include/c++/v1/cwchar"
 sed -i.old 's|using ::wcsftime;| \
 /* Chaquopy: wcsftime is unsafe before API 21: see sysroot/usr/include/wchar.h. */ \
 #if __ANDROID_API__ >= 21 \

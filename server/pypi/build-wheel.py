@@ -466,6 +466,7 @@ class BuildWheel:
             "x86": "i686",
             "x86_64": "x86_64",
         }
+        clang_target = f"{ABIS[self.abi].tool_prefix}{self.api_level}".replace("arm-", "armv7a-")
 
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
         log(f"Generating {toolchain_filename}")
@@ -481,6 +482,11 @@ class BuildWheel:
 
                 set(ANDROID_ABI {self.abi})
                 set(CMAKE_SYSTEM_PROCESSOR {CMAKE_PROCESSORS[self.abi]})
+
+                # cmake 3.16.3 defaults to passing a target containing "none", which isn't
+                # recognized by NDK r19.
+                set(CMAKE_C_COMPILER_TARGET {clang_target})
+                set(CMAKE_CXX_COMPILER_TARGET {clang_target})
 
                 # Our requirements dir comes before the sysroot, because the sysroot include
                 # directory contains headers for third-party libraries like libjpeg which may
@@ -508,25 +514,29 @@ class BuildWheel:
                     """), file=toolchain_file)
 
     def detect_toolchain(self):
-        for abi in ABIS.values():
-            if abi.tool_prefix in os.listdir(self.toolchain):
-                break
-        else:
-            raise CommandError(f"Failed to detect ABI of toolchain {self.toolchain}")
-        self.abi = abi.name
+        clang = f"{self.toolchain}/bin/clang"
+        for word in open(clang).read().split():
+            if word.startswith("--target"):
+                match = re.search(r"^--target=(.+?)(\d+)$", word)
+                if not match:
+                    raise CommandError(f"Couldn't parse '{word}' in {clang}")
 
-        found_target = False
-        for word in open(f"{self.toolchain}/bin/clang").read().split():
-            if word == "-target":
-                found_target = True
-            elif found_target:
-                self.api_level = int(word[-2:])
+                for abi in ABIS.values():
+                    if match[1] == abi.tool_prefix.replace("arm-", "armv7a-"):
+                        self.abi = abi.name
+                        break
+                else:
+                    raise CommandError(f"Unknown triplet '{match[1]}' in {clang}")
+
+                self.api_level = int(match[2])
                 self.standard_libs = sum((names for min_level, names in STANDARD_LIBS
                                           if self.api_level >= min_level),
                                          start=[])
                 break
         else:
-            raise CommandError(f"Failed to detect API level of toolchain {self.toolchain}")
+            raise CommandError(f"Couldn't find target in {clang}")
+        log(f"Toolchain ABI: {self.abi}, API level: {self.api_level}")
+
 
     def fix_wheel(self, in_filename):
         tmp_dir = f"{self.build_dir}/fix_wheel"
