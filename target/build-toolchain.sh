@@ -37,7 +37,7 @@ for name in clang clang++; do
                                    sed 's/clang/gcc/; s/gcc++/g++/')
 
     # Break what is now an infinite loop.
-    sed -i.old 's|/clang|/clang80|' "$toolchain/bin/$clang_target-$name"
+    sed -i.old 's|/clang|/clang90|' "$toolchain/bin/$clang_target-$name"
 done
 
 sys_include="$sysroot/usr/include"

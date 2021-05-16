@@ -4,7 +4,7 @@ FROM chaquopy-base
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
 #   where XX is the NDK version. Check over the `master` version of that document as well.
-RUN yes | android-sdk/cmdline-tools/tools/bin/sdkmanager "ndk;19.2.5345600"
+RUN yes | android-sdk/cmdline-tools/tools/bin/sdkmanager "ndk;21.4.7075529"
 
 RUN apt-get update && \
     apt-get install -y python  # For the NDK's make_standalone_toolchain.py.

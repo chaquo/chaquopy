@@ -54,7 +54,8 @@ STANDARD_LIBS = [
 # TODO: break out the build script fragments which get the actual version numbers from the
 # toolchain, and call them here.
 COMPILER_LIBS = {
-    "libc++_shared.so": ("chaquopy-libcxx", "7000"),
+    "libc++_shared.so": ("chaquopy-libcxx", "10000"),
+    "libomp.so": ("chaquopy-libomp", "9.0.9"),
 }
 
 
@@ -535,8 +536,8 @@ class BuildWheel:
                 break
         else:
             raise CommandError(f"Couldn't find target in {clang}")
-        log(f"Toolchain ABI: {self.abi}, API level: {self.api_level}")
 
+        log(f"Toolchain ABI: {self.abi}, API level: {self.api_level}")
 
     def fix_wheel(self, in_filename):
         tmp_dir = f"{self.build_dir}/fix_wheel"
