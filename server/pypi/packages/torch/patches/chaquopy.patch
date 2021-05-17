@@ -309,6 +309,17 @@
      else:
          # To reach here, the user must has not disabled NumPy build and the
          # NumPy library is present in the system.
+--- a/torch/_utils_internal.py
++++ b/torch/_utils_internal.py
+@@ -40,7 +40,7 @@ def prepare_multiprocessing_environment(path):
+ 
+ 
+ def resolve_library_path(path):
+-    return os.path.realpath(path)
++    return os.path.abspath(path)  # Chaquopy: was realpath (#5717).
+ 
+ 
+ def get_source_lines_and_file(obj, error_msg=None):
 --- src-original/torch/lib/libshm/manager.cpp	2020-02-06 11:08:10.815118599 +0000
 +++ src/torch/lib/libshm/manager.cpp	2020-02-05 20:54:45.104188146 +0000
 @@ -63,7 +63,7 @@

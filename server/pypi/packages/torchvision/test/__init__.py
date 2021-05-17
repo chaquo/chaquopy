@@ -19,8 +19,8 @@ class TestTorchvision(unittest.TestCase):
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])])
 
-        cache_url(models.mobilenet.model_urls["mobilenet_v2"],
-                  f"{torch.hub._get_torch_home()}/checkpoints")
+        cache_url(models.mobilenetv2.model_urls["mobilenet_v2"],
+                  f"{torch.hub._get_torch_home()}/hub/checkpoints")
         model = models.mobilenet_v2(pretrained=True)
         model.eval()
 
