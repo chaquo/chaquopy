@@ -1,0 +1,7 @@
+package:
+  name: pyworld
+  version: 0.2.12
+
+requirements:
+  host:
+    - numpy 1.17.4

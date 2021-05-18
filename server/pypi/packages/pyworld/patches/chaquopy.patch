@@ -1,0 +1,22 @@
+--- src-original/setup.py	2020-10-19 06:31:08.000000000 +0000
++++ src/setup.py	2021-05-05 08:57:57.395348080 +0000
+@@ -26,7 +26,7 @@
+     def finalize_options(self):
+         _build_ext.finalize_options(self)
+         # Prevent numpy from thinking it is still in its setup process:
+-        __builtins__.__NUMPY_SETUP__ = False
++        __builtins__.__NUMPY_SETUP__ = True  # Chaquopy: was False
+         import numpy
+         self.include_dirs.append(numpy.get_include())
+ 
+@@ -48,9 +48,7 @@
+     cmdclass={'build_ext': build_ext},
+     version=_VERSION,
+     packages=find_packages(),
+-    setup_requires=[
+-        'numpy',
+-    ],
++    # Chaquopy: removed setup_requires=['numpy']
+     install_requires=[
+         'numpy',
+         'cython>=0.24.0',
