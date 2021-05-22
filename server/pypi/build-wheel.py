@@ -375,8 +375,12 @@ class BuildWheel:
     def update_env(self):
         env = {}
 
-        # reqs_dir is needed by some setup.py scripts, for example those which call
-        # numpy.get_include().
+        # Some build scripts need to run "-config" scripts of requirements.
+        env["PATH"] = os.pathsep.join([f"{self.reqs_dir}/chaquopy/bin",
+                                       os.environ["PATH"]])
+
+        # build-packages allows us to apply monkey-patches to distutils, while reqs_dir allows
+        # setup.py to import requirements, for example to call numpy.get_include().
         pythonpath = [join(PYPI_DIR, "build-packages"), self.reqs_dir]
         if "PYTHONPATH" in os.environ:
             pythonpath.append(os.environ["PYTHONPATH"])
@@ -583,17 +587,18 @@ class BuildWheel:
 
         reqs = set()
         log("Processing native binaries")
-        for original_path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
-            is_shared = bool(re.search(SO_PATTERN, original_path))
-            is_static = original_path.endswith(".a")
-            is_executable = original_path.startswith("chaquopy/bin")
+        for path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
+            is_shared = bool(re.search(SO_PATTERN, path))
+            is_static = path.endswith(".a")
+            is_executable = (path.startswith("chaquopy/bin/") and
+                             not open(f"{tmp_dir}/{path}", "rb").read().startswith(b"#!"))
             if not any([is_executable, is_shared, is_static]):
                 continue
 
             # Because distutils doesn't propertly support cross-compilation, native
             # modules will be tagged with the build platform, e.g.
             # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
-            original_path = join(tmp_dir, original_path)
+            original_path = join(tmp_dir, path)
             fixed_path = re.sub(r"\.(cpython-[^.]+|abi3)\.so$", ".so", original_path)
             if fixed_path != original_path:
                 run(f"mv {original_path} {fixed_path}")

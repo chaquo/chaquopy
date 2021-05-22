@@ -1,0 +1,8 @@
+{% set version = "7.76.1" %}
+
+package:
+  name: chaquopy-curl
+  version: {{ version }}
+
+source:
+  url: https://curl.se/download/curl-{{ version }}.tar.gz
