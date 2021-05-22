@@ -24,18 +24,6 @@ class TestSoundfile(unittest.TestCase):
                 data, rate = soundfile.read(f)
                 self.check_data(data, rate)
 
-    # Most users of soundfile are only installing it as a requirement of librosa, so do a basic
-    # test of that.
-    def test_librosa(self):
-        from os.path import dirname, join
-        import librosa
-        from librosa.util import normalize
-
-        data, rate = librosa.load(join(dirname(__file__), "test.wav"), sr=None, mono=False)
-        self.check_data(data.T, rate)
-        data_norm = normalize(data, axis=1)
-        self.assertAlmostEqual(1, max(data_norm[0]))
-
     def check_data(self, data, rate):
         self.assertEqual((17792, 2), data.shape)
         self.assertEqual(44100, rate)

@@ -25,7 +25,7 @@ ext.TEST_PACKAGES = [
     "grpcio": ["protobuf"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
-    "soundfile": ["librosa", "numpy"],
+    "soundfile": ["numpy"],
 ]
 
 
