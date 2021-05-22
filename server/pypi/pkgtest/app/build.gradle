@@ -4,25 +4,43 @@ apply plugin: 'com.chaquo.python'
 import com.chaquo.python.Common
 
 
-// Packages not to include in the mass pre-release test.
-ext.DEFAULT_EXCLUDE_PACKAGES = [
-    // Not in the public package repository.
-    "cmake-example",
-    "python-example",
-    "rpi-gpio",
+def PACKAGE_GROUPS = [
+    // Group 0 is not included in regular pre-release testing.
+    [
+        // Not in the public package repository.
+        "cmake-example", "python-example", "rpi-gpio",
 
-    // Conflicts with more popular packages
-    "opencv-contrib-python",  // opencv-python
-    "opencv-contrib-python-headless",  // opencv-python
-    "opencv-python-headless",  // opencv-python
-    "pycrypto",  // pycryptodome
+        // Conflicts with opencv-python and opencv-contrib-python.
+        "opencv-contrib-python-headless", "opencv-python-headless",
+    ],
+    [
+        // Conflicts with more popular packages
+        "opencv-contrib-python",  // opencv-python
+        "pycrypto",  // pycryptodome
+
+        // Test tensorflow and related packages separately to avoid suspected address space
+        // fragmentation problems on some 32-bit devices (#5719).
+        "grpcio", "h5py", "tensorflow", "tflite-runtime",
+    ],
 ]
+
+def defaultGroup = []  // Contains every package which isn't listed above.
+ext.PACKAGES_DIR = "../../packages"
+for (f in file(ext.PACKAGES_DIR).listFiles()) {
+    if (f.isDirectory() &&
+        ! f.name.startsWith("chaquopy-") &&
+        ! PACKAGE_GROUPS.any { f.name in it }) {
+        defaultGroup.add(f.name)
+    }
+}
+PACKAGE_GROUPS.add(defaultGroup)
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
+    "pycurl": ["certifi"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
     "soundfile": ["numpy"],
@@ -43,7 +61,6 @@ android {
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
 
-        // To test everything except DEFAULT_EXCLUDE_PACKAGES, replace the list with `null`.
         addPackages(delegate, [])
         python {
             pip {
@@ -84,34 +101,18 @@ android {
 
 
 def addPackages(flavor, List<String> packages) {
-    def inputDir = "../../packages"
-    def allPackages = false
-    if (packages == null) {
-        allPackages = true
-        packages = []
-        for (f in file(inputDir).listFiles()) {
-            if (f.isDirectory() && !(f.name in DEFAULT_EXCLUDE_PACKAGES)) {
-                packages.add(f.name)
-            }
-        }
-    }
-
     def outputDir = "src/$flavor.name/python/chaquopy/test"
     delete(outputDir)
     mkdir(outputDir)
     String suiteSrc = ""
     for (req in packages) {
         def pkgName = req.split("==")[0]
-        def pkgDir = file("$inputDir/$pkgName")
+        def pkgDir = file("${ext.PACKAGES_DIR}/$pkgName")
         def testPaths = ["test.py", "test"]
             .collect { file("$pkgDir/$it") }
             .findAll { it.exists() }
         if (testPaths.size() != 1) {
-            if (testPaths.isEmpty() && allPackages && pkgName.startsWith("chaquopy-")) {
-                continue  // Probably a non-Python package.
-            } else {
-                throw new GradleException("Found ${testPaths.size()} test files in $pkgDir")
-            }
+            throw new GradleException("Found ${testPaths.size()} test files in $pkgDir")
         }
 
         def testPath = testPaths[0]

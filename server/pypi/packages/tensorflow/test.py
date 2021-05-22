@@ -1,7 +1,9 @@
 import unittest
 
 
-class TestTensorFlow(unittest.TestCase):
+# Run TensorFlow test first to avoid suspected address space fragmentation problems on some
+# 32-bit devices (#5719).
+class Test01TensorFlow(unittest.TestCase):
 
     # Based on https://www.tensorflow.org/guide/keras/train_and_evaluate
     def test_mnist(self):

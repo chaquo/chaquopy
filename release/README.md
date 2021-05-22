@@ -40,8 +40,8 @@ publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:
 
 ## Package tests
 
-Remove license key from pkgtest app, and temporarily set it to include all packages by passing
-`null` to `addPackages`.
+Remove license key from pkgtest app, and temporarily replace the empty list in the
+`addPackages` line with `PACKAGE_GROUPS[1]`.
 
 Temporarily set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case), then test it on
 the following devices, with at least one device being a clean install:
@@ -51,16 +51,14 @@ the following devices, with at least one device being a clean install:
 * x86\_64 emulator with API 21
   * TensorFlow will fail because of #5626, so test that on API 23.
 
-On at least one device, test that the license notification and enforcement works correctly.
+Repeat with `PACKAGE_GROUPS[2]`, and on at least one device, test that the license notification
+and enforcement works correctly.
 
-Restore the license key, then test the following, in each case setting `abiFilters` to just a
-single ABI, and with at least one device being a clean install:
+Restore the license key, then repeat the `PACKAGE_GROUPS[1]` and `[2]` tests on each of the
+following ABIs, in each case setting `abiFilters` to just a single ABI:
 
-* Any armeabi-v7a device
-* Any arm64-v8a device
-
-Do an all-ABI test of opencv-contrib-python and pycrypto, and possibly some of the other
-entries in `DEFAULT_EXCLUDE_PACKAGES`.
+* armeabi-v7a
+* arm64-v8a
 
 
 ## Demo apps
