@@ -26,7 +26,8 @@ repo_root = abspath(join(integration_dir, "../../../../.."))
 # The following properties file should be created manually. It's also used in
 # runtime/build.gradle.
 with open(join(repo_root, "product/local.properties")) as props_file:
-    sdk_dir = javaproperties.load(props_file)["sdk.dir"]
+    product_props = javaproperties.load(props_file)
+sdk_dir = product_props["sdk.dir"]
 
 for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
     match = re.search(r'PYTHON_VERSION = "(.+)";', line)
@@ -225,15 +226,13 @@ class AndroidPlugin(GradleTestCase):
 
     def test_untested(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "
-                   "versions beyond 4.2.0.")
+                   "versions beyond 4.2.1.")
         run = self.RunGradle("base")
         self.assertNotInLong(MESSAGE, run.stdout)
 
         run.apply_layers("AndroidPlugin/untested")
         try:
-            if os.name == "posix":
-                self.fail("TODO: Java 11 on Linux")
-            run.rerun(env={"JAVA_HOME": r"C:\Program Files\Amazon Corretto\jdk11.0.9_12"})
+            run.rerun()
         except Exception:
             pass  # We don't care whether it succeeds.
         self.assertInLong(f"{WARNING}{MESSAGE} If you experience problems, {self.ADVICE}",
@@ -1228,6 +1227,18 @@ class RunGradle(object):
             javaproperties.dump(props, props_file)
 
     def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
+        # Replace Java version number in the template file with the actual Java home path.
+        props_filename = f"{self.project_dir}/gradle.properties"
+        with open(props_filename) as props_file:
+            props = javaproperties.load(props_file)
+        KEY = "org.gradle.java.home"
+        java_home = props[KEY]
+        if not exists(java_home):  # May exist if re-running.
+            java_home = product_props[f"chaquopy.java.home.{java_home}"]
+            props[KEY] = java_home
+            with open(props_filename, "w") as props_file:
+                javaproperties.dump(props, props_file)
+
         if env is None:
             env = {}
         if add_path:
