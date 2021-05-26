@@ -686,7 +686,7 @@ class PythonReqs(GradleTestCase):
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                          "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
                          "tests/__init__.py", "tests/test_import.py"]] +
-                       ["chaquopy_libcxx-7000.dist-info/" + name for name in
+                       ["chaquopy_libcxx-10000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
                        ["murmurhash-0.28.0.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
