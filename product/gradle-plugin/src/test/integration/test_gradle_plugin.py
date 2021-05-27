@@ -1227,20 +1227,12 @@ class RunGradle(object):
             javaproperties.dump(props, props_file)
 
     def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
-        # Replace Java version number in the template file with the actual Java home path.
-        props_filename = f"{self.project_dir}/gradle.properties"
-        with open(props_filename) as props_file:
-            props = javaproperties.load(props_file)
-        KEY = "org.gradle.java.home"
-        java_home = props[KEY]
-        if not exists(java_home):  # May exist if re-running.
-            java_home = product_props[f"chaquopy.java.home.{java_home}"]
-            props[KEY] = java_home
-            with open(props_filename, "w") as props_file:
-                javaproperties.dump(props, props_file)
-
         if env is None:
             env = {}
+        with open(f"{self.project_dir}/gradle.properties") as props_file:
+            java_version = javaproperties.load(props_file)["chaquopy.java.version"]
+            env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
+
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             if os.name == "nt":
