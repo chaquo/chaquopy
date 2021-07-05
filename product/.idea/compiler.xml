@@ -3,7 +3,7 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="1.7">
       <module name="gradle-plugin" target="1.7" />
-      <module name="product.buildSrc" target="1.8" />
+      <module name="product.buildSrc" target="11" />
       <module name="runtime" target="1.7" />
     </bytecodeTargetLevel>
   </component>

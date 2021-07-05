@@ -226,7 +226,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_untested(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "
-                   "versions beyond 4.2.1.")
+                   "versions beyond 4.2.2.")
         run = self.RunGradle("base")
         self.assertNotInLong(MESSAGE, run.stdout)
 

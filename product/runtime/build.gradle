@@ -92,10 +92,6 @@ if (javaHome.endsWith("jre")) {
 task("doc", group: "documentation")
 
 javadoc {
-    // JDK 8 messes up indentation of annotated methods
-    // (https://bugs.openjdk.java.net/browse/JDK-8062647).
-    executable "C:\\Program Files\\Amazon Corretto\\jdk11.0.9_12\\bin\\javadoc.exe"
-
     outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
     title "Chaquopy Java API"
