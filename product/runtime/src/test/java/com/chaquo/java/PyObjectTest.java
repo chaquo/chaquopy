@@ -8,6 +8,7 @@ import org.junit.rules.*;
 import org.junit.runners.*;
 
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsInstanceOf.any;
@@ -576,7 +577,8 @@ public class PyObjectTest {
     @Test
     public void containsKey_fail_type() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
+        thrown.expectMessage(matchesPattern(
+            ".*java.lang.Integer cannot be cast to (class )?java.lang.String.*"));
         builtins.containsKey(42);
     }
 
@@ -678,7 +680,8 @@ public class PyObjectTest {
     @Test
     public void get_fail_type() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
+        thrown.expectMessage(matchesPattern(
+            ".*java.lang.Integer cannot be cast to (class )?java.lang.String.*"));
         pyobjecttest.get(42);
     }
 
@@ -726,7 +729,8 @@ public class PyObjectTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public void put_fail_type() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
+        thrown.expectMessage(matchesPattern(
+            ".*java.lang.Integer cannot be cast to (class )?java.lang.String.*"));
         ((Map)pyobjecttest).put(11, "hello");
     }
 
@@ -755,7 +759,8 @@ public class PyObjectTest {
     @Test
     public void remove_fail_type() {
         thrown.expect(ClassCastException.class);
-        thrown.expectMessage("java.lang.Integer cannot be cast to java.lang.String");
+        thrown.expectMessage(matchesPattern(
+            ".*java.lang.Integer cannot be cast to (class )?java.lang.String.*"));
         pyobjecttest.remove(42);
     }
 

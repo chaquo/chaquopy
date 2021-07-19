@@ -1,4 +1,4 @@
-from os.path import dirname
+from os.path import dirname, exists
 from shutil import which
 from . import config
 
@@ -93,16 +93,16 @@ cdef jvm_lib_path():
         if not os.path.exists(java_home):
             raise Exception(f"JAVA_HOME ({java_home}) does not exist")
 
-    if os.path.exists(f"{java_home}/jre"):
-        jre_home = f"{java_home}/jre"
-    else:
-        jre_home = java_home
-
-    if sys.platform.startswith("darwin"):  # TODO #5482: untested
-        return f"{jre_home}/lib/server/libjvm.dylib"
+    if sys.platform.startswith("darwin"):
+        # TODO #5482: untested
+        subdirs = ["lib"]
+        filename = "libjvm.dylib"
     elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
-        return f"{jre_home}/bin/server/jvm.dll"
+        subdirs = ["jre/bin",  # Java 8
+                   "bin"]      # Java 11
+        filename = "jvm.dll"
     else:  # Assume Linux
+        # TODO #5695: untested
         import platform
         machine2cpu = {
             "amd64": "amd64",
@@ -113,7 +113,16 @@ cdef jvm_lib_path():
             "i686": "i386",
             "x86": "i386",
         }
-        return f"{jre_home}/lib/{machine2cpu[platform.machine().lower()]}/server/libjvm.so"
+        subdirs =[f"jre/lib/{machine2cpu[platform.machine().lower()]}",  # Java 8
+                  "lib"]                                                 # Java 11
+        filename = "libjvm.so"
+
+    for subdir in subdirs:
+        abs_filename = f"{java_home}/{subdir}/server/{filename}"
+        if exists(abs_filename):
+            return abs_filename
+    else:
+        raise Exception(f"Couldn't find {filename} in {java_home}")
 
 
 cpdef detach():

@@ -27,6 +27,11 @@ the following content:
 
     sdk.dir=<Android SDK directory>
     ndk.dir=<Android SDK directory>/ndk/<version>
+    chaquopy.java.home.8=<path>
+    chaquopy.java.home.11=<path>
+
+The java.home paths may point at JREs bundled with Android Studio (4.1 and older use version 8,
+4.2 and newer use version 11), or any other JRE of the given version.
 
 If building with a non-standard license mode, also add the line:
 
@@ -71,6 +76,10 @@ Common prerequisities (on Windows, these must be the MSYS2 versions):
 
 * GCC and binutils.
 * Python of the same major.minor version as you are testing.
+  * On Linux, if your distribution supplies a different Python version, it's easy to build the
+    correct version from source.
+  * On Windows, if MSYS2 has already moved on to the next Python version, download the correct
+    version from http://repo.msys2.org/mingw/mingw64/ and install it with `pacman -U`.
 
 The tests are run by the Gradle tasks `runtime:testPython` and `runtime:testJava`. Or run
 `runtime:check` to test everything at once.

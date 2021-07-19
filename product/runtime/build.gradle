@@ -84,10 +84,11 @@ def sdkDir = getLocalProperty('sdk.dir')
 def ndkDir = getLocalProperty('ndk.dir')
 def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
-def javaHome = System.getProperty("java.home")
-if (javaHome.endsWith("jre")) {
-    javaHome += "/.."
-}
+// Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
+// some of the Python unit tests don't work on Java 11 yet (#5727).
+//
+// This does not affect the Java unit tests, which will use the same Java as Gradle itself.
+def javaHome = getLocalProperty('chaquopy.java.home.8')
 
 task("doc", group: "documentation")
 
@@ -197,6 +198,7 @@ dependencies {
 
     testCompileOnly files(androidJar)
     testImplementation 'junit:junit:4.12'
+    testImplementation 'org.hamcrest:hamcrest-library:2.2'
 }
 
 task("generateStaticProxy", type: Exec, group: "verification") {
@@ -311,6 +313,7 @@ for (abi in ["host"] + Common.ABIS) {
         // "discover".
         task("testPython", type: Exec, group: "verification") {
             workingDir "$projectDir/src/test/python"
+            environment "JAVA_HOME", javaHome
             executable pyPlusVersionExe
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
