@@ -226,7 +226,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_untested(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "
-                   "versions beyond 4.2.2.")
+                   "versions beyond 7.0.0.")
         run = self.RunGradle("base")
         self.assertNotInLong(MESSAGE, run.stdout)
 
@@ -254,7 +254,8 @@ class Aar(GradleTestCase):
             app=[("one.py", {"content": "one"})],
             pyc=["stdlib"], aar="lib1")
 
-    MULTI_MESSAGE = (r"(More than one file was found with OS independent|2 files found with) "
+    MULTI_MESSAGE = (r"(More than one file was found with OS independent|"
+                     r"2 files found (for|with)) "
                      r"path 'lib/x86/")
 
     def test_multi_lib(self):
@@ -265,7 +266,8 @@ class Aar(GradleTestCase):
         run = self.RunGradle("base", "Aar/lib_and_app")
         if agp_version_info >= (4, 0):
             self.assertInLong(self.MULTI_MESSAGE + r".* Future versions of the Android Gradle "
-                              "Plugin will throw an error in this case.", run.stdout, re=True)
+                              "Plugin (will|may) throw an error in this case.",
+                              run.stdout, re=True)
 
     def test_minify(self):
         self.RunGradle("base", "Aar/minify", aar="lib1")
