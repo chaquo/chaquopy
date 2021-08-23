@@ -3,7 +3,7 @@ package:
   version: 1.1.32
 
 build:
-  number: 1
+  number: 2
 
 source:
   url: ftp://xmlsoft.org/libxslt/libxslt-1.1.32.tar.gz
