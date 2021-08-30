@@ -582,7 +582,8 @@ class BuildWheel:
             license_files += [f"{self.src_dir}/{meta_license}"]
         if license_files:
             for name in license_files:
-                run(f"cp {name} {info_dir}")
+                # We use `-a` because pandas comes with a whole directory of licenses.
+                run(f"cp -a {name} {info_dir}")
         else:
             raise CommandError("Couldn't find license file: see license_file in "
                                "meta-schema.yaml")
