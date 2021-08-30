@@ -1,4 +1,4 @@
-import collections.abc
+from collections.abc import Sequence
 import itertools
 
 from cpython cimport Py_buffer
@@ -131,7 +131,7 @@ cdef class JavaArray:
         else:
             self._invalid_key(key)
 
-    # `copy` is not part of the MutableSequence ABC, but the standard types all provide it.
+    # `copy` is not part of the Sequence ABC, but the standard types all provide it.
     def copy(self):
         return self[:]
 
@@ -186,8 +186,29 @@ cdef class JavaArray:
     def __radd__(self, other):
         return list(itertools.chain(other, self))
 
+    # Because JavaArray is a cdef type, it can't inherit the Sequence ABC directly, so we use
+    # the `register` API instead below. However, this doesn't give us the mixin methods, so we
+    # have to implement them all explicitly.
+    #
+    # __contains__, __iter__ and __reversed__ are redundant since we have __getitem__ and
+    # __len__, but some code still requires them to be present, e.g.
+    # https://github.com/pandas-dev/pandas/blob/v1.3.2/pandas/_libs/lib.pyx#L1108
+    def __contains__(self, value):
+        return Sequence.__contains__(self, value)
+    def __iter__(self):
+        return Sequence.__iter__(self)
+    def __reversed__(self):
+        return Sequence.__reversed__(self)
+    def index(self, *args, **kwargs):
+        return Sequence.index(self, *args, **kwargs)
+    def count(self, value):
+        return Sequence.count(self, value)
+
     # Provide a minimal ndarray-style interface for the code at
-    # https://github.com/pandas-dev/pandas/blob/v0.25.3/pandas/core/internals/construction.py#L292
+    # https://github.com/pandas-dev/pandas/blob/v0.25.3/pandas/core/internals/construction.py#L292.
+    # As noted at https://github.com/chaquo/chaquopy/issues/306, newer versions of Pandas are
+    # more restrictive in what the DataFrame constructor accepts, so this code might not be
+    # used anymore, but we'll keep it for backward compatibility.
     @property
     def ndim(self):
         return 1
@@ -200,9 +221,8 @@ cdef class JavaArray:
         import numpy
         return numpy.array(self).reshape(shape)
 
-
-# Because JavaArray is an extension type, it can't inherit an ABC directly.
-collections.abc.MutableSequence.register(JavaArray)
+# We don't register as a MutableSequence because we don't support adding or removing elements.
+Sequence.register(JavaArray)
 
 
 # numpy.array calls __getbuffer__ twice without checking for exceptions in between

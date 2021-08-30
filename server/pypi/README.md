@@ -42,8 +42,13 @@ version of this package. Then run the app on an x86 emulator.
 If any changes are needed to make the tests work, increment the build number in `meta.yaml`
 before re-running `build-wheel.py` as above.
 
-Once it's working on x86, save any edits in the package's `patches` subdirectory, then run
-`build-wheel.py` for all other ABIs, and copy their wheels to the private package repository.
+Once the package itself is working, also test any packages that list it as a requirement in
+meta.yaml, since these usually indicate a dependency on native interfaces which may be less
+stable. Include these packages in all the remaining tests.
+
+Once everything's working on x86, save any edits in the package's `patches` subdirectory, then
+run `build-wheel.py` for all other ABIs, and copy their wheels to the private package
+repository.
 
 Restore `abiFilters` to include all ABIs. Then test the app with the same Chaquopy versions
 used above, on the following devices, with at least one device being a clean install:

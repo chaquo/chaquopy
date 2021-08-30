@@ -468,13 +468,16 @@ class TestArray(FilterWarningsCase):
 
     def test_abc(self):
         from collections import abc
-        for element_type_1d in [jboolean, jbyte, jshort, jint, jlong, jfloat, jdouble, jchar,
-                                String]:
-            for element_type in [element_type_1d, jarray(element_type_1d)]:
-                with self.subTest(element_type=element_type):
-                    cls = jarray(element_type)
-                    self.assertTrue(issubclass(cls, abc.MutableSequence))
-                    self.assertTrue(isinstance(cls([]), abc.MutableSequence))
+        for element_type in [jboolean, jbyte, jshort, jint, jlong, jfloat, jdouble, jchar,
+                             String, jarray(String)]:
+            with self.subTest(element_type=element_type):
+                a = jarray(element_type)([])
+                self.assertIsInstance(a, abc.Sequence)
+                self.assertNotIsInstance(a, abc.MutableSequence)
+                for method in ["__getitem__", "__len__", "__contains__", "__iter__",
+                               "__reversed__", "index", "count"]:
+                    with self.subTest(method=method):
+                        self.assertTrue(hasattr(a, method))
 
     def test_truth(self):
         self.assertFalse(jarray(jboolean)([]))
@@ -532,15 +535,59 @@ class TestArray(FilterWarningsCase):
         hw = jarray(String)(["hello", "world"])
         self.assertEqual([True, False, "hello", "world"], tf + hw)
 
-    def test_iter(self):
-        a = jarray(jint)([1, 2, 3])
-        self.assertEqual([1, 2, 3], [x for x in a])
-
-    def test_in(self):
-        a = jarray(jint)([1, 2])
+    def test_contains(self):
+        a = jarray(jint)([1, 4, 1, 2])
+        self.assertFalse(0 in a)
         self.assertTrue(1 in a)
         self.assertTrue(2 in a)
         self.assertFalse(3 in a)
+        self.assertTrue(4 in a)
+        self.assertFalse(5 in a)
+
+        empty = jarray(jint)([])
+        self.assertFalse(0 in empty)
+        self.assertFalse(1 in empty)
+
+    def test_iter(self):
+        for data in [[], [1], [2, 3], [4, 5, 6]]:
+            with self.subTest(data=data):
+                a = jarray(jint)(data)
+                self.assertEqual(data, [x for x in a])
+
+    def test_reversed(self):
+        for data in [[], [1], [2, 3], [4, 5, 6]]:
+            with self.subTest(data=data):
+                a = jarray(jint)(data)
+                self.assertEqual(list(reversed(data)), list(reversed(a)))
+
+    def test_index(self):
+        a = jarray(jint)([1, 4, 1, 2])
+        self.assertEqual(0, a.index(1))
+        self.assertEqual(3, a.index(2))
+        self.assertEqual(1, a.index(4))
+        for value in [0, 3, 5]:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    a.index(value)
+
+        empty = jarray(jint)([])
+        for value in [0, 1]:
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    empty.index(value)
+
+    def test_count(self):
+        a = jarray(jint)([1, 4, 1, 2])
+        self.assertEqual(0, a.count(0))
+        self.assertEqual(2, a.count(1))
+        self.assertEqual(1, a.count(2))
+        self.assertEqual(0, a.count(3))
+        self.assertEqual(1, a.count(4))
+        self.assertEqual(0, a.count(5))
+
+        empty = jarray(jint)([])
+        self.assertEqual(0, empty.count(0))
+        self.assertEqual(0, empty.count(1))
 
     def test_attributes(self):
         a = jarray(jint)([1, 2, 3])
