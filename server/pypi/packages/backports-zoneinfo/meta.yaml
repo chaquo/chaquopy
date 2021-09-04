@@ -1,0 +1,3 @@
+package:
+  name: backports.zoneinfo
+  version: 0.2.1

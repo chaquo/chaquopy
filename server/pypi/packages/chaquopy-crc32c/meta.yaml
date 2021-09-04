@@ -1,0 +1,16 @@
+# This should match the version of the google_crc32c submodule at
+# https://github.com/googleapis/python-crc32c/tree/VERSION, where VERSION is our version of the
+# google-crc32c Python package.
+{% set version = "1.0.6" %}
+
+package:
+  name: chaquopy-crc32c
+  version: {{ version }}
+
+source:
+  git_url: https://github.com/google/crc32c
+  git_rev: {{ version }}
+
+requirements:
+  build:
+    - cmake
