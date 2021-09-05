@@ -10,6 +10,18 @@ diff -ur src-original/setup.py src/setup.py
  if 'openbsd' in sys.platform:
      CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_openbsd'),)
  SSL_INCLUDE = (os.path.join('third_party', 'boringssl-with-bazel', 'src',
+@@ -115,8 +115,10 @@
+     return os.environ.get(env_name, default).upper() not in ['FALSE', '0', '']
+ 
+ 
++# Chaquopy: disabled asm to avoid having to fix platform detection, This is unlikely to be
++# performance-critical.
+ BUILD_WITH_BORING_SSL_ASM = _env_bool_value('GRPC_BUILD_WITH_BORING_SSL_ASM',
+-                                            'True')
++                                            'False')
+ 
+ # Export this environment variable to override the platform variant that will
+ # be chosen for boringssl assembly optimizations. This option is useful when
 @@ -168,7 +168,8 @@
  EXTRA_ENV_COMPILE_ARGS = os.environ.get('GRPC_PYTHON_CFLAGS', None)
  EXTRA_ENV_LINK_ARGS = os.environ.get('GRPC_PYTHON_LDFLAGS', None)
@@ -46,18 +58,6 @@ diff -ur src-original/setup.py src/setup.py
  if not "win32" in sys.platform:
      EXTENSION_LIBRARIES += ('m',)
  if "win32" in sys.platform:
---- src-original/src/core/lib/gpr/wrap_memcpy.cc        2018-06-01 23:53:55.000000000 +0000
-+++ src/src/core/lib/gpr/wrap_memcpy.cc 2019-03-07 19:58:46.900378870 +0000
-@@ -28,7 +28,8 @@
- 
- extern "C" {
- #ifdef __linux__
--#if defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
-+// Chaquopy disabled: build succeeds, but function hangs at runtime.
-+#if 0 && defined(__x86_64__) && !defined(GPR_MUSL_LIBC_COMPAT)
- __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
- void* __wrap_memcpy(void* destination, const void* source, size_t num) {
-   return memcpy(destination, source, num);
 diff -ur src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
 --- src-original/third_party/cares/config_android/ares_config.h	2018-06-01 23:53:55.000000000 +0000
 +++ src/third_party/cares/config_android/ares_config.h	2018-11-30 23:35:50.419146489 +0000
