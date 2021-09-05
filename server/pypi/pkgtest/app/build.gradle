@@ -35,9 +35,11 @@ PACKAGE_GROUPS.add(defaultGroup)
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
+    "backports-zoneinfo": ["tzdata"],
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
     "pycurl": ["certifi"],
+    "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
     "soundfile": ["numpy"],
