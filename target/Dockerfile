@@ -1,5 +1,7 @@
 FROM chaquopy-base
 
+# This should match the version of ndkDir in product/runtime/build.gradle.
+#
 # When moving to a new version of the NDK, carefully review the following:
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,

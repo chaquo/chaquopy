@@ -1,6 +1,6 @@
 # Introduction
 
-Copyright (c) 2018 Chaquo Ltd
+Copyright (c) 2021 Chaquo Ltd
 
 This repository contains the following components:
 

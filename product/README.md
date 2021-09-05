@@ -10,7 +10,10 @@ Alternatively, you might want to use the automated Docker-based build process: s
 
 # Build prerequisites
 
-* JDK 8 or later.
+* JDK versions 8 and 11. Version 8 is used for the runtime tests (see javaHome in
+  product/runtime/build.gradle), while the integration tests use whichever version was bundled
+  with the corresponding version of Android Studio: 4.1 and older use version 8, while 4.2 and
+  newer use version 11.
 * Python requirements in `runtime/requirements-build.txt`.
 * Android SDK, including the following packages:
    * CMake: see `Dockerfile` for version number.
@@ -29,9 +32,6 @@ the following content:
     ndk.dir=<Android SDK directory>/ndk/<version>
     chaquopy.java.home.8=<path>
     chaquopy.java.home.11=<path>
-
-The java.home paths may point at JREs bundled with Android Studio (4.1 and older use version 8,
-4.2 and newer use version 11), or any other JRE of the given version.
 
 If building with a non-standard license mode, also add the line:
 

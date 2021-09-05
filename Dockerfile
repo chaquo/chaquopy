@@ -26,9 +26,9 @@ COPY server/license/check_ticket.py server/license/
 ARG license_mode
 
 RUN (echo sdk.dir=$(pwd)/android-sdk && \
-     echo -n ndk.dir= && \
-     echo $(pwd)/android-sdk/ndk/* && \
-     echo chaquopy.license_mode=$license_mode) > product/local.properties
+     echo chaquopy.license_mode=$license_mode && \
+     echo chaquopy.java.home.8=$(echo /usr/lib/jvm/java-8-*) && \
+     echo chaquopy.java.home.11=$(echo /usr/lib/jvm/java-11-*)) > product/local.properties
 
 COPY VERSION.txt ./
 

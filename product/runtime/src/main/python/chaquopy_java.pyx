@@ -143,7 +143,7 @@ def redirect_streams():
 
 
 cdef int redirect(int stream_fd, char *filename):
-    file_fd = c_open(filename, O_WRONLY|O_CREAT|O_APPEND)
+    file_fd = c_open(filename, O_WRONLY|O_CREAT|O_APPEND, 0666)
     cdef char buf[64]
     write(file_fd, buf, snprintf(buf, 64, "=== PID %d ===\n", getpid()))
     dup2(file_fd, stream_fd)
