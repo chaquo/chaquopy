@@ -372,6 +372,10 @@ class AbiFilters(GradleTestCase):
                           "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
                           run.stderr)
 
+    def test_all(self):
+        self.RunGradle("base", "AbiFilters/all",
+                       abis=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"])
+
     def test_variant(self):
         self.RunGradle("base", "AbiFilters/variant",
                        variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},

@@ -88,7 +88,7 @@ class TestAndroidPlatform(AndroidTestCase):
                                "_json.so", "_random.so", "_struct.so", "binascii.so",
                                "math.so", "mmap.so", "zlib.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
-        self.assertCountEqual(["__init__.py", "chaquopy.so", "chaquopy_android.so"],
+        self.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
                               os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
 
 
