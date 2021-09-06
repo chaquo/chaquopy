@@ -37,12 +37,13 @@ rm -rf "$tmp_dir"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
-for toolchain_dir in $this_dir/toolchains/*; do
-    abi=$(basename $toolchain_dir)
+for toolchain in $this_dir/toolchains/*; do
+    . "$this_dir/build-common.sh"  # Sets $sysroot and $host_triplet.
+    abi=$(basename $toolchain)
     echo "$abi"
     mkdir "$abi"
     cd "$abi"
-    prefix="$toolchain_dir/sysroot/usr"
+    prefix="$sysroot/usr"
 
     mkdir include
     cp -a "$prefix/include/"{python$short_ver*,openssl,sqlite*} include
@@ -62,14 +63,8 @@ for toolchain_dir in $this_dir/toolchains/*; do
     done
     rm $dynload_dir/*_test*.so
 
-    # x86_64 strip segfaults on every file.
-    if [ $abi = "x86_64" ]; then
-        STRIP="strip"
-    else
-        STRIP=$toolchain_dir/*/bin/strip
-    fi
     chmod u+w $(find -name *.so)
-    $STRIP $(find -name *.so)
+    $toolchain/$host_triplet/bin/strip $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"
@@ -83,7 +78,7 @@ cd stdlib
 rm -r lib-dynload site-packages
 
 # Remove things which depend on missing native modules.
-rm -r curses dbm idlelib tkinter turtle*
+rm -r curses idlelib tkinter turtle*
 
 # Remove things which are large and unnecessary.
 rm -r ensurepip pydoc_data

@@ -420,16 +420,6 @@ class BuildWheel:
             # breaks too many things (e.g. `has_function` in distutils.ccompiler).
             "-Wl,--no-undefined",
 
-            # This directory isn't on the default --rpath-link for some reason, which caused an
-            # error because the linker couldn't find libz when building libxslt against
-            # libxml2. This only affects arm64, because it's the only ABI which uses ld.bfd:
-            # the others all use ld.gold, which doesn't try to resolve transitive shared
-            # library dependencies.
-            #
-            # When we upgrade to a later version of the NDK which uses LLD, we can probably
-            # remove this, along with any other --rpath-link options.
-            f"-Wl,--rpath-link,{self.toolchain}/sysroot/usr/lib/{abi.tool_prefix}/{self.api_level}",
-
             # This currently only affects armeabi-v7a, but could affect other ABIs if the
             # unwinder implementation changes in a future NDK version
             # (https://android.googlesource.com/platform/ndk/+/ndk-release-r21/docs/BuildSystemMaintainers.md#Unwinding).
@@ -446,8 +436,14 @@ class BuildWheel:
         reqs_prefix = f"{self.reqs_dir}/chaquopy"
         if exists(reqs_prefix):
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
+
+            # --rpath-link only affects arm64, because it's the only ABI which uses ld.bfd. The
+            # others all use ld.gold, which doesn't try to resolve transitive shared library
+            # dependencies. When we upgrade to a later version of the NDK which uses LLD, we
+            # can probably remove this flag.
             env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
                                f" -Wl,--rpath-link,{reqs_prefix}/lib")
+
             env["PKG_CONFIG"] = "pkg-config --define-prefix"
             env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
 

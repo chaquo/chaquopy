@@ -150,6 +150,11 @@ static size_t mbstowcs(wchar_t* __dst, const char* __src, size_t __n) { \
 ' "$header"
 assert_in "Chaquopy: mbstowcs" "$header"
 
+# The compiler knows to look in the $host_triplet/$api subdirectory, but most build systems
+# won't. For example, python/setup.py expects to find libz.so here.
+cd "$sysroot/usr/lib"
+ln -s $host_triplet/$api/* .
+
 # On Android, these libraries are incorporated into libc. Create empty .a files so we
 # don't have to patch everything that links against them.
 for name in pthread rt; do

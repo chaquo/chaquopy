@@ -325,8 +325,8 @@ storage space.
 Python standard library
 =======================
 
-Except as discussed below, Chaquopy supports the entire Python standard library. If you
-discover a problem which isn't mentioned here, please `let us know
+Chaquopy supports the entire Python standard library, except for the modules listed below. If you
+discover a problem with any other module, please `let us know
 <https://github.com/chaquo/chaquopy/issues>`_.
 
 .. _stdlib-unsupported:
@@ -346,7 +346,8 @@ The following modules are unsupported because they require libraries which we do
 include:
 
 * :any:`curses`
-* :any:`dbm`
+* :any:`dbm.gnu`
+* :any:`dbm.ndbm`
 * :any:`readline`
 * :any:`tkinter`
 * :any:`turtle`
