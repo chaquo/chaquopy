@@ -343,19 +343,10 @@ class JavaLib(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
-    def test_warning(self):
-        message = (WARNING + "Python 'version' setting is no longer required and should be "
-                   "removed from build.gradle.")
-        run = self.RunGradle("base")
-        self.assertNotInLong(message, run.stdout, re=True)
-        run.apply_layers("PythonVersion/warning")
-        run.rerun()
-        self.assertInLong(message, run.stdout, re=True)
-
     def test_error(self):
         run = self.RunGradle("base", "PythonVersion/error", succeed=False)
         self.assertInLong(
-            f"This version of Chaquopy does not include Python version 3.6.3. "
+            f"Python 'version' setting is no longer supported. "
             f"Either remove 'version' from build.gradle to use Python {PYTHON_VERSION}, or see "
             f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
             run.stderr)

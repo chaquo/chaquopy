@@ -853,15 +853,10 @@ class PythonExtension extends BaseExtension {
     }
 
     void version(String v) {
-        if (v.equals(Common.PYTHON_VERSION)) {
-            println("Warning: Python 'version' setting is no longer required and should be " +
-                    "removed from build.gradle.")
-        } else {
-            throw new GradleException(
-                "This version of Chaquopy does not include Python version $v. " +
-                "Either remove 'version' from build.gradle to use Python $Common.PYTHON_VERSION, " +
-                "or see https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
-        }
+        throw new GradleException(
+            "Python 'version' setting is no longer supported. " +
+            "Either remove 'version' from build.gradle to use Python $Common.PYTHON_VERSION, " +
+            "or see https://chaquo.com/chaquopy/doc/current/versions.html for other options.")
     }
 
     void buildPython(String... bp) {
