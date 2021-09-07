@@ -1028,7 +1028,9 @@ class EggInfoDistribution(BaseInstalledDistribution):
                     # and installation metadata files
                     if not os.path.exists(p):
                         logger.warning('Non-existent file: %s', p)
-                        if p.endswith(('.pyc', '.pyo')):
+                        # Chaquopy: added True: this may happen when a package overrides
+                        # build_ext without overriding get_outputs (#5699).
+                        if True or p.endswith(('.pyc', '.pyo')):
                             continue
                         #otherwise fall through and fail
                     if not os.path.isdir(p):
