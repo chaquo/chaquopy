@@ -11,12 +11,12 @@ from pip._vendor.packaging.version import parse as parse_version
 #       why we ignore the type on this import
 from pip._vendor.six.moves import xmlrpc_client  # type: ignore
 
-from pip._internal.basecommand import SUCCESS, Command
-from pip._internal.compat import get_terminal_size
+from pip._internal.cli.base_command import Command
+from pip._internal.cli.status_codes import NO_MATCHES_FOUND, SUCCESS
 from pip._internal.download import PipXmlrpcTransport
 from pip._internal.exceptions import CommandError
-from pip._internal.models import PyPI
-from pip._internal.status_codes import NO_MATCHES_FOUND
+from pip._internal.models.index import PyPI
+from pip._internal.utils.compat import get_terminal_size
 from pip._internal.utils.logging import indent_log
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,11 @@ def print_results(hits, name_column_width=None, terminal_width=None):
                         logger.info('INSTALLED: %s (latest)', dist.version)
                     else:
                         logger.info('INSTALLED: %s', dist.version)
-                        logger.info('LATEST:    %s', latest)
+                        if parse_version(latest).pre:
+                            logger.info('LATEST:    %s (pre-release; install'
+                                        ' with "pip install --pre")', latest)
+                        else:
+                            logger.info('LATEST:    %s', latest)
         except UnicodeEncodeError:
             pass
 

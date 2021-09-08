@@ -1,16 +1,15 @@
 """Prepares a distribution for installation
 """
 
-import itertools
 import logging
 import os
-import sys
-from copy import copy
 
-from pip._vendor import pkg_resources, requests
+from pip._vendor import requests
 
-from pip._internal.build_env import NoOpBuildEnvironment
-from pip._internal.compat import expanduser
+from pip._internal.distributions import (
+    make_distribution_for_install_requirement,
+)
+from pip._internal.distributions.installed import InstalledDistribution
 from pip._internal.download import (
     is_dir_url, is_file_url, is_vcs_url, unpack_url, url_to_path,
 )
@@ -18,162 +17,44 @@ from pip._internal.exceptions import (
     DirectoryUrlHashUnsupported, HashUnpinned, InstallationError,
     PreviousBuildDirError, VcsHashUnsupported,
 )
-from pip._internal.index import FormatControl
-from pip._internal.req.req_install import InstallRequirement
+from pip._internal.utils.compat import expanduser
 from pip._internal.utils.hashes import MissingHashes
 from pip._internal.utils.logging import indent_log
-from pip._internal.utils.misc import (
-    call_subprocess, display_path, normalize_path,
-)
-from pip._internal.utils.ui import open_spinner
-from pip._internal.vcs import vcs
+from pip._internal.utils.misc import display_path, normalize_path
+from pip._internal.utils.typing import MYPY_CHECK_RUNNING
+
+if MYPY_CHECK_RUNNING:
+    from typing import Optional
+
+    from pip._internal.distributions import AbstractDistribution
+    from pip._internal.download import PipSession
+    from pip._internal.index import PackageFinder
+    from pip._internal.req.req_install import InstallRequirement
+    from pip._internal.req.req_tracker import RequirementTracker
 
 logger = logging.getLogger(__name__)
-
-
-def make_abstract_dist(req):
-    """Factory to make an abstract dist object.
-
-    Preconditions: Either an editable req with a source_dir, or satisfied_by or
-    a wheel link, or a non-editable req with a source_dir.
-
-    :return: A concrete DistAbstraction.
-    """
-    if req.editable:
-        return IsSDist(req)
-    elif req.link and req.link.is_wheel:
-        return IsWheel(req)
-    else:
-        return IsSDist(req)
-
-
-def _install_build_reqs(finder, prefix, build_requirements):
-    # NOTE: What follows is not a very good thing.
-    #       Eventually, this should move into the BuildEnvironment class and
-    #       that should handle all the isolation and sub-process invocation.
-    finder = copy(finder)
-    finder.format_control = FormatControl(set(), set([":all:"]))
-    urls = [
-        finder.find_requirement(
-            InstallRequirement.from_line(r), upgrade=False).url
-        for r in build_requirements
-    ]
-    args = [
-        sys.executable, '-m', 'pip', 'install', '--ignore-installed',
-        '--no-user', '--prefix', prefix,
-    ] + list(urls)
-
-    with open_spinner("Installing build dependencies") as spinner:
-        call_subprocess(args, show_stdout=False, spinner=spinner)
-
-
-class DistAbstraction(object):
-    """Abstracts out the wheel vs non-wheel Resolver.resolve() logic.
-
-    The requirements for anything installable are as follows:
-     - we must be able to determine the requirement name
-       (or we can't correctly handle the non-upgrade case).
-     - we must be able to generate a list of run-time dependencies
-       without installing any additional packages (or we would
-       have to either burn time by doing temporary isolated installs
-       or alternatively violate pips 'don't start installing unless
-       all requirements are available' rule - neither of which are
-       desirable).
-     - for packages with setup requirements, we must also be able
-       to determine their requirements without installing additional
-       packages (for the same reason as run-time dependencies)
-     - we must be able to create a Distribution object exposing the
-       above metadata.
-    """
-
-    def __init__(self, req):
-        self.req = req
-
-    def dist(self, finder):
-        """Return a setuptools Dist object."""
-        raise NotImplementedError(self.dist)
-
-    def prep_for_dist(self, finder):
-        """Ensure that we can get a Dist for this requirement."""
-        raise NotImplementedError(self.dist)
-
-
-class IsWheel(DistAbstraction):
-
-    def dist(self, finder):
-        return list(pkg_resources.find_distributions(
-            self.req.source_dir))[0]
-
-    def prep_for_dist(self, finder, build_isolation):
-        # FIXME:https://github.com/pypa/pip/issues/1112
-        pass
-
-
-class IsSDist(DistAbstraction):
-
-    def dist(self, finder):
-        dist = self.req.get_dist()
-        # FIXME: shouldn't be globally added.
-        if finder and dist.has_metadata('dependency_links.txt'):
-            finder.add_dependency_links(
-                dist.get_metadata_lines('dependency_links.txt')
-            )
-        return dist
-
-    def prep_for_dist(self, finder, build_isolation):
-        # Before calling "setup.py egg_info", we need to set-up the build
-        # environment.
-        build_requirements, isolate = self.req.get_pep_518_info()
-        should_isolate = build_isolation and isolate
-
-        minimum_requirements = ('setuptools', 'wheel')
-        missing_requirements = set(minimum_requirements) - set(
-            pkg_resources.Requirement(r).key
-            for r in build_requirements
-        )
-        if missing_requirements:
-            def format_reqs(rs):
-                return ' and '.join(map(repr, sorted(rs)))
-            logger.warning(
-                "Missing build time requirements in pyproject.toml for %s: "
-                "%s.", self.req, format_reqs(missing_requirements)
-            )
-            logger.warning(
-                "This version of pip does not implement PEP 517 so it cannot "
-                "build a wheel without %s.", format_reqs(minimum_requirements)
-            )
-
-        if should_isolate:
-            with self.req.build_env:
-                pass
-            _install_build_reqs(finder, self.req.build_env.path,
-                                build_requirements)
-        else:
-            self.req.build_env = NoOpBuildEnvironment(no_clean=False)
-
-        self.req.run_egg_info()
-        self.req.assert_source_matches_version()
-
-
-class Installed(DistAbstraction):
-
-    def dist(self, finder):
-        return self.req.satisfied_by
-
-    def prep_for_dist(self, finder):
-        pass
 
 
 class RequirementPreparer(object):
     """Prepares a Requirement
     """
 
-    def __init__(self, build_dir, download_dir, src_dir, wheel_download_dir,
-                 progress_bar, build_isolation):
+    def __init__(
+        self,
+        build_dir,  # type: str
+        download_dir,  # type: Optional[str]
+        src_dir,  # type: str
+        wheel_download_dir,  # type: Optional[str]
+        progress_bar,  # type: str
+        build_isolation,  # type: bool
+        req_tracker  # type: RequirementTracker
+    ):
+        # type: (...) -> None
         super(RequirementPreparer, self).__init__()
 
         self.src_dir = src_dir
         self.build_dir = build_dir
+        self.req_tracker = req_tracker
 
         # Where still packed archives should be written to. If None, they are
         # not saved, and are deleted immediately after unpacking.
@@ -198,6 +79,7 @@ class RequirementPreparer(object):
 
     @property
     def _download_should_save(self):
+        # type: () -> bool
         # TODO: Modify to reduce indentation needed
         if self.download_dir:
             self.download_dir = expanduser(self.download_dir)
@@ -210,8 +92,15 @@ class RequirementPreparer(object):
                     % display_path(self.download_dir))
         return False
 
-    def prepare_linked_requirement(self, req, session, finder,
-                                   upgrade_allowed, require_hashes):
+    def prepare_linked_requirement(
+        self,
+        req,  # type: InstallRequirement
+        session,  # type: PipSession
+        finder,  # type: PackageFinder
+        upgrade_allowed,  # type: bool
+        require_hashes  # type: bool
+    ):
+        # type: (...) -> AbstractDistribution
         """Prepare a requirement that would be obtained from req.link
         """
         # TODO: Breakup into smaller functions
@@ -320,16 +209,25 @@ class RequirementPreparer(object):
                     'error %s for URL %s' %
                     (req, exc, req.link)
                 )
-            abstract_dist = make_abstract_dist(req)
-            abstract_dist.prep_for_dist(finder, self.build_isolation)
+            abstract_dist = make_distribution_for_install_requirement(req)
+            with self.req_tracker.track(req):
+                abstract_dist.prepare_distribution_metadata(
+                    finder, self.build_isolation,
+                )
             if self._download_should_save:
                 # Make a .zip of the source_dir we already created.
-                if req.link.scheme in vcs.all_schemes:
+                if not req.link.is_artifact:
                     req.archive(self.download_dir)
         return abstract_dist
 
-    def prepare_editable_requirement(self, req, require_hashes, use_user_site,
-                                     finder):
+    def prepare_editable_requirement(
+        self,
+        req,  # type: InstallRequirement
+        require_hashes,  # type: bool
+        use_user_site,  # type: bool
+        finder  # type: PackageFinder
+    ):
+        # type: (...) -> AbstractDistribution
         """Prepare an editable requirement
         """
         assert req.editable, "cannot prepare a non-editable req as editable"
@@ -346,8 +244,11 @@ class RequirementPreparer(object):
             req.ensure_has_source_dir(self.src_dir)
             req.update_editable(not self._download_should_save)
 
-            abstract_dist = make_abstract_dist(req)
-            abstract_dist.prep_for_dist(finder, self.build_isolation)
+            abstract_dist = make_distribution_for_install_requirement(req)
+            with self.req_tracker.track(req):
+                abstract_dist.prepare_distribution_metadata(
+                    finder, self.build_isolation,
+                )
 
             if self._download_should_save:
                 req.archive(self.download_dir)
@@ -355,7 +256,13 @@ class RequirementPreparer(object):
 
         return abstract_dist
 
-    def prepare_installed_requirement(self, req, require_hashes, skip_reason):
+    def prepare_installed_requirement(
+        self,
+        req,  # type: InstallRequirement
+        require_hashes,  # type: bool
+        skip_reason  # type: str
+    ):
+        # type: (...) -> AbstractDistribution
         """Prepare an already-installed requirement
         """
         assert req.satisfied_by, "req should have been satisfied but isn't"
@@ -375,6 +282,6 @@ class RequirementPreparer(object):
                     'completely repeatable environment, install into an '
                     'empty virtualenv.'
                 )
-            abstract_dist = Installed(req)
+            abstract_dist = InstalledDistribution(req)
 
         return abstract_dist

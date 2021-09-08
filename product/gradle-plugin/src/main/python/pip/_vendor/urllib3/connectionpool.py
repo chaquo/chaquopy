@@ -26,6 +26,7 @@ from .exceptions import (
 from .packages.ssl_match_hostname import CertificateError
 from .packages import six
 from .packages.six.moves import queue
+from .packages.rfc3986.normalizers import normalize_host
 from .connection import (
     port_by_scheme,
     DummyConnection,
@@ -40,12 +41,9 @@ from .util.request import set_file_position
 from .util.response import assert_header_parsing
 from .util.retry import Retry
 from .util.timeout import Timeout
-from .util.url import get_host, Url
+from .util.url import get_host, Url, NORMALIZABLE_SCHEMES
+from .util.queue import LifoQueue
 
-
-if six.PY2:
-    # Queue is imported for side effects on MS Windows
-    import Queue as _unused_module_Queue  # noqa: F401
 
 xrange = six.moves.xrange
 
@@ -62,13 +60,13 @@ class ConnectionPool(object):
     """
 
     scheme = None
-    QueueCls = queue.LifoQueue
+    QueueCls = LifoQueue
 
     def __init__(self, host, port=None):
         if not host:
             raise LocationValueError("No host specified.")
 
-        self.host = _ipv6_host(host).lower()
+        self.host = _normalize_host(host, scheme=self.scheme)
         self._proxy_host = host.lower()
         self.port = port
 
@@ -92,7 +90,7 @@ class ConnectionPool(object):
 
 
 # This is taken from http://hg.python.org/cpython/file/7aaba721ebc0/Lib/socket.py#l252
-_blocking_errnos = set([errno.EAGAIN, errno.EWOULDBLOCK])
+_blocking_errnos = {errno.EAGAIN, errno.EWOULDBLOCK}
 
 
 class HTTPConnectionPool(ConnectionPool, RequestMethods):
@@ -204,8 +202,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         Return a fresh :class:`HTTPConnection`.
         """
         self.num_connections += 1
-        log.debug("Starting new HTTP connection (%d): %s",
-                  self.num_connections, self.host)
+        log.debug("Starting new HTTP connection (%d): %s:%s",
+                  self.num_connections, self.host, self.port or "80")
 
         conn = self.ConnectionCls(host=self.host, port=self.port,
                                   timeout=self.timeout.connect_timeout,
@@ -316,7 +314,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         # Catch possible read timeouts thrown as SSL errors. If not the
         # case, rethrow the original. We need to do this because of:
         # http://bugs.python.org/issue10272
-        if 'timed out' in str(err) or 'did not complete (read)' in str(err):  # Python 2.6
+        if 'timed out' in str(err) or 'did not complete (read)' in str(err):  # Python < 2.7.4
             raise ReadTimeoutError(self, url, "Read timed out. (read timeout=%s)" % timeout_value)
 
     def _make_request(self, conn, method, url, timeout=_Default, chunked=False,
@@ -376,9 +374,11 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         # Receive the response from the server
         try:
-            try:  # Python 2.7, use buffering of HTTP responses
+            try:
+                # Python 2.7, use buffering of HTTP responses
                 httplib_response = conn.getresponse(buffering=True)
-            except TypeError:  # Python 2.6 and older, Python 3
+            except TypeError:
+                # Python 3
                 try:
                     httplib_response = conn.getresponse()
                 except Exception as e:
@@ -411,6 +411,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         """
         Close all pooled connections and disable the pool.
         """
+        if self.pool is None:
+            return
         # Disable access to the pool
         old_pool, self.pool = self.pool, None
 
@@ -433,8 +435,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         # TODO: Add optional support for socket.gethostbyname checking.
         scheme, host, port = get_host(url)
-
-        host = _ipv6_host(host).lower()
+        if host is not None:
+            host = _normalize_host(host, scheme=scheme)
 
         # Use explicit default port for comparison when none is given
         if self.port and not port:
@@ -673,7 +675,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 # released back to the pool once the entire response is read
                 response.read()
             except (TimeoutError, HTTPException, SocketError, ProtocolError,
-                    BaseSSLError, SSLError) as e:
+                    BaseSSLError, SSLError):
                 pass
 
         # Handle redirect?
@@ -747,8 +749,8 @@ class HTTPSConnectionPool(HTTPConnectionPool):
     If ``assert_hostname`` is False, no verification is done.
 
     The ``key_file``, ``cert_file``, ``cert_reqs``, ``ca_certs``,
-    ``ca_cert_dir``, and ``ssl_version`` are only used if :mod:`ssl` is
-    available and are fed into :meth:`urllib3.util.ssl_wrap_socket` to upgrade
+    ``ca_cert_dir``, ``ssl_version``, ``key_password`` are only used if :mod:`ssl`
+    is available and are fed into :meth:`urllib3.util.ssl_wrap_socket` to upgrade
     the connection socket into an SSL socket.
     """
 
@@ -760,7 +762,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
                  block=False, headers=None, retries=None,
                  _proxy=None, _proxy_headers=None,
                  key_file=None, cert_file=None, cert_reqs=None,
-                 ca_certs=None, ssl_version=None,
+                 key_password=None, ca_certs=None, ssl_version=None,
                  assert_hostname=None, assert_fingerprint=None,
                  ca_cert_dir=None, **conn_kw):
 
@@ -768,12 +770,10 @@ class HTTPSConnectionPool(HTTPConnectionPool):
                                     block, headers, retries, _proxy, _proxy_headers,
                                     **conn_kw)
 
-        if ca_certs and cert_reqs is None:
-            cert_reqs = 'CERT_REQUIRED'
-
         self.key_file = key_file
         self.cert_file = cert_file
         self.cert_reqs = cert_reqs
+        self.key_password = key_password
         self.ca_certs = ca_certs
         self.ca_cert_dir = ca_cert_dir
         self.ssl_version = ssl_version
@@ -788,6 +788,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
 
         if isinstance(conn, VerifiedHTTPSConnection):
             conn.set_cert(key_file=self.key_file,
+                          key_password=self.key_password,
                           cert_file=self.cert_file,
                           cert_reqs=self.cert_reqs,
                           ca_certs=self.ca_certs,
@@ -802,17 +803,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         Establish tunnel connection early, because otherwise httplib
         would improperly set Host: header to proxy's IP:port.
         """
-        # Python 2.7+
-        try:
-            set_tunnel = conn.set_tunnel
-        except AttributeError:  # Platform-specific: Python 2.6
-            set_tunnel = conn._set_tunnel
-
-        if sys.version_info <= (2, 6, 4) and not self.proxy_headers:  # Python 2.6.4 and older
-            set_tunnel(self._proxy_host, self.port)
-        else:
-            set_tunnel(self._proxy_host, self.port, self.proxy_headers)
-
+        conn.set_tunnel(self._proxy_host, self.port, self.proxy_headers)
         conn.connect()
 
     def _new_conn(self):
@@ -820,8 +811,8 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         Return a fresh :class:`httplib.HTTPSConnection`.
         """
         self.num_connections += 1
-        log.debug("Starting new HTTPS connection (%d): %s",
-                  self.num_connections, self.host)
+        log.debug("Starting new HTTPS connection (%d): %s:%s",
+                  self.num_connections, self.host, self.port or "443")
 
         if not self.ConnectionCls or self.ConnectionCls is DummyConnection:
             raise SSLError("Can't connect to HTTPS URL because the SSL "
@@ -835,7 +826,9 @@ class HTTPSConnectionPool(HTTPConnectionPool):
 
         conn = self.ConnectionCls(host=actual_host, port=actual_port,
                                   timeout=self.timeout.connect_timeout,
-                                  strict=self.strict, **self.conn_kw)
+                                  strict=self.strict, cert_file=self.cert_file,
+                                  key_file=self.key_file, key_password=self.key_password,
+                                  **self.conn_kw)
 
         return self._prepare_conn(conn)
 
@@ -886,9 +879,9 @@ def connection_from_url(url, **kw):
         return HTTPConnectionPool(host, port=port, **kw)
 
 
-def _ipv6_host(host):
+def _normalize_host(host, scheme):
     """
-    Process IPv6 address literals
+    Normalize hosts for comparisons and use with sockets.
     """
 
     # httplib doesn't like it when we include brackets in IPv6 addresses
@@ -897,9 +890,8 @@ def _ipv6_host(host):
     # Instead, we need to make sure we never pass ``None`` as the port.
     # However, for backward compatibility reasons we can't actually
     # *assert* that.  See http://bugs.python.org/issue28539
-    #
-    # Also if an IPv6 address literal has a zone identifier, the
-    # percent sign might be URIencoded, convert it back into ASCII
     if host.startswith('[') and host.endswith(']'):
-        host = host.replace('%25', '%').strip('[]')
+        host = host.strip('[]')
+    if scheme in NORMALIZABLE_SCHEMES:
+        host = normalize_host(host)
     return host

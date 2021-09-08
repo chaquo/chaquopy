@@ -7,6 +7,7 @@ from ._collections import RecentlyUsedContainer
 from .connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from .connectionpool import port_by_scheme
 from .exceptions import LocationValueError, MaxRetryError, ProxySchemeUnknown
+from .packages import six
 from .packages.six.moves.urllib.parse import urljoin
 from .request import RequestMethods
 from .util.url import parse_url
@@ -19,7 +20,8 @@ __all__ = ['PoolManager', 'ProxyManager', 'proxy_from_url']
 log = logging.getLogger(__name__)
 
 SSL_KEYWORDS = ('key_file', 'cert_file', 'cert_reqs', 'ca_certs',
-                'ssl_version', 'ca_cert_dir', 'ssl_context')
+                'ssl_version', 'ca_cert_dir', 'ssl_context',
+                'key_password')
 
 # All known keyword arguments that could be provided to the pool manager, its
 # pools, or the underlying connections. This is used to construct a pool key.
@@ -33,6 +35,7 @@ _key_fields = (
     'key_block',  # bool
     'key_source_address',  # str
     'key_key_file',  # str
+    'key_key_password',  # str
     'key_cert_file',  # str
     'key_cert_reqs',  # str
     'key_ca_certs',  # str
@@ -47,6 +50,7 @@ _key_fields = (
     'key__socks_options',  # dict
     'key_assert_hostname',  # bool or string
     'key_assert_fingerprint',  # str
+    'key_server_hostname',  # str
 )
 
 #: The namedtuple class used to construct keys for the connection pool.
@@ -312,8 +316,9 @@ class PoolManager(RequestMethods):
 
         kw['assert_same_host'] = False
         kw['redirect'] = False
+
         if 'headers' not in kw:
-            kw['headers'] = self.headers
+            kw['headers'] = self.headers.copy()
 
         if self.proxy is not None and u.scheme == "http":
             response = conn.urlopen(method, url, **kw)
@@ -334,6 +339,16 @@ class PoolManager(RequestMethods):
         retries = kw.get('retries')
         if not isinstance(retries, Retry):
             retries = Retry.from_int(retries, redirect=redirect)
+
+        # Strip headers marked as unsafe to forward to the redirected location.
+        # Check remove_headers_on_redirect to avoid a potential network call within
+        # conn.is_same_host() which may use socket.gethostbyname() in the future.
+        if (retries.remove_headers_on_redirect
+                and not conn.is_same_host(redirect_location)):
+            headers = list(six.iterkeys(kw['headers']))
+            for header in headers:
+                if header.lower() in retries.remove_headers_on_redirect:
+                    kw['headers'].pop(header, None)
 
         try:
             retries = retries.increment(method, url, response=response, _pool=conn)
@@ -358,7 +373,7 @@ class ProxyManager(PoolManager):
         The URL of the proxy to be used.
 
     :param proxy_headers:
-        A dictionary contaning headers that will be sent to the proxy. In case
+        A dictionary containing headers that will be sent to the proxy. In case
         of HTTP they are being sent with each request, while in the
         HTTPS/CONNECT case they are sent only once. Could be used for proxy
         authentication.
