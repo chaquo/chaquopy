@@ -658,6 +658,16 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("No matching distribution found for chaquopy-nonexistent", run.stderr)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
+    # https://github.com/chaquo/chaquopy/issues/468
+    @skipUnless(os.name == "posix", "Requires symlink support")
+    def test_symlink(self):
+        run = self.RunGradle("base", "PythonReqs/1a", run=False)
+        link_path = f"{run.project_dir}/app"
+        real_path = f"{run.project_dir}/app_real"
+        os.rename(link_path, real_path)
+        os.symlink(real_path, link_path)
+        run.rerun(requirements=["apple/__init__.py"])
+
     def test_buildpython(self):
         # Use a fresh RunGradle instance for each test in order to clear the pip cache.
         layers = ["base", "PythonReqs/buildpython"]

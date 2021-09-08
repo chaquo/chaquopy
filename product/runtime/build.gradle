@@ -184,7 +184,7 @@ cythonTask("cythonAndroid") {
 
 // With version 3.10.2.4988404, the cmakeBuild-host task alters build.ninja, which causes the
 // slow cmake-host task to be rerun on every build.
-def sdkCmakeDir = "$sdkDir/cmake/3.6.4111459"
+def sdkCmakeDir = "$sdkDir/cmake/3.6.4111459"  // Should match the version in the root Dockerfile.
 
 def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
 if (!file(androidJar).exists()) {
@@ -228,12 +228,17 @@ for (abi in ["host"] + Common.ABIS) {
     def cmake = task("cmake-$abi", type: Exec, group: "build") {
         dependsOn cythonPython, cythonJava
         inputs.files "CMakeLists.txt"
-        inputs.property("cmakeBuildType", cmakeBuildType)
+        // This is not a complete list of the outputs, but it's enough to detect when the
+        // directory has been deleted. We can't declare the whole directory as an output,
+        // because the cmakeBuild task outputs to the same place.
         outputs.files "$cmakeBuildSubdir/build.ninja", "$cmakeBuildSubdir/rules.ninja",
                       "$cmakeBuildSubdir/CMakeCache.txt"
         doFirst {
+            // This is the only reliable way to pick up changes to args. For example,
+            // attempting to change CMAKE_TOOLCHAIN_FILE in an existing build tree will be
+            // silently ignored.
+            delete cmakeBuildSubdir
             mkdir cmakeBuildSubdir
-            delete(outputs.files)   // Otherwise changes to args below won't take effect
         }
         workingDir cmakeBuildSubdir
         executable "$sdkCmakeDir/bin/cmake"

@@ -17,7 +17,7 @@ from fnmatch import fnmatch
 import hashlib
 import logging.config
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join, relpath
+from os.path import abspath, basename, dirname, exists, isdir, join, realpath, relpath
 import re
 import subprocess
 import sys
@@ -219,7 +219,9 @@ class PipInstall(object):
                 getattr(namespace, self.dest).extend(["-r", value])
 
         ap = argparse.ArgumentParser()
-        ap.add_argument("--target", metavar="DIR", type=abspath, required=True)
+        # We use realpath to match distlib: see https://github.com/chaquo/chaquopy/issues/468
+        # and https://bitbucket.org/pypa/distlib/src/0.2.7/distlib/resources.py#lines-135
+        ap.add_argument("--target", metavar="DIR", type=realpath, required=True)
         ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
 
         # Passing the requirements this way ensures their order is maintained on the pip install
