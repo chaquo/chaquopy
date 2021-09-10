@@ -66,8 +66,8 @@ def check_install_build_global(options, check_options=None):
 # options #
 ###########
 
-# Even if we didn't need the Chaquopy version number for the HTTP user agent string, using this
-# option would also cause us to fail fast if we run the system copy of pip by mistake.
+# Adding this option ensures that if we run the system copy of pip by mistake, we fail immediately and
+# with a distinctive error message.
 chaquopy = partial(
     Option,
     '--chaquopy',

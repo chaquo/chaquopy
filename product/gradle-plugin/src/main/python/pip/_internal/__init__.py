@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
 
 import locale
 import logging
@@ -182,8 +182,8 @@ def parseopts(args):
 
     # --version
     if general_options.version:
-        # Chaquopy: replaced write() with print() because it wasn't showing up under Gradle.
-        print(parser.version)
+        sys.stdout.write(parser.version)
+        sys.stdout.write(os.linesep)
         sys.exit()
 
     # pip || pip help -> print_help()
@@ -231,8 +231,8 @@ def main(args=None):
     try:
         cmd_name, cmd_args = parseopts(args)
     except PipError as exc:
-        # Chaquopy: replaced write() with print() because it wasn't showing up under Gradle.
-        print("ERROR: %s" % exc, file=sys.stderr)
+        sys.stderr.write("ERROR: %s" % exc)
+        sys.stderr.write(os.linesep)
         sys.exit(1)
 
     # Needed for locale.getpreferredencoding(False) to work

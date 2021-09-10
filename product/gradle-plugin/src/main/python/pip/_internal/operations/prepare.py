@@ -58,11 +58,9 @@ def _install_build_reqs(finder, prefix, build_requirements):
             InstallRequirement.from_line(r), upgrade=False).url
         for r in build_requirements
     ]
-    import pip
     args = [
         sys.executable, '-m', 'pip', 'install', '--ignore-installed',
         '--no-user', '--prefix', prefix,
-        '--chaquopy', pip.options.chaquopy, '--cert', pip.options.cert
     ] + list(urls)
 
     with open_spinner("Installing build dependencies") as spinner:

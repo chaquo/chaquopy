@@ -337,9 +337,7 @@ def config_logging(verbose):
         },
         "formatters": {
             "fmt": {
-                "format": ("%(asctime)s Chaquopy: %(message)s" if verbose
-                           else "Chaquopy: %(message)s"),
-                "datefmt": "%H:%M:%S"
+                "format": "Chaquopy: %(message)s",
             }
         },
     })

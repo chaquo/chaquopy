@@ -65,14 +65,12 @@ __all__ = ['get_file_content',
 logger = logging.getLogger(__name__)
 
 
-# Chaquopy: changed to report a different user agent, to prevent our changes to pip confusing
-# the PyPI statistics.
 def user_agent():
     """
     Return a string representing the user agent.
     """
     data = {
-        "installer": {"name": "chaquopy", "version": pip.options.chaquopy},
+        "installer": {"name": "pip", "version": pip.__version__},
         "python": platform.python_version(),
         "implementation": {
             "name": platform.python_implementation(),
@@ -130,10 +128,8 @@ def user_agent():
     if setuptools_version is not None:
         data["setuptools_version"] = setuptools_version
 
-    # Chaquopy: user agent must still start with pip/<version>, otherwise the JSON won't be
-    # parsed (see linehaul project).
-    return "pip/{} {json}".format(
-        pip.__version__,
+    return "{data[installer][name]}/{data[installer][version]} {json}".format(
+        data=data,
         json=json.dumps(data, separators=(",", ":"), sort_keys=True),
     )
 
@@ -594,7 +590,7 @@ def _download_url(resp, link, content_file, hashes, progress_bar):
     progress_indicator = _progress_indicator
 
     if link.netloc == PyPI.netloc:
-         url = show_url
+        url = show_url
     else:
         url = link.url_without_fragment
 

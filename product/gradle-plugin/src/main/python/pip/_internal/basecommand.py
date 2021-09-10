@@ -154,10 +154,8 @@ class Command(object):
             },
             "formatters": {
                 "indent": {
-                    # Chaquopy: added timestamp in verbose mode.
                     "()": IndentingFormatter,
-                    "format": "%(asctime)s %(message)s" if options.verbose else "%(message)s",
-                    "datefmt":"%H:%M:%S",
+                    "format": "%(message)s",
                 },
             },
             "handlers": {
