@@ -15,3 +15,17 @@ do the following:
    * Any other repositories referenced from tools/base/.idea/modules.xml.
 * Copy files from tools/buildSrc as indicated in the manifest.
 * Open tools/base as a project in IDEA.
+
+
+# Updating pip, setuptools or wheel
+
+Check out the upstream-pip branch.
+
+Delete the relevant directories in src/main/python, including the .dist-info directory. Note
+that pkg_resources is part of setuptools.
+
+Download the wheel of the new version, and unpack it into src/main/python.
+
+Commit to upstream-pip, then merge to master.
+
+Run all integration tests.

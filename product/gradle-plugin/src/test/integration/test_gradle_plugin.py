@@ -796,7 +796,7 @@ class PythonReqs(GradleTestCase):
                     setup_error = "Failed to run Chaquopy_cannot_compile_native_code"
                 else:
                     setup_error = "Chaquopy cannot compile native code"
-                self.assertInLong(setup_error, run.stdout)
+                self.assertInLong(setup_error, run.stderr)
 
                 # If bdist_wheel fails with a "native code" message, we should not fall back on
                 # setup.py install.
@@ -838,7 +838,7 @@ class PythonReqs(GradleTestCase):
             requirements=([f"bdist_wheel_fail-1.0-{EGG_INFO_SUFFIX}/{name}"
                            for name in EGG_INFO_FILES] +
                           ["bdist_wheel_fail/__init__.py"]))
-        self.assertInLong("bdist_wheel throwing exception", run.stdout)
+        self.assertInLong("bdist_wheel throwing exception", run.stderr)
         self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
@@ -862,7 +862,7 @@ class PythonReqs(GradleTestCase):
 
         run = self.RunGradle("base", "PythonReqs/sdist_site",
                              env={"CHAQUOPY_PKG_NAME": PKG_NAME}, succeed=False)
-        self.assertInLong(f"No module named '{PKG_NAME}'", run.stdout)
+        self.assertInLong(f"No module named '{PKG_NAME}'", run.stderr)
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
@@ -1312,7 +1312,7 @@ class RunGradle(object):
         # `--info` explains why tasks were not considered up to date.
         # `--console plain` prevents "String index out of range: -1" error on Windows.
         gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
-        if env:
+        if "TZ" in env:
             # The Gradle client passes its environment to the daemon, but that won't work for
             # TZ, because the JVM only reads it during startup.
             gradlew_flags.append("--no-daemon")
