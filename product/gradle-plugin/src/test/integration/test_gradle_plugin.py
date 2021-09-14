@@ -821,15 +821,6 @@ class PythonReqs(GradleTestCase):
                 run.apply_layers(f"PythonReqs/{name}")
                 run.rerun(requirements=[f"{name}.py"])
 
-    # When using --no-cache-dir with a package which overrides build_ext without overriding
-    # get_outputs, installed_files.txt ends up contining the path of an extension which was
-    # never built. This should succeed with a warning.
-    def test_no_cache_dir(self):
-        run = self.RunGradle("base", "PythonReqs/sdist_native_optional_ext",
-                             "PythonReqs/no_cache_dir",
-                             requirements=["sdist_native_optional_ext.py"])
-        self.assertInLong("Chaquopy: Non-existent file: .*ext_module", run.stdout, re=True)
-
     # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
     # install. For example, see acoustics==0.2.4 (#5630).
     def test_bdist_wheel_fail(self):
