@@ -638,10 +638,6 @@ def unzip_file(filename, location, flatten=True):
                         # make dest file have execute for user/group/world
                         # (chmod +x) no-op on windows per python docs
                         os.chmod(fn, (0o777 - current_umask() | 0o111))
-
-                    # Chaquopy: preserve timestamp to avoid unnecessary re-extraction on device.
-                    import calendar, time
-                    os.utime(fn, (time.time(), calendar.timegm(info.date_time)))
     finally:
         zipfp.close()
 

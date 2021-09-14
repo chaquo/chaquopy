@@ -29,3 +29,5 @@ Download the wheel of the new version, and unpack it into src/main/python.
 Commit to upstream-pip, then merge to master.
 
 Run all integration tests.
+
+When finished, don't forget to push the upstream-pip branch.
