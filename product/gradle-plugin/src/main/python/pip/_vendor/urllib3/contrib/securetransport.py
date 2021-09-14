@@ -23,6 +23,31 @@ To use this module, simply import and inject it::
     urllib3.contrib.securetransport.inject_into_urllib3()
 
 Happy TLSing!
+
+This code is a bastardised version of the code found in Will Bond's oscrypto
+library. An enormous debt is owed to him for blazing this trail for us. For
+that reason, this code should be considered to be covered both by urllib3's
+license and by oscrypto's:
+
+    Copyright (c) 2015-2016 Will Bond <will@wbond.net>
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
 """
 from __future__ import absolute_import
 
@@ -50,11 +75,6 @@ try:  # Platform-specific: Python 2
 except ImportError:  # Platform-specific: Python 3
     _fileobject = None
     from ..packages.backports.makefile import backport_makefile
-
-try:
-    memoryview(b'')
-except NameError:
-    raise ImportError("SecureTransport only works on Pythons with memoryview")
 
 __all__ = ['inject_into_urllib3', 'extract_from_urllib3']
 
@@ -88,38 +108,35 @@ _connection_ref_lock = threading.Lock()
 SSL_WRITE_BLOCKSIZE = 16384
 
 # This is our equivalent of util.ssl_.DEFAULT_CIPHERS, but expanded out to
-# individual cipher suites. We need to do this becuase this is how
+# individual cipher suites. We need to do this because this is how
 # SecureTransport wants them.
 CIPHER_SUITES = [
-    SecurityConst.TLS_AES_256_GCM_SHA384,
-    SecurityConst.TLS_CHACHA20_POLY1305_SHA256,
-    SecurityConst.TLS_AES_128_GCM_SHA256,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     SecurityConst.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+    SecurityConst.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+    SecurityConst.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
     SecurityConst.TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
     SecurityConst.TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
-    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-    SecurityConst.TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-    SecurityConst.TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-    SecurityConst.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
     SecurityConst.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    SecurityConst.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    SecurityConst.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
     SecurityConst.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    SecurityConst.TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+    SecurityConst.TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
     SecurityConst.TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
     SecurityConst.TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-    SecurityConst.TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+    SecurityConst.TLS_AES_256_GCM_SHA384,
+    SecurityConst.TLS_AES_128_GCM_SHA256,
     SecurityConst.TLS_RSA_WITH_AES_256_GCM_SHA384,
     SecurityConst.TLS_RSA_WITH_AES_128_GCM_SHA256,
+    SecurityConst.TLS_AES_128_CCM_8_SHA256,
+    SecurityConst.TLS_AES_128_CCM_SHA256,
     SecurityConst.TLS_RSA_WITH_AES_256_CBC_SHA256,
     SecurityConst.TLS_RSA_WITH_AES_128_CBC_SHA256,
     SecurityConst.TLS_RSA_WITH_AES_256_CBC_SHA,
@@ -127,9 +144,10 @@ CIPHER_SUITES = [
 ]
 
 # Basically this is simple: for PROTOCOL_SSLv23 we turn it into a low of
-# TLSv1 and a high of TLSv1.2. For everything else, we pin to that version.
+# TLSv1 and a high of TLSv1.3. For everything else, we pin to that version.
+# TLSv1 to 1.2 are supported on macOS 10.8+ and TLSv1.3 is macOS 10.13+
 _protocol_to_min_max = {
-    ssl.PROTOCOL_SSLv23: (SecurityConst.kTLSProtocol1, SecurityConst.kTLSProtocol12),
+    util.PROTOCOL_TLS: (SecurityConst.kTLSProtocol1, SecurityConst.kTLSProtocolMaxSupported),
 }
 
 if hasattr(ssl, "PROTOCOL_SSLv2"):
@@ -152,14 +170,13 @@ if hasattr(ssl, "PROTOCOL_TLSv1_2"):
     _protocol_to_min_max[ssl.PROTOCOL_TLSv1_2] = (
         SecurityConst.kTLSProtocol12, SecurityConst.kTLSProtocol12
     )
-if hasattr(ssl, "PROTOCOL_TLS"):
-    _protocol_to_min_max[ssl.PROTOCOL_TLS] = _protocol_to_min_max[ssl.PROTOCOL_SSLv23]
 
 
 def inject_into_urllib3():
     """
     Monkey-patch urllib3 with SecureTransport-backed SSL-support.
     """
+    util.SSLContext = SecureTransportContext
     util.ssl_.SSLContext = SecureTransportContext
     util.HAS_SNI = HAS_SNI
     util.ssl_.HAS_SNI = HAS_SNI
@@ -171,6 +188,7 @@ def extract_from_urllib3():
     """
     Undo monkey-patching by :func:`inject_into_urllib3`.
     """
+    util.SSLContext = orig_util_SSLContext
     util.ssl_.SSLContext = orig_util_SSLContext
     util.HAS_SNI = orig_util_HAS_SNI
     util.ssl_.HAS_SNI = orig_util_HAS_SNI
@@ -195,21 +213,18 @@ def _read_callback(connection_id, data_buffer, data_length_pointer):
         timeout = wrapped_socket.gettimeout()
         error = None
         read_count = 0
-        buffer = (ctypes.c_char * requested_length).from_address(data_buffer)
-        buffer_view = memoryview(buffer)
 
         try:
             while read_count < requested_length:
                 if timeout is None or timeout >= 0:
-                    readables = util.wait_for_read([base_socket], timeout)
-                    if not readables:
+                    if not util.wait_for_read(base_socket, timeout):
                         raise socket.error(errno.EAGAIN, 'timed out')
 
-                # We need to tell ctypes that we have a buffer that can be
-                # written to. Upsettingly, we do that like this:
-                chunk_size = base_socket.recv_into(
-                    buffer_view[read_count:requested_length]
+                remaining = requested_length - read_count
+                buffer = (ctypes.c_char * remaining).from_address(
+                    data_buffer + read_count
                 )
+                chunk_size = base_socket.recv_into(buffer, remaining)
                 read_count += chunk_size
                 if not chunk_size:
                     if not read_count:
@@ -219,7 +234,8 @@ def _read_callback(connection_id, data_buffer, data_length_pointer):
             error = e.errno
 
             if error is not None and error != errno.EAGAIN:
-                if error == errno.ECONNRESET:
+                data_length_pointer[0] = read_count
+                if error == errno.ECONNRESET or error == errno.EPIPE:
                     return SecurityConst.errSSLClosedAbort
                 raise
 
@@ -257,8 +273,7 @@ def _write_callback(connection_id, data_buffer, data_length_pointer):
         try:
             while sent < bytes_to_write:
                 if timeout is None or timeout >= 0:
-                    writables = util.wait_for_write([base_socket], timeout)
-                    if not writables:
+                    if not util.wait_for_write(base_socket, timeout):
                         raise socket.error(errno.EAGAIN, 'timed out')
                 chunk_sent = base_socket.send(data)
                 sent += chunk_sent
@@ -270,11 +285,13 @@ def _write_callback(connection_id, data_buffer, data_length_pointer):
             error = e.errno
 
             if error is not None and error != errno.EAGAIN:
-                if error == errno.ECONNRESET:
+                data_length_pointer[0] = sent
+                if error == errno.ECONNRESET or error == errno.EPIPE:
                     return SecurityConst.errSSLClosedAbort
                 raise
 
         data_length_pointer[0] = sent
+
         if sent != bytes_to_write:
             return SecurityConst.errSSLWouldBlock
 
@@ -399,7 +416,7 @@ class WrappedSocket(object):
             if trust:
                 CoreFoundation.CFRelease(trust)
 
-            if cert_array is None:
+            if cert_array is not None:
                 CoreFoundation.CFRelease(cert_array)
 
         # Ok, now we can look at what the result was.
@@ -464,7 +481,14 @@ class WrappedSocket(object):
         # Set the minimum and maximum TLS versions.
         result = Security.SSLSetProtocolVersionMin(self.context, min_version)
         _assert_no_error(result)
+
+        # TLS 1.3 isn't necessarily enabled by the OS
+        # so we have to detect when we error out and try
+        # setting TLS 1.3 if it's allowed. kTLSProtocolMaxSupported
+        # was added in macOS 10.13 along with kTLSProtocol13.
         result = Security.SSLSetProtocolVersionMax(self.context, max_version)
+        if result != 0 and max_version == SecurityConst.kTLSProtocolMaxSupported:
+            result = Security.SSLSetProtocolVersionMax(self.context, SecurityConst.kTLSProtocol12)
         _assert_no_error(result)
 
         # If there's a trust DB, we need to use it. We do that by telling
@@ -672,6 +696,25 @@ class WrappedSocket(object):
                 CoreFoundation.CFRelease(trust)
 
         return der_bytes
+
+    def version(self):
+        protocol = Security.SSLProtocol()
+        result = Security.SSLGetNegotiatedProtocolVersion(self.context, ctypes.byref(protocol))
+        _assert_no_error(result)
+        if protocol.value == SecurityConst.kTLSProtocol13:
+            return 'TLSv1.3'
+        elif protocol.value == SecurityConst.kTLSProtocol12:
+            return 'TLSv1.2'
+        elif protocol.value == SecurityConst.kTLSProtocol11:
+            return 'TLSv1.1'
+        elif protocol.value == SecurityConst.kTLSProtocol1:
+            return 'TLSv1'
+        elif protocol.value == SecurityConst.kSSLProtocol3:
+            return 'SSLv3'
+        elif protocol.value == SecurityConst.kSSLProtocol2:
+            return 'SSLv2'
+        else:
+            raise ssl.SSLError('Unknown TLS version: %r' % protocol)
 
     def _reuse(self):
         self._makefile_refs += 1

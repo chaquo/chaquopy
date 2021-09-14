@@ -75,9 +75,38 @@ class Evaluator(object):
         return result
 
 def default_context():
-    # Chaquopy: there are two copies of this module: pip uses the one in `packaging`.
-    from ..packaging import markers
-    return markers.default_environment()
+    def format_full_version(info):
+        version = '%s.%s.%s' % (info.major, info.minor, info.micro)
+        kind = info.releaselevel
+        if kind != 'final':
+            version += kind[0] + str(info.serial)
+        return version
+
+    if hasattr(sys, 'implementation'):
+        implementation_version = format_full_version(sys.implementation.version)
+        implementation_name = sys.implementation.name
+    else:
+        implementation_version = '0'
+        implementation_name = ''
+
+    result = {
+        'implementation_name': implementation_name,
+        'implementation_version': implementation_version,
+        'os_name': os.name,
+        'platform_machine': platform.machine(),
+        'platform_python_implementation': platform.python_implementation(),
+        'platform_release': platform.release(),
+        'platform_system': platform.system(),
+        'platform_version': platform.version(),
+        'platform_in_venv': str(in_venv()),
+        'python_full_version': platform.python_version(),
+        'python_version': platform.python_version()[:3],
+        'sys_platform': sys.platform,
+    }
+    return result
+
+DEFAULT_CONTEXT = default_context()
+del default_context
 
 evaluator = Evaluator()
 
@@ -96,9 +125,7 @@ def interpret(marker, execution_context=None):
         raise SyntaxError('Unable to interpret marker syntax: %s: %s' % (marker, e))
     if rest and rest[0] != '#':
         raise SyntaxError('unexpected trailing data in marker: %s: %s' % (marker, rest))
-    # Chaquopy: calling default_context on demand rather than during module import, since it
-    # now depends on pip.options.
-    context = default_context()
+    context = dict(DEFAULT_CONTEXT)
     if execution_context:
         context.update(execution_context)
     return evaluator.evaluate(expr, context)

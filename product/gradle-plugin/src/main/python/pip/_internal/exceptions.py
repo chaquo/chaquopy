@@ -5,6 +5,13 @@ from itertools import chain, groupby, repeat
 
 from pip._vendor.six import iteritems
 
+from pip._internal.utils.typing import MYPY_CHECK_RUNNING
+
+if MYPY_CHECK_RUNNING:
+    from typing import Optional
+    from pip._vendor.pkg_resources import Distribution
+    from pip._internal.req.req_install import InstallRequirement
+
 
 class PipError(Exception):
     """Base pip exception"""
@@ -18,13 +25,43 @@ class InstallationError(PipError):
     """General exception during installation"""
 
     # Chaquopy: added to allow misc.call_subprocess to return the output of a failing comand.
-    def __init__(self, message, output=None):
+    def __init__(self, message, output=""):
         super().__init__(message)
         self.output = output
 
 
 class UninstallationError(PipError):
     """General exception during uninstallation"""
+
+
+class NoneMetadataError(PipError):
+    """
+    Raised when accessing "METADATA" or "PKG-INFO" metadata for a
+    pip._vendor.pkg_resources.Distribution object and
+    `dist.has_metadata('METADATA')` returns True but
+    `dist.get_metadata('METADATA')` returns None (and similarly for
+    "PKG-INFO").
+    """
+
+    def __init__(self, dist, metadata_name):
+        # type: (Distribution, str) -> None
+        """
+        :param dist: A Distribution object.
+        :param metadata_name: The name of the metadata being accessed
+            (can be "METADATA" or "PKG-INFO").
+        """
+        self.dist = dist
+        self.metadata_name = metadata_name
+
+    def __str__(self):
+        # type: () -> str
+        # Use `dist` in the error message because its stringification
+        # includes more information, like the version and location.
+        return (
+            'None {} metadata found for distribution: {}'.format(
+                self.metadata_name, self.dist,
+            )
+        )
 
 
 class DistributionNotFound(InstallationError):
@@ -101,7 +138,7 @@ class HashError(InstallationError):
         typically available earlier.
 
     """
-    req = None
+    req = None  # type: Optional[InstallRequirement]
     head = ''
 
     def body(self):
@@ -252,3 +289,22 @@ class HashMismatch(HashError):
 class UnsupportedPythonVersion(InstallationError):
     """Unsupported python version according to Requires-Python package
     metadata."""
+
+
+class ConfigurationFileCouldNotBeLoaded(ConfigurationError):
+    """When there are errors while loading a configuration file
+    """
+
+    def __init__(self, reason="could not be loaded", fname=None, error=None):
+        super(ConfigurationFileCouldNotBeLoaded, self).__init__(error)
+        self.reason = reason
+        self.fname = fname
+        self.error = error
+
+    def __str__(self):
+        if self.fname is not None:
+            message_part = " in {}.".format(self.fname)
+        else:
+            assert self.error is not None
+            message_part = ".\n{}\n".format(self.error.message)
+        return "Configuration file {}{}".format(self.reason, message_part)

@@ -3,13 +3,13 @@ from __future__ import absolute_import
 import logging
 import os
 
-from pip._internal import cmdoptions
-from pip._internal.basecommand import RequirementCommand
-from pip._internal.exceptions import CommandError
-from pip._internal.index import FormatControl
+from pip._internal.cli import cmdoptions
+from pip._internal.cli.base_command import RequirementCommand
+from pip._internal.cli.cmdoptions import make_target_python
+from pip._internal.legacy_resolve import Resolver
 from pip._internal.operations.prepare import RequirementPreparer
 from pip._internal.req import RequirementSet
-from pip._internal.resolve import Resolver
+from pip._internal.req.req_tracker import RequirementTracker
 from pip._internal.utils.filesystem import check_path_owner
 from pip._internal.utils.misc import ensure_dir, normalize_path
 from pip._internal.utils.temp_dir import TempDirectory
@@ -52,12 +52,15 @@ class DownloadCommand(RequirementCommand):
         cmd_opts.add_option(cmdoptions.global_options())
         cmd_opts.add_option(cmdoptions.no_binary())
         cmd_opts.add_option(cmdoptions.only_binary())
+        cmd_opts.add_option(cmdoptions.prefer_binary())
         cmd_opts.add_option(cmdoptions.src())
         cmd_opts.add_option(cmdoptions.pre())
         cmd_opts.add_option(cmdoptions.no_clean())
         cmd_opts.add_option(cmdoptions.require_hashes())
         cmd_opts.add_option(cmdoptions.progress_bar())
         cmd_opts.add_option(cmdoptions.no_build_isolation())
+        cmd_opts.add_option(cmdoptions.use_pep517())
+        cmd_opts.add_option(cmdoptions.no_use_pep517())
 
         cmd_opts.add_option(
             '-d', '--dest', '--destination-dir', '--destination-directory',
@@ -67,11 +70,7 @@ class DownloadCommand(RequirementCommand):
             help=("Download packages into <dir>."),
         )
 
-        # Chaquopy: moved to cmdoptions.py so they can be shared with install command.
-        cmd_opts.add_option(cmdoptions.platform())
-        cmd_opts.add_option(cmdoptions.python_version())
-        cmd_opts.add_option(cmdoptions.implementatoin())
-        cmd_opts.add_option(cmdoptions.abi())
+        cmdoptions.add_target_python_options(cmd_opts)
 
         index_opts = cmdoptions.make_option_group(
             cmdoptions.index_group,
@@ -87,13 +86,7 @@ class DownloadCommand(RequirementCommand):
         # of the RequirementSet code require that property.
         options.editables = []
 
-        # Chaquopy: moved to cmdoptions.py so it can be shared with install command.
-        cmdoptions.apply_dist_restrictions(options)  # Alters options.python_version.
-
-        if options.python_version:
-            python_versions = [options.python_version]
-        else:
-            python_versions = None
+        cmdoptions.check_dist_restriction(options)
 
         options.src_dir = os.path.abspath(options.src_dir)
         options.download_dir = normalize_path(options.download_dir)
@@ -101,13 +94,11 @@ class DownloadCommand(RequirementCommand):
         ensure_dir(options.download_dir)
 
         with self._build_session(options) as session:
+            target_python = make_target_python(options)
             finder = self._build_package_finder(
                 options=options,
                 session=session,
-                platform=options.platform,
-                python_versions=python_versions,
-                abi=options.abi,
-                implementation=options.implementation,
+                target_python=target_python,
             )
             build_delete = (not (options.no_clean or options.build_dir))
             if options.cache_dir and not check_path_owner(options.cache_dir):
@@ -121,7 +112,7 @@ class DownloadCommand(RequirementCommand):
                 )
                 options.cache_dir = None
 
-            with TempDirectory(
+            with RequirementTracker() as req_tracker, TempDirectory(
                 options.build_dir, delete=build_delete, kind="download"
             ) as directory:
 
@@ -145,6 +136,7 @@ class DownloadCommand(RequirementCommand):
                     wheel_download_dir=None,
                     progress_bar=options.progress_bar,
                     build_isolation=options.build_isolation,
+                    req_tracker=req_tracker,
                 )
 
                 resolver = Resolver(
@@ -156,6 +148,7 @@ class DownloadCommand(RequirementCommand):
                     upgrade_strategy="to-satisfy-only",
                     force_reinstall=False,
                     ignore_dependencies=options.ignore_dependencies,
+                    py_version_info=options.python_version,
                     ignore_requires_python=False,
                     ignore_installed=True,
                     isolated=options.isolated_mode,
