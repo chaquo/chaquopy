@@ -712,24 +712,25 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Using cached " + CHAQUO_URL, run.stdout, re=True)
         self.assertInLong("Downloading " + PYPI_URL, run.stdout, re=True)
 
-    # Some packages with optional native components generate a wheel tagged with the build
-    # platform even when the native components are omitted. This wheel must be renamed in order
-    # for it to be used in the rerun.
+    # Some sdists with optional native components generate a wheel tagged with the build
+    # platform even when the native components are omitted. This test checks that the wheel is
+    # cached and reused on subsequent runs of pip, even if the ABI is different.
     def test_download_sdist(self):
         URL = r"https://.+/PyYAML-3.12.tar.gz"
-        BUILD = r"Successfully built PyYAML"
-        reqs = ["yaml/" + name + ".py" for name in
+        BUILD = "Successfully built PyYAML"
+        REQS = ["yaml/" + name + ".py" for name in
                 ["__init__", "composer", "constructor", "cyaml", "dumper", "emitter", "error",
                  "events", "loader", "nodes", "parser", "reader", "representer", "resolver",
                  "scanner", "serializer", "tokens"]]
-        run = self.RunGradle("base", "PythonReqs/download_sdist_1", requirements=reqs)
+        run = self.RunGradle("base", "PythonReqs/download_sdist_1", requirements=REQS)
         self.assertInLong("Downloading " + URL, run.stdout, re=True)
-        self.assertInLong(BUILD, run.stdout, re=True)
+        self.assertInLong(BUILD, run.stdout)
+
         run.apply_layers("PythonReqs/download_sdist_2")
-        run.rerun(requirements=reqs + ["six.py"])
+        run.rerun(requirements=REQS, abis=["armeabi-v7a"])
         # pip prints lots of detail when it puts a wheel into the cache, but says absolutely
         # nothing when it takes one out.
-        self.assertNotInLong(URL, run.stdout)
+        self.assertNotInLong(URL, run.stdout, re=True)
         self.assertNotInLong(BUILD, run.stdout)
 
     def test_install_variant(self):

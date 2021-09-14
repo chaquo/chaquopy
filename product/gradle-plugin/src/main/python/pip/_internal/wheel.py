@@ -908,18 +908,7 @@ class WheelBuilder(object):
             wheel_path = builder(req, temp_dir.path, python_tag=python_tag)
             if wheel_path is not None:
                 wheel_name = os.path.basename(wheel_path)
-
-                # Chaquopy: use the correct compatibility tag so the wheel can be reused.
-                wheel = Wheel(wheel_name)
-                if (wheel.abis, wheel.plats) == (["none"], ["any"]):
-                    dest_name = wheel_name
-                else:
-                    dest_name = "-".join([
-                        wheel.name.replace("-", "_"),
-                        wheel.version.replace("-", "_"),
-                        "-".join(pep425tags.get_supported()[0])]) + ".whl"
-                dest_path = os.path.join(output_dir, dest_name)
-
+                dest_path = os.path.join(output_dir, wheel_name)
                 try:
                     wheel_hash, length = hash_file(wheel_path)
                     shutil.move(wheel_path, dest_path)

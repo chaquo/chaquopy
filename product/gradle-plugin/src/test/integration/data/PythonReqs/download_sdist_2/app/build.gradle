@@ -12,11 +12,10 @@ android {
         python {
             pip {
                 install "PyYAML==3.12"
-                install "six==1.14.0"
             }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "armeabi-v7a"
         }
     }
 }
