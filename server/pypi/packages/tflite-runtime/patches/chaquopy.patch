@@ -1,26 +1,44 @@
-diff -ur src-original/tensorflow/lite/tools/make/download_dependencies.sh src/tensorflow/lite/tools/make/download_dependencies.sh
---- src-original/tensorflow/lite/tools/make/download_dependencies.sh	2020-01-07 16:57:39.000000000 +0000
-+++ src/tensorflow/lite/tools/make/download_dependencies.sh	2020-06-15 21:57:26.789468173 +0000
-@@ -29,7 +29,8 @@
-   exit 1;
- fi
+--- src-original/tensorflow/lite/tools/pip_package/setup.py	2021-05-12 13:26:41.000000000 +0000
++++ src/tensorflow/lite/tools/pip_package/setup.py	2021-09-14 20:43:35.431997208 +0000
+@@ -31,6 +31,10 @@
+ import sys
+ import sysconfig
  
--EIGEN_URL="$(grep -o 'http.*bitbucket.org/eigen/eigen/get/.*tar\.gz' "${BZL_FILE_PATH}" | grep -v mirror.tensorflow | head -n1)"
-+# Chaquopy: fixed Eigen URL (https://github.com/tensorflow/tensorflow/issues/36249)
-+EIGEN_URL="$(grep -o 'https.*gitlab.com/libeigen/eigen/-/archive/.*tar\.gz' "${BZL_FILE_PATH}" | grep -v mirror.tensorflow | head -n1)"
- GEMMLOWP_URL="$(grep -o 'https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/gemmlowp/.*zip' "${BZL_FILE_PATH}" | head -n1)"
- GOOGLETEST_URL="https://github.com/google/googletest/archive/release-1.8.0.tar.gz"
- ABSL_URL="$(grep -o 'https://github.com/abseil/abseil-cpp/.*tar.gz' "${BZL_FILE_PATH}" | head -n1)"
-diff -ur src-original/tensorflow/lite/tools/make/Makefile src/tensorflow/lite/tools/make/Makefile
---- src-original/tensorflow/lite/tools/make/Makefile	2020-01-07 16:57:39.000000000 +0000
-+++ src/tensorflow/lite/tools/make/Makefile	2020-06-15 21:57:36.577472844 +0000
-@@ -38,11 +38,16 @@
- -I$(MAKEFILE_DIR)/downloads/gemmlowp \
- -I$(MAKEFILE_DIR)/downloads/neon_2_sse \
- -I$(MAKEFILE_DIR)/downloads/farmhash/src \
---I$(MAKEFILE_DIR)/downloads/flatbuffers/include \
++# Chaquopy: Prevent the native parts of NumPy from being imported.
++import builtins
++builtins.__NUMPY_SETUP__ = True
++
+ from distutils.command.build_ext import build_ext
+ import numpy
+ import pybind11
+@@ -71,7 +75,8 @@
+ # with more than 4GB, use all the CPUs, otherwise only 1.
+ def get_build_cpus():
+   physical_bytes = os.sysconf('SC_PAGESIZE') * os.sysconf('SC_PHYS_PAGES')
+-  if physical_bytes < (1 << 30) * 4:
++  # Chaquopy: added False so we always use multiple CPUs.
++  if False and physical_bytes < (1 << 30) * 4:
+     return 1
+   else:
+     return multiprocessing.cpu_count()
+@@ -184,7 +189,7 @@
+         os.path.join(DOWNLOADS_DIR, 'absl'),
+         pybind11.get_include()
+     ],
+-    libraries=[LIB_TFLITE],
++    libraries=[LIB_TFLITE, "log"],  # Chaquopy: added "log"
+     library_dirs=[LIB_TFLITE_DIR])
+ 
+ setup(
+--- src-original/tensorflow/lite/tools/make/Makefile	2021-05-12 13:26:41.000000000 +0000
++++ src/tensorflow/lite/tools/make/Makefile	2021-09-14 20:40:09.091829009 +0000
+@@ -44,11 +44,16 @@
+ -I$(MAKEFILE_DIR)/downloads/cpuinfo \
+ -I$(MAKEFILE_DIR)/downloads/cpuinfo/include \
+ -I$(MAKEFILE_DIR)/downloads/cpuinfo/src \
+--I$(MAKEFILE_DIR)/downloads/cpuinfo/deps/clog/include \
 --I$(OBJDIR)
-+-I$(MAKEFILE_DIR)/downloads/flatbuffers/include
++-I$(MAKEFILE_DIR)/downloads/cpuinfo/deps/clog/include
 +# Chaquopy: OBJDIR hasn't been assigned yet, so this would previously have generated
 +# "-I -I/usr/local/include", which would have no effect. But since we've removed the
 +# /usr/local/include below, we have to remove this as well.
@@ -34,19 +52,19 @@ diff -ur src-original/tensorflow/lite/tools/make/Makefile src/tensorflow/lite/to
  
  # These are the default libraries needed, but they can be added to or
  # overridden by the platform-specific settings in target makefiles.
-@@ -59,7 +64,8 @@
- CXXFLAGS += $(EXTRA_CXXFLAGS)
- CFLAGS := ${CXXFLAGS}
- CXXFLAGS += --std=c++11
--LDOPTS := -L/usr/local/lib
-+# Chaquopy: disabled
-+# LDOPTS := -L/usr/local/lib
+@@ -62,7 +67,8 @@
+ # There are no rules for compiling objects for the host system (since we don't
+ # generate things like the protobuf compiler that require that), so all of
+ # these settings are for the target compiler.
+-CFLAGS := -O3 -DNDEBUG -DCPU_SETSIZE=__CPU_SETSIZE -fPIC $(EXTRA_CFLAGS)
++# Chaquopy: removed -DCPU_SETSIZE=__CPU_SETSIZE, since the latter symbol isn't defined on Android.
++CFLAGS := -O3 -DNDEBUG -fPIC $(EXTRA_CFLAGS)
+ CXXFLAGS := $(CFLAGS) --std=c++11 $(EXTRA_CXXFLAGS)
+ LDOPTS := -L/usr/local/lib
  ARFLAGS := -r
- TARGET_TOOLCHAIN_PREFIX :=
- CC_PREFIX :=
-@@ -229,9 +235,10 @@
- BENCHMARK_PERF_OPTIONS_BINARY := $(BINDIR)$(BENCHMARK_PERF_OPTIONS_BINARY_NAME)
+@@ -303,9 +309,10 @@
  MINIMAL_BINARY := $(BINDIR)minimal
+ LABEL_IMAGE_BINARY := $(BINDIR)label_image
  
 -CXX := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}g++
 -CC := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}gcc
@@ -58,49 +76,25 @@ diff -ur src-original/tensorflow/lite/tools/make/Makefile src/tensorflow/lite/to
  
  MINIMAL_OBJS := $(addprefix $(OBJDIR), \
  $(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(MINIMAL_SRCS))))
-diff -ur src-original/tensorflow/lite/tools/pip_package/setup.py src/tensorflow/lite/tools/pip_package/setup.py
---- src-original/tensorflow/lite/tools/pip_package/setup.py	2020-01-07 16:57:39.000000000 +0000
-+++ src/tensorflow/lite/tools/pip_package/setup.py	2020-06-15 22:11:16.297871255 +0000
-@@ -28,6 +28,10 @@
- import os
- import subprocess
+@@ -340,7 +347,8 @@
+ 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
  
-+# Chaquopy: Prevent the native parts of NumPy from being imported.
-+import builtins
-+builtins.__NUMPY_SETUP__ = True
-+
- from distutils.command.build_ext import build_ext
- import numpy
+ # The target that's compiled if there's no command-line arguments.
+-all: $(LIB_PATH)  $(MINIMAL_BINARY) $(BENCHMARK_BINARY) $(BENCHMARK_PERF_OPTIONS_BINARY)
++# Chaquopy: disabled binaries because they fail to build.
++all: $(LIB_PATH)  # $(MINIMAL_BINARY) $(BENCHMARK_BINARY) $(BENCHMARK_PERF_OPTIONS_BINARY)
  
-@@ -61,7 +65,9 @@
- # with more than 4GB, use all the CPUs, otherwisxe only 1.
- def get_build_cpus():
-   physical_bytes = os.sysconf('SC_PAGESIZE') * os.sysconf('SC_PHYS_PAGES')
--  if physical_bytes < (1<<30) * 4:
-+  # Chaquopy: reduced threshold to 3.5 GB, since DigitalOcean 4 GB servers have about 3.86
-+  # according to the above formula.
-+  if physical_bytes < (1<<30) * 3.5:
-     return 1
-   else:
-     return multiprocessing.cpu_count()
-@@ -73,7 +79,9 @@
-            'BUILD_WITH_NNAPI=false', '-C', TENSORFLOW_DIR]
-           + MAKE_CROSS_OPTIONS +
-           ['-f', RELATIVE_MAKEFILE_PATH, '-j',
--           str(get_build_cpus())])
-+           str(get_build_cpus()),
-+           # Chaquopy: the "all" target includes some unnecessary binaries which fail to build.
-+           "lib"])
-   if quiet:
-     args.append('--quiet')
-   if target:
-@@ -124,6 +132,9 @@
-     return super(CustomBuildPy, self).run()
+ # The target that's compiled for micro-controllers
+ micro: $(LIB_PATH)
+--- src-original/tensorflow/lite/profiling/platform_profiler.cc	2021-05-12 13:26:41.000000000 +0000
++++ src/tensorflow/lite/profiling/platform_profiler.cc	2021-09-15 09:17:27.036175684 +0000
+@@ -32,7 +32,8 @@
+ namespace profiling {
  
- 
-+# Chaquopy: needed for make_output below.
-+download_dependencies()
-+
- LIB_TFLITE = 'tensorflow-lite'
- LIB_TFLITE_DIR = make_output('libdir')
- 
+ std::unique_ptr<tflite::Profiler> MaybeCreatePlatformProfiler() {
+-#if defined(__ANDROID__)
++// Chaquopy disabled: MaybeCreateATraceProfiler isn't included in the build.
++#if 0 && defined(__ANDROID__)
+   return MaybeCreateATraceProfiler();
+ #elif defined(SIGNPOST_PLATFORM_PROFILER)
+   return MaybeCreateSignpostProfiler();
