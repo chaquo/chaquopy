@@ -1,15 +1,15 @@
 """Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
 
 from android.util import Log
-from io import TextIOBase
+import io
 import sys
 
 
-# LOGGER_ENTRY_MAX_PAYLOAD is defined in system/core/include/cutils/logger.h or
-# system/core/liblog/include/log/log_read.h, depending on Android version. The size of the
-# level marker and tag are subtracted from this value. It has already been reduced at least
-# once in the history of Android (from 4076 to 4068 between API level 23 and 26), so leave some
-# headroom.
+# The maximum length of a log message in bytes, including the level marker and tag, is defined
+# as LOGGER_ENTRY_MAX_PAYLOAD in platform/system/logging/liblog/include/log/log.h. As of API
+# level 30, messages longer than this will be be truncated by logcat. This limit has already
+# been reduced at least once in the history of Android (from 4076 to 4068 between API level 23
+# and 26), so leave some headroom.
 MAX_LINE_LEN = 4000
 
 
@@ -21,7 +21,7 @@ def initialize():
     sys.stderr = LogOutputStream(Log.WARN, "python.stderr")
 
 
-class EmptyInputStream(TextIOBase):
+class EmptyInputStream(io.TextIOBase):
     def readable(self):
         return True
 
@@ -32,11 +32,14 @@ class EmptyInputStream(TextIOBase):
         return ""
 
 
-class LogOutputStream(TextIOBase):
+class LogOutputStream(io.TextIOBase):
     def __init__(self, level, tag):
-        TextIOBase.__init__(self)
         self.level = level
         self.tag = tag
+        self.buffer = BytesOutputWrapper(self)
+
+    def __repr__(self):
+        return f"<LogOutputStream {self.tag!r}>"
 
     @property
     def encoding(self):
@@ -44,7 +47,7 @@ class LogOutputStream(TextIOBase):
 
     @property
     def errors(self):
-        return "replace"
+        return "backslashreplace"
 
     def writable(self):
         return True
@@ -53,9 +56,38 @@ class LogOutputStream(TextIOBase):
     # produce multiple log messages. The only alternatives would be buffering, or ignoring
     # empty lines, both of which would be bad for debugging.
     def write(self, s):
+        if not isinstance(s, str):
+            # Same wording as the standard TextIOWrapper stdout.
+            raise TypeError(f"write() argument must be str, not {type(s).__name__}")
+
         for line in s.splitlines():  # "".splitlines() == [], so nothing will be logged.
-            line = line or " "  # Empty lines are droped by logcat, so pass a single space.
+            line = line or " "  # Empty lines are dropped by logcat, so pass a single space.
             while line:
+                # TODO #5730: max line length should be measured in bytes.
                 Log.println(self.level, self.tag, line[:MAX_LINE_LEN])
                 line = line[MAX_LINE_LEN:]
         return len(s)
+
+
+class BytesOutputWrapper(io.RawIOBase):
+    def __init__(self, stream):
+        self.stream = stream
+
+    def __repr__(self):
+        return f"<BytesOutputWrapper {self.stream}>"
+
+    @property
+    def encoding(self):
+        return self.stream.encoding
+
+    @property
+    def errors(self):
+        return self.stream.errors
+
+    def writable(self):
+        return self.stream.writable()
+
+    def write(self, b):
+        # This form of `str` throws a TypeError on any non-bytes-like object.
+        self.stream.write(str(b, self.stream.encoding, self.stream.errors))
+        return len(b)

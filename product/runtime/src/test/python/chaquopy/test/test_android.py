@@ -981,15 +981,15 @@ class TestAndroidStreams(AndroidTestCase):
         Log.i(*self.get_marker())
         self.expected_log = []
 
-    def write(self, stream, s, expected_log):
-        self.assertEqual(len(s), stream.write(s))
-        self.expected_log += expected_log
+    def expect_log(self, level, stream_name, lines):
+        for line in lines:
+            self.expected_log.append(f"{level}/python.{stream_name}: {line}")
 
     def tearDown(self):
         actual_log = None
         marker = "I/{}: {}".format(*self.get_marker())
-        for line in subprocess.run(["logcat", "-d", "-v", "tag"],
-                                   capture_output=True, text=True).stdout.splitlines():
+        for line in subprocess.run(["logcat", "-d", "-v", "tag"], capture_output=True,
+                                   errors="backslashreplace").stdout.splitlines():
             if line == marker:
                 actual_log = []
             elif actual_log is not None and "/python.std" in line:
@@ -1001,46 +1001,113 @@ class TestAndroidStreams(AndroidTestCase):
         return cls_name, test_name
 
     def test_output(self):
-        out = sys.stdout
-        err = sys.stderr
-        for stream in [out, err]:
-            self.assertTrue(stream.writable())
-            self.assertFalse(stream.readable())
+        for stream_name, level in [("stdout", "I"), ("stderr", "W")]:
+            with self.subTest(stream=stream_name):
+                stream = getattr(sys, stream_name)
+                self.check_output_properties(stream)
 
-        self.write(out, "a",             ["I/python.stdout: a"])
-        self.write(out, "Hello world",   ["I/python.stdout: Hello world"])
-        self.write(err, "Hello stderr",  ["W/python.stderr: Hello stderr"])
-        self.write(out, " ",             ["I/python.stdout:  "])
-        self.write(out, "  ",            ["I/python.stdout:   "])
+                def write(s, lines=None):
+                    self.assertEqual(len(s), stream.write(s))
+                    if lines is None:
+                        lines = [s]
+                    self.expect_log(level, stream_name, lines)
 
-        # Non-ASCII text
-        for s in ["ol\u00e9",        # Spanish
-                  "\u4e2d\u6587"]:   # Chinese
-            self.write(out, s, ["I/python.stdout: " + s])
+                write("", [])
+                write("a")
+                write("Hello")
+                write("Hello world")
+                write(" ")
+                write("  ")
 
-        # Empty lines can't be logged, so we change them to a space. Empty strings, on the
-        # other hand, should be ignored.
-        #
-        # Avoid repeating log messages as it may activate "chatty" filtering and break the
-        # tests. Also, it makes debugging easier.
-        self.write(out, "",              [])
-        self.write(out, "\n",            ["I/python.stdout:  "])
-        self.write(out, "\na",           ["I/python.stdout:  ",
-                                          "I/python.stdout: a"])
-        self.write(out, "b\n",           ["I/python.stdout: b"])
-        self.write(out, "c\n\n",         ["I/python.stdout: c",
-                                          "I/python.stdout:  "])
-        self.write(out, "d\ne",          ["I/python.stdout: d",
-                                          "I/python.stdout: e"])
-        self.write(out, "f\n\ng",        ["I/python.stdout: f",
-                                          "I/python.stdout:  ",
-                                          "I/python.stdout: g"])
+                # The maximum line length is 4000.
+                write("foobar" * 700, [("foobar" * 666) + "foob",
+                                       "ar" + ("foobar" * 33)])
 
-    # The maximum line length is 4000.
-    def test_output_long(self):
-        self.write(sys.stdout, "foobar" * 700,
-                   ["I/python.stdout: " + ("foobar" * 666) + "foob",
-                    "I/python.stdout: ar" + ("foobar" * 33)])
+                # TODO #5730: max line length should be measured in bytes.
+                # These are the "full-width" digits 0-9, which encode in UTF-8 as 3 bytes each.
+                # write("\uff10\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19" * 150,
+                #       ["TODO"])
+
+                # Non-ASCII text
+                write("ol\u00e9")  # Spanish
+                write("\u4e2d\u6587")  # Chinese
+                write("\U0001F600")  # Non-BMP emoji
+
+                # Null characters are logged using "modified UTF-8".
+                write("\u0000", [r"\xc0\x80"])
+                write("a\u0000", [r"a\xc0\x80"])
+                write("\u0000b", [r"\xc0\x80b"])
+                write("a\u0000b", [r"a\xc0\x80b"])
+
+                # Multi-line messages. Avoid identical consecutive lines, as they may activate
+                # "chatty" filtering and break the tests. Empty lines are dropped by logcat, so
+                # they should be logged as a single space.
+                write("\n", [" "])
+                write("\na", [" ", "a"])
+                write("\na\n", [" ", "a"])
+                write("b\n", ["b"])
+                write("c\n\n", ["c", " "])
+                write("d\ne", ["d", "e"])
+                write("f\n\ng", ["f", " ", "g"])
+
+                for obj in [b"", b"hello", None, 42]:
+                    with self.subTest(obj=obj):
+                        with self.assertRaisesRegex(TypeError, fr"write\(\) argument must be "
+                                                    fr"str, not {type(obj).__name__}"):
+                            stream.write(obj)
+
+    def test_output_bytes(self):
+        for stream_name, level in [("stdout", "I"), ("stderr", "W")]:
+            with self.subTest(stream=stream_name):
+                stream = getattr(sys, stream_name).buffer
+                self.check_output_properties(stream)
+
+                def write(b, lines=None):
+                    self.assertEqual(len(b), stream.write(b))
+                    if lines is None:
+                        lines = [b.decode()]
+                    self.expect_log(level, stream_name, lines)
+
+                write(b"", [])
+                write(b"a")
+                write(b"Hello")
+                write(b"Hello world")
+                write(b" ")
+                write(b"  ")
+
+                # Non-ASCII text
+                write(b"ol\xc3\xa9")  # Spanish
+                write(b"\xe4\xb8\xad\xe6\x96\x87")  # Chinese
+                write(b"\xf0\x9f\x98\x80")  # Non-BMP emoji
+
+                # Invalid UTF-8
+                write(b"\xff", [r"\xff"])
+                write(b"a\xff", [r"a\xff"])
+                write(b"\xffb", [r"\xffb"])
+                write(b"a\xffb", [r"a\xffb"])
+
+                # Null characters are logged using "modified UTF-8".
+                write(b"\x00", [r"\xc0\x80"])
+                write(b"a\x00", [r"a\xc0\x80"])
+                write(b"\x00b", [r"\xc0\x80b"])
+                write(b"a\x00b", [r"a\xc0\x80b"])
+
+                for obj in ["", "hello"]:
+                    with self.subTest(obj=obj):
+                        with self.assertRaisesRegex(TypeError, r"decoding str is not supported"):
+                            stream.write(obj)
+
+                for obj in [None, 42]:
+                    with self.subTest(obj=obj):
+                        with self.assertRaisesRegex(TypeError, fr"decoding to str: need a bytes-"
+                                                    fr"like object, {type(obj).__name__} found"):
+                            stream.write(obj)
+
+    def check_output_properties(self, stream):
+        self.assertTrue(stream.writable())
+        self.assertFalse(stream.readable())
+        self.assertEqual("UTF-8", stream.encoding)
+        self.assertEqual("backslashreplace", stream.errors)
 
     def test_input(self):
         self.assertTrue(sys.stdin.readable())
