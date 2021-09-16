@@ -37,14 +37,16 @@ cdef dict_index(d, key):
 
 
 # Copy back any modifications the Java method may have made to mutable parameters.
-cdef copy_output_args(definition_args, args, p2j_args):
-    for argtype, arg, p2j_arg in zip(definition_args, args, p2j_args):
-        if (argtype[0] == "[") and arg and (not isinstance(arg, JavaArray)):
-            ret = jarray(argtype[1:])(instance=p2j_arg)
-            try:
-                arg[:] = ret
-            except TypeError:
-                pass    # The arg was a tuple or other read-only sequence.
+cdef copy_output_args(CQPEnv env, args, p2j_args):
+    for arg, p2j_arg in zip(args, p2j_args):
+        if isinstance(p2j_arg, JNIRef) and p2j_arg:
+            argtype = object_sig(env, p2j_arg)
+            if argtype[0] == "[" and not isinstance(arg, JavaArray):
+                ret = jarray(argtype[1:])(instance=p2j_arg)
+                try:
+                    arg[:] = ret
+                except TypeError:
+                    pass    # The arg was a tuple or other read-only sequence.
 
 
 # Cython auto-generates range checking code for the integral types.

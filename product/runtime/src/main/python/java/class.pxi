@@ -790,7 +790,7 @@ cdef class JavaMethod(JavaSimpleMember):
         else:
             result = self.call_nonvirtual_method(env, obj, p2j_args)
 
-        copy_output_args(self.args_sig, args, p2j_args)
+        copy_output_args(env, args, p2j_args)
         return result
 
     cdef check_args(self, CQPEnv env, args):

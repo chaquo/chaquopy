@@ -117,6 +117,20 @@ class TestNumpyJarray(unittest.TestCase):
                 self.assertEqual(values, na[0].tolist())
                 self.assertEqual(values_reversed, na[1].tolist())
 
+    def test_method_arg(self):
+        from java.lang import String
+        import numpy as np
+        from numpy.testing import assert_array_equal
+
+        a_in = np.array(list(b'hello'), np.int8)
+        s = String(a_in, "ASCII")
+        self.assertEqual("hello", s)
+
+        # This version of getBytes modifies its argument.
+        a_out = np.zeros(5, np.int8)
+        s.getBytes(0, 5, a_out, 0)
+        assert_array_equal(a_out, a_in)
+
     def test_performance(self):
         import numpy as np
 

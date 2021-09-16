@@ -1,6 +1,7 @@
 package com.chaquo.python;
 
 import java.io.*;
+import java.util.*;
 
 public class TestArray {
 
@@ -20,4 +21,6 @@ public class TestArray {
     public static Cloneable cloneable;
     public static Closeable closeable;
 
+    public static void arraySort(int[] arr) { Arrays.sort(arr); }
+	public static void arraySortObject(Object arr) { Arrays.sort((Object[])arr); }
 }

@@ -4,6 +4,7 @@ from java import (cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat,
 from java.lang import String
 
 from .test_utils import FilterWarningsCase
+from com.chaquo.python import TestArray as TA
 
 
 # In order for test_set_slice to work, all elements must be different.
@@ -137,16 +138,17 @@ class TestArray(FilterWarningsCase):
     def test_conversion(self):
         Object = jclass("java.lang.Object")
         Integer = jclass("java.lang.Integer")
-        TestArray = jclass('com.chaquo.python.TestArray')
         # All object arrays, primitive arrays, and Python iterables are assignable to Object,
         # Cloneable and Serializable
         for array in [jarray(Object)(["hello", 42]), jarray(Integer)([11, 22]),
                       jarray(jboolean)([False, True]), [False, True]]:
-            for field in ["object", "cloneable", "serializable"]:
-                setattr(TestArray, field, array)
-                self.assertEqual(array, getattr(TestArray, field))
+            with self.subTest(array=array):
+                for field in ["object", "cloneable", "serializable"]:
+                    with self.subTest(field=field):
+                        setattr(TA, field, array)
+                        self.assertEqual(array, getattr(TA, field))
                 with self.assertRaisesRegex(TypeError, "Cannot convert"):
-                    setattr(TestArray, "closeable", array)
+                    setattr(TA, "closeable", array)
 
     def test_cast(self):
         Object = jclass("java.lang.Object")
@@ -200,13 +202,19 @@ class TestArray(FilterWarningsCase):
                 self.assertEqual(btarray, [ctypes.c_int8(x).value
                                            for x in [0x56, 0x78, 0x90, 0xAB]])
 
+        for method in ["arraySort", "arraySortObject"]:
+            for input in [[], [42], [5, 7, 2, 11, 3]]:
+                with self.subTest(method=method, input=input):
+                    l = input.copy()
+                    getattr(TA, method)(l)
+                    self.assertEqual(sorted(input), l)
+
     def test_multiple_dimensions(self):
-        Arrays = jclass('com.chaquo.python.TestArray')
         matrix = [[1, 2, 3],
                   [4, 5, 6],
                   [7, 8, 9]]
-        self.assertEqual(Arrays.methodParamsMatrixI(matrix), True)
-        self.assertEqual(Arrays.methodReturnMatrixI(), matrix)
+        self.assertEqual(TA.methodParamsMatrixI(matrix), True)
+        self.assertEqual(TA.methodReturnMatrixI(), matrix)
 
     def test_get_int(self):
         a = jarray(jint)([2, 3, 5, 7, 11])
