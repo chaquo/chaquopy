@@ -3,10 +3,11 @@
 from contextlib import contextmanager
 from distutils import dir_util
 import distutils.util
+from fnmatch import fnmatch
 import hashlib
 import json
 import os
-from os.path import abspath, basename, dirname, exists, join, relpath
+from os.path import abspath, basename, dirname, exists, isdir, join, relpath
 import re
 import shutil
 from subprocess import run
@@ -732,6 +733,21 @@ class PythonReqs(GradleTestCase):
         # nothing when it takes one out.
         self.assertNotInLong(URL, run.stdout, re=True)
         self.assertNotInLong(BUILD, run.stdout)
+
+    # Test the OpenSSL PATH workaround for conda on Windows.
+    @skipUnless(os.name == "nt", "Windows only")
+    def test_conda(self):
+        # Remove PATH entries which contain any copy of libssl. If it's installed in
+        # C:\Windows\System32 or some other critical directory, then this test will probably
+        # fail.
+        path = os.pathsep.join(
+            entry for entry in os.environ["PATH"].split(os.pathsep)
+            if isdir(entry) and not any(fnmatch(filename, "libssl*.dll")
+                                        for filename in os.listdir(entry)))
+        self.RunGradle("base", "PythonReqs/conda",
+                       env={"chaquopy_conda_env": product_props["chaquopy.conda.env"],
+                            "PATH": path},
+                       requirements=["six.py"])
 
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",

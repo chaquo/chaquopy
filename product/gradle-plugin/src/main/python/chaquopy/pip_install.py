@@ -63,6 +63,7 @@ class PipInstall(object):
             abi_trees = {}
 
             # Install the first ABI.
+            check_ssl()
             abi = self.android_abis[0]
             req_infos, abi_trees[abi] = self.pip_install(abi, self.reqs)
             self.move_pure([ri.tree for ri in req_infos if ri.is_pure], abi, abi_trees[abi])
@@ -341,6 +342,22 @@ def config_logging(verbose):
             }
         },
     })
+
+
+# Conda on Windows needs the OpenSSL libraries to be on the PATH
+# (https://docs.conda.io/projects/conda/en/latest/user-guide/troubleshooting.html#ssl-connection-errors).
+def check_ssl():
+    try:
+        import ssl  # noqa: F401
+    except ImportError:
+        os.environ["PATH"] = os.pathsep.join([join(dirname(sys.executable), "Library", "bin"),
+                                              os.environ["PATH"]])
+        try:
+            import ssl  # noqa: F401
+        except ImportError:
+            logger.warning(f"buildPython {sys.executable} could not import ssl: package "
+                           f"downloads will probably fail. Try reinstalling Python with your "
+                           f"system's package manager, or downloading it from python.org.")
 
 
 class PathExistsError(ValueError):
