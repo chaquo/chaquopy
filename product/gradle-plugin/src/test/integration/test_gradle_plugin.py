@@ -807,6 +807,12 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("PythonReqs/wheel_file_2")
         run.rerun(requirements=["apple2/__init__.py"])
 
+    # This wheel has .data subdirectories for each of the possible distutils scheme keys. Only
+    # purelib and platlib should be included in the APK.
+    def test_wheel_data(self):
+        self.RunGradle("base", "PythonReqs/wheel_data",
+                       requirements=["purelib.txt", "platlib.txt"])
+
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
