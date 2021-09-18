@@ -314,10 +314,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "--"
                         args "--chaquopy", PLUGIN_VERSION
                         args "--isolated"  // Disables config files and environment variables.
-                        args "--no-build-isolation"  // I've not yet seen a package which requires
-                                                     // this, and it would also require altering
-                                                     // build_env.py to keep our modified copy of
-                                                     // setuptools on the PYTHONPATH.
+                        args "--no-build-isolation", "--no-use-pep517"  // TODO #5711
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
                         if (!("--index-url" in python.pip.options ||
