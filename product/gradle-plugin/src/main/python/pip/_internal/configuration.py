@@ -383,7 +383,7 @@ class Configuration(object):
         config_files = get_configuration_files()
 
         # at the base we have any global configuration
-        # Chaquopy disabled: yield kinds.GLOBAL, config_files[kinds.GLOBAL]
+        yield kinds.GLOBAL, config_files[kinds.GLOBAL]
 
         # per-user configuration next
         should_load_user_config = not self.isolated and not (
@@ -394,7 +394,7 @@ class Configuration(object):
             yield kinds.USER, config_files[kinds.USER]
 
         # finally virtualenv configuration first trumping others
-        # Chaquopy disabled: yield kinds.SITE, config_files[kinds.SITE]
+        yield kinds.SITE, config_files[kinds.SITE]
 
     def _get_parser_to_modify(self):
         # type: () -> Tuple[str, RawConfigParser]

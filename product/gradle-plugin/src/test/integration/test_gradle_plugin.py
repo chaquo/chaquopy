@@ -749,6 +749,30 @@ class PythonReqs(GradleTestCase):
                             "PATH": path},
                        requirements=["six.py"])
 
+    def test_isolated_env(self):
+        self.RunGradle("base", "PythonReqs/isolated",
+                       env={"PIP_INDEX_URL": "https://chaquo.com/nonexistent"},
+                       requirements=["six.py"])
+
+    def test_isolated_config(self):
+        try:
+            config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
+                                   "pip.ini" if (os.name == "nt") else "pip.conf")
+            config_backup = f"{config_filename}.{__name__}"
+            os.makedirs(dirname(config_filename), exist_ok=True)
+            if exists(config_filename):
+                os.rename(config_filename, config_backup)
+            with open(config_filename, "x") as config_file:
+                print("[global]\n"
+                      "index-url = https://chaquo.com/nonexistent",
+                      file=config_file)
+            self.RunGradle("base", "PythonReqs/isolated", requirements=["six.py"])
+        finally:
+            if exists(config_backup):
+                if exists(config_filename):
+                    os.remove(config_filename)
+                os.rename(config_backup, config_filename)
+
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
                        variants={"red-debug":  {"requirements": ["apple/__init__.py"]},

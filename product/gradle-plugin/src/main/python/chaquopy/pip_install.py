@@ -118,11 +118,13 @@ class PipInstall(object):
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
             # altered its behaviour somewhat for performance: see commands/install.py.
+            os.environ["PIP_CONFIG_FILE"] = os.devnull  # Disables all config files.
             cmdline = ([sys.executable,
                        "-S",  # Avoid interference from site-packages. This is not inherited
                               # by subprocesses, so it's used again in pip (see wheel.py and
                               # req_install.py).
                         "-m", "pip", "install",
+                        "--isolated",  # Disables environment variables.
                         "--target", abi_dir,
                         "--platform", self.platform_tag(abi)] +
                        self.pip_options + reqs)
@@ -355,9 +357,9 @@ def check_ssl():
         try:
             import ssl  # noqa: F401
         except ImportError:
-            logger.warning(f"buildPython {sys.executable} could not import ssl: package "
-                           f"downloads will probably fail. Try reinstalling Python with your "
-                           f"system's package manager, or downloading it from python.org.")
+            logger.warning("buildPython " + sys.executable + " could not import ssl: package "
+                           "downloads will probably fail. Try reinstalling Python with your "
+                           "system's package manager, or downloading it from python.org.")
 
 
 class PathExistsError(ValueError):

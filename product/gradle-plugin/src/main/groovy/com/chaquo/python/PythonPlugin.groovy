@@ -313,7 +313,6 @@ class PythonPlugin implements Plugin<Project> {
                         args reqsArgs
                         args "--"
                         args "--chaquopy", PLUGIN_VERSION
-                        args "--isolated"  // Disables config files and environment variables.
                         args "--no-build-isolation", "--no-use-pep517"  // TODO #5711
                         args "--disable-pip-version-check"
                         args "--cert", buildPackagesTask.cacertPem
