@@ -1295,7 +1295,7 @@ class RunGradle(object):
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             if os.name == "nt":
-                # Gradle runs subprocesses using Java's ProcessBuilder, which in turn uses
+                # Gradle runs subprocesses using Java's ProcessBuilder, which on Windows uses
                 # CreateProcessW. This uses a search algorithm which has some differences from
                 # the one used by the cmd shell:
                 #   * The only extension it tries is .exe, so we can't use a .bat file here.
@@ -1355,15 +1355,15 @@ class RunGradle(object):
         # `--info` explains why tasks were not considered up to date.
         # `--console plain` prevents "String index out of range: -1" error on Windows.
         gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
-        if "TZ" in env:
-            # The Gradle client passes its environment to the daemon, but that won't work for
-            # TZ, because the JVM only reads it during startup.
+        if any(name in env for name in ["PATH", "TZ"]):
+            # The Gradle client passes its environment to the daemon, but on Linux, changes to
+            # these variables apparently requires a process restart to take effect.
             gradlew_flags.append("--no-daemon")
 
         process = run([join(self.project_dir,
                             "gradlew.bat" if (os.name == "nt") else "gradlew")] +
                       gradlew_flags + [task_name("assemble", v) for v in variants],
-                      cwd=self.project_dir,  # See add_path above.
+                      cwd=self.project_dir,  # See Windows notes for add_path above.
                       capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
