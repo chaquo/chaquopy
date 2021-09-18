@@ -816,6 +816,11 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
+    # We currently disable PEP 517, and patch pip to fall back on setup.py, as it did in
+    # previous versions.
+    def test_sdist_pep517(self):
+        self.RunGradle("base", "PythonReqs/sdist_pep517", requirements=["sdist_pep517.py"])
+
     def test_cfg_wheel(self):
         self.RunGradle("base", "PythonReqs/cfg_wheel", requirements=["apple/__init__.py"])
 
