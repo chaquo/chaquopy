@@ -377,7 +377,7 @@ ssl
 ---
 
 The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://github.com/certifi/python-certifi/>`_ version 2020.12.5. The system CA store is not
+<https://github.com/certifi/python-certifi/>`_ version 2021.5.30. The system CA store is not
 used.
 
 sys
