@@ -8,6 +8,9 @@ except ImportError:
     Build = None
 
 
+TEST_DATA = [2, 3, 5, 7]
+
+
 class TestNumpy(unittest.TestCase):
 
     def test_basic(self):
@@ -61,6 +64,9 @@ class TestNumpyJarray(unittest.TestCase):
             cls.TESTS.append((element_type, dtype, dtype, values))
             if (element_type in [jint, jlong]) and (dtype().itemsize == long_itemsize):
                 cls.TESTS.append((element_type, np.int_, dtype, values))
+
+    def setUp(self):
+        self.index_error = self.assertRaisesRegex(IndexError, "array index out of range")
 
     def test_1d(self):
         for *args, values in self.TESTS:
@@ -116,6 +122,80 @@ class TestNumpyJarray(unittest.TestCase):
                 self.assertEqual(ja, na)
                 self.assertEqual(values, na[0].tolist())
                 self.assertEqual(values_reversed, na[1].tolist())
+
+    def test_scalar_get(self):
+        from numpy import int32, float32
+        arr = jarray(jint)(TEST_DATA)
+
+        self.assertEqual(2, arr[int32(0)])
+        self.assertEqual(3, arr[int32(1)])
+        self.assertEqual(7, arr[int32(3)])
+        with self.index_error:
+            arr[int32(4)]
+
+        self.assertEqual(7, arr[int32(-1)])
+        self.assertEqual(5, arr[int32(-2)])
+        self.assertEqual(2, arr[int32(-4)])
+        with self.index_error:
+            arr[int32(-5)]
+
+        self.assertEqual([], arr[int32(0) : int32(0)])
+        self.assertEqual([3, 5, 7], arr[int32(1):])
+        self.assertEqual([3, 7], arr[int32(1)::int32(2)])
+        self.assertEqual([2, 3, 5], arr[:int32(3)])
+        self.assertEqual([2, 3], arr[int32(0) : int32(2)])
+        self.assertEqual([3], arr[int32(1) : int32(2)])
+        self.assertEqual([5, 3], arr[int32(2) : int32(0) : int32(-1)])
+
+        with self.assertRaisesRegex(TypeError, r"array indices must be integers or slices, "
+                                    r"not float32"):
+            arr[float32(2)]
+        with self.assertRaisesRegex(TypeError, r"slice indices must be integers or None or "
+                                    r"have an __index__ method"):
+            arr[float32(1) : float32(3)]
+
+    def test_scalar_set(self):
+        from numpy import int32, float32
+
+        arr = jarray(jint)(TEST_DATA)
+        arr[int32(0)] = 101
+        arr[int32(1)] = 102
+        arr[int32(3)] = 103
+        self.assertEqual([101, 102, 5, 103], arr)
+        with self.index_error:
+            arr[int32(4)] = 99
+
+        arr = jarray(jint)(TEST_DATA)
+        arr[int32(-1)] = 201
+        arr[int32(-2)] = 202
+        arr[int32(-4)] = 203
+        self.assertEqual([203, 3, 202, 201], arr)
+        with self.index_error:
+            arr[int32(-5)] = 99
+
+        for slc, expected in [(slice(int32(0), int32(0)),               [2, 3, 5, 7]),
+                              (slice(int32(1), None),                   [2, 0, 1, 2]),
+                              (slice(int32(1), None, int32(2)),         [2, 0, 5, 1]),
+                              (slice(None, int32(3)),                   [0, 1, 2, 7]),
+                              (slice(int32(0), int32(2)),               [0, 1, 5, 7]),
+                              (slice(int32(1), int32(2)),               [2, 0, 5, 7]),
+                              (slice(int32(2), int32(0), int32(-1)),    [2, 1, 0, 7])]:
+            with self.subTest(slc=slc):
+                arr = jarray(jint)(TEST_DATA)
+                arr[slc] = range(len(range(*slc.indices(len(TEST_DATA)))))
+                self.assertEqual(expected, arr)
+
+        arr = jarray(jint)(TEST_DATA)
+        with self.assertRaisesRegex(ValueError, r"can't set slice of length 1 from value "
+                                    r"of length 2"):
+            arr[int32(1) : int32(2)] = [99, 99]
+        with self.assertRaisesRegex(TypeError, r"array indices must be integers or slices, "
+                                    r"not float32"):
+            arr[float32(2)] = 99
+        with self.assertRaisesRegex(TypeError, r"slice indices must be integers or None or "
+                                    r"have an __index__ method"):
+            arr[float32(1) : float32(3)] = [99, 99]
+        self.assertEqual(TEST_DATA, arr)
 
     def test_method_arg(self):
         from java.lang import String

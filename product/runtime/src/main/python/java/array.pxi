@@ -120,16 +120,14 @@ cdef class JavaArray:
 
     def __getitem__(self, key):
         global Arrays
-        if isinstance(key, int):
-            return array_get(self, self._int_key(key))
-        elif isinstance(key, slice):
+        if isinstance(key, slice):
             r = range(*key.indices(self.length))
             if r.step == 1:
                 return Arrays.copyOfRange(self, r.start, max(r.start, r.stop))
             else:
                 return type(self)([array_get(self, i) for i in r])
         else:
-            self._invalid_key(key)
+            return array_get(self, self._int_key(key))
 
     # `copy` is not part of the Sequence ABC, but the standard types all provide it.
     def copy(self):
@@ -137,9 +135,7 @@ cdef class JavaArray:
 
     def __setitem__(self, key, value):
         global System
-        if isinstance(key, int):
-            array_set(self, self._int_key(key), value)
-        elif isinstance(key, slice):
+        if isinstance(key, slice):
             r = range(*key.indices(self.length))
             if len(r) != len(value):
                 raise ValueError(
@@ -155,19 +151,20 @@ cdef class JavaArray:
                 for i, v in zip(r, value):
                     array_set(self, i, v)
         else:
-            self._invalid_key(key)
+            array_set(self, self._int_key(key), value)
 
-    cdef int _int_key(self, int key) except -1:
+    cdef int _int_key(self, key) except -1:
+        try:
+            key = key.__index__()
+        except AttributeError:
+            # Same wording as the built-in list type.
+            raise TypeError(f"array indices must be integers or slices, not {type(key).__name__}")
         if key < 0:
             key = self.length + key
         if not (0 <= key < self.length):
             # Same wording as the built-in list type.
             raise IndexError("array index out of range")
         return key
-
-    def _invalid_key(self, key):
-        # Same wording as the built-in list type.
-        raise TypeError(f"array indices must be integers or slices, not {type(key).__name__}")
 
     def __eq__(self, other):
         try:

@@ -309,13 +309,17 @@ class TestArray(FilterWarningsCase):
             a[:] = b
 
     def test_invalid_index(self):
-        a = jarray(jint)([2, 3, 5, 7, 11])
-        index_type_error = \
-            self.assertRaisesRegex(TypeError, "array indices must be integers or slices, not str")
-        with index_type_error:
-            a["hello"]
-        with index_type_error:
-            a["hello"] = 4
+        a = jarray(jint)(SLICE_DATA)
+        for index in ["", "hello", 0.0, 1.0]:
+            with self.subTest(index=index):
+                error = self.assertRaisesRegex(
+                    TypeError, fr"array indices must be integers or slices, not "
+                    fr"{type(index).__name__}")
+                with error:
+                    a[index]
+                with error:
+                    a[index] = 99
+                self.assertEqual(SLICE_DATA, a)
 
     # Most of the positive tests are in test_conversion, but here are some error tests.
     def test_modify(self):
