@@ -10,7 +10,7 @@ import importlib.util
 from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
-from os.path import dirname, exists, join, splitext
+from os.path import dirname, exists, join, realpath, splitext
 import pkgutil
 import platform
 import re
@@ -43,7 +43,7 @@ if API_LEVEL:
     REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
 
     def asset_path(zip_name, *paths):
-        return join(context.getFilesDir().toString(), "chaquopy/AssetFinder",
+        return join(realpath(context.getFilesDir().toString()), "chaquopy/AssetFinder",
                     zip_name.partition("-")[0], *paths)
 
     LIBCXX_FILENAME = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
@@ -259,9 +259,11 @@ class TestAndroidImport(AndroidTestCase):
         # Module attributes
         self.assertEqual(mod_name, mod.__name__)
         self.assertEqual(filename, mod.__file__)
+        self.assertEqual(realpath(mod.__file__), mod.__file__)
         self.assertEqual(filename.endswith(".so"), exists(mod.__file__))
         if is_package:
             self.assertEqual([dirname(filename)], mod.__path__)
+            self.assertEqual(realpath(mod.__path__[0]), mod.__path__[0])
             self.assertEqual(mod_name, mod.__package__)
         else:
             self.assertFalse(hasattr(mod, "__path__"))
@@ -963,11 +965,12 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertEqual("siphash24", sys.hash_info.algorithm)
 
         chaquopy_dir = f"{context.getFilesDir()}/chaquopy"
-        self.assertEqual([join(chaquopy_dir, path) for path in
-                          ["AssetFinder/app", "AssetFinder/requirements",
-                           f"AssetFinder/stdlib-{ABI}", "stdlib-common.imy",
-                           "bootstrap.imy", f"bootstrap-native/{ABI}"]],
-                         sys.path)
+        self.assertEqual(
+            [join(realpath(chaquopy_dir), path) for path in
+             ["AssetFinder/app", "AssetFinder/requirements", f"AssetFinder/stdlib-{ABI}"]] +
+            [join(chaquopy_dir, path) for path in
+             ["stdlib-common.imy", "bootstrap.imy", f"bootstrap-native/{ABI}"]],
+            sys.path)
         for p in sys.path:
             self.assertTrue(exists(p), p)
 

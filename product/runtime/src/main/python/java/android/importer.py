@@ -8,8 +8,8 @@ import imp
 from importlib import _bootstrap, _bootstrap_external, machinery, metadata, util
 from inspect import getmodulename
 import io
-import os.path
-from os.path import basename, dirname, exists, join, normpath, relpath, split, splitext
+import os
+from os.path import basename, dirname, exists, join, normpath, realpath, relpath, split, splitext
 import pathlib
 from pkgutil import get_importer
 import platform
@@ -45,8 +45,12 @@ def initialize_importlib(context, build_json, app_path):
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
 
+    # Use realpath to resolve any symlinks in getFilesDir(), otherwise there may be confusion
+    # if user code calls realpath itself and then passes the result back to us (#5717).
     global ASSET_PREFIX
-    ASSET_PREFIX = join(context.getFilesDir().toString(), Common.ASSET_DIR, "AssetFinder")
+    ASSET_PREFIX = join(realpath(context.getFilesDir().toString()),
+                        Common.ASSET_DIR, "AssetFinder")
+
     def hook(path):
         return AssetFinder(context, build_json, path)
     sys.path_hooks.insert(0, hook)
