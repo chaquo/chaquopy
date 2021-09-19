@@ -77,6 +77,27 @@ def initialize_importlib(context, build_json, app_path):
         # get_importer returns.
         site.addsitedir(finder.extract_root)
 
+    global spec_from_file_location_original
+    spec_from_file_location_original = util.spec_from_file_location
+    util.spec_from_file_location = spec_from_file_location_override
+
+
+def spec_from_file_location_override(name, location=None, *args, loader=None, **kwargs):
+    if location and not loader:
+        head, tail = split(location)
+        tail = splitext(tail)[0]
+        if tail == "__init__":
+            head, tail = split(head)
+        finder = get_importer(head)
+        if isinstance(finder, AssetFinder):
+            real_name = relpath(join(head, tail), finder.extract_root).replace("/", ".")
+            spec = finder.find_spec(real_name)
+            if spec:
+                spec.name = name
+                return spec
+
+    return spec_from_file_location_original(name, location, *args, loader=loader, **kwargs)
+
 
 def is_dist_info(name):
     return bool(re.search(r"\.(dist|egg)-info$", name))

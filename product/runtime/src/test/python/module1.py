@@ -1,4 +1,4 @@
-# This module is used by chaquopy.test.test_import.
+# This module is used by test_import and test_android.
 
 
 def test_relative(self):

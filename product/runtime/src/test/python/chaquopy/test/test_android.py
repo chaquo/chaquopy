@@ -616,6 +616,30 @@ class TestAndroidImport(AndroidTestCase):
             rmtree(entry)
         self.clean_reload(package)
 
+    def test_spec_from_file_location(self):
+        # This is the recommended way to load a module from a known filename
+        # (https://docs.python.org/3.8/library/importlib.html#importing-a-source-file-directly).
+        def import_from_filename(name, location):
+            spec = importlib.util.spec_from_file_location(name, location)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        for name, zip_name, zip_path, attr in [
+                ("module1", APP_ZIP, "module1.py", "test_relative"),
+                ("module1_renamed", APP_ZIP, "module1.py", "test_relative"),
+                ("android1", APP_ZIP, "android1/__init__.py", "x"),
+                ("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include"),
+                ("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py", "__license__")]:
+            with self.subTest(name=name):
+                module = import_from_filename(name, asset_path(zip_name, zip_path))
+                self.assertEqual(name, module.__name__)
+                self.assertTrue(hasattr(module, attr))
+
+        bad_path = asset_path(APP_ZIP, "nonexistent.py")
+        with self.assertRaisesRegex(FileNotFoundError, bad_path):
+            import_from_filename("nonexistent", bad_path)
+
     # Unlike pkg_resources, importlib.resources cannot access subdirectories within packages.
     def test_importlib_resources(self):
         # App ZIP
