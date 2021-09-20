@@ -47,7 +47,7 @@ Temporarily set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case), 
 the following devices, with at least one device being a clean install:
 
 * x86 emulator with API 18 (#5316)
-* x86 emulator with targetSdkVersion
+* x86\_64 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
   * TensorFlow will fail because of #5626, so test that on API 23.
 
@@ -89,7 +89,7 @@ Use `adb` to install and test the APK on the following devices, with at least on
 a clean install, and at least one being an upgrade from the previous public release.
 
 * x86 emulator with minSdkVersion
-* x86 emulator with targetSdkVersion
+* x86\_64 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
 * Any armeabi-v7a device
 * Any arm64-v8a device
