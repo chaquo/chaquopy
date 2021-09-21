@@ -72,6 +72,16 @@ WARNING = "^Warning: "
 class GradleTestCase(TestCase):
     maxDiff = None
 
+    def setUp(self):
+        module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", self.id()).groups()
+        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
+                            agp_version, cls, func)
+
+    def tearDown(self):
+        # Remove build directory if test passed.
+        if exists(self.run_dir) and not any(exc for _, exc in self._outcome.errors):
+            rmtree(self.run_dir)
+
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
 
@@ -323,8 +333,8 @@ class JavaLib(GradleTestCase):
     # again in the future.
     def test_multidex(self):
         run = self.RunGradle("base")
-        classes = f"{run.run_dir}/apk/debug/classes.dex"
-        classes2 = f"{run.run_dir}/apk/debug/classes2.dex"
+        classes = f"{self.run_dir}/apk/debug/classes.dex"
+        classes2 = f"{self.run_dir}/apk/debug/classes2.dex"
         self.assertTrue(exists(classes))
         self.assertFalse(exists(classes2))
 
@@ -1240,11 +1250,8 @@ class StaticProxy(GradleTestCase):
 class RunGradle(object):
     def __init__(self, test, *layers, run=True, **kwargs):
         self.test = test
-        module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", test.id()).groups()
-        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
-                            agp_version, cls, func)
-        if os.path.exists(self.run_dir):
-            rmtree(self.run_dir)
+        if os.path.exists(test.run_dir):
+            rmtree(test.run_dir)
 
         # Keep each test independent by clearing the pip cache. The appdirs module used in
         # pip._internal.locations is an old or modified version imported from
@@ -1253,7 +1260,7 @@ class RunGradle(object):
         if exists(cache_dir):
             rmtree(cache_dir)
 
-        self.project_dir = join(self.run_dir, "project")
+        self.project_dir = join(test.run_dir, "project")
         os.makedirs(self.project_dir)
         self.apply_layers(*layers)
         self.set_local_property("sdk.dir", sdk_dir)
@@ -1398,7 +1405,7 @@ class RunGradle(object):
             output_dir = join(output_dir, variant.replace("-", "/"))
         zip_file = ZipFile(f"{output_dir}/{module}-{variant}.{ext}")
 
-        zip_dir = join(self.run_dir, ext, variant)
+        zip_dir = join(self.test.run_dir, ext, variant)
         if exists(zip_dir):
             rmtree(zip_dir)
         zip_file.extractall(zip_dir)
