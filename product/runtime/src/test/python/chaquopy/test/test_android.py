@@ -42,6 +42,8 @@ if API_LEVEL:
     ABI = AndroidPlatform.ABI
     REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
 
+    # REQS_COMMON_ZIP and REQS_ABI_ZIP are now both extracted into the same directory, but we
+    # maintain the distinction in the tests in case that changes again in the future.
     def asset_path(zip_name, *paths):
         return join(realpath(context.getFilesDir().toString()), "chaquopy/AssetFinder",
                     zip_name.partition("-")[0], *paths)
@@ -1058,7 +1060,10 @@ class TestAndroidStreams(AndroidTestCase):
                 # Non-ASCII text
                 write("ol\u00e9")  # Spanish
                 write("\u4e2d\u6587")  # Chinese
-                write("\U0001F600")  # Non-BMP emoji
+
+                # Non-BMP emoji
+                write("\U0001f600", [r"\xed\xa0\xbd\xed\xb8\x80" if API_LEVEL < 23
+                                     else "\U0001f600"])
 
                 # Null characters are logged using "modified UTF-8".
                 write("\u0000", [r"\xc0\x80"])
@@ -1105,7 +1110,10 @@ class TestAndroidStreams(AndroidTestCase):
                 # Non-ASCII text
                 write(b"ol\xc3\xa9")  # Spanish
                 write(b"\xe4\xb8\xad\xe6\x96\x87")  # Chinese
-                write(b"\xf0\x9f\x98\x80")  # Non-BMP emoji
+
+                # Non-BMP emoji
+                write(b"\xf0\x9f\x98\x80", [r"\xed\xa0\xbd\xed\xb8\x80" if API_LEVEL < 23
+                                            else "\U0001f600"])
 
                 # Invalid UTF-8
                 write(b"\xff", [r"\xff"])
