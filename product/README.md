@@ -75,7 +75,7 @@ Windows prerequisites:
 Common prerequisities (on Windows, these must be the MSYS2 versions):
 
 * GCC and binutils.
-* Python of the same major.minor version as you are testing.
+* The same Python major.minor version as Chaquopy currently uses.
   * On Linux, if your distribution supplies a different Python version, it's easy to build the
     correct version from source.
   * On Windows, if MSYS2 has already moved on to the next Python version, download the correct
@@ -93,16 +93,19 @@ There are a few Gradle plugin unit tests, which can be run with the Gradle task
 However, most of the Gradle plugin functionality is covered by the integration tests.
 Prerequisites:
 
-* The test script requires Python 3.6, and the requirements in
+* The test script requires the packages listed in
   `gradle-plugin/src/test/integration/requirements.txt`. It does not currently work in a
-  virtualenv, so use `pip install --user` instead, making sure that you run pip with Python
-  3.6.
+  virtualenv, so use `pip install --user` instead, making sure that you run pip with the same
+  major.minor Python version as Chaquopy currently uses.
 * On Windows, integration tests are not run with the MSYS2 Python, but rather with the `py`
   launcher (PEP 397). This is installed by default by the official Windows releases from
   python.com.
 
 The integration tests are run by the Gradle task `gradle-plugin:testIntegration-X.Y`, where
-`X.Y` is the Android Gradle plugin version to test against (e.g. `3.4`).
+`X.Y` is the Android Gradle plugin version to test against (e.g. `7.0`).
+
+For Android Gradle plugin versions 3.6 and 4.0, you must install the matching NDK version
+listed [here](https://developer.android.com/studio/projects/configure-agp-ndk).
 
 The full set of tests will take a long time. To run only some of them, add `-P
 testPythonArgs=<args>` to the Gradle command line, where `<args>` is a space-separated list of

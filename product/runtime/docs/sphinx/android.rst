@@ -188,18 +188,22 @@ Requirements
           :ref:`buildPython <buildPython>` setting.
 
 External Python packages may be built into the app using the `pip` block in `build.gradle`.
-Within this block, add `install` lines, each specifying a package in one of the following
-forms::
+Within this block, add `install` lines, which can take any of the forms accepted by `pip
+install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
 
     defaultConfig {
         python {
             pip {
-                // A pip requirement specifier, with or without a version number:
+                // A requirement specifier, with or without a version number:
                 install "scipy"
                 install "requests==2.24.0"
 
                 // An sdist or wheel filename, relative to the project directory:
                 install "MyPackage-1.2.3-py2.py3-none-any.whl"
+
+                // A directory containing a setup.py, relative to the project
+                // directory (must contain at least one slash):
+                install "./MyPackage"
 
                 // "-r"` followed by a requirements filename, relative to the
                 // project directory:
@@ -223,10 +227,9 @@ For example::
         install "MyPackage==1.2.3"
     }
 
-Any options in the `pip documentation
-<https://pip.readthedocs.io/en/stable/reference/pip_install/>`_ may be used, except for those
-which relate to the target environment, such as `--target`, `--user` or `-e`. If there are
-multiple `options` lines, they will be combined in the order given.
+Any options in the `pip documentation <https://pip.pypa.io/en/stable/cli/pip_install/>`_ may be
+used, except for those which relate to the target environment, such as `--target`, `--user` or
+`-e`. If there are multiple `options` lines, they will be combined in the order given.
 
 .. _static-proxy-generator:
 

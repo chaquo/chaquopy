@@ -45,17 +45,13 @@ similar Chaquopy-based Android app (`source code
 How can I make my app smaller?
 ------------------------------
 
-If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
-<https://www.tensorflow.org/lite/guide>`_:
+If your app is too large, check the following:
 
-* Install it by adding `tflite-runtime` to the :ref:`pip block <android-requirements>` of your
-  build.gradle file.
-* `Convert your model <https://www.tensorflow.org/lite/convert/>`_ to tflite format.
-* `Run your model
-  <https://www.tensorflow.org/lite/guide/python#run_an_inference_using_tflite_runtime>`_ using
-  the tflite API.
+* Your :ref:`Python source code <android-source>` directories: all files in there will be built
+  into the app.
+* Your :ref:`pip requirements list <android-requirements>`.
 
-More generally, try reducing the :ref:`number of ABIs <android-abis>` in your APK. Because of
+You can also try reducing the :ref:`number of ABIs <android-abis>` in your APK. Because of
 the way Chaquopy packages its native components, the `APK splits
 <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
 <https://developer.android.com/guide/app-bundle/>`_ features won't help much. Instead, use a
@@ -84,6 +80,16 @@ example:
             }
         }
     }
+
+If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
+<https://www.tensorflow.org/lite/guide>`_:
+
+* Install it by adding `tflite-runtime` to the :ref:`pip block <android-requirements>` of your
+  build.gradle file.
+* `Convert your model <https://www.tensorflow.org/lite/convert/>`_ to tflite format.
+* `Run your model
+  <https://www.tensorflow.org/lite/guide/python#run_an_inference_using_tflite_runtime>`_ using
+  the tflite API.
 
 
 How do I ...

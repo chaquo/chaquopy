@@ -11,7 +11,7 @@ the previous version.
 
 Run `gradlew -P cmakeBuildType=Release publish`.
 
-Run Java and Python unit tests on device from #5683:
+Run Java and Python unit tests:
 
 * Perform a clean install.
 * Record test times in #5683, and investigate if significantly worse than the previous version.
@@ -24,38 +24,36 @@ Run Java and Python unit tests on device from #5683:
 
 ## Gradle plugin
 
-On each test machine:
+On one test machine, run `gradlew -P cmakeBuildType=Release publish`. Then copy `gradle`,
+`runtime` and (if necessary) `target` to the other machines. On those other machines, to make
+sure the artifacts are not overwritten, temporarily disable the `dependsOn publish` line in
+`gradle-plugin/build.gradle`.
 
-* Pull the current version of this repository.
-* Free up disk space if necessary: the integration tests require about 6 GB per Android Gradle
-  plugin version.
-
-On one supported workstation OS, run `gradlew --continue -P cmakeBuildType=Release
-gradle-plugin:check`.
-
-On the other supported workstation OSes, copy `gradle`, `runtime` and (if necessary) `target`
-from the first machine. To make sure they're not overwritten, temporarily disable the `dependsOn
-publish` line in `gradle-plugin/build.gradle`. Then run the same `gradle-plugin:check` command.
+On each test machine, pull the current version of this repository, then run `gradlew --continue
+-P cmakeBuildType=Release gradle-plugin:check`.
 
 
 ## Package tests
 
-Remove license key from pkgtest app, and temporarily replace the empty list in the
-`addPackages` line with `PACKAGE_GROUPS[1]`.
+Remove the license key from the pkgtest app, and temporarily change its build.gradle file as
+follows:
 
-Temporarily set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case), then test it on
-the following devices, with at least one device being a clean install:
+* Replace the empty list in the `addPackages` line with `PACKAGE_GROUPS[1]`.
+* Set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case).
+
+Then test it on the following devices, with at least one device being a clean install:
 
 * x86 emulator with API 18 (#5316)
-* x86\_64 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
   * TensorFlow will fail because of #5626, so test that on API 23.
+* x86\_64 emulator with targetSdkVersion
 
-Repeat with `PACKAGE_GROUPS[2]`, and on at least one device, test that the license notification
-and enforcement works correctly.
+On at least one device, test that the license notification and enforcement works correctly.
 
-Restore the license key, then repeat the `PACKAGE_GROUPS[1]` and `[2]` tests on each of the
-following ABIs, in each case setting `abiFilters` to just a single ABI:
+Restore the license key, then repeat with `PACKAGE_GROUPS[2]`.
+
+Repeat the `PACKAGE_GROUPS[1]` and `[2]` tests on each of the following ABIs, in each case
+setting `abiFilters` to just a single ABI:
 
 * armeabi-v7a
 * arm64-v8a
@@ -66,39 +64,37 @@ following ABIs, in each case setting `abiFilters` to just a single ABI:
 Copy current versions of `gradle`, `runtime` and (if necessary) `target` to the public Maven
 repository.
 
-Make sure all public repositories are clean.
+Make sure all public repositories are clean (`git clean -xdf`).
 
 Run `release_public.sh OLD_VER NEW_VER`, where `OLD_VER` is the label in *this* repository from
 which the public repositories were last updated.
 
 If the script reports any files which require manual merging (e.g. build.gradle), examine them
-and update the public repositories as necessary. But do not update the Android Gradle plugin
-version in the public apps until at least one Android Studio release cycle has passed, because
-old versions of Android Studio don't work with new versions of the Android Gradle plugin.
+and update all the public repositories as necessary.
+* Keep the versions of Gradle and the Android Gradle plugin in the public apps at least one
+  year old, because old versions of AGP are compatible with new versions of Android Studio, but
+  not vice versa
+  (https://android-developers.googleblog.com/2020/12/announcing-android-gradle-plugin.html).
+* If .gitignore has changed, git rm any newly-ignored files.
 
-For each of the following public demo apps, "Clean Project", then test it on any device:
+For each of the public apps, open it in Android Studio and test it on any device.
 
-* `console`
-* `hello`
-* `matplotlib`
-
-Open public `demo` project. "Clean Project", then "Generate Signed APK" with "release" variant
-and all signature schemes.
+In public `demo` project:
+* Make sure license key is present.
+* Generate signed APK" with "release" variant.
 
 Use `adb` to install and test the APK on the following devices, with at least one device being
 a clean install, and at least one being an upgrade from the previous public release.
 
 * x86 emulator with minSdkVersion
-* x86\_64 emulator with targetSdkVersion
 * x86\_64 emulator with API 21
+* x86\_64 emulator with targetSdkVersion
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
 Update `demo/CHANGELOG.md`.
 
 Release app on Google Play, updating description and screenshots if necessary.
-
-Copy APK to the public Maven repository.
 
 Set reminder to check for Google Play crash reports regularly over the next month.
 

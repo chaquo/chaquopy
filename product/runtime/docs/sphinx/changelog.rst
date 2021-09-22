@@ -1,6 +1,39 @@
 Change log
 ##########
 
+10.0.1 (2021-09-22)
+===================
+
+* Android Gradle plugin versions 4.2 and 7.0 are now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin versions 3.4 and 3.5 are no longer
+  supported.
+* [**BACKWARD INCOMPATIBLE**] The `version` setting is no longer supported. Simply remove it to
+  use the current version of Python.
+* Update to Python version 3.8.11 (see `its changelog
+  <https://docs.python.org/3.8/whatsnew/changelog.html>`__ for details).
+* Update to pip version 19.2.3 (see `its changelog <https://pip.pypa.io/en/stable/news/>`__ for
+  details).
+* Update CA bundle to certifi 2020.5.30.
+* Add a `buffer` attribute to stdout and stderr for bytes output (`#464
+  <https://github.com/chaquo/chaquopy/issues/464>`_, `#516
+  <https://github.com/chaquo/chaquopy/issues/516>`_).
+* Java arrays now support the `index` and `count` methods in Python. In order to support code
+  with `hasattr` checks, they also now implement the methods `__contains__`, `__iter__` and
+  `__reversed__`, rather than relying on the fallback to `__getitem__` (`#306
+  <https://github.com/chaquo/chaquopy/issues/306>`_).
+* Fix "truth value of an array with more than one element is ambiguous" error when passing a
+  NumPy array to a method which takes a Java array (`#526
+  <https://github.com/chaquo/chaquopy/issues/526>`_).
+* NumPy integer scalars, and anything else which implements the `__index__` method, can now be
+  used as a Java array index (`#495 <https://github.com/chaquo/chaquopy/issues/495>`_).
+* Add workaround to help conda Python on Windows find its SSL libraries (`#450
+  <https://github.com/chaquo/chaquopy/issues/450>`_).
+* Fix "invalid literal for int" error in pip_install when project path includes a symlink
+  (`#468 <https://github.com/chaquo/chaquopy/issues/468>`_).
+* Fix crash caused by empty files in the APK on Android 7 (`Electron Cash #2136
+  <https://github.com/Electron-Cash/Electron-Cash/issues/2136>`_).
+* :any:`importlib.util.spec_from_file_location` now works for paths loaded from the APK.
+
 9.1.0 (2021-01-02)
 ==================
 
@@ -22,7 +55,8 @@ Change log
 
 * Android Gradle plugin version 4.1 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.3 is no longer supported.
-* Runtime Python version is now 3.8.6.
+* Update to Python version 3.8.6 (see `its changelog
+  <https://docs.python.org/3.8/whatsnew/changelog.html>`__ for details).
 * Java/Kotlin objects implementing functional interfaces can now be called from Python using
   `()` syntax. This includes lambdas, method references, and any interface with a single
   abstract method, such as `java.lang.Runnable`.
@@ -52,7 +86,8 @@ Change log
 
 * Android Gradle plugin version 4.0 is now supported.
 * [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.2 is no longer supported.
-* Runtime Python version is now 3.8.3.
+* Update to Python version 3.8.3 (see `its changelog
+  <https://docs.python.org/3.8/whatsnew/changelog.html>`__ for details).
 * Using Chaquopy in an Android library module (AAR) is now supported (`#94
   <https://github.com/chaquo/chaquopy/issues/94>`_).
 * Java primitive arrays now support the Python buffer protocol, allowing high-performance data
