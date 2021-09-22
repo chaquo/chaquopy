@@ -47,21 +47,6 @@ done
 echo "done"
 
 
-echo -n "hello: "
-cd "$private_root/../public/hello"
-git checkout master
-git reset --mixed empty-activity
-update_version build.gradle
-git add app/build.gradle app/src/main/AndroidManifest.xml app/src/main/python/hello.py build.gradle
-git rm app/src/main/java/com/chaquo/python/hello/MainActivity.java
-git commit -m "Port to Python"
-sed -i -E "s|commit/[0-9a-f]+|commit/$(git rev-parse HEAD)|" README.md
-git add docs/ISSUE_TEMPLATE.md LICENSE.txt README.md
-git commit -m "Add documentation"
-git branch "$new_ver"
-echo "done"
-
-
 echo -n "matplotlib: "
 public_root="../public/matplotlib"
 update_version "$public_root/build.gradle"
