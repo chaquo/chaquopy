@@ -13,13 +13,15 @@ Run `gradlew -P cmakeBuildType=Release publish`.
 
 Run Java and Python unit tests:
 
-* Perform a clean install.
-* Record test times in #5683, and investigate if significantly worse than the previous version.
-  Obviously the tests themselves may have changed, so some judgement may be required.
-* Run tests twice in the same process.
+* Clean install, then run tests twice in the same process.
+* Kill the process, then run tests again in a new process.
+* Clean install the previous public release, then upgrade to the current version and run tests.
 * Test "releaseMinify" variant (minify is not enabled in the "release" variant, because it
   could prevent users importing classes in the Python console).
 * Change back to "debug" variant, and test a single-ABI build (temporarily change abiFilters).
+
+Record test times in #5683, and investigate if significantly worse than the previous version.
+Obviously the tests themselves may have changed, so some judgement may be required.
 
 
 ## Gradle plugin

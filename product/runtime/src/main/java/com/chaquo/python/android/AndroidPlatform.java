@@ -156,15 +156,10 @@ public class AndroidPlatform extends Python.Platform {
             }
         }
         if (! unextracted.isEmpty()) {
-            throw new RuntimeException("Failed to extract assets: " + unextracted);
+            throw new RuntimeException("Failed to find assets: " + unextracted);
         }
         for (String dir : directories) {
-            File outDir = new File(mContext.getFilesDir(), Common.ASSET_DIR  + "/" + dir);
-            for (String name : outDir.list()) {
-                if (!assetsJson.has(dir + "/" + name)) {
-                    new File(outDir, name).delete();
-                }
-            }
+            cleanExtractedDir(dir, assetsJson);
         }
         spe.apply();
     }
@@ -204,6 +199,18 @@ public class AndroidPlatform extends Python.Platform {
             throw new IOException("Failed to create " + outFile);
         }
         spe.putString(spKey, newHash);
+    }
+
+    private void cleanExtractedDir(String dir, JSONObject assetsJson) {
+        File outDir = new File(mContext.getFilesDir(), Common.ASSET_DIR  + "/" + dir);
+        for (String name : outDir.list()) {
+            File outFile = new File(outDir, name);
+            if (outFile.isDirectory()) {
+                cleanExtractedDir(dir + "/" + name, assetsJson);
+            } else if (!assetsJson.has(dir + "/" + name)) {
+                outFile.delete();
+            }
+        }
     }
 
     private void deleteRecursive(File file) {

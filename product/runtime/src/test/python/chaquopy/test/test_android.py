@@ -85,13 +85,20 @@ class TestAndroidPlatform(AndroidTestCase):
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
                                "cacert.pem", "stdlib-common.imy", "ticket.txt"],
                               os.listdir(chaquopy_dir))
-        self.assertCountEqual([ABI], os.listdir(join(chaquopy_dir, "bootstrap-native")))
-        self.assertCountEqual(["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so",
-                               "_json.so", "_random.so", "_struct.so", "binascii.so",
-                               "math.so", "mmap.so", "zlib.so"],
-                              os.listdir(join(chaquopy_dir, "bootstrap-native", ABI)))
-        self.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
-                              os.listdir(join(chaquopy_dir, "bootstrap-native", ABI, "java")))
+        bn_dir = f"{chaquopy_dir}/bootstrap-native"
+        self.assertCountEqual([ABI], os.listdir(bn_dir))
+
+        for subdir, entries in [
+            (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_hashlib.so", "_json.so",
+                   "_random.so", "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
+            (f"{ABI}/java", ["chaquopy.so", "chaquopy_android.so"]),
+        ]:
+            with self.subTest(subdir=subdir):
+                # Create a stray file which should be removed on the next startup.
+                pid_txt = f"{os.getpid()}.txt"
+                with open(f"{bn_dir}/{subdir}/{pid_txt}", "w"):
+                    pass
+                self.assertCountEqual(entries + [pid_txt], os.listdir(f"{bn_dir}/{subdir}"))
 
 
 class TestAndroidImport(AndroidTestCase):
