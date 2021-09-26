@@ -22,7 +22,6 @@ class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
     static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.6.0")
-    static final def MAX_TESTED_ANDROID_PLUGIN_VER = VersionNumber.parse("7.0.2")
 
     Project project
     ScriptHandler buildscript
@@ -75,19 +74,13 @@ class PythonPlugin implements Plugin<Project> {
                                               "plugin version $MIN_ANDROID_PLUGIN_VER or later: " +
                                               ADVICE)
                 }
-                if (depVer > MAX_TESTED_ANDROID_PLUGIN_VER) {
-                    println("Warning: This version of Chaquopy has not been tested with Android " +
-                            "Gradle plugin versions beyond $MAX_TESTED_ANDROID_PLUGIN_VER. If you " +
-                            "experience problems, " + ADVICE)
-                }
                 break;
             }
         }
         if (depVer == null) {
             println("Warning: Chaquopy was unable to determine the Android Gradle plugin " +
-                    "version. Supported versions are $MIN_ANDROID_PLUGIN_VER to " +
-                    "$MAX_TESTED_ANDROID_PLUGIN_VER. If you experience problems with a different " +
-                    "version, " + ADVICE)
+                    "version. The minimum supported version is $MIN_ANDROID_PLUGIN_VER. " +
+                    "If you experience problems, " + ADVICE)
         }
         return depVer
     }

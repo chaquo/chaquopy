@@ -230,24 +230,15 @@ class AndroidPlugin(GradleTestCase):
             "project.android not set. Did you apply plugin com.android.application or "
             "com.android.library before com.chaquo.python?", run.stderr)
 
-    def test_old(self):
+    def test_old(self):  # Also tests making a change
+        MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
+                   "3.6.0 or later")
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong("This version of Chaquopy requires Android Gradle plugin version "
-                          "3.6.0 or later: " + self.ADVICE, run.stderr)
+        self.assertInLong(f"{MESSAGE}: {self.ADVICE}", run.stderr)
 
-    def test_untested(self):  # Also tests making a change
-        MESSAGE = ("This version of Chaquopy has not been tested with Android Gradle plugin "
-                   "versions beyond 7.0.2.")
-        run = self.RunGradle("base")
-        self.assertNotInLong(MESSAGE, run.stdout)
-
-        run.apply_layers("AndroidPlugin/untested")
-        try:
-            run.rerun()
-        except Exception:
-            pass  # We don't care whether it succeeds.
-        self.assertInLong(f"{WARNING}{MESSAGE} If you experience problems, {self.ADVICE}",
-                          run.stdout, re=True, msg=run.stderr)
+        run.apply_layers("base")
+        run.rerun()
+        self.assertNotInLong(MESSAGE, run.stderr)
 
 
 class Aar(GradleTestCase):
