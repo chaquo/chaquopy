@@ -5,4 +5,4 @@ package:
   version: {{ version }}
 
 source:
-  url: https://downloads.xiph.org/releases/ogg/libogg-{{ version }}.tar.gz
+  url: https://ftp.osuosl.org/pub/xiph/releases/ogg/libogg-{{ version }}.tar.gz

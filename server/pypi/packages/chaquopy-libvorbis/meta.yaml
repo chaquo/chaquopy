@@ -5,7 +5,7 @@ package:
   version: {{ version }}
 
 source:
-  url: https://downloads.xiph.org/releases/vorbis/libvorbis-{{ version }}.tar.gz
+  url: https://ftp.osuosl.org/pub/xiph/releases/vorbis/libvorbis-{{ version }}.tar.gz
 
 requirements:
   host:
