@@ -13,7 +13,7 @@ Change log
   <https://docs.python.org/3.8/whatsnew/changelog.html>`__ for details).
 * Update to pip version 19.2.3 (see `its changelog <https://pip.pypa.io/en/stable/news/>`__ for
   details).
-* Update CA bundle to certifi 2020.5.30.
+* Update CA bundle to certifi 2021.5.30.
 * Add a `buffer` attribute to stdout and stderr for bytes output (`#464
   <https://github.com/chaquo/chaquopy/issues/464>`_, `#516
   <https://github.com/chaquo/chaquopy/issues/516>`_).
