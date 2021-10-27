@@ -375,13 +375,15 @@ class BuildWheel:
     def update_env(self):
         env = {}
 
-        # Some build scripts need to run "-config" scripts of requirements.
-        env["PATH"] = os.pathsep.join([f"{self.reqs_dir}/chaquopy/bin",
-                                       os.environ["PATH"]])
+        env_dir = f"{PYPI_DIR}/env"
+        env["PATH"] = os.pathsep.join([
+            f"{env_dir}/bin",
+            f"{self.reqs_dir}/chaquopy/bin",  # For "-config" scripts.
+            os.environ["PATH"]])
 
-        # build-packages allows us to apply monkey-patches to distutils, while reqs_dir allows
-        # setup.py to import requirements, for example to call numpy.get_include().
-        pythonpath = [join(PYPI_DIR, "build-packages"), self.reqs_dir]
+        # Adding reqs_dir to PYTHONPATH allows setup.py to import requirements, for example to
+        # call numpy.get_include().
+        pythonpath = [f"{env_dir}/lib/python", self.reqs_dir]
         if "PYTHONPATH" in os.environ:
             pythonpath.append(os.environ["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(pythonpath)
@@ -435,6 +437,7 @@ class BuildWheel:
 
         reqs_prefix = f"{self.reqs_dir}/chaquopy"
         if exists(reqs_prefix):
+            env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
 
             # --rpath-link only affects arm64, because it's the only ABI which uses ld.bfd. The
@@ -443,9 +446,6 @@ class BuildWheel:
             # can probably remove this flag.
             env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
                                f" -Wl,--rpath-link,{reqs_prefix}/lib")
-
-            env["PKG_CONFIG"] = "pkg-config --define-prefix"
-            env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
 
         env["ARFLAGS"] = "rc"
 

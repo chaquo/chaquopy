@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Despite what the man page says, --define-prefix apparently isn't enabled by default on Debian
+# stretch. We previously fixed this by setting the PKG_CONFIG environment variable, but some
+# scripts can't handle arguments in that variable.
+exec /usr/bin/pkg-config --define-prefix "$@"
