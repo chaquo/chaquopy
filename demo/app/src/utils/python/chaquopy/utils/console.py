@@ -1,8 +1,6 @@
 from io import TextIOBase
 from queue import Queue
 
-from java.android.stream import BytesOutputWrapper
-
 
 class ConsoleInputStream(TextIOBase):
     """Receives input in on_input in one thread (non-blocking), and provides a read interface
@@ -72,7 +70,13 @@ class ConsoleOutputStream(TextIOBase):
     def __init__(self, stream, obj, method_name):
         self.stream = stream
         self.method = getattr(obj, method_name)
-        self.buffer = BytesOutputWrapper(self)
+
+        try:
+            from java.android.stream import BytesOutputWrapper
+        except ImportError:
+            pass  # Stay compatible with old versions of Chaquopy.
+        else:
+            self.buffer = BytesOutputWrapper(self)
 
     def __repr__(self):
         return f"<ConsoleOutputStream {self.stream}>"
