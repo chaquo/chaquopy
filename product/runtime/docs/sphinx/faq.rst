@@ -92,6 +92,37 @@ If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
   the tflite API.
 
 
+.. _faq-mirror:
+
+chaquo.com is slow or unreliable from my location
+-------------------------------------------------
+
+To make your own mirror of our Maven repository:
+
+* Download the following directories from https://chaquo.com/maven/, and arrange them in the
+  same directory structure as our web server. To find which Python version goes with which
+  Chaquopy version, see :doc:`this table <../versions>`.
+
+  * `com/chaquo/python/gradle/CHAQUOPY_VERSION`
+  * `com/chaquo/python/runtime/*/CHAQUOPY_VERSION`
+  * `com/chaquo/python/target/PYTHON_VERSION`
+* Change the :ref:`Chaquopy Maven URL <android-plugin>` in your build.gradle file to the
+  directory containing "com". Either an HTTP URL or a local path can be used.
+
+To make your own mirror of our pip repository:
+
+* Download whatever packages your app needs from https://chaquo.com/pypi-7.0/, and arrange them
+  in the same directory structure as our web server.
+* Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
+  file::
+
+      options "--index-url", "https://pypi.org/simple/"
+      options "--extra-index-url", "YOUR_MIRROR"
+
+  Where `YOUR_MIRROR` is the directory containing the package directories you downloaded
+  above. Either an HTTP URL or a local path can be used.
+
+
 How do I ...
 ============
 

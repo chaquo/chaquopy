@@ -118,11 +118,10 @@ Change log
 7.0.2 (2020-03-05)
 ==================
 
-* [**BACKWARD INCOMPATIBLE**] Runtime Python version is now 3.8.1.
+* [**BACKWARD INCOMPATIBLE**] Update to Python version 3.8.1 (see the `3.7
+  <https://docs.python.org/3/whatsnew/3.7.html>`_ and `3.8
+  <https://docs.python.org/3/whatsnew/3.8.html>`_ release notes for details).
 
-  * See compatibility notes for `Python 3.7
-    <https://docs.python.org/3/whatsnew/3.7.html#porting-to-python-3-7>`_ and `Python 3.8
-    <https://docs.python.org/3/whatsnew/3.8.html#porting-to-python-3-8>`_.
   * All Python standard library modules are now supported except those in :ref:`this list
     <stdlib-unsupported>`. In particular, support has been added for :any:`bz2`,
     `importlib.metadata`, :any:`importlib.resources` and :any:`lzma`.

@@ -17,6 +17,8 @@ any app which meets the following requirements:
 Basic setup
 ===========
 
+.. _android-plugin:
+
 Gradle plugin
 -------------
 
