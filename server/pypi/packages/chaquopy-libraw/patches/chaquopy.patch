@@ -1,0 +1,54 @@
+--- src-original/libraw/libraw.h	2020-10-15 05:06:07.000000000 +0000
++++ src/libraw/libraw.h	2021-10-09 10:13:52.377222725 +0000
+@@ -21,7 +21,26 @@
+ #define _LIBRAW_CLASS_H
+ 
+ #ifdef __linux__
+-#define _FILE_OFFSET_BITS 64
++// Chaquopy disabled: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
++// #define _FILE_OFFSET_BITS 64
++#endif
++
++// Chaquopy: based on bionic/libc/bionic/swab.cpp.
++#if __ANDROID_API__ < 28
++#include <stdint.h>
++#include <sys/types.h>
++
++static void swab(const void* void_src, void* void_dst, ssize_t byte_count) {
++  const uint8_t* src = (uint8_t*)void_src;
++  uint8_t* dst = (uint8_t*)void_dst;
++  while (byte_count > 1) {
++    uint8_t x = *src++;
++    uint8_t y = *src++;
++    *dst++ = y;
++    *dst++ = x;
++    byte_count -= 2;
++  }
++}
+ #endif
+ 
+ /* maximum file size to use LibRaw_file_datastream (fully buffered) I/O */
+--- src-original/libraw.pc.in	2020-10-15 05:06:07.000000000 +0000
++++ src/libraw.pc.in	2021-10-09 17:43:59.957591232 +0000
+@@ -5,7 +5,7 @@
+ 
+ Name: libraw
+ Description: Raw image decoder library (non-thread-safe)
+-Requires: @PACKAGE_REQUIRES@
++# Chaquopy disabled: Requires: @PACKAGE_REQUIRES@
+ Version: @PACKAGE_VERSION@
+-Libs: -L${libdir} -lraw -lstdc++@PC_OPENMP@
++Libs: -L${libdir} -lraw  # Chaquopy disabled: -lstdc++@PC_OPENMP@
+ Cflags: -I${includedir}/libraw -I${includedir}
+--- src-original/libraw_r.pc.in	2020-10-15 05:06:07.000000000 +0000
++++ src/libraw_r.pc.in	2021-10-09 17:43:54.885588302 +0000
+@@ -5,7 +5,7 @@
+ 
+ Name: libraw
+ Description: Raw image decoder library (thread-safe)
+-Requires: @PACKAGE_REQUIRES@
++# Chaquopy disabled: Requires: @PACKAGE_REQUIRES@
+ Version: @PACKAGE_VERSION@
+-Libs: -L${libdir} -lraw_r -lstdc++@PC_OPENMP@
++Libs: -L${libdir} -lraw_r  # Chaquopy disabled: -lstdc++@PC_OPENMP@
+ Cflags: -I${includedir}/libraw -I${includedir}

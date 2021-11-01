@@ -1,0 +1,10 @@
+# This should match the version of the LibRaw submodule at
+# https://github.com/letmaik/rawpy/tree/RAWPY_VERSION/external.
+{% set version = "0.20.2" %}
+
+package:
+  name: chaquopy-libraw
+  version: {{ version }}
+
+source:
+  url: https://www.libraw.org/data/LibRaw-{{ version }}.tar.gz

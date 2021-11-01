@@ -1,0 +1,13 @@
+--- src-original/setup.py	2021-10-09 10:36:24.000000000 +0000
++++ src/setup.py	2021-10-09 17:35:05.517284736 +0000
+@@ -9,6 +9,10 @@
+ import glob
+ from urllib.request import urlretrieve
+ 
++# Chaquopy
++import builtins
++builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++
+ import numpy
+ from Cython.Build import cythonize
+ 
