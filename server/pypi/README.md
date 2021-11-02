@@ -11,11 +11,11 @@ information.
 
 # Adding a new package
 
-Create a new subdirectory in `packages`. Its name must be in PyPI normalized form (PEP 503).
-Alternatively, you can create this subdirectory somewhere else, and use the `--extra-packages`
-option when calling `build-wheel.py`.
+Create a recipe directory in `packages`. Its name must be in PyPI normalized form (PEP 503).
+Alternatively, you can create this directory somewhere else, and pass its path when calling
+`build-wheel.py`.
 
-Inside the subdirectory, add the following files.
+Inside the recipe directory, add the following files.
 
 * A `meta.yaml` file. This supports a subset of Conda syntax, defined in `meta-schema.yaml`.
 * A `test.py` file (or `test` package), to run on a target installation. This should contain a

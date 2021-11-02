@@ -30,6 +30,7 @@ import yaml
 
 PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
+RECIPES_DIR = f"{PYPI_DIR}/packages"
 
 PYTHON_VERSION = "3.8"  # Should be the same as the #! line above.
 PYTHON_SUFFIX = PYTHON_VERSION  # May contain flags from PEP 3149.
@@ -84,7 +85,7 @@ class BuildWheel:
             self.parse_args()
             self.package_dir = self.find_package(self.package)
 
-            self.meta = self.load_meta(self.package)
+            self.meta = self.load_meta()
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
             self.name_version = (normalize_name_wheel(self.package) + "-" +
@@ -164,13 +165,10 @@ class BuildWheel:
 
         ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
                         "(any existing build/.../requirements directory will be reused)")
-        ap.add_argument("--extra-packages", metavar="DIR", default=[], action="append",
-                        help="Extra directory to search for package information, in addition "
-                        "to packages/ in the same directory as this script. Can be used "
-                        "multiple times.")
         ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                         help="Path to toolchain")
-        ap.add_argument("package", help="Name of package to build")
+        ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
+                        f"contains a slash, path to a recipe directory")
         ap.parse_args(namespace=self)
 
         self.detect_toolchain()
@@ -681,7 +679,7 @@ class BuildWheel:
             reqs.append((package, version))
         return reqs
 
-    def load_meta(self, package):
+    def load_meta(self):
         # http://python-jsonschema.readthedocs.io/en/latest/faq/
         def with_defaults(validator_cls):
             def set_defaults(validator, properties, instance, schema):
@@ -698,20 +696,18 @@ class BuildWheel:
         Validator = jsonschema.Draft4Validator
         schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
         Validator.check_schema(schema)
-        meta_str = jinja2.Template(open(f"{self.find_package(package)}/meta.yaml").read()).render()
+        meta_str = jinja2.Template(open(f"{self.package_dir}/meta.yaml").read()).render()
         meta = yaml.safe_load(meta_str)
         with_defaults(Validator)(schema).validate(meta)
         return meta
 
     def find_package(self, name):
-        name = normalize_name_pypi(name)
-        packages_dirs = [f"{PYPI_DIR}/packages"] + self.extra_packages
-        for packages_dir in packages_dirs:
-            package_dir = join(packages_dir, name)
-            if exists(package_dir):
-                return package_dir
+        if "/" in name:
+            package_dir = abspath(name)
         else:
-            raise CommandError(f"Couldn't find '{name}' in {packages_dirs}")
+            package_dir = join(RECIPES_DIR, normalize_name_pypi(name))
+        assert_isdir(package_dir)
+        return package_dir
 
 
 def find_license_files(path):
