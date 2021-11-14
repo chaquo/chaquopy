@@ -1,18 +1,23 @@
---- src-original/numpy/core/setup_common.py     2019-11-08 08:42:10.000000000 +0000
-+++ src/numpy/core/setup_common.py      2020-01-22 13:54:58.942732551 +0000
-@@ -134,7 +134,11 @@
-                        ("__builtin_bswap32", '5u'),
-                        ("__builtin_bswap64", '5u'),
-                        ("__builtin_expect", '5, 0'),
--                       ("__builtin_mul_overflow", '5, 5, (int*)5'),
-+
-+                       # Chaquopy: broken in NDK r18, fixed in r19
-+                       # (https://github.com/android/ndk/issues/506).
-+                       # ("__builtin_mul_overflow", '5, 5, (int*)5'),
-+
-                        # broken on OSX 10.11, make sure its not optimized away
-                        ("volatile int r = __builtin_cpu_supports", '"sse"',
-                         "stdio.h", "__BUILTIN_CPU_SUPPORTS"),
+--- src-original/numpy/core/setup.py    2021-11-04 11:34:22.000000000 +0000
++++ src/numpy/core/setup.py     2021-11-14 14:32:42.777594473 +0000
+@@ -632,7 +632,8 @@
+     if sys.platform[:3] == "aix":
+         config.add_define_macros([("_LARGE_FILES", None)])
+     else:
+-        config.add_define_macros([("_FILE_OFFSET_BITS", "64")])
++        # Chaquopy disabled: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
++        # config.add_define_macros([("_FILE_OFFSET_BITS", "64")])
+         config.add_define_macros([('_LARGEFILE_SOURCE', '1')])
+         config.add_define_macros([('_LARGEFILE64_SOURCE', '1')])
+
+@@ -760,6 +761,7 @@
+                            join('src', 'common', 'python_xerbla.c'),
+                           ])
+     else:
++        raise Exception("BLAS not found")  # Chaquopy: fail the build if this happens.
+         extra_info = {}
+
+     #######################################################################
 diff -ur src-original/numpy/distutils/fcompiler/__init__.py src/numpy/distutils/fcompiler/__init__.py
 --- src-original/numpy/distutils/fcompiler/__init__.py	2018-02-28 17:03:26.000000000 +0000
 +++ src/numpy/distutils/fcompiler/__init__.py	2018-04-22 17:09:52.812356493 +0000
@@ -89,30 +94,30 @@ diff -ur src-original/numpy/f2py/f90mod_rules.py src/numpy/f2py/f90mod_rules.py
  
  fgetdims2 = """\
        end if
-diff -ur src-original/numpy/f2py/__init__.py src/numpy/f2py/__init__.py
---- src-original/numpy/f2py/__init__.py	2018-02-28 17:03:26.000000000 +0000
-+++ src/numpy/f2py/__init__.py	2018-04-22 14:56:55.304772470 +0000
-@@ -9,7 +9,7 @@
- import sys
- 
- from . import f2py2e
--from . import f2py_testing
-+# from . import f2py_testing  # Chaquopy: disabled
- from . import diagnose
- 
- run_main = f2py2e.run_main
+--- src-original/numpy/linalg/setup.py  2021-11-04 11:34:22.000000000 +0000
++++ src/numpy/linalg/setup.py   2021-11-14 13:25:47.735131016 +0000
+@@ -33,6 +33,8 @@
+     use_lapack_lite = not lapack_info
+
+     if use_lapack_lite:
++        raise Exception("LAPACK not found")  # Chaquopy: fail the build if this happens.
++
+         # This makes numpy.distutils write the fact that lapack_lite
+         # is being used to numpy.__config__
+         class numpy_linalg_lapack_lite(system_info):
 diff -ur src-original/numpy/random/setup.py src/numpy/random/setup.py
---- src-original/numpy/random/setup.py  2019-11-08 08:41:56.000000000 +0000
-+++ src/numpy/random/setup.py   2019-12-20 19:40:48.703421754 +0000
-@@ -49,7 +49,7 @@
-     elif not is_msvc:
-         # Some bit generators require c99
-         EXTRA_COMPILE_ARGS += ['-std=c99']
--        INTEL_LIKE = any(arch in platform.machine() 
-+        INTEL_LIKE = any(arch in os.environ['CHAQUOPY_ABI']  # Was `platform.machine()`.
-                          for arch in ('x86', 'i686', 'i386', 'amd64'))
-         if INTEL_LIKE:
-             # Assumes GCC or GCC-like compiler
+--- src-original/numpy/random/setup.py  2021-11-04 11:34:22.000000000 +0000
++++ src/numpy/random/setup.py   2021-11-07 22:58:46.949580497 +0000
+@@ -26,7 +26,8 @@
+     if sys.platform[:3] == 'aix':
+         defs = [('_LARGE_FILES', None)]
+     else:
+-        defs = [('_FILE_OFFSET_BITS', '64'),
++        defs = [# Chaquopy disabled: see https://android.googlesource.com/platform/bionic/+/master/docs/32-bit-abi.md
++                # ('_FILE_OFFSET_BITS', '64'),
+                 ('_LARGEFILE_SOURCE', '1'),
+                 ('_LARGEFILE64_SOURCE', '1')]
+
 diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
 --- src-original/numpy/__init__.py	2018-02-28 17:03:26.000000000 +0000
 +++ src/numpy/__init__.py	2018-04-22 16:48:56.253279855 +0000
@@ -122,7 +127,7 @@ diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
      sys.stderr.write('Running from numpy source directory.\n')
 +
 +    # Chaquopy: the module namespace was originally empty in this mode, but the following
-+    # things are neded by the SciPy build.
++    # things are needed by packages which use NumPy's native API.
 +    def get_include():
 +        import os
 +        return os.path.join(os.path.dirname(__file__), 'core', 'include')
@@ -135,13 +140,12 @@ diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py       2018-04-15 20:25:55.769497865 +0000
 +++ src/setup.py        2018-04-15 19:32:59.070017179 +0000
-@@ -39,6 +39,11 @@
+@@ -39,6 +39,10 @@
      import __builtin__ as builtins
  
  
 +# Chaquopy added
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
-+os.environ["CFLAGS"] += " -std=gnu99"  # For 'for' loop initial declarations.
 +
 +
  CLASSIFIERS = """\

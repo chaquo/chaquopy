@@ -17,7 +17,6 @@ class TestNumpy(unittest.TestCase):
         from numpy import array
         self.assertEqual([4, 7], (array([1, 2]) + array([3, 5])).tolist())
 
-    # This will probably fail if optimized BLAS is not being used.
     def test_performance(self):
         import numpy as np
         from time import time
@@ -27,7 +26,12 @@ class TestNumpy(unittest.TestCase):
         a = np.random.rand(SIZE, SIZE)
         b = np.random.rand(SIZE, SIZE)
         np.dot(a, b)
-        self.assertLess(time() - start_time, 1)
+
+        # With OpenBLAS, the test devices take at most 0.4 seconds. Without OpenBLAS, they take
+        # at least 1.0 seconds.
+        duration = time() - start_time
+        print(f"{duration:.3f}")
+        self.assertLess(duration, 0.7)
 
 
 # See also the "buffer" tests in runtime/src/test/python/chaquopy/test/test_array.py.

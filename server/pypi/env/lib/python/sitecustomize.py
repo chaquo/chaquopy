@@ -1,3 +1,5 @@
+# This file is imported on startup in pip and all of its Python subprocesses.
+
 import os
 import sys
 
@@ -33,6 +35,20 @@ def gen_preprocess_options_override(macros, include_dirs):
     return gen_preprocess_options_original(macros, include_dirs)
 
 distutils.ccompiler.gen_preprocess_options = gen_preprocess_options_override
+
+
+# Fix distutils ignoring LDFLAGS when building executables.
+import distutils.sysconfig
+from distutils.util import split_quoted
+customize_compiler_original = distutils.sysconfig.customize_compiler
+
+def customize_compiler_override(compiler):
+    customize_compiler_original(compiler)
+    ldflags = os.environ["LDFLAGS"]
+    if ldflags not in " ".join(compiler.linker_exe):
+        compiler.linker_exe += split_quoted(ldflags)
+
+distutils.sysconfig.customize_compiler = customize_compiler_override
 
 
 # Call the next sitecustomize script if there is one

@@ -1,10 +1,13 @@
 package:
   name: numpy
-  version: 1.17.4
+  version: 1.21.4
 
 build:
-  number: 3
+  number: 1
 
 requirements:
+  build:
+    - Cython 0.29.24
   host:
     - chaquopy-openblas 0.2.20
+    - chaquopy-libgfortran 4.9  # Required by ld.bfd on arm64 (see build-wheel.py)
