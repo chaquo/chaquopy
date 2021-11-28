@@ -1,0 +1,12 @@
+--- src-original/src/spectrum/mtm.py	2020-11-22 17:24:27.000000000 +0000
++++ src/src/spectrum/mtm.py	2021-11-27 16:42:23.673871385 +0000
+@@ -48,7 +48,8 @@
+ 
+ lib_name = 'mydpss'
+ try:
+-    mtspeclib = load_library(lib_name, p)
++    # Chaquopy: was numpy.ctypeslib.load_library, which requires the file to already exist.
++    mtspeclib = ctypes.CDLL(f"{p}/{lib_name}.so")
+ except:
+     print("Library %s not found" % lib_name)
+ 
