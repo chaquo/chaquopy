@@ -38,6 +38,13 @@ class Test01TensorFlow(unittest.TestCase):
         self.assertEqual([7, 2, 1, 0, 4],
                          model.predict(x_test[:5]).argmax(axis=1).tolist())
 
+    # With some combinations of TensorFlow and NumPy versions, this causes the error "Cannot
+    # convert a symbolic Tensor ... to a numpy array" (#570).
+    def test_lstm(self):
+        from tensorflow import keras
+        model = keras.Sequential()
+        model.add(keras.layers.LSTM(85, input_shape=(1, 53)))
+
 
 def cache_url(url, dir_name, base_name=None):
     import os

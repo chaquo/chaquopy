@@ -1,9 +1,6 @@
 package:
   name: numpy
-  version: 1.21.4
-
-build:
-  number: 1
+  version: 1.19.5
 
 requirements:
   build:
