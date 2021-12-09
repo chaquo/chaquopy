@@ -1,7 +1,7 @@
 # These packages are included by default in a new virtualenv, but since we use them directly,
 # specify exact versions for reproducible builds.
 pip==18.1
-setuptools==40.6.3
+setuptools==46.4.0
 wheel==0.33.6
 
 jinja2==2.10
