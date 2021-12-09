@@ -1,6 +1,6 @@
 package:
   name: Pillow
-  version: 7.1.2
+  version: 8.4.0
 
 requirements:
   host:

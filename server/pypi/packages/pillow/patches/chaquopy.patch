@@ -9,15 +9,18 @@
          self.add_imaging_libs = ""
          build_ext.initialize_options(self)
          for x in self.feature:
-@@ -356,7 +356,7 @@
+@@ -471,8 +471,9 @@
+                 for d in os.environ[k].split(os.path.pathsep):
                      _add_directory(library_dirs, d)
- 
-         prefix = sysconfig.get_config_var("prefix")
--        if prefix:
-+        if prefix and False:  # Chaquopy: disabled
-             _add_directory(library_dirs, os.path.join(prefix, "lib"))
-             _add_directory(include_dirs, os.path.join(prefix, "include"))
- 
+
+-        _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
+-        _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
++        # Chaquopy: disabled
++        # _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
++        # _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
+
+         #
+         # add platform directories
 @@ -538,6 +538,13 @@
                  _add_directory(library_dirs, os.path.join(best_path, "lib"))
                  _add_directory(include_dirs, os.path.join(best_path, "include"))
