@@ -1,12 +1,21 @@
 import com.chaquo.python.Common;
 
+apply plugin: 'java-gradle-plugin'
 apply plugin: 'groovy'
 
 group = "com.chaquo.python"
 
+gradlePlugin {
+    plugins {
+        gradle {
+            id = "com.chaquo.python"
+            implementationClass = "com.chaquo.python.PythonPlugin"
+        }
+    }
+}
+
 dependencies {
     implementation localGroovy()
-    implementation gradleApi()
     implementation "org.apache.commons:commons-compress:1.18"
     implementation "org.json:json:20160810"
 
@@ -99,32 +108,28 @@ testPythonTask("testPython", "3.5") {
 }
 check.dependsOn(testPython)
 
-/** @param version Android Gradle plugin version (corresponds to directory
- *  test/integration/data/base-$version) */
-Task testIntegrationTask(String version) {
-    return testPythonTask("testIntegration-$version", Common.PYTHON_VERSION_SHORT) {
-        dependsOn publish, ":runtime:publish"
-        workingDir "$projectDir/src/test/integration"
-        environment "AGP_VERSION", version
+
+task("testIntegration", "group": "verification")
+check.dependsOn(testIntegration)
+
+def INTEGRATION_DIR = "$projectDir/src/test/integration"
+for (f in file("$INTEGRATION_DIR/data").listFiles()) {
+    (f.name =~ /^base-(.+)$/).collect {
+        def version = it[1]
+        def task = testPythonTask("testIntegration-$version", Common.PYTHON_VERSION_SHORT) {
+            dependsOn publish, ":runtime:publish"
+            workingDir INTEGRATION_DIR
+            environment "AGP_VERSION", version
+        }
+        testIntegration.dependsOn(task)
     }
 }
-task("testIntegration", "group": "verification")
-for (version in ["3.6", "4.0", "4.1", "4.2", "7.0"]) {
-    testIntegration.dependsOn(testIntegrationTask(version))
-}
-check.dependsOn(testIntegration)
+
 
 jar {
     manifest {
         // Enables getClass().getPackage().getImplementationVersion(), which PythonPlugin uses
         // to discover its own version number.
         attributes 'Implementation-Version': project.version
-    }
-}
-
-publishing.publications {
-    gradle(MavenPublication) {
-        from components.java
-        artifactId = "gradle"
     }
 }

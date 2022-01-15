@@ -1,0 +1,23 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+        maven { url chaquopyRepository }
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "My Application"
+
+// FIXME after commit, re-run all tests with both 3.6 and 7.1.
+for (f in rootDir.listFiles()) {
+    if (new File(f, "build.gradle").exists()) {
+        include f.name
+    }
+}

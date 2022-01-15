@@ -73,10 +73,12 @@ which the public repositories were last updated.
 
 If the script reports any files which require manual merging (e.g. build.gradle), examine them
 and update all the public repositories as necessary.
-* Keep the versions of Gradle and the Android Gradle plugin in the public apps at least one
-  year old, because old versions of AGP are compatible with new versions of Android Studio, but
-  not vice versa
+* The public apps should use the newest Android Gradle plugin version which is at least one
+  year old, and the corresponding version of Gradle. Not newer, because old versions of AGP are
+  compatible with new versions of Android Studio, but not vice versa
   (https://android-developers.googleblog.com/2020/12/announcing-android-gradle-plugin.html).
+  And not older, otherwise it'll be impossible to use the webserver logs to determine when it's
+  safe to remove support for it.
 * If .gitignore has changed, git rm any newly-ignored files.
 
 For each of the public apps, open it in Android Studio and test it on any device.

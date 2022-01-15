@@ -66,7 +66,9 @@ class PythonPlugin implements Plugin<Project> {
             "please edit the version of com.android.tools.build:gradle in your top-level " +
             "build.gradle file. See https://chaquo.com/chaquopy/doc/current/versions.html."
         def depVer = null
-        for (dep in buildscript.configurations.getByName("classpath").getAllDependencies()) {
+        for (art in buildscript.configurations.getByName("classpath")
+                    .resolvedConfiguration.resolvedArtifacts) {
+            def dep = art.moduleVersion.id
             if (dep.group == "com.android.tools.build"  &&  dep.name == "gradle") {
                 depVer = VersionNumber.parse(dep.version)
                 if (depVer < MIN_ANDROID_PLUGIN_VER) {
@@ -78,6 +80,7 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         if (depVer == null) {
+            // This wording is checked by AndroidPlugin.test_old.
             println("Warning: Chaquopy was unable to determine the Android Gradle plugin " +
                     "version. The minimum supported version is $MIN_ANDROID_PLUGIN_VER. " +
                     "If you experience problems, " + ADVICE)

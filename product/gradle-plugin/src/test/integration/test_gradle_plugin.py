@@ -16,18 +16,19 @@ from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
 
 import appdirs
-import javaproperties
+from javaproperties import PropertiesFile
 from retrying import retry
 
 
 integration_dir = abspath(dirname(__file__))
 data_dir = join(integration_dir, "data")
 repo_root = abspath(join(integration_dir, "../../../../.."))
+chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 
 # The following properties file should be created manually. It's also used in
 # runtime/build.gradle.
 with open(join(repo_root, "product/local.properties")) as props_file:
-    product_props = javaproperties.load(props_file)
+    product_props = PropertiesFile.load(props_file)
 sdk_dir = product_props["sdk.dir"]
 
 for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
@@ -239,6 +240,8 @@ class AndroidPlugin(GradleTestCase):
         run.apply_layers("base")
         run.rerun()
         self.assertNotInLong(MESSAGE, run.stderr)
+        self.assertNotInLong("Chaquopy was unable to determine the Android Gradle plugin version",
+                             run.stdout)
 
 
 class Aar(GradleTestCase):
@@ -1254,7 +1257,6 @@ class RunGradle(object):
         self.project_dir = join(test.run_dir, "project")
         os.makedirs(self.project_dir)
         self.apply_layers(*layers)
-        self.set_local_property("sdk.dir", sdk_dir)
         if run:
             self.rerun(**kwargs)
 
@@ -1269,26 +1271,25 @@ class RunGradle(object):
                 self.apply_layers("base-" + agp_version)
 
     def set_local_property(self, key, value):
-        filename = join(self.project_dir, "local.properties")
-        try:
-            with open(filename) as props_file:
-                props = javaproperties.load(props_file)
-        except FileNotFoundError:
-            props = {}
-
-        if value is None:
-            props.pop(key, None)
-        else:
-            props[key] = value
-        with open(filename, "w") as props_file:
-            javaproperties.dump(props, props_file)
+        set_property(f"{self.project_dir}/local.properties", key, value)
 
     def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
         if env is None:
             env = {}
-        with open(f"{self.project_dir}/gradle.properties") as props_file:
-            java_version = javaproperties.load(props_file)["chaquopy.java.version"]
-            env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
+
+        # In Android Studio Bumblebee and later, the new project wizard sets all plugin
+        # versions using the `plugins` block of the top-level build.gradle file. This has a
+        # strict syntax, and gradle.properties is the only way to pass variables into it.
+        #
+        # We also pass the repository location in the same way, in order to make it easy to
+        # test a released version of Chaquopy by editing the following lines.
+        gradle_props = f"{self.project_dir}/gradle.properties"
+        set_property(gradle_props, "chaquopyRepository", f"{repo_root}/maven")
+        set_property(gradle_props, "chaquopyVersion", chaquopy_version)
+        self.set_local_property("sdk.dir", sdk_dir)
+
+        java_version = get_property(gradle_props, "chaquopy.java.version")
+        env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
 
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
@@ -1346,7 +1347,6 @@ class RunGradle(object):
 
     def run_gradle(self, variants, env):
         merged_env = os.environ.copy()
-        merged_env["chaquopy_root"] = repo_root
         merged_env["integration_dir"] = integration_dir
         merged_env.update(env)
 
@@ -1581,6 +1581,29 @@ def task_name(prefix, variant, suffix=""):
     return (prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
+
+
+NO_DEFAULT = object()
+
+def get_property(filename, key, default=NO_DEFAULT):
+    with open(filename) as props_file:
+        props = PropertiesFile.load(props_file)
+        return props[key] if (default is NO_DEFAULT) else props.get(key, default)
+
+
+def set_property(filename, key, value):
+    try:
+        with open(filename) as props_file:
+            props = PropertiesFile.load(props_file)
+    except FileNotFoundError:
+        props = PropertiesFile()
+
+    if value is None:
+        props.pop(key, None)
+    else:
+        props[key] = value
+    with open(filename, "w") as props_file:
+        props.dump(props_file)
 
 
 # On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of

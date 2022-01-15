@@ -1,1 +1,7 @@
 include ':gradle-plugin', ':runtime'
+
+// The directory can't be called "gradle" because that's already taken by the Gradle wrapper.
+// So we name it "gradle-plugin", and then rename the project to "gradle" so that
+// java-gradle-plugin will publish a JAR with the correct name, and a plugin marker artifact
+// that depends on it.
+project(':gradle-plugin').name = "gradle"

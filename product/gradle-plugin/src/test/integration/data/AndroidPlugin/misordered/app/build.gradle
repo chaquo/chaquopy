@@ -1,5 +1,7 @@
-apply plugin: 'com.chaquo.python'
-apply plugin: 'com.android.application'
+plugins {
+    id 'com.chaquo.python'
+    id 'com.android.application'
+}
 
 android {
     compileSdkVersion 23
