@@ -668,8 +668,8 @@ class PythonReqs(GradleTestCase):
     def test_symlink(self):
         run = self.RunGradle("base", "PythonReqs/1a", run=False)
         link_path = f"{run.project_dir}/app"
-        real_path = f"{run.project_dir}/app_real"
-        os.rename(link_path, real_path)
+        real_path = f"{run.project_dir}/subdir/app"
+        os.renames(link_path, real_path)
         os.symlink(real_path, link_path)
         run.rerun(requirements=["apple/__init__.py"])
 
