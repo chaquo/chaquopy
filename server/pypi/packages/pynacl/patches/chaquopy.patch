@@ -1,26 +1,29 @@
---- src-original/setup.py	2018-09-26 18:57:49.000000000 +0000
-+++ src/setup.py	2019-01-31 15:02:10.361223549 +0000
-@@ -167,16 +167,21 @@
-                 configure, "--disable-shared", "--enable-static",
-                 "--disable-debug", "--disable-dependency-tracking",
-                 "--with-pic", "--prefix", os.path.abspath(self.build_clib),
+--- src-original/setup.py	2022-01-07 21:54:10.000000000 +0000
++++ src/setup.py	2022-01-16 18:42:51.775026999 +0000
+@@ -150,6 +150,9 @@
+             "--disable-debug",
+             "--disable-dependency-tracking",
+             "--with-pic",
 +
-+                # Chaquopy
-+                "--host", os.path.basename(os.environ["CC"]).replace("-gcc", ""),
-             ],
++            # Chaquopy
++            "--host", os.environ["CHAQUOPY_TRIPLET"],
+         ]
+         if platform.system() == "SunOS":
+             # On Solaris, libssp doesn't link statically and causes linker
+@@ -164,12 +167,15 @@
              cwd=build_temp,
          )
  
-         make_args = os.environ.get('LIBSODIUM_MAKE_ARGS', '').split()
 +        # Chaquopy
-+        make_args += ["-j", str(os.cpu_count())]
++        os.environ["LIBSODIUM_MAKE_ARGS"] = f"-j {os.cpu_count()}"
 +
+         make_args = os.environ.get("LIBSODIUM_MAKE_ARGS", "").split()
          # Build the library
          subprocess.check_call(["make"] + make_args, cwd=build_temp)
  
--        # Check the build library
+         # Check the build library
 -        subprocess.check_call(["make", "check"] + make_args, cwd=build_temp)
-+        # Chaquopy: removed `make check`
++        # Chaquopy disabled: subprocess.check_call(["make", "check"] + make_args, cwd=build_temp)
  
          # Install the built library
          subprocess.check_call(["make", "install"] + make_args, cwd=build_temp)
