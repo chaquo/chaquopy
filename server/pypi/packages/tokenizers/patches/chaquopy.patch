@@ -43,7 +43,7 @@
      author_email="anthony@huggingface.co",
      url="https://github.com/huggingface/tokenizers",
      license="Apache License 2.0",
--    rust_extensions=[RustExtension("tokenizers.tokenizers", binding=Binding.PyO3)],
+-    rust_extensions=[RustExtension("tokenizers.tokenizers", binding=Binding.PyO3, debug=False)],
 +    rust_extensions=[RustExtension("tokenizers.tokenizers", binding=Binding.PyO3,
 +                     rustc_flags=[f"-lpython{py_version}"])],  # Chaquopy
      extras_require=extras,
