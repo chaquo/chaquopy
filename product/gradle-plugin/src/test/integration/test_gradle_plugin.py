@@ -233,7 +233,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
-                   "3.6.0 or later")
+                   "4.0.0 or later")
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong(f"{MESSAGE}: {self.ADVICE}", run.stderr)
 
@@ -567,10 +567,7 @@ class BuildPython(GradleTestCase):
     INSTALL = "Please either install it, or " + ADVICE
     FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1\n\n"
               r"To view full details in Android Studio:\n"
-              r"\* In version 3.6 and newer, click the 'Build: failed' caption to the left of "
-              r"this message.\n"
-              r"\* In version 3.5 and older, click the 'Toggle view' button to the left of "
-              r"this message.\n"
+              r"\* Click the 'Build: failed' caption to the left of this message.\n"
               r"\* Then scroll up to see the full output.")
 
     @classmethod

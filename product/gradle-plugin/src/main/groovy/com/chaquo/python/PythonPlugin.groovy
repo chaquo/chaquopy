@@ -21,7 +21,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("3.6.0")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("4.0.0")
 
     Project project
     ScriptHandler buildscript
@@ -99,13 +99,8 @@ class PythonPlugin implements Plugin<Project> {
         android.sourceSets.all { sourceSet ->
             def name = sourceSet.name + " Python source"
             def javaSet = sourceSet.java
-            Object[] args = null
-            if (androidPluginVer < VersionNumber.parse("3.6.0-alpha01")) {
-                args = [name, project, javaSet.type, javaSet.dslScope]
-            } else {
-                args = [name, project, javaSet.type]
-            }
-            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(args)
+            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(
+                [name, project, javaSet.type] as Object[])
             sourceSet.metaClass.getPython = { return pyDirSet }
             sourceSet.metaClass.python = { closure ->
                 closure.delegate = pyDirSet
@@ -978,10 +973,7 @@ class BuildPythonFailedException extends BuildPythonException {
     BuildPythonFailedException(String message) {
         super(message,
               "\n\nTo view full details in Android Studio:\n" +
-              "* In version 3.6 and newer, click the 'Build: failed' caption to the left " +
-              "of this message.\n" +
-              "* In version 3.5 and older, click the 'Toggle view' button to the left of " +
-              "this message.\n" +
+              "* Click the 'Build: failed' caption to the left of this message.\n" +
               "* Then scroll up to see the full output.")
     }
 }
