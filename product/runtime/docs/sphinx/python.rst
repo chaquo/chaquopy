@@ -144,7 +144,8 @@ including:
 * Getting and setting elements using `[]` syntax. Negative indices are supported.
 * Getting and setting slices using `[:]` syntax. When getting a slice, a new array of the same
   type will be returned.
-* Copying using the `copy` method. A new array of the same type will be returned.
+* Copying using the `copy` method or the :any:`copy.copy` function. A new array of the same
+  type will be returned. :any:`copy.deepcopy` is not currently supported.
 * Getting length using :any:`len`, and testing for emptiness using :any:`bool`.
 * Iteration using `for`, and searching using `in`.
 * Since Java arrays are fixed-length, they do not support `append`, `del`, or any other way

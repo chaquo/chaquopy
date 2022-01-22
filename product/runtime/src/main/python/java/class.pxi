@@ -1,4 +1,5 @@
 import keyword
+import pickle
 from threading import RLock
 from weakref import WeakValueDictionary
 
@@ -82,7 +83,7 @@ class JavaClass(type):
         # values the user would expect.
         if not issubclass(metacls, ProxyClass):
             if "[" in java_name:
-                module, cls_name = "", f"jarray('{java_name[1:]}')"
+                module, cls_name = "java", f"jarray('{java_name[1:]}')"
             elif "." in java_name:
                 module, _, cls_name = java_name.rpartition(".")
             else:
@@ -110,7 +111,7 @@ class JavaClass(type):
             assert not (args or kwargs)
             with class_lock:
                 self = instance_cache.get((cls, instance))  # Include cls in key because of cast()
-                if not self:
+                if self is None:
                     env = CQPEnv()
                     if not env.IsInstanceOf(instance, cls._chaquopy_j_klass):
                         expected = sig_to_java(klass_sig(env, cls._chaquopy_j_klass))
@@ -258,6 +259,9 @@ cdef setup_object_class():
         def __str__(self):       return self.toString()
         def __hash__(self):      return self.hashCode()
         def __eq__(self, other): return self.equals(other)
+
+        def __reduce_ex__(self, protocol):
+            raise pickle.PicklingError("Java objects cannot be pickled")
 
         def __call__(self, *args):
             cls = type(self)

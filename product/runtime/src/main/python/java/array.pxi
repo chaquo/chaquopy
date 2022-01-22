@@ -133,6 +133,11 @@ cdef class JavaArray:
     def copy(self):
         return self[:]
 
+    def __copy__(self):
+        return self.copy()
+
+    # TODO: __deepcopy__ (see notes at TestArray.test_copy_module)
+
     def __setitem__(self, key, value):
         global System
         if isinstance(key, slice):

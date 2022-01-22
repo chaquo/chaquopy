@@ -1,8 +1,11 @@
+import copy
 from java import cast, jarray, jclass
+import pickle
 from unittest import skipIf
-
 from .test_utils import API_LEVEL, FilterWarningsCase
+
 from com.chaquo.python import TestReflect as TR
+from java.lang import Boolean, Object, String, System
 
 
 class TestReflect(FilterWarningsCase):
@@ -23,10 +26,9 @@ class TestReflect(FilterWarningsCase):
         self.assertIsInstance(klass.desiredAssertionStatus(), bool)
 
     def test_jclass(self):
-        Object = jclass("java.lang.Object")
         self.assertEqual("java.lang", Object.__module__)
         self.assertEqual("Object", Object.__name__)
-        self.assertEqual("Object", Object.__qualname__)
+        self.assertEqual(Object.__name__, Object.__qualname__)
 
         Stack = jclass('java.util.Stack')
         StackSlash = jclass('java/util/Stack')
@@ -44,7 +46,6 @@ class TestReflect(FilterWarningsCase):
             jclass("java.lang.Nonexistent")
 
     def test_cast(self):
-        from java.lang import Boolean, Object
         b = Boolean(True)
         b_Object = cast(Object, b)
         self.assertIsNot(b, b_Object)
@@ -76,7 +77,6 @@ class TestReflect(FilterWarningsCase):
     # Interaction of identity and casts is tested in TestReflect.test_cast and
     # TestArray.test_cast.
     def test_identity(self):
-        from java.lang import Object, String
         Object_klass, String_klass = Object.getClass(), String.getClass()
         self.assertIsNot(Object_klass, String_klass)
         self.t.fieldKlass = Object_klass
@@ -91,6 +91,13 @@ class TestReflect(FilterWarningsCase):
         self.t.setStringArray(a2)
         self.assertIs(a2, self.t.getStringArray())
 
+    def test_pickle(self):
+        s = String("hello")
+        for function in [pickle.dumps, copy.copy, copy.deepcopy]:
+            with self.subTest(function=function.__name__), \
+                 self.assertRaisesRegex(pickle.PicklingError, "Java objects cannot be pickled"):
+                function(s)
+
     def test_gc(self):
         DelTrigger = self.nested_cls("DelTrigger")
         DelTrigger.reset()
@@ -100,9 +107,6 @@ class TestReflect(FilterWarningsCase):
         DelTrigger.assertTriggered(True)
 
     def test_str_repr(self):
-        Object = jclass('java.lang.Object')
-        String = jclass('java.lang.String')
-
         o = Object()
         object_str = str(o)
         self.assertRegex(object_str, "^java.lang.Object@")
@@ -118,7 +122,6 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("cast('Ljava/lang/String;', None)", repr(cast(String, None)))
 
     def test_eq_hash(self):
-        String = jclass('java.lang.String')
         self.verify_equal(String("hello"), String("hello"))
         self.verify_not_equal(String("hello"), String("world"))
 
@@ -193,7 +196,6 @@ class TestReflect(FilterWarningsCase):
         with self.assertRaisesRegex(TypeError, r"takes 1 argument \(0 given\)"):
             self.t.setZ()
 
-        Object = jclass("java.lang.Object")
         with self.assertRaisesRegex(AttributeError, "static context"):
             self.Test.fieldZ
         with self.assertRaisesRegex(AttributeError, "static context"):
@@ -245,12 +247,10 @@ class TestReflect(FilterWarningsCase):
 
     def test_out(self):
         # System.out implies recursive lookup and instantiation of the PrintWriter proxy class.
-        System = jclass('java.lang.System')
         self.assertEqual(False, System.out.checkError())
         self.assertIsNone(System.out.flush())
 
     def test_unconstructible(self):
-        System = jclass("java.lang.System")
         with self.assertRaisesRegex(TypeError, "no accessible constructors"):
             System()
 
@@ -313,7 +313,6 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("Child object", cast(TR.Interface, c).toString())
 
     def test_inheritance(self):
-        Object = jclass("java.lang.Object")
         Interface = self.nested_cls("Interface")
         SubInterface = self.nested_cls("SubInterface")
         Parent = self.nested_cls("Parent")
@@ -388,7 +387,6 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("Overridden method", c_Parent.oMethod())
 
     def test_inheritance_order(self):
-        Object = jclass("java.lang.Object")
         for name, bases in [
             ("Order_1_2", ("Interface1", "Interface2")),
             ("Order_2_1", ("Interface1", "Interface2")),

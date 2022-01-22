@@ -1,10 +1,12 @@
+import copy
 import ctypes
 from java import (cast, jarray, jboolean, jbyte, jchar, jclass, jdouble, jfloat, jint,
                   jlong, jshort)
-from java.lang import String
-
+import pickle
 from .test_utils import FilterWarningsCase
+
 from com.chaquo.python import TestArray as TA
+from java.lang import String, System
 
 
 # In order for test_set_slice to work, all elements must be different.
@@ -83,7 +85,12 @@ class TestArray(FilterWarningsCase):
         self.index_error = self.assertRaisesRegex(IndexError, "array index out of range")
 
     def test_basic(self):
-        array_C = jarray(jchar)("hello")
+        array_cls = jarray(jchar)
+        self.assertEqual("java", array_cls.__module__)
+        self.assertEqual("jarray('C')", array_cls.__name__)
+        self.assertEqual(array_cls.__name__, array_cls.__qualname__)
+
+        array_C = array_cls("hello")
         self.assertEqual(5, len(array_C))
         self.assertEqual(repr(array_C), "jarray('C')(['h', 'e', 'l', 'l', 'o'])")
 
@@ -264,14 +271,53 @@ class TestArray(FilterWarningsCase):
         with self.assertTimeLimit(0.5):
             self.assertIsNot(a[:], a)
 
-    def test_copy(self):
+    def test_copy_method(self):
         for data in [[], SLICE_DATA]:
             with self.subTest(data=data):
                 a = jarray(jint)(data)
-                a_copy = a.copy()
-                self.assertIsInstance(a_copy, jarray(jint))
-                self.assertIsNot(a_copy, a)
-                self.assertEqual(a_copy, a)
+                self.check_copy_1d(a, a.copy(), identical=False)
+
+        a = jarray(jarray(jint))([[], SLICE_DATA])
+        a_copy = a.copy()
+        self.check_copy_2d(a, a_copy, deep=False)
+
+    # TODO: if we implement __deepcopy__, it should succeed if and only if the innermost
+    # element type is primitive, because non-array Java objects are uncopyable (see
+    # TestReflect.test_pickle). Because of this, deepcopying a recursive array is impossible,
+    # because the innermost element type would have to be Object. However, we should still test
+    # arrays containing some nulls.
+    def test_copy_module(self):
+        for data in [[], SLICE_DATA]:
+            with self.subTest(data=data):
+                a = jarray(jint)(data)
+                self.check_copy_1d(a, copy.copy(a), identical=False)
+
+        a = jarray(jarray(jint))([[], SLICE_DATA])
+        a_copy = copy.copy(a)
+        self.check_copy_2d(a, a_copy, deep=False)
+
+    def check_copy_1d(self, a, a_copy, *, identical):
+        self.assertIs(type(a_copy), type(a))
+        self.assertEqual(a_copy, a)
+        (self.assertIs if identical else self.assertIsNot)(
+            a_copy, a)
+        (self.assertEqual if identical else self.assertNotEqual)(
+            System.identityHashCode(a_copy), System.identityHashCode(a))
+
+    def check_copy_2d(self, a, a_copy, *, deep):
+        self.check_copy_1d(a, a_copy, identical=False)
+        for i, x in enumerate(a):
+            x_copy = a_copy[i]
+            self.check_copy_1d(x, x_copy, identical=not deep)
+
+    def test_pickle(self):
+        for data in [[], SLICE_DATA]:
+            for function in [pickle.dumps, copy.deepcopy]:
+                with self.subTest(data=data, function=function.__name__), \
+                     self.assertRaisesRegex(pickle.PicklingError,
+                                            "Java objects cannot be pickled"):
+                    a = jarray(jint)(data)
+                    function(a)
 
     def test_set_slice(self):
         for key, replaced in SLICE_TESTS:
