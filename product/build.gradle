@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-        jcenter()
+        mavenCentral()
     }
     dependencies {
     }
@@ -11,7 +11,7 @@ subprojects {
     version = file("$repoRoot/VERSION.txt").text.trim()
 
     repositories {
-        jcenter()
+        mavenCentral()
     }
 
     apply plugin: 'maven-publish'
