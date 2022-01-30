@@ -441,7 +441,8 @@ class BuildWheel:
             # --rpath-link only affects arm64, because it's the only ABI which uses ld.bfd. The
             # others all use ld.gold, which doesn't try to resolve transitive shared library
             # dependencies. When we upgrade to a later version of the NDK which uses LLD, we
-            # can probably remove this flag.
+            # can probably remove this flag, along with all requirements in meta.yaml files
+            # which are tagged with "ld.bfd".
             env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
                                f" -Wl,--rpath-link,{reqs_prefix}/lib")
 

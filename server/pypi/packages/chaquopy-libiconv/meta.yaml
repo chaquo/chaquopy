@@ -1,0 +1,19 @@
+# The iconv functions were added to the Android libc in API level 28. On devices of that
+# version or newer, the libc implementation will be used, even by libraries which are
+# explicitly linked to libiconv. This is because of the default symbol resolution order, as
+# documented in the dlopen man page.
+#
+# Unfortunately this may cause some loss of functionality, as the Android libc implementation
+# only supports UTF-8, 16 and 32
+# (https://android.googlesource.com/platform/bionic/+/master/libc/bionic/iconv.cpp). This could
+# be worked around by changing the importer to use RTLD_DEEPBIND, but that might have undesired
+# effects on other packages, so it would have to be tested thoroughly.
+
+{% set version = "1.16" %}
+
+package:
+  name: chaquopy-libiconv
+  version: {{ version }}
+
+source:
+  url: https://ftp.gnu.org/pub/gnu/libiconv/libiconv-{{ version }}.tar.gz
