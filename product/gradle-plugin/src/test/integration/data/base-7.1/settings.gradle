@@ -13,9 +13,8 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "My Application"
+rootProject.name = "My Application 7.1"
 
-// FIXME after commit, re-run all tests with both 3.6 and 7.1.
 for (f in rootDir.listFiles()) {
     if (new File(f, "build.gradle").exists()) {
         include f.name

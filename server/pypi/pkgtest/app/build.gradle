@@ -1,5 +1,7 @@
-apply plugin: 'com.android.application'
-apply plugin: 'com.chaquo.python'
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
 
 def PACKAGE_GROUPS = [
     // Group 0 is not included in regular pre-release testing.
@@ -39,6 +41,7 @@ ext.TEST_PACKAGES = [
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
     "pycurl": ["certifi"],
+    "pyzbar": ["pillow"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
@@ -73,7 +76,7 @@ android {
 
         ndk {
             abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-        }
+         }
     }
 
     compileOptions {
