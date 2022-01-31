@@ -1,5 +1,4 @@
 import keyword
-import pickle
 from threading import RLock
 from weakref import WeakValueDictionary
 
@@ -261,6 +260,7 @@ cdef setup_object_class():
         def __eq__(self, other): return self.equals(other)
 
         def __reduce_ex__(self, protocol):
+            import pickle  # Delay import so we don't need to add _pickle to the bootstrap list.
             raise pickle.PicklingError("Java objects cannot be pickled")
 
         def __call__(self, *args):

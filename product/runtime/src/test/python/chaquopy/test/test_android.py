@@ -929,6 +929,12 @@ class TestAndroidStdlib(AndroidTestCase):
             with self.subTest(name=name):
                 self.assertTrue(os.access(name, os.X_OK))
 
+    def test_pickle(self):
+        import pickle
+        # This attribute will only exist if the native _pickle module was available when
+        # pickle was first imported.
+        self.assertTrue(pickle.PickleBuffer)
+
     def test_platform(self):
         # Requires sys.executable to exist.
         import platform
