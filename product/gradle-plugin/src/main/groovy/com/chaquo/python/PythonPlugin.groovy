@@ -63,8 +63,9 @@ class PythonPlugin implements Plugin<Project> {
 
     VersionNumber getAndroidPluginVersion() {
         final def ADVICE =
-            "please edit the version of com.android.tools.build:gradle in your top-level " +
-            "build.gradle file. See https://chaquo.com/chaquopy/doc/current/versions.html."
+            "please edit the version of com.android.application, com.android.library or " +
+            "com.android.tools.build:gradle in your top-level build.gradle file. See " +
+            "https://chaquo.com/chaquopy/doc/current/versions.html."
         def depVer = null
         for (art in buildscript.configurations.getByName("classpath")
                     .resolvedConfiguration.resolvedArtifacts) {

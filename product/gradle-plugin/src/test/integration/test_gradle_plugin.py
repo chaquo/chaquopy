@@ -222,8 +222,9 @@ class ChaquopyPlugin(GradleTestCase):
 
 
 class AndroidPlugin(GradleTestCase):
-    ADVICE = ("please edit the version of com.android.tools.build:gradle in your top-level "
-              "build.gradle file. See https://chaquo.com/chaquopy/doc/current/versions.html.")
+    ADVICE = ("please edit the version of com.android.application, com.android.library or "
+              "com.android.tools.build:gradle in your top-level build.gradle file. See "
+              "https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_misordered(self):
         run = self.RunGradle("base", "AndroidPlugin/misordered", succeed=False)
