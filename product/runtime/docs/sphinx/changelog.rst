@@ -1,6 +1,18 @@
 Change log
 ##########
 
+11.0.1 (2022-02-01)
+===================
+
+* Android Gradle plugin version 7.1 is now supported.
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 3.6 is no longer supported.
+* Remove warning about untested Android Gradle plugin versions, as they are usually backward
+  compatible.
+* Gradle `pluginManagement` and `plugins` syntax is now supported.
+* Java arrays now support the :any:`copy.copy` function in Python.
+* Passing an unsupported Java object to :any:`copy.copy`, :any:`copy.deepcopy` or :any:`pickle`
+  now fails with a clearer error message.
+
 10.0.1 (2021-09-22)
 ===================
 

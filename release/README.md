@@ -4,24 +4,23 @@
 
 Run `gradlew runtime:check`.
 
-Run `gradlew publish`.
+Run `gradlew -P cmakeBuildType=Release publish`.
 
 Record pkgtest app sizes and startup times (#5683), and investigate if significantly worse than
-the previous version.
-
-Run `gradlew -P cmakeBuildType=Release publish`.
+the previous version. Remember that the tests and the packages themselves may have changed.
 
 Run Java and Python unit tests:
 
 * Clean install, then run tests twice in the same process.
 * Kill the process, then run tests again in a new process.
-* Clean install the previous public release, then upgrade to the current version and run tests.
+* Clean install the previous public release and run tests. Then upgrade to the current version
+  and run tests again.
 * Test "releaseMinify" variant (minify is not enabled in the "release" variant, because it
   could prevent users importing classes in the Python console).
 * Change back to "debug" variant, and test a single-ABI build (temporarily change abiFilters).
 
 Record test times in #5683, and investigate if significantly worse than the previous version.
-Obviously the tests themselves may have changed, so some judgement may be required.
+Remember that the tests themselves may have changed.
 
 
 ## Gradle plugin
@@ -32,7 +31,7 @@ sure the artifacts are not overwritten, temporarily disable the `dependsOn publi
 `gradle-plugin/build.gradle`.
 
 On each test machine, pull the current version of this repository, then run `gradlew --continue
--P cmakeBuildType=Release gradle-plugin:check`.
+-P cmakeBuildType=Release gradle:check`.
 
 
 ## Package tests
@@ -63,8 +62,12 @@ setting `abiFilters` to just a single ABI:
 
 ## Demo apps
 
-Copy current versions of `gradle`, `runtime` and (if necessary) `target` to the public Maven
-repository.
+Copy the following things to the public Maven repository:
+
+* `com.chaquo.python.gradle.plugin`
+* `gradle`
+* `runtime/*`
+* `target` (if updated)
 
 Make sure all public repositories are clean (`git clean -xdf`).
 
@@ -74,21 +77,26 @@ which the public repositories were last updated.
 If the script reports any files which require manual merging (e.g. build.gradle), examine them
 and update all the public repositories as necessary.
 * The public apps should use the newest Android Gradle plugin version which is at least one
-  year old, and the corresponding version of Gradle. Not newer, because old versions of AGP are
-  compatible with new versions of Android Studio, but not vice versa
+  year old. Not newer, because new versions of AGP are incompatible with old versions of
+  Android Studio
   (https://android-developers.googleblog.com/2020/12/announcing-android-gradle-plugin.html).
   And not older, otherwise it'll be impossible to use the webserver logs to determine when it's
   safe to remove support for it.
+* Also update to the corresponding versions of these things (see the integration tests):
+  * Gradle
+  * gradle.properties
+  * Kotlin plugin
 * If .gitignore has changed, git rm any newly-ignored files.
 
 For each of the public apps, open it in Android Studio and test it on any device.
 
 In public `demo` project:
 * Make sure license key is present.
-* Generate signed APK" with "release" variant.
+* Build > Generate Signed APK with "release" variant.
 
 Use `adb` to install and test the APK on the following devices, with at least one device being
-a clean install, and at least one being an upgrade from the previous public release.
+a clean install, and at least one being an upgrade from the previous public release with the
+tests already run.
 
 * x86 emulator with minSdkVersion
 * x86\_64 emulator with API 21

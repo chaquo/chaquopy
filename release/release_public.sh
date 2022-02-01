@@ -10,7 +10,7 @@ new_ver=${2:?"$usage"}
 private_src_dir="demo/app/src"
 
 update_version() {
-    sed -i -E "s/(com.chaquo.python:gradle):[0-9.]+/\1:${new_ver}/" "$1"
+    sed -i -E "s/(com.chaquo.python.+version ')[0-9.]+/\1${new_ver}/" "$1"
 }
 
 
