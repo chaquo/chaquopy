@@ -1,7 +1,7 @@
 Change log
 ##########
 
-11.0.1 (2022-02-01)
+11.0.0 (2022-02-01)
 ===================
 
 * Android Gradle plugin version 7.1 is now supported.
