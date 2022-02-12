@@ -209,9 +209,11 @@ class BuildWheel:
             else:
                 run(f"mv {temp_dir} {self.src_dir}")
 
-            # This is pip's equivalent to our requirements mechanism.
+            # pyproject.toml may conflict with our own requirements mechanism, so we currently
+            # disable it.
             if exists(f"{self.src_dir}/pyproject.toml"):
-                run(f"rm {self.src_dir}/pyproject.toml")
+                run(f"mv {self.src_dir}/pyproject.toml "
+                    f"{self.src_dir}/pyproject-chaquopy-disabled.toml")
 
     def download_git(self, source):
         git_rev = source["git_rev"]
@@ -470,6 +472,10 @@ class BuildWheel:
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": self.src_dir,
         })
+
+        for var in self.meta["build"]["script_env"]:
+            key, value = var.split("=")
+            env[key] = value
 
         if self.verbose:
             # Format variables so they can be pasted into a shell when troubleshooting.

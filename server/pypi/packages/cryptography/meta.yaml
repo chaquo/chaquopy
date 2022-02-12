@@ -1,9 +1,14 @@
 package:
   name: cryptography
-  version: 3.3.2
+  version: 3.4.8
+
+build:
+  script_env:
+    - CRYPTOGRAPHY_DONT_BUILD_RUST=1
 
 requirements:
   build:
     - cffi 1.13.2
+    - setuptools-rust 0.11.6
   host:
     - openssl

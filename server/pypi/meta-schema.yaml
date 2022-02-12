@@ -49,6 +49,11 @@ properties:
       number:           # Used as the wheel build tag.
         type: integer
         default: 0
+      script_env:       # Environment variables in the form KEY=value (no spaces around =).
+        type: array
+        default: []
+        items:
+          type: string
     additionalProperties: false
 
   requirements:
