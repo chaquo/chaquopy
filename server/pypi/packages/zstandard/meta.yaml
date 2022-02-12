@@ -1,0 +1,7 @@
+package:
+  name: zstandard
+  version: 0.15.2
+
+requirements:
+  build:
+    - cffi 1.13.2
