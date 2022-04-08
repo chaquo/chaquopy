@@ -99,10 +99,11 @@ chaquo.com is slow or unreliable from my location
 
 To make your own mirror of our Maven repository:
 
-* Download the following directories from https://chaquo.com/maven/, and arrange them in the
+* Download the following directories from https://chaquo.com/maven, and arrange them in the
   same directory structure as our web server. To find which Python version goes with which
   Chaquopy version, see :doc:`this table <../versions>`.
 
+  * `com/chaquo/python/com.chaquo.python.gradle.plugin/CHAQUOPY_VERSION`
   * `com/chaquo/python/gradle/CHAQUOPY_VERSION`
   * `com/chaquo/python/runtime/*/CHAQUOPY_VERSION`
   * `com/chaquo/python/target/PYTHON_VERSION`
@@ -111,7 +112,7 @@ To make your own mirror of our Maven repository:
 
 To make your own mirror of our pip repository:
 
-* Download whatever packages your app needs from https://chaquo.com/pypi-7.0/, and arrange them
+* Download whatever packages your app needs from https://chaquo.com/pypi-7.0, and arrange them
   in the same directory structure as our web server.
 * Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
   file::
