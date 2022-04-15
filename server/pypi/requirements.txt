@@ -4,8 +4,11 @@ pip==18.1
 setuptools==46.4.0
 wheel==0.33.6
 
-jinja2==2.10
+# Other direct requirements
+Jinja2==2.10
 jsonschema==2.6.0
 pyelftools==0.24
-pyyaml==3.12
+PyYAML==3.12
 
+# Indirect requirements
+MarkupSafe==2.0.1
