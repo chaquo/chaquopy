@@ -285,19 +285,19 @@ For example, if the data file is in the same directory as the Python file:
     from os.path import dirname, join
     filename = join(dirname(__file__), "filename.txt")
 
-You can then pass the filename to :any:`open`, or any other function which reads a file.
+You can then pass this filename to :any:`open`, or any other function which reads a file.
 
 If the data file and the Python file are in different directories, then change the path
 accordingly. For example, if the Python file is `alpha/hello.py`, and the data file is
 `bravo/filename.txt`, then replace `filename.txt` above with `../bravo/filename.txt`.
 
-Do not write any files to these directories at runtime, as they may be deleted when the app is
-upgraded. Instead, write files to `os.environ["HOME"]`, as described in the ":ref:`android-os`"
-section.
-
 Data files within a top-level package (i.e. a top-level directory containing an `__init__.py`
 file) will not be available until the first time that package is imported. All other data files
 will be available as soon as Python has started.
+
+Do not write any files to these directories at runtime, as they may be deleted when the app is
+upgraded. Instead, write files to `os.environ["HOME"]`, as described in the ":ref:`android-os`"
+section.
 
 .. _android-bytecode:
 
@@ -380,12 +380,24 @@ solution is to edit your code to use :any:`multiprocessing.dummy` instead.
 os
 ---
 
+Don't pass a simple filename to functions which write a file, as this will try to write to the
+current directory, which is usually read-only on Android. Instead, use a path relative to
+`os.environ["HOME"]`, like this:
+
+.. code-block:: python
+
+    import os
+    from os.path import join
+    filename = join(os.environ["HOME"], "filename.txt")
+
+You can then pass this filename to :any:`open`, or any other function which writes a file.
+
 `os.environ["HOME"]` is set to your app's `internal storage directory
 <https://developer.android.com/training/data-storage/app-specific>`_. Any files or
 subdirectories created in this location will persist until the app is uninstalled.
 
 If your app is `debuggable <https://developer.android.com/studio/debug#enable-debug>`_, you can
-also read and write this directory from Android Studio using the `Device File Explorer
+read and write this directory from Android Studio using the `Device File Explorer
 <https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
 like `/data/data/your.application.id/files`.
 
