@@ -98,10 +98,15 @@ class PythonPlugin implements Plugin<Project> {
     // TODO #5341: support setRoot
     void extendSourceSets() {
         android.sourceSets.all { sourceSet ->
-            def name = sourceSet.name + " Python source"
+            Object[] args = null
             def javaSet = sourceSet.java
-            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(
-                [name, project, javaSet.type] as Object[])
+            if (androidPluginVer < VersionNumber.parse("7.2.0-alpha01")) {
+                args = [sourceSet.name + " Python source", project, javaSet.type]
+            } else {
+                args = [sourceSet.name, "Python source", project, javaSet.type]
+            }
+            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(args)
+
             sourceSet.metaClass.getPython = { return pyDirSet }
             sourceSet.metaClass.python = { closure ->
                 closure.delegate = pyDirSet
