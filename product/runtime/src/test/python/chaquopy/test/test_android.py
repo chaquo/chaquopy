@@ -949,6 +949,28 @@ class TestAndroidStdlib(AndroidTestCase):
         import selectors
         self.assertIs(selectors.DefaultSelector, selectors.EpollSelector)
 
+    def test_signal(self):
+        import enum
+        import signal
+
+        # These functions may be unavailable if _signal was compiled incorrectly.
+        for name in ["pthread_sigmask", "sigpending", "sigwait", "valid_signals"]:
+            with self.subTest(name=name):
+                self.assertTrue(hasattr(signal, name))
+
+        vs = signal.valid_signals()
+        self.assertIsInstance(vs, set)
+        vs = list(vs)
+
+        self.assertEqual(1, vs[0])
+        self.assertIs(signal.SIGHUP, vs[0])
+        self.assertIsInstance(vs[0], signal.Signals)
+        self.assertIsInstance(vs[0], enum.IntEnum)
+        self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
+
+        self.assertEqual(signal.NSIG - 1, vs[-1])
+        self.assertEqual(signal.NSIG - 1, len(vs))
+
     def test_sqlite(self):
         import sqlite3
         conn = sqlite3.connect(":memory:")

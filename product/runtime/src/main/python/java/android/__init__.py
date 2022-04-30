@@ -17,7 +17,7 @@ def initialize(context, build_json, app_path):
 
 def initialize_stdlib(context):
     # These are ordered roughly from low to high level.
-    for name in ["sys", "os", "tempfile", "ssl", "hashlib", "multiprocessing"]:
+    for name in ["sys", "os", "signal", "tempfile", "ssl", "hashlib", "multiprocessing"]:
         globals()[f"initialize_{name}"](context)
 
 
@@ -50,6 +50,16 @@ def initialize_os(context):
                 if os.access(name, os.X_OK)]  # Read permission is not required.
     get_exec_path_original = os.get_exec_path
     os.get_exec_path = get_exec_path_override
+
+
+def initialize_signal(context):
+    # On 32-bit ABIs, we build Python against an older API level which doesn't include the
+    # sigfillset function.
+    import signal
+    if not hasattr(signal, "valid_signals"):
+        def valid_signals():
+            return {signal._int_to_enum(x, signal.Signals) for x in range(1, signal.NSIG)}
+        signal.valid_signals = valid_signals
 
 
 def initialize_tempfile(context):
