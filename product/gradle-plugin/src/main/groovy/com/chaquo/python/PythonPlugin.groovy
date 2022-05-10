@@ -35,9 +35,9 @@ class PythonPlugin implements Plugin<Project> {
         project = p
         genDir = new File(project.buildDir, "generated/$NAME")
 
-        // Use the buildscript context to load dependencies so they'll come from the same
-        // repository as the Gradle plugin itself.
-        buildscript = project.rootProject.buildscript
+        // Load dependencies from the same buildscript context as the Chaquopy plugin itself,
+        // so they'll come from the same repository.
+        buildscript = findPlugin("com.chaquo.python", "gradle").project.buildscript
 
         if (!project.hasProperty("android")) {
             throw new GradleException(
@@ -61,32 +61,47 @@ class PythonPlugin implements Plugin<Project> {
         project.afterEvaluate { afterEvaluate() }
     }
 
+    static class PluginInfo {
+        Project project
+        VersionNumber version
+    }
+
+    PluginInfo findPlugin(String group, String name) {
+        Project p = project
+        while (p != null) {
+            for (art in p.buildscript.configurations.getByName("classpath")
+                        .resolvedConfiguration.resolvedArtifacts) {
+                def dep = art.moduleVersion.id
+                if (dep.group == group  &&  dep.name == name) {
+                    return new PluginInfo(project: p,
+                                          version: VersionNumber.parse(dep.version))
+                }
+            }
+            p = p.parent
+        }
+        return null;
+    }
+
     VersionNumber getAndroidPluginVersion() {
         final def ADVICE =
             "please edit the version of com.android.application, com.android.library or " +
             "com.android.tools.build:gradle in your top-level build.gradle file. See " +
             "https://chaquo.com/chaquopy/doc/current/versions.html."
-        def depVer = null
-        for (art in buildscript.configurations.getByName("classpath")
-                    .resolvedConfiguration.resolvedArtifacts) {
-            def dep = art.moduleVersion.id
-            if (dep.group == "com.android.tools.build"  &&  dep.name == "gradle") {
-                depVer = VersionNumber.parse(dep.version)
-                if (depVer < MIN_ANDROID_PLUGIN_VER) {
-                    throw new GradleException("This version of Chaquopy requires Android Gradle " +
-                                              "plugin version $MIN_ANDROID_PLUGIN_VER or later: " +
-                                              ADVICE)
-                }
-                break;
-            }
-        }
-        if (depVer == null) {
+
+        def info = findPlugin("com.android.tools.build", "gradle")
+        if (info == null) {
             // This wording is checked by AndroidPlugin.test_old.
             println("Warning: Chaquopy was unable to determine the Android Gradle plugin " +
                     "version. The minimum supported version is $MIN_ANDROID_PLUGIN_VER. " +
                     "If you experience problems, " + ADVICE)
+            return null
         }
-        return depVer
+        if (info.version < MIN_ANDROID_PLUGIN_VER) {
+            throw new GradleException(
+                "This version of Chaquopy requires Android Gradle plugin " +
+                "version $MIN_ANDROID_PLUGIN_VER or later: " + ADVICE)
+        }
+        return info.version
     }
 
     PythonExtension extendProductFlavor(ExtensionAware ea) {
