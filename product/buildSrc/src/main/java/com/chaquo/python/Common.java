@@ -8,12 +8,12 @@ public class Common {
     public static final int MIN_SDK_VERSION = 16;
     public static final int COMPILE_SDK_VERSION = 30;
 
-    public static final String PYTHON_VERSION = "3.8.11";
+    public static final String PYTHON_VERSION = "3.8.13";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
     public static final String PYTHON_VERSION_MAJOR =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "2";
+    public static final String PYTHON_BUILD_NUM = "1";
 
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;
