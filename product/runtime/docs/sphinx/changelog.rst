@@ -1,6 +1,20 @@
 Change log
 ##########
 
+12.0.0 (2022-05-12)
+===================
+
+* Android Gradle plugin version 7.2 is now supported (`#613
+  <https://github.com/chaquo/chaquopy/issues/613>`_).
+* [**BACKWARD INCOMPATIBLE**] Android Gradle plugin version 4.0 is no longer supported.
+* Update to Python version 3.8.13 (see `its changelog
+  <https://docs.python.org/3.8/whatsnew/changelog.html>`__ for details).
+* Update CA bundle to certifi 2021.10.8.
+* Fix :any:`signal.valid_signals` on 32-bit ABIs (`#600
+  <https://github.com/chaquo/chaquopy/issues/600>`_).
+* Allow `buildscript` configuration to be in a subproject (`#615
+  <https://github.com/chaquo/chaquopy/issues/615>`_).
+
 11.0.0 (2022-02-01)
 ===================
 
