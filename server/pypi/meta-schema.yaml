@@ -1,5 +1,5 @@
 # A subset of conda syntax
-# (https://conda.io/docs/user-guide/tasks/build-packages/define-metadata.html).
+# (https://docs.conda.io/projects/conda-build/en/latest/resources/define-metadata.html).
 
 type: object
 required: [package]
