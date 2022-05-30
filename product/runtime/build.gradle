@@ -14,6 +14,7 @@ def pyPlusVersion = "python$Common.PYTHON_SUFFIX"
 // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
 def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
 
+def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
 void addArtifact(Task task, Object filename, String abi=null) {
     File f = file(filename)
@@ -44,6 +45,10 @@ task("compilePython", type: Copy, group: "build") {
     into "$buildDir/$Common.ASSET_BOOTSTRAP"
     include "**/*.py"
     include "**/*.dist-info/**"  // For license files
+    if (! licenseMode.isEmpty()) {
+        exclude "java/_vendor/rsa*"
+    }
+
     includeEmptyDirs false
     doLast {
         exec {
@@ -82,7 +87,6 @@ String getLocalProperty(String key, String defaultValue = null) {
 
 def sdkDir = getLocalProperty('sdk.dir')
 def ndkDir = "$sdkDir/ndk/21.4.7075529"  // Should match the version in target/Dockerfile.
-def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
