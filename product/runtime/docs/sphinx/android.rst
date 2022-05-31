@@ -307,7 +307,7 @@ Bytecode compilation
 .. note:: This feature requires Python on the build machine, which can be configured with the
           :ref:`buildPython <buildPython>` setting.
 
-Your app will start up faster if its Python code is compiled to `.pyc` format, so this is
+Your app will start up faster if its Python code is compiled to .pyc format, so this is
 enabled by default.
 
 Compilation prevents source code text from appearing in stack traces, so during development you
@@ -332,7 +332,7 @@ bytecode format as Chaquopy itself. Usually this means it must have the same min
 e.g. if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then `buildPython` can be
 any version of Python 3.8.
 
-If the bytecode formats do not match, the build will continue with a warning, unless you've
+If bytecode compilation fails, the build will continue with a warning, unless you've
 explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will
 have to be compiled on the target device, which means it will start up slower and use more
 storage space.

@@ -92,6 +92,20 @@ If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
   the tflite API.
 
 
+.. _faq-obfuscate:
+
+How can I obfuscate my code?
+----------------------------
+
+As described :ref:`here <android-bytecode>`, your code is automatically compiled to .pyc
+format if possible. To make the build fail if a compatible Python version isn't found, you can
+use the `src true` setting.
+
+If you want to hide your code further, you can compile it into an .so file using Cython and our
+package build tool. For more details, see `here
+<https://github.com/chaquo/chaquopy/issues/302#issuecomment-637772348>`_.
+
+
 .. _faq-mirror:
 
 chaquo.com is slow or unreliable from my location
