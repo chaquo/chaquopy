@@ -10,7 +10,7 @@ FROM chaquopy-target
 
 # Miscellaneous build tools
 RUN apt-get update && \
-    apt-get install -y automake cmake git libtool ninja-build patch pkg-config swig
+    apt-get install -y automake cmake git libtool-bin ninja-build patch pkg-config swig
 
 # protoc (for PyTorch): use newest version from third_party/protobuf/CHANGES.txt.
 RUN version=3.11.4 && \
