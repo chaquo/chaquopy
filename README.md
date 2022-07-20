@@ -1,6 +1,4 @@
-# Introduction
-
-Copyright (c) 2021 Chaquo Ltd
+# Chaquopy
 
 This repository contains the following components:
 

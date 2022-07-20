@@ -3,8 +3,6 @@
 # We require the build and target Python versions to be the same, because many setup.py scripts
 # are affected by sys.version.
 
-"""Copyright (c) 2021 Chaquo Ltd. All rights reserved."""
-
 import argparse
 from copy import deepcopy
 import csv

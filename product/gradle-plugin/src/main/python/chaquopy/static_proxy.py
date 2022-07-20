@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
-
 # Keep valid Python 2 syntax so we can produce an error message.
 from __future__ import absolute_import, division, print_function
 

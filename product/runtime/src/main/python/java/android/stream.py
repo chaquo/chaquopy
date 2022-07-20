@@ -1,5 +1,3 @@
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
-
 from android.util import Log
 import io
 import sys

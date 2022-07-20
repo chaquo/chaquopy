@@ -1,5 +1,3 @@
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
-
 import ctypes
 from functools import total_ordering
 

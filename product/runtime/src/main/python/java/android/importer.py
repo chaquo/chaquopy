@@ -1,5 +1,3 @@
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
-
 import _imp
 from calendar import timegm
 from contextlib import contextmanager, nullcontext

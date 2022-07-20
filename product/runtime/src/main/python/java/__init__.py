@@ -1,5 +1,4 @@
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved.
-
+"""
 Chaquopy contains parts of PyJNIus. The following notice applies to those parts:
 
     Copyright (c) 2010-2017 Kivy Team and other contributors

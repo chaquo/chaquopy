@@ -1,5 +1,3 @@
-"""Copyright (c) 2020 Chaquo Ltd. All rights reserved."""
-
 from importlib import reload
 import os
 from os.path import join
