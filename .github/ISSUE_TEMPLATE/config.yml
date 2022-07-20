@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: FAQ
+    url: https://chaquo.com/chaquopy/doc/current/faq.html
+    about: Please search here before creating an issue.
+  - name: Existing issues
+    url: https://github.com/chaquo/chaquopy/issues?q=
+    about: Please search here before creating an issue.
