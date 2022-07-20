@@ -11,6 +11,6 @@ For examples of how to use Chaquopy, see the following apps:
   (`Google Play <https://play.google.com/store/apps/details?id=org.electroncash.wallet>`__), a
   full-size production app which uses Chaquopy to integrate a complex Python library with a
   modern Android user interface.
-* The `demo app <https://github.com/chaquo/chaquopy>`_ (`Google Play
+* The `demo app <https://github.com/chaquo/chaquopy-demo>`_ (`Google Play
   <https://play.google.com/store/apps/details?id=com.chaquo.python.demo3>`__), containing the
   SDK's complete unit test suite.
