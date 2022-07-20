@@ -76,9 +76,6 @@ cdef populate_args(JavaMethod jm, p2j_args, jvalue *j_args):
 
 
 cdef j2p(JNIEnv *j_env, JNIRef j_object):
-    if license_wait_expired:
-        license_shutdown()
-
     if not j_object:
         return None
     env = CQPEnv.wrap(j_env)
@@ -137,9 +134,6 @@ cdef jfieldID fid_PyObject_addr = NULL
 # If the definition is for a Java object or array, returns a JNIRef.
 # If the definition is for a Java primitive, returns a Python int/float/bool/str.
 cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
-    if license_wait_expired:
-        license_shutdown()
-
     # Can happen when calling a proxy method. If the Python implementation returns anything but
     # None, the error at the bottom of this function will be raised.
     if definition == 'V':

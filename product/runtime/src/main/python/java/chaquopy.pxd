@@ -50,7 +50,3 @@ cdef class WeakRef(JNIRef):
 
 cdef JNIEnv *get_jnienv() except NULL
 cdef set_jvm(JavaVM *new_jvm)
-
-# === license =================================================================
-
-cdef check_license(platform)

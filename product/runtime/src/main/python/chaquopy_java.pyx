@@ -87,7 +87,6 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
         if ret != 0:
              raise Exception(f"GetJavaVM failed: {ret}")
         set_jvm(jvm)
-        check_license(j2p(env, LocalRef.create(env, j_platform)))
     except BaseException:
         se = SavedException()
     if se:
