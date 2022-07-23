@@ -1,0 +1,12 @@
+# Some tests depend on the exact binary content of text files, for example:
+# * Integration test PythonSrc.test_reproducible_basic
+# * Runtime test test_importlib_resources
+#
+# So we use this file to give every clone's working tree the same line endings regardless of
+# the OS.
+
+# Use LF by default.
+* text=auto eol=lf
+
+# Use CRLF for types that require it.
+*.bat eol=crlf
