@@ -36,8 +36,7 @@ On each test machine, pull the current version of this repository, then run `gra
 
 ## Package tests
 
-Remove the license key from the pkgtest app, and temporarily change its build.gradle file as
-follows:
+Temporarily change the pkgtest build.gradle file as follows:
 
 * Replace the empty list in the `addPackages` line with `PACKAGE_GROUPS[1]`.
 * Set `abiFilters` to x86 and x86_64 (this tests the multi-ABI case).
@@ -49,9 +48,7 @@ Then test it on the following devices, with at least one device being a clean in
   * TensorFlow will fail because of #5626, so test that on API 23.
 * x86\_64 emulator with targetSdkVersion
 
-On at least one device, test that the license notification and enforcement works correctly.
-
-Restore the license key, then repeat with `PACKAGE_GROUPS[2]`.
+Repeat with `PACKAGE_GROUPS[2]`.
 
 Repeat the `PACKAGE_GROUPS[1]` and `[2]` tests on each of the following ABIs, in each case
 setting `abiFilters` to just a single ABI:
@@ -91,7 +88,6 @@ and update all the public repositories as necessary.
 For each of the public apps, open it in Android Studio and test it on any device.
 
 In public `demo` project:
-* Make sure license key is present.
 * Build > Generate Signed APK with "release" variant.
 
 Use `adb` to install and test the APK on the following devices, with at least one device being
