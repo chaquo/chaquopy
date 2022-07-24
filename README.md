@@ -21,6 +21,7 @@ Make sure all submodules are up to date:
 Then run the script `build-maven.sh`. This will generate a `maven` directory containing the
 Chaquopy repository.
 
-To use this repository to build an app, follow the standard [Chaquopy setup
-instructions](https://chaquo.com/chaquopy/doc/current/android.html#basic-setup), but replace
-the URL https://chaquo.com/maven/ with the URL or local path of your own repository.
+To use this repository to build an app, edit the `repositories` block in your `settings.gradle`
+or `build.gradle` file to [declare your
+repository](https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:declaring_multiple_repositories)
+before `mavenCentral`. Either an HTTP URL or a local path can be used.

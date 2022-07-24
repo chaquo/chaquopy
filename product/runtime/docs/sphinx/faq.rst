@@ -108,26 +108,30 @@ package build tool. For more details, see `here
 
 .. _faq-mirror:
 
-chaquo.com is slow or unreliable from my location
--------------------------------------------------
+The Maven or pip repository is unreliable from my location
+----------------------------------------------------------
 
 To make your own mirror of our Maven repository:
 
-* Download the following directories from https://chaquo.com/maven, and arrange them in the
-  same directory structure as our web server. To find which Python version goes with which
-  Chaquopy version, see :doc:`this table <../versions>`.
+* Download the following directories from `Maven Central
+  <https://repo.maven.apache.org/maven2/com/chaquo/python/>`_, and arrange them in the same
+  structure as the server. To find which Python version goes with which Chaquopy version, see
+  :doc:`this table <../versions>`.
 
   * `com/chaquo/python/com.chaquo.python.gradle.plugin/CHAQUOPY_VERSION`
   * `com/chaquo/python/gradle/CHAQUOPY_VERSION`
   * `com/chaquo/python/runtime/*/CHAQUOPY_VERSION`
   * `com/chaquo/python/target/PYTHON_VERSION`
-* Change the :ref:`Chaquopy Maven URL <android-plugin>` in your build.gradle file to the
-  directory containing "com". Either an HTTP URL or a local path can be used.
+* Edit the `repositories` block in your `settings.gradle` or `build.gradle` file to `declare
+  your repository
+  <https://docs.gradle.org/current/userguide/declaring_repositories.html#sec:declaring_multiple_repositories>`_
+  before or instead of `mavenCentral`. Use the directory containing "com": either an HTTP URL
+  or a local path can be used.
 
 To make your own mirror of our pip repository:
 
 * Download whatever packages your app needs from https://chaquo.com/pypi-7.0, and arrange them
-  in the same directory structure as our web server.
+  in the same directory structure as the server.
 * Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
   file::
 

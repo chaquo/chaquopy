@@ -6,6 +6,11 @@ html {
     font-size: 100% !important;
 }
 
+/* This button gets in the way (https://github.com/pradyunsg/furo/discussions/435). */
+.show-back-to-top .back-to-top {
+    display: none;
+}
+
 /* Prevent descenders being cut off in search box
    (https://github.com/necolas/normalize.css/issues/778). */
 input {

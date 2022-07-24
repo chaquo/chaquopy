@@ -61,7 +61,7 @@ copyright = u'{} {}'.format(datetime.now().year, author)
 #
 # Chaquopy: this is no longer auto-generated from VERSION.txt, because that made it awkward to
 # release documentation updates between versions.
-release = "12.0.0"
+release = "12.0.1"
 # The short X.Y version.
 version = release.rpartition(".")[0]
 

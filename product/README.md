@@ -45,13 +45,15 @@ Current modes are `free` for no license enforcement at all, and `ec` for Electro
 The build can be done either at the command line using `gradlew`, or by opening the project in
 Android Studio or IntelliJ.
 
-The top-level Gradle tasks are as follows. All artifacts are generated in the `maven` directory
-in the repository root. All apps in this repository are set to build against that local Maven
-repository, not the one on chaquo.com.
+The top-level Gradle tasks are as follows:
 
 * `gradle-plugin:publish` for the `com.chaquo.python:gradle` artifact.
 * `runtime:publish` for the `com.chaquo.python.runtime` artifacts. For a release build, add `-P
   cmakeBuildType=Release` to the Gradle command line.
+
+All artifacts are generated in the `maven` directory in the root of this Git repository, and
+all apps in the repository are set to give that directory higher priority than the public Maven
+server.
 
 
 # Runtime tests

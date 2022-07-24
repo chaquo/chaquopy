@@ -28,28 +28,19 @@ Basic setup
 Gradle plugin
 -------------
 
-The following instructions use the `pluginManagement` and `plugins` syntax. If your project
-uses the previous `buildscript` and `apply` syntax, follow the instructions `here
-<../10.0/android.html#android-plugin>`_, but replace the Chaquopy version number with the
-current one shown below.
+.. note:: The following instructions use the `plugins` syntax. If your project uses the
+          previous `buildscript` and `apply` syntax, follow the instructions `here
+          <../10.0/android.html#android-plugin>`_, but replace the Chaquopy version number with
+          the current one shown below.
 
-First, add the Chaquopy Maven repository to your `settings.gradle` file::
-
-    pluginManagement {
-        repositories {
-            maven { url "https://chaquo.com/maven" }
-        }
-    }
-
-
-Then, in the project's *top-level* `build.gradle` file, set the Chaquopy version:
+In your project's *top-level* `build.gradle` file, set the Chaquopy version:
 
 .. parsed-literal::
     plugins {
         id 'com.chaquo.python' version '|release|' apply false
     }
 
-Finally, in the *module-level* `build.gradle` file (usually in the `app` directory), apply the
+In the *module-level* `build.gradle` file (usually in the `app` directory), apply the
 Chaquopy plugin *after* the Android plugin::
 
     plugins {
