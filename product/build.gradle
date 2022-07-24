@@ -14,8 +14,41 @@ subprojects {
         mavenCentral()
     }
 
+    // Maven Central requires every JAR to come with javadoc and sources JARs.
+    apply plugin: 'java'
+    java {
+        withJavadocJar()
+        withSourcesJar()
+    }
+
     apply plugin: 'maven-publish'
-    publishing.repositories {
-        maven { url = "$repoRoot/maven" }
+    publishing {
+        repositories {
+            maven { url = "$repoRoot/maven" }
+        }
+        publications.all {
+            withoutBuildIdentifier()  // Make .module file reproducible.
+            pom {
+                name = "Chaquopy"
+                description = "The Python SDK for Android"
+                url = "https://chaquo.com/chaquopy/"
+                licenses {
+                    license {
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "Malcolm Smith"
+                        email = "smith@chaquo.com"
+                    }
+                }
+                scm {
+                    connection = "scm:git:https://github.com/chaquo/chaquopy.git"
+                    url = "https://github.com/chaquo/chaquopy"
+                }
+            }
+        }
     }
 }

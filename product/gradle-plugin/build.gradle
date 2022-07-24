@@ -10,6 +10,11 @@ gradlePlugin {
         gradle {
             id = "com.chaquo.python"
             implementationClass = "com.chaquo.python.PythonPlugin"
+
+            // For these fields, the `pom` block in the root build.gradle doesn't have any
+            // effect on the plugin marker artifact.
+            displayName = "Chaquopy"
+            description = "The Python SDK for Android"
         }
     }
 }

@@ -1,5 +1,3 @@
-apply plugin: 'java'
-
 import com.chaquo.python.Common;
 
 group = "com.chaquo.python.runtime"
@@ -16,7 +14,7 @@ def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
 
 def licenseMode = getLocalProperty('chaquopy.license_mode', '')
 
-void addArtifact(Task task, Object filename, String abi=null) {
+void addArtifact(Task task, Object filename, String classifier=null) {
     File f = file(filename)
     def dotPos = f.name.lastIndexOf(".")
     def name = f.name.substring(0, dotPos)
@@ -24,8 +22,8 @@ void addArtifact(Task task, Object filename, String abi=null) {
     pub.artifactId = name
     pub.artifact(f) {
         builtBy task
-        if (abi != null) {
-            classifier abi
+        if (classifier != null) {
+            setClassifier(classifier)
         }
         extension f.name.substring(dotPos + 1)
     }
@@ -33,8 +31,12 @@ void addArtifact(Task task, Object filename, String abi=null) {
 
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
-jar { archiveFileName = "chaquopy_java.jar" }
+for (task in [jar, javadocJar, sourcesJar]) {
+    task.archiveFileName = "chaquopy_java.jar"
+}
 addArtifact(jar, jar.archivePath)
+addArtifact(javadocJar, javadocJar.archivePath, "javadoc")
+addArtifact(sourcesJar, sourcesJar.archivePath, "sources")
 
 task("compilePython", type: Copy, group: "build") {
     doFirst {

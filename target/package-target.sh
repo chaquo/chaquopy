@@ -29,6 +29,29 @@ cat > "$target_prefix.pom" <<EOF
     <artifactId>target</artifactId>
     <version>$full_ver</version>
     <packaging>pom</packaging>
+
+    <name>Chaquopy</name>
+    <description>The Python SDK for Android</description>
+    <url>https://chaquo.com/chaquopy/</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Malcolm Smith</name>
+            <email>smith@chaquo.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/chaquo/chaquopy.git</connection>
+        <url>https://github.com/chaquo/chaquopy</url>
+    </scm>
 </project>
 EOF
 
