@@ -1,6 +1,6 @@
 [submodule "target/python"]
 	path = target/python
-	url = gitolite@chaquo.com:cpython
+	url = https://github.com/chaquo/cpython.git
 [submodule "target/openssl"]
 	path = target/openssl
 	url = https://github.com/openssl/openssl.git
