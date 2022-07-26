@@ -17,12 +17,15 @@ COPY for-each-abi.sh target/
 # Fortran compiler (for OpenBLAS and SciPy). Although this is only required by the pypi
 # Dockerfile, we put it here so we don't have to rebuild it every time we change the versions
 # of any of the things below.
+#
+# Currently disabled because it takes a very long time to build.
+#
 RUN apt-get update && \
     apt-get -y install bison flex g++ make
-COPY gcc target/gcc
-RUN cd target/gcc/gcc-4.9 && contrib/download_prerequisites
-COPY build-fortran.sh target/
-RUN target/for-each-abi.sh target/build-fortran.sh
+# COPY gcc target/gcc
+# RUN cd target/gcc/gcc-4.9 && contrib/download_prerequisites
+# COPY build-fortran.sh target/
+# RUN target/for-each-abi.sh target/build-fortran.sh
 
 COPY build-common-tools.sh target/
 
@@ -56,6 +59,10 @@ RUN target/for-each-abi.sh target/build-sqlite.sh
 # libffi
 COPY build-libffi.sh target/
 RUN target/for-each-abi.sh target/build-libffi.sh
+
+# Wget doesn't accept letsencrypt certificates in this version of Debian.
+RUN apt-get update && \
+    apt-get install -y curl
 
 # bzip2
 COPY build-bzip2.sh target

@@ -20,15 +20,8 @@ COPY product/build.gradle product/gradlew product/settings.gradle product/
 COPY product/gradle product/gradle
 COPY product/gradle-plugin product/gradle-plugin
 COPY product/runtime product/runtime
-COPY server/license/check_ticket.py server/license/
-
-# Leave empty for default license enforcement.
-# `free` for no license enforcement at all.
-# `ec` for Electron Cash.
-ARG license_mode
 
 RUN (echo sdk.dir=$(pwd)/android-sdk && \
-     echo chaquopy.license_mode=$license_mode && \
      echo chaquopy.java.home.8=$(echo /usr/lib/jvm/java-8-*) && \
      echo chaquopy.java.home.11=$(echo /usr/lib/jvm/java-11-*)) > product/local.properties
 
@@ -37,8 +30,8 @@ COPY VERSION.txt ./
 # Options: Debug, Release
 ARG build_type=Release
 
-RUN product/gradlew -p product -P cmakeBuildType=$build_type \
-    gradle-plugin:publish runtime:publish
+RUN cd product && \
+    ./gradlew -P cmakeBuildType=$build_type publish
 
 RUN apt-get update && \
     apt-get install -y zip

@@ -10,7 +10,7 @@ cd $target_dir
 
 version="1.0.8"
 rm -rf bzip2-$version*
-wget https://sourceware.org/pub/bzip2/bzip2-$version.tar.gz
+curl -OL https://sourceware.org/pub/bzip2/bzip2-$version.tar.gz
 tar -xf bzip2-$version.tar.gz
 
 cd bzip2-$version

@@ -10,7 +10,7 @@ cd $target_dir
 
 version="5.2.4"
 rm -rf xz-$version*
-wget https://tukaani.org/xz/xz-$version.tar.gz
+curl -OL https://tukaani.org/xz/xz-$version.tar.gz
 tar -xf xz-$version.tar.gz
 
 cd xz-$version
