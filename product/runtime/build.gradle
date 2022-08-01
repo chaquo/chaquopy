@@ -31,12 +31,14 @@ void addArtifact(Task task, Object filename, String classifier=null) {
 
 sourceSets.main.java.srcDirs += ["../buildSrc/src/main/java"]
 sourceCompatibility = 7
-for (task in [jar, javadocJar, sourcesJar]) {
-    task.archiveFileName = "chaquopy_java.jar"
+publishing {
+    publications {
+        chaquopy_java(MavenPublication) {
+            artifactId name
+            from components.java
+        }
+    }
 }
-addArtifact(jar, jar.archivePath)
-addArtifact(javadocJar, javadocJar.archivePath, "javadoc")
-addArtifact(sourcesJar, sourcesJar.archivePath, "sources")
 
 task("compilePython", type: Copy, group: "build") {
     doFirst {
@@ -99,7 +101,6 @@ def javaHome = getLocalProperty('chaquopy.java.home.8')
 task("doc", group: "documentation")
 
 javadoc {
-    outputs.upToDateWhen { false }
     destinationDir = file("$docsDir/java")
     title "Chaquopy Java API"
     options {
