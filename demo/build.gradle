@@ -4,12 +4,12 @@ buildscript {
     // ********************************************************************
 
     repositories {
-        google()
-        mavenCentral()
-
-        // *** Replace in public repository ***********************************
+        // *** Remove in public repository ***********************************
         maven { url "../maven" }
         // ********************************************************************
+
+        google()
+        mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.2.1'

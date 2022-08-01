@@ -4,9 +4,9 @@ buildscript {
     version = file("../../../VERSION.txt").text.trim()
 
     repositories {
+        maven { url "../../../maven" }
         google()
         mavenCentral()
-        maven { url "../../../maven" }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.2.1'

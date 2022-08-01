@@ -3,9 +3,9 @@ buildscript {
     def version = file("$repoRoot/VERSION.txt").text.trim()
 
     repositories {
+        maven { url "$repoRoot/maven" }
         google()
         mavenCentral()
-        maven { url "$repoRoot/maven" }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.2.0'
