@@ -1418,9 +1418,9 @@ class RunGradle(object):
         abis = kwargs["abis"]
         abi_suffixes = ["common"] + abis
         self.test.assertCountEqual(
-            ["app.imy", "bootstrap-native", "bootstrap.imy", "build.json", "cacert.pem",
-             "ticket.txt"] + [f"{stem}-{suffix}.imy" for stem in ["requirements", "stdlib"]
-                              for suffix in abi_suffixes],
+            ["app.imy", "bootstrap-native", "bootstrap.imy", "build.json", "cacert.pem"]
+            + [f"{stem}-{suffix}.imy" for stem in ["requirements", "stdlib"]
+               for suffix in abi_suffixes],
             os.listdir(asset_dir))
 
         # Python source
@@ -1447,8 +1447,8 @@ class RunGradle(object):
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
             self.test.assertCountEqual(
-                ["java", "_csv.so", "_ctypes.so", "_datetime.so",  "_hashlib.so", "_json.so",
-                 "_random.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
+                 "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(join(bootstrap_native_dir, abi)))
             self.test.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
                                        os.listdir(join(bootstrap_native_dir, abi, "java")))
@@ -1469,10 +1469,10 @@ class RunGradle(object):
                 ["_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
                  "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
                  "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
-                 "_heapq.so", "_lsprof.so", "_lzma.so", "_md5.so",
+                 "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
                  "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
                  "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
-                 "_sha3.so", "_sha512.so", "_socket.so", "_sqlite3.so", "_ssl.so",
+                 "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
                  "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
                  "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
                  "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",

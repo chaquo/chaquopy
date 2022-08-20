@@ -1,7 +1,6 @@
 *
 !docker-entrypoint.sh
 !product
-!server/license/check_ticket.py
 !target/package-target.sh
 !VERSION.txt
 

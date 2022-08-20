@@ -12,8 +12,6 @@ def pyPlusVersion = "python$Common.PYTHON_SUFFIX"
 // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
 def pyPlusVersionExe = "$pyPlusVersion$EXE_SUFFIX"
 
-def licenseMode = getLocalProperty('chaquopy.license_mode', '')
-
 void addArtifact(Task task, Object filename, String classifier=null) {
     File f = file(filename)
     def dotPos = f.name.lastIndexOf(".")
@@ -49,9 +47,6 @@ task("compilePython", type: Copy, group: "build") {
     into "$buildDir/$Common.ASSET_BOOTSTRAP"
     include "**/*.py"
     include "**/*.dist-info/**"  // For license files
-    if (! licenseMode.isEmpty()) {
-        exclude "java/_vendor/rsa*"
-    }
 
     includeEmptyDirs false
     doLast {
@@ -126,15 +121,9 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
         def outFile = "$outDir/${stem}.c"
         outputs.file outFile
 
-        doFirst {
-            file("$outDir/build.pxi").text = "DEF CHAQUOPY_LICENSE_MODE = \"$licenseMode\""
-        }
         workingDir inFile.parent  // Reduce clutter in exception traces
         executable "cython"
         args "-Wextra", "-Werror", inFile.name, "-I", outDir, "-o", outFile
-        if (! licenseMode.isEmpty()) {
-            args "-X", "emit_code_comments=False"
-        }
 
         doLast {
             String[][] replacements = [
@@ -172,10 +161,6 @@ cythonTask("cythonPython") {
         include "chaquopy.pyx", "*.pxi", "*.pxd"
         exclude "chaquopy_android*"
     }
-    inputs.property("licenseMode", licenseMode)
-    if (licenseMode.isEmpty()) {
-        inputs.files "$projectDir/../../server/license/check_ticket.py"
-    }
 }
 cythonTask("cythonJava") {
     inputs.files fileTree("$projectDir/src/main/python") {
@@ -186,7 +171,6 @@ cythonTask("cythonAndroid") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
         include "chaquopy_android*", "*.pxd"
     }
-    inputs.property("licenseMode", licenseMode)
 }
 
 // With version 3.10.2.4988404, the cmakeBuild-host task alters build.ninja, which causes the

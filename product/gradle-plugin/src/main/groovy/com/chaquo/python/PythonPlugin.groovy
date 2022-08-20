@@ -165,8 +165,7 @@ class PythonPlugin implements Plugin<Project> {
             Task reqsTask = createReqsTask(variant, python)
             Task mergeSrcTask = createMergeSrcTask(variant, python)
             createProxyTask(variant, python, reqsTask, mergeSrcTask)
-            Task ticketTask = createTicketTask(variant)
-            createAssetsTasks(variant, python, reqsTask, mergeSrcTask, ticketTask)
+            createAssetsTasks(variant, python, reqsTask, mergeSrcTask)
             createJniLibsTasks(variant, python)
         }
     }
@@ -492,59 +491,7 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    Task createTicketTask(variant) {
-        def localProps = new Properties()
-        project.rootProject.file('local.properties').withInputStream {
-            localProps.load(it)
-        }
-        // null input properties give a warning in Gradle 4.4 (Android Studio 3.1). Luckily we're
-        // no longer using the empty string to mean anything special.
-        def key = localProps.getProperty("chaquopy.license", "")
-
-        def applicationId
-        if (isLibrary) {
-            applicationId = localProps.getProperty("chaquopy.applicationId", "")
-            if (applicationId.isEmpty() && !key.isEmpty()) {
-                throw new GradleException(
-                    "When building a library module with a license key, local.properties " +
-                    "must contain a chaquopy.applicationId line identifying the app which " +
-                    "the library will be built into.")
-            }
-        } else {
-            applicationId = variant.applicationId
-        }
-
-        return assetTask(variant, "license") {
-            inputs.property("app", applicationId)
-            inputs.property("key", key)
-            doLast {
-                // No ticket is represented as an empty file rather than a missing one, so we
-                // don't need to delete the extracted copy if the ticket is removed. To work
-                // around https://github.com/Electron-Cash/Electron-Cash/issues/2136, we write
-                // a single space rather than making it completely empty.
-                def ticket = " ";
-
-                if (key.length() > 0) {
-                    final def TIMEOUT = 10000
-                    def url = ("https://chaquo.com/license/get_ticket" +
-                               "?app=$applicationId&key=$key")
-                    def connection = (HttpURLConnection) new URL(url).openConnection()
-                    connection.setConnectTimeout(TIMEOUT)
-                    connection.setReadTimeout(TIMEOUT)
-                    def code = connection.getResponseCode()
-                    if (code == connection.HTTP_OK) {
-                        ticket = connection.getInputStream().getText();
-                    } else {
-                        throw new GradleException(connection.getErrorStream().getText())
-                    }
-                }
-                project.file("$assetDir/$Common.ASSET_TICKET").write(ticket);
-            }
-        }
-    }
-
-    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask,
-                           Task ticketTask) {
+    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask) {
         def excludePy = { FileTreeElement fte ->
             if (!fte.name.endsWith(".py")) {
                 return false
@@ -594,9 +541,8 @@ class PythonPlugin implements Plugin<Project> {
                     "_ctypes.so",  // java.primitive and importer
                     "_csv.so",  // importlib.metadata < importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
-                    "_hashlib.so",  // rsa < license.pxi (see test_hashlib)
-                    "_json.so",  // check_ticket < license.pxi (see test_json)
-                    "_random.so",  // tempfile < random < importer
+                    "_random.so",  // random < tempfile < zipimport
+                    "_sha512.so",  // random < tempfile < zipimport
                     "_struct.so",  // zipfile < importer
                     "binascii.so",  // zipfile < importer
                     "math.so",  // datetime < calendar < importer
@@ -636,10 +582,10 @@ class PythonPlugin implements Plugin<Project> {
             }
         }
         assetTask(variant, "build") {
-            inputs.files(ticketTask, appAssetsTask, reqsAssetsTask, miscAssetsTask)
+            inputs.files(appAssetsTask, reqsAssetsTask, miscAssetsTask)
             doLast {
                 def buildJson = new JSONObject()
-                buildJson.put("assets", hashAssets(ticketTask, appAssetsTask, reqsAssetsTask,
+                buildJson.put("assets", hashAssets(appAssetsTask, reqsAssetsTask,
                                                    miscAssetsTask))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }

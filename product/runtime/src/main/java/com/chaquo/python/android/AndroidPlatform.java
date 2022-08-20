@@ -17,6 +17,8 @@ public class AndroidPlatform extends Python.Platform {
     /** @deprecated Internal use in importer.py and test_android.py. */
     public static String ABI;
 
+    // TODO: this list could be eliminated if we simply removed all files or directories
+    // other than AssetFinder and the bootstrap list.
     private static final String[] OBSOLETE_FILES = {
         // No longer extracted since 0.6.0
         "app.zip",
@@ -37,7 +39,10 @@ public class AndroidPlatform extends Python.Platform {
 
         // Renamed to .imy in 8.0.0.
         "bootstrap.zip",
-        "stdlib-common.zip"
+        "stdlib-common.zip",
+
+        // Removed in 12.1.0.
+        "ticket.txt",
     };
 
     private static final String[] OBSOLETE_CACHE = {
@@ -100,7 +105,7 @@ public class AndroidPlatform extends Python.Platform {
         }
 
         // Now add some non-Python assets which also need to be pre-extracted.
-        Collections.addAll(bootstrapAssets, Common.ASSET_CACERT, Common.ASSET_TICKET);
+        Collections.addAll(bootstrapAssets, Common.ASSET_CACERT);
 
         try {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);

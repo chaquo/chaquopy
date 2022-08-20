@@ -65,5 +65,4 @@ public class Common {
     public static final String ASSET_BOOTSTRAP_NATIVE = "bootstrap-native";
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";
-    public static final String ASSET_TICKET = "ticket.txt";
 }

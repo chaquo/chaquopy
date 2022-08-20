@@ -33,12 +33,6 @@ the following content:
     chaquopy.java.home.8=<path>
     chaquopy.java.home.11=<path>
 
-If building with a non-standard license mode, also add the line:
-
-    chaquopy.license_mode=<mode>
-
-Current modes are `free` for no license enforcement at all, and `ec` for Electron Cash.
-
 
 # Build
 

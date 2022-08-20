@@ -101,10 +101,10 @@ cdef dict type_dict(cls):
     return <object> (<PyTypeObject*>cls).tp_dict
 
 
-# Trigger a simple native crash, for use when testing logging. Also called by license enforcement,
-# where we want to make sure it's reported as a crash in both the logcat and the UI, otherwise the
-# back-stack might just be recreated in a new process and it wouldn't be obvious what happened.
-# abort(2) and SIGKILL aren't good enough because they exit silently on API level 26.
+# Trigger a simple native crash, for use when testing logging. Make sure it's reported as a
+# crash in both the logcat and the UI, otherwise the back-stack might just be recreated in a
+# new process and it wouldn't be obvious what happened. abort(2) and SIGKILL aren't good enough
+# because they exit silently on API level 26.
 #
 # The following generates a SIGSEGV as expected on API level 23, but on API level 26 it generates a
 # SIGSYS with the error "seccomp prevented call to disallowed x86 system call 7", and Chrome.apk at

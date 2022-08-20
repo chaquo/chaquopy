@@ -83,14 +83,14 @@ class TestAndroidPlatform(AndroidTestCase):
     def test_files(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
-                               "cacert.pem", "stdlib-common.imy", "ticket.txt"],
+                               "cacert.pem", "stdlib-common.imy"],
                               os.listdir(chaquopy_dir))
         bn_dir = f"{chaquopy_dir}/bootstrap-native"
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         for subdir, entries in [
-            (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_hashlib.so", "_json.so",
-                   "_random.so", "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
+            (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
+                   "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so", "chaquopy_android.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -99,6 +99,13 @@ class TestAndroidPlatform(AndroidTestCase):
                 with open(f"{bn_dir}/{subdir}/{pid_txt}", "w"):
                     pass
                 self.assertCountEqual(entries + [pid_txt], os.listdir(f"{bn_dir}/{subdir}"))
+
+                # If any of the bootstrap modules haven't been imported, that means they
+                # no longer need to be in the bootstrap.
+                if subdir == ABI:
+                    for filename in entries:
+                        with self.subTest(filename=filename):
+                            self.assertIn(filename.replace(".so", ""), sys.modules)
 
 
 class TestAndroidImport(AndroidTestCase):
