@@ -263,20 +263,29 @@ class Aar(GradleTestCase):
             app=[("one.py", {"content": "one"})],
             pyc=["stdlib"], aar="lib1")
 
-    MULTI_MESSAGE = (r"(More than one file was found with OS independent|"
-                     r"2 files found (for|with)) "
-                     r"path 'lib/x86/")
+    MULTI_MESSAGE = r"(More than one file was|2 files) found"
 
     def test_multi_lib(self):
-        run = self.RunGradle("base", "Aar/multi_lib", succeed=False)
-        self.assertInLong(self.MULTI_MESSAGE, run.stderr, re=True)
+        if agp_version_info < (7, 3):
+            run = self.RunGradle("base", "Aar/multi_lib", succeed=False)
+            self.assertInLong(self.MULTI_MESSAGE, run.stderr, re=True)
+        else:
+            # Newer AGP versions silently use the assets from the first lib.
+            run = self.RunGradle("base", "Aar/multi_lib", app=["lib1.py"])
+            for stream in [run.stdout, run.stderr]:
+                self.assertNotInLong(self.MULTI_MESSAGE, stream, re=True)
 
     def test_lib_and_app(self):
-        run = self.RunGradle("base", "Aar/lib_and_app")
-        if agp_version_info >= (4, 0):
+        # The assets from the app are used.
+        run = self.RunGradle("base", "Aar/lib_and_app", app=["app.py"])
+        if agp_version_info < (7, 3):
             self.assertInLong(self.MULTI_MESSAGE + r".* Future versions of the Android Gradle "
                               "Plugin (will|may) throw an error in this case.",
                               run.stdout, re=True)
+        else:
+            # Newer AGP versions no longer show a warning.
+            for stream in [run.stdout, run.stderr]:
+                self.assertNotInLong(self.MULTI_MESSAGE, stream, re=True)
 
     def test_minify(self):
         self.RunGradle("base", "Aar/minify", aar="lib1")

@@ -106,9 +106,6 @@ Prerequisites:
 The integration tests are run by the Gradle task `gradle-plugin:testIntegration-X.Y`, where
 `X.Y` is the Android Gradle plugin version to test against (e.g. `7.0`).
 
-For Android Gradle plugin versions 3.6 and 4.0, you must install the matching NDK version
-listed [here](https://developer.android.com/studio/projects/configure-agp-ndk).
-
 The full set of tests will take a long time. To run only some of them, add `-P
 testPythonArgs=<args>` to the Gradle command line, where `<args>` is a space-separated list of
 test classes or methods (e.g. `test_gradle_plugin.Basic.test_variant`). Other [unittest command
