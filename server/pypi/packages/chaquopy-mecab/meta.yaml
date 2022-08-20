@@ -1,0 +1,10 @@
+package:
+  name: chaquopy-mecab
+  version: 1.0
+
+source:
+  git_url: https://github.com/taku910/mecab
+  git_rev: master
+
+about:
+  license_file: mecab/COPYING
