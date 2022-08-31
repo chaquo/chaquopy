@@ -44,11 +44,22 @@ customize_compiler_original = distutils.sysconfig.customize_compiler
 
 def customize_compiler_override(compiler):
     customize_compiler_original(compiler)
-    ldflags = os.environ["LDFLAGS"]
-    if ldflags not in " ".join(compiler.linker_exe):
-        compiler.linker_exe += split_quoted(ldflags)
+    try:
+        ldflags = os.environ["LDFLAGS"]
+        if ldflags not in " ".join(compiler.linker_exe):
+            compiler.linker_exe += split_quoted(ldflags)
+    except KeyError:
+        pass
 
 distutils.sysconfig.customize_compiler = customize_compiler_override
+
+if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
+    config_globals = {}
+    config_locals = {}
+    with open(os.environ["CROSS_COMPILE_SYSCONFIGDATA"]) as sysconfigdata:
+        exec(sysconfigdata.read(), config_globals, config_locals)
+
+    distutils.sysconfig._config_vars = config_locals['build_time_vars']
 
 
 # Call the next sitecustomize script if there is one
