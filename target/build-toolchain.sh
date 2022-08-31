@@ -2,9 +2,16 @@
 set -eu
 
 target_dir=$(dirname $(realpath $0))
-ndk=$(realpath ${1:?})
-abi=${2:?}
-api=${3:?}
+abi=${1:?}
+
+# This should match the version of ndkDir in product/runtime/build.gradle.
+#
+# When moving to a new version of the NDK, carefully review the following:
+# * The release notes (https://developer.android.com/ndk/downloads/revision_history)
+# * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
+#   where XX is the NDK version. Check over the `master` version of that document as well.
+ndk_version=21.4.7075529
+yes | ${ANDROID_HOME:?}/cmdline-tools/latest/bin/sdkmanager "ndk;$ndk_version"
 
 if [ $abi == "armeabi-v7a" ]; then
     arch="arm"
@@ -14,9 +21,17 @@ else
     arch=$abi
 fi
 
+if [[ $abi =~ "64" ]]; then
+    api=21
+else
+    api=16
+fi
+
 cd "$target_dir"
 toolchain=$(realpath -m "toolchains/$abi")
-$ndk/build/tools/make_standalone_toolchain.py --arch $arch --api $api --install-dir $toolchain
+${ANDROID_HOME:?}/ndk/$ndk_version/build/tools/make_standalone_toolchain.py \
+    --arch $arch --api $api --install-dir $toolchain
+
 . build-common.sh
 
 # Redirect all compiler scripts to the target-specific ones. In NDK r19, these are the only

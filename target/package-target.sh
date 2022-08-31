@@ -1,20 +1,30 @@
 #!/bin/bash
-#
-# Positional arguments:
-#  * Python major.minor version, e.g. "3.8"
-#  * Python micro version and build number, separated by a dash, e.g. "1-2" (see Common.java)
-#  * Maven target directory, e.g. /path/to/com/chaquo/python/target
+set -eu -o pipefail
+shopt -s inherit_errexit
 
-set -eu
+# Positional arguments:
+#  * Toolchains directory to pack from.
+#  * Maven directory to pack into, e.g. /path/to/com/chaquo/python/target/3.10.6-3. Must
+#    not already exist.
 
 this_dir=$(dirname $(realpath $0))
+toolchains_dir=$(realpath ${1:?})
+target_dir=$(realpath -m ${2:?})
 
-short_ver="${1:?}"
-micro_build="${2:?}"
-full_ver="$short_ver.$micro_build"
+# If the target looks like a full Maven repository, make sure that its root directory
+# already exists.
+if [[ $(dirname $target_dir) =~ /com/chaquo/python/target$ ]]; then
+    maven_root=$(realpath -m $target_dir/../../../../..)
+    if [ ! -e $maven_root ]; then
+        echo $maven_root does not exist: did you forget to pass it as a Docker volume?
+        exit 1
+    fi
+fi
 
-mkdir -p "${3:?}"
-target_dir="$(realpath $3)/$full_ver"
+full_ver=$(basename $target_dir)
+short_ver=$(echo $full_ver | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+mkdir -p $(dirname $target_dir)
 mkdir "$target_dir"  # Fail if it already exists: we don't want to overwrite things by accident.
 target_prefix="$target_dir/target-$full_ver"
 
@@ -60,7 +70,7 @@ rm -rf "$tmp_dir"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
-for toolchain in $this_dir/toolchains/*; do
+for toolchain in $toolchains_dir/*; do
     . "$this_dir/build-common.sh"  # Sets $sysroot and $host_triplet.
     abi=$(basename $toolchain)
     echo "$abi"
@@ -110,9 +120,9 @@ find -name test -or -name tests | xargs rm -r
 # The build generates these files with the version number of the build Python, not the target
 # Python. The source .txt files can't be used instead, because lib2to3 can only load them from
 # real files, not via zipimport.
-micro=$(echo $micro_build | sed 's/-.*//')
+full_ver_no_build=$(echo $full_ver | sed 's/-.*//')
 for src_filename in lib2to3/*.pickle; do
-    tgt_filename=$(echo $src_filename | sed -E "s/$short_ver\\.[0-9]+/$short_ver.$micro/")
+    tgt_filename=$(echo $src_filename | sed -E "s/$short_ver\\.[0-9]+/$full_ver_no_build/")
     if [[ $src_filename != $tgt_filename ]]; then
         mv $src_filename $tgt_filename
     fi

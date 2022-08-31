@@ -15,6 +15,13 @@ public class Common {
         PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
     public static final String PYTHON_BUILD_NUM = "1";
 
+    public static final Map<String, String> PYTHON_VERSIONS = new HashMap<>();
+    static {
+        // Version, build number
+        PYTHON_VERSIONS.put("3.8.13", "1");
+        PYTHON_VERSIONS.put("3.9.13", "0");
+    }
+
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;
 
