@@ -92,9 +92,88 @@ ABIS = {
             'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-darwin", slice="ios-arm64_x86_64-simulator")
         }
     },
-    # 'tvOS': ...
-    # 'watchOS': ...
+    'tvOS': {
+        'appletvos': {
+            'arm64': Abi("appletvos_arm64", "aarch64-apple-darwin", slice="tvos-arm64"),
+        },
+        'appletvsimulator': {
+            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-darwin", slice="tvos-arm64_x86_64-simulator"),
+            'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-darwin", slice="tvos-arm64_x86_64-simulator")
+        }
+    },
+    'watchOS': {
+        'watchos': {
+            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-darwin", slice="watchos-arm64_32"),
+        },
+        'watchsimulator': {
+            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-darwin", slice="watchos-arm64_x86_64-simulator"),
+            'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-darwin", slice="watchos-arm64_x86_64-simulator")
+        }
+    }
 }
+
+
+class Package:
+    def __init__(self, package_name_or_recipe):
+        self.recipe_dir = self.find_package(package_name_or_recipe)
+        self.meta = self.load_meta(self.recipe_dir)
+        self.name = self.meta["package"]["name"]
+        self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
+        self.version_dir = f"{self.recipe_dir}/build/{self.version}"
+
+        self.name_version = normalize_name_wheel(self.name) + "-" + normalize_version(self.version)
+
+        # Determine if the build needs Python
+        self.needs_python = (self.meta["source"] == "pypi")
+
+        # Determine if the build needs CMake
+        self.needs_cmake = False
+        if "cmake" in self.meta["requirements"]["build"]:
+            self.meta["requirements"]["build"].remove("cmake")
+            self.needs_cmake = True
+
+        # Gather any additional bundled requirements
+        self.bundled_reqs = []
+        for name in ["openssl", "python", "sqlite"]:
+            if name in self.meta["requirements"]["host"]:
+                self.meta["requirements"]["host"].remove(name)
+                if name == "python":
+                    self.needs_python = True
+                else:
+                    # OpenSSL and SQLite currently work without any build flags, but it's
+                    # worth keeping them in existing meta.yaml files in case that changes.
+                    self.bundled_reqs.append(name)
+
+    def find_package(self, name):
+        if "/" in name:
+            package_dir = abspath(name)
+        else:
+            package_dir = join(RECIPES_DIR, normalize_name_pypi(name))
+        assert_isdir(package_dir)
+        return package_dir
+
+    def load_meta(self, package_dir):
+        # http://python-jsonschema.readthedocs.io/en/latest/faq/
+        def with_defaults(validator_cls):
+            def set_defaults(validator, properties, instance, schema):
+                for name, subschema in properties.items():
+                    if "default" in subschema:
+                        instance.setdefault(name, deepcopy(subschema["default"]))
+                yield from validator_cls.VALIDATORS["properties"](
+                    validator, properties, instance, schema)
+
+            return jsonschema.validators.extend(validator_cls, {"properties": set_defaults})
+
+        # Work around https://github.com/Julian/jsonschema/issues/367 by not enabling defaults
+        # during meta-schema validation.
+        Validator = jsonschema.Draft4Validator
+        schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
+        Validator.check_schema(schema)
+        meta_str = jinja2.Template(open(f"{package_dir}/meta.yaml").read()).render()
+        meta = yaml.safe_load(meta_str)
+        with_defaults(Validator)(schema).validate(meta)
+        return meta
+
 
 class BaseWheelBuilder:
     def __init__(self, package, toolchain, abi, api_level, standard_libs, verbose, no_unpack, no_build, no_reqs):
@@ -114,38 +193,12 @@ class BaseWheelBuilder:
         # Properties that should be overwritten by subclasses
         self.os = "UNKNOWN"
 
+    @property
+    def platform_tag(self):
+        return f"{self.os}_{self.api_level}_{self.abi.name}"
+
     def build(self):
-        self.platform_tag = f"{self.os}_{self.api_level}_{self.abi.name}"
-
-        self.package_dir = self.find_package(self.package)
-
-        self.meta = self.load_meta()
-        self.package = self.meta["package"]["name"]
-        self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
-        self.name_version = (normalize_name_wheel(self.package) + "-" +
-                                normalize_version(self.version))
-
-        self.needs_cmake = False
-        if "cmake" in self.meta["requirements"]["build"]:
-            self.meta["requirements"]["build"].remove("cmake")
-            self.needs_cmake = True
-
-        self.needs_python = (self.meta["source"] == "pypi")
-        self.bundled_reqs = []
-        for name in ["openssl", "python", "sqlite"]:
-            if name in self.meta["requirements"]["host"]:
-                self.meta["requirements"]["host"].remove(name)
-                if name == "python":
-                    self.needs_python = True
-                else:
-                    # OpenSSL and SQLite currently work without any build flags, but it's
-                    # worth keeping them in existing meta.yaml files in case that changes.
-                    self.bundled_reqs.append(name)
-
-        return self.unpack_and_build()
-
-    def unpack_and_build(self):
-        if self.needs_python:
+        if self.package.needs_python:
             self.find_python()
             self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
             self.compat_tag = (
@@ -161,10 +214,9 @@ class BaseWheelBuilder:
             run(f"{self.pip} install{' -v' if self.verbose else ''} " +
                 " ".join(f"{name}=={version}" for name, version in build_reqs))
 
-        self.version_dir = f"{self.package_dir}/build/{self.version}"
-        ensure_dir(self.version_dir)
-        cd(self.version_dir)
-        self.build_dir = f"{self.version_dir}/{self.compat_tag}"
+        ensure_dir(self.package.version_dir)
+        cd(self.package.version_dir)
+        self.build_dir = f"{self.package.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
 
         if self.no_unpack:
@@ -193,11 +245,11 @@ class BaseWheelBuilder:
         ...
 
     def unpack_source(self):
-        source = self.meta["source"]
+        source = self.package.meta["source"]
         if not source:
             ensure_dir(self.src_dir)
         elif "path" in source:
-            abs_path = abspath(join(self.package_dir, source["path"]))
+            abs_path = abspath(join(self.package.recipe_dir, source["path"]))
             run(f"cp -a {abs_path} {self.src_dir}")
         else:
             source_filename = (self.download_git(source) if "git_url" in source
@@ -227,7 +279,7 @@ class BaseWheelBuilder:
         is_hash = len(str(git_rev)) == 40
 
         # Clones with many submodules can be slow, so cache the clean repository tree.
-        tgz_filename = f"{self.package}-{git_rev}.tar.gz"
+        tgz_filename = f"{self.package.name}-{git_rev}.tar.gz"
         if exists(tgz_filename):
             log("Using cached repository")
         else:
@@ -253,8 +305,8 @@ class BaseWheelBuilder:
             log("Using cached sdist")
         else:
             result = run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
-                         f"--no-binary {self.package} --no-build-isolation "
-                         f"{self.package}=={self.version}", check=False)
+                         f"--no-binary {self.package.name} --no-build-isolation "
+                         f"{self.package.name}=={self.package.version}", check=False)
             if result.returncode:
                 # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
                 # downloaded sdist, which installs anything in `setup_requires`
@@ -271,7 +323,7 @@ class BaseWheelBuilder:
 
     def find_sdist(self):
         for ext in ["zip", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz"]:
-            filename = f"{self.package}-{self.version}.{ext}"
+            filename = f"{self.package.name}-{self.package.version}.{ext}"
             if exists(filename):
                 return filename
 
@@ -284,7 +336,7 @@ class BaseWheelBuilder:
         return source_filename
 
     def apply_patches(self):
-        patches_dir = f"{self.package_dir}/patches"
+        patches_dir = f"{self.package.recipe_dir}/patches"
         if exists(patches_dir):
             cd(self.src_dir)
             for patch_filename in os.listdir(patches_dir):
@@ -292,10 +344,10 @@ class BaseWheelBuilder:
 
     def build_wheel(self):
         cd(self.src_dir)
-        build_script = f"{self.package_dir}/build.sh"
+        build_script = f"{self.package.recipe_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
-        elif self.needs_python:
+        elif self.package.needs_python:
             return self.build_with_pip()
         else:
             raise CommandError("Don't know how to build: no build.sh exists, and this is not "
@@ -361,7 +413,7 @@ class BaseWheelBuilder:
         ensure_empty(prefix_dir)
         os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
         run(build_script)
-        return self.package_wheel(prefix_dir, self.src_dir)
+        return package_wheel(self.package, self.compat_tag, prefix_dir, self.src_dir)
 
     def build_with_pip(self):
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
@@ -402,14 +454,14 @@ class BaseWheelBuilder:
             "CHAQUOPY_PYTHON": PYTHON_VERSION,
             "CHAQUOPY_TRIPLET": self.abi.tool_prefix,
             "CPU_COUNT": str(multiprocessing.cpu_count()),
-            "PKG_BUILDNUM": str(self.meta["build"]["number"]),
-            "PKG_NAME": self.package,
-            "PKG_VERSION": self.version,
-            "RECIPE_DIR": self.package_dir,
+            "PKG_BUILDNUM": str(self.package.meta["build"]["number"]),
+            "PKG_NAME": self.package.name,
+            "PKG_VERSION": self.package.version,
+            "RECIPE_DIR": self.package.recipe_dir,
             "SRC_DIR": self.src_dir,
         })
 
-        for var in self.meta["build"]["script_env"]:
+        for var in self.package.meta["build"]["script_env"]:
             key, value = var.split("=")
             env[key] = value
 
@@ -419,7 +471,7 @@ class BaseWheelBuilder:
                 "\n".join(f"export {key}='{value}'" for key, value in env.items()))
         os.environ.update(env)
 
-        if self.needs_cmake:
+        if self.package.needs_cmake:
             self.generate_cmake_toolchain()
 
     # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
@@ -464,7 +516,7 @@ class BaseWheelBuilder:
                 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
                 """), file=toolchain_file)
 
-            if self.needs_python:
+            if self.package.needs_python:
                 print(dedent(f"""\
                     # See https://cmake.org/cmake/help/latest/module/FindPythonLibs.html .
                     # For maximum compatibility, we set both the input and the output variables.
@@ -480,31 +532,44 @@ class BaseWheelBuilder:
                     """), file=toolchain_file)
 
     @abstractmethod
-    def fix_wheel(self, in_filename):
+    def process_native_binaries(self, tmp_dir, info_dir):
         ...
 
-    def package_wheel(self, in_dir, out_dir):
-        build_num = os.environ["PKG_BUILDNUM"]
-        info_dir = f"{in_dir}/{self.name_version}.dist-info"
-        ensure_dir(info_dir)
-        update_message_file(f"{info_dir}/WHEEL",
-                            {"Wheel-Version": "1.0",
-                             "Root-Is-Purelib": "false"},
-                            if_exist="keep")
-        update_message_file(f"{info_dir}/WHEEL",
-                            {"Generator": PROGRAM_NAME,
-                             "Build": build_num,
-                             "Tag": self.compat_tag},
-                            if_exist="replace")
-        update_message_file(f"{info_dir}/METADATA",
-                            {"Metadata-Version": "1.2",
-                             "Name": self.package,
-                             "Version": self.version,
-                             "Summary": "",        # Compulsory according to PEP 345,
-                             "Download-URL": ""},  #
-                            if_exist="keep")
-        run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {build_num}")
-        return join(out_dir, f"{self.name_version}-{build_num}-{self.compat_tag}.whl")
+    def fix_wheel(self, in_filename):
+        tmp_dir = f"{self.build_dir}/fix_wheel"
+        ensure_empty(tmp_dir)
+        run(f"unzip -d {tmp_dir} -q {in_filename}")
+        info_dir = f"{tmp_dir}/{self.package.name_version}.dist-info"
+
+        # This can't be done before the build, because sentencepiece generates a license file
+        # in the source directory during the build.
+        license_files = (find_license_files(self.src_dir) +
+                         find_license_files(self.package.recipe_dir))
+        meta_license = self.package.meta["about"]["license_file"]
+        if meta_license:
+            license_files += [f"{self.src_dir}/{meta_license}"]
+        if license_files:
+            for name in license_files:
+                # We use `-a` because pandas comes with a whole directory of licenses.
+                run(f"cp -a {name} {info_dir}")
+        else:
+            raise CommandError("Couldn't find license file: see license_file in "
+                               "meta-schema.yaml")
+
+        reqs = self.process_native_binaries(tmp_dir, info_dir)
+
+        reqs.update(self.get_requirements("host"))
+        if reqs:
+            update_requirements(f"{info_dir}/METADATA", reqs)
+            # Remove the optional JSON copy to save us from having to update it too.
+            info_metadata_json = f"{info_dir}/metadata.json"
+            if exists(info_metadata_json):
+                run(f"rm {info_metadata_json}")
+
+        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package.name)}")
+        out_filename = package_wheel(self.package, self.compat_tag, tmp_dir, out_dir)
+        log(f"Wrote {out_filename}")
+        return out_filename
 
     def check_requirements(self, filename, available_libs):
         reqs = []
@@ -526,40 +591,10 @@ class BaseWheelBuilder:
 
     def get_requirements(self, req_type):
         reqs = []
-        for req in self.meta["requirements"][req_type]:
+        for req in self.package.meta["requirements"][req_type]:
             package, version = req.split()
             reqs.append((package, version))
         return reqs
-
-    def load_meta(self):
-        # http://python-jsonschema.readthedocs.io/en/latest/faq/
-        def with_defaults(validator_cls):
-            def set_defaults(validator, properties, instance, schema):
-                for name, subschema in properties.items():
-                    if "default" in subschema:
-                        instance.setdefault(name, deepcopy(subschema["default"]))
-                yield from validator_cls.VALIDATORS["properties"](
-                    validator, properties, instance, schema)
-
-            return jsonschema.validators.extend(validator_cls, {"properties": set_defaults})
-
-        # Work around https://github.com/Julian/jsonschema/issues/367 by not enabling defaults
-        # during meta-schema validation.
-        Validator = jsonschema.Draft4Validator
-        schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
-        Validator.check_schema(schema)
-        meta_str = jinja2.Template(open(f"{self.package_dir}/meta.yaml").read()).render()
-        meta = yaml.safe_load(meta_str)
-        with_defaults(Validator)(schema).validate(meta)
-        return meta
-
-    def find_package(self, name):
-        if "/" in name:
-            package_dir = abspath(name)
-        else:
-            package_dir = join(RECIPES_DIR, normalize_name_pypi(name))
-        assert_isdir(package_dir)
-        return package_dir
 
 
 class AndroidWheelBuilder(BaseWheelBuilder):
@@ -669,31 +704,11 @@ class AndroidWheelBuilder(BaseWheelBuilder):
 
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
-        if self.needs_python:
+        if self.package.needs_python:
             env["CFLAGS"] = f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] = f" -lpython{PYTHON_SUFFIX}"
 
-    def fix_wheel(self, in_filename):
-        tmp_dir = f"{self.build_dir}/fix_wheel"
-        ensure_empty(tmp_dir)
-        run(f"unzip -d {tmp_dir} -q {in_filename}")
-        info_dir = f"{tmp_dir}/{self.name_version}.dist-info"
-
-        # This can't be done before the build, because sentencepiece generates a license file
-        # in the source directory during the build.
-        license_files = (find_license_files(self.src_dir) +
-                         find_license_files(self.package_dir))
-        meta_license = self.meta["about"]["license_file"]
-        if meta_license:
-            license_files += [f"{self.src_dir}/{meta_license}"]
-        if license_files:
-            for name in license_files:
-                # We use `-a` because pandas comes with a whole directory of licenses.
-                run(f"cp -a {name} {info_dir}")
-        else:
-            raise CommandError("Couldn't find license file: see license_file in "
-                               "meta-schema.yaml")
-
+    def process_native_binaries(self, tmp_dir, info_dir):
         SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(self.standard_libs)
         for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
@@ -730,18 +745,7 @@ class AndroidWheelBuilder(BaseWheelBuilder):
                 # (https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md).
                 run(f"patchelf --remove-rpath {fixed_path}")
 
-        reqs.update(self.get_requirements("host"))
-        if reqs:
-            update_requirements(f"{info_dir}/METADATA", reqs)
-            # Remove the optional JSON copy to save us from having to update it too.
-            info_metadata_json = f"{info_dir}/metadata.json"
-            if exists(info_metadata_json):
-                run(f"rm {info_metadata_json}")
-
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
-        log(f"Wrote {out_filename}")
-        return out_filename
+        return reqs
 
 
 class AppleWheelBuilder(BaseWheelBuilder):
@@ -776,41 +780,71 @@ class AppleWheelBuilder(BaseWheelBuilder):
 
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
-        if self.needs_python:
+        if self.package.needs_python:
             if "CFLAGS" in env:
                 env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             else:
                 env["CFLAGS"] = f"-idirafter {self.python_include_dir}"
 
-            # env["LDFLAGS"] = f" -lpython{PYTHON_SUFFIX}"
+    def process_native_binaries(self, tmp_dir, info_dir):
+        # No post-processing required on the initial wheel binaries.
+        return set()
 
-    def fix_wheel(self, in_filename):
-        # No fixing needed on Apple.
-        return in_filename
+    @classmethod
+    def api_level(cls, os, toolchain):
+        with open(f"{toolchain}/VERSIONS") as f:
+            for line in f.read().splitlines():
+                if line.startswith(f"Min {os} version: "):
+                    return line.split(':')[1].strip()
+        raise CommandError("Couldn't read minimum API level from Apple support package")
 
-    def merge_wheels(self, wheels):
-        # Unpack all the wheels into a single folder
-        tmp_dir = f"{self.version_dir}/fix_wheel"
-        ensure_dir(tmp_dir)
-        for wheel in wheels:
-            run(f"unzip -o -d {tmp_dir} -q {wheel}")
-
-        # Repack a single wheel.
-        # Set a single platform compatibility tag
-        if self.needs_python:
-            self.compat_tag = (
+    @classmethod
+    def merge_wheels(cls, package, wheels, os, api_level):
+        # Build a single platform compatibility tag
+        if package.needs_python:
+            compat_tag = (
                 f"cp{PYTHON_VERSION.replace('.', '')}-"
                 f"cp{PYTHON_SUFFIX.replace('.', '')}-"
-                f"{self.os}_{self.api_level}"
+                f"{os}_{api_level}"
             )
         else:
-            self.compat_tag = f"py{PYTHON_VERSION[0]}-none-{self.os}_{self.api_level}"
+            compat_tag = f"py{PYTHON_VERSION[0]}-none-{os}_{api_level}"
 
-        # Repacakga
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
+        merge_dir = f"{package.version_dir}/{os}"
+        for sdk, architectures in wheels.items():
+            for arch, wheel in architectures.items():
+                # Unpack the source wheel twice: once into a unique folder,
+                # and one into a shared folder
+                wheel_dir = f"{package.version_dir}/{sdk}/{arch}"
+                ensure_dir(wheel_dir)
+                run(f"unzip -o -d {wheel_dir} -q {wheel}")
+                run(f"unzip -o -d {merge_dir} -q {wheel}")
+
+            # All wheels for the same SDK will have the same list of binary artefacts.
+            # Scan the RECORD entry for each wheel (it doesn't matter which one,
+            # because the filename lists should be the same; so use the last one
+            # that we iterated over)
+            # Generate a fat binary in the final wheel location for each
+            # architecture in the sdk.
+            SO_PATTERN = r"\.so(\.|$)"
+            info_dir = f"{wheel_dir}/{package.name_version}.dist-info"
+            for path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
+                if bool(re.search(SO_PATTERN, path)):
+                    fat_binary = f"{merge_dir}/{path}"
+                    source_binaries = " ".join([
+                        f"{package.version_dir}/{sdk}/{arch}/{path}"
+                        for arch in architectures.keys()
+                    ])
+                    run(f"lipo -create -o {fat_binary} {source_binaries}")
+
+            # Delete the source wheels
+            for arch, wheel in architectures.items():
+                run(f"rm {wheel}")
+
+        # Repack a single wheel.
+        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(package.name)}")
+        out_filename = package_wheel(package, compat_tag, merge_dir, out_dir)
         log(f"Wrote {out_filename}")
-        return out_filename
 
 
 def find_license_files(path):
@@ -843,6 +877,30 @@ def update_message_file(filename, d, *args, **kwargs):
 
 def read_message(filename):
     return parser.Parser().parse(open(filename))
+
+
+def package_wheel(package, compat_tag, in_dir, out_dir):
+    build_num = os.environ["PKG_BUILDNUM"]
+    info_dir = f"{in_dir}/{package.name_version}.dist-info"
+    ensure_dir(info_dir)
+    update_message_file(f"{info_dir}/WHEEL",
+                        {"Wheel-Version": "1.0",
+                            "Root-Is-Purelib": "false"},
+                        if_exist="keep")
+    update_message_file(f"{info_dir}/WHEEL",
+                        {"Generator": PROGRAM_NAME,
+                            "Build": build_num,
+                            "Tag": compat_tag},
+                        if_exist="replace")
+    update_message_file(f"{info_dir}/METADATA",
+                        {"Metadata-Version": "1.2",
+                            "Name": package.name,
+                            "Version": package.version,
+                            "Summary": "",        # Compulsory according to PEP 345,
+                            "Download-URL": ""},  #
+                        if_exist="keep")
+    run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {build_num}")
+    return join(out_dir, f"{package.name_version}-{build_num}-{compat_tag}.whl")
 
 
 def update_message(msg, d, *, if_exist):
@@ -943,16 +1001,17 @@ def main():
                     "(any existing build/.../requirements directory will be reused)")
     ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                     help="Path to toolchain")
-    ap.add_argument("--os", required=True, help="OS to build")
-    ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
+    ap.add_argument("os", help="OS to build")
+    ap.add_argument("package_name_or_recipe", help=f"Name of a package in {RECIPES_DIR}, or if it "
                     f"contains a slash, path to a recipe directory")
 
     args = ap.parse_args()
     kwargs = vars(args)
 
     os = kwargs.pop("os")
-    package = kwargs.pop("package")
+    package_name_or_recipe = kwargs.pop("package_name_or_recipe")
     toolchain = kwargs.pop("toolchain")
+    package = Package(package_name_or_recipe)
 
     if os == "android":
         abi, api_level, standard_libs = AndroidWheelBuilder.detect_toolchain(toolchain)
@@ -967,23 +1026,27 @@ def main():
 
         builder.build()
     else:
+        api_level = AppleWheelBuilder.api_level(os, toolchain)
+        wheels = {}
+        # Build a wheel for each supported ABI
         for sdk, architectures in ABIS[os].items():
-            arch_wheels = []
-            for abi in architectures.values():
+            wheels[sdk] = {}
+            for architcture, abi in architectures.items():
                 builder = AppleWheelBuilder(
                     os,
                     package,
                     toolchain=toolchain,
                     abi=abi,
-                    api_level="12.0",
+                    api_level=api_level,
                     standard_libs=[],
                     **kwargs,
                 )
                 wheel = builder.build()
                 if wheel:
-                    arch_wheels.append(wheel)
-            print(f"TODO: LIPO {arch_wheels} in {sdk} binary")
-        print(f"TODO: MERGE {ABIS[os].keys()} into {os} wheel")
+                    wheels[sdk][architcture] = wheel
+
+        # Merge the wheels into a single OS wheel.
+        AppleWheelBuilder.merge_wheels(package, wheels, os=os, api_level=api_level)
 
 
 if __name__ == "__main__":
