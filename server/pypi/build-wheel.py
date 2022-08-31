@@ -1,7 +1,4 @@
-#!/usr/bin/env python3.8
-#
-# We require the build and target Python versions to be the same, because many setup.py scripts
-# are affected by sys.version.
+#!/usr/bin/env python3
 
 import argparse
 from copy import deepcopy
@@ -30,9 +27,6 @@ PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 RECIPES_DIR = f"{PYPI_DIR}/packages"
 
-PYTHON_VERSION = "3.8"  # Should be the same as the #! line above.
-PYTHON_SUFFIX = PYTHON_VERSION  # May contain flags from PEP 3149.
-
 # Libraries are grouped by minimum API level and listed under their SONAMEs.
 STANDARD_LIBS = [
     # Android native APIs (https://developer.android.com/ndk/guides/stable_apis)
@@ -42,8 +36,7 @@ STANDARD_LIBS = [
     (21, ["libmediandk.so"]),
 
     # Chaquopy-provided libraries
-    (0, ["libcrypto_chaquopy.so", f"libpython{PYTHON_SUFFIX}.so", "libsqlite3_chaquopy.so",
-         "libssl_chaquopy.so"]),
+    (0, ["libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so"]),
 ]
 
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
@@ -116,7 +109,7 @@ class BuildWheel:
         if self.needs_python:
             self.find_python()
         else:
-            self.compat_tag = f"py{PYTHON_VERSION[0]}-none-{self.platform_tag}"
+            self.compat_tag = self.non_python_compat_tag
 
         build_reqs = self.get_requirements("build")
         if build_reqs:
@@ -165,22 +158,44 @@ class BuildWheel:
                         "(any existing build/.../requirements directory will be reused)")
         ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                         help="Path to toolchain")
+        ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
+                        "Python packages)"),
         ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
                         f"contains a slash, path to a recipe directory")
         ap.parse_args(namespace=self)
 
         self.detect_toolchain()
         self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
+        self.non_python_compat_tag = f"py3-none-{self.platform_tag}"
 
     def find_python(self):
-        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{PYTHON_SUFFIX}"
-        assert_isdir(self.python_include_dir)
-        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
-        assert_exists(self.python_lib)
+        if self.python is None:
+            raise CommandError("This package requires Python: specify a version number "
+                               "with the --python argument")
 
-        self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
-        self.compat_tag = (f"cp{PYTHON_VERSION.replace('.', '')}-"
-                           f"cp{PYTHON_SUFFIX.replace('.', '')}-"
+        # Check version number format.
+        ERROR = CommandError("--python version must be in the form X.Y, where X and Y "
+                             "are both numbers")
+        components = self.python.split(".")
+        if len(components) != 2:
+            raise ERROR
+        for c in components:
+            try:
+                int(c)
+            except ValueError:
+                raise ERROR
+
+        self.python_suffix = self.python + ("m" if self.python == "3.7" else "")
+        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{self.python_suffix}"
+        assert_isdir(self.python_include_dir)
+        libpython = f"libpython{self.python_suffix}.so"
+        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/{libpython}"
+        assert_exists(self.python_lib)
+        self.standard_libs.append(libpython)
+
+        self.pip = f"python{self.python} -m pip --disable-pip-version-check"
+        self.compat_tag = (f"cp{self.python.replace('.', '')}-"
+                           f"cp{self.python_suffix.replace('.', '')}-"
                            f"{self.platform_tag}")
 
     def unpack_source(self):
@@ -307,7 +322,7 @@ class BuildWheel:
                     match = re.search(fr"^{normalize_name_wheel(package)}-"
                                       fr"{normalize_version(version)}-(?P<build_num>\d+)-"
                                       fr"({self.compat_tag}|"
-                                      fr"py{PYTHON_VERSION[0]}-none-{self.platform_tag})"
+                                      fr"{self.non_python_compat_tag})"
                                       fr"\.whl$", filename)
                     if match:
                         matches.append(match)
@@ -456,12 +471,12 @@ class BuildWheel:
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
         if self.needs_python:
+            env["CHAQUOPY_PYTHON"] = self.python
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
-            env["LDFLAGS"] += f" -lpython{PYTHON_SUFFIX}"
+            env["LDFLAGS"] += f" -lpython{self.python_suffix}"
 
         env.update({  # Conda variable names, except those starting with CHAQUOPY.
             "CHAQUOPY_ABI": self.abi,
-            "CHAQUOPY_PYTHON": PYTHON_VERSION,
             "CHAQUOPY_TRIPLET": ABIS[self.abi].tool_prefix,
             "CPU_COUNT": str(multiprocessing.cpu_count()),
             "PKG_BUILDNUM": str(self.meta["build"]["number"]),
