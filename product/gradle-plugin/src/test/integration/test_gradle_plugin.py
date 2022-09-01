@@ -31,32 +31,41 @@ with open(join(repo_root, "product/local.properties")) as props_file:
     product_props = PropertiesFile.load(props_file)
 sdk_dir = product_props["sdk.dir"]
 
+DEFAULT_PYTHON_VERSION = None
+PYTHON_VERSIONS = {}
 for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
-    match = re.search(r'PYTHON_VERSION = "(.+)";', line)
+    match = re.search(r'DEFAULT_PYTHON_VERSION = "(.+)"', line)
     if match:
-        PYTHON_VERSION = match[1]
-        PYTHON_VERSION_SHORT = PYTHON_VERSION.rpartition(".")[0]
-        break
-else:
-    raise Exception("Failed to find runtime Python version")
+        DEFAULT_PYTHON_VERSION = match[1]
 
+    match = re.search(r'PYTHON_VERSIONS.put\("(.+)", ".+"\)', line)
+    if match:
+        full_version = match[1]
+        version = full_version.rpartition(".")[0]
+        PYTHON_VERSIONS[version] = full_version
+
+if not DEFAULT_PYTHON_VERSION:
+    raise Exception("Failed to find DEFAULT_PYTHON_VERSION")
+if not PYTHON_VERSIONS:
+    raise Exception("Failed to find PYTHON_VERSIONS")
+DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 def run_build_python(args, **kwargs):
     for k, v in dict(check=True, capture_output=True, text=True).items():
         kwargs.setdefault(k, v)
     if os.name == "nt":
-        build_python = ["py", "-" + PYTHON_VERSION_SHORT]
+        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
     else:
-        build_python = ["python" + PYTHON_VERSION_SHORT]
+        build_python = ["python" + DEFAULT_PYTHON_VERSION]
     return run(build_python + args, **kwargs)
 
-BUILD_PYTHON_VERSION = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
-                        .split()[1])
-BUILD_PYTHON_VERSION_SHORT = BUILD_PYTHON_VERSION.rpartition(".")[0]
+BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
+                             .split()[1])
+BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 OLD_BUILD_PYTHON_VERSION = "3.4"
 MIN_BUILD_PYTHON_VERSION = "3.5"
 MAX_BUILD_PYTHON_VERSION = "3.10"
-EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION_SHORT + ".egg-info"
+EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
 
@@ -361,13 +370,25 @@ class JavaLib(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
-    def test_error(self):
-        run = self.RunGradle("base", "PythonVersion/error", succeed=False)
-        self.assertInLong(
-            f"Python 'version' setting is no longer supported. "
-            f"Either remove 'version' from build.gradle to use Python {PYTHON_VERSION}, or see "
-            f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
-            run.stderr)
+    def test_change(self):
+        self.assertEqual(DEFAULT_PYTHON_VERSION, "3.8")
+        run = self.RunGradle("base", python_version=DEFAULT_PYTHON_VERSION)
+        run.apply_layers("PythonVersion/3.9")
+        run.rerun(python_version="3.9")
+
+    # Test all versions not covered by test_change.
+    def test_others(self):
+        self.assertEqual(list(PYTHON_VERSIONS), ["3.8", "3.9"])
+
+    def test_invalid(self):
+        ERROR = ("Invalid Python version '{}'. Available versions are [" +
+                 ", ".join(PYTHON_VERSIONS) + "].")
+        run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
+        self.assertInLong(ERROR.format("invalid"), run.stderr)
+
+        run.apply_layers("PythonVersion/invalid_micro")
+        run.rerun(succeed=False)
+        self.assertInLong(ERROR.format("3.8.13"), run.stderr)
 
 
 class AbiFilters(GradleTestCase):
@@ -587,6 +608,23 @@ class BuildPython(GradleTestCase):
     def old_version_error(cls, version):
         return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
                 fr"this is version {version}\.\d+\. " + cls.SEE)
+
+    # Default buildPython depends on selected Python version.
+    def test_default(self):
+        run = self.RunGradle("base", "BuildPython/default", add_path=["bin"], succeed=False)
+        self.assertInLong("3.8 was used", run.stdout)
+        self.assertNotInLong("3.9 was used", run.stdout)
+
+        run.apply_layers("BuildPython/default_3.9")
+        run.rerun(add_path=["bin"], succeed=False)
+        self.assertNotInLong("3.8 was used", run.stdout)
+        self.assertInLong("3.9 was used", run.stdout)
+
+        # Default can be overridden.
+        run.apply_layers("BuildPython/default_3.9_override")
+        run.rerun(add_path=["bin"], succeed=False)
+        self.assertInLong("3.8 was used", run.stdout)
+        self.assertNotInLong("3.9 was used", run.stdout)
 
     def test_args(self):  # Also tests making a change.
         run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
@@ -993,7 +1031,7 @@ class PythonReqs(GradleTestCase):
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     def test_requires_python(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
+        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
         run = self.RunGradle("base", "PythonReqs/requires_python", run=False)
         with open(f"{run.project_dir}/app/index/pyver/index.html", "w") as index_file:
             def print_link(whl_version, requires_python):
@@ -1004,8 +1042,8 @@ class PythonReqs(GradleTestCase):
             # If the build Python version is used, or the data-requires-python attribute is
             # ignored completely, then version 0.2 will be selected.
             print("<html><head></head><body>", file=index_file)
-            print_link("0.1", PYTHON_VERSION)
-            print_link("0.2", BUILD_PYTHON_VERSION)
+            print_link("0.1", DEFAULT_PYTHON_VERSION_FULL)
+            print_link("0.2", BUILD_PYTHON_VERSION_FULL)
             print("</body></html>", file=index_file)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
@@ -1177,7 +1215,7 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
 
     def test_marker_python_version(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
+        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
         run = self.RunGradle("base", "PythonReqs/marker_python_version", run=False)
         with open(f"{run.project_dir}/app/requirements.txt", "w") as reqs_file:
             def print_req(whl_version, python_version):
@@ -1186,8 +1224,8 @@ class PythonReqs(GradleTestCase):
 
             # If the build Python version is used, or the environment markers are ignored
             # completely, then version 0.2 will be selected.
-            print_req("0.1", PYTHON_VERSION)
-            print_req("0.2", BUILD_PYTHON_VERSION)
+            print_req("0.1", DEFAULT_PYTHON_VERSION_FULL)
+            print_req("0.2", BUILD_PYTHON_VERSION_FULL)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
@@ -1326,6 +1364,7 @@ class RunGradle(object):
             for variant in variants:
                 merged_kwargs = kwargs.copy()
                 merged_kwargs.setdefault("abis", ["x86"])
+                merged_kwargs.setdefault("python_version", DEFAULT_PYTHON_VERSION)
                 if isinstance(variants, dict):
                     merged_kwargs.update(variants[variant])
                 merged_kwargs = KwargsWrapper(merged_kwargs)
@@ -1459,25 +1498,32 @@ class RunGradle(object):
         self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
 
         # Data files packaged with stdlib: see target/package_target.sh.
+        python_version = PYTHON_VERSIONS[kwargs["python_version"]]
         for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.test.assertIn("lib2to3/{}{}.final.0.pickle"
-                               .format(grammar_stem, PYTHON_VERSION), stdlib_files)
+            self.test.assertIn(
+                "lib2to3/{}{}.final.0.pickle".format(grammar_stem, python_version),
+                stdlib_files)
+
+        stdlib_native_expected = [
+            "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
+            "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
+            "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
+            "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
+            "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
+            "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
+            "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
+            "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
+            "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
+            "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
+            "unicodedata.so", "xxlimited.so"]
+        python_version_info = tuple(int(x) for x in python_version.split("."))
+        if python_version_info >= (3, 9):
+            stdlib_native_expected += ["_zoneinfo.so"]
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
-            self.test.assertCountEqual(
-                ["_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
-                 "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
-                 "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
-                 "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
-                 "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
-                 "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
-                 "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
-                 "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
-                 "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
-                 "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
-                 "unicodedata.so", "xxlimited.so"],
-                stdlib_native_zip.namelist())
+            self.test.assertCountEqual(stdlib_native_expected,
+                                       stdlib_native_zip.namelist())
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
@@ -1498,7 +1544,7 @@ class RunGradle(object):
         for abi in abis:
             self.test.assertCountEqual(
                 ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{PYTHON_VERSION_SHORT}.so", "libssl_chaquopy.so",
+                 f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
                 os.listdir(f"{lib_dir}/{abi}"))
 

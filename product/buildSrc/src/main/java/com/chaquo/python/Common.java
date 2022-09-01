@@ -11,9 +11,6 @@ public class Common {
     public static final String PYTHON_VERSION = "3.8.13";
     public static final String PYTHON_VERSION_SHORT =
         PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
-    public static final String PYTHON_VERSION_MAJOR =
-        PYTHON_VERSION.substring(0, PYTHON_VERSION.indexOf('.'));
-    public static final String PYTHON_BUILD_NUM = "1";
 
     public static final Map<String, String> PYTHON_VERSIONS = new HashMap<>();
     static {
@@ -21,6 +18,9 @@ public class Common {
         PYTHON_VERSIONS.put("3.8.13", "1");
         PYTHON_VERSIONS.put("3.9.13", "0");
     }
+
+    // This is the version with the best set of native packages in the repository.
+    public static final String DEFAULT_PYTHON_VERSION = "3.8";
 
     // Library name suffix: may contain flags from PEP 3149.
     public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;

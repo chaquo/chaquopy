@@ -1,0 +1,30 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    compileSdkVersion 23
+
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 16
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            version "3.9"
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                buildPython "py", "-3.8"
+            } else {
+                buildPython "python3.8"
+            }
+            pip {
+                install "six"
+            }
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+}
