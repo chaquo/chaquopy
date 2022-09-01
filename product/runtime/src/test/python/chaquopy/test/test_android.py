@@ -91,7 +91,7 @@ class TestAndroidPlatform(AndroidTestCase):
         for subdir, entries in [
             (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
-            (f"{ABI}/java", ["chaquopy.so", "chaquopy_android.so"]),
+            (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
                 # Create a stray file which should be removed on the next startup.

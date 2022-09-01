@@ -1,32 +1,41 @@
-# cython: language_level=2
-
-# __future__ import may still be required as long as we have language_level=2.
-from __future__ import absolute_import, division, print_function
-
-import os
-
 from cpython.bytes cimport PyBytes_FromStringAndSize
 from posix.types cimport off_t
 
-from java.chaquopy cimport get_jnienv, JNIRef
-from java.jni cimport JNIEnv, jobject
+cdef extern from *:
+    """
+    #ifdef __ANDROID__
+    #include "android/asset_manager.h"
+    #include "android/asset_manager_jni.h"
 
-cdef extern from "android/asset_manager.h":
+    #else
+    // This file will never be used on non-Android platforms, but stub out the asset APIs
+    // to allow it to compile.
+    struct AAssetManager;
+    struct AAsset;
+    enum { AASSET_MODE_UNKNOWN, AASSET_MODE_RANDOM, AASSET_MODE_STREAMING, AASSET_MODE_BUFFER };
+
+    #define AAssetManager_fromJava(...) NULL
+    #define AAssetManager_open(...) NULL
+    #define AAsset_close(...) 0
+    #define AAsset_getLength(...) 0
+    #define AAsset_getRemainingLength(...) 0
+    #define AAsset_read(...) 0
+    #define AAsset_seek(...) 0
+    #endif
+    """
     struct AAssetManager:
         pass
     struct AAsset:
         pass
     enum: AASSET_MODE_UNKNOWN, AASSET_MODE_RANDOM, AASSET_MODE_STREAMING, AASSET_MODE_BUFFER
 
+    AAssetManager* AAssetManager_fromJava(JNIEnv* env, jobject assetManager)
     AAsset* AAssetManager_open(AAssetManager* mgr, const char* filename, int mode)
     void AAsset_close(AAsset* asset)
     off_t AAsset_getLength(AAsset* asset)
     off_t AAsset_getRemainingLength(AAsset* asset)
     int AAsset_read(AAsset* asset, void* buf, size_t count)
     off_t AAsset_seek(AAsset* asset, off_t offset, int whence)
-
-cdef extern from "android/asset_manager_jni.h":
-    AAssetManager* AAssetManager_fromJava(JNIEnv* env, jobject assetManager)
 
 
 cdef class AssetFile(object):
@@ -35,7 +44,7 @@ cdef class AssetFile(object):
 
     def __init__(self, context, path):
         self.path = path
-        j_mgr = AssetFile_get_mgr(context)
+        j_mgr = <JNIRef?>context.getAssets()._chaquopy_this
         mgr = AAssetManager_fromJava(get_jnienv(), j_mgr.obj)
         if mgr == NULL:
             raise Exception("AAssetManager_fromJava failed")
@@ -92,7 +101,3 @@ cdef class AssetFile(object):
     cdef assert_open(self):
         if self.asset == NULL:
             raise ValueError("Asset is closed")
-
-
-cdef JNIRef AssetFile_get_mgr(context):
-    return <JNIRef?>context.getAssets()._chaquopy_this

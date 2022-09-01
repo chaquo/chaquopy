@@ -159,17 +159,11 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
 cythonTask("cythonPython") {
     inputs.files fileTree("$projectDir/src/main/python/java") {
         include "chaquopy.pyx", "*.pxi", "*.pxd"
-        exclude "chaquopy_android*"
     }
 }
 cythonTask("cythonJava") {
     inputs.files fileTree("$projectDir/src/main/python") {
         include "chaquopy_java.pyx", "java/*.pxd"
-    }
-}
-cythonTask("cythonAndroid") {
-    inputs.files fileTree("$projectDir/src/main/python/java") {
-        include "chaquopy_android*", "*.pxd"
     }
 }
 
@@ -235,8 +229,8 @@ for (abi in ["host"] + Common.ABIS) {
         executable "$sdkCmakeDir/bin/cmake"
         args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
              "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
-             "-DCHAQUOPY_SRC_DIR=build/cython",
-             "-DCHAQUOPY_LIBS=$pyPlusVersion"
+             "-DCHAQUOPY_SRC_DIR=build/cython"
+        def chaquopyLibs = pyPlusVersion
 
         if (abi == "host") {
             if (windowsHost) {
@@ -251,15 +245,16 @@ for (abi in ["host"] + Common.ABIS) {
                                              "$javaHome/include;$javaHome/include/linux"
             }
         } else {
-            dependsOn cythonAndroid
             def prefixDir = "$projectDir/../../target/toolchains/$abi/sysroot/usr"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",
                  "-DCHAQUOPY_INCLUDE_DIRS=$prefixDir/include/python$Common.PYTHON_SUFFIX",
                  "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
+            chaquopyLibs += ";android"
         }
-        args "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
+        args "-DCHAQUOPY_LIBS=$chaquopyLibs",
+             "-DPY_LIB_PREFIX=$pyLibPrefix", "-DPY_LIB_SUFFIX=$pyLibSuffix",
              "-DJAVA_LIB_PREFIX=$javaLibPrefix", "-DJAVA_LIB_SUFFIX=$javaLibSuffix",
              "$projectDir"
     }
@@ -273,7 +268,6 @@ for (abi in ["host"] + Common.ABIS) {
     if (abi != "host") {
         addArtifact(cmakeBuild, "$cmakeBuildSubdir/libchaquopy_java.so", abi)
         addArtifact(cmakeBuild, "$cmakeBuildSubdir/chaquopy.so", abi)
-        addArtifact(cmakeBuild, "$cmakeBuildSubdir/chaquopy_android.so", abi)
     }
 
     if (abi == "host") {

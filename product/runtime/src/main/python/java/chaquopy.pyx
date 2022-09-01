@@ -82,6 +82,7 @@ include "overload.pxi"
 include "proxy.pxi"
 include "array.pxi"
 include "import.pxi"
+include "android.pxi"
 
 def chaquopy_init():
     if "CHAQUOPY_PROCESS_TYPE" not in os.environ:  # See chaquopy_java.pyx

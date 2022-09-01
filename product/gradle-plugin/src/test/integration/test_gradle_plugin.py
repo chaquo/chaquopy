@@ -1450,7 +1450,7 @@ class RunGradle(object):
                 ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(join(bootstrap_native_dir, abi)))
-            self.test.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
+            self.test.assertCountEqual(["chaquopy.so"],
                                        os.listdir(join(bootstrap_native_dir, abi, "java")))
 
         # Python stdlib

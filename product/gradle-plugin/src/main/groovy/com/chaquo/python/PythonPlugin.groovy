@@ -184,9 +184,7 @@ class PythonPlugin implements Plugin<Project> {
             }
             buildscript.dependencies {
                 add(getConfig("runtimeJni", variant).name, runtimeDep("libchaquopy_java.so", abi))
-                for (name in ["chaquopy", "chaquopy_android"]) {
-                    add(getConfig("runtimeModules", variant).name, runtimeDep("${name}.so", abi))
-                }
+                add(getConfig("runtimeModules", variant).name, runtimeDep("chaquopy.so", abi))
                 add(getConfig("targetNative", variant).name, targetDep(abi))
             }
         }

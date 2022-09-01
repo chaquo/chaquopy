@@ -23,7 +23,6 @@ from zipimport import zipimporter
 
 import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
-from java.chaquopy_android import AssetFile
 
 from android.os import Build
 from com.chaquo.python import Common
@@ -725,7 +724,7 @@ LOADERS = {
 
 class AssetZipFile(ZipFile):
     def __init__(self, context, path, *args, **kwargs):
-        super().__init__(AssetFile(context, path), *args, **kwargs)
+        super().__init__(java.chaquopy.AssetFile(context, path), *args, **kwargs)
 
         self.dir_index = {"": set()}  # Provide empty listing for root even if ZIP is empty.
         for name in self.namelist():
