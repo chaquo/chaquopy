@@ -12,10 +12,12 @@ import re
 import shutil
 from subprocess import run
 import sys
+from tempfile import TemporaryDirectory
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
 
 import appdirs
+from elftools.elf.elffile import ELFFile
 from javaproperties import PropertiesFile
 from retrying import retry
 
@@ -371,14 +373,14 @@ class JavaLib(GradleTestCase):
 
 class PythonVersion(GradleTestCase):
     def test_change(self):
-        self.assertEqual(DEFAULT_PYTHON_VERSION, "3.8")
+        self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
         run = self.RunGradle("base", python_version=DEFAULT_PYTHON_VERSION)
         run.apply_layers("PythonVersion/3.9")
         run.rerun(python_version="3.9")
 
     # Test all versions not covered by test_change.
     def test_others(self):
-        self.assertEqual(list(PYTHON_VERSIONS), ["3.8", "3.9"])
+        self.assertEqual(["3.8", "3.9"], list(PYTHON_VERSIONS))
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
@@ -1485,12 +1487,16 @@ class RunGradle(object):
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
+            abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
                 ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
-                os.listdir(join(bootstrap_native_dir, abi)))
-            self.test.assertCountEqual(["chaquopy.so"],
-                                       os.listdir(join(bootstrap_native_dir, abi, "java")))
+                os.listdir(abi_dir))
+            self.check_dt_needed(join(abi_dir, "_csv.so"), kwargs)
+
+            java_dir = join(abi_dir, "java")
+            self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
+            self.check_dt_needed(join(java_dir, "chaquopy.so"), kwargs)
 
         # Python stdlib
         stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.imy")).namelist())
@@ -1498,11 +1504,11 @@ class RunGradle(object):
         self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
 
         # Data files packaged with stdlib: see target/package_target.sh.
-        python_version = PYTHON_VERSIONS[kwargs["python_version"]]
+        python_version = kwargs["python_version"]
         for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.test.assertIn(
-                "lib2to3/{}{}.final.0.pickle".format(grammar_stem, python_version),
-                stdlib_files)
+            self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
+                                   grammar_stem, PYTHON_VERSIONS[python_version]),
+                               stdlib_files)
 
         stdlib_native_expected = [
             "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
@@ -1524,11 +1530,16 @@ class RunGradle(object):
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
             self.test.assertCountEqual(stdlib_native_expected,
                                        stdlib_native_zip.namelist())
+            with TemporaryDirectory() as tmp_dir:
+                test_module = "_asyncio.so"
+                stdlib_native_zip.extract(test_module, tmp_dir)
+                self.check_dt_needed(join(tmp_dir, test_module), kwargs)
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
-        self.test.assertEqual(["assets"], sorted(build_json))
+        self.test.assertCountEqual(["python_version", "assets"], build_json)
+        self.test.assertEqual(python_version, build_json["python_version"])
         asset_list = []
         for dirpath, dirnames, filenames in os.walk(asset_dir):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
@@ -1542,11 +1553,23 @@ class RunGradle(object):
         abis = kwargs["abis"]
         self.test.assertCountEqual(abis, os.listdir(lib_dir))
         for abi in abis:
+            abi_dir = join(lib_dir, abi)
             self.test.assertCountEqual(
                 ["libchaquopy_java.so", "libcrypto_chaquopy.so",
                  f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
-                os.listdir(f"{lib_dir}/{abi}"))
+                os.listdir(abi_dir))
+            self.check_dt_needed(join(abi_dir, "libchaquopy_java.so"), kwargs)
+
+    def check_dt_needed(self, so_filename, kwargs):
+        libpythons = []
+        with open(so_filename, "rb") as so_file:
+            ef = ELFFile(so_file)
+            for tag in ef.get_section_by_name(".dynamic").iter_tags():
+                if tag.entry.d_tag == "DT_NEEDED" and \
+                   tag.needed.startswith("libpython"):
+                    libpythons.append(tag.needed)
+        self.test.assertEqual([f"libpython{kwargs['python_version']}.so"], libpythons)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

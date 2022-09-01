@@ -24,9 +24,6 @@ import unittest
 from .test_utils import API_LEVEL, FilterWarningsCase
 
 
-# Flags from PEP 3149.
-ABI_FLAGS = ""
-
 REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
 
 if API_LEVEL:
@@ -1003,7 +1000,7 @@ class TestAndroidStdlib(AndroidTestCase):
                 subprocess.run([name])
 
     def test_sys(self):
-        self.assertEqual(ABI_FLAGS, sys.abiflags)
+        self.assertEqual("", sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         self.assertEqual("siphash24", sys.hash_info.algorithm)
@@ -1025,7 +1022,7 @@ class TestAndroidStdlib(AndroidTestCase):
     def test_sysconfig(self):
         import distutils.sysconfig
         import sysconfig
-        ldlibrary = "libpython{}.{}{}.so".format(*sys.version_info[:2], ABI_FLAGS)
+        ldlibrary = "libpython{}.{}.so".format(*sys.version_info[:2])
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
         self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 

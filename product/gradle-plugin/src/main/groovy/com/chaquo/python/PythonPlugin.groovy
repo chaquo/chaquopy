@@ -172,7 +172,8 @@ class PythonPlugin implements Plugin<Project> {
 
     void createConfigs(variant, PythonExtension python) {
         buildscript.dependencies {
-            add(getConfig("runtimePython").name, runtimeDep(assetZip(Common.ASSET_BOOTSTRAP)))
+            add(getConfig("runtimePython").name,
+                runtimeDep(assetZip(Common.ASSET_BOOTSTRAP), python.version))
             add(getConfig("targetStdlib", variant).name,
                 targetDep(python, python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
         }
@@ -183,9 +184,12 @@ class PythonPlugin implements Plugin<Project> {
                                           "'$abi'. Supported ABIs are ${Common.ABIS}.")
             }
             buildscript.dependencies {
-                add(getConfig("runtimeJni", variant).name, runtimeDep("libchaquopy_java.so", abi))
-                add(getConfig("runtimeModules", variant).name, runtimeDep("chaquopy.so", abi))
-                add(getConfig("targetNative", variant).name, targetDep(python, abi))
+                add(getConfig("runtimeJni", variant).name,
+                    runtimeDep("libchaquopy_java.so", python.version, abi))
+                add(getConfig("runtimeModules", variant).name,
+                    runtimeDep("chaquopy.so", python.version, abi))
+                add(getConfig("targetNative", variant).name,
+                    targetDep(python, abi))
             }
         }
     }
@@ -197,19 +201,23 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Object targetDep(PythonExtension python, String classifier) {
+        def entry = pythonVersionInfo(python.version)
+        return "com.chaquo.python:target:$entry.key-$entry.value:$classifier@zip"
+    }
+
+    Map.Entry<String, String> pythonVersionInfo(String version) {
         for (entry in Common.PYTHON_VERSIONS.entrySet()) {
-            if (entry.key.startsWith(python.version)) {
-                def version = "${entry.key}-${entry.value}"
-                return "com.chaquo.python:target:$version:$classifier@zip"
+            if (entry.key.startsWith(version)) {
+                return entry
             }
         }
         // Since the version has already been validated by PythonExtension.version, this
         // should be impossible.
         throw new GradleException("Failed to find information for Python version " +
-                                  "'$python.version'.")
+                                  "'$version'.")
     }
 
-    Object runtimeDep(String filename, String classifier=null) {
+    Object runtimeDep(String filename, String pyVersion=null, String abi=null) {
         def dotPos = filename.lastIndexOf(".")
         def result = [
             group: "com.chaquo.python.runtime",
@@ -217,15 +225,16 @@ class PythonPlugin implements Plugin<Project> {
             version: PLUGIN_VERSION,
             ext: filename.substring(dotPos + 1),
         ]
-        if (classifier != null) {
-            result.put("classifier", classifier)
+        def classifiers = [pyVersion, abi].findAll { it != null }
+        if (!classifiers.isEmpty()) {
+            result.put("classifier", classifiers.join("-"))
         }
         return result
     }
 
-    File getNativeArtifact(Configuration config, String abi) {
+    File getNativeArtifact(Configuration config, String pyVersion, String abi) {
         return config.resolvedConfiguration.resolvedArtifacts.find {
-            it.classifier == abi
+            it.classifier == [pyVersion, abi].findAll { it != null }.join("-")
         }.file
     }
 
@@ -339,10 +348,10 @@ class PythonPlugin implements Plugin<Project> {
                             // as the default one.
                             args "--extra-index-url", "https://chaquo.com/pypi-7.0"
                         }
-                        def implementation = "cp"  // CPython
-                        args "--implementation", implementation
-                        args "--python-version", python.version
-                        args "--abi", implementation + python.version.replace(".", "")
+                        args "--implementation", Common.PYTHON_IMPLEMENTATION
+                        args "--python-version", pythonVersionInfo(python.version).key
+                        args "--abi", (Common.PYTHON_IMPLEMENTATION +
+                                       python.version.replace(".", ""))
                         args "--no-compile"
                         args python.pip.options
                     }
@@ -498,7 +507,8 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createAssetsTasks(variant, python, Task reqsTask, Task mergeSrcTask) {
+    void createAssetsTasks(variant, PythonExtension python, Task reqsTask,
+                           Task mergeSrcTask) {
         def excludePy = { FileTreeElement fte ->
             if (!fte.name.endsWith(".py")) {
                 return false
@@ -558,8 +568,10 @@ class PythonPlugin implements Plugin<Project> {
                 ]
 
                 for (abi in getAbis(variant)) {
-                    project.ant.unzip(src: getNativeArtifact(targetNative, abi),
-                                      dest: assetDir) {
+                    project.ant.unzip(
+                        src: getNativeArtifact(targetNative, null, abi),
+                        dest: assetDir
+                    ) {
                         patternset() {
                             include(name: "lib-dynload/**")
                         }
@@ -575,7 +587,7 @@ class PythonPlugin implements Plugin<Project> {
                             include BOOTSTRAP_NATIVE_STDLIB
                         }
                         runtimeModules.resolvedConfiguration.resolvedArtifacts.each { ra ->
-                            if (ra.classifier == abi) {
+                            if (ra.classifier == "$python.version-$abi") {
                                 from(ra.file) {
                                     into "java"
                                     rename { "${ra.name}.${ra.extension}" }
@@ -592,6 +604,7 @@ class PythonPlugin implements Plugin<Project> {
             inputs.files(appAssetsTask, reqsAssetsTask, miscAssetsTask)
             doLast {
                 def buildJson = new JSONObject()
+                buildJson.put("python_version", python.version)
                 buildJson.put("assets", hashAssets(appAssetsTask, reqsAssetsTask,
                                                    miscAssetsTask))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
@@ -716,7 +729,7 @@ class PythonPlugin implements Plugin<Project> {
 
                 for (abi in getAbis(variant)) {
                     project.copy {
-                        from getNativeArtifact(runtimeJni, abi)
+                        from getNativeArtifact(runtimeJni, python.version, abi)
                         into "$libsDir/$abi"
                         rename { "libchaquopy_java.so" }
                     }
@@ -787,15 +800,11 @@ class PythonExtension extends BaseExtension {
     }
 
     void version(String v) {
-        Set<String> allVersions = new TreeSet<>()
-        for (fullVersion in Common.PYTHON_VERSIONS.keySet()) {
-            allVersions.add(fullVersion.split(/\./)[0..1].join("."))
-        }
-        if (v in allVersions) {
+        if (v in Common.PYTHON_VERSIONS_SHORT) {
             version = v
         } else {
             throw new GradleException("Invalid Python version '$v'. Available versions " +
-                                      "are ${allVersions}.")
+                                      "are ${Common.PYTHON_VERSIONS_SHORT}.")
         }
     }
 

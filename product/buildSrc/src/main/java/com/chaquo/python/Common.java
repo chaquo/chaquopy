@@ -8,10 +8,6 @@ public class Common {
     public static final int MIN_SDK_VERSION = 16;
     public static final int COMPILE_SDK_VERSION = 30;
 
-    public static final String PYTHON_VERSION = "3.8.13";
-    public static final String PYTHON_VERSION_SHORT =
-        PYTHON_VERSION.substring(0, PYTHON_VERSION.lastIndexOf('.'));
-
     public static final Map<String, String> PYTHON_VERSIONS = new HashMap<>();
     static {
         // Version, build number
@@ -19,16 +15,19 @@ public class Common {
         PYTHON_VERSIONS.put("3.9.13", "0");
     }
 
+    public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();
+    static {
+        for (String fullVersion : PYTHON_VERSIONS.keySet()) {
+            PYTHON_VERSIONS_SHORT.add(
+                fullVersion.substring(0, fullVersion.lastIndexOf('.')));
+        }
+    }
+
     // This is the version with the best set of native packages in the repository.
     public static final String DEFAULT_PYTHON_VERSION = "3.8";
 
-    // Library name suffix: may contain flags from PEP 3149.
-    public static final String PYTHON_SUFFIX = PYTHON_VERSION_SHORT;
-
     // Wheel tags (PEP 425).
     public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython
-    public static final String PYTHON_ABI =
-        PYTHON_IMPLEMENTATION + PYTHON_SUFFIX.replace(".", "");
 
     public static final List<String> ABIS = Arrays.asList
         ("armeabi-v7a", "arm64-v8a", "x86", "x86_64");
