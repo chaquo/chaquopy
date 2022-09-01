@@ -195,7 +195,7 @@ class BaseWheelBuilder:
 
     @property
     def platform_tag(self):
-        return f"{self.os}_{self.api_level.replace('.','_')}_{self.abi.name}"
+        return f"{self.os.lower()}_{self.api_level.replace('.','_')}_{self.abi.name}"
 
     def build(self):
         if self.package.needs_python:
@@ -805,10 +805,10 @@ class AppleWheelBuilder(BaseWheelBuilder):
             compat_tag = (
                 f"cp{PYTHON_VERSION.replace('.', '')}-"
                 f"cp{PYTHON_SUFFIX.replace('.', '')}-"
-                f"{os}_{api_level.replace('.', '_')}"
+                f"{os.lower()}_{api_level.replace('.', '_')}"
             )
         else:
-            compat_tag = f"py{PYTHON_VERSION[0]}-none-{os}_{api_level.replace('.', '_')}"
+            compat_tag = f"py{PYTHON_VERSION[0]}-none-{os.lower()}_{api_level.replace('.', '_')}"
 
         merge_dir = f"{package.version_dir}/{os}"
         for sdk, architectures in wheels.items():
