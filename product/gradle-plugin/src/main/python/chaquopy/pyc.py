@@ -19,12 +19,18 @@ import warnings
 
 
 # See importlib._bootstrap_external.MAGIC_NUMBER.
-EXPECTED_MAGIC_NUMBER = (3413).to_bytes(2, 'little') + b'\r\n'
+MAGIC = {
+    "3.7": 3394,
+    "3.8": 3413,
+    "3.9": 3425,
+    "3.10": 3429,
+    "3.11": 3494,
+}
 
 
 def main():
     args = parse_args()
-    if importlib.util.MAGIC_NUMBER != EXPECTED_MAGIC_NUMBER:
+    if importlib.util.MAGIC_NUMBER != MAGIC[args.python].to_bytes(2, "little") + b"\r\n":
         # Messages should be formatted the same as those from the Gradle plugin.
         message = (
             "Failed to compile to .pyc format: buildPython version {}.{}.{} is incompatible. "
@@ -79,6 +85,7 @@ def main():
 
 def parse_args():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--python", required=True)
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--warning", action="store_true")
     ap.add_argument("in_dir", type=abspath)

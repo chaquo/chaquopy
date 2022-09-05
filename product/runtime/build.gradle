@@ -36,7 +36,7 @@ publishing {
 }
 
 
-for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
+Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
     def compilePython = task("compilePython-$pyVersion", type: Copy, group: "build") {
         doFirst {
             delete(destinationDir)
@@ -54,7 +54,7 @@ for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
                 if (windowsHost) {
                     commandLine "py", "-$pyVersion"
                 } else {
-                    commandLine "python$pyversion"
+                    commandLine "python$pyVersion"
                 }
                 args "-m", "compileall"
                 args "-q", "-b", "."
@@ -69,6 +69,8 @@ for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
         from compilePython
         destinationDirectory = new File(buildDir, Common.ASSET_BOOTSTRAP)
         archiveFileName = Common.assetZip("$Common.ASSET_BOOTSTRAP-$pyVersion")
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
     }
     addArtifact(zipPython, zipPython.archivePath, pyVersion)
 }

@@ -430,6 +430,7 @@ class PythonPlugin implements Plugin<Project> {
             try {
                 execBuildPython(python) {
                     args "-m", "chaquopy.pyc"
+                    args "--python", python.version
                     args "--quiet"  // TODO #5411: option to display syntax errors
                     if (!setting) {
                         args "--warning"

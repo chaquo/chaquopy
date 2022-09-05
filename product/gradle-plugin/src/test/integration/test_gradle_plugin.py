@@ -374,13 +374,17 @@ class JavaLib(GradleTestCase):
 class PythonVersion(GradleTestCase):
     def test_change(self):
         self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
-        run = self.RunGradle("base", python_version=DEFAULT_PYTHON_VERSION)
-        run.apply_layers("PythonVersion/3.9")
-        run.rerun(python_version="3.9")
+        self.assertEqual(["3.8", "3.9"], list(PYTHON_VERSIONS))
+
+        run = self.RunGradle("base", run=False)
+        for version in ["3.8", "3.9"]:
+            with self.subTest(version=version):
+                run.rerun(f"PythonVersion/{version}", python_version=version,
+                          requirements=["six.py"])
 
     # Test all versions not covered by test_change.
     def test_others(self):
-        self.assertEqual(["3.8", "3.9"], list(PYTHON_VERSIONS))
+        pass
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
@@ -1323,9 +1327,9 @@ class RunGradle(object):
     def set_local_property(self, key, value):
         set_property(f"{self.project_dir}/local.properties", key, value)
 
-    def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
-        if env is None:
-            env = {}
+    def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
+              **kwargs):
+        self.apply_layers(*layers)
 
         # In Android Studio Bumblebee and later, the new project wizard sets all plugin
         # versions using the `plugins` block of the top-level build.gradle file. This has a
@@ -1338,6 +1342,8 @@ class RunGradle(object):
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
         self.set_local_property("sdk.dir", sdk_dir)
 
+        if env is None:
+            env = {}
         java_version = get_property(gradle_props, "chaquopy.java.version")
         env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
 
@@ -1484,11 +1490,15 @@ class RunGradle(object):
                                    else None))
 
         # Python bootstrap
+        with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:
+            self.check_pyc(bootstrap_zip, "java/__init__.pyc", kwargs)
+
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
+                # PythonPlugin.groovy explains why each of these modules are needed.
                 ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))
@@ -1499,9 +1509,12 @@ class RunGradle(object):
             self.check_dt_needed(join(java_dir, "chaquopy.so"), kwargs)
 
         # Python stdlib
-        stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.imy")).namelist())
-        self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
-        self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
+        with ZipFile(join(asset_dir, "stdlib-common.imy")) as stdlib_zip:
+            stdlib_files = set(stdlib_zip.namelist())
+            self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
+            self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
+            if "stdlib" in pyc:
+                self.check_pyc(stdlib_zip, "argparse.pyc", kwargs)
 
         # Data files packaged with stdlib: see target/package_target.sh.
         python_version = kwargs["python_version"]
@@ -1548,6 +1561,20 @@ class RunGradle(object):
             {filename: file_sha1(join(asset_dir, filename))
              for filename in asset_list if filename != "build.json"},
             build_json["assets"])
+
+    def check_pyc(self, zip_file, pyc_filename, kwargs):
+        # See importlib._bootstrap_external.MAGIC_NUMBER.
+        MAGIC = {
+            "3.7": 3394,
+            "3.8": 3413,
+            "3.9": 3425,
+            "3.10": 3429,
+            "3.11": 3494,
+        }
+        with zip_file.open(pyc_filename) as pyc_file:
+            self.test.assertEqual(
+                MAGIC[kwargs["python_version"]].to_bytes(2, "little") + b"\r\n",
+                pyc_file.read(4))
 
     def check_lib(self, lib_dir, kwargs):
         abis = kwargs["abis"]
