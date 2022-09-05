@@ -53,6 +53,18 @@ def customize_compiler_override(compiler):
 
 distutils.sysconfig.customize_compiler = customize_compiler_override
 
+import sysconfig
+
+customize_get_platform_original = sysconfig.get_platform
+
+def customize_get_platform():
+    try:
+        return os.environ["CROSS_COMPILE_PLATFORM"]
+    except KeyError:
+        customize_get_platform_original()
+
+sysconfig.get_platform = customize_get_platform
+
 if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
     config_globals = {}
     config_locals = {}

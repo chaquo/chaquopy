@@ -760,6 +760,7 @@ class AppleWheelBuilder(BaseWheelBuilder):
         assert_exists(self.python_lib)
 
     def platform_update_env(self, env):
+        env["CROSS_COMPILE_PLATFORM"] = f"{self.os}_{self.api_level}_{self.abi.name}"
         env["CROSS_COMPILE_SYSCONFIGDATA"] = os.sep.join([
             self.toolchain, f"python-stdlib/_sysconfigdata__{self.os.lower()}_{self.abi.name}.py"
         ])
