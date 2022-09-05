@@ -10,7 +10,6 @@ import os
 from os.path import basename, dirname, exists, join, normpath, realpath, relpath, split, splitext
 import pathlib
 from pkgutil import get_importer
-import platform
 import re
 from shutil import copyfileobj, rmtree
 import site
@@ -656,7 +655,7 @@ def extract_so(finder, path):
     # Since we're already working around the basename clash problem, we'll simulate the 32-bit
     # behavior by putting the library's dirname into LD_LIBRARY_PATH using an undocumented
     # libdl function, and then loading it through its basename.
-    if Build.VERSION.SDK_INT < 23 and platform.architecture()[0] == "64bit":
+    if (Build.VERSION.SDK_INT < 23) and ("64" in AndroidPlatform.ABI):
         # We need to include the app's lib directory, because our libraries there were
         # loaded via System.loadLibrary, which passes absolute paths to dlopen (#5563).
         llp = ":".join([dirname(path),

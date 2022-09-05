@@ -63,6 +63,11 @@ public class AndroidPlatform extends Python.Platform {
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
         am = mContext.getAssets();
 
+        // TODO: this complexity is unnecessary if the only ABI we can actually use is
+        // Build.CPU_ABI, which is the ABI of the current process
+        // (https://stackoverflow.com/a/53158339). Verify this is true across all API
+        // levels, and then replace all references to AndroidPlatform.ABI with
+        // Build.CPU_ABI.
         List<String> supportedAbis = new ArrayList<>();  // In order of preference.
         if (Build.VERSION.SDK_INT >= 21) {
             Collections.addAll(supportedAbis, Build.SUPPORTED_ABIS);

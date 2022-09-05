@@ -20,6 +20,7 @@ import sys
 from traceback import format_exc
 import types
 import unittest
+import warnings
 
 from .test_utils import API_LEVEL, FilterWarningsCase
 
@@ -65,18 +66,6 @@ class AndroidTestCase(FilterWarningsCase):
 
 class TestAndroidPlatform(AndroidTestCase):
 
-    # 64-bit should be preferred on devices which support it. We use Build.SUPPORTED_ABIS to
-    # detect support because Build.CPU_ABI always returns the active ABI of the app, which can
-    # be 32-bit even on a 64-bit device (https://stackoverflow.com/a/53158339).
-    #
-    # This test will only pass on a 64-bit device if the 64-bit ABI was included in abiFilters.
-    @unittest.skipUnless(API_LEVEL and API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
-    def test_abi(self):
-        python_bits = platform.architecture()[0]
-        self.assertEqual(python_bits,
-                         "64bit" if set(Build.SUPPORTED_ABIS) & set(["arm64-v8a", "x86_64"])
-                         else "32bit")
-
     def test_files(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
@@ -86,6 +75,7 @@ class TestAndroidPlatform(AndroidTestCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         for subdir, entries in [
+            # PythonPlugin.groovy explains why each of these modules are needed.
             (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so"]),
@@ -719,7 +709,7 @@ class TestAndroidImport(AndroidTestCase):
         self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
-        self.assertEqual(["chaquopy-libcxx (>=7000)"], dist.requires)
+        self.assertEqual(["chaquopy-libcxx (>=10000)"], dist.requires)
 
     @contextmanager
     def assertModifies(self, filename):
@@ -850,8 +840,12 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertTrue(scanner.c_make_scanner)
 
     def test_lib2to3(self):
-        # Requires grammar files to be available in stdlib zip.
-        from lib2to3 import pygram  # noqa: F401
+        with warnings.catch_warnings():
+            for category in [DeprecationWarning, PendingDeprecationWarning]:
+                warnings.filterwarnings("default", category=category)
+
+            # Requires grammar files to be available in stdlib zip.
+            from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
         import hashlib
@@ -861,13 +855,11 @@ class TestAndroidStdlib(AndroidTestCase):
             ("sha1", "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"),
 
             # OpenSSL and built-in, built-in preferred.
-            ("sha3_512", ("01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
-                          "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450")),
             ("blake2b", ("a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f8240"
                          "1cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918")),
 
             # OpenSSL only.
-            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),
+            ("sm3", "5fdfe814b8573ca021983970fc79b2218c9570369b4859684e2e4c3fc76cb8ea"),
         ]
         for name, expected in TESTS:
             with self.subTest(algorithm=name):
@@ -940,8 +932,12 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertTrue(pickle.PickleBuffer)
 
     def test_platform(self):
-        # Requires sys.executable to exist.
         import platform
+
+        python_bits = platform.architecture()[0]
+        self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
+
+        # Requires sys.executable to exist.
         p = platform.platform()
         self.assertRegex(p, r"^Linux")
 
@@ -1017,7 +1013,7 @@ class TestAndroidStdlib(AndroidTestCase):
 
         self.assertRegex(sys.platform, r"^linux")
         self.assertRegex(sys.version,  # Make sure we don't have any "-dirty" caption.
-                         r"^{}.{}.{} \(default, ".format(*sys.version_info[:3]))
+                         r"^{}.{}.{} \((default|main), ".format(*sys.version_info[:3]))
 
     def test_sysconfig(self):
         import distutils.sysconfig
