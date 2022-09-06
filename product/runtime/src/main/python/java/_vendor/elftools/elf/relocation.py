@@ -11,7 +11,8 @@ from collections import namedtuple
 from ..common.exceptions import ELFRelocationError
 from ..common.utils import elf_assert, struct_parse
 from .sections import Section
-from .enums import ENUM_RELOC_TYPE_i386, ENUM_RELOC_TYPE_x64, ENUM_RELOC_TYPE_MIPS
+from .enums import (
+    ENUM_RELOC_TYPE_i386, ENUM_RELOC_TYPE_x64, ENUM_RELOC_TYPE_MIPS, ENUM_RELOC_TYPE_ARM, ENUM_D_TAG)
 
 
 class Relocation(object):
@@ -43,51 +44,65 @@ class Relocation(object):
         return self.__repr__()
 
 
-class RelocationSection(Section):
-    """ ELF relocation section. Serves as a collection of Relocation entries.
+class RelocationTable(object):
+    """ Shared functionality between relocation sections and relocation tables
     """
-    def __init__(self, header, name, stream, elffile):
-        super(RelocationSection, self).__init__(header, name, stream)
-        self.elffile = elffile
-        self.elfstructs = self.elffile.structs
-        if self.header['sh_type'] == 'SHT_REL':
-            expected_size = self.elfstructs.Elf_Rel.sizeof()
-            self.entry_struct = self.elfstructs.Elf_Rel
-        elif self.header['sh_type'] == 'SHT_RELA':
-            expected_size = self.elfstructs.Elf_Rela.sizeof()
-            self.entry_struct = self.elfstructs.Elf_Rela
-        else:
-            elf_assert(False, 'Unknown relocation type section')
 
-        elf_assert(
-            self.header['sh_entsize'] == expected_size,
-            'Expected sh_entsize of SHT_REL section to be %s' % expected_size)
+    def __init__(self, elffile, offset, size, is_rela):
+        self._stream = elffile.stream
+        self._elffile = elffile
+        self._elfstructs = elffile.structs
+        self._size = size
+        self._offset = offset
+        self._is_rela = is_rela
+
+        if is_rela:
+            self.entry_struct = self._elfstructs.Elf_Rela
+        else:
+            self.entry_struct = self._elfstructs.Elf_Rel
+
+        self.entry_size = self.entry_struct.sizeof()
 
     def is_RELA(self):
         """ Is this a RELA relocation section? If not, it's REL.
         """
-        return self.header['sh_type'] == 'SHT_RELA'
+        return self._is_rela
 
     def num_relocations(self):
         """ Number of relocations in the section
         """
-        return self['sh_size'] // self['sh_entsize']
+        return self._size // self.entry_size
 
     def get_relocation(self, n):
         """ Get the relocation at index #n from the section (Relocation object)
         """
-        entry_offset = self['sh_offset'] + n * self['sh_entsize']
+        entry_offset = self._offset + n * self.entry_size
         entry = struct_parse(
             self.entry_struct,
-            self.stream,
+            self._stream,
             stream_pos=entry_offset)
-        return Relocation(entry, self.elffile)
+        return Relocation(entry, self._elffile)
 
     def iter_relocations(self):
         """ Yield all the relocations in the section
         """
         for i in range(self.num_relocations()):
             yield self.get_relocation(i)
+
+
+class RelocationSection(Section, RelocationTable):
+    """ ELF relocation section. Serves as a collection of Relocation entries.
+    """
+    def __init__(self, header, name, elffile):
+        Section.__init__(self, header, name, elffile)
+        RelocationTable.__init__(self, self.elffile,
+            self['sh_offset'], self['sh_size'], header['sh_type'] == 'SHT_RELA')
+
+        elf_assert(header['sh_type'] in ('SHT_REL', 'SHT_RELA'),
+            'Unknown relocation type section')
+        elf_assert(header['sh_entsize'] == self.entry_size,
+            'Expected sh_entsize of %s section to be %s' % (
+                header['sh_type'], self.entry_size))
 
 
 class RelocationHandler(object):
@@ -152,6 +167,11 @@ class RelocationHandler(object):
                 raise ELFRelocationError(
                     'Unexpected RELA relocation for MIPS: %s' % reloc)
             recipe = self._RELOCATION_RECIPES_MIPS.get(reloc_type, None)
+        elif self.elffile.get_machine_arch() == 'ARM':
+            if reloc.is_RELA():
+                raise ELFRelocationError(
+                    'Unexpected RELA relocation for ARM: %s' % reloc)
+            recipe = self._RELOCATION_RECIPES_ARM.get(reloc_type, None)
 
         if recipe is None:
             raise ELFRelocationError(
@@ -168,7 +188,7 @@ class RelocationHandler(object):
             value_struct = self.elffile.structs.Elf_word64('')
         else:
             raise ELFRelocationError('Invalid bytesize %s for relocation' %
-                    recipe_bytesize)
+                    recipe.bytesize)
 
         # 1. Read the value from the stream (with correct size and endianness)
         original_value = struct_parse(
@@ -215,6 +235,18 @@ class RelocationHandler(object):
     def _reloc_calc_sym_plus_addend_pcrel(value, sym_value, offset, addend=0):
         return sym_value + addend - offset
 
+    def _arm_reloc_calc_sym_plus_value_pcrel(value, sym_value, offset, addend=0):
+        return sym_value // 4 + value - offset // 4
+
+    _RELOCATION_RECIPES_ARM = {
+        ENUM_RELOC_TYPE_ARM['R_ARM_ABS32']: _RELOCATION_RECIPE_TYPE(
+            bytesize=4, has_addend=False,
+            calc_func=_reloc_calc_sym_plus_value),
+        ENUM_RELOC_TYPE_ARM['R_ARM_CALL']: _RELOCATION_RECIPE_TYPE(
+            bytesize=4, has_addend=False,
+            calc_func=_arm_reloc_calc_sym_plus_value_pcrel),
+    }
+
     # https://dmz-portal.mips.com/wiki/MIPS_relocation_types
     _RELOCATION_RECIPES_MIPS = {
         ENUM_RELOC_TYPE_MIPS['R_MIPS_NONE']: _RELOCATION_RECIPE_TYPE(
@@ -241,7 +273,7 @@ class RelocationHandler(object):
         ENUM_RELOC_TYPE_x64['R_X86_64_64']: _RELOCATION_RECIPE_TYPE(
             bytesize=8, has_addend=True, calc_func=_reloc_calc_sym_plus_addend),
         ENUM_RELOC_TYPE_x64['R_X86_64_PC32']: _RELOCATION_RECIPE_TYPE(
-            bytesize=8, has_addend=True,
+            bytesize=4, has_addend=True,
             calc_func=_reloc_calc_sym_plus_addend_pcrel),
         ENUM_RELOC_TYPE_x64['R_X86_64_32']: _RELOCATION_RECIPE_TYPE(
             bytesize=4, has_addend=True, calc_func=_reloc_calc_sym_plus_addend),

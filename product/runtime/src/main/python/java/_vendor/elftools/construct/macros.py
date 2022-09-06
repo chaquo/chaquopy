@@ -69,12 +69,12 @@ def BitField(name, length, swapped = False, signed = False, bytesize = 8):
         bytesize=bytesize
     )
 
-def Padding(length, pattern = "\x00", strict = False):
+def Padding(length, pattern = b"\x00", strict = False):
     r"""a padding field (value is discarded)
     * length - the length of the field. the length can be either an integer,
       or a function that takes the context as an argument and returns the
       length
-    * pattern - the padding pattern (character) to use. default is "\x00"
+    * pattern - the padding pattern (character/byte) to use. default is b"\x00"
     * strict - whether or not to raise an exception is the actual padding
       pattern mismatches the desired pattern. default is False.
     """
@@ -349,7 +349,7 @@ def Bitwise(subcon):
             resizer = resizer)
     return con
 
-def Aligned(subcon, modulus = 4, pattern = "\x00"):
+def Aligned(subcon, modulus = 4, pattern = b"\x00"):
     r"""aligns subcon to modulus boundary using padding pattern
     * subcon - the subcon to align
     * modulus - the modulus boundary (default is 4)

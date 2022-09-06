@@ -17,6 +17,7 @@ class E_FLAGS(object):
     EF_ARM_EABI_VER4=0x04000000
     EF_ARM_EABI_VER5=0x05000000
     EF_ARM_GCCMASK=0x00400FFF
+    EF_ARM_RELEXEC=0x01
     EF_ARM_HASENTRY=0x02
     EF_ARM_SYMSARESORTED=0x04
     EF_ARM_DYNSYMSUSESEGIDX=0x8
@@ -33,6 +34,7 @@ class E_FLAGS(object):
     EF_MIPS_64BIT_WHIRL=16
     EF_MIPS_ABI2=32
     EF_MIPS_ABI_ON32=64
+    EF_MIPS_32BITMODE = 256
     EF_MIPS_NAN2008=1024
     EF_MIPS_ARCH=0xf0000000
     EF_MIPS_ARCH_1=0x00000000
@@ -45,6 +47,20 @@ class E_FLAGS(object):
     EF_MIPS_ARCH_32R2=0x70000000
     EF_MIPS_ARCH_64R2=0x80000000
 
+
+class E_FLAGS_MASKS(object):
+    """Masks to be used for convenience when working with E_FLAGS
+
+    This is a simplified approach that is also used by GNU binutils
+    readelf
+    """
+    EFM_MIPS_ABI = 0x0000F000
+    EFM_MIPS_ABI_O32 = 0x00001000
+    EFM_MIPS_ABI_O64 = 0x00002000
+    EFM_MIPS_ABI_EABI32 = 0x00003000
+    EFM_MIPS_ABI_EABI64 = 0x00004000
+
+
 class SHN_INDICES(object):
     """ Special section indices
     """
@@ -55,6 +71,7 @@ class SHN_INDICES(object):
     SHN_ABS=0xfff1
     SHN_COMMON=0xfff2
     SHN_HIRESERVE=0xffff
+    SHN_XINDEX=0xffff
 
 
 class SH_FLAGS(object):
@@ -70,6 +87,7 @@ class SH_FLAGS(object):
     SHF_OS_NONCONFORMING=0x100
     SHF_GROUP=0x200
     SHF_TLS=0x400
+    SHF_COMPRESSED=0x800
     SHF_MASKOS=0x0ff00000
     SHF_EXCLUDE=0x80000000
     SHF_MASKPROC=0xf0000000

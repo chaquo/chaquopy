@@ -86,7 +86,7 @@ def describe_CFI_instructions(entry):
                         'DW_CFA_advance_loc4', 'DW_CFA_advance_loc'):
             _assert_FDE_instruction(instr)
             factored_offset = instr.args[0] * cie['code_alignment_factor']
-            s += '  %s: %s to %016x\n' % (
+            s += '  %s: %s to %08x\n' % (
                 name, factored_offset, factored_offset + pc)
             pc += factored_offset
         elif name in (  'DW_CFA_remember_state', 'DW_CFA_restore_state',
@@ -104,7 +104,8 @@ def describe_CFI_instructions(entry):
         elif name == 'DW_CFA_def_cfa_expression':
             expr_dumper = ExprDumper(entry.structs)
             expr_dumper.process_expr(instr.args[0])
-            s += '  %s: (%s)\n' % (name, expr_dumper.get_str())
+            # readelf output is missing a colon for DW_CFA_def_cfa_expression
+            s += '  %s (%s)\n' % (name, expr_dumper.get_str())
         elif name == 'DW_CFA_expression':
             expr_dumper = ExprDumper(entry.structs)
             expr_dumper.process_expr(instr.args[1])
@@ -313,7 +314,6 @@ _DESCR_DW_LANG = {
     DW_LANG_D: '(D)',
     DW_LANG_Python: '(Python)',
     DW_LANG_Mips_Assembler: '(MIPS assembler)',
-    DW_LANG_Upc: '(nified Parallel C)',
     DW_LANG_HP_Bliss: '(HP Bliss)',
     DW_LANG_HP_Basic91: '(HP Basic 91)',
     DW_LANG_HP_Pascal91: '(HP Pascal 91)',
