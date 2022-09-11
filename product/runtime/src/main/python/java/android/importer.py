@@ -3,7 +3,7 @@ from calendar import timegm
 from contextlib import contextmanager, nullcontext
 import ctypes
 import imp
-from importlib import _bootstrap, _bootstrap_external, machinery, metadata, util
+from importlib import _bootstrap, _bootstrap_external, machinery, util
 from inspect import getmodulename
 import io
 import os
@@ -228,7 +228,7 @@ def load_module_override(load_name, file, pathname, description):
         if hasattr(finder, "prefix"):  # AssetFinder or zipimporter
             entry, base_name = split(pathname)
             real_name = join(finder.prefix, splitext(base_name)[0]).replace("/", ".")
-            if hasattr(finder, "find_spec"):
+            if isinstance(finder, AssetFinder):
                 spec = finder.find_spec(real_name)
                 spec.name = load_name
                 return _bootstrap._load(spec)
@@ -276,12 +276,12 @@ def initialize_pkg_resources():
     pkg_resources.register_loader_type(AssetLoader, AssetProvider)
 
 
-# Patch zipimporter to provide the new loader API, which is required by dateparser
-# (https://stackoverflow.com/questions/63574951). Once the standard zipimporter implements the
-# new API, this should be removed.
+# Patch old versions of zipimporter to provide the new loader API, which is required by
+# dateparser (https://stackoverflow.com/q/63574951). Once our minimum Python version is
+# 3.10 or higher, this should be removed.
 for name in ["create_module", "exec_module"]:
-    assert not hasattr(zipimporter, name), name
-    setattr(zipimporter, name, getattr(_bootstrap_external._LoaderBasics, name))
+    if not hasattr(zipimporter, name):
+        setattr(zipimporter, name, getattr(_bootstrap_external._LoaderBasics, name))
 
 # For consistency with modules which have already been imported by the default zipimporter, we
 # retain the following default behaviours:
@@ -300,9 +300,15 @@ class ChaquopyZipImporter(zipimporter):
 
 # importlib.metadata is still being actively developed, so instead of depending on any internal
 # APIs, provide a self-contained implementation.
-class ChaquopyPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
+class ChaquopyPathFinder(machinery.PathFinder):
     @classmethod
-    def find_distributions(cls, context=metadata.DistributionFinder.Context()):
+    def find_distributions(cls, context=None):
+        # importlib.metadata and its dependencies are quite large, and it won't be used in
+        # most apps, so don't import it until it's needed.
+        from importlib import metadata
+
+        if context is None:
+            context = metadata.DistributionFinder.Context()
         name = (".*" if context.name is None
                 # See normalize_name_wheel in build-wheel.py.
                 else re.sub(r"[^A-Za-z0-9.]+", '_', context.name))
@@ -318,18 +324,20 @@ class ChaquopyPathFinder(metadata.MetadataPathFinder, machinery.PathFinder):
 
 
 class AssetPath(pathlib.PosixPath):
-    def __new__(cls, *args):
-        return cls._from_parts(args)
 
-    # Base class uses _init rather than __init__.
-    def _init(self, *args):
-        super()._init(*args)
+    # Derived path objects (e.g. from `joinpath` or `/`) are created using object.__new__,
+    # so we can't initialize them by overriding __new__ or __init__.
+    @property
+    def finder(self):
         root_dir = str(self)
         while dirname(root_dir) != ASSET_PREFIX:
             root_dir = dirname(root_dir)
             assert root_dir, str(self)
-        self.finder = get_importer(root_dir)
-        self.zip_path = self.finder.zip_path(str(self))
+        return get_importer(root_dir)
+
+    @property
+    def zip_path(self):
+        return self.finder.zip_path(str(self))
 
     def is_dir(self):
         return self.finder.isdir(self.zip_path)

@@ -14,9 +14,8 @@ android {
         versionName "0.0.1"
         python {
             version "3.9"
-            pip {
-                install "six"
-            }
+            pip { install "six" }
+            pyc { pip true }
         }
         ndk {
             abiFilters "x86"

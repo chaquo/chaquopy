@@ -13,7 +13,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "3.8"
+            version "3.10"
             pip { install "six" }
             pyc { pip true }
         }

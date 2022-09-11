@@ -374,17 +374,22 @@ class JavaLib(GradleTestCase):
 class PythonVersion(GradleTestCase):
     def test_change(self):
         self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
-        self.assertEqual(["3.8", "3.9"], list(PYTHON_VERSIONS))
+        self.assertEqual(["3.8", "3.9", "3.10"], list(PYTHON_VERSIONS))
 
         run = self.RunGradle("base", run=False)
         for version in ["3.8", "3.9"]:
-            with self.subTest(version=version):
-                run.rerun(f"PythonVersion/{version}", python_version=version,
-                          requirements=["six.py"])
+            self.check_version(run, version)
 
     # Test all versions not covered by test_change.
     def test_others(self):
-        pass
+        run = self.RunGradle("base", run=False)
+        for version in ["3.10"]:
+            self.check_version(run, version)
+
+    def check_version(self, run, version):
+        with self.subTest(version=version):
+            run.rerun(f"PythonVersion/{version}", python_version=version,
+                      requirements=["six.py"])
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
@@ -1523,7 +1528,8 @@ class RunGradle(object):
                                    grammar_stem, PYTHON_VERSIONS[python_version]),
                                stdlib_files)
 
-        stdlib_native_expected = [
+        stdlib_native_expected = {
+            # This is the list from the minimum supported Python version.
             "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
             "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
             "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
@@ -1534,15 +1540,18 @@ class RunGradle(object):
             "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
             "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
             "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
-            "unicodedata.so", "xxlimited.so"]
+            "unicodedata.so", "xxlimited.so"}
         python_version_info = tuple(int(x) for x in python_version.split("."))
         if python_version_info >= (3, 9):
-            stdlib_native_expected += ["_zoneinfo.so"]
+            stdlib_native_expected |= {"_zoneinfo.so"}
+        if python_version_info >= (3, 10):
+            stdlib_native_expected -= {"parser.so"}
+            stdlib_native_expected |= {"xxlimited_35.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
-            self.test.assertCountEqual(stdlib_native_expected,
-                                       stdlib_native_zip.namelist())
+            self.test.assertEqual(stdlib_native_expected,
+                                  set(stdlib_native_zip.namelist()))
             with TemporaryDirectory() as tmp_dir:
                 test_module = "_asyncio.so"
                 stdlib_native_zip.extract(test_module, tmp_dir)
@@ -1568,7 +1577,7 @@ class RunGradle(object):
             "3.7": 3394,
             "3.8": 3413,
             "3.9": 3425,
-            "3.10": 3429,
+            "3.10": 3439,
             "3.11": 3494,
         }
         with zip_file.open(pyc_filename) as pyc_file:
