@@ -66,7 +66,7 @@ make install prefix=$sysroot/usr
 # SONAME attribute and uses the filename instead.
 cd $sysroot/usr/lib
 version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
-new_name=$(echo libpython$version_short*.so)
+new_name=libpython$version_short.so
 old_name=$(basename $(realpath $new_name))  # Follow symlinks.
 patchelf --set-soname "$new_name" "$new_name"
 for module in python*/lib-dynload/*; do

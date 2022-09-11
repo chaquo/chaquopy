@@ -185,17 +185,16 @@ class BuildWheel:
             except ValueError:
                 raise ERROR
 
-        self.python_suffix = self.python + ("m" if self.python == "3.7" else "")
-        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{self.python_suffix}"
+        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{self.python}"
         assert_isdir(self.python_include_dir)
-        libpython = f"libpython{self.python_suffix}.so"
+        libpython = f"libpython{self.python}.so"
         self.python_lib = f"{self.toolchain}/sysroot/usr/lib/{libpython}"
         assert_exists(self.python_lib)
         self.standard_libs.append(libpython)
 
         self.pip = f"python{self.python} -m pip --disable-pip-version-check"
         self.compat_tag = (f"cp{self.python.replace('.', '')}-"
-                           f"cp{self.python_suffix.replace('.', '')}-"
+                           f"cp{self.python.replace('.', '')}-"
                            f"{self.platform_tag}")
 
     def unpack_source(self):
@@ -473,7 +472,7 @@ class BuildWheel:
         if self.needs_python:
             env["CHAQUOPY_PYTHON"] = self.python
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
-            env["LDFLAGS"] += f" -lpython{self.python_suffix}"
+            env["LDFLAGS"] += f" -lpython{self.python}"
 
         env.update({  # Conda variable names, except those starting with CHAQUOPY.
             "CHAQUOPY_ABI": self.abi,
