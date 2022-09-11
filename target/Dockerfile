@@ -9,7 +9,7 @@ RUN apt-get update && \
     apt-get -y install curl git make build-essential libssl-dev zlib1g-dev \
     libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev \
     xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-RUN curl https://pyenv.run | PYENV_GIT_TAG=v2.3.3 bash
+RUN curl https://pyenv.run | PYENV_GIT_TAG=v2.3.4 bash
 
 # Install all Python versions. We need to include every minor version that we support,
 # but the micro version doesn't matter.
@@ -17,7 +17,9 @@ RUN apt-get update && \
     apt-get -y install python3.7
 RUN ~/.pyenv/bin/pyenv install 3.8.13
 RUN ~/.pyenv/bin/pyenv install 3.9.13
-RUN ~/.pyenv/bin/pyenv global 3.8.13 3.9.13 && \
+RUN ~/.pyenv/bin/pyenv install 3.10.6
+RUN ~/.pyenv/bin/pyenv install 3.11.0rc1
+RUN ~/.pyenv/bin/pyenv global 3.8.13 3.9.13 3.10.6 3.11.0rc1 && \
     ln -sf ~/.pyenv/shims/python*.* /usr/local/bin
 
 # Build tools

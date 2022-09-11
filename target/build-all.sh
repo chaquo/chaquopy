@@ -25,3 +25,4 @@ python/build-and-package.sh 3.8
 
 ./for-each-abi.sh openssl/build.sh 3.0.5
 python/build-and-package.sh 3.9
+python/build-and-package.sh 3.10

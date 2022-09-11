@@ -8,11 +8,12 @@ public class Common {
     public static final int MIN_SDK_VERSION = 16;
     public static final int COMPILE_SDK_VERSION = 30;
 
-    public static final Map<String, String> PYTHON_VERSIONS = new HashMap<>();
+    public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
         PYTHON_VERSIONS.put("3.8.13", "1");
         PYTHON_VERSIONS.put("3.9.13", "0");
+        PYTHON_VERSIONS.put("3.10.6", "0");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();
