@@ -8,7 +8,7 @@ diff -ur src-original/_setuplibev.py src/_setuplibev.py
 +
 +# Chaquopy: added --host.
 +import os
-+host_triplet = os.path.basename(os.environ["CC"]).replace("-gcc", "")
++host_triplet = os.environ["HOST_TRIPLET"]
 +
  libev_configure_command = ' '.join([
      "(cd ", quoted_dep_abspath('libev'),
@@ -63,11 +63,11 @@ diff -ur src-original/setup.py src/setup.py
 +# # greenlet, we have *NO* access to greenlet.h at all. So include
 +# # our own copy as a fallback.
 +# include_dirs.append('deps')
- 
+
  SEMAPHORE = Extension(name="gevent.__semaphore",
                        sources=["src/gevent/_semaphore.py"],
 @@ -160,7 +165,8 @@
- 
+
  EXT_MODULES = [
      CORE,
 -    ARES,
@@ -81,13 +81,13 @@ diff -ur src-original/_setuputils.py src/_setuputils.py
 +++ src/_setuputils.py	2019-08-05 18:06:01.223597204 +0000
 @@ -83,7 +83,10 @@
                       'Please set it to 1, 0 or an empty string' % (key, value))
- 
+
  IGNORE_CFFI = _parse_environ("GEVENT_NO_CFFI_BUILD")
 -SKIP_LIBUV = _parse_environ('GEVENT_NO_LIBUV_BUILD')
 +
 +# Chaquopy: disable libuv: it has build errors, and it isn't currently included in the
 +# Linux wheels on PyPI anyway.
 +SKIP_LIBUV = True or _parse_environ('GEVENT_NO_LIBUV_BUILD')
- 
+
  def _get_config_value(key, defkey, path=None):
      """

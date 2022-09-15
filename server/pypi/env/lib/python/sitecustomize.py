@@ -59,11 +59,20 @@ customize_get_platform_original = sysconfig.get_platform
 
 def customize_get_platform():
     try:
-        return os.environ["CROSS_COMPILE_PLATFORM"]
+        return os.environ["CROSS_COMPILE_PLATFORM_TAG"]
     except KeyError:
         customize_get_platform_original()
 
 sysconfig.get_platform = customize_get_platform
+
+sys_prefix_original = sys.prefix
+sys.prefix = os.environ.get("CROSS_COMPILE_PREFIX", sys_prefix_original)
+
+sys_platform_original = sys.platform
+sys.platform = os.environ.get("CROSS_COMPILE_PLATFORM", sys_platform_original)
+
+sys_implementation_multiarch_original = sys.implementation._multiarch
+sys.implementation._multiarch = os.environ.get("CROSS_COMPILE_IMPLEMENTATION", sys_implementation_multiarch_original)
 
 if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
     config_globals = {}
@@ -72,6 +81,22 @@ if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
         exec(sysconfigdata.read(), config_globals, config_locals)
 
     distutils.sysconfig._config_vars = config_locals['build_time_vars']
+
+
+import distutils.unixccompiler
+unixccompiler_linker_params_original = distutils.unixccompiler._linker_params
+
+def customize_linker_params(linker_cmd, compiler_cmd):
+    # iOS builds are odd because the compiler and linker aren't fully specified
+    # by `args[0]`; as a result, `_linker_params` isn't able to extract the
+    # linker parameters by dropping the first argument from linker_cmd.
+    # This is only needed by C++ code.
+    if compiler_cmd[0] == 'xcrun':
+        pivot = compiler_cmd.index('clang') + 1
+        return linker_cmd[pivot:]
+    return unixccompiler_linker_params_original(linker_cmd, compiler_cmd)
+
+distutils.unixccompiler._linker_params = customize_linker_params
 
 
 # Call the next sitecustomize script if there is one

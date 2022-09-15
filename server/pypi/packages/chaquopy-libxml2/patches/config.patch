@@ -1,0 +1,53 @@
+diff -ru libxml2-2.9.8-orig/config.sub libxml2-2.9.8/config.sub
+--- libxml2-2.9.8-orig/config.sub	2018-03-05 23:54:18.000000000 +0800
++++ libxml2-2.9.8/config.sub	2022-09-15 12:46:15.000000000 +0800
+@@ -116,6 +116,7 @@
+ case $maybe_os in
+   nto-qnx* | linux-gnu* | linux-android* | linux-dietlibc | linux-newlib* | \
+   linux-musl* | linux-uclibc* | uclinux-uclibc* | uclinux-gnu* | kfreebsd*-gnu* | \
++  ios*-simulator | tvos*-simulator | watchos*-simulator | \
+   knetbsd*-gnu* | netbsd*-gnu* | netbsd*-eabi* | \
+   kopensolaris*-gnu* | cloudabi*-eabi* | \
+   storm-chaos* | os2-emx* | rtmk-nova*)
+@@ -252,7 +253,7 @@
+ 	| alpha64 | alpha64ev[4-8] | alpha64ev56 | alpha64ev6[78] | alpha64pca5[67] \
+ 	| am33_2.0 \
+ 	| arc | arceb \
+-	| arm | arm[bl]e | arme[lb] | armv[2-8] | armv[3-8][lb] | armv7[arm] \
++	| arm | arm[bl]e | arme[lb] | armv[2-8] | armv[3-8][lb] | armv7[armk] \
+ 	| avr | avr32 \
+ 	| ba \
+ 	| be32 | be64 \
+@@ -374,7 +375,7 @@
+ 	| alpha-* | alphaev[4-8]-* | alphaev56-* | alphaev6[78]-* \
+ 	| alpha64-* | alpha64ev[4-8]-* | alpha64ev56-* | alpha64ev6[78]-* \
+ 	| alphapca5[67]-* | alpha64pca5[67]-* | arc-* | arceb-* \
+-	| arm-*  | armbe-* | armle-* | armeb-* | armv*-* \
++	| arm-*  | armbe-* | armle-* | armeb-* | armv*-* | arm64-* \
+ 	| avr-* | avr32-* \
+ 	| ba-* \
+ 	| be32-* | be64-* \
+@@ -450,6 +451,9 @@
+ 	| ymp-* \
+ 	| z8k-* | z80-*)
+ 		;;
++	arm64-* | arm64e-* | arm64_32-*)
++ 		basic_machine=aarch64-`echo "$basic_machine" | sed 's/^[^-]*-//'`
++ 		;;
+ 	# Recognize the basic CPU types without company name, with glob match.
+ 	xtensa*)
+ 		basic_machine=$basic_machine-unknown
+@@ -1539,8 +1543,12 @@
+ 		;;
+ 	-nacl*)
+ 		;;
+-	-ios)
++	-ios | -ios-simulator)
+ 		;;
++	-tvos | -tvos-simulator)
++		;;
++	-watchos | -watchos-simulator)
++ 		;;
+ 	-none)
+ 		;;
+ 	*)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3
 #
 # We require the build and target Python versions to be the same, because many setup.py scripts
 # are affected by sys.version.
@@ -16,13 +16,14 @@ import os
 from os.path import abspath, basename, dirname, exists, isdir, join
 import pkg_resources
 import re
+from setuptools._distutils.util import split_quoted
 import shlex
 import subprocess
 import sys
 import tempfile
 from textwrap import dedent
 
-from elftools.elf.elffile import ELFFile
+# from elftools.elf.elffile import ELFFile
 import jinja2
 import yaml
 
@@ -31,7 +32,7 @@ PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 RECIPES_DIR = f"{PYPI_DIR}/packages"
 
-PYTHON_VERSION = "3.11"  # Should be the same as the #! line above.
+PYTHON_VERSION = ".".join(sys.version.split('.')[:2])  # Should be the same as the #! line above.
 PYTHON_SUFFIX = PYTHON_VERSION  # May contain flags from PEP 3149.
 
 # Libraries are grouped by minimum API level and listed under their SONAMEs.
@@ -66,6 +67,7 @@ class Abi:
     tool_prefix: str                        # GCC target triplet.
     cflags: str = field(default="")
     ldflags: str = field(default="")
+    sdk: str = field(default="")
     slice: str = field(default="")
 
 # If any flags are changed, consider also updating target/build-common-tools.sh.
@@ -85,29 +87,29 @@ ABIS = {
     },
     'iOS': {
         'iphoneos': {
-            'arm64': Abi("iphoneos_arm64", "aarch64-apple-darwin", slice="ios-arm64"),
+            'arm64': Abi("iphoneos_arm64", "aarch64-apple-darwin", sdk="iphoneos", slice="ios-arm64"),
         },
         'iphonesimulator': {
-            'arm64': Abi("iphonesimulator_arm64", "aarch64-apple-darwin", slice="ios-arm64_x86_64-simulator"),
-            'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-darwin", slice="ios-arm64_x86_64-simulator")
+            'arm64': Abi("iphonesimulator_arm64", "aarch64-apple-darwin", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator"),
+            'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-darwin", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator")
         }
     },
     'tvOS': {
         'appletvos': {
-            'arm64': Abi("appletvos_arm64", "aarch64-apple-darwin", slice="tvos-arm64"),
+            'arm64': Abi("appletvos_arm64", "aarch64-apple-darwin", sdk="appletvos", slice="tvos-arm64"),
         },
         'appletvsimulator': {
-            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-darwin", slice="tvos-arm64_x86_64-simulator"),
-            'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-darwin", slice="tvos-arm64_x86_64-simulator")
+            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-darwin", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator"),
+            'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-darwin", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator")
         }
     },
     'watchOS': {
         'watchos': {
-            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-darwin", slice="watchos-arm64_32"),
+            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-darwin", sdk="watchos", slice="watchos-arm64_32"),
         },
         'watchsimulator': {
-            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-darwin", slice="watchos-arm64_x86_64-simulator"),
-            'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-darwin", slice="watchos-arm64_x86_64-simulator")
+            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-darwin", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator"),
+            'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-darwin", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator")
         }
     }
 }
@@ -237,8 +239,9 @@ class BaseWheelBuilder:
             else:
                 self.extract_requirements()
             self.update_env()
-            wheel_filename = self.build_wheel()
-            return self.fix_wheel(wheel_filename)
+            wheel_filename = self.fix_wheel(self.build_wheel())
+            self.reset_env()
+            return wheel_filename
 
     @abstractmethod
     def find_python(self):
@@ -336,7 +339,14 @@ class BaseWheelBuilder:
         return source_filename
 
     def apply_patches(self):
-        patches_dir = f"{self.package.recipe_dir}/patches"
+        base_patches_dir = f"{self.package.recipe_dir}/patches"
+        if exists(base_patches_dir):
+            cd(self.src_dir)
+            for patch_filename in os.listdir(base_patches_dir):
+                if not os.path.isdir(f"{base_patches_dir}/{patch_filename}"):
+                    run(f"patch -p1 -i {base_patches_dir}/{patch_filename}")
+
+        patches_dir = f"{base_patches_dir}/{self.os}"
         if exists(patches_dir):
             cd(self.src_dir)
             for patch_filename in os.listdir(patches_dir):
@@ -469,10 +479,27 @@ class BaseWheelBuilder:
             # Format variables so they can be pasted into a shell when troubleshooting.
             log("Environment set as follows:\n" +
                 "\n".join(f"export {key}='{value}'" for key, value in env.items()))
+
+        # Preserve a copy of all the environment variables that we're
+        # about to update. Store a value of None if the key doesn't
+        # exist in the base environment.
+        self.orig_env = {
+            key: os.environ.get(key)
+            for key in env
+        }
         os.environ.update(env)
 
         if self.package.needs_cmake:
             self.generate_cmake_toolchain()
+
+    def reset_env(self):
+        # Delete any key that didn't exist in the original environment.
+        # Reset any value that did exist.
+        for k, v in self.orig_env.items():
+            if v is None:
+                del os.environ[k]
+            else:
+                os.environ[k] = v
 
     # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
     # configure as much as possible via update_env.
@@ -483,6 +510,15 @@ class BaseWheelBuilder:
             "arm64-v8a": "aarch64",
             "x86": "i686",
             "x86_64": "x86_64",
+            "iphonesimulator_x86_64": "x86_64",
+            "appletvsimulator_x86_64": "x86_64",
+            "watchsimulator_x86_64": "x86_64",
+            "iphonesimulator_arm64": "arm64",
+            "appletvsimulator_arm64": "arm64",
+            "watchsimulator_arm64": "arm64",
+            "iphoneos_arm64": "arm64",
+            "appletvos_arm64": "arm64",
+            "watchos_arm64": "arm64",
         }
         clang_target = f"{self.abi.tool_prefix}{self.api_level}".replace("arm-", "armv7a-")
 
@@ -535,6 +571,10 @@ class BaseWheelBuilder:
     def process_native_binaries(self, tmp_dir, info_dir):
         ...
 
+    @abstractmethod
+    def update_requirements(self, filename, reqs):
+        ...
+
     def fix_wheel(self, in_filename):
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
@@ -560,7 +600,7 @@ class BaseWheelBuilder:
 
         reqs.update(self.get_requirements("host"))
         if reqs:
-            update_requirements(f"{info_dir}/METADATA", reqs)
+            self.update_requirements(f"{info_dir}/METADATA", reqs)
             # Remove the optional JSON copy to save us from having to update it too.
             info_metadata_json = f"{info_dir}/metadata.json"
             if exists(info_metadata_json):
@@ -747,6 +787,18 @@ class AndroidWheelBuilder(BaseWheelBuilder):
 
         return reqs
 
+    def update_requirements(self, filename, reqs):
+        msg = read_message(filename)
+        for name, version in reqs:
+            # If the package provides its own requirement, leave it unchanged.
+            if not any(req.split()[0] == name
+                    for req in msg.get_all("Requires-Dist", failobj=[])):
+                req = f"{name} (>={version})"
+                log(f"Adding requirement: {req}")
+                # In this API, __setitem__ doesn't overwrite existing items.
+                msg["Requires-Dist"] = req
+        write_message(msg, filename)
+
 
 class AppleWheelBuilder(BaseWheelBuilder):
     def __init__(self, os, package, **kwargs):
@@ -760,36 +812,77 @@ class AppleWheelBuilder(BaseWheelBuilder):
         assert_exists(self.python_lib)
 
     def platform_update_env(self, env):
-        env["CROSS_COMPILE_PLATFORM"] = f"{self.os}_{self.api_level}_{self.abi.name}"
+        env["CROSS_COMPILE_PLATFORM"] = f"{self.os}".lower()
+        env["CROSS_COMPILE_PLATFORM_TAG"] = f"{self.os}_{self.api_level}_{self.abi.name}"
+        env["CROSS_COMPILE_PREFIX"] = f"{self.toolchain}/Python.xcframework/{self.abi.slice}"
+        env["CROSS_COMPILE_IMPLEMENTATION"] = self.abi.name
+        env["CROSS_COMPILE_SDK_ROOT"] = (
+            subprocess.check_output(
+                ["xcrun", "--show-sdk-path", "--sdk", self.abi.sdk],
+                universal_newlines=True
+            ).strip()
+        )
+        env["CROSS_COMPILE_TOOLCHAIN_SLICE"] = self.abi.slice
+
         env["CROSS_COMPILE_SYSCONFIGDATA"] = os.sep.join([
             self.toolchain, f"python-stdlib/_sysconfigdata__{self.os.lower()}_{self.abi.name}.py"
         ])
+
+        config_globals = {}
+        config_locals = {}
+        with open(env["CROSS_COMPILE_SYSCONFIGDATA"]) as sysconfigdata:
+            exec(sysconfigdata.read(), config_globals, config_locals)
+
+            sysconfigdata = config_locals["build_time_vars"]
+
+        for var in [
+            "AR",
+            "ARFLAGS",
+            "BLDSHARED",
+            "CFLAGS",
+            "CC",
+            "CXX",
+            "CONFIGURE_CFLAGS",
+            "CONFIGURE_LDFLAGS",
+            "LDFLAGS",
+            "LDSHARED",
+        ]:
+            orig_parts = split_quoted(config_locals["build_time_vars"][var])
+            clean_parts = []
+            for part in orig_parts:
+                # An artefact of Python 3.8-3.10 is that the stdlib modules need to configured
+                # using a global CFLAGS and LDFLAGS that point at the BZip2 and XZ builds, plus
+                # the sysroot. The references to BZip2 and XZ include/lib folders aren't needed,
+                # and the sysroot needs to be updated to reflect the currently active sysroot.
+                if part.startswith("-I/Users") or part.startswith('-L/Users'):
+                    pass
+                elif part.startswith("--sysroot=/Applications/Xcode.app/Contents/Developer/Platforms/"):
+                    clean_parts.append("--sysroot=" + env["CROSS_COMPILE_SDK_ROOT"])
+                elif part.startswith('/Applications/Xcode.app/Contents/Developer/Platforms/'):
+                    clean_parts.append(env["CROSS_COMPILE_SDK_ROOT"])
+                else:
+                    clean_parts.append(part)
+            env[var] = ' '.join(clean_parts)
+
+        env["HOST_TRIPLET"] = config_locals["build_time_vars"]["HOST_GNU_TYPE"]
+
         reqs_prefix = f"{self.reqs_dir}/chaquopy"
         if exists(reqs_prefix):
-            env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
-            env["CFLAGS"] = f"-I{reqs_prefix}/include"
-
-            # --rpath-link only affects arm64, because it's the only ABI which uses ld.bfd. The
-            # others all use ld.gold, which doesn't try to resolve transitive shared library
-            # dependencies. When we upgrade to a later version of the NDK which uses LLD, we
-            # can probably remove this flag, along with all requirements in meta.yaml files
-            # which are tagged with "ld.bfd".
-            env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
-                               f" -Wl,--rpath-link,{reqs_prefix}/lib")
-
-        env["ARFLAGS"] = "rc"
+            env["CFLAGS"] += f" -I{reqs_prefix}/include"
+            env["LDFLAGS"] += f" -L{reqs_prefix}/lib"
 
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
         if self.package.needs_python:
-            if "CFLAGS" in env:
-                env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
-            else:
-                env["CFLAGS"] = f"-idirafter {self.python_include_dir}"
+            env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
 
     def process_native_binaries(self, tmp_dir, info_dir):
         # No post-processing required on the initial wheel binaries.
         return set()
+
+    def update_requirements(self, filename, reqs):
+        # No post-process of requirements
+        pass
 
     @classmethod
     def api_level(cls, os, toolchain):
@@ -811,36 +904,31 @@ class AppleWheelBuilder(BaseWheelBuilder):
         else:
             compat_tag = f"py{PYTHON_VERSION[0]}-none-{os.lower()}_{api_level.replace('.', '_')}"
 
-        merge_dir = f"{package.version_dir}/{os}"
+        merge_dir = f"{package.version_dir}/{compat_tag}"
         for sdk, architectures in wheels.items():
             for arch, wheel in architectures.items():
-                # Unpack the source wheel twice: once into a unique folder,
-                # and one into a shared folder
-                wheel_dir = f"{package.version_dir}/{sdk}/{arch}"
-                ensure_dir(wheel_dir)
-                run(f"unzip -o -d {wheel_dir} -q {wheel}")
+                # Unpack the source wheel into a shared folder.
+                # This will overwrite every Python file with a copy of itself,
+                # but any files that are different between SDKs will result
+                # in a folder with both files.
                 run(f"unzip -o -d {merge_dir} -q {wheel}")
 
-            # All wheels for the same SDK will have the same list of binary artefacts.
+            # All wheels for the same SDK should have the same list of binary artefacts.
             # Scan the RECORD entry for each wheel (it doesn't matter which one,
             # because the filename lists should be the same; so use the last one
             # that we iterated over)
-            # Generate a fat binary in the final wheel location for each
+            # Generate a fat binary in the "fix wheel" location for each
             # architecture in the sdk.
             SO_PATTERN = r"\.so(\.|$)"
-            info_dir = f"{wheel_dir}/{package.name_version}.dist-info"
+            info_dir = f"{package.version_dir}/{compat_tag}_{sdk}_{arch}/fix_wheel/{package.name_version}.dist-info"
             for path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
                 if bool(re.search(SO_PATTERN, path)):
                     fat_binary = f"{merge_dir}/{path}"
                     source_binaries = " ".join([
-                        f"{package.version_dir}/{sdk}/{arch}/{path}"
+                        f"{package.version_dir}/{compat_tag}_{sdk}_{arch}/fix_wheel/{path}"
                         for arch in architectures.keys()
                     ])
                     run(f"lipo -create -o {fat_binary} {source_binaries}")
-
-            # Delete the source wheels
-            for arch, wheel in architectures.items():
-                run(f"rm {wheel}")
 
         # Repack a single wheel.
         out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(package.name)}")
@@ -851,19 +939,6 @@ class AppleWheelBuilder(BaseWheelBuilder):
 def find_license_files(path):
     return [f"{path}/{name}" for name in os.listdir(path)
             if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
-
-
-def update_requirements(filename, reqs):
-    msg = read_message(filename)
-    for name, version in reqs:
-        # If the package provides its own requirement, leave it unchanged.
-        if not any(req.split()[0] == name
-                   for req in msg.get_all("Requires-Dist", failobj=[])):
-            req = f"{name} (>={version})"
-            log(f"Adding requirement: {req}")
-            # In this API, __setitem__ doesn't overwrite existing items.
-            msg["Requires-Dist"] = req
-    write_message(msg, filename)
 
 
 def update_message_file(filename, d, *args, **kwargs):
@@ -881,7 +956,7 @@ def read_message(filename):
 
 
 def package_wheel(package, compat_tag, in_dir, out_dir):
-    build_num = os.environ["PKG_BUILDNUM"]
+    build_num = str(package.meta["build"]["number"])
     info_dir = f"{in_dir}/{package.name_version}.dist-info"
     ensure_dir(info_dir)
     update_message_file(f"{info_dir}/WHEEL",

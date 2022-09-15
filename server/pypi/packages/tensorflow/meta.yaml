@@ -12,11 +12,11 @@ source:
 
 requirements:
   build:
-    - numpy 1.17.4
+    - numpy 1.19.5
 
     # Required by create_python_api.py (version from tensorflow/tools/pip_package/setup.py).
     - keras_preprocessing 1.1.0
 
   host:
     - python
-    - numpy 1.17.4
+    - numpy 1.19.5

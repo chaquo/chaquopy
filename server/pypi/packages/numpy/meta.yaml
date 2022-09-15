@@ -5,6 +5,6 @@ package:
 requirements:
   build:
     - Cython 0.29.24
-  host:
-    - chaquopy-openblas 0.2.20
-    - chaquopy-libgfortran 4.9  # Required by ld.bfd on arm64 (see build-wheel.py)
+  # host:
+  #   - chaquopy-openblas 0.2.20
+  #   - chaquopy-libgfortran 4.9  # Required by ld.bfd on arm64 (see build-wheel.py)

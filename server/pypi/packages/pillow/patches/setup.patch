@@ -1,0 +1,32 @@
+diff -ru Pillow-8.4.0-orig/setup.py Pillow-8.4.0/setup.py
+--- Pillow-8.4.0-orig/setup.py	2021-10-15 14:26:23.000000000 +0800
++++ Pillow-8.4.0/setup.py	2022-09-12 13:06:57.000000000 +0800
+@@ -546,6 +546,19 @@
+             if sdk_path:
+                 _add_directory(library_dirs, os.path.join(sdk_path, "usr", "lib"))
+                 _add_directory(include_dirs, os.path.join(sdk_path, "usr", "include"))
++        elif sys.platform in ('ios', 'tvos', 'watchos'):
++            # Add the include and lib directories of the system prefix.
++            _add_directory(library_dirs, os.path.join(sys.prefix, "Headers"))
++            _add_directory(include_dirs, os.path.join(sys.prefix))
++
++            # Add include and lib directoryies from the SDK
++            try:
++                sdk_path = os.environ["CROSS_COMPILE_SDK_ROOT"]
++                _add_directory(library_dirs, os.path.join(sdk_path, "usr", "lib"))
++                _add_directory(include_dirs, os.path.join(sdk_path, "usr", "include"))
++            except KeyError:
++                pass
++
+         elif (
+             sys.platform.startswith("linux")
+             or sys.platform.startswith("gnu")
+@@ -609,6 +622,8 @@
+         self.compiler.library_dirs = library_dirs + self.compiler.library_dirs
+         self.compiler.include_dirs = include_dirs + self.compiler.include_dirs
+ 
++        print("INCLUDE DIRS", self.compiler.include_dirs)
++        print("LIB DIRS", self.compiler.library_dirs)
+         #
+         # look for available libraries
+ 

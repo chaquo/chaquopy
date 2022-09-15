@@ -1,3 +1,8 @@
+**NOTE: The BeeWare project is currently using this branch as an interim measure
+for building binary wheels for iOS, tvOS and watchOS. For that purpose, most of
+this repository can be ignored, as it is Android specific; the `server/pypi` folder
+contains the parts that are interesting for the purposes of iOS etc.**
+
 # Chaquopy: the Python SDK for Android
 
 Chaquopy provides everything you need to include Python components in an Android app,

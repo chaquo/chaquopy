@@ -1,13 +1,23 @@
 # Introduction
 
-This directory contains the build-wheel tool, which produces Android .whl files for Chaquopy.
-build-wheel itself is only supported on Linux x86-64. However, the resulting .whls can be built
+This directory contains the build-wheel tool, which produces Android .whl files for Chaquopy,
+and iOS/tvOS/watchOS .whl files for Beeware.
+
+## Android
+
+Android builds are only supported on Linux x86-64. However, the resulting .whls can be built
 into an app on any supported Android build platform, as described in the [Chaquopy
 documentation](https://chaquo.com/chaquopy/doc/current/android.html#requirements).
 
+## iOS/tvOS/watchOS
+
+iOS build are supported on both x86-64 and M1; however, not all packages currently build.
+See the notes at the end fo this document.
+
+# Usage
+
 Install the requirements in `requirements.txt`, then run `build-wheel.py --help` for more
 information.
-
 
 # Adding a new package
 
@@ -22,6 +32,8 @@ Inside the recipe directory, add the following files.
   unittest.TestCase subclass which imports the package and does some basic checks.
 * For non-Python packages, a `build.sh` script. See `build-wheel.py` for environment variables
   which are passed to it.
+
+## Android
 
 Run `build-wheel.py` for x86_64. If any changes are needed to make the build work, edit the
 package source code in the `build` subdirectory, and re-run `build-wheel.py` with the
@@ -62,3 +74,59 @@ used above, on the following devices, with at least one device being a clean ins
 Move the wheels to the public package repository.
 
 Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.
+
+## iOS/tvOS/watchOS
+
+Obtain a Beeware [Apple Support
+package](https://github.com/beeware/Python-Apple-support) for the Python version
+you are using, and unpack the support package. The location where you unpack the
+support file will be provided to the `--toolchain` argument.
+
+When you run `build-wheel.py` on a recipe, it will:
+
+* Build an iOS/tvOS arm64 wheel, or a watchOS arm64_32 wheel
+* Build an iOS/tvOS/watchOS Simulator arm64 wheel
+* Build an iOS/tvOS/watchOS Simulator x86_64 wheel
+* Use `lipo` to merge each `.so` file in the Simulator wheels into a "fat" binary
+* Merge the iOS and iOS simulator wheels into a single "fat" wheel.
+
+The fat wheel will contain 2 `.so` files for every binary module - one for
+devices, and one for the simulator.
+
+As on macOS, an iOS/tvOS/watchOS binary module is statically linked against all
+dependencies. For example, the Pillow binary modules statically link the
+contents of libjpeg, libpng and libfreetype into the .so files contained in the
+`.whl` file. The wheel will not contain `.so` files for any dependencies, nor
+will you need to install any extra dependencies.
+
+If a wheel has a dependency on a binary library (like `libpng`), there will be a
+`chaquopy-` prefixed recipe for the library. This recipe will produce a wheel -
+however, this is a "build-time" wheel; it will only contain the `.a` library,
+which can be used to link into the projects that use it. There is no need to
+distribut the `chaquopy-*` wheels.
+
+### Configure-based projects
+
+If the project includes a `configure` script, you will likely need to provide
+a patch for `config.sub`. `config.sub` is the tools used by `configure` to identify
+the architecture and machine type; however, it doesn't currently recognize the
+host triples used by Apple. If you get the error:
+
+    checking host system type... Invalid configuration `arm64-apple-ios': machine `arm64-apple' not recognized
+    configure: error: /bin/sh config/config.sub arm64-apple-ios failed
+
+you will need to patch `config.sub`. There are several examples of patched
+`config.sub` scripts in the packages contained in this repository, and in the
+Python-Apple-support project; it is quite possible one of those patches can be
+used for the library you are trying to compile. The `config.sub` script has
+a datestamp at the top of the file; that can be used to identify which patch
+you will need.
+
+### Other known problems:
+
+At this time, there are also problems building recipes that:
+
+* Use Cmake in the build process
+* Use rust in the build process
+* Have a dependency on libfortran or a Fortran compiler
+* Have a vendored version of distutils

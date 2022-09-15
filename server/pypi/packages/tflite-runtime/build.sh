@@ -7,13 +7,13 @@ case $CHAQUOPY_ABI in
     armeabi-v7a)
         export TENSORFLOW_TARGET_ARCH="armv7l"
         ;;
-    arm64-v8a)
+    arm64-v8a | *_arm64)
         export TENSORFLOW_TARGET_ARCH="aarch64"
         ;;
     x86)
         export TENSORFLOW_TARGET_ARCH="x86_32"
         ;;
-    x86_64)
+    x86_64 | *_x86_64)
         export TENSORFLOW_TARGET_ARCH="x86_64"
         ;;
     *)
