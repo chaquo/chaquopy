@@ -323,19 +323,18 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ADVICE = "See https://chaquo.com/chaquopy/doc/current/versions.html."
+    ERROR = ("This version of Chaquopy requires minSdkVersion 21 or higher. "
+             "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: This version of Chaquopy requires minSdkVersion 16 or "
-                          "higher. " + self.ADVICE, run.stderr)
+        self.assertInLong("debug: " + self.ERROR, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 16 or "
-                          "higher. " + self.ADVICE, run.stderr)
+        self.assertInLong("redDebug: " + self.ERROR, run.stderr)
 
 
 class JavaLib(GradleTestCase):
@@ -344,22 +343,6 @@ class JavaLib(GradleTestCase):
     # used in the base module, then the Java API should be available to the feature module.
     def test_dynamic_feature(self):
         self.RunGradle("base", "JavaLib/dynamic_feature")
-
-    # See comment in dex_classes. At some point in 2018, I saw the Chaquopy classes sometimes
-    # ending up in classes2.dex when minSdkVersion was 21 or higher. I can't reproduce that now
-    # with any supported Android Gradle plugin version, but include a test in case it changes
-    # again in the future.
-    def test_multidex(self):
-        run = self.RunGradle("base")
-        classes = f"{self.run_dir}/apk/debug/classes.dex"
-        classes2 = f"{self.run_dir}/apk/debug/classes2.dex"
-        self.assertTrue(exists(classes))
-        self.assertFalse(exists(classes2))
-
-        run.apply_layers("JavaLib/multidex")
-        run.rerun()
-        self.assertTrue(exists(classes))
-        self.assertTrue(exists(classes2))
 
     # See also Aar.test_minify.
     def test_minify(self):

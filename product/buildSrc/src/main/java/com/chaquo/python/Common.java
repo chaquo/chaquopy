@@ -5,7 +5,9 @@ import java.util.*;
 
 /** @deprecated internal use */
 public class Common {
-    public static final int MIN_SDK_VERSION = 16;
+    // This should match api_level in target/build-common.sh.
+    public static final int MIN_SDK_VERSION = 21;
+
     public static final int COMPILE_SDK_VERSION = 30;
 
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
