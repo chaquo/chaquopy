@@ -3,12 +3,12 @@ set -eu -o pipefail
 shopt -s inherit_errexit
 
 # Positional arguments:
-#  * Toolchains directory to pack from.
+#  * `prefix` directory to pack from.
 #  * Maven directory to pack into, e.g. /path/to/com/chaquo/python/target/3.10.6-3. Must
 #    not already exist.
 
-this_dir=$(dirname $(realpath $0))
-toolchains_dir=$(realpath ${1:?})
+target_dir=$(dirname $(realpath $0))
+prefix_dir=$(realpath ${1:?})
 target_dir=$(realpath -m ${2:?})
 
 # If the target looks like a full Maven repository, make sure that its root directory
@@ -70,20 +70,18 @@ rm -rf "$tmp_dir"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
-for toolchain in $toolchains_dir/*; do
-    . "$this_dir/build-common.sh"  # Sets $sysroot and $host_triplet.
-    abi=$(basename $toolchain)
+for prefix in $prefix_dir/*; do
+    . "$target_dir/build-common.sh"
     echo "$abi"
     mkdir "$abi"
     cd "$abi"
-    prefix="$sysroot/usr"
 
     mkdir include
-    cp -a "$prefix/include/"{python$short_ver*,openssl,sqlite*} include
+    cp -a "$prefix/include/"{python$short_ver,openssl,sqlite*} include
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp "$prefix/lib/libpython$short_ver"*.so "$jniLibs_dir"
+    cp $prefix/lib/libpython$short_ver.so "$jniLibs_dir"
     for name in crypto ssl sqlite3; do
         cp "$prefix/lib/lib${name}_chaquopy.so" "$jniLibs_dir"
     done
@@ -97,7 +95,7 @@ for toolchain in $toolchains_dir/*; do
     rm $dynload_dir/*_test*.so
 
     chmod u+w $(find -name *.so)
-    $toolchain/$host_triplet/bin/strip $(find -name *.so)
+    $STRIP $(find -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"

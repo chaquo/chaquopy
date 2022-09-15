@@ -14,4 +14,4 @@ read micro build < \
 version=$version_short.$micro
 
 ./for-each-abi.sh python/build.sh $version
-./package-target.sh toolchains ../maven/com/chaquo/python/target/$version-$build
+./package-target.sh prefix ../maven/com/chaquo/python/target/$version-$build

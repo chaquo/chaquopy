@@ -5,6 +5,6 @@ target_dir=$(dirname $(realpath $0))
 script=$(realpath ${1:?})
 
 shift
-for toolchain in $target_dir/toolchains/*; do
-    $script $toolchain "$@"
+for prefix in $target_dir/prefix/*; do
+    $script $prefix "$@"
 done
