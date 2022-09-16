@@ -397,7 +397,7 @@ class BaseWheelBuilder:
             # Put headers on the include path (used by gevent to build against greenlet).
             include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
             if exists(include_src):
-                include_tgt = f"{self.reqs_dir}/chaquopy/include/{package}"
+                include_tgt = f"{self.reqs_dir}/opt/include/{package}"
                 run(f"mkdir -p {dirname(include_tgt)}")
                 run(f"mv {include_src} {include_tgt}")
 
@@ -408,7 +408,7 @@ class BaseWheelBuilder:
         SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
                            (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
                            (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
-        reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
+        reqs_lib_dir = f"{self.reqs_dir}/opt/lib"
         if exists(reqs_lib_dir):
             for filename in os.listdir(reqs_lib_dir):
                 for pattern, repl in SONAME_PATTERNS:
@@ -421,7 +421,7 @@ class BaseWheelBuilder:
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
-        os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
+        os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/opt")  # Conda variable name
         run(build_script)
         return package_wheel(self.package, self.compat_tag, prefix_dir, self.src_dir)
 
@@ -447,7 +447,7 @@ class BaseWheelBuilder:
         env_dir = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{env_dir}/bin",
-            f"{self.reqs_dir}/chaquopy/bin",  # For "-config" scripts.
+            f"{self.reqs_dir}/opt/bin",  # For "-config" scripts.
             os.environ["PATH"]])
 
         # Adding reqs_dir to PYTHONPATH allows setup.py to import requirements, for example to
@@ -545,7 +545,7 @@ class BaseWheelBuilder:
                 # Our requirements dir comes before the sysroot, because the sysroot include
                 # directory contains headers for third-party libraries like libjpeg which may
                 # be of different versions to what we want to use.
-                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy {self.toolchain}/sysroot)
+                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/opt {self.toolchain}/sysroot)
                 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
                 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
                 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
@@ -722,7 +722,7 @@ class AndroidWheelBuilder(BaseWheelBuilder):
 
             self.abi.ldflags])
 
-        reqs_prefix = f"{self.reqs_dir}/chaquopy"
+        reqs_prefix = f"{self.reqs_dir}/opt"
         if exists(reqs_prefix):
             env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
@@ -751,7 +751,7 @@ class AndroidWheelBuilder(BaseWheelBuilder):
     def process_native_binaries(self, tmp_dir, info_dir):
         SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(self.standard_libs)
-        for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
+        for dir_name in [f"{self.reqs_dir}/opt/lib", tmp_dir]:
             if exists(dir_name):
                 for _, _, filenames in os.walk(dir_name):
                     available_libs.update(name for name in filenames
@@ -866,7 +866,7 @@ class AppleWheelBuilder(BaseWheelBuilder):
 
         env["HOST_TRIPLET"] = config_locals["build_time_vars"]["HOST_GNU_TYPE"]
 
-        reqs_prefix = f"{self.reqs_dir}/chaquopy"
+        reqs_prefix = f"{self.reqs_dir}/opt"
         if exists(reqs_prefix):
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
             env["LDFLAGS"] += f" -L{reqs_prefix}/lib"
