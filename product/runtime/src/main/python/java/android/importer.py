@@ -160,8 +160,8 @@ def initialize_ctypes():
     CDLL_init_original = ctypes.CDLL.__init__
     ctypes.CDLL.__init__ = CDLL_init_override
 
-    # The standard library initializes pythonapi to PyDLL(None), which only works on API level
-    # 21 or higher.
+    # The standard library initializes pythonapi to PyDLL(None), because libpython is
+    # statically linked to the executable in a normal Linux environment.
     ctypes.pythonapi = ctypes.PyDLL(sysconfig.get_config_vars()["LDLIBRARY"])
 
 

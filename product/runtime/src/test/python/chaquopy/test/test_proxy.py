@@ -210,9 +210,15 @@ class TestProxy(FilterWarningsCase):
         self.assertEqual("classmethod", a.non_data())
 
         self.assertEqual(42, a.data)
-        with self.assertRaisesRegex(AttributeError, "can't set attribute"):
+        with self.assertRaisesRegex(
+                AttributeError,
+                r"can't set attribute|"  # Python <= 3.10
+                r"property 'data' of 'Add' object has no setter"):  # Python >= 3.11
             a.data = 99
-        with self.assertRaisesRegex(AttributeError, "can't delete attribute"):
+        with self.assertRaisesRegex(
+                AttributeError,
+                r"can't delete attribute|"  # Python <= 3.10
+                r"property 'data' of 'Add' object has no deleter"):  # Python >= 3.11):
             del a.data
 
     def test_unimplemented(self):

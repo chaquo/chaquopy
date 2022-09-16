@@ -53,9 +53,9 @@ repository.
 Restore `abiFilters` to include all ABIs. Then test the app with the same Chaquopy versions
 used above, on the following devices, with at least one device being a clean install:
 
-* x86 emulator with minSdkVersion, or API 18 if "too many libraries" error occurs (#5316)
+* x86 emulator with minSdkVersion
+* x86_64 emulator with minSdkVersion (or 23 before Chaquopy 7.0.3)
 * x86_64 emulator with targetSdkVersion
-* x86_64 emulator with API 21 (or 23 before Chaquopy 7.0.3)
 * Any armeabi-v7a device
 * Any arm64-v8a device
 

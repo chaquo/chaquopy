@@ -88,7 +88,7 @@ String getLocalProperty(String key, String defaultValue = null) {
 }
 
 def sdkDir = getLocalProperty('sdk.dir')
-def ndkDir = "$sdkDir/ndk/21.4.7075529"  // Should match the version in target/Dockerfile.
+def ndkDir = "$sdkDir/ndk/22.1.7171670"  // Should match the version in target/build-common.sh.
 
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
@@ -170,9 +170,7 @@ cythonTask("cythonJava") {
     }
 }
 
-// With version 3.10.2.4988404, the cmakeBuild-host task alters build.ninja, which causes the
-// slow cmake-host task to be rerun on every build.
-def sdkCmakeDir = "$sdkDir/cmake/3.6.4111459"  // Should match the version in the root Dockerfile.
+def sdkCmakeDir = "$sdkDir/cmake/3.22.1"  // Should match the version in the root Dockerfile.
 
 def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
 if (!file(androidJar).exists()) {
@@ -242,7 +240,7 @@ for (abi in ["host"] + Common.ABIS) {
                 args "-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;$javaHome/include/linux"
             }
         } else {
-            def prefixDir = "$projectDir/../../target/toolchains/$abi/sysroot/usr"
+            def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",

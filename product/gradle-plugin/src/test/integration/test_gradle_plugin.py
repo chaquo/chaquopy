@@ -357,7 +357,7 @@ class JavaLib(GradleTestCase):
 class PythonVersion(GradleTestCase):
     def test_change(self):
         self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
-        self.assertEqual(["3.8", "3.9", "3.10"], list(PYTHON_VERSIONS))
+        self.assertEqual(["3.8", "3.9", "3.10", "3.11"], list(PYTHON_VERSIONS))
 
         run = self.RunGradle("base", run=False)
         for version in ["3.8", "3.9"]:
@@ -366,7 +366,7 @@ class PythonVersion(GradleTestCase):
     # Test all versions not covered by test_change.
     def test_others(self):
         run = self.RunGradle("base", run=False)
-        for version in ["3.10"]:
+        for version in ["3.10", "3.11"]:
             self.check_version(run, version)
 
     def check_version(self, run, version):
@@ -1530,6 +1530,8 @@ class RunGradle(object):
         if python_version_info >= (3, 10):
             stdlib_native_expected -= {"parser.so"}
             stdlib_native_expected |= {"xxlimited_35.so"}
+        if python_version_info >= (3, 11):
+            stdlib_native_expected |= {"_typing.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1561,7 +1563,7 @@ class RunGradle(object):
             "3.8": 3413,
             "3.9": 3425,
             "3.10": 3439,
-            "3.11": 3494,
+            "3.11": 3495,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             self.test.assertEqual(

@@ -1,14 +1,13 @@
 #!/bin/bash
-#
-# Positional arguments:
-#  * Maven target version directory, e.g. /path/to/com/chaquo/python/target/3.6.5-11
-#  * `toolchains` directory to unpack into: must already contain ABI subdirectories, but can
-#     otherwise be empty.
-
 set -eu
 
-target_dir="$(realpath ${1:?})"
-toolchains_dir="$(realpath "${2:?}")"
+# Positional arguments:
+#  * `prefix` directory to unpack into. Must already contain ABI subdirectories, but can
+#    otherwise be empty.
+#  * Maven directory to unpack from, e.g. /path/to/com/chaquo/python/target/3.10.6-3.
+
+prefix_dir=$(realpath ${1:?})
+target_dir=$(realpath -m ${2:?})
 
 version=$(basename "$target_dir")
 version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
@@ -16,14 +15,14 @@ version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 tmp_dir="/tmp/unpackage-target-$$"
 mkdir "$tmp_dir"
 
-cd "$toolchains_dir"
+cd "$prefix_dir"
 for abi in *; do
     echo "$abi"
     abi_dir="$tmp_dir/$abi"
     mkdir "$abi_dir"
     unzip -q -d "$abi_dir" "$target_dir/target-$version-$abi.zip"
 
-    prefix="$toolchains_dir/$abi/sysroot/usr"
+    prefix="$prefix_dir/$abi"
     mkdir -p "$prefix/include"
     cp -a "$abi_dir/include/"* "$prefix/include"
 

@@ -16,6 +16,7 @@ public class Common {
         PYTHON_VERSIONS.put("3.8.13", "1");
         PYTHON_VERSIONS.put("3.9.13", "0");
         PYTHON_VERSIONS.put("3.10.6", "0");
+        PYTHON_VERSIONS.put("3.11.0", "2");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();

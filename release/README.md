@@ -53,8 +53,8 @@ Set `abiFilters` to each of the following values, and test on a corresponding de
 Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on the
 following devices, with at least one being a clean install:
 
-* x86 emulator with API 18 (#5316)
-* x86_64 emulator with API 21
+* x86 emulator with minSdkVersion
+* x86_64 emulator with minSdkVersion
   * TensorFlow will fail because of #5626, so test that on API 23.
 * x86_64 emulator with targetSdkVersion
 
@@ -105,7 +105,7 @@ a clean install, and at least one being an upgrade from the previous public rele
 tests already run.
 
 * x86 emulator with minSdkVersion
-* x86_64 emulator with API 21
+* x86_64 emulator with minSdkVersion
 * x86_64 emulator with targetSdkVersion
 * Any armeabi-v7a device
 * Any arm64-v8a device

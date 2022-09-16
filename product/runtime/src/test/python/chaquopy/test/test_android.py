@@ -246,9 +246,9 @@ class TestAndroidImport(AndroidTestCase):
         for name in submod_names:
             sys.modules.pop(name)
 
-        new_mod = import_module(mod.__name__)
-        self.assertIsNot(new_mod, mod)
-        return new_mod
+        # For extension modules, this may reuse the same module object (see create_dynamic
+        # in import.c).
+        return import_module(mod.__name__)
 
     def check_module(self, mod_name, filename, cache_filename, *, is_package=False,
                      source_head=None):
@@ -273,9 +273,14 @@ class TestAndroidImport(AndroidTestCase):
             self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
         loader = mod.__loader__
         self.assertIsInstance(loader, importer.AssetLoader)
+
+        # When importlib._bootstrap._init_module_attrs is passed an already-initialized
+        # module with override=False, it sets __spec__ and leaves the other attributes
+        # alone. So if the module object was reused in clean_reload, then __loader__ and
+        # __spec__.loader may be equal but not identical.
         spec = mod.__spec__
         self.assertEqual(mod_name, spec.name)
-        self.assertIs(loader, spec.loader)
+        self.assertEqual(loader, spec.loader)
         # spec.origin and the extract_so symlink workaround are covered by pyzmq/test.py.
 
         # Loader methods (get_data is tested elsewhere)
@@ -297,9 +302,11 @@ class TestAndroidImport(AndroidTestCase):
     # Verify that the traceback builder can get source code from the loader in all contexts.
     # (The "package1" test files are also used in test_import.py.)
     def test_exception(self):
+        col_marker = r'( +\^+\n)?'  # Column marker (Python >= 3.11)
         test_frame = (fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/test_android.py", '
                       fr'line \d+, in test_exception\n'
-                      fr'    .+?\n')  # Source code line from this file.
+                      fr'    .+?\n'  # Source code line from this file
+                      + col_marker)
         import_frame = r'  File "import.pxi", line \d+, in java.chaquopy.import_override\n'
 
         # Compilation
@@ -340,6 +347,7 @@ class TestAndroidImport(AndroidTestCase):
                 fr'  File "{asset_path(APP_ZIP)}/package1/recursive_other_error.py", '
                 fr'line 1, in <module>\n'
                 fr'    from . import other_error  # noqa: F401\n' +
+                col_marker +
                 import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
@@ -651,37 +659,43 @@ class TestAndroidImport(AndroidTestCase):
         with self.assertRaisesRegex(FileNotFoundError, bad_path):
             import_from_filename("nonexistent", bad_path)
 
-    # Unlike pkg_resources, importlib.resources cannot access subdirectories within packages.
+    # The original importlib.resources API was deprecated in Python 3.11, but its
+    # replacement isn't available until Python 3.9.
+    #
+    # This API cannot access subdirectories within packages.
     def test_importlib_resources(self):
-        # App ZIP
-        pkg = "android1"
-        names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
-        self.assertCountEqual(names, resources.contents(pkg))
-        for name in names:
-            with self.subTest(name=name):
-                self.assertEqual(resources.is_resource(pkg, name),
-                                 name != "subdir")
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
 
-        self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
-        self.check_ir_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
-        self.check_ir_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
+            # App ZIP
+            pkg = "android1"
+            names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
+            self.assertCountEqual(names, resources.contents(pkg))
+            for name in names:
+                with self.subTest(name=name):
+                    self.assertEqual(resources.is_resource(pkg, name),
+                                     name != "subdir")
 
-        self.assertFalse(resources.is_resource(pkg, "invalid.py"))
-        with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
-            resources.read_binary(pkg, "invalid.py")
-        with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
-            with resources.path(pkg, "invalid.py"):
-                pass
+            self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
+            self.check_ir_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
+            self.check_ir_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
 
-        # Requirements ZIP
-        self.reset_package("murmurhash")
-        self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
-                               "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
-                              resources.contents("murmurhash"))
+            self.assertFalse(resources.is_resource(pkg, "invalid.py"))
+            with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
+                resources.read_binary(pkg, "invalid.py")
+            with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
+                with resources.path(pkg, "invalid.py"):
+                    pass
 
-        self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
-        self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
-        self.check_ir_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+            # Requirements ZIP
+            self.reset_package("murmurhash")
+            self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+                                   "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
+                                  resources.contents("murmurhash"))
+
+            self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
+            self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
+            self.check_ir_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
 
     def check_ir_resource(self, zip_name, package, filename, start):
         with self.subTest(package=package, filename=filename):
@@ -689,8 +703,12 @@ class TestAndroidImport(AndroidTestCase):
             self.assertPredicate(data.startswith, start)
 
             with resources.path(package, filename) as abs_path:
-                if splitext(filename)[1] in [".py", ".pyc", ".so"]:
-                    # Importable files are not extracted.
+                if (
+                    # Importable files are not extracted to the AssetFinder directory.
+                    splitext(filename)[1] in [".py", ".pyc", ".so"]
+                    # resources.path() always returns a temporary file on Python >= 3.11.
+                    or sys.version_info >= (3, 11)
+                ):
                     self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
                                      dirname(abs_path))
                 else:
@@ -752,13 +770,10 @@ class TestAndroidReflect(AndroidTestCase):
         if API_LEVEL >= 26:
             # TextClassifier is in the platform, so all members should be visible.
             self.assertMembers(TAR, self.MEMBERS)
-        elif API_LEVEL >= 21:
+        else:
             # Overridden methods should be visible, plus public methods that don't involve
             # TextClassifier.
             self.assertMembers(TAR, ["iMethodPublic", "finalize"])
-        else:
-            # Only overridden methods should be visible.
-            self.assertMembers(TAR, ["finalize"])
 
     def assertMembers(self, cls, names):
         for name in names:
@@ -822,12 +837,11 @@ class TestAndroidStdlib(AndroidTestCase):
         assertHasSymbol(liblog, "__android_log_write")
         assertNotHasSymbol(libc, "__android_log_write")
 
-        # Global search (https://bugs.python.org/issue34592): only works on newer API levels.
-        if API_LEVEL >= 21:
-            main = ctypes.CDLL(None)
-            assertHasSymbol(main, "printf")
-            assertHasSymbol(main, "__android_log_write")
-            assertNotHasSymbol(main, "nonexistent")
+        # Global search (https://bugs.python.org/issue34592)
+        main = ctypes.CDLL(None)
+        assertHasSymbol(main, "printf")
+        assertHasSymbol(main, "__android_log_write")
+        assertNotHasSymbol(main, "nonexistent")
 
         assertHasSymbol(ctypes.pythonapi, "PyObject_Str")
 
@@ -889,8 +903,11 @@ class TestAndroidStdlib(AndroidTestCase):
     def test_locale(self):
         import locale
         self.assertEqual("UTF-8", locale.getlocale()[1])
-        self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
-        self.assertEqual("UTF-8", locale.getpreferredencoding())
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
+            self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
+        self.assertEqual("utf-8",  # Became lower-case in Python 3.11.
+                         locale.getpreferredencoding().lower())
         self.assertEqual("utf-8", sys.getdefaultencoding())
         self.assertEqual("utf-8", sys.getfilesystemencoding())
 
@@ -974,9 +991,6 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertIsInstance(vs[0], enum.IntEnum)
         self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
 
-        self.assertEqual(signal.NSIG - 1, vs[-1])
-        self.assertEqual(signal.NSIG - 1, len(vs))
-
     def test_sqlite(self):
         import sqlite3
         conn = sqlite3.connect(":memory:")
@@ -1005,7 +1019,10 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertEqual("", sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
-        self.assertEqual("siphash24", sys.hash_info.algorithm)
+
+        # See "ac_cv_aligned_required" in target/python/build.sh.
+        self.assertEqual("siphash24" if (sys.version_info < (3, 11)) else "siphash13",
+                         sys.hash_info.algorithm)
 
         chaquopy_dir = f"{context.getFilesDir()}/chaquopy"
         self.assertEqual(
@@ -1018,8 +1035,7 @@ class TestAndroidStdlib(AndroidTestCase):
             self.assertTrue(exists(p), p)
 
         self.assertRegex(sys.platform, r"^linux")
-        self.assertRegex(sys.version,  # Make sure we don't have any "-dirty" caption.
-                         r"^{}.{}.{} \((default|main), ".format(*sys.version_info[:3]))
+        self.assertNotIn("dirty", sys.version)
 
     def test_sysconfig(self):
         import sysconfig
