@@ -1,2 +1,2 @@
-/libffi-*
-/toolchains
+/prefix
+*/build

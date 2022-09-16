@@ -121,7 +121,8 @@ def INTEGRATION_DIR = "$projectDir/src/test/integration"
 for (f in file("$INTEGRATION_DIR/data").listFiles()) {
     (f.name =~ /^base-(.+)$/).collect {
         def version = it[1]
-        def task = testPythonTask("testIntegration-$version", Common.PYTHON_VERSION_SHORT) {
+        def task = testPythonTask("testIntegration-$version",
+                                  Common.DEFAULT_PYTHON_VERSION) {
             dependsOn publish, ":runtime:publish"
             workingDir INTEGRATION_DIR
             environment "AGP_VERSION", version

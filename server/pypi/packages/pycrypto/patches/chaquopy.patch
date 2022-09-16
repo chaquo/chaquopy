@@ -20,7 +20,7 @@ diff -ur src-original/setup.py src/setup.py
              cmd = "sh configure"    # we use "sh" here so that it'll work on mingw32 with standard python.org binaries
 +
 +            # Chaquopy
-+            host_triplet = os.environ["HOST_TRIPLET"]
++            host_triplet = os.environ["CHAQUOPY_TRIPLET"]
 +            cmd += " --host=" + host_triplet
 +
              if self.verbose < 1:

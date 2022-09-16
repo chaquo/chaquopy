@@ -12,10 +12,12 @@ import re
 import shutil
 from subprocess import run
 import sys
+from tempfile import TemporaryDirectory
 from unittest import skip, skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
 
 import appdirs
+from elftools.elf.elffile import ELFFile
 from javaproperties import PropertiesFile
 from retrying import retry
 
@@ -31,32 +33,41 @@ with open(join(repo_root, "product/local.properties")) as props_file:
     product_props = PropertiesFile.load(props_file)
 sdk_dir = product_props["sdk.dir"]
 
+DEFAULT_PYTHON_VERSION = None
+PYTHON_VERSIONS = {}
 for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
-    match = re.search(r'PYTHON_VERSION = "(.+)";', line)
+    match = re.search(r'DEFAULT_PYTHON_VERSION = "(.+)"', line)
     if match:
-        PYTHON_VERSION = match[1]
-        PYTHON_VERSION_SHORT = PYTHON_VERSION.rpartition(".")[0]
-        break
-else:
-    raise Exception("Failed to find runtime Python version")
+        DEFAULT_PYTHON_VERSION = match[1]
 
+    match = re.search(r'PYTHON_VERSIONS.put\("(.+)", ".+"\)', line)
+    if match:
+        full_version = match[1]
+        version = full_version.rpartition(".")[0]
+        PYTHON_VERSIONS[version] = full_version
+
+if not DEFAULT_PYTHON_VERSION:
+    raise Exception("Failed to find DEFAULT_PYTHON_VERSION")
+if not PYTHON_VERSIONS:
+    raise Exception("Failed to find PYTHON_VERSIONS")
+DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 def run_build_python(args, **kwargs):
     for k, v in dict(check=True, capture_output=True, text=True).items():
         kwargs.setdefault(k, v)
     if os.name == "nt":
-        build_python = ["py", "-" + PYTHON_VERSION_SHORT]
+        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
     else:
-        build_python = ["python" + PYTHON_VERSION_SHORT]
+        build_python = ["python" + DEFAULT_PYTHON_VERSION]
     return run(build_python + args, **kwargs)
 
-BUILD_PYTHON_VERSION = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
-                        .split()[1])
-BUILD_PYTHON_VERSION_SHORT = BUILD_PYTHON_VERSION.rpartition(".")[0]
+BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
+                             .split()[1])
+BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 OLD_BUILD_PYTHON_VERSION = "3.4"
 MIN_BUILD_PYTHON_VERSION = "3.5"
 MAX_BUILD_PYTHON_VERSION = "3.10"
-EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION_SHORT + ".egg-info"
+EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
 
@@ -312,19 +323,18 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ADVICE = "See https://chaquo.com/chaquopy/doc/current/versions.html."
+    ERROR = ("This version of Chaquopy requires minSdkVersion 21 or higher. "
+             "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: This version of Chaquopy requires minSdkVersion 16 or "
-                          "higher. " + self.ADVICE, run.stderr)
+        self.assertInLong("debug: " + self.ERROR, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: This version of Chaquopy requires minSdkVersion 16 or "
-                          "higher. " + self.ADVICE, run.stderr)
+        self.assertInLong("redDebug: " + self.ERROR, run.stderr)
 
 
 class JavaLib(GradleTestCase):
@@ -333,22 +343,6 @@ class JavaLib(GradleTestCase):
     # used in the base module, then the Java API should be available to the feature module.
     def test_dynamic_feature(self):
         self.RunGradle("base", "JavaLib/dynamic_feature")
-
-    # See comment in dex_classes. At some point in 2018, I saw the Chaquopy classes sometimes
-    # ending up in classes2.dex when minSdkVersion was 21 or higher. I can't reproduce that now
-    # with any supported Android Gradle plugin version, but include a test in case it changes
-    # again in the future.
-    def test_multidex(self):
-        run = self.RunGradle("base")
-        classes = f"{self.run_dir}/apk/debug/classes.dex"
-        classes2 = f"{self.run_dir}/apk/debug/classes2.dex"
-        self.assertTrue(exists(classes))
-        self.assertFalse(exists(classes2))
-
-        run.apply_layers("JavaLib/multidex")
-        run.rerun()
-        self.assertTrue(exists(classes))
-        self.assertTrue(exists(classes2))
 
     # See also Aar.test_minify.
     def test_minify(self):
@@ -361,13 +355,34 @@ class JavaLib(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
-    def test_error(self):
-        run = self.RunGradle("base", "PythonVersion/error", succeed=False)
-        self.assertInLong(
-            f"Python 'version' setting is no longer supported. "
-            f"Either remove 'version' from build.gradle to use Python {PYTHON_VERSION}, or see "
-            f"https://chaquo.com/chaquopy/doc/current/versions.html for other options.",
-            run.stderr)
+    def test_change(self):
+        self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
+        self.assertEqual(["3.8", "3.9", "3.10"], list(PYTHON_VERSIONS))
+
+        run = self.RunGradle("base", run=False)
+        for version in ["3.8", "3.9"]:
+            self.check_version(run, version)
+
+    # Test all versions not covered by test_change.
+    def test_others(self):
+        run = self.RunGradle("base", run=False)
+        for version in ["3.10"]:
+            self.check_version(run, version)
+
+    def check_version(self, run, version):
+        with self.subTest(version=version):
+            run.rerun(f"PythonVersion/{version}", python_version=version,
+                      requirements=["six.py"])
+
+    def test_invalid(self):
+        ERROR = ("Invalid Python version '{}'. Available versions are [" +
+                 ", ".join(PYTHON_VERSIONS) + "].")
+        run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
+        self.assertInLong(ERROR.format("invalid"), run.stderr)
+
+        run.apply_layers("PythonVersion/invalid_micro")
+        run.rerun(succeed=False)
+        self.assertInLong(ERROR.format("3.8.13"), run.stderr)
 
 
 class AbiFilters(GradleTestCase):
@@ -587,6 +602,23 @@ class BuildPython(GradleTestCase):
     def old_version_error(cls, version):
         return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
                 fr"this is version {version}\.\d+\. " + cls.SEE)
+
+    # Default buildPython depends on selected Python version.
+    def test_default(self):
+        run = self.RunGradle("base", "BuildPython/default", add_path=["bin"], succeed=False)
+        self.assertInLong("3.8 was used", run.stdout)
+        self.assertNotInLong("3.9 was used", run.stdout)
+
+        run.apply_layers("BuildPython/default_3.9")
+        run.rerun(add_path=["bin"], succeed=False)
+        self.assertNotInLong("3.8 was used", run.stdout)
+        self.assertInLong("3.9 was used", run.stdout)
+
+        # Default can be overridden.
+        run.apply_layers("BuildPython/default_3.9_override")
+        run.rerun(add_path=["bin"], succeed=False)
+        self.assertInLong("3.8 was used", run.stdout)
+        self.assertNotInLong("3.9 was used", run.stdout)
 
     def test_args(self):  # Also tests making a change.
         run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
@@ -993,7 +1025,7 @@ class PythonReqs(GradleTestCase):
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     def test_requires_python(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
+        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
         run = self.RunGradle("base", "PythonReqs/requires_python", run=False)
         with open(f"{run.project_dir}/app/index/pyver/index.html", "w") as index_file:
             def print_link(whl_version, requires_python):
@@ -1004,8 +1036,8 @@ class PythonReqs(GradleTestCase):
             # If the build Python version is used, or the data-requires-python attribute is
             # ignored completely, then version 0.2 will be selected.
             print("<html><head></head><body>", file=index_file)
-            print_link("0.1", PYTHON_VERSION)
-            print_link("0.2", BUILD_PYTHON_VERSION)
+            print_link("0.1", DEFAULT_PYTHON_VERSION_FULL)
+            print_link("0.2", BUILD_PYTHON_VERSION_FULL)
             print("</body></html>", file=index_file)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
@@ -1177,7 +1209,7 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
 
     def test_marker_python_version(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION, PYTHON_VERSION)
+        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
         run = self.RunGradle("base", "PythonReqs/marker_python_version", run=False)
         with open(f"{run.project_dir}/app/requirements.txt", "w") as reqs_file:
             def print_req(whl_version, python_version):
@@ -1186,8 +1218,8 @@ class PythonReqs(GradleTestCase):
 
             # If the build Python version is used, or the environment markers are ignored
             # completely, then version 0.2 will be selected.
-            print_req("0.1", PYTHON_VERSION)
-            print_req("0.2", BUILD_PYTHON_VERSION)
+            print_req("0.1", DEFAULT_PYTHON_VERSION_FULL)
+            print_req("0.2", BUILD_PYTHON_VERSION_FULL)
 
         run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
@@ -1283,9 +1315,9 @@ class RunGradle(object):
     def set_local_property(self, key, value):
         set_property(f"{self.project_dir}/local.properties", key, value)
 
-    def rerun(self, *, succeed=True, variants=["debug"], env=None, add_path=None, **kwargs):
-        if env is None:
-            env = {}
+    def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
+              **kwargs):
+        self.apply_layers(*layers)
 
         # In Android Studio Bumblebee and later, the new project wizard sets all plugin
         # versions using the `plugins` block of the top-level build.gradle file. This has a
@@ -1298,6 +1330,8 @@ class RunGradle(object):
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
         self.set_local_property("sdk.dir", sdk_dir)
 
+        if env is None:
+            env = {}
         java_version = get_property(gradle_props, "chaquopy.java.version")
         env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
 
@@ -1326,6 +1360,7 @@ class RunGradle(object):
             for variant in variants:
                 merged_kwargs = kwargs.copy()
                 merged_kwargs.setdefault("abis", ["x86"])
+                merged_kwargs.setdefault("python_version", DEFAULT_PYTHON_VERSION)
                 if isinstance(variants, dict):
                     merged_kwargs.update(variants[variant])
                 merged_kwargs = KwargsWrapper(merged_kwargs)
@@ -1443,46 +1478,73 @@ class RunGradle(object):
                                    else None))
 
         # Python bootstrap
+        with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:
+            self.check_pyc(bootstrap_zip, "java/__init__.pyc", kwargs)
+
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
+            abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
+                # PythonPlugin.groovy explains why each of these modules are needed.
                 ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
-                os.listdir(join(bootstrap_native_dir, abi)))
-            self.test.assertCountEqual(["chaquopy.so", "chaquopy_android.so"],
-                                       os.listdir(join(bootstrap_native_dir, abi, "java")))
+                os.listdir(abi_dir))
+            self.check_dt_needed(join(abi_dir, "_csv.so"), kwargs)
+
+            java_dir = join(abi_dir, "java")
+            self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
+            self.check_dt_needed(join(java_dir, "chaquopy.so"), kwargs)
 
         # Python stdlib
-        stdlib_files = set(ZipFile(join(asset_dir, "stdlib-common.imy")).namelist())
-        self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
-        self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
+        with ZipFile(join(asset_dir, "stdlib-common.imy")) as stdlib_zip:
+            stdlib_files = set(stdlib_zip.namelist())
+            self.test.assertEqual("stdlib" in pyc, "argparse.pyc" in stdlib_files)
+            self.test.assertNotEqual("stdlib" in pyc, "argparse.py" in stdlib_files)
+            if "stdlib" in pyc:
+                self.check_pyc(stdlib_zip, "argparse.pyc", kwargs)
 
         # Data files packaged with stdlib: see target/package_target.sh.
+        python_version = kwargs["python_version"]
         for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.test.assertIn("lib2to3/{}{}.final.0.pickle"
-                               .format(grammar_stem, PYTHON_VERSION), stdlib_files)
+            self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
+                                   grammar_stem, PYTHON_VERSIONS[python_version]),
+                               stdlib_files)
+
+        stdlib_native_expected = {
+            # This is the list from the minimum supported Python version.
+            "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
+            "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
+            "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
+            "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
+            "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
+            "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
+            "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
+            "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
+            "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
+            "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
+            "unicodedata.so", "xxlimited.so"}
+        python_version_info = tuple(int(x) for x in python_version.split("."))
+        if python_version_info >= (3, 9):
+            stdlib_native_expected |= {"_zoneinfo.so"}
+        if python_version_info >= (3, 10):
+            stdlib_native_expected -= {"parser.so"}
+            stdlib_native_expected |= {"xxlimited_35.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
-            self.test.assertCountEqual(
-                ["_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
-                 "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
-                 "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
-                 "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
-                 "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
-                 "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
-                 "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
-                 "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
-                 "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
-                 "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
-                 "unicodedata.so", "xxlimited.so"],
-                stdlib_native_zip.namelist())
+            self.test.assertEqual(stdlib_native_expected,
+                                  set(stdlib_native_zip.namelist()))
+            with TemporaryDirectory() as tmp_dir:
+                test_module = "_asyncio.so"
+                stdlib_native_zip.extract(test_module, tmp_dir)
+                self.check_dt_needed(join(tmp_dir, test_module), kwargs)
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
-        self.test.assertEqual(["assets"], sorted(build_json))
+        self.test.assertCountEqual(["python_version", "assets"], build_json)
+        self.test.assertEqual(python_version, build_json["python_version"])
         asset_list = []
         for dirpath, dirnames, filenames in os.walk(asset_dir):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
@@ -1492,15 +1554,41 @@ class RunGradle(object):
              for filename in asset_list if filename != "build.json"},
             build_json["assets"])
 
+    def check_pyc(self, zip_file, pyc_filename, kwargs):
+        # See importlib._bootstrap_external.MAGIC_NUMBER.
+        MAGIC = {
+            "3.7": 3394,
+            "3.8": 3413,
+            "3.9": 3425,
+            "3.10": 3439,
+            "3.11": 3494,
+        }
+        with zip_file.open(pyc_filename) as pyc_file:
+            self.test.assertEqual(
+                MAGIC[kwargs["python_version"]].to_bytes(2, "little") + b"\r\n",
+                pyc_file.read(4))
+
     def check_lib(self, lib_dir, kwargs):
         abis = kwargs["abis"]
         self.test.assertCountEqual(abis, os.listdir(lib_dir))
         for abi in abis:
+            abi_dir = join(lib_dir, abi)
             self.test.assertCountEqual(
                 ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{PYTHON_VERSION_SHORT}.so", "libssl_chaquopy.so",
+                 f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
-                os.listdir(f"{lib_dir}/{abi}"))
+                os.listdir(abi_dir))
+            self.check_dt_needed(join(abi_dir, "libchaquopy_java.so"), kwargs)
+
+    def check_dt_needed(self, so_filename, kwargs):
+        libpythons = []
+        with open(so_filename, "rb") as so_file:
+            ef = ELFFile(so_file)
+            for tag in ef.get_section_by_name(".dynamic").iter_tags():
+                if tag.entry.d_tag == "DT_NEEDED" and \
+                   tag.needed.startswith("libpython"):
+                    libpythons.append(tag.needed)
+        self.test.assertEqual([f"libpython{kwargs['python_version']}.so"], libpythons)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

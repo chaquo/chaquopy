@@ -8,27 +8,43 @@ set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
 include_directories(
     src/main/c
-    ${CHAQUOPY_INCLUDE_DIRS})
+    ${CHAQUOPY_INCLUDE_JAVA})
 
-if(CHAQUOPY_LIB_DIRS)
-    link_directories(${CHAQUOPY_LIB_DIRS})
+link_directories(${CHAQUOPY_LIB_DIRS})
+
+if(CHAQUOPY_PYTHON_VERSION)
+    set(CHAQUOPY_PYTHON_VERSIONS ${CHAQUOPY_PYTHON_VERSION})
 endif()
 
-# Use SHARED rather than MODULE because MODULEs aren't given SONAMEs, which causes warnings on
-# Android (#5582).
-add_library(chaquopy SHARED ${CHAQUOPY_SRC_DIR}/chaquopy.c)
-target_link_libraries(chaquopy ${CHAQUOPY_LIBS} dl)  # On MSYS2, libdl is in the "dlfcn" package.
-set_target_properties(chaquopy PROPERTIES PREFIX "${PY_LIB_PREFIX}")
-set_target_properties(chaquopy PROPERTIES SUFFIX "${PY_LIB_SUFFIX}")
+foreach(VERSION ${CHAQUOPY_PYTHON_VERSIONS})
 
-add_library(chaquopy_java SHARED ${CHAQUOPY_SRC_DIR}/chaquopy_java.c)
-target_link_libraries(chaquopy_java ${CHAQUOPY_LIBS})
-set_target_properties(chaquopy_java PROPERTIES PREFIX "${JAVA_LIB_PREFIX}")
-set_target_properties(chaquopy_java PROPERTIES SUFFIX "${JAVA_LIB_SUFFIX}")
+    set(LIBPYTHON python${VERSION})
+    set(INCLUDE_PYTHON ${CHAQUOPY_INCLUDE_PYTHON}/python${VERSION})
 
-if(ANDROID)
-    add_library(chaquopy_android SHARED ${CHAQUOPY_SRC_DIR}/chaquopy_android.c)
-    target_link_libraries(chaquopy_android ${CHAQUOPY_LIBS} android)
-    set_target_properties(chaquopy_android PROPERTIES PREFIX "${PY_LIB_PREFIX}")
-    set_target_properties(chaquopy_android PROPERTIES SUFFIX "${PY_LIB_SUFFIX}")
-endif()
+    if(CHAQUOPY_PYTHON_VERSION)
+        # Single-version mode
+        set(CHAQUOPY_MOD chaquopy)
+        set(CHAQUOPY_JAVA chaquopy_java)
+    else()
+        set(CHAQUOPY_MOD chaquopy-${VERSION})
+        set(CHAQUOPY_JAVA chaquopy_java-${VERSION})
+    endif()
+
+    # Use SHARED rather than MODULE because MODULEs aren't given SONAMEs, which causes warnings on
+    # Android (#5582).
+    add_library(${CHAQUOPY_MOD} SHARED ${CHAQUOPY_SRC_DIR}/chaquopy.c)
+    target_include_directories(${CHAQUOPY_MOD} PRIVATE ${INCLUDE_PYTHON})
+    target_link_libraries(${CHAQUOPY_MOD} ${LIBPYTHON} dl)
+    if(ANDROID)
+        target_link_libraries(${CHAQUOPY_MOD} android)  # For native asset API.
+    endif()
+    set_target_properties(${CHAQUOPY_MOD} PROPERTIES PREFIX "")
+    set_target_properties(${CHAQUOPY_MOD} PROPERTIES SUFFIX ${CHAQUOPY_PY_SUFFIX})
+
+    add_library(${CHAQUOPY_JAVA} SHARED ${CHAQUOPY_SRC_DIR}/chaquopy_java.c)
+    target_include_directories(${CHAQUOPY_JAVA} PRIVATE ${INCLUDE_PYTHON})
+    target_link_libraries(${CHAQUOPY_JAVA} ${LIBPYTHON})
+    if(WIN32)
+        set_target_properties(${CHAQUOPY_JAVA} PROPERTIES PREFIX "")
+    endif()
+endforeach()

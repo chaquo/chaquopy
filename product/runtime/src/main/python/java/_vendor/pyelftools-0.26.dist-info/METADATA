@@ -1,0 +1,15 @@
+Metadata-Version: 2.0
+Name: pyelftools
+Version: 0.26
+Summary: Library for analyzing ELF files and DWARF debugging information
+Home-page: https://github.com/eliben/pyelftools
+Author: Eli Bendersky
+Author-email: eliben@gmail.com
+License: Public domain
+Platform: Cross Platform
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+
+UNKNOWN
+
+

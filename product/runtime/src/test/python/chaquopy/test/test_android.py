@@ -20,12 +20,10 @@ import sys
 from traceback import format_exc
 import types
 import unittest
+from warnings import catch_warnings, filterwarnings
 
 from .test_utils import API_LEVEL, FilterWarningsCase
 
-
-# Flags from PEP 3149.
-ABI_FLAGS = ""
 
 REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
 
@@ -68,18 +66,6 @@ class AndroidTestCase(FilterWarningsCase):
 
 class TestAndroidPlatform(AndroidTestCase):
 
-    # 64-bit should be preferred on devices which support it. We use Build.SUPPORTED_ABIS to
-    # detect support because Build.CPU_ABI always returns the active ABI of the app, which can
-    # be 32-bit even on a 64-bit device (https://stackoverflow.com/a/53158339).
-    #
-    # This test will only pass on a 64-bit device if the 64-bit ABI was included in abiFilters.
-    @unittest.skipUnless(API_LEVEL and API_LEVEL >= 21, "Requires Build.SUPPORTED_ABIS")
-    def test_abi(self):
-        python_bits = platform.architecture()[0]
-        self.assertEqual(python_bits,
-                         "64bit" if set(Build.SUPPORTED_ABIS) & set(["arm64-v8a", "x86_64"])
-                         else "32bit")
-
     def test_files(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
@@ -89,9 +75,10 @@ class TestAndroidPlatform(AndroidTestCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         for subdir, entries in [
+            # PythonPlugin.groovy explains why each of these modules are needed.
             (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
-            (f"{ABI}/java", ["chaquopy.so", "chaquopy_android.so"]),
+            (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
                 # Create a stray file which should be removed on the next startup.
@@ -324,7 +311,7 @@ class TestAndroidImport(AndroidTestCase):
                 test_frame + import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/syntax_error.py", line 1\n'
                 fr'    one two\n'
-                fr'        \^\n'
+                fr'        \^(\^\^)?\n'
                 fr'SyntaxError: invalid syntax\n$')
         else:
             self.fail()
@@ -397,127 +384,133 @@ class TestAndroidImport(AndroidTestCase):
             self.fail()
 
     def test_imp(self):
-        with self.assertRaisesRegex(ImportError, "No module named 'nonexistent'"):
-            imp.find_module("nonexistent")
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
 
-        # See comment about torchvision below.
-        from murmurhash import mrmr
-        os.remove(mrmr.__file__)
+            with self.assertRaisesRegex(ImportError, "No module named 'nonexistent'"):
+                imp.find_module("nonexistent")
 
-        # If any of the below modules already exist, they will be reloaded. This may have
-        # side-effects, e.g. if we'd included sys, then sys.executable would be reset and
-        # test_sys below would fail.
-        for mod_name, expected_type in [
-                ("email", imp.PKG_DIRECTORY),                   # stdlib
-                ("argparse", imp.PY_COMPILED),                  #
-                ("select", imp.C_EXTENSION),                    #
-                ("errno", imp.C_BUILTIN),                       #
-                ("murmurhash", imp.PKG_DIRECTORY),              # requirements
-                ("murmurhash.about", imp.PY_COMPILED),          #
-                ("murmurhash.mrmr", imp.C_EXTENSION),           #
-                ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
-                ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
-            with self.subTest(mod_name=mod_name):
-                path = None
-                prefix = ""
-                words = mod_name.split(".")
-                for i, word in enumerate(words):
-                    prefix += word
-                    with self.subTest(prefix=prefix):
-                        file, pathname, description = imp.find_module(word, path)
-                        suffix, mode, actual_type = description
+            # See comment about torchvision below.
+            from murmurhash import mrmr
+            os.remove(mrmr.__file__)
 
-                        if actual_type in [imp.C_BUILTIN, imp.PKG_DIRECTORY]:
-                            self.assertIsNone(file)
-                            self.assertEqual("", suffix)
-                            self.assertEqual("", mode)
-                        else:
-                            data = file.read()
-                            self.assertEqual(0, len(data))
-                            if actual_type == imp.PY_SOURCE:
-                                self.assertEqual("r", mode)
-                                self.assertIsInstance(data, str)
+            # If any of the below modules already exist, they will be reloaded. This may have
+            # side-effects, e.g. if we'd included sys, then sys.executable would be reset and
+            # test_sys below would fail.
+            for mod_name, expected_type in [
+                    ("dbm", imp.PKG_DIRECTORY),                     # stdlib
+                    ("argparse", imp.PY_COMPILED),                  #
+                    ("select", imp.C_EXTENSION),                    #
+                    ("errno", imp.C_BUILTIN),                       #
+                    ("murmurhash", imp.PKG_DIRECTORY),              # requirements
+                    ("murmurhash.about", imp.PY_COMPILED),          #
+                    ("murmurhash.mrmr", imp.C_EXTENSION),           #
+                    ("chaquopy.utils", imp.PKG_DIRECTORY),          # app (already loaded)
+                    ("imp_test", imp.PY_SOURCE)]:                   #     (not already loaded)
+                with self.subTest(mod_name=mod_name):
+                    path = None
+                    prefix = ""
+                    words = mod_name.split(".")
+                    for i, word in enumerate(words):
+                        prefix += word
+                        with self.subTest(prefix=prefix):
+                            file, pathname, description = imp.find_module(word, path)
+                            suffix, mode, actual_type = description
+
+                            if actual_type in [imp.C_BUILTIN, imp.PKG_DIRECTORY]:
+                                self.assertIsNone(file)
+                                self.assertEqual("", suffix)
+                                self.assertEqual("", mode)
                             else:
-                                self.assertEqual("rb", mode)
-                                self.assertIsInstance(data, bytes)
-                            self.assertPredicate(str.endswith, pathname, suffix)
+                                data = file.read()
+                                self.assertEqual(0, len(data))
+                                if actual_type == imp.PY_SOURCE:
+                                    self.assertEqual("r", mode)
+                                    self.assertIsInstance(data, str)
+                                else:
+                                    self.assertEqual("rb", mode)
+                                    self.assertIsInstance(data, bytes)
+                                self.assertPredicate(str.endswith, pathname, suffix)
 
-                        # See comment about torchvision in find_module_override.
-                        if actual_type == imp.C_EXTENSION:
-                            self.assertPredicate(exists, pathname)
+                            # See comment about torchvision in find_module_override.
+                            if actual_type == imp.C_EXTENSION:
+                                self.assertPredicate(exists, pathname)
 
-                        mod = imp.load_module(prefix, file, pathname, description)
-                        self.assertEqual(prefix, mod.__name__)
-                        self.assertEqual(actual_type == imp.PKG_DIRECTORY,
-                                         hasattr(mod, "__path__"))
-                        self.assertIsNotNone(mod.__spec__)
-                        self.assertEqual(mod.__name__, mod.__spec__.name)
+                            mod = imp.load_module(prefix, file, pathname, description)
+                            self.assertEqual(prefix, mod.__name__)
+                            self.assertEqual(actual_type == imp.PKG_DIRECTORY,
+                                             hasattr(mod, "__path__"))
+                            self.assertIsNotNone(mod.__spec__)
+                            self.assertEqual(mod.__name__, mod.__spec__.name)
 
-                        if actual_type == imp.C_BUILTIN:
-                            self.assertIsNone(pathname)
-                        elif actual_type == imp.PKG_DIRECTORY:
-                            self.assertEqual(pathname, dirname(mod.__file__))
-                        else:
-                            self.assertEqual(re.sub(r"\.pyc$", ".py", pathname),
-                                             re.sub(r"\.pyc$", ".py", mod.__file__))
+                            if actual_type == imp.C_BUILTIN:
+                                self.assertIsNone(pathname)
+                            elif actual_type == imp.PKG_DIRECTORY:
+                                self.assertEqual(pathname, dirname(mod.__file__))
+                            else:
+                                self.assertEqual(re.sub(r"\.pyc$", ".py", pathname),
+                                                 re.sub(r"\.pyc$", ".py", mod.__file__))
 
-                        if i < len(words) - 1:
-                            self.assertEqual(imp.PKG_DIRECTORY, actual_type)
-                            prefix += "."
-                            path = mod.__path__
-                        else:
-                            self.assertEqual(expected_type, actual_type)
+                            if i < len(words) - 1:
+                                self.assertEqual(imp.PKG_DIRECTORY, actual_type)
+                                prefix += "."
+                                path = mod.__path__
+                            else:
+                                self.assertEqual(expected_type, actual_type)
 
     # This trick was used by Electron Cash to load modules under a different name. The Electron
     # Cash Android app no longer needs it, but there may be other software which does.
     def test_imp_rename(self):
-        # Clean start to allow test to be run more than once.
-        for name in list(sys.modules):
-            if name.startswith("imp_rename"):
-                del sys.modules[name]
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
 
-        # Renames in stdlib are not currently supported.
-        with self.assertRaisesRegex(ImportError, "ChaquopyZipImporter does not support "
-                                    "loading module 'json' under a different name 'jason'"):
-            imp.load_module("jason", *imp.find_module("json"))
+            # Clean start to allow test to be run more than once.
+            for name in list(sys.modules):
+                if name.startswith("imp_rename"):
+                    del sys.modules[name]
 
-        def check_top_level(real_name, load_name, id):
-            mod_renamed = imp.load_module(load_name, *imp.find_module(real_name))
-            self.assertEqual(load_name, mod_renamed.__name__)
-            self.assertEqual(id, mod_renamed.ID)
-            self.assertIs(mod_renamed, import_module(load_name))
+            # Renames in stdlib are not currently supported.
+            with self.assertRaisesRegex(ImportError, "ChaquopyZipImporter does not support "
+                                        "loading module 'json' under a different name 'jason'"):
+                imp.load_module("jason", *imp.find_module("json"))
 
-            mod_original = import_module(real_name)
-            self.assertEqual(real_name, mod_original.__name__)
-            self.assertIsNot(mod_renamed, mod_original)
-            self.assertEqual(mod_renamed.ID, mod_original.ID)
-            self.assertEqual(mod_renamed.__file__, mod_original.__file__)
+            def check_top_level(real_name, load_name, id):
+                mod_renamed = imp.load_module(load_name, *imp.find_module(real_name))
+                self.assertEqual(load_name, mod_renamed.__name__)
+                self.assertEqual(id, mod_renamed.ID)
+                self.assertIs(mod_renamed, import_module(load_name))
 
-        check_top_level("imp_rename_one", "imp_rename_1", "1")  # Module
-        check_top_level("imp_rename_two", "imp_rename_2", "2")  # Package
+                mod_original = import_module(real_name)
+                self.assertEqual(real_name, mod_original.__name__)
+                self.assertIsNot(mod_renamed, mod_original)
+                self.assertEqual(mod_renamed.ID, mod_original.ID)
+                self.assertEqual(mod_renamed.__file__, mod_original.__file__)
 
-        import imp_rename_two  # Original
-        import imp_rename_2    # Renamed
-        path = [asset_path(APP_ZIP, "imp_rename_two")]
-        self.assertEqual(path, imp_rename_two.__path__)
-        self.assertEqual(path, imp_rename_2.__path__)
+            check_top_level("imp_rename_one", "imp_rename_1", "1")  # Module
+            check_top_level("imp_rename_two", "imp_rename_2", "2")  # Package
 
-        # Non-renamed sub-modules
-        from imp_rename_2 import mod_one, pkg_two
-        for mod, name, id in [(mod_one, "mod_one", "21"), (pkg_two, "pkg_two", "22")]:
-            self.assertFalse(hasattr(imp_rename_two, name), name)
-            mod_attr = getattr(imp_rename_2, name)
-            self.assertIs(mod_attr, mod)
-            self.assertEqual("imp_rename_2." + name, mod.__name__)
-            self.assertEqual(id, mod.ID)
-        self.assertEqual([asset_path(APP_ZIP, "imp_rename_two/pkg_two")], pkg_two.__path__)
+            import imp_rename_two  # Original
+            import imp_rename_2    # Renamed
+            path = [asset_path(APP_ZIP, "imp_rename_two")]
+            self.assertEqual(path, imp_rename_two.__path__)
+            self.assertEqual(path, imp_rename_2.__path__)
 
-        # Renamed sub-modules
-        mod_3 = imp.load_module("imp_rename_2.mod_3",
-                                *imp.find_module("mod_three", imp_rename_two.__path__))
-        self.assertEqual("imp_rename_2.mod_3", mod_3.__name__)
-        self.assertEqual("23", mod_3.ID)
-        self.assertIs(sys.modules["imp_rename_2.mod_3"], mod_3)
+            # Non-renamed sub-modules
+            from imp_rename_2 import mod_one, pkg_two
+            for mod, name, id in [(mod_one, "mod_one", "21"), (pkg_two, "pkg_two", "22")]:
+                self.assertFalse(hasattr(imp_rename_two, name), name)
+                mod_attr = getattr(imp_rename_2, name)
+                self.assertIs(mod_attr, mod)
+                self.assertEqual("imp_rename_2." + name, mod.__name__)
+                self.assertEqual(id, mod.ID)
+            self.assertEqual([asset_path(APP_ZIP, "imp_rename_two/pkg_two")], pkg_two.__path__)
+
+            # Renamed sub-modules
+            mod_3 = imp.load_module("imp_rename_2.mod_3",
+                                    *imp.find_module("mod_three", imp_rename_two.__path__))
+            self.assertEqual("imp_rename_2.mod_3", mod_3.__name__)
+            self.assertEqual("23", mod_3.ID)
+            self.assertIs(sys.modules["imp_rename_2.mod_3"], mod_3)
 
         # The standard load_module implementation doesn't add a sub-module as an attribute of
         # its package. Despite this, it can still be imported under its new name using `from
@@ -722,7 +715,7 @@ class TestAndroidImport(AndroidTestCase):
         self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
-        self.assertEqual(["chaquopy-libcxx (>=7000)"], dist.requires)
+        self.assertEqual(["chaquopy-libcxx (>=10000)"], dist.requires)
 
     @contextmanager
     def assertModifies(self, filename):
@@ -853,8 +846,12 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertTrue(scanner.c_make_scanner)
 
     def test_lib2to3(self):
-        # Requires grammar files to be available in stdlib zip.
-        from lib2to3 import pygram  # noqa: F401
+        with catch_warnings():
+            for category in [DeprecationWarning, PendingDeprecationWarning]:
+                filterwarnings("default", category=category)
+
+            # Requires grammar files to be available in stdlib zip.
+            from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
         import hashlib
@@ -864,13 +861,11 @@ class TestAndroidStdlib(AndroidTestCase):
             ("sha1", "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"),
 
             # OpenSSL and built-in, built-in preferred.
-            ("sha3_512", ("01dedd5de4ef14642445ba5f5b97c15e47b9ad931326e4b0727cd94cefc44fff23f"
-                          "07bf543139939b49128caf436dc1bdee54fcb24023a08d9403f9b4bf0d450")),
             ("blake2b", ("a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f8240"
                          "1cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918")),
 
             # OpenSSL only.
-            ("ripemd160", "37f332f68db77bd9d7edd4969571ad671cf9dd3b"),
+            ("sm3", "5fdfe814b8573ca021983970fc79b2218c9570369b4859684e2e4c3fc76cb8ea"),
         ]
         for name, expected in TESTS:
             with self.subTest(algorithm=name):
@@ -943,8 +938,12 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertTrue(pickle.PickleBuffer)
 
     def test_platform(self):
-        # Requires sys.executable to exist.
         import platform
+
+        python_bits = platform.architecture()[0]
+        self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
+
+        # Requires sys.executable to exist.
         p = platform.platform()
         self.assertRegex(p, r"^Linux")
 
@@ -1003,7 +1002,7 @@ class TestAndroidStdlib(AndroidTestCase):
                 subprocess.run([name])
 
     def test_sys(self):
-        self.assertEqual(ABI_FLAGS, sys.abiflags)
+        self.assertEqual("", sys.abiflags)
         self.assertEqual([""], sys.argv)
         self.assertTrue(exists(sys.executable), sys.executable)
         self.assertEqual("siphash24", sys.hash_info.algorithm)
@@ -1020,13 +1019,16 @@ class TestAndroidStdlib(AndroidTestCase):
 
         self.assertRegex(sys.platform, r"^linux")
         self.assertRegex(sys.version,  # Make sure we don't have any "-dirty" caption.
-                         r"^{}.{}.{} \(default, ".format(*sys.version_info[:3]))
+                         r"^{}.{}.{} \((default|main), ".format(*sys.version_info[:3]))
 
     def test_sysconfig(self):
-        import distutils.sysconfig
         import sysconfig
-        ldlibrary = "libpython{}.{}{}.so".format(*sys.version_info[:2], ABI_FLAGS)
+        ldlibrary = "libpython{}.{}.so".format(*sys.version_info[:2])
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
+
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
+            import distutils.sysconfig
         self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
     def test_tempfile(self):

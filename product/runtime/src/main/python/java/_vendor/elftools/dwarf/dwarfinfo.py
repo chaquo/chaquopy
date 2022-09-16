@@ -19,6 +19,7 @@ from .callframe import CallFrameInfo
 from .locationlists import LocationLists
 from .ranges import RangeLists
 from .aranges import ARanges
+from .namelut import NameLUT
 
 
 # Describes a debug section
@@ -27,12 +28,14 @@ from .aranges import ARanges
 # name: section name in the container file
 # global_offset: the global offset of the section in its container file
 # size: the size of the section's data, in bytes
+# address: the virtual address for the section's data
 #
 # 'name' and 'global_offset' are for descriptional purposes only and
-# aren't strictly required for the DWARF parsing to work.
+# aren't strictly required for the DWARF parsing to work. 'address' is required
+# to properly decode the special '.eh_frame' format.
 #
 DebugSectionDescriptor = namedtuple('DebugSectionDescriptor',
-    'stream name global_offset size')
+    'stream name global_offset size address')
 
 
 # Some configuration parameters for the DWARF reader. This exists to allow
@@ -65,7 +68,9 @@ class DWARFInfo(object):
             debug_str_sec,
             debug_loc_sec,
             debug_ranges_sec,
-            debug_line_sec):
+            debug_line_sec,
+            debug_pubtypes_sec,
+            debug_pubnames_sec):
         """ config:
                 A DwarfConfig object
 
@@ -84,6 +89,8 @@ class DWARFInfo(object):
         self.debug_loc_sec = debug_loc_sec
         self.debug_ranges_sec = debug_ranges_sec
         self.debug_line_sec = debug_line_sec
+        self.debug_pubtypes_sec = debug_pubtypes_sec
+        self.debug_pubnames_sec = debug_pubnames_sec
 
         # This is the DWARFStructs the context uses, so it doesn't depend on
         # DWARF format and address_size (these are determined per CU) - set them
@@ -95,6 +102,15 @@ class DWARFInfo(object):
 
         # Cache for abbrev tables: a dict keyed by offset
         self._abbrevtable_cache = {}
+
+    @property
+    def has_debug_info(self):
+        """ Return whether this contains debug information.
+
+        It can be not the case when the ELF only contains .eh_frame, which is
+        encoded DWARF but not actually for debugging.
+        """
+        return bool(self.debug_info_sec)
 
     def iter_CUs(self):
         """ Yield all the compile units (CompileUnit objects) in the debug info
@@ -154,6 +170,7 @@ class DWARFInfo(object):
         cfi = CallFrameInfo(
             stream=self.debug_frame_sec.stream,
             size=self.debug_frame_sec.size,
+            address=self.debug_frame_sec.address,
             base_structs=self.structs)
         return cfi.get_entries()
 
@@ -168,8 +185,42 @@ class DWARFInfo(object):
         cfi = CallFrameInfo(
             stream=self.eh_frame_sec.stream,
             size=self.eh_frame_sec.size,
-            base_structs=self.structs)
+            address=self.eh_frame_sec.address,
+            base_structs=self.structs,
+            for_eh_frame=True)
         return cfi.get_entries()
+
+    def get_pubtypes(self):
+        """
+        Returns a NameLUT object that contains information read from the
+        .debug_pubtypes section in the ELF file.
+
+        NameLUT is essentially a dictionary containing the CU/DIE offsets of
+        each symbol. See the NameLUT doc string for more details.
+        """
+
+        if self.debug_pubtypes_sec:
+            return NameLUT(self.debug_pubtypes_sec.stream,
+                    self.debug_pubtypes_sec.size,
+                    self.structs)
+        else:
+            return None
+
+    def get_pubnames(self):
+        """
+        Returns a NameLUT object that contains information read from the
+        .debug_pubnames section in the ELF file.
+
+        NameLUT is essentially a dictionary containing the CU/DIE offsets of
+        each symbol. See the NameLUT doc string for more details.
+        """
+
+        if self.debug_pubnames_sec:
+            return NameLUT(self.debug_pubnames_sec.stream,
+                    self.debug_pubnames_sec.size,
+                    self.structs)
+        else:
+            return None
 
     def get_aranges(self):
         """ Get an ARanges object representing the .debug_aranges section of

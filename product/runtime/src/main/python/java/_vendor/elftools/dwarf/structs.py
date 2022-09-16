@@ -10,11 +10,10 @@
 from ..construct import (
     UBInt8, UBInt16, UBInt32, UBInt64, ULInt8, ULInt16, ULInt32, ULInt64,
     SBInt8, SBInt16, SBInt32, SBInt64, SLInt8, SLInt16, SLInt32, SLInt64,
-    Adapter, Struct, ConstructError, If, RepeatUntil, Field, Rename, Enum,
-    Array, PrefixedArray, CString, Embed, StaticField
+    Adapter, Struct, ConstructError, If, Enum, Array, PrefixedArray,
+    CString, Embed, StaticField
     )
-from ..common.construct_utils import RepeatUntilExcluding
-
+from ..common.construct_utils import RepeatUntilExcluding, ULEB128, SLEB128
 from .enums import *
 
 
@@ -33,6 +32,9 @@ class DWARFStructs(object):
                 Data chunks of the common sizes
 
             Dwarf_offset:
+                32-bit or 64-bit word, depending on dwarf_format
+
+            Dwarf_length:
                 32-bit or 64-bit word, depending on dwarf_format
 
             Dwarf_target_addr:
@@ -106,6 +108,7 @@ class DWARFStructs(object):
             self.Dwarf_uint32 = ULInt32
             self.Dwarf_uint64 = ULInt64
             self.Dwarf_offset = ULInt32 if self.dwarf_format == 32 else ULInt64
+            self.Dwarf_length = ULInt32 if self.dwarf_format == 32 else ULInt64
             self.Dwarf_target_addr = (
                 ULInt32 if self.address_size == 4 else ULInt64)
             self.Dwarf_int8 = SLInt8
@@ -118,6 +121,7 @@ class DWARFStructs(object):
             self.Dwarf_uint32 = UBInt32
             self.Dwarf_uint64 = UBInt64
             self.Dwarf_offset = UBInt32 if self.dwarf_format == 32 else UBInt64
+            self.Dwarf_length = UBInt32 if self.dwarf_format == 32 else UBInt64
             self.Dwarf_target_addr = (
                 UBInt32 if self.address_size == 4 else UBInt64)
             self.Dwarf_int8 = SBInt8
@@ -133,13 +137,13 @@ class DWARFStructs(object):
         self._create_lineprog_header()
         self._create_callframe_entry_headers()
         self._create_aranges_header()
+        self._create_nameLUT_header()
 
     def _create_initial_length(self):
         def _InitialLength(name):
             # Adapts a Struct that parses forward a full initial length field.
             # Only if the first word is the continuation value, the second
             # word is parsed from the stream.
-            #
             return _InitialLengthAdapter(
                 Struct(name,
                     self.Dwarf_uint32('first'),
@@ -149,8 +153,8 @@ class DWARFStructs(object):
         self.Dwarf_initial_length = _InitialLength
 
     def _create_leb128(self):
-        self.Dwarf_uleb128 = _ULEB128
-        self.Dwarf_sleb128 = _SLEB128
+        self.Dwarf_uleb128 = ULEB128
+        self.Dwarf_sleb128 = SLEB128
 
     def _create_cu_header(self):
         self.Dwarf_CU_header = Struct('Dwarf_CU_header',
@@ -204,7 +208,7 @@ class DWARFStructs(object):
             DW_FORM_flag_present = StaticField('', 0),
             DW_FORM_sec_offset = self.Dwarf_offset(''),
             DW_FORM_exprloc = self._make_block_struct(self.Dwarf_uleb128),
-            DW_FORM_ref_sig8 = self.Dwarf_offset(''),
+            DW_FORM_ref_sig8 = self.Dwarf_uint64(''),
 
             DW_FORM_GNU_strp_alt=self.Dwarf_offset(''),
             DW_FORM_GNU_ref_alt=self.Dwarf_offset(''),
@@ -218,6 +222,14 @@ class DWARFStructs(object):
             self.Dwarf_offset('debug_info_offset'), # a little tbd
             self.Dwarf_uint8('address_size'),
             self.Dwarf_uint8('segment_size')
+            )
+
+    def _create_nameLUT_header(self):
+        self.Dwarf_nameLUT_header = Struct("Dwarf_nameLUT_header",
+            self.Dwarf_initial_length('unit_length'),
+            self.Dwarf_uint16('version'),
+            self.Dwarf_offset('debug_info_offset'), 
+            self.Dwarf_length('debug_info_length')
             )
 
     def _create_lineprog_header(self):
@@ -236,7 +248,7 @@ class DWARFStructs(object):
             self.Dwarf_uint16('version'),
             self.Dwarf_offset('header_length'),
             self.Dwarf_uint8('minimum_instruction_length'),
-            If(lambda ctx: ctx['version'] >= 4, 
+            If(lambda ctx: ctx['version'] >= 4,
                 self.Dwarf_uint8("maximum_operations_per_instruction"),
                 1),
             self.Dwarf_uint8('default_is_stmt'),
@@ -254,6 +266,16 @@ class DWARFStructs(object):
             )
 
     def _create_callframe_entry_headers(self):
+        self.Dwarf_CIE_header = Struct('Dwarf_CIE_header',
+            self.Dwarf_initial_length('length'),
+            self.Dwarf_offset('CIE_id'),
+            self.Dwarf_uint8('version'),
+            CString('augmentation'),
+            self.Dwarf_uleb128('code_alignment_factor'),
+            self.Dwarf_sleb128('data_alignment_factor'),
+            self.Dwarf_uleb128('return_address_register'))
+        self.EH_CIE_header = self.Dwarf_CIE_header
+
         # The CIE header was modified in DWARFv4.
         if self.dwarf_version == 4:
             self.Dwarf_CIE_header = Struct('Dwarf_CIE_header',
@@ -263,15 +285,6 @@ class DWARFStructs(object):
                 CString('augmentation'),
                 self.Dwarf_uint8('address_size'),
                 self.Dwarf_uint8('segment_size'),
-                self.Dwarf_uleb128('code_alignment_factor'),
-                self.Dwarf_sleb128('data_alignment_factor'),
-                self.Dwarf_uleb128('return_address_register'))
-        else:
-            self.Dwarf_CIE_header = Struct('Dwarf_CIE_header',
-                self.Dwarf_initial_length('length'),
-                self.Dwarf_offset('CIE_id'),
-                self.Dwarf_uint8('version'),
-                CString('augmentation'),
                 self.Dwarf_uleb128('code_alignment_factor'),
                 self.Dwarf_sleb128('data_alignment_factor'),
                 self.Dwarf_uleb128('return_address_register'))
@@ -303,50 +316,3 @@ class _InitialLengthAdapter(Adapter):
             else:
                 raise ConstructError("Failed decoding initial length for %X" % (
                     obj.first))
-
-
-def _LEB128_reader():
-    """ Read LEB128 variable-length data from the stream. The data is terminated
-        by a byte with 0 in its highest bit.
-    """
-    return RepeatUntil(
-                lambda obj, ctx: ord(obj) < 0x80,
-                Field(None, 1))
-
-
-class _ULEB128Adapter(Adapter):
-    """ An adapter for ULEB128, given a sequence of bytes in a sub-construct.
-    """
-    def _decode(self, obj, context):
-        value = 0
-        for b in reversed(obj):
-            value = (value << 7) + (ord(b) & 0x7F)
-        return value
-
-
-class _SLEB128Adapter(Adapter):
-    """ An adapter for SLEB128, given a sequence of bytes in a sub-construct.
-    """
-    def _decode(self, obj, context):
-        value = 0
-        for b in reversed(obj):
-            value = (value << 7) + (ord(b) & 0x7F)
-        if ord(obj[-1]) & 0x40:
-            # negative -> sign extend
-            #
-            value |= - (1 << (7 * len(obj)))
-        return value
-
-
-def _ULEB128(name):
-    """ A construct creator for ULEB128 encoding.
-    """
-    return Rename(name, _ULEB128Adapter(_LEB128_reader()))
-
-
-def _SLEB128(name):
-    """ A construct creator for SLEB128 encoding.
-    """
-    return Rename(name, _SLEB128Adapter(_LEB128_reader()))
-
-

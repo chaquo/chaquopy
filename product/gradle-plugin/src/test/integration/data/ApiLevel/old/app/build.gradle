@@ -5,7 +5,7 @@ android {
     compileSdkVersion 23
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdkVersion 15
+        minSdkVersion 20
         targetSdkVersion 23
         versionCode 1
         versionName "0.0.1"

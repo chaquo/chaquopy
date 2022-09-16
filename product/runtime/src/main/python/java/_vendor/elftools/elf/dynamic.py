@@ -8,10 +8,14 @@
 #-------------------------------------------------------------------------------
 import itertools
 
+from collections import defaultdict
+from .hash import HashSection, GNUHashSection
 from .sections import Section, Symbol
+from .enums import ENUM_D_TAG
 from .segments import Segment
+from .relocation import RelocationTable
 from ..common.exceptions import ELFError
-from ..common.utils import struct_parse, parse_cstring_from_stream
+from ..common.utils import elf_assert, struct_parse, parse_cstring_from_stream
 
 
 class _DynamicStringTable(object):
@@ -25,8 +29,8 @@ class _DynamicStringTable(object):
     def get_string(self, offset):
         """ Get the string stored at the given offset in this string table.
         """
-        return parse_cstring_from_stream(self._stream,
-                                         self._table_offset + offset)
+        s = parse_cstring_from_stream(self._stream, self._table_offset + offset)
+        return s.decode('utf-8') if s else ''
 
 
 class DynamicTag(object):
@@ -70,12 +74,12 @@ class Dynamic(object):
     """ Shared functionality between dynamic sections and segments.
     """
     def __init__(self, stream, elffile, stringtable, position):
+        self.elffile = elffile
+        self.elfstructs = elffile.structs
         self._stream = stream
-        self._elffile = elffile
-        self._elfstructs = elffile.structs
         self._num_tags = -1
         self._offset = position
-        self._tagsize = self._elfstructs.Elf_Dyn.sizeof()
+        self._tagsize = self.elfstructs.Elf_Dyn.sizeof()
 
         # Do not access this directly yourself; use _get_stringtable() instead.
         self._stringtable = stringtable
@@ -92,7 +96,7 @@ class Dynamic(object):
         # by using the program headers.
         offset = None
         if ptr:
-            offset = next(self._elffile.address_offsets(ptr), None)
+            offset = next(self.elffile.address_offsets(ptr), None)
 
         return ptr, offset
 
@@ -115,7 +119,7 @@ class Dynamic(object):
 
         # That didn't work for some reason.  Let's use the section header
         # even though this ELF is super weird.
-        self._stringtable = self._elffile.get_section_by_name('.dynstr')
+        self._stringtable = self.elffile.get_section_by_name('.dynstr')
         return self._stringtable
 
     def _iter_tags(self, type=None):
@@ -139,7 +143,7 @@ class Dynamic(object):
         """
         offset = self._offset + n * self._tagsize
         return struct_parse(
-            self._elfstructs.Elf_Dyn,
+            self.elfstructs.Elf_Dyn,
             self._stream,
             stream_pos=offset)
 
@@ -160,14 +164,50 @@ class Dynamic(object):
                 self._num_tags = n + 1
                 return self._num_tags
 
+    def get_relocation_tables(self):
+        """ Load all available relocation tables from DYNAMIC tags.
+
+            Returns a dictionary mapping found table types (REL, RELA,
+            JMPREL) to RelocationTable objects.
+        """
+
+        result = {}
+
+        if list(self.iter_tags('DT_REL')):
+            result['REL'] = RelocationTable(self.elffile,
+                self.get_table_offset('DT_REL')[1],
+                next(self.iter_tags('DT_RELSZ'))['d_val'], False)
+
+            relentsz = next(self.iter_tags('DT_RELENT'))['d_val']
+            elf_assert(result['REL'].entry_size == relentsz,
+                'Expected DT_RELENT to be %s' % relentsz)
+
+        if list(self.iter_tags('DT_RELA')):
+            result['RELA'] = RelocationTable(self.elffile,
+                self.get_table_offset('DT_RELA')[1],
+                next(self.iter_tags('DT_RELASZ'))['d_val'], True)
+
+            relentsz = next(self.iter_tags('DT_RELAENT'))['d_val']
+            elf_assert(result['RELA'].entry_size == relentsz,
+                'Expected DT_RELAENT to be %s' % relentsz)
+
+        if list(self.iter_tags('DT_JMPREL')):
+            result['JMPREL'] = RelocationTable(self.elffile,
+                self.get_table_offset('DT_JMPREL')[1],
+                next(self.iter_tags('DT_PLTRELSZ'))['d_val'],
+                next(self.iter_tags('DT_PLTREL'))['d_val'] == ENUM_D_TAG['DT_RELA'])
+
+        return result
+
 
 class DynamicSection(Section, Dynamic):
     """ ELF dynamic table section.  Knows how to process the list of tags.
     """
-    def __init__(self, header, name, stream, elffile):
-        Section.__init__(self, header, name, stream)
+    def __init__(self, header, name, elffile):
+        Section.__init__(self, header, name, elffile)
         stringtable = elffile.get_section(header['sh_link'])
-        Dynamic.__init__(self, stream, elffile, stringtable, self['sh_offset'])
+        Dynamic.__init__(self, self.stream, self.elffile, stringtable,
+            self['sh_offset'])
 
 
 class DynamicSegment(Segment, Dynamic):
@@ -188,6 +228,36 @@ class DynamicSegment(Segment, Dynamic):
                 break
         Segment.__init__(self, header, stream)
         Dynamic.__init__(self, stream, elffile, stringtable, self['p_offset'])
+        self._symbol_list = None
+        self._symbol_name_map = None
+
+    def num_symbols(self):
+        """ Number of symbols in the table recovered from DT_SYMTAB
+        """
+        if self._symbol_list is None:
+            self._symbol_list = list(self.iter_symbols())
+        return len(self._symbol_list)
+
+    def get_symbol(self, index):
+        """ Get the symbol at index #index from the table (Symbol object)
+        """
+        if self._symbol_list is None:
+            self._symbol_list = list(self.iter_symbols())
+        return self._symbol_list[index]
+
+    def get_symbol_by_name(self, name):
+        """ Get a symbol(s) by name. Return None if no symbol by the given name
+            exists.
+        """
+        # The first time this method is called, construct a name to number
+        # mapping
+        #
+        if self._symbol_name_map is None:
+            self._symbol_name_map = defaultdict(list)
+            for i, sym in enumerate(self.iter_symbols()):
+                self._symbol_name_map[sym.name].append(i)
+        symnums = self._symbol_name_map.get(name)
+        return [self.get_symbol(i) for i in symnums] if symnums else None
 
     def iter_symbols(self):
         """ Yield all symbols in this dynamic segment. The symbols are usually
@@ -199,36 +269,59 @@ class DynamicSegment(Segment, Dynamic):
         if tab_ptr is None or tab_offset is None:
             raise ELFError('Segment does not contain DT_SYMTAB.')
 
-        symbol_size = self._elfstructs.Elf_Sym.sizeof()
+        symbol_size = self.elfstructs.Elf_Sym.sizeof()
 
-        # Find closest higher pointer than tab_ptr. We'll use that to mark the
-        # end of the symbol table.
-        nearest_ptr = None
-        for tag in self.iter_tags():
-            tag_ptr = tag['d_ptr']
-            if tag['d_tag'] == 'DT_SYMENT':
-                if symbol_size != tag['d_val']:
-                    # DT_SYMENT is the size of one symbol entry. It must be the
-                    # same as returned by Elf_Sym.sizeof.
-                    raise ELFError('DT_SYMENT (%d) != Elf_Sym (%d).' %
-                                   (tag['d_val'], symbol_size))
-            if (tag_ptr > tab_ptr and
-                    (nearest_ptr is None or nearest_ptr > tag_ptr)):
-                nearest_ptr = tag_ptr
+        end_ptr = None
 
-        if nearest_ptr is None:
-            # Use the end of segment that contains DT_SYMTAB.
-            for segment in self._elffile.iter_segments():
-                if (segment['p_vaddr'] <= tab_ptr and
-                        tab_ptr <= (segment['p_vaddr'] + segment['p_filesz'])):
-                    nearest_ptr = segment['p_vaddr'] + segment['p_filesz']
+        # Check if a DT_GNU_HASH tag exists and recover the number of symbols
+        # from the corresponding section
+        _, gnu_hash_offset = self.get_table_offset('DT_GNU_HASH')
+        if gnu_hash_offset is not None:
+            hash_section = GNUHashSection(self.stream, gnu_hash_offset,
+                                          self.elffile)
+            end_ptr = tab_ptr + \
+                hash_section.get_number_of_symbols() * symbol_size
 
-        if nearest_ptr is None:
+        # If DT_GNU_HASH did not exist, maybe we can use DT_HASH
+        if end_ptr is None:
+            _, hash_offset = self.get_table_offset('DT_HASH')
+            if hash_offset is not None:
+                hash_section = HashSection(self.stream, hash_offset,
+                                           self.elffile)
+                end_ptr = tab_ptr + \
+                    hash_section.get_number_of_symbols() * symbol_size
+
+        if end_ptr is None:
+            # Find closest higher pointer than tab_ptr. We'll use that to mark
+            # the end of the symbol table.
+            nearest_ptr = None
+            for tag in self.iter_tags():
+                tag_ptr = tag['d_ptr']
+                if tag['d_tag'] == 'DT_SYMENT':
+                    if symbol_size != tag['d_val']:
+                        # DT_SYMENT is the size of one symbol entry. It must be
+                        # the same as returned by Elf_Sym.sizeof.
+                        raise ELFError('DT_SYMENT (%d) != Elf_Sym (%d).' %
+                                    (tag['d_val'], symbol_size))
+                if (tag_ptr > tab_ptr and
+                        (nearest_ptr is None or nearest_ptr > tag_ptr)):
+                    nearest_ptr = tag_ptr
+
+            if nearest_ptr is None:
+                # Use the end of segment that contains DT_SYMTAB.
+                for segment in self.elffile.iter_segments():
+                    if (segment['p_vaddr'] <= tab_ptr and
+                            tab_ptr <= (segment['p_vaddr'] + segment['p_filesz'])):
+                        nearest_ptr = segment['p_vaddr'] + segment['p_filesz']
+
+            end_ptr = nearest_ptr
+
+        if end_ptr is None:
             raise ELFError('Cannot determine the end of DT_SYMTAB.')
 
         string_table = self._get_stringtable()
-        for i in range((nearest_ptr - tab_ptr) // symbol_size):
-            symbol = struct_parse(self._elfstructs.Elf_Sym, self._stream,
+        for i in range((end_ptr - tab_ptr) // symbol_size):
+            symbol = struct_parse(self.elfstructs.Elf_Sym, self._stream,
                                   i * symbol_size + tab_offset)
             symbol_name = string_table.get_string(symbol['st_name'])
             yield Symbol(symbol, symbol_name)

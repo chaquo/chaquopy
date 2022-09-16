@@ -63,6 +63,11 @@ public class AndroidPlatform extends Python.Platform {
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
         am = mContext.getAssets();
 
+        // TODO: this complexity is unnecessary if the only ABI we can actually use is
+        // Build.CPU_ABI, which is the ABI of the current process
+        // (https://stackoverflow.com/a/53158339). Verify this is true across all API
+        // levels, and then replace all references to AndroidPlatform.ABI with
+        // Build.CPU_ABI.
         List<String> supportedAbis = new ArrayList<>();  // In order of preference.
         if (Build.VERSION.SDK_INT >= 21) {
             Collections.addAll(supportedAbis, Build.SUPPORTED_ABIS);
@@ -250,7 +255,7 @@ public class AndroidPlatform extends Python.Platform {
         return out.toString();
     }
 
-    private void loadNativeLibs() {
+    private void loadNativeLibs() throws JSONException {
         // Libraries must be loaded in dependency order before API level 18 (#5323). However,
         // even if our minimum API level increases to 18 or higher in the future, we should
         // still keep pre-loading the OpenSSL and SQLite libraries, because we can't guarantee
@@ -258,7 +263,7 @@ public class AndroidPlatform extends Python.Platform {
         System.loadLibrary("crypto_chaquopy");
         System.loadLibrary("ssl_chaquopy");
         System.loadLibrary("sqlite3_chaquopy");
-        System.loadLibrary("python" + Common.PYTHON_SUFFIX);
+        System.loadLibrary("python" + buildJson.getString("python_version"));
         System.loadLibrary("chaquopy_java");
     }
 

@@ -21,9 +21,10 @@ fi
 # Some internal libraries can't be built with this flag.
 LDFLAGS=$(echo $LDFLAGS | sed 's/-Wl,--no-undefined//')
 
-./configure --host=$HOST_TRIPLET --prefix=$PREFIX
+./configure --host=$CHAQUOPY_TRIPLET --prefix=$PREFIX
 make -j $CPU_COUNT
 make install
 
 rm -r $PREFIX/{bin,share}
-rm $PREFIX/lib/{*.a,*.la}
+# rm $PREFIX/lib/{*.a,*.la}
+rm $PREFIX/lib/*.la

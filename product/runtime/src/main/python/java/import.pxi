@@ -80,6 +80,7 @@ def clean_exception(e):
 
 
 def in_import_system(filename):
+    filename = filename.replace("\\", "/")  # For .pyc files compiled on Windows.
     return (filename in ["import.pxi", "stdlib/zipfile.py"] or
             filename.startswith("<frozen importlib") or
             filename.endswith("/java/android/importer.py"))

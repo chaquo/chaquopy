@@ -8,7 +8,7 @@ diff -ur src-original/_setuplibev.py src/_setuplibev.py
 +
 +# Chaquopy: added --host.
 +import os
-+host_triplet = os.environ["HOST_TRIPLET"]
++host_triplet = os.environ["CHAQUOPY_TRIPLET"]
 +
  libev_configure_command = ' '.join([
      "(cd ", quoted_dep_abspath('libev'),

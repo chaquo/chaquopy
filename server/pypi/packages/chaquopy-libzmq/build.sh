@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-./configure --host=$HOST_TRIPLET
+./configure --host=$CHAQUOPY_TRIPLET
 make -j $CPU_COUNT
 make install prefix=$PREFIX
 

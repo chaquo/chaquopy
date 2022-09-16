@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-#
-# We require the build and target Python versions to be the same, because many setup.py scripts
-# are affected by sys.version.
 
 from abc import abstractmethod
 import argparse
@@ -32,9 +29,6 @@ PROGRAM_NAME = basename(__file__)
 PYPI_DIR = abspath(dirname(__file__))
 RECIPES_DIR = f"{PYPI_DIR}/packages"
 
-PYTHON_VERSION = ".".join(sys.version.split('.')[:2])  # Should be the same as the #! line above.
-PYTHON_SUFFIX = PYTHON_VERSION  # May contain flags from PEP 3149.
-
 # Libraries are grouped by minimum API level and listed under their SONAMEs.
 STANDARD_LIBS = [
     # Android native APIs (https://developer.android.com/ndk/guides/stable_apis)
@@ -44,8 +38,7 @@ STANDARD_LIBS = [
     (21, ["libmediandk.so"]),
 
     # Chaquopy-provided libraries
-    (0, ["libcrypto_chaquopy.so", f"libpython{PYTHON_SUFFIX}.so", "libsqlite3_chaquopy.so",
-         "libssl_chaquopy.so"]),
+    (0, ["libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so"]),
 ]
 
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
@@ -87,29 +80,29 @@ ABIS = {
     },
     'iOS': {
         'iphoneos': {
-            'arm64': Abi("iphoneos_arm64", "aarch64-apple-darwin", sdk="iphoneos", slice="ios-arm64"),
+            'arm64': Abi("iphoneos_arm64", "aarch64-apple-ios", sdk="iphoneos", slice="ios-arm64"),
         },
         'iphonesimulator': {
-            'arm64': Abi("iphonesimulator_arm64", "aarch64-apple-darwin", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator"),
-            'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-darwin", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator")
+            'arm64': Abi("iphonesimulator_arm64", "aarch64-apple-ios-simulator", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator"),
+            'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-ios-simulator", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator")
         }
     },
     'tvOS': {
         'appletvos': {
-            'arm64': Abi("appletvos_arm64", "aarch64-apple-darwin", sdk="appletvos", slice="tvos-arm64"),
+            'arm64': Abi("appletvos_arm64", "aarch64-apple-tvos", sdk="appletvos", slice="tvos-arm64"),
         },
         'appletvsimulator': {
-            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-darwin", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator"),
-            'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-darwin", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator")
+            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-tvos-simulator", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator"),
+            'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-tvos-simulator", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator")
         }
     },
     'watchOS': {
         'watchos': {
-            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-darwin", sdk="watchos", slice="watchos-arm64_32"),
+            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-watchos", sdk="watchos", slice="watchos-arm64_32"),
         },
         'watchsimulator': {
-            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-darwin", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator"),
-            'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-darwin", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator")
+            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-watchos-simulator", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator"),
+            'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-watchos-simulator", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator")
         }
     }
 }
@@ -178,10 +171,11 @@ class Package:
 
 
 class BaseWheelBuilder:
-    def __init__(self, package, toolchain, abi, api_level, standard_libs, verbose, no_unpack, no_build, no_reqs):
+    def __init__(self, package, toolchain, python_version, abi, api_level, standard_libs, verbose, no_unpack, no_build, no_reqs):
         # Properties describing the package that will be built
         self.package = package
         self.toolchain = toolchain
+        self.python_version = python_version
         self.abi = abi
         self.api_level = api_level
         self.standard_libs = standard_libs
@@ -194,22 +188,29 @@ class BaseWheelBuilder:
 
         # Properties that should be overwritten by subclasses
         self.os = "UNKNOWN"
+    @property
+    def python_version_tag(self):
+        return self.python_version.replace('.', '')
 
     @property
     def platform_tag(self):
         return f"{self.os.lower()}_{self.api_level.replace('.','_')}_{self.abi.name}"
 
+    @property
+    def non_python_compat_tag(self):
+        return f"py3-none-{self.platform_tag}"
+
     def build(self):
         if self.package.needs_python:
             self.find_python()
-            self.pip = f"python{PYTHON_VERSION} -m pip --disable-pip-version-check"
+            self.pip = f"python{self.python_version} -m pip --disable-pip-version-check"
             self.compat_tag = (
-                f"cp{PYTHON_VERSION.replace('.', '')}-"
-                f"cp{PYTHON_SUFFIX.replace('.', '')}-"
+                f"cp{self.python_version_tag}-"
+                f"cp{self.python_version_tag}-"
                 f"{self.platform_tag}"
             )
         else:
-            self.compat_tag = f"py{PYTHON_VERSION[0]}-none-{self.platform_tag}"
+            self.compat_tag = self.non_python_compat_tag
 
         build_reqs = self.get_requirements("build")
         if build_reqs:
@@ -243,9 +244,22 @@ class BaseWheelBuilder:
             self.reset_env()
             return wheel_filename
 
-    @abstractmethod
     def find_python(self):
-        ...
+        if self.python_version is None:
+            raise CommandError("This package requires Python: specify a version number "
+                               "with the --python argument")
+
+        # Check version number format.
+        ERROR = CommandError("--python version must be in the form X.Y, where X and Y "
+                             "are both numbers")
+        components = self.python_version.split(".")
+        if len(components) != 2:
+            raise ERROR
+        for c in components:
+            try:
+                int(c)
+            except ValueError:
+                raise ERROR
 
     def unpack_source(self):
         source = self.package.meta["source"]
@@ -378,7 +392,7 @@ class BaseWheelBuilder:
                     match = re.search(fr"^{normalize_name_wheel(package)}-"
                                       fr"{normalize_version(version)}-(?P<build_num>\d+)-"
                                       fr"({self.compat_tag}|"
-                                      fr"py{PYTHON_VERSION[0]}-none-{self.platform_tag})"
+                                      fr"{self.non_python_compat_tag})"
                                       fr"\.whl$", filename)
                     if match:
                         matches.append(match)
@@ -461,7 +475,6 @@ class BaseWheelBuilder:
 
         env.update({  # Conda variable names, except those starting with CHAQUOPY.
             "CHAQUOPY_ABI": self.abi.name,
-            "CHAQUOPY_PYTHON": PYTHON_VERSION,
             "CHAQUOPY_TRIPLET": self.abi.tool_prefix,
             "CPU_COUNT": str(multiprocessing.cpu_count()),
             "PKG_BUILDNUM": str(self.package.meta["build"]["number"]),
@@ -670,10 +683,14 @@ class AndroidWheelBuilder(BaseWheelBuilder):
         return abi, api_level, standard_libs
 
     def find_python(self):
-        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{PYTHON_SUFFIX}"
+        super().find_python()
+
+        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{self.python_version}"
         assert_isdir(self.python_include_dir)
-        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/libpython{PYTHON_SUFFIX}.so"
+        libpython = f"libpython{self.python_version}.so"
+        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/{libpython}"
         assert_exists(self.python_lib)
+        self.standard_libs.append(libpython)
 
     def platform_update_env(self, env):
         for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
@@ -745,8 +762,9 @@ class AndroidWheelBuilder(BaseWheelBuilder):
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
         if self.package.needs_python:
+            env["CHAQUOPY_PYTHON"] = self.python_version
             env["CFLAGS"] = f" -idirafter {self.python_include_dir}"
-            env["LDFLAGS"] = f" -lpython{PYTHON_SUFFIX}"
+            env["LDFLAGS"] = f" -lpython{self.python}"
 
     def process_native_binaries(self, tmp_dir, info_dir):
         SO_PATTERN = r"\.so(\.|$)"
@@ -806,9 +824,11 @@ class AppleWheelBuilder(BaseWheelBuilder):
         self.os = os
 
     def find_python(self):
+        super().find_python()
+
         self.python_include_dir = f"{self.toolchain}/Python.xcframework/{self.abi.slice}/Headers"
         assert_isdir(self.python_include_dir)
-        self.python_lib = f"{self.toolchain}/Python.xcframework/{self.abi.slice}/libpython{PYTHON_SUFFIX}.a"
+        self.python_lib = f"{self.toolchain}/Python.xcframework/{self.abi.slice}/libpython{self.python_version}.a"
         assert_exists(self.python_lib)
 
     def platform_update_env(self, env):
@@ -864,8 +884,6 @@ class AppleWheelBuilder(BaseWheelBuilder):
                     clean_parts.append(part)
             env[var] = ' '.join(clean_parts)
 
-        env["HOST_TRIPLET"] = config_locals["build_time_vars"]["HOST_GNU_TYPE"]
-
         reqs_prefix = f"{self.reqs_dir}/opt"
         if exists(reqs_prefix):
             env["CFLAGS"] += f" -I{reqs_prefix}/include"
@@ -874,6 +892,7 @@ class AppleWheelBuilder(BaseWheelBuilder):
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
         if self.package.needs_python:
+            env["CHAQUOPY_PYTHON"] = self.python_version
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
 
     def process_native_binaries(self, tmp_dir, info_dir):
@@ -893,16 +912,16 @@ class AppleWheelBuilder(BaseWheelBuilder):
         raise CommandError("Couldn't read minimum API level from Apple support package")
 
     @classmethod
-    def merge_wheels(cls, package, wheels, os, api_level):
+    def merge_wheels(cls, package, wheels, python_version, os, api_level):
         # Build a single platform compatibility tag
         if package.needs_python:
             compat_tag = (
-                f"cp{PYTHON_VERSION.replace('.', '')}-"
-                f"cp{PYTHON_SUFFIX.replace('.', '')}-"
+                f"cp{python_version.replace('.', '')}-"
+                f"cp{python_version.replace('.', '')}-"
                 f"{os.lower()}_{api_level.replace('.', '_')}"
             )
         else:
-            compat_tag = f"py{PYTHON_VERSION[0]}-none-{os.lower()}_{api_level.replace('.', '_')}"
+            compat_tag = f"py{python_version[0]}-none-{os.lower()}_{api_level.replace('.', '_')}"
 
         merge_dir = f"{package.version_dir}/{compat_tag}"
         for sdk, architectures in wheels.items():
@@ -1077,6 +1096,8 @@ def main():
                     "(any existing build/.../requirements directory will be reused)")
     ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                     help="Path to toolchain")
+    ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
+                    "Python packages)"),
     ap.add_argument("os", help="OS to build")
     ap.add_argument("package_name_or_recipe", help=f"Name of a package in {RECIPES_DIR}, or if it "
                     f"contains a slash, path to a recipe directory")
@@ -1087,6 +1108,7 @@ def main():
     os = kwargs.pop("os")
     package_name_or_recipe = kwargs.pop("package_name_or_recipe")
     toolchain = kwargs.pop("toolchain")
+    python_version = kwargs.pop("python")
     package = Package(package_name_or_recipe)
 
     if os == "android":
@@ -1094,6 +1116,7 @@ def main():
         builder = AndroidWheelBuilder(
             package,
             toolchain=toolchain,
+            python_version=python_version,
             abi=abi,
             api_level=api_level,
             standard_libs=standard_libs,
@@ -1112,6 +1135,7 @@ def main():
                     os,
                     package,
                     toolchain=toolchain,
+                    python_version=python_version,
                     abi=abi,
                     api_level=api_level,
                     standard_libs=[],
@@ -1122,7 +1146,13 @@ def main():
                     wheels[sdk][architcture] = wheel
 
         # Merge the wheels into a single OS wheel.
-        AppleWheelBuilder.merge_wheels(package, wheels, os=os, api_level=api_level)
+        AppleWheelBuilder.merge_wheels(
+            package,
+            wheels,
+            python_version=python_version,
+            os=os,
+            api_level=api_level,
+        )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,13 @@
 #!/bin/bash
 set -eu
 
+# WARNING: this script was last tested in January 2020, to build this commit:
+# https://android.googlesource.com/toolchain/gcc/+/f236b449daeff96112b586ed4f06980e88012d39
+# It has not been updated for the current layout of the `target` directory.
+
+# This script builds the Fortran compiler, which is required for building SciPy and
+# OpenBLAS.
+#
 # The stock GCC has Android support for ARM, but only Google's fork extends that to ARM64. So
 # we're building the Google fork of GCC 4.9, which was the last version to be included in the
 # NDK before they switched over to Clang. We install it into the toolchain in such a way that
@@ -16,8 +23,11 @@ toolchain=$(realpath ${1:?})
 cd $target_dir
 . build-common.sh
 
-src_dir=$(realpath gcc/gcc-4.9)
-build_dir=$(realpath gcc/build)
+src_dir=$target_dir/gcc/gcc-4.9)
+cd $src_dir
+contrib/download_prerequisites
+
+build_dir=$target_dir/gcc/build
 rm -rf $build_dir
 mkdir -p $build_dir
 cd $build_dir

@@ -14,7 +14,7 @@ if [ "$CHAQUOPY_ABI" = "armeabi-v7a" ]; then
     config_args+=" --disable-inline"
 fi
 
-./configure --host=$HOST_TRIPLET --prefix=$PREFIX $config_args
+./configure --host=$CHAQUOPY_TRIPLET --prefix=$PREFIX $config_args
 make -j $CPU_COUNT
 make install
 
