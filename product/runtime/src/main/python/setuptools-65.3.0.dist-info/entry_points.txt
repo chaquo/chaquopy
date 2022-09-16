@@ -2,12 +2,14 @@
 alias = setuptools.command.alias:alias
 bdist_egg = setuptools.command.bdist_egg:bdist_egg
 bdist_rpm = setuptools.command.bdist_rpm:bdist_rpm
+build = setuptools.command.build:build
 build_clib = setuptools.command.build_clib:build_clib
 build_ext = setuptools.command.build_ext:build_ext
 build_py = setuptools.command.build_py:build_py
 develop = setuptools.command.develop:develop
 dist_info = setuptools.command.dist_info:dist_info
 easy_install = setuptools.command.easy_install:easy_install
+editable_wheel = setuptools.command.editable_wheel:editable_wheel
 egg_info = setuptools.command.egg_info:egg_info
 install = setuptools.command.install:install
 install_egg_info = setuptools.command.install_egg_info:install_egg_info
@@ -21,7 +23,6 @@ test = setuptools.command.test:test
 upload_docs = setuptools.command.upload_docs:upload_docs
 
 [distutils.setup_keywords]
-convert_2to3_doctests = setuptools.dist:assert_string_list
 dependency_links = setuptools.dist:assert_string_list
 eager_resources = setuptools.dist:assert_string_list
 entry_points = setuptools.dist:check_entry_points
@@ -38,9 +39,7 @@ test_loader = setuptools.dist:check_importable
 test_runner = setuptools.dist:check_importable
 test_suite = setuptools.dist:check_test_suite
 tests_require = setuptools.dist:check_requirements
-use_2to3 = setuptools.dist:assert_bool
-use_2to3_exclude_fixers = setuptools.dist:assert_string_list
-use_2to3_fixers = setuptools.dist:assert_string_list
+use_2to3 = setuptools.dist:invalid_unless_false
 zip_safe = setuptools.dist:assert_bool
 
 [egg_info.writers]
@@ -54,7 +53,5 @@ requires.txt = setuptools.command.egg_info:write_requirements
 top_level.txt = setuptools.command.egg_info:write_toplevel_names
 
 [setuptools.finalize_distribution_options]
-2to3_doctests = setuptools.dist:Distribution._finalize_2to3_doctests
 keywords = setuptools.dist:Distribution._finalize_setup_keywords
 parent_finalize = setuptools.dist:_Distribution.finalize_options
-
