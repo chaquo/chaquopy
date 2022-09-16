@@ -1,0 +1,14 @@
+--- Python-3.11.0rc1-original/setup.py	2022-08-05 14:45:18.000000000 +0000
++++ Python-3.11.0rc1/setup.py	2022-09-15 18:11:38.898125188 +0000
+@@ -166,6 +166,11 @@
+     for var_name in make_vars:
+         var = sysconfig.get_config_var(var_name)
+         if var is not None:
++            # Chaquopy: also detect -L and -I.
++            for path in re.findall(r'-[LI]\s*(\S+)', var):
++                if os.path.isdir(path):
++                    dirs.append(path)
++
+             m = re.search(r'--sysroot=([^"]\S*|"[^"]+")', var)
+             if m is not None:
+                 sysroot = m.group(1).strip('"')

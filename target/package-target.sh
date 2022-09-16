@@ -7,7 +7,7 @@ shopt -s inherit_errexit
 #  * Maven directory to pack into, e.g. /path/to/com/chaquo/python/target/3.10.6-3. Must
 #    not already exist.
 
-target_dir=$(dirname $(realpath $0))
+this_dir=$(dirname $(realpath $0))
 prefix_dir=$(realpath ${1:?})
 target_dir=$(realpath -m ${2:?})
 
@@ -71,7 +71,7 @@ mkdir "$tmp_dir"
 cd "$tmp_dir"
 
 for prefix in $prefix_dir/*; do
-    . "$target_dir/build-common.sh"
+    . "$this_dir/build-common.sh"
     echo "$abi"
     mkdir "$abi"
     cd "$abi"
