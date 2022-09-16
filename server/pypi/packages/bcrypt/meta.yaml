@@ -4,3 +4,7 @@ package:
 
 build:
   number: 2
+
+requirements:
+  build:
+    - cffi 1.15.1

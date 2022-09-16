@@ -4,4 +4,4 @@ package:
 
 requirements:
   build:
-    - cffi 1.13.2
+    - cffi 1.15.1

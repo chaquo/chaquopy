@@ -7,4 +7,4 @@ build:
 
 requirements:
   host:
-    - chaquopy-libffi 3.3
+    - libffi 3.4.2

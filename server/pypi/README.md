@@ -99,11 +99,18 @@ contents of libjpeg, libpng and libfreetype into the .so files contained in the
 `.whl` file. The wheel will not contain `.so` files for any dependencies, nor
 will you need to install any extra dependencies.
 
-If a wheel has a dependency on a binary library (like `libpng`), there will be a
-`chaquopy-` prefixed recipe for the library. This recipe will produce a wheel -
-however, this is a "build-time" wheel; it will only contain the `.a` library,
-which can be used to link into the projects that use it. There is no need to
-distribut the `chaquopy-*` wheels.
+If a wheel has a dependency on a binary library that the Apple Support project
+builds (BZip2, XZ, OpenSSL or libFFI), you should clone the Apple Support repository
+and run `make wheels` in that repository. Once that build completes, copy the
+contents of the `wheels/dist` directory into the `server/pypi/dist` folder in
+this reposistory. You can then reference those wheels as a host dependency for
+your new library/
+
+If a wheel has a dependency on any other binary library (like `libpng`), there
+will be a `chaquopy-` prefixed recipe for the library. This recipe will produce
+a wheel - however, this is a "build-time" wheel; it will only contain the `.a`
+library, which can be used to link into the projects that use it. There is no
+need to distribute the `chaquopy-*` wheels.
 
 ### Configure-based projects
 
@@ -127,6 +134,6 @@ you will need.
 At this time, there are also problems building recipes that:
 
 * Use Cmake in the build process
-* Use rust in the build process
+* Use Rust in the build process
 * Have a dependency on libfortran or a Fortran compiler
 * Have a vendored version of distutils

@@ -1,0 +1,21 @@
+diff -ru cryptography-3.4.8-orig/src/_cffi_src/openssl/src/osrandom_engine.h cryptography-3.4.8/src/_cffi_src/openssl/src/osrandom_engine.h
+--- cryptography-3.4.8-orig/src/_cffi_src/openssl/src/osrandom_engine.h	2021-08-25 01:02:37.000000000 +0800
++++ cryptography-3.4.8/src/_cffi_src/openssl/src/osrandom_engine.h	2022-09-16 11:12:59.000000000 +0800
+@@ -16,10 +16,13 @@
+   #endif
+ 
+   #ifdef __APPLE__
+-    #include <sys/random.h>
+-    /* To support weak linking we need to declare this as a weak import even if
+-     * it's not present in sys/random (e.g. macOS < 10.12). */
+-    extern int getentropy(void *buffer, size_t size) __attribute((weak_import));
++    #include "TargetConditionals.h"
++    #if TARGET_OS_OSX
++      #include <sys/random.h>
++      /* To support weak linking we need to declare this as a weak import even if
++      * it's not present in sys/random (e.g. macOS < 10.12). */
++      extern int getentropy(void *buffer, size_t size) __attribute((weak_import));
++    #endif
+   #endif
+ 
+   #ifdef __linux__

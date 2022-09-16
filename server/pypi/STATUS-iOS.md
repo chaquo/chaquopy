@@ -5,11 +5,15 @@ chaquopy-freetype
 chaquopy-libjpeg
 chaquopy-libpng
 chaquopy-libxml2
+cffi
 numpy
 aiohttp
+argon2-cffi
+bcrypt
 backports-zoneinfo
 bitarray
 brotli
+cryptography
 cymem
 cytoolz
 editdistance
@@ -25,6 +29,7 @@ netifaces
 pillow
 preshed
 pycrypto
+pynacl
 pysha3
 pywavelets
 regex
@@ -37,15 +42,12 @@ typed-ast
 ujson
 wordcloud
 yarl
+zstandard
 
 ## Known problems
 
-argon2-cffi - needs ffi
-bcrypt - needs ffi
 blis - no idea...
-cffi - needs chaquopy-libffi (ffi?)
 coincurve needs chaquopy-secp256k1
-cryptography needs cffi (plus setuptools-rust, openssl)
 cvxopt - needs chaquopy-openblas
 dlib - needs chaquopy-openblas
 gensim - numpy buildsystem problem
@@ -62,11 +64,10 @@ opencv-python
 opencv-python-headless
 pandas - needs numpy; fails trying to import numpy during setup
 psutil - doesn't make any sense on iOS?
-pycares - needs cffi
+pycares - missing ares_config.h?
 pycryptodome - possible configuration problem; binary artefacts aren't consistent between platforms
 pycryptodomex - possible configuration problem; binary artefacts aren't consistent between platforms
 pycurl - needs chaquopy-curl
-pynacl - needs cffi
 python-example - cmake failure
 pyzbar - needs chaquopy-zbar
 pyzmq - needs chaquopy-libzmq
@@ -88,7 +89,6 @@ tokenizers - needs rust?
 torch - needs numpy, chaquopy-libfortran, chaquopy-openblas
 torchvision - needs torch
 xgboost - CMake configuration problem
-zstandard - needs cffi
 chaquopy-crc32c - cmake build... generates line noise in build
 chaquopy-hdf5 - Source code no longer available?
 chaquopy-libxslt - pulls in wrong libz
@@ -98,7 +98,7 @@ chaquopy-zbar - needs chaquopy-libiconv
 chaquopy-geos - C++ linking issue
 chaquopy-flac
 chaquopy-libcxx
-chaquopy-libffi
+chaquopy-libffi - not needed; replaced with libffi from Python-Apple-support
 chaquopy-libgfortran
 chaquopy-libogg
 chaquopy-libomp

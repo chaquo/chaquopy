@@ -1,0 +1,24 @@
+diff -ru zstandard-0.15.2-orig/make_cffi.py zstandard-0.15.2/make_cffi.py
+--- zstandard-0.15.2-orig/make_cffi.py	2021-02-28 03:38:19.000000000 +0800
++++ zstandard-0.15.2/make_cffi.py	2022-09-16 10:36:47.000000000 +0800
+@@ -12,6 +12,7 @@
+ import os
+ import re
+ import subprocess
++import sys
+ import tempfile
+ 
+ 
+@@ -48,7 +49,11 @@
+ # manually.
+ if compiler.compiler_type == "unix":
+     # Using .compiler respects the CC environment variable.
+-    args = [compiler.compiler[0]]
++    if sys.platform in {'ios', 'tvos', 'watchos'}:
++        args = compiler.compiler[:compiler.compiler.index('clang')+1]
++    else:
++        args = [compiler.compiler[0]]
++
+     args.extend(
+         ["-E", "-DZSTD_STATIC_LINKING_ONLY", "-DZDICT_STATIC_LINKING_ONLY",]
+     )
