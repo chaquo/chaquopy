@@ -21,12 +21,3 @@ diff -ru Pillow-8.4.0-orig/setup.py Pillow-8.4.0/setup.py
          elif (
              sys.platform.startswith("linux")
              or sys.platform.startswith("gnu")
-@@ -609,6 +622,8 @@
-         self.compiler.library_dirs = library_dirs + self.compiler.library_dirs
-         self.compiler.include_dirs = include_dirs + self.compiler.include_dirs
- 
-+        print("INCLUDE DIRS", self.compiler.include_dirs)
-+        print("LIB DIRS", self.compiler.library_dirs)
-         #
-         # look for available libraries
- 

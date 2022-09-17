@@ -457,9 +457,6 @@ class BaseWheelBuilder:
     # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
-        env["PATH"] = os.pathsep.join([
-            f"{self.reqs_dir}/opt/bin",  # For "-config" scripts.
-            os.environ["PATH"]])
 
         # Adding reqs_dir to PYTHONPATH allows setup.py to import requirements, for example to
         # call numpy.get_include().
@@ -692,6 +689,7 @@ class AndroidWheelBuilder(BaseWheelBuilder):
     def platform_update_env(self, env):
         env["PATH"] = os.pathsep.join([
             f"{PYPI_DIR}/env/bin",
+            f"{self.reqs_dir}/opt/bin",  # For "-config" scripts.
             env["PATH"]]
         )
 
@@ -834,6 +832,21 @@ class AppleWheelBuilder(BaseWheelBuilder):
         assert_exists(self.python_lib)
 
     def platform_update_env(self, env):
+        # Make sure PATH is as clean as possible, to prevent leakage from
+        # Homebrew or other local tools.
+        env["PATH"] = os.pathsep.join([
+            # For "-config" scripts.
+            f"{self.reqs_dir}/opt/bin",
+            # Python executable
+            f"{sys.prefix}/bin",
+            # Bare macOS environment
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+            "/Library/Apple/usr/bin",
+        ])
+
         env["CROSS_COMPILE_PLATFORM"] = f"{self.os}".lower()
         env["CROSS_COMPILE_PLATFORM_TAG"] = f"{self.os}_{self.api_level}_{self.abi.name}"
         env["CROSS_COMPILE_PREFIX"] = f"{self.toolchain}/Python.xcframework/{self.abi.slice}"
