@@ -35,19 +35,19 @@ api_level=21
 
 # These variables are based on BuildSystemMaintainers.md above, and
 # $ndk/build/cmake/android.toolchain.cmake.
-toolchain_bin="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin"
-export AR="$toolchain_bin/llvm-ar"
-export AS="$toolchain_bin/$host_triplet-as"
-export CC="$toolchain_bin/${clang_triplet:-$host_triplet}$api_level-clang"
+toolchain="$ndk/toolchains/llvm/prebuilt/linux-x86_64"
+export AR="$toolchain/bin/llvm-ar"
+export AS="$toolchain/bin/$host_triplet-as"
+export CC="$toolchain/bin/${clang_triplet:-$host_triplet}$api_level-clang"
 export CXX="${CC}++"
-export LD="$toolchain_bin/ld"
-export NM="$toolchain_bin/llvm-nm"
-export RANLIB="$toolchain_bin/llvm-ranlib"
-export READELF="$toolchain_bin/llvm-readelf"
-export STRIP="$toolchain_bin/llvm-strip"
+export LD="$toolchain/bin/ld"
+export NM="$toolchain/bin/llvm-nm"
+export RANLIB="$toolchain/bin/llvm-ranlib"
+export READELF="$toolchain/bin/llvm-readelf"
+export STRIP="$toolchain/bin/llvm-strip"
 
-export CFLAGS="-I $prefix/include"
-export LDFLAGS="-L $prefix/lib \
+export CFLAGS="-I$prefix/include"
+export LDFLAGS="-L$prefix/lib \
 -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_real.a -Wl,--exclude-libs,libunwind.a \
 -Wl,--build-id=sha1 -Wl,--no-rosegment"
 

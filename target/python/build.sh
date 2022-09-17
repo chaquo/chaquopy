@@ -25,6 +25,10 @@ for patch in $recipe_dir/patches/*; do
     patch -p1 -i $patch
 done
 
+# Add sysroot paths, otherwise Python 3.8's setup.py will think libz is unavailable.
+CFLAGS+=" -I$toolchain/sysroot/usr/include"
+LDFLAGS+=" -L$toolchain/sysroot/usr/lib/$host_triplet/$api_level"
+
 # The configure script omits -fPIC on Android, because it was unnecessary on older versions of
 # the NDK (https://bugs.python.org/issue26851). But it's definitely necessary on the current
 # version, otherwise we get linker errors like "Parser/myreadline.o: relocation R_386_GOTOFF

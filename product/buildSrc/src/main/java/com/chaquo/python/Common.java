@@ -13,9 +13,9 @@ public class Common {
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.8.13", "1");
-        PYTHON_VERSIONS.put("3.9.13", "0");
-        PYTHON_VERSIONS.put("3.10.6", "0");
+        PYTHON_VERSIONS.put("3.8.13", "2");
+        PYTHON_VERSIONS.put("3.9.13", "1");
+        PYTHON_VERSIONS.put("3.10.6", "1");
         PYTHON_VERSIONS.put("3.11.0", "2");
     }
 
