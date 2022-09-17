@@ -54,7 +54,7 @@ zstandard
 ## Known problems
 
 blis - no idea...
-coincurve needs chaquopy-secp256k1
+coincurve - needs chaquopy-secp256k1
 cvxopt - needs chaquopy-openblas
 dlib - needs chaquopy-openblas
 gensim - numpy buildsystem problem
@@ -65,10 +65,10 @@ h5py - needs chaquopy-hdf5
 llvmlite - needs chaquopy-llvm
 lxml - needs chaquopy-libxml2, chaquopy-libxslt
 numba - needs numpy; fails due to a config-reading process needing npymath
-opencv-contrib-python
-opencv-contrib-python-headless
-opencv-python
-opencv-python-headless
+opencv-contrib-python - needs chaquopy-libfortran
+opencv-contrib-python-headless - needs chaquopy-libfortran
+opencv-python - Uses scikit-build, which doesn't understand iOS
+opencv-python-headless - needs chaquopy-libfortran
 pandas - needs numpy; fails trying to import numpy during setup
 psutil - doesn't make any sense on iOS?
 pycares - missing ares_config.h?
@@ -94,7 +94,7 @@ tokenizers - needs rust?
 torch - needs numpy, chaquopy-libfortran, chaquopy-openblas
 torchvision - needs torch
 xgboost - CMake configuration problem
-chaquopy-crc32c - cmake build... generates line noise in build
+chaquopy-crc32c - needs cmake
 chaquopy-hdf5 - Source code no longer available?
 chaquopy-libxslt - issue with iconv linkage from libxml?
 chaquopy-geos - C++ linking issue
@@ -110,6 +110,4 @@ chaquopy-libzmq - linking problem with missing symbols. Likely needs an update t
 chaquopy-llvm - Needs cmake
 chaquopy-openblas - needs chaquopy-libfortran
 chaquopy-secp256k1 - No tarball, so config.sub is generated, but needs patching.
-
 cmake-example - Needs Cmake
-
