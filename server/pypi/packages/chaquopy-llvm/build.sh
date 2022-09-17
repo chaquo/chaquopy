@@ -8,12 +8,12 @@ set -eu
 # There are undefined symbols in plugin modules, e.g lib/Transforms/Hello.
 LDFLAGS=$(echo $LDFLAGS | sed 's/-Wl,--no-undefined//')
 
-triple=$(basename $AR | sed 's/-ar$//')
+triple=$CHAQUOPY_TRIPLET
 case $triple in
     arm-linux-androideabi)
         target="ARM"
         ;;
-    aarch64-linux-android)
+    aarch64-linux-android | arm64-apple-*)
         target="AArch64"
         ;;
     i686-linux-android)
@@ -26,6 +26,19 @@ case $triple in
         echo "Unknown triple '$triple'"
         exit 1
 esac
+
+realpath() {
+  OURPWD=$PWD
+  cd "$(dirname "$1")"
+  LINK=$(readlink "$(basename "$1")")
+  while [ "$LINK" ]; do
+    cd "$(dirname "$LINK")"
+    LINK=$(readlink "$(basename "$1")")
+  done
+  REALPATH="$PWD/$(basename "$1")"
+  cd "$OURPWD"
+  echo "$REALPATH"
+}
 
 build_tblgen=$(realpath build-tblgen)
 if [ ! -e $build_tblgen ]; then  # For rerunning with build-wheel.py --no-unpack.
