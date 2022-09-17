@@ -564,10 +564,13 @@ class AssetLoader:
 
 
 def exec_module_trigger(mod):
-    if mod.__name__ == "pkg_resources":
+    name = mod.__name__
+    if name == "pkg_resources":
         initialize_pkg_resources()
-    elif mod.__name__ == "numpy":
+    elif name == "numpy":
         java.chaquopy.numpy = mod  # See conversion.pxi.
+    elif name == "ssl":
+        java.android.initialize_ssl()
 
 
 # The SourceFileLoader base class will automatically create and use _pycache__ directories.

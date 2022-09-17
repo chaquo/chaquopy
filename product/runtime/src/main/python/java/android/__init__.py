@@ -1,4 +1,3 @@
-from importlib import reload
 import os
 from os.path import join
 import sys
@@ -7,19 +6,19 @@ from types import ModuleType
 from . import stream, importer
 
 
-def initialize(context, build_json, app_path):
+def initialize(context_local, build_json, app_path):
+    global context
+    context = context_local
+
     stream.initialize()
     importer.initialize(context, build_json, app_path)
-    initialize_stdlib(context)
 
-
-def initialize_stdlib(context):
     # These are ordered roughly from low to high level.
-    for name in ["sys", "os", "tempfile", "ssl", "hashlib", "multiprocessing"]:
-        globals()[f"initialize_{name}"](context)
+    for name in ["sys", "os", "tempfile", "multiprocessing"]:
+        globals()[f"initialize_{name}"]()
 
 
-def initialize_sys(context):
+def initialize_sys():
     # argv defaults to not existing, which may crash some programs.
     sys.argv = [""]
 
@@ -32,7 +31,7 @@ def initialize_sys(context):
         sys.executable = ""
 
 
-def initialize_os(context):
+def initialize_os():
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
@@ -47,27 +46,28 @@ def initialize_os(context):
     os.get_exec_path = get_exec_path_override
 
 
-def initialize_tempfile(context):
+def initialize_tempfile():
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
     os.makedirs(tmpdir, exist_ok=True)
     os.environ["TMPDIR"] = tmpdir
 
 
-def initialize_ssl(context):
-    # OpenSSL actually does know the location of the system CA store on Android, but
-    # unfortunately there are multiple incompatible formats of that location, so we can't rely
-    # on it (https://blog.kylemanna.com/android/android-ca-certificates/).
-    os.environ["SSL_CERT_FILE"] = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
+# Called from importer.exec_module_trigger.
+def initialize_ssl():
+    # OpenSSL may be able to find the system CA store on some devices, but for consistency
+    # we disable this and use our own bundled file.
+    #
+    # Unfortunately we can't do this with SSL_CERT_FILE, because OpenSSL ignores
+    # environment variables when getauxval(AT_SECURE) is enabled, which is always the case
+    # on Android (https://android.googlesource.com/platform/bionic/+/6bb01b6%5E%21/).
+    import ssl
+    cacert = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
+    def set_default_verify_paths(self):
+        self.load_verify_locations(cacert)
+    ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
 
-def initialize_hashlib(context):
-    # hashlib may already have been imported during bootstrap: reload it now that all of its
-    # native modules are on sys.path.
-    import hashlib
-    reload(hashlib)
-
-
-def initialize_multiprocessing(context):
+def initialize_multiprocessing():
     import _multiprocessing
     from multiprocessing import context, heap, pool
     import threading
