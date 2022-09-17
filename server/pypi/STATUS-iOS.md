@@ -3,6 +3,7 @@
 ## Working
 chaquopy-freetype
 chaquopy-libjpeg
+chaquopy-libogg
 chaquopy-libpng
 chaquopy-libxml2
 chaquopy-libiconv
@@ -97,18 +98,18 @@ chaquopy-crc32c - cmake build... generates line noise in build
 chaquopy-hdf5 - Source code no longer available?
 chaquopy-libxslt - issue with iconv linkage from libxml?
 chaquopy-geos - C++ linking issue
-chaquopy-flac
-chaquopy-libcxx
+chaquopy-flac - linking problem with missing symbols
+chaquopy-libcxx - makes some assumptions about how the toolchain directory is laid out
 chaquopy-libffi - not needed; replaced with libffi from Python-Apple-support
-chaquopy-libgfortran
-chaquopy-libogg
-chaquopy-libomp
-chaquopy-libraw
-chaquopy-libsndfile
-chaquopy-libvorbis
-chaquopy-libzmq
-chaquopy-llvm
-chaquopy-openblas
-chaquopy-secp256k1
-cmake-example
+chaquopy-libgfortran - Needs a fortran compiler.
+chaquopy-libomp - Isn't a build; copies a file from the Android toolchain
+chaquopy-libraw - Checks for modified autoconf files, asks for aclocal-1.15
+chaquopy-libsndfile - needs chaquopy-flac
+chaquopy-libvorbis - build fails; uint16_t not recognized on x86_64
+chaquopy-libzmq - linking problem with missing symbols. Likely needs an update to configure to add flags for iOS
+chaquopy-llvm - Needs cmake
+chaquopy-openblas - needs chaquopy-libfortran
+chaquopy-secp256k1 - No tarball, so config.sub is generated, but needs patching.
+
+cmake-example - Needs Cmake
 

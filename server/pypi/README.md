@@ -79,8 +79,26 @@ Update any GitHub issues, and notify any affected users who contacted us outside
 
 Obtain a Beeware [Apple Support
 package](https://github.com/beeware/Python-Apple-support) for the Python version
-you are using, and unpack the support package. The location where you unpack the
-support file will be provided to the `--toolchain` argument.
+you are using, and unpack the support package into a folder that matches the Python
+version you are supporting (i.e., unpack a 3.10 support package into a folder named
+`3.10`). The location that contains the `3.10` folder will be provided to the
+`--toolchain` argument.
+
+If you want to build a package that uses `cmake`, you will also need to obtain
+a macOS install of cmake. Get a 'tar.gz' package, and unpack it; copy the `CMake.app`
+into the same folder that contains the support package folder. If you've done this
+correctly, you should have a folder that looks something like:
+
+  - `toolchain`
+    - `3.10`
+      - `VERSIONS`
+      - `Python.xcframework`
+      - `platform-site`
+      - `python-stdlib`
+    - `CMake.app`
+
+The name and location of the `toolchain` folder doesn't matter; this is the folder
+that will be provided as the `--toolchain` argument to `build-wheel.py`.
 
 When you run `build-wheel.py` on a recipe, it will:
 

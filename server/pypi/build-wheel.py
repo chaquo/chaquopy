@@ -308,10 +308,10 @@ class BaseWheelBuilder:
             temp_dir = tempfile.mkdtemp(prefix="build-wheel-")
             run(f"{clone_cmd} {source['git_url']} {temp_dir}")
             if is_hash:
-                run(f"git -C {temp_dir} checkout {git_rev}")
+                run(f"git -C {temp_dir} checkout --detach {git_rev}")
                 run(f"git -C {temp_dir} submodule update --init")
 
-            run(f"tar -c -C {temp_dir} . -z -f {tgz_filename}")
+            run(f"tar -zcf {tgz_filename} -C {temp_dir} .")
             run(f"rm -rf {temp_dir}")
 
         return tgz_filename
@@ -826,20 +826,27 @@ class AppleWheelBuilder(BaseWheelBuilder):
     def find_python(self):
         super().find_python()
 
-        self.python_include_dir = f"{self.toolchain}/Python.xcframework/{self.abi.slice}/Headers"
+        self.python_include_dir = f"{self.toolchain}/{self.python_version}/Python.xcframework/{self.abi.slice}/Headers"
         assert_isdir(self.python_include_dir)
-        self.python_lib = f"{self.toolchain}/Python.xcframework/{self.abi.slice}/libpython{self.python_version}.a"
+        self.python_lib = f"{self.toolchain}/{self.python_version}/Python.xcframework/{self.abi.slice}/libpython{self.python_version}.a"
         assert_exists(self.python_lib)
 
     def platform_update_env(self, env):
         # Make sure PATH is as clean as possible, to prevent leakage from
         # Homebrew or other local tools.
-        env["PATH"] = os.pathsep.join([
-            # For "-config" scripts.
-            f"{self.reqs_dir}/opt/bin",
-            # Python executable
-            f"{sys.prefix}/bin",
-            # Bare macOS environment
+
+        # Python executable
+        paths = [f"{sys.prefix}/bin"]
+
+        # Cmake, if required
+        if self.package.needs_cmake:
+            cmake = f"{self.toolchain}/CMake.app"
+            if not os.path.exists(cmake) or not os.path.isdir(cmake):
+                raise CommandError(f"Couldn't find CMake.app in {self.toolchain}")
+            paths.append(f"{self.toolchain}/CMake.app/Contents/bin"),
+
+        # Add Bare macOS environment
+        paths.extend([
             "/usr/bin",
             "/bin",
             "/usr/sbin",
@@ -847,9 +854,11 @@ class AppleWheelBuilder(BaseWheelBuilder):
             "/Library/Apple/usr/bin",
         ])
 
+        env["PATH"] = os.pathsep.join(paths)
+
         env["CROSS_COMPILE_PLATFORM"] = f"{self.os}".lower()
         env["CROSS_COMPILE_PLATFORM_TAG"] = f"{self.os}_{self.api_level}_{self.abi.name}"
-        env["CROSS_COMPILE_PREFIX"] = f"{self.toolchain}/Python.xcframework/{self.abi.slice}"
+        env["CROSS_COMPILE_PREFIX"] = f"{self.toolchain}/{self.python_version}/Python.xcframework/{self.abi.slice}"
         env["CROSS_COMPILE_IMPLEMENTATION"] = self.abi.name
         env["CROSS_COMPILE_SDK_ROOT"] = (
             subprocess.check_output(
@@ -860,7 +869,7 @@ class AppleWheelBuilder(BaseWheelBuilder):
         env["CROSS_COMPILE_TOOLCHAIN_SLICE"] = self.abi.slice
 
         env["CROSS_COMPILE_SYSCONFIGDATA"] = os.sep.join([
-            self.toolchain, f"python-stdlib/_sysconfigdata__{self.os.lower()}_{self.abi.name}.py"
+            self.toolchain, self.python_version, f"python-stdlib/_sysconfigdata__{self.os.lower()}_{self.abi.name}.py"
         ])
 
         config_globals = {}
@@ -919,8 +928,8 @@ class AppleWheelBuilder(BaseWheelBuilder):
         pass
 
     @classmethod
-    def api_level(cls, os, toolchain):
-        with open(f"{toolchain}/VERSIONS") as f:
+    def api_level(cls, os, toolchain, python_version):
+        with open(f"{toolchain}/{python_version}//VERSIONS") as f:
             for line in f.read().splitlines():
                 if line.startswith(f"Min {os} version: "):
                     return line.split(':')[1].strip()
@@ -1140,7 +1149,7 @@ def main():
 
         builder.build()
     else:
-        api_level = AppleWheelBuilder.api_level(os, toolchain)
+        api_level = AppleWheelBuilder.api_level(os, toolchain, python_version)
         wheels = {}
         # Build a wheel for each supported ABI
         for sdk, architectures in ABIS[os].items():
