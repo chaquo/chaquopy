@@ -5,6 +5,10 @@ chaquopy-freetype
 chaquopy-libjpeg
 chaquopy-libpng
 chaquopy-libxml2
+chaquopy-libiconv
+chaquopy-curl
+chaquopy-ta-lib
+chaquopy-zbar
 cffi
 numpy
 aiohttp
@@ -29,9 +33,11 @@ netifaces
 pillow
 preshed
 pycrypto
+pycurl
 pynacl
 pysha3
 pywavelets
+pyzbar
 regex
 ruamel-yaml-clib
 scandir
@@ -67,9 +73,7 @@ psutil - doesn't make any sense on iOS?
 pycares - missing ares_config.h?
 pycryptodome - possible configuration problem; binary artefacts aren't consistent between platforms
 pycryptodomex - possible configuration problem; binary artefacts aren't consistent between platforms
-pycurl - needs chaquopy-curl
 python-example - cmake failure
-pyzbar - needs chaquopy-zbar
 pyzmq - needs chaquopy-libzmq
 rawpy - subrepo cloning failure?
 rpi-gpio - does this make any sense? Fails build due to missing sys/epoll.h
@@ -81,7 +85,7 @@ shapely - needs chaquopy-geos
 soundfile - needs chaquopy-libsndfile
 spacy - needs srsly, blis
 statsmodels - cythonize problem
-ta-lib - needs chaquopy-ta-lib
+ta-lib - needs chaquopy-ta-lib, numpy
 tensorflow - needs numpy on build host
 tflite-runtime - numpy build problem; get_include()?
 thinc - package definition problem
@@ -91,10 +95,7 @@ torchvision - needs torch
 xgboost - CMake configuration problem
 chaquopy-crc32c - cmake build... generates line noise in build
 chaquopy-hdf5 - Source code no longer available?
-chaquopy-libxslt - pulls in wrong libz
-chaquopy-curl - configuration problem; pulls in macOS binaries
-chaquopy-libiconv - configuration problem; pulls in macOS binaries
-chaquopy-zbar - needs chaquopy-libiconv
+chaquopy-libxslt - issue with iconv linkage from libxml?
 chaquopy-geos - C++ linking issue
 chaquopy-flac
 chaquopy-libcxx
@@ -109,9 +110,5 @@ chaquopy-libzmq
 chaquopy-llvm
 chaquopy-openblas
 chaquopy-secp256k1
-chaquopy-ta-lib
 cmake-example
-
-
-
 

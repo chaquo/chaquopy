@@ -80,28 +80,28 @@ ABIS = {
     },
     'iOS': {
         'iphoneos': {
-            'arm64': Abi("iphoneos_arm64", "aarch64-apple-ios", sdk="iphoneos", slice="ios-arm64"),
+            'arm64': Abi("iphoneos_arm64", "arm64-apple-ios", sdk="iphoneos", slice="ios-arm64"),
         },
         'iphonesimulator': {
-            'arm64': Abi("iphonesimulator_arm64", "aarch64-apple-ios-simulator", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator"),
+            'arm64': Abi("iphonesimulator_arm64", "arm64-apple-ios-simulator", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator"),
             'x86_64': Abi("iphonesimulator_x86_64", "x86_64-apple-ios-simulator", sdk="iphonesimulator", slice="ios-arm64_x86_64-simulator")
         }
     },
     'tvOS': {
         'appletvos': {
-            'arm64': Abi("appletvos_arm64", "aarch64-apple-tvos", sdk="appletvos", slice="tvos-arm64"),
+            'arm64': Abi("appletvos_arm64", "arm64-apple-tvos", sdk="appletvos", slice="tvos-arm64"),
         },
         'appletvsimulator': {
-            'arm64': Abi("appletvsimulator_arm64", "aarch64-apple-tvos-simulator", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator"),
+            'arm64': Abi("appletvsimulator_arm64", "arm64-apple-tvos-simulator", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator"),
             'x86_64': Abi("appletvsimulator_x86_64", "x86_64-apple-tvos-simulator", sdk="appletvsimulator", slice="tvos-arm64_x86_64-simulator")
         }
     },
     'watchOS': {
         'watchos': {
-            'arm64_32': Abi("watchos_arm64_32", "aarch64-apple-watchos", sdk="watchos", slice="watchos-arm64_32"),
+            'arm64_32': Abi("watchos_arm64_32", "arm64_32-apple-watchos", sdk="watchos", slice="watchos-arm64_32"),
         },
         'watchsimulator': {
-            'arm64': Abi("watchsimulator_arm64", "aarch64-apple-watchos-simulator", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator"),
+            'arm64': Abi("watchsimulator_arm64", "arm64-apple-watchos-simulator", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator"),
             'x86_64': Abi("watchsimulator_x86_64", "x86_64-apple-watchos-simulator", sdk="watchsimulator", slice="watchos-arm64_x86_64-simulator")
         }
     }
@@ -457,16 +457,13 @@ class BaseWheelBuilder:
     # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
-
-        env_dir = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
-            f"{env_dir}/bin",
             f"{self.reqs_dir}/opt/bin",  # For "-config" scripts.
             os.environ["PATH"]])
 
         # Adding reqs_dir to PYTHONPATH allows setup.py to import requirements, for example to
         # call numpy.get_include().
-        pythonpath = [f"{env_dir}/lib/python", self.reqs_dir]
+        pythonpath = [f"{PYPI_DIR}/env/lib/python", self.reqs_dir]
         if "PYTHONPATH" in os.environ:
             pythonpath.append(os.environ["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(pythonpath)
@@ -693,6 +690,11 @@ class AndroidWheelBuilder(BaseWheelBuilder):
         self.standard_libs.append(libpython)
 
     def platform_update_env(self, env):
+        env["PATH"] = os.pathsep.join([
+            f"{PYPI_DIR}/env/bin",
+            env["PATH"]]
+        )
+
         for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
                      ("fc", "gfortran"),   # Used by openblas
                      ("f77", "gfortran"), ("f90", "gfortran"),  # Used by numpy.distutils

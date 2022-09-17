@@ -1,0 +1,52 @@
+diff -ru libiconv-1.16-orig/build-aux/config.sub libiconv-1.16/build-aux/config.sub
+--- libiconv-1.16-orig/build-aux/config.sub	2019-04-27 02:29:05.000000000 +0800
++++ libiconv-1.16/build-aux/config.sub	2022-09-16 14:02:10.000000000 +0800
+@@ -1104,6 +1104,9 @@
+ 	xscale-* | xscalee[bl]-*)
+ 		cpu=`echo "$cpu" | sed 's/^xscale/arm/'`
+ 		;;
++	arm64-* | arm64_32-*)
++		cpu=aarch64
++		;;
+
+ 	# Recognize the canonical CPU Types that limit and/or modify the
+ 	# company names they are paired with.
+@@ -1509,7 +1512,11 @@
+ 		;;
+ 	nacl*)
+ 		;;
+-	ios)
++	ios* | ios*-simulator)
++		;;
++	tvos* | tvos*-simulator)
++		;;
++	watchos* | watchos*-simulator)
+ 		;;
+ 	none)
+ 		;;
+diff -ru libiconv-1.16-orig/libcharset/build-aux/config.sub libiconv-1.16/libcharset/build-aux/config.sub
+--- libiconv-1.16-orig/libcharset/build-aux/config.sub	2019-04-27 02:29:05.000000000 +0800
++++ libiconv-1.16/libcharset/build-aux/config.sub	2022-09-16 14:07:12.000000000 +0800
+@@ -1104,6 +1104,9 @@
+ 	xscale-* | xscalee[bl]-*)
+ 		cpu=`echo "$cpu" | sed 's/^xscale/arm/'`
+ 		;;
++	arm64-* | arm64_32-*)
++		cpu=aarch64
++		;;
+
+ 	# Recognize the canonical CPU Types that limit and/or modify the
+ 	# company names they are paired with.
+@@ -1509,7 +1512,11 @@
+ 		;;
+ 	nacl*)
+ 		;;
+-	ios)
++	ios* | ios*-simulator)
++		;;
++	tvos* | tvos*-simulator)
++		;;
++	watchos* | watchos*-simulator)
+ 		;;
+ 	none)
+ 		;;

@@ -1,0 +1,27 @@
+diff -ru zbar-0.23.90-orig/config/config.sub zbar-0.23.90/config/config.sub
+--- zbar-0.23.90-orig/config/config.sub	2021-02-14 14:54:03.000000000 +0800
++++ zbar-0.23.90/config/config.sub	2022-09-16 14:30:02.000000000 +0800
+@@ -1100,6 +1100,9 @@
+ 	xscale-* | xscalee[bl]-*)
+ 		cpu=`echo "$cpu" | sed 's/^xscale/arm/'`
+ 		;;
++	arm64-* | arm64_32-*)
++		cpu=aarch64
++		;;
+ 
+ 	# Recognize the cannonical CPU Types that limit and/or modify the
+ 	# company names they are paired with.
+@@ -1502,7 +1505,11 @@
+ 		;;
+ 	nacl*)
+ 		;;
+-	ios)
++	ios* | ios*-simulator)
++		;;
++	tvos* | tvos*-simulator)
++		;;
++	watchos* | watchos*-simulator)
+ 		;;
+ 	none)
+ 		;;
+Only in zbar-0.23.90/config: config.sub.orig

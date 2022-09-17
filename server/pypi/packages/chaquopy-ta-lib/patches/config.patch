@@ -1,0 +1,61 @@
+diff -ru ta-lib-orig/config.sub ta-lib/config.sub
+--- ta-lib-orig/config.sub	2006-11-08 15:44:58.000000000 +0800
++++ ta-lib/config.sub	2022-09-17 08:06:31.000000000 +0800
+@@ -122,6 +122,7 @@
+ case $maybe_os in
+   nto-qnx* | linux-gnu* | linux-dietlibc | linux-newlib* | linux-uclibc* | \
+   uclinux-uclibc* | uclinux-gnu* | kfreebsd*-gnu* | knetbsd*-gnu* | netbsd*-gnu* | \
++  ios*-simulator | tvos*-simulator | watchos*-simulator | \
+   storm-chaos* | os2-emx* | rtmk-nova*)
+     os=-$maybe_os
+     basic_machine=`echo $1 | sed 's/^\(.*\)-\([^-]*-[^-]*\)$/\1/'`
+@@ -241,7 +242,7 @@
+ 	| alpha | alphaev[4-8] | alphaev56 | alphaev6[78] | alphapca5[67] \
+ 	| alpha64 | alpha64ev[4-8] | alpha64ev56 | alpha64ev6[78] | alpha64pca5[67] \
+ 	| am33_2.0 \
+-	| arc | arm | arm[bl]e | arme[lb] | armv[2345] | armv[345][lb] | avr | avr32 \
++	| arc | arm | arm[bl]e | arme[lb] | armv[2-8] | armv[3-8][lb] | armv7[armk] | aarch64 | avr | avr32 \
+ 	| bfin \
+ 	| c4x | clipper \
+ 	| d10v | d30v | dlx | dsp16xx \
+@@ -317,7 +318,7 @@
+ 	| alpha-* | alphaev[4-8]-* | alphaev56-* | alphaev6[78]-* \
+ 	| alpha64-* | alpha64ev[4-8]-* | alpha64ev56-* | alpha64ev6[78]-* \
+ 	| alphapca5[67]-* | alpha64pca5[67]-* | arc-* \
+-	| arm-*  | armbe-* | armle-* | armeb-* | armv*-* \
++	| arm-*  | armbe-* | armle-* | armeb-* | armv*-* | aarch64-* \
+ 	| avr-* | avr32-* \
+ 	| bfin-* | bs2000-* \
+ 	| c[123]* | c30-* | [cjt]90-* | c4x-* | c54x-* | c55x-* | c6x-* \
+@@ -373,6 +374,9 @@
+ 	| ymp-* \
+ 	| z8k-*)
+ 		;;
++	arm64-* | arm64e-* | arm64_32-*)
++ 		basic_machine=aarch64-`echo "$basic_machine" | sed 's/^[^-]*-//'`
++ 		;;
+ 	# Recognize the various machine names and aliases which stand
+ 	# for a CPU type and a company and sometimes even an OS.
+ 	386bsd)
+@@ -1219,7 +1223,7 @@
+ 	      | -os2* | -vos* | -palmos* | -uclinux* | -nucleus* \
+ 	      | -morphos* | -superux* | -rtmk* | -rtmk-nova* | -windiss* \
+ 	      | -powermax* | -dnix* | -nx6 | -nx7 | -sei* | -dragonfly* \
+-	      | -skyos* | -haiku* | -rdos* | -toppers*)
++	      | -skyos* | -haiku* | -rdos* | -toppers* | -android*)
+ 	# Remember, each alternative MUST END IN *, to match a version number.
+ 		;;
+ 	-qnx*)
+@@ -1349,6 +1353,12 @@
+ 	-zvmoe)
+ 		os=-zvmoe
+ 		;;
++	-ios | -ios-simulator)
++		;;
++	-tvos | -tvos-simulator)
++		;;
++	-watchos | -watchos-simulator)
++ 		;;
+ 	-none)
+ 		;;
+ 	*)

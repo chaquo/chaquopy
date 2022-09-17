@@ -1,0 +1,55 @@
+diff -ru zeromq-4.3.2-orig/config/config.sub zeromq-4.3.2/config/config.sub
+--- zeromq-4.3.2-orig/config/config.sub	2019-07-09 00:19:50.000000000 +0800
++++ zeromq-4.3.2/config/config.sub	2022-09-17 08:29:13.000000000 +0800
+@@ -117,6 +117,7 @@
+ case $maybe_os in
+   nto-qnx* | linux-gnu* | linux-android* | linux-dietlibc | linux-newlib* | \
+   linux-musl* | linux-uclibc* | uclinux-uclibc* | uclinux-gnu* | kfreebsd*-gnu* | \
++  ios*-simulator | tvos*-simulator | watchos*-simulator | \
+   knetbsd*-gnu* | netbsd*-gnu* | \
+   kopensolaris*-gnu* | \
+   storm-chaos* | os2-emx* | rtmk-nova*)
+@@ -253,7 +254,7 @@
+ 	| alpha64 | alpha64ev[4-8] | alpha64ev56 | alpha64ev6[78] | alpha64pca5[67] \
+ 	| am33_2.0 \
+ 	| arc | arceb \
+-	| arm | arm[bl]e | arme[lb] | armv[2-8] | armv[3-8][lb] | armv7[arm] \
++	| arm | arm[bl]e | arme[lb] | armv[2-8] | armv[3-8][lb] | armv7[armk] \
+ 	| avr | avr32 \
+ 	| be32 | be64 \
+ 	| bfin \
+@@ -436,6 +437,9 @@
+ 	| ymp-* \
+ 	| z8k-* | z80-*)
+ 		;;
++	arm64-* | arm64e-* | arm64_32-*)
++ 		basic_machine=aarch64-`echo "$basic_machine" | sed 's/^[^-]*-//'`
++ 		;;
+ 	# Recognize the basic CPU types without company name, with glob match.
+ 	xtensa*)
+ 		basic_machine=$basic_machine-unknown
+@@ -1506,6 +1510,12 @@
+ 		;;
+ 	-nacl*)
+ 		;;
++	-ios | -ios-simulator)
++		;;
++	-tvos | -tvos-simulator)
++		;;
++	-watchos | -watchos-simulator)
++		;;
+ 	-none)
+ 		;;
+ 	*)
+diff -ru zeromq-4.3.2-orig/configure zeromq-4.3.2/configure
+--- zeromq-4.3.2-orig/configure	2019-07-09 00:19:48.000000000 +0800
++++ zeromq-4.3.2/configure	2022-09-17 08:31:53.000000000 +0800
+@@ -19750,7 +19750,7 @@
+ $as_echo "#define ZMQ_HAVE_DRAGONFLY 1" >>confdefs.h
+ 
+         ;;
+-    *darwin*)
++    *darwin* | ios* | tvos* | watchos*)
+         # Define on Darwin to enable all library features
+         CPPFLAGS="-D_DARWIN_C_SOURCE $CPPFLAGS"
+         libzmq_pedantic="no"
