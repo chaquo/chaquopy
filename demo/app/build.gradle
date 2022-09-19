@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId "com.chaquo.python.demo3"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 31
 
         // *** Replace in public repository **********************************

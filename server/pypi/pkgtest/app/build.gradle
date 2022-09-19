@@ -54,7 +54,7 @@ android {
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 31
 
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
