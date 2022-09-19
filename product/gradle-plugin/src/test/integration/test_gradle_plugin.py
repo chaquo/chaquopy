@@ -1487,10 +1487,10 @@ class RunGradle(object):
             abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
                 # PythonPlugin.groovy explains why each of these modules are needed.
-                ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
+                ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))
-            self.check_dt_needed(join(abi_dir, "_csv.so"), kwargs)
+            self.check_dt_needed(join(abi_dir, "_ctypes.so"), kwargs)
 
             java_dir = join(abi_dir, "java")
             self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
@@ -1515,7 +1515,7 @@ class RunGradle(object):
             # This is the list from the minimum supported Python version.
             "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
             "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
-            "_codecs_tw.so", "_contextvars.so", "_decimal.so", "_elementtree.so",
+            "_codecs_tw.so", "_contextvars.so", "_csv.so", "_decimal.so", "_elementtree.so",
             "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
             "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
             "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",

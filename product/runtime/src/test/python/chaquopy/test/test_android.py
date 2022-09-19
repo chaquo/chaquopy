@@ -76,7 +76,7 @@ class TestAndroidPlatform(AndroidTestCase):
 
         for subdir, entries in [
             # PythonPlugin.groovy explains why each of these modules are needed.
-            (ABI, ["java", "_csv.so", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
+            (ABI, ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:

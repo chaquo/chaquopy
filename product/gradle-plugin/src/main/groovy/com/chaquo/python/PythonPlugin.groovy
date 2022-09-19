@@ -554,10 +554,11 @@ class PythonPlugin implements Plugin<Project> {
                 }
 
                 // The following stdlib native modules are needed during bootstrap and are
-                // pre-extracted; all others are loaded from a .zip using AssetFinder.
+                // pre-extracted by AndroidPlatform so they can be loaded with the
+                // standard FileFinder. All other native modules are loaded from a .zip using
+                // AssetFinder.
                 def BOOTSTRAP_NATIVE_STDLIB = [
                     "_ctypes.so",  // java.primitive and importer
-                    "_csv.so",  // importlib.metadata < importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
                     "_random.so",  // random < tempfile < zipimport
                     "_sha512.so",  // random < tempfile < zipimport

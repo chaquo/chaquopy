@@ -29,6 +29,8 @@ from com.chaquo.python.android import AndroidPlatform
 
 
 def initialize(context, build_json, app_path):
+    global nativeLibraryDir
+    nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir
     initialize_importlib(context, build_json, app_path)
     initialize_ctypes()
     initialize_imp()
@@ -81,6 +83,13 @@ def initialize_importlib(context, build_json, app_path):
     spec_from_file_location_original = util.spec_from_file_location
     util.spec_from_file_location = spec_from_file_location_override
 
+    # Depending on the Python version, some of the stdlib modules in bootstrap-native may
+    # not have been imported yet. So make sure that the pre-API-level-23 dynamic linker
+    # workarounds also apply to the base ExtensionFileLoader class.
+    global extension_create_module_original
+    extension_create_module_original = machinery.ExtensionFileLoader.create_module
+    machinery.ExtensionFileLoader.create_module = extension_create_module_override
+
 
 def spec_from_file_location_override(name, location=None, *args, loader=None, **kwargs):
     if location and not loader:
@@ -125,7 +134,7 @@ def initialize_ctypes():
             # then on 64-bit devices before API level 23 there's a possible race condition
             # between updating LD_LIBRARY_PATH and loading the library, but there's nothing we
             # can do about that.
-            with extract_so(reqs_finder, filename) as dlopen_name:
+            with extract_so(filename) as dlopen_name:
                 return dlopen_name
 
         # For system libraries I can't see any easy way of finding the absolute library
@@ -152,7 +161,7 @@ def initialize_ctypes():
             # directories.
             finder = get_importer(dirname(name))
             if isinstance(finder, AssetFinder):
-                context = extract_so(finder, name)
+                context = extract_so(name)
 
         with context as dlopen_name:
             CDLL_init_original(self, dlopen_name, *args, **kwargs)
@@ -594,11 +603,13 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
-    def create_module(self, spec):
-        with extract_so(self.finder, self.path) as spec.origin:
-            mod = super().create_module(spec)
-        mod.__file__ = self.path  # In case user code depends on the original filename.
-        return mod
+    pass
+
+def extension_create_module_override(self, spec):
+    with extract_so(self.path) as spec.origin:
+        mod = extension_create_module_original(self, spec)
+    mod.__file__ = self.path  # In case user code depends on the original filename.
+    return mod
 
 
 # On 32-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
@@ -649,10 +660,13 @@ extract_so_lock = RLock()
 needed_loaded = {}
 
 @contextmanager
-def extract_so(finder, path):
-    path = finder.extract_if_changed(finder.zip_path(path))
+def extract_so(path):
+    finder = get_importer(dirname(path))
+    if isinstance(finder, AssetFinder):
+        path = finder.extract_if_changed(finder.zip_path(path))
+        load_needed(finder, path)
+
     path = symlink_if_needed(path)
-    load_needed(finder, path)
 
     # On 64-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
     # libraries using the full path passed to dlopen
@@ -669,8 +683,7 @@ def extract_so(finder, path):
     if (Build.VERSION.SDK_INT < 23) and ("64" in AndroidPlatform.ABI):
         # We need to include the app's lib directory, because our libraries there were
         # loaded via System.loadLibrary, which passes absolute paths to dlopen (#5563).
-        llp = ":".join([dirname(path),
-                        finder.context.getApplicationInfo().nativeLibraryDir])
+        llp = ":".join([dirname(path), nativeLibraryDir])
         with extract_so_lock:
             ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
             yield basename(path)
