@@ -25,9 +25,13 @@ After stable release:
   * Test the app.
 * Sync the "product" project in the new Android Studio version in case of any .idea file updates, but see note in product/gradle/wrapper/gradle-wrapper.properties before updating the Gradle version.
 * Run integration tests on all platforms.
-* Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new AGP version.
-  * If it passes, update android.rst and versions.rst for the existing version, add a note in changelog.rst, and publish them to the website.
-  * If it fails, perform a Chaquopy release as soon as possible, because Android Studio's auto-updater will cause many users to move to the new AGP version.
+* If we're not already planning to make a Chaquopy release soon, temporarily edit
+  `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new
+  AGP version.
+  * If it passes, update android.rst and versions.rst for the existing version, add a note
+    in changelog.rst, and publish them to the website.
+  * If it fails, perform a Chaquopy release as soon as possible, because Android Studio's
+    auto-updater will cause many users to move to the new AGP version.
 
 
 ## Removing support for an Android Gradle plugin version
@@ -44,6 +48,21 @@ After stable release:
   * If bundled JDK was in the PATH or product/local.properties, update them, and restart all programs which may depend on this.
   * Run uninstaller in program directory.
   * Remove configuration directory (AppData/Roaming/Google/AndroidStudioX.Y)
+
+
+## Adding support for a buildPython version
+
+* Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which use
+  it.
+
+
+## Removing support for a buildPython version
+
+* Update gradle-plugin/src/main/python/chaquopy/util.py.
+* Update `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in test_gradle_plugin,
+  and run the tests which use them.
+* Update android.rst.
+* Update `buildPython` comment in app/build.gradle in all public apps.
 
 
 ## Browsing Android Gradle plugin source code
