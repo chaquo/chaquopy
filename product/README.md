@@ -105,3 +105,31 @@ testPythonArgs=<args>` to the Gradle command line, where `<args>` is a space-sep
 test classes or methods (e.g. `test_gradle_plugin.Basic.test_variant`). Other [unittest command
 line options](https://docs.python.org/3/library/unittest.html#command-line-interface) can also
 be given here.
+
+
+# Update checklists
+
+## Increasing minimum API level (minSdkVersion)
+
+* Update `MIN_SDK_VERSION` in Common.java.
+* Update `api_level` in target/build-common.sh.
+* Search `product` directory to see if there are any workarounds which can now be removed:
+  * `git ls-files | xargs -d '\n' grep -EnHi 'api.level|android.(ver|[0-9])|min.sdk|sdk.int'`
+* Integration tests:
+  * Update `minSdkVersion` in all test data.
+  * Update expected message in `ApiLevel` tests.
+  * Run all tests.
+* Update documentation including versions table.
+* Update demo and pkgtest apps, and test all features.
+* Leave the public apps alone for now: they will be dealt with during the next release
+  (see release/README.md).
+
+
+## Increasing target API level (targetSdkVersion)
+
+This should be done for each new version of Android, as soon as Google starts encouraging
+developers to test against it.
+
+* Update demo and pkgtest apps, and test all features.
+* Leave the public apps alone for now: they will be dealt with during the next release
+  (see release/README.md).
