@@ -1,4 +1,6 @@
-# Introduction
+# Chaquopy packages
+
+## Introduction
 
 This directory contains the build-wheel tool, which produces Android .whl files for Chaquopy.
 build-wheel itself is only supported on Linux x86-64. However, the resulting .whls can be built
@@ -9,7 +11,7 @@ Install the requirements in `requirements.txt`, then run `build-wheel.py --help`
 information.
 
 
-# Adding a new package
+## Adding a new package
 
 Create a recipe directory in `packages`. Its name must be in PyPI normalized form (PEP 503).
 Alternatively, you can create this directory somewhere else, and pass its path when calling
@@ -62,3 +64,60 @@ used above, on the following devices, with at least one device being a clean ins
 Move the wheels to the public package repository.
 
 Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.
+
+
+## Testing the most popular packages
+
+### Get the lists
+
+To list the most downloaded packages on PyPI, run the following query on
+[BigQuery](https://bigquery.cloud.google.com/dataset/the-psf:pypi?pli=1). I had to create
+my own Google Cloud project and run the query within that, otherwise I got the error "User
+does not have bigquery.jobs.create permission in project the-psf".
+```
+SELECT file.project, COUNT(*) as downloads,
+FROM `bigquery-public-data.pypi.file_downloads`
+WHERE DATE(timestamp) BETWEEN DATE("2021-08-28") and DATE("2021-09-03")
+GROUP BY file.project
+ORDER BY downloads DESC
+LIMIT 10000
+```
+
+Use a 7-day window to avoid any bias from weekday/weekend differences.
+
+Or to list the number of distinct /16 netblocks attempting to install each package, run
+the following script on the web server logs:
+
+`zcat chaquo-access.log.{2..START_NUM}.gz | grep -E 'GET /pypi-(2\.1|7\.0)/.*/ HTTP.*pip/' | cut -d' ' -f2,8 | grep -Ev '^(SERVER_ADDR)' | sed -E 's|/pypi-[0-9]+\.[0-9]+/(.*)/|\1|' | sed -E 's/^([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+/\1/' | sort -k2 | uniq | uniq -f1 -c | tr -s ' ' | cut -d' ' -f2,4 | sort -k 1nr,2`
+
+Where:
+
+* `START_NUM` is the number of the earliest log file to include.
+* `SERVER_ADDR` is a pattern matching the IP addresses from which mass piptest runs have
+  been done within the given period, to exclude packages which haven't been installed by a
+  real user.
+
+### Run the tests
+
+Build scripts can run arbitrary code, so these tests must be done within Docker, like
+this:
+
+`cat pypi-downloads-20180201-20180207.csv | head -n 1000 | cut -d, -f1 | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log chaquopy-piptest`
+
+### Analyze the results
+
+The results can be summarized as follows:
+* Successful: search for `BUILD SUCCESSFUL`.
+* Failed: search for `BUILD FAILED`. This can be divided into:
+  * Failed (native): search for `Chaquopy.cannot.compile.native.code`.
+  * Failed (other). Review these to see if they indicate any bug in the build process.
+
+You may also wish to check the following:
+
+* Packages which took more than 2 minutes. Even if they succeeded, this may indicate that
+  they were building native code with a host compiler, or doing something else they
+  shouldn't be:
+  * `for package in <list>; do egrep -H 'BUILD (SUCCESSFUL|FAILED) in [2-9]m' log/$package.txt; done`
+* Failed requirements which many packages depend on. This will also reveal dependencies on
+  packages which we do have in the repository, but with an incompatible version:
+  * `pattern='Failed to install|No matching distribution found for'; cat log-pypi/* | grep -Eia "$pattern" | sed -E "s/.*($pattern)//; s/[ (]from.*//" | sort | uniq -c | sort -nr`
