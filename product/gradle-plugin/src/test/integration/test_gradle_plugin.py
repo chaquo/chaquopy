@@ -66,7 +66,7 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 OLD_BUILD_PYTHON_VERSION = "3.4"
 MIN_BUILD_PYTHON_VERSION = "3.5"
-MAX_BUILD_PYTHON_VERSION = "3.10"
+MAX_BUILD_PYTHON_VERSION = "3.11"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
