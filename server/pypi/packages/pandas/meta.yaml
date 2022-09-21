@@ -4,7 +4,6 @@ package:
 
 requirements:
   build:
-    - cython 0.29.24
+    - cython 0.29.32
   host:
-    # - numpy 1.17.4
-    - numpy 1.19.5
+    - numpy 1.23.3

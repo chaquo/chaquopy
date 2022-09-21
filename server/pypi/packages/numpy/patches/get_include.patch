@@ -1,0 +1,20 @@
+diff -ru numpy-1.23.3-orig/numpy/__init__.py numpy-1.23.3/numpy/__init__.py
+--- numpy-1.23.3-orig/numpy/__init__.py	2022-09-09 21:36:30.000000000 +0800
++++ numpy-1.23.3/numpy/__init__.py	2022-09-21 11:27:33.000000000 +0800
+@@ -119,6 +119,16 @@
+ 
+ if __NUMPY_SETUP__:
+     sys.stderr.write('Running from numpy source directory.\n')
++
++    # Cross compilation requires a way to get the include path;
++    # This is a simplified version of numpy.libs.utils.get_include(),
++    # but we can't import that module without also importing the
++    # binary modules.
++    def get_include():
++        import os
++
++        return os.path.join(os.path.dirname(__file__), 'core', 'include')
++
+ else:
+     try:
+         from numpy.__config__ import show as show_config

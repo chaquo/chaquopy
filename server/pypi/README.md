@@ -77,6 +77,33 @@ Update any GitHub issues, and notify any affected users who contacted us outside
 
 ## iOS/tvOS/watchOS
 
+### Quickstart
+
+Obtain a Beeware [Apple Support
+package](https://github.com/beeware/Python-Apple-support) for the Python version
+you are using, and unpack the support package into a folder that matches the Python
+version you are supporting (i.e., unpack a 3.10 support package into a folder named
+`3.10`)
+
+Then run:
+
+    ./make-deps.sh <path to support folder> <python version>
+    ./make.sh <path to support folder> <python version>
+
+For example, if you put the support folder in the same directory as this README, and
+you want to build Python 3.10, run:
+
+    ./make-deps.sh ./support 3.10
+    ./make.sh ./support 3.10
+
+Once you've run `make-deps.sh` for a single Python version, you don't need to run it
+for other Python versions; it is sufficient to just run `./make.sh`.
+
+When each script finishes, it will tell you how many packages were built, and how
+many were expected. If there is a discrepancy, you can investigate further.
+
+### Individual packages
+
 Obtain a Beeware [Apple Support
 package](https://github.com/beeware/Python-Apple-support) for the Python version
 you are using, and unpack the support package into a folder that matches the Python

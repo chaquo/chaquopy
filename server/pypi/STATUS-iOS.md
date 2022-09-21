@@ -1,63 +1,9 @@
-# Build status: iOS
-
-## Working
-chaquopy-freetype
-chaquopy-libjpeg
-chaquopy-libogg
-chaquopy-libpng
-chaquopy-libxml2
-chaquopy-libiconv
-chaquopy-curl
-chaquopy-ta-lib
-chaquopy-zbar
-cffi
-numpy
-aiohttp
-argon2-cffi
-bcrypt
-backports-zoneinfo
-bitarray
-brotli
-cryptography
-cymem
-cytoolz
-editdistance
-ephem
-frozenlist
-greenlet
-kiwisolver
-lru-dict
-matplotlib
-multidict
-murmurhash
-netifaces
-pillow
-preshed
-pycrypto
-pycurl
-pynacl
-pysha3
-pywavelets
-pyzbar
-regex
-ruamel-yaml-clib
-scandir
-srsly
-spectrum
-twisted
-typed-ast
-ujson
-wordcloud
-yarl
-zstandard
-
-## Known problems
+# Known problems: iOS
 
 blis - no idea...
 coincurve - needs chaquopy-secp256k1
 cvxopt - needs chaquopy-openblas
 dlib - needs chaquopy-openblas
-gensim - numpy buildsystem problem
 gevent - needs greenlet; issue with inline libev configure
 google-crc32c - needs chaquopy-crc32
 grpcio - Unknown; failed during build
@@ -69,7 +15,6 @@ opencv-contrib-python - needs chaquopy-libfortran
 opencv-contrib-python-headless - needs chaquopy-libfortran
 opencv-python - Uses scikit-build, which doesn't understand iOS
 opencv-python-headless - needs chaquopy-libfortran
-pandas - needs numpy; fails trying to import numpy during setup
 psutil - doesn't make any sense on iOS?
 pycares - missing ares_config.h?
 pycryptodome - possible configuration problem; binary artefacts aren't consistent between platforms

@@ -1,14 +1,17 @@
 # These packages are included by default in a new virtualenv, but since we use them directly,
 # specify exact versions for reproducible builds.
-pip==22.2.2
-setuptools==65.3.0
+# We use a pip < 19 to prevent the (buggy?) PEP517 behavior of
+# importing setup.py when downloading the source tarball
+pip==18.1
+# We use a setuptools < 60 for compatibility with numpy's vendored distutils.
+setuptools<60
 wheel==0.37.1
 
 # Other direct requirements
 Jinja2==3.1.2
 jsonschema==2.6.0
 pyelftools==0.24
+PyYAML==3.12
 # Python 3.11 needs a pre-release PyYAML
-# PyYAML==3.12
-git+https://github.com/mayeut/pyyaml.git
+# git+https://github.com/mayeut/pyyaml.git
 

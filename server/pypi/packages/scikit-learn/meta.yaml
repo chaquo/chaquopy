@@ -4,8 +4,8 @@ package:
 
 requirements:
   build:
-    - cython 0.29.14
+    - cython 0.29.32
   host:
     - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
+    - numpy 1.23.3
     - scipy 1.4.1

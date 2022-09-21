@@ -82,21 +82,10 @@ if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
 
     distutils.sysconfig._config_vars = config_locals['build_time_vars']
 
+    def customize_init_posix(vars):
+        vars.update(config_locals['build_time_vars'])
 
-import distutils.unixccompiler
-unixccompiler_linker_params_original = distutils.unixccompiler._linker_params
-
-def customize_linker_params(linker_cmd, compiler_cmd):
-    # iOS builds are odd because the compiler and linker aren't fully specified
-    # by `args[0]`; as a result, `_linker_params` isn't able to extract the
-    # linker parameters by dropping the first argument from linker_cmd.
-    # This is only needed by C++ code.
-    if compiler_cmd[0] == 'xcrun':
-        pivot = compiler_cmd.index('clang') + 1
-        return linker_cmd[pivot:]
-    return unixccompiler_linker_params_original(linker_cmd, compiler_cmd)
-
-distutils.unixccompiler._linker_params = customize_linker_params
+    sysconfig._init_posix = customize_init_posix
 
 
 # Call the next sitecustomize script if there is one

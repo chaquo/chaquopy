@@ -13,4 +13,4 @@ source:
 requirements:
   host:
     - python
-    - numpy 1.19.5
+    - numpy 1.23.3

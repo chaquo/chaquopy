@@ -5,4 +5,4 @@ package:
 requirements:
   host:
     - chaquopy-ta-lib 0.4.0
-    - numpy 1.17.4
+    - numpy 1.23.3

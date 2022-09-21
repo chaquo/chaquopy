@@ -4,3 +4,7 @@ __pycache__/
 *.jks
 *.pyc
 hs_err*.log
+venv*/
+server/pypi/support
+server/pypi/logs
+
