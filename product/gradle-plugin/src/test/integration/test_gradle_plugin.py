@@ -169,21 +169,26 @@ class GradleTestCase(TestCase):
                     if pyc and filename.endswith(".py"):
                         filename += "c"
                     expected_files.append(filename)
-                    zip_info = zip_file.getinfo(filename)
+                    try:
+                        zip_info = zip_file.getinfo(filename)
+                    except KeyError:
+                        # It's more useful to report missing files in the actual_files
+                        # check below.
+                        pass
+                    else:
+                        # Build machine paths should not be stored in the .pyc files.
+                        if filename.endswith(".pyc"):
+                            with self.setLongMessage(False):
+                                self.assertNotIn(
+                                    repo_root.encode("UTF-8"), zip_file.read(zip_info),
+                                    msg=f"{repo_root!r} unexpectedly found in {filename}")
 
-                    # Build machine paths should not be stored in the .pyc files.
-                    if filename.endswith(".pyc"):
-                        with self.setLongMessage(False):
-                            self.assertNotIn(
-                                repo_root.encode("UTF-8"), zip_file.read(zip_info),
-                                msg=f"{repo_root!r} unexpectedly found in {filename}")
-
-                    content_expected = attrs.pop("content", None)
-                    if content_expected is not None:
-                        content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
-                        self.assertEqual(content_expected, content_actual)
-                    for key, value in attrs.items():
-                        self.assertEqual(value, getattr(zip_info, key))
+                        content_expected = attrs.pop("content", None)
+                        if content_expected is not None:
+                            content_actual = zip_file.read(zip_info).decode("UTF-8").strip()
+                            self.assertEqual(content_expected, content_actual)
+                        for key, value in attrs.items():
+                            self.assertEqual(value, getattr(zip_info, key))
 
         self.assertCountEqual(expected_files, actual_files)
         if dist_versions is not None:
@@ -795,6 +800,8 @@ class PythonReqs(GradleTestCase):
                             "PATH": path},
                        requirements=["six.py"])
 
+    # Because we run pip in `--isolated` mode, `PIP` environment variables should have no
+    # effect.
     def test_isolated_env(self):
         self.RunGradle("base", "PythonReqs/isolated",
                        env={"PIP_INDEX_URL": "https://chaquo.com/nonexistent"},
@@ -841,12 +848,32 @@ class PythonReqs(GradleTestCase):
                                                                  "alpha_dep/__init__.py"]},
                                  "blue-debug": {"requirements": ["alpha/__init__.py"]}})
 
+    def test_directory(self):
+        run = self.RunGradle("base", "PythonReqs/directory_1",
+                             requirements=["alpha1.py"])
+        run.rerun("PythonReqs/directory_2",                     # Modify setup.py
+                  requirements=["bravo1.py"])
+        run.rerun("PythonReqs/directory_3",                     # Add file
+                  requirements=["bravo1.py", "bravo2.py"])
+        os.remove(f"{run.project_dir}/app/alpha/bravo1.py")     # Remove file
+        run.rerun(requirements=["bravo2.py"])
+
     def test_reqs_file(self):
         run = self.RunGradle("base", "PythonReqs/reqs_file",
                              requirements=["apple/__init__.py", "bravo/__init__.py"])
         run.apply_layers("PythonReqs/reqs_file_2")
         run.rerun(requirements=["alpha/__init__.py", "alpha_dep/__init__.py",
                                 "bravo/__init__.py"])
+
+    # This is a combination of test_directory and test_wheel_file, but installing
+    # everything via a requirements file.
+    def test_reqs_file_content(self):
+        run = self.RunGradle("base", "PythonReqs/reqs_file_content_1",
+                             requirements=["apple/__init__.py", "alpha1.py"])
+        run.rerun("PythonReqs/reqs_file_content_2",
+                  requirements=["apple/__init__.py", "bravo1.py"])
+        run.rerun("PythonReqs/reqs_file_content_3",
+                  requirements=["apple2/__init__.py", "bravo1.py"])
 
     def test_wheel_file(self):
         run = self.RunGradle("base", "PythonReqs/wheel_file", requirements=["apple/__init__.py"])
@@ -867,6 +894,7 @@ class PythonReqs(GradleTestCase):
     def test_sdist_pep517(self):
         self.RunGradle("base", "PythonReqs/sdist_pep517", requirements=["sdist_pep517.py"])
 
+    # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):
         self.RunGradle("base", "PythonReqs/cfg_wheel", requirements=["apple/__init__.py"])
 

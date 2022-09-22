@@ -6,6 +6,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.*
 import org.gradle.api.initialization.dsl.ScriptHandler
 import org.gradle.api.plugins.*
+import org.gradle.api.tasks.TaskInputs
 import org.gradle.process.ExecResult
 import org.gradle.process.internal.ExecException
 import org.gradle.util.*
@@ -308,24 +309,22 @@ class PythonPlugin implements Plugin<Project> {
             def reqsArgs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
-                def semicolonIndex = req.indexOf(";")  // Environment markers
-                if (semicolonIndex == -1) {
-                    semicolonIndex = req.length()
-                }
-                def baseReq = req.substring(0, semicolonIndex)
-                def reqIsFile = false
-                try {  // project.file may throw on an invalid filename.
-                    if (project.file(baseReq).exists()) {
-                        reqIsFile = true
-                    }
-                } catch (Exception e) {}
-                if (reqIsFile) {
-                    inputs.files(baseReq)
-                }
+                addReqInput(inputs, req, project.projectDir)
             }
             for (reqFile in python.pip.reqFiles) {
                 reqsArgs.addAll(["--req-file", reqFile])
                 inputs.files(reqFile)
+                try {
+                    def file = project.file(reqFile)
+                    file.eachLine {
+                        // Pip resolves `-r` and `-c` lines  (which we don't currently
+                        // detect) relative to the location of the containing requirements
+                        // file, while paths to actual requirements are resolved relative
+                        // to the working directory
+                        // (https://github.com/pypa/pip/pull/4208#issuecomment-429120743).
+                        addReqInput(inputs, it, project.projectDir)
+                    }
+                } catch (FileNotFoundException e) {}
             }
             outputs.dir(destinationDir)
             doLast {
@@ -372,6 +371,29 @@ class PythonPlugin implements Plugin<Project> {
                     }
                 }
             }
+        }
+    }
+
+    // This does not currently detect changes to indirect requirements or constraints
+    // files (#719).
+    void addReqInput(TaskInputs inputs, String req, File baseDir) {
+        // # is used for comments, and ; for environment markers.
+        req = req.replaceAll(/[#;].*/, "").trim()
+        if (req.isEmpty()) return
+
+        File file
+        try {
+            file = new File(baseDir, req)
+            if (! file.exists()) {
+                file = null
+            }
+        } catch (Exception e) {
+            // In case File() or exists() throws on an invalid filename.
+            file = null
+        }
+        // Do this outside of the try block to avoid hiding exceptions.
+        if (file != null) {
+            inputs.files(file)
         }
     }
 

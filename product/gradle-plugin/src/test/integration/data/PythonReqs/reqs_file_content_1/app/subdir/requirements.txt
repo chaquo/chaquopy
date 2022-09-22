@@ -1,0 +1,8 @@
+# Local directory, with leading whitespace and trailing comment. Note that the path is
+# relative to the `app` directory, not the location of the requirements.txt file.
+  ./alpha  # Comment
+
+# Empty line
+
+# Local file, with environment marker.
+./packages/apple-0.0.1-py2.py3-none-any.whl; python_version >= '3.0'
