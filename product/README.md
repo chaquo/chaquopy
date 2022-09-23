@@ -130,6 +130,10 @@ be given here.
 This should be done for each new version of Android, as soon as Google starts encouraging
 developers to test against it.
 
-* Update demo and pkgtest apps, and test all features.
+* Go to the new Android version's page
+  [here](https://developer.android.com/about/versions), and review the "Behavior changes"
+  section to see if anything could affect the demo app or Chaquopy itself.
+* Update demo and pkgtest apps, and test all features on an emulator with the new Android
+  version.
 * Leave the public apps alone for now: they will be dealt with during the next release
   (see release/README.md).

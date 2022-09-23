@@ -11,7 +11,6 @@ from android.view import Menu, MenuItem, View
 from java.lang import String
 
 from com.chaquo.python.demo import R
-from com.chaquo.python.utils import App
 
 
 class UIDemoActivity(static_proxy(AppCompatActivity)):
@@ -77,17 +76,6 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
 
     def demo_dialog(self, activity):
         ColorDialog().show(self.getFragmentManager(), "color")
-
-    def demo_notify(self, activity):
-        from androidx.core.app import NotificationCompat
-        builder = NotificationCompat.Builder(activity, App.DEFAULT_CHANNEL)
-        builder.setSmallIcon(R.drawable.ic_launcher)
-        builder.setContentTitle(
-            activity.getString(R.string.demo_notify_title))
-        builder.setContentText(
-            activity.getString(R.string.demo_notify_text))
-        activity.getSystemService(Context.NOTIFICATION_SERVICE)\
-            .notify(0, builder.getNotification())
 
     def demo_toast(self, activity):
         from android.widget import Toast

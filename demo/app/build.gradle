@@ -19,12 +19,12 @@ afterEvaluate {
 }
 
 android {
-    compileSdkVersion 31
+    compileSdkVersion 33
 
     defaultConfig {
         applicationId "com.chaquo.python.demo3"
         minSdkVersion 21
-        targetSdkVersion 31
+        targetSdkVersion 33
 
         // *** Replace in public repository **********************************
         // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
