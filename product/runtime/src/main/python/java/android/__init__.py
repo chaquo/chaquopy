@@ -3,6 +3,7 @@ from os.path import join
 import sys
 import traceback
 from types import ModuleType
+import warnings
 from . import stream, importer
 
 
@@ -14,8 +15,14 @@ def initialize(context_local, build_json, app_path):
     importer.initialize(context, build_json, app_path)
 
     # These are ordered roughly from low to high level.
-    for name in ["sys", "os", "tempfile", "multiprocessing"]:
+    for name in ["warnings", "sys", "os", "tempfile", "multiprocessing"]:
         globals()[f"initialize_{name}"]()
+
+
+# Several warning classes are ignored by default to avoid confusing end-users. But on
+# Android warnings are printed to the logcat, which is only visible to developers.
+def initialize_warnings():
+    warnings.resetwarnings()
 
 
 def initialize_sys():

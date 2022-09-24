@@ -1060,6 +1060,14 @@ class TestAndroidStdlib(AndroidTestCase):
         self.assertEqual("Fri, 28 Feb 2020 19:26:05",
                          time.strftime("%a, %d %b %Y %H:%M:%S", t))
 
+    def test_warnings(self):
+        import warnings
+        # The default "ignore" filters should have been removed, and the only filters in
+        # effect should be those inserted by the unit test framework.
+        for i, filter in enumerate(warnings.filters):
+            with self.subTest(index=i, filter=filter):
+                self.assertNotEqual("ignore", filter[0])
+
 
 class TestAndroidStreams(AndroidTestCase):
 
