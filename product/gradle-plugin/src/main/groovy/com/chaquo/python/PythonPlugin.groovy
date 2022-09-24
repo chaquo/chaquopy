@@ -826,6 +826,11 @@ class PythonExtension extends BaseExtension {
     void version(String v) {
         if (v in Common.PYTHON_VERSIONS_SHORT) {
             version = v
+            if (v != Common.DEFAULT_PYTHON_VERSION) {
+                println("Warning: Python version $v may have fewer packages available. " +
+                        "If you experience problems, try switching to version " +
+                        "${Common.DEFAULT_PYTHON_VERSION}.")
+            }
         } else {
             throw new GradleException("Invalid Python version '$v'. Available versions " +
                                       "are ${Common.PYTHON_VERSIONS_SHORT}.")

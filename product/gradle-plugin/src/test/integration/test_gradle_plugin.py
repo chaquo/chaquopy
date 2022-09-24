@@ -360,6 +360,10 @@ class JavaLib(GradleTestCase):
 
 
 class PythonVersion(GradleTestCase):
+    WARNING = (WARNING + "Python version {} may have fewer packages available. "
+               "If you experience problems, try switching to version " +
+               DEFAULT_PYTHON_VERSION + ".")
+
     def test_change(self):
         self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
         self.assertEqual(["3.8", "3.9", "3.10", "3.11"], list(PYTHON_VERSIONS))
@@ -378,6 +382,10 @@ class PythonVersion(GradleTestCase):
         with self.subTest(version=version):
             run.rerun(f"PythonVersion/{version}", python_version=version,
                       requirements=["six.py"])
+            if version == DEFAULT_PYTHON_VERSION:
+                self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
+            else:
+                self.assertInLong(self.WARNING.format(version), run.stdout, re=True)
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +

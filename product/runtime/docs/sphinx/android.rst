@@ -16,7 +16,7 @@ any app which meets the following requirements:
 .. (extra space)
 
 * `minSdkVersion <https://developer.android.com/guide/topics/manifest/uses-sdk-element>`_ must
-  be at least 16. Older versions as far back as 15 are supported by :doc:`older versions of
+  be at least 21. Older versions as far back as 15 are supported by :doc:`older versions of
   Chaquopy <../versions>`.
 
 
@@ -91,6 +91,23 @@ Each ABI will add several MB to the size of the app, plus the size of any native
 :ref:`requirements <android-requirements>`. If you find this makes your app too large, see
 :ref:`the FAQ <faq-size>`.
 
+.. _python-version:
+
+Python version
+--------------
+
+You can set your app's Python version like this::
+
+      defaultConfig {
+          python {
+              version "3.8"
+          }
+      }
+
+In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8, and
+other available versions are 3.9, 3.10 and 3.11. Note that versions other than the default
+may have fewer :ref:`packages <android-requirements>` available.
+
 .. _buildPython:
 
 buildPython
@@ -101,7 +118,7 @@ are indicated by a note in their documentation sections.
 
 By default, Chaquopy will try to find Python on the PATH with the standard command for your
 operating system, first with a matching minor version, and then with a matching major version.
-For example, if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then:
+For example, if :ref:`your app's Python version <python-version>` is 3.8, then:
 
 * On Linux and Mac it will try `python3.8`, then `python3`.
 * On Windows, it will try `py -3.8`, then `py -3`.
@@ -324,7 +341,7 @@ For example, to disable compilation of your local source code::
 
 In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
 bytecode format as Chaquopy itself. Usually this means it must have the same minor version,
-e.g. if :doc:`Chaquopy's own Python version <../versions>` is 3.8.x, then `buildPython` can be
+e.g. if :ref:`your app's Python version <python-version>` is 3.8, then `buildPython` can be
 any version of Python 3.8.
 
 If bytecode compilation fails, the build will continue with a warning, unless you've
