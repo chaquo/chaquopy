@@ -1060,11 +1060,11 @@ class TestAndroidStdlib(AndroidTestCase):
 
     def test_warnings(self):
         import warnings
-        # The default "ignore" filters should have been removed, and the only filters in
-        # effect should be those inserted by the unit test framework.
-        for i, filter in enumerate(warnings.filters):
-            with self.subTest(index=i, filter=filter):
-                self.assertNotEqual("ignore", filter[0])
+        # The default "ignore" filters should have been removed. And despite what the
+        # documentation says, the unit test framework inserts its filters not in the
+        # TextTestRunner, but in unittest.main, which we're not using. So the only active
+        # filter should be the one inserted by FilterWarningsCase.
+        self.assertEqual([("error", None, Warning, None, 0)], warnings.filters)
 
 
 class TestAndroidStreams(AndroidTestCase):
