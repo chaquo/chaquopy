@@ -3,7 +3,7 @@
 import argparse
 from copy import deepcopy
 import csv
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from email import generator, message, parser
 from glob import glob
 import jsonschema
@@ -46,7 +46,7 @@ STANDARD_LIBS = [
 # TODO: break out the build script fragments which get the actual version numbers from the
 # toolchain, and call them here.
 COMPILER_LIBS = {
-    "libc++_shared.so": ("chaquopy-libcxx", "10000"),
+    "libc++_shared.so": ("chaquopy-libcxx", "11000"),
     "libomp.so": ("chaquopy-libomp", "9.0.9"),
 }
 
@@ -55,17 +55,13 @@ COMPILER_LIBS = {
 class Abi:
     name: str                               # Android ABI name.
     tool_prefix: str                        # GCC target triplet.
-    cflags: str = field(default="")
-    ldflags: str = field(default="")
+    api_level: int
 
-# If any flags are changed, consider also updating target/build-common-tools.sh.
 ABIS = {abi.name: abi for abi in [
-    Abi("armeabi-v7a", "arm-linux-androideabi",
-        cflags="-march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb",  # See standalone
-        ldflags="-march=armv7-a -Wl,--fix-cortex-a8"),                       # toolchain docs.
-    Abi("arm64-v8a", "aarch64-linux-android"),
-    Abi("x86", "i686-linux-android"),
-    Abi("x86_64", "x86_64-linux-android"),
+    Abi("armeabi-v7a", "arm-linux-androideabi", 16),
+    Abi("arm64-v8a", "aarch64-linux-android", 21),
+    Abi("x86", "i686-linux-android", 16),
+    Abi("x86_64", "x86_64-linux-android", 21),
 ]}
 
 
@@ -106,8 +102,12 @@ class BuildWheel:
             sys.exit(1)
 
     def unpack_and_build(self):
+        platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
+        self.non_python_compat_tag = f"py3-none-{platform_tag}"
         if self.needs_python:
             self.find_python()
+            python_tag = "cp" + self.python.replace('.', '')
+            self.compat_tag = f"{python_tag}-{python_tag}-{platform_tag}"
         else:
             self.compat_tag = self.non_python_compat_tag
 
@@ -156,17 +156,22 @@ class BuildWheel:
 
         ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
                         "(any existing build/.../requirements directory will be reused)")
-        ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
-                        help="Path to toolchain")
+        ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
+                        help="Android ABI: choices=%(choices)s")
+        default_api_level = {abi.name: abi.api_level for abi in ABIS.values()}
+        ap.add_argument("--api-level", metavar="LEVEL",
+                        help=f"Android API level: default={default_api_level}")
         ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
                         "Python packages)"),
         ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
                         f"contains a slash, path to a recipe directory")
         ap.parse_args(namespace=self)
 
-        self.detect_toolchain()
-        self.platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
-        self.non_python_compat_tag = f"py3-none-{self.platform_tag}"
+        if not self.api_level:
+            self.api_level = default_api_level[self.abi]
+        self.standard_libs = sum((names for min_level, names in STANDARD_LIBS
+                                  if self.api_level >= min_level),
+                                 start=[])
 
     def find_python(self):
         if self.python is None:
@@ -185,17 +190,16 @@ class BuildWheel:
             except ValueError:
                 raise ERROR
 
-        self.python_include_dir = f"{self.toolchain}/sysroot/usr/include/python{self.python}"
-        assert_isdir(self.python_include_dir)
-        libpython = f"libpython{self.python}.so"
-        self.python_lib = f"{self.toolchain}/sysroot/usr/lib/{libpython}"
-        assert_exists(self.python_lib)
-        self.standard_libs.append(libpython)
+        target_dir = abspath(f"{PYPI_DIR}/../../maven/com/chaquo/python/target")
+        versions = [ver for ver in os.listdir(target_dir) if ver.startswith(self.python)]
+        if not versions:
+            raise CommandError(f"Can't find Python {self.python} in {target_dir}")
+        max_ver = max(versions, key=lambda ver: map(int, re.split(r"[.-]", ver)))
+        self.python_maven_dir = f"{target_dir}/{max_ver}"
 
+        # Many setup.py scripts will behave differently depending on the Python version,
+        # so we run pip with a matching version.
         self.pip = f"python{self.python} -m pip --disable-pip-version-check"
-        self.compat_tag = (f"cp{self.python.replace('.', '')}-"
-                           f"cp{self.python.replace('.', '')}-"
-                           f"{self.platform_tag}")
 
     def unpack_source(self):
         source = self.meta["source"]
@@ -309,11 +313,13 @@ class BuildWheel:
 
     def extract_requirements(self):
         ensure_empty(self.reqs_dir)
-        reqs = self.get_requirements("host")
-        if not reqs:
-            return
+        for subdir in ["include", "lib"]:
+            ensure_dir(f"{self.reqs_dir}/chaquopy/{subdir}")
+        self.create_dummy_libs()
+        if self.needs_python:
+            self.extract_python()
 
-        for package, version in reqs:
+        for package, version in self.get_requirements("host"):
             dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
             matches = []
             if exists(dist_dir):
@@ -352,14 +358,34 @@ class BuildWheel:
                            (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
                            (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
         reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
-        if exists(reqs_lib_dir):
-            for filename in os.listdir(reqs_lib_dir):
-                for pattern, repl in SONAME_PATTERNS:
-                    link_filename = re.sub(pattern, repl, filename)
-                    if link_filename in self.standard_libs:
-                        continue  # e.g. torch has libc10.so, which would become libc.so.
-                    if link_filename != filename:
-                        run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
+        for filename in os.listdir(reqs_lib_dir):
+            for pattern, repl in SONAME_PATTERNS:
+                link_filename = re.sub(pattern, repl, filename)
+                if link_filename in self.standard_libs:
+                    continue  # e.g. torch has libc10.so, which would become libc.so.
+                if link_filename != filename:
+                    run(f"ln -s {filename} {reqs_lib_dir}/{link_filename}")
+
+    # On Android, some libraries are incorporated into libc. Create empty .a files so we
+    # don't have to patch everything that links against them.
+    def create_dummy_libs(self):
+        for name in ["pthread", "rt"]:
+            run(f"ar rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
+
+    def extract_python(self):
+        run(f"unzip -q -d {self.reqs_dir}/chaquopy "
+            f"{self.python_maven_dir}/target-*-{self.abi}.zip "
+            f"include/* jniLibs/*")
+        run(f"mv {self.reqs_dir}/chaquopy/jniLibs/{self.abi}/* {self.reqs_dir}/chaquopy/lib",
+            shell=True)
+        run(f"rm -r {self.reqs_dir}/chaquopy/jniLibs")
+
+        self.python_include_dir = f"{self.reqs_dir}/chaquopy/include/python{self.python}"
+        assert_exists(self.python_include_dir)
+        libpython = f"libpython{self.python}.so"
+        self.python_lib = f"{self.reqs_dir}/chaquopy/lib/{libpython}"
+        assert_exists(self.python_lib)
+        self.standard_libs.append(libpython)
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -379,13 +405,21 @@ class BuildWheel:
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)
 
-    # The environment variables set in this function are used for native builds by
-    # distutils.sysconfig.customize_compiler. To make builds as consistent as possible, we
-    # define values for all environment variables used by distutils in any supported Python
-    # version. We also define some common variables like LD and STRIP which aren't used
-    # by distutils, but might be used by custom build scripts.
     def update_env(self):
         env = {}
+        for line in run(
+            f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
+            f". {PYPI_DIR}/../../target/build-common.sh; export",
+            shell=True, text=True, capture_output=True
+        ).stdout.splitlines():
+            match = re.search(r"^export (\w+)='(.*)'$", line)
+            if match:
+                key, value = match.groups()
+                if os.environ.get(key) != value:
+                    env[key] = value
+
+        # See env/bin/pkg-config.
+        del env["PKG_CONFIG"]
 
         env_dir = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
@@ -400,72 +434,16 @@ class BuildWheel:
             pythonpath.append(os.environ["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(pythonpath)
 
-        abi = ABIS[self.abi]
-        for tool in ["ar", "as", ("cc", "gcc"), ("cxx", "g++"),
-                     ("fc", "gfortran"),   # Used by openblas
-                     ("f77", "gfortran"), ("f90", "gfortran"),  # Used by numpy.distutils
-                     "ld", "nm", "ranlib", "readelf", "strip"]:
-            var, suffix = (tool, tool) if isinstance(tool, str) else tool
-            filename = f"{self.toolchain}/bin/{abi.tool_prefix}-{suffix}"
-            if suffix != "gfortran":  # Only required for SciPy and OpenBLAS.
-                assert_exists(filename)
-            env[var.upper()] = filename
+        # This flag often catches errors in .so files which would otherwise be delayed
+        # until runtime. (Some of the more complex build.sh scripts need to remove this, or
+        # use it more selectively.)
+        env["LDFLAGS"] += " -Wl,--no-undefined"
+
+        # Set all other variables used by distutils to prevent the host Python values (if
+        # any) from taking effect.
+        env["CPPFLAGS"] = ""
+        env["CXXFLAGS"] = ""
         env["LDSHARED"] = f"{env['CC']} -shared"
-
-        # If any flags are changed, consider also updating target/build-common-tools.sh.
-        gcc_flags = " ".join([
-            "-fPIC",  # See standalone toolchain docs, and note below about -pie
-            abi.cflags])
-        env["CFLAGS"] = gcc_flags
-        env["FARCH"] = gcc_flags  # Used by numpy.distutils Fortran compilation.
-
-        # If any flags are changed, consider also updating target/build-common-tools.sh.
-        #
-        # Not including -pie despite recommendation in standalone toolchain docs, because it
-        # causes the linker to forget it's supposed to be building a shared library
-        # (https://lists.debian.org/debian-devel/2016/05/msg00302.html). It can be added
-        # manually for packages which require it (e.g. hdf5).
-        env["LDFLAGS"] = " ".join([
-            # This flag often catches errors in .so files which would otherwise be delayed
-            # until runtime. (Some of the more complex build.sh scripts need to remove this, or
-            # use it more selectively.)
-            #
-            # I tried also adding -Werror=implicit-function-declaration to CFLAGS, but that
-            # breaks too many things (e.g. `has_function` in distutils.ccompiler).
-            "-Wl,--no-undefined",
-
-            # This currently only affects armeabi-v7a, but could affect other ABIs if the
-            # unwinder implementation changes in a future NDK version
-            # (https://android.googlesource.com/platform/ndk/+/ndk-release-r21/docs/BuildSystemMaintainers.md#Unwinding).
-            # See also comment in build-fortran.sh.
-            "-Wl,--exclude-libs,libgcc.a",       # NDK r18
-            "-Wl,--exclude-libs,libgcc_real.a",  # NDK r19 and later
-            "-Wl,--exclude-libs,libunwind.a",
-
-            # Many packages get away with omitting this on standard Linux.
-            "-lm",
-
-            abi.ldflags])
-
-        reqs_prefix = f"{self.reqs_dir}/chaquopy"
-        if exists(reqs_prefix):
-            env["PKG_CONFIG_LIBDIR"] = f"{reqs_prefix}/lib/pkgconfig"
-            env["CFLAGS"] += f" -I{reqs_prefix}/include"
-
-            # --rpath-link only affects arm64, because it's the only ABI which uses ld.bfd. The
-            # others all use ld.gold, which doesn't try to resolve transitive shared library
-            # dependencies. When we upgrade to a later version of the NDK which uses LLD, we
-            # can probably remove this flag, along with all requirements in meta.yaml files
-            # which are tagged with "ld.bfd".
-            env["LDFLAGS"] += (f" -L{reqs_prefix}/lib"
-                               f" -Wl,--rpath-link,{reqs_prefix}/lib")
-
-        env["ARFLAGS"] = "rc"
-
-        # Set all unused overridable variables to the empty string to prevent the host Python
-        # values (if any) from taking effect.
-        for var in ["CPPFLAGS", "CXXFLAGS"]:
-            env[var] = ""
 
         # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
         # and typed-ast).
@@ -498,9 +476,16 @@ class BuildWheel:
         if self.needs_cmake:
             self.generate_cmake_toolchain()
 
-    # Define the minimum necessary to keep CMake happy. To avoid duplication, we still want to
-    # configure as much as possible via update_env.
     def generate_cmake_toolchain(self):
+        raise CommandError("TODO: CMake support needs to be updated.")
+        # TODO: Generate a toolchain file which sets ANDROID_ABI, ANDROID_PLATFORM, and
+        # any other necessary variables (see
+        # https://developer.android.com/ndk/guides/cmake#build-command -- though these
+        # might not all be necessary with the current NDK), and then includes the
+        # toolchain file from the NDK. To avoid needing to patch every package that uses
+        # CMake, we can then set the CMAKE_TOOLCHAIN_FILE environment variable, which was
+        # added in CMake 3.21.
+
         # See build/cmake/android.toolchain.cmake in the NDK.
         CMAKE_PROCESSORS = {
             "armeabi-v7a": "armv7-a",
@@ -510,6 +495,9 @@ class BuildWheel:
         }
         clang_target = f"{ABIS[self.abi].tool_prefix}{self.api_level}".replace("arm-", "armv7a-")
 
+        # Define the minimum necessary to keep CMake happy. To avoid confusion about where
+        # settings are coming from, we still want to configure as much as possible via
+        # environment variables.
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
         log(f"Generating {toolchain_filename}")
         with open(toolchain_filename, "w") as toolchain_file:
@@ -554,31 +542,6 @@ class BuildWheel:
                     # pybind11's FindPythonLibsNew.cmake has some extra variables.
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
-
-    def detect_toolchain(self):
-        clang = f"{self.toolchain}/bin/clang"
-        for word in open(clang).read().split():
-            if word.startswith("--target"):
-                match = re.search(r"^--target=(.+?)(\d+)$", word)
-                if not match:
-                    raise CommandError(f"Couldn't parse '{word}' in {clang}")
-
-                for abi in ABIS.values():
-                    if match[1] == abi.tool_prefix.replace("arm-", "armv7a-"):
-                        self.abi = abi.name
-                        break
-                else:
-                    raise CommandError(f"Unknown triplet '{match[1]}' in {clang}")
-
-                self.api_level = int(match[2])
-                self.standard_libs = sum((names for min_level, names in STANDARD_LIBS
-                                          if self.api_level >= min_level),
-                                         start=[])
-                break
-        else:
-            raise CommandError(f"Couldn't find target in {clang}")
-
-        log(f"Toolchain ABI: {self.abi}, API level: {self.api_level}")
 
     def fix_wheel(self, in_filename):
         tmp_dir = f"{self.build_dir}/fix_wheel"
@@ -796,10 +759,15 @@ def normalize_version(version):
     return str(pkg_resources.parse_version(version))
 
 
-def run(command, check=True):
+def run(command, **kwargs):
     log(command)
+    kwargs.setdefault("check", True)
+    kwargs.setdefault("shell", False)
+
+    if isinstance(command, str) and not kwargs["shell"]:
+        command = shlex.split(command)
     try:
-        return subprocess.run(shlex.split(command), check=check)
+        return subprocess.run(command, **kwargs)
     except subprocess.CalledProcessError as e:
         raise CommandError(f"Command returned exit status {e.returncode}")
 

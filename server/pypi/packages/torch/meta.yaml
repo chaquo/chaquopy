@@ -17,6 +17,5 @@ requirements:
     - typing-extensions 3.10.0.0
   host:
     - python
-    - chaquopy-libgfortran 4.9  # arm64-v8a uses ld.bfd, which transitively resolves all symbols.
     - chaquopy-openblas 0.2.20
     - numpy 1.17.4

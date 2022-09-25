@@ -1,6 +1,6 @@
 # These packages are included by default in a new virtualenv, but since we use them directly,
 # specify exact versions for reproducible builds.
-pip==18.1
+pip==19.2.3
 setuptools==46.4.0
 wheel==0.33.6
 
