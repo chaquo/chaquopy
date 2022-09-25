@@ -47,6 +47,8 @@ android {
 
             // Python unit tests
             pip {
+                // In newer versions, importing murmurhash automatically imports and
+                // extracts murmurhash/mrmr.so, which would complicate the tests.
                 install "murmurhash==0.28.0"  // Requires chaquopy-libcxx
             }
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",

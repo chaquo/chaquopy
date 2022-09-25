@@ -188,6 +188,7 @@ class TestAndroidImport(AndroidTestCase):
         self.check_data(APP_ZIP, pkg, "subdir/c.txt", b"charlie")
 
         # Requirements ZIP
+        self.reset_package("murmurhash")
         self.check_data(REQS_COMMON_ZIP, "murmurhash", "about.pyc", MAGIC_NUMBER)
         self.check_data(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
         self.check_data(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
@@ -207,9 +208,6 @@ class TestAndroidImport(AndroidTestCase):
         self.assertNotIn(".", package)
 
         cache_filename = asset_path(zip_name, package, filename)
-        if exists(cache_filename):
-            os.remove(cache_filename)
-
         mod = import_module(package)
         data = pkgutil.get_data(package, filename)
         self.assertTrue(data.startswith(start))
@@ -733,7 +731,7 @@ class TestAndroidImport(AndroidTestCase):
         self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
-        self.assertEqual(["chaquopy-libcxx (>=10000)"], dist.requires)
+        self.assertEqual(["chaquopy-libcxx (>=11000)"], dist.requires)
 
     @contextmanager
     def assertModifies(self, filename):
