@@ -383,12 +383,17 @@ class PythonPlugin implements Plugin<Project> {
 
         File file
         try {
-            file = new File(baseDir, req)
+            file = new File(req)
+            if (! file.isAbsolute()) {
+                // Passing two absolute paths to the File constructor will simply
+                // concatenate them rather than returning the second one.
+                file = new File(baseDir, req)
+            }
             if (! file.exists()) {
                 file = null
             }
         } catch (Exception e) {
-            // In case File() or exists() throws on an invalid filename.
+            // In case any of the above code throws on an invalid filename.
             file = null
         }
         // Do this outside of the try block to avoid hiding exceptions.

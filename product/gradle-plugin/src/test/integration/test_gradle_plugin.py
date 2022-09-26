@@ -747,13 +747,13 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
 
     def test_download_wheel(self):
-        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-5-cp38-cp38-android_16_x86.whl"
+        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-7-cp38-cp38-android_16_x86.whl"
         PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
         common_reqs = (["murmurhash/" + name for name in
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                          "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
                          "tests/__init__.py", "tests/test_import.py"]] +
-                       ["chaquopy_libcxx-10000.dist-info/" + name for name in
+                       ["chaquopy_libcxx-11000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
                        ["murmurhash-0.28.0.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
@@ -883,10 +883,17 @@ class PythonReqs(GradleTestCase):
         run.rerun("PythonReqs/reqs_file_content_3",
                   requirements=["apple2/__init__.py", "bravo1.py"])
 
-    def test_wheel_file(self):
-        run = self.RunGradle("base", "PythonReqs/wheel_file", requirements=["apple/__init__.py"])
-        run.apply_layers("PythonReqs/wheel_file_2")
-        run.rerun(requirements=["apple2/__init__.py"])
+    def test_wheel_file_relative(self):
+        run = self.RunGradle("base", "PythonReqs/wheel_file_relative",
+                             "PythonReqs/wheel_file_1",
+                             requirements=["apple/__init__.py"])
+        run.rerun("PythonReqs/wheel_file_2", requirements=["apple2/__init__.py"])
+
+    def test_wheel_file_absolute(self):
+        run = self.RunGradle("base", "PythonReqs/wheel_file_absolute",
+                             "PythonReqs/wheel_file_1",
+                             requirements=["apple/__init__.py"])
+        run.rerun("PythonReqs/wheel_file_2", requirements=["apple2/__init__.py"])
 
     # This wheel has .data subdirectories for each of the possible distutils scheme keys. Only
     # purelib and platlib should be included in the APK.
