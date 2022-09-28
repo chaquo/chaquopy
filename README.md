@@ -6,7 +6,7 @@ contains the parts that are interesting for the purposes of iOS etc.**
 If you want to request a package for iOS/tvOS/watchOS, please [open a ticket on
 *this* repository](https://github.com/freakboy3742/chaquopy/issues). If you want
 to request a package for Android, open a ticket on [the upstream *Chaquopy*
-repository](https://github.com/chaquopy/chaquopy/issues)
+repository](https://github.com/chaquo/chaquopy/issues)
 
 # Chaquopy: the Python SDK for Android
 
