@@ -1,0 +1,30 @@
+diff -ru PyNaCl-1.5.0-orig/src/libsodium/build-aux/config.sub PyNaCl-1.5.0/src/libsodium/build-aux/config.sub
+--- PyNaCl-1.5.0-orig/src/libsodium/build-aux/config.sub	2022-01-08 05:54:10.000000000 +0800
++++ PyNaCl-1.5.0/src/libsodium/build-aux/config.sub	2022-09-28 08:54:19.000000000 +0800
+@@ -1113,7 +1113,7 @@
+ 	xscale-* | xscalee[bl]-*)
+ 		cpu=`echo "$cpu" | sed 's/^xscale/arm/'`
+ 		;;
+-	arm64-*)
++	arm64-* | arm64_32-*)
+ 		cpu=aarch64
+ 		;;
+ 
+@@ -1713,7 +1713,7 @@
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+ 	     | hiux* | abug | nacl* | netware* | windows* \
+-	     | os9* | macos* | osx* | ios* \
++	     | os9* | macos* | osx* | ios* | tvos* | watchos* \
+ 	     | mpw* | magic* | mmixware* | mon960* | lnews* \
+ 	     | amigaos* | amigados* | msdos* | newsos* | unicos* | aof* \
+ 	     | aos* | aros* | cloudabi* | sortix* | twizzler* \
+@@ -1775,6 +1775,8 @@
+ 		;;
+ 	*-eabi* | *-gnueabi*)
+ 		;;
++	ios*-simulator | tvos*-simulator | watchos*-simulator)
++		;;
+ 	-*)
+ 		# Blank kernel with real OS is always fine.
+ 		;;

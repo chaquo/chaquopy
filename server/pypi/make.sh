@@ -18,6 +18,7 @@ for pkg in \
     "editdistance" \
     "ephem" \
     "frozenlist" \
+    "gensim" \
     "greenlet" \
     "kiwisolver" \
     "lru-dict" \
@@ -39,6 +40,7 @@ for pkg in \
     "scandir" \
     "spectrum" \
     "srsly" \
+    "statsmodels" \
     "twisted" \
     "typed-ast" \
     "ujson" \
@@ -50,4 +52,6 @@ done
 
 echo
 echo "========================================"
-echo "Expected 42 modules; built $(find dist -name "*-cp${2//./}-ios_12_0.whl" | sort | wc -l)"
+find dist -name "*-cp${2//./}-ios_12_0.whl" | sort
+echo "========================================"
+echo "Expected 43 modules; built $(find dist -name "*-cp${2//./}-ios_12_0.whl" | sort | wc -l)"
