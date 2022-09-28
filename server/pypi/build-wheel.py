@@ -588,10 +588,9 @@ class BaseWheelBuilder:
         run(f"unzip -d {tmp_dir} -q {in_filename}")
         info_dir = f"{tmp_dir}/{self.package.name_version}.dist-info"
 
-        # This can't be done before the build, because sentencepiece generates a license file
-        # in the source directory during the build.
-        license_files = (find_license_files(self.src_dir) +
-                         find_license_files(self.package.recipe_dir))
+        # Add any extra license files in the recipe dir, or referenced
+        # by the meta.yaml file.
+        license_files = find_license_files(self.package.recipe_dir)
         meta_license = self.package.meta["about"]["license_file"]
         if meta_license:
             license_files += [f"{self.src_dir}/{meta_license}"]
@@ -599,9 +598,6 @@ class BaseWheelBuilder:
             for name in license_files:
                 # We use `-a` because pandas comes with a whole directory of licenses.
                 run(f"cp -a {name} {info_dir}")
-        else:
-            raise CommandError("Couldn't find license file: see license_file in "
-                               "meta-schema.yaml")
 
         reqs = self.process_native_binaries(tmp_dir, info_dir)
 
@@ -860,12 +856,12 @@ class AppleWheelBuilder(BaseWheelBuilder):
         env["CROSS_COMPILE_PLATFORM_TAG"] = f"{self.os}_{self.api_level}_{self.abi.name}"
         env["CROSS_COMPILE_PREFIX"] = f"{self.toolchain}/{self.python_version}/Python.xcframework/{self.abi.slice}"
         env["CROSS_COMPILE_IMPLEMENTATION"] = self.abi.name
-        env["CROSS_COMPILE_SDK_ROOT"] = (
-            subprocess.check_output(
-                ["xcrun", "--show-sdk-path", "--sdk", self.abi.sdk],
-                universal_newlines=True
-            ).strip()
-        )
+
+        sdk_root = subprocess.check_output(
+            ["xcrun", "--show-sdk-path", "--sdk", self.abi.sdk],
+            universal_newlines=True
+        ).strip()
+        env["CROSS_COMPILE_SDK_ROOT"] = sdk_root
         env["CROSS_COMPILE_TOOLCHAIN_SLICE"] = self.abi.slice
 
         env["CROSS_COMPILE_SYSCONFIGDATA"] = os.sep.join([
@@ -918,6 +914,13 @@ class AppleWheelBuilder(BaseWheelBuilder):
         if self.package.needs_python:
             env["CHAQUOPY_PYTHON"] = self.python_version
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
+
+        # Update any reference to an sdk_root
+        for key, value in env.items():
+            if isinstance(value, str):
+                value = re.sub(r"--sysroot=/.*?.sdk", f"--sysroot={sdk_root}",value)
+                value = re.sub(r"-isysroot /.*?.sdk", f"-isysroot {sdk_root}", value)
+            env[key] = value
 
     def process_native_binaries(self, tmp_dir, info_dir):
         # No post-processing required on the initial wheel binaries.

@@ -56,3 +56,8 @@ chaquopy-llvm - Needs cmake
 chaquopy-openblas - needs chaquopy-libfortran
 chaquopy-secp256k1 - No tarball, so config.sub is generated, but needs patching.
 cmake-example - Needs Cmake
+
+## Python3.10
+backports-zoneinfo - Not needed, as zoneinfo was introduced in Python 3.10
+preshed - cython compilation issue; no obvious fix through upgrading
+statsmodels - cython compilation issue; appears to be due to running setup.py during download

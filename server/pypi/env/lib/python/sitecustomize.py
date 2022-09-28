@@ -1,6 +1,7 @@
 # This file is imported on startup in pip and all of its Python subprocesses.
 
 import os
+import re
 import sys
 
 
@@ -80,13 +81,33 @@ if "CROSS_COMPILE_SYSCONFIGDATA" in os.environ:
     with open(os.environ["CROSS_COMPILE_SYSCONFIGDATA"]) as sysconfigdata:
         exec(sysconfigdata.read(), config_globals, config_locals)
 
-    distutils.sysconfig._config_vars = config_locals['build_time_vars']
+    # The sysconfig data can bake in a sysroot that isn't appropriate
+    build_time_vars = {}
+    sdk_root = os.environ['CROSS_COMPILE_SDK_ROOT']
+    for key, value in config_locals['build_time_vars'].items():
+        if isinstance(value, str):
+            value = re.sub(r"--sysroot=/.*?.sdk", f"--sysroot={sdk_root}", value)
+            value = re.sub(r"-isysroot /.*?.sdk", f"-isysroot {sdk_root}", value)
+        build_time_vars[key] = value
+
+    distutils.sysconfig._config_vars = build_time_vars
+    sysconfig._CONFIG_VARS = build_time_vars
 
     def customize_init_posix(vars):
-        vars.update(config_locals['build_time_vars'])
+        vars.update(build_time_vars)
 
     sysconfig._init_posix = customize_init_posix
 
+# Modify the posix_prefix install scheme so that there's no variables to expand
+sysconfig._INSTALL_SCHEMES['posix_prefix'] = {
+    'stdlib': '/lib/python%s' % sys.version[:3],
+    'platstdlib': '/lib/python%s' % sys.version[:3],
+    'purelib': '/lib/python%s/site-packages' % sys.version[:3],
+    'platlib': '/lib/python%s/site-packages' % sys.version[:3],
+    'include': '/include',
+    'scripts': '/bin',
+    'data': '/Resources',
+}
 
 # Call the next sitecustomize script if there is one
 # (https://nedbatchelder.com/blog/201001/running_code_at_python_startup.html).
