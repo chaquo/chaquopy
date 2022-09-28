@@ -1,6 +1,6 @@
 package:
   name: matplotlib
-  version: 3.1.2
+  version: 3.6.0
 
 build:
   number: 1

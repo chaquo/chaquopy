@@ -1,37 +1,46 @@
---- src-original/setupext.py	2019-11-21 22:47:05.000000000 +0000
-+++ src/setupext.py	2020-01-26 19:16:23.926678121 +0000
-@@ -604,8 +604,7 @@
-     name = "numpy"
+diff -ru matplotlib-3.6.0-orig/setupext.py matplotlib-3.6.0/setupext.py
+--- matplotlib-3.6.0-orig/setupext.py	2022-09-16 07:26:26.000000000 +0800
++++ matplotlib-3.6.0/setupext.py	2022-09-28 13:41:58.000000000 +0800
+@@ -199,7 +199,7 @@
+     'backend': config.get('rc_options', 'backend', fallback=None),
+     'system_freetype': config.getboolean(
+         'libs', 'system_freetype',
+-        fallback=sys.platform.startswith(('aix', 'os400'))
++        fallback=sys.platform.startswith(('aix', 'os400', 'ios', 'tvos', 'watchos'))
+     ),
+     'system_qhull': config.getboolean(
+         'libs', 'system_qhull', fallback=sys.platform.startswith('os400')
+@@ -493,8 +493,7 @@
  
-     def add_flags(self, ext):
--        import numpy as np
--        ext.include_dirs.append(np.get_include())
-+        ext.include_dirs.append(os.path.abspath("../requirements/numpy/core/include"))  # Chaquopy
-         ext.define_macros.extend([
-             # Ensure that PY_ARRAY_UNIQUE_SYMBOL is uniquely defined for each
-             # extension.
-@@ -617,7 +616,7 @@
-         ])
  
-     def get_setup_requires(self):
--        return ['numpy>=1.11']
-+        return []  # Chaquopy: was ['numpy>=1.11']
- 
-     def get_install_requires(self):
-         return ['numpy>=1.11']
-@@ -679,14 +678,7 @@
-                 0, os.path.join(src_path, 'objs', '.libs', libfreetype))
-             ext.define_macros.append(('FREETYPE_BUILD_TYPE', 'local'))
-         else:
--            pkg_config.setup_extension(
+ def add_numpy_flags(ext):
+-    import numpy as np
+-    ext.include_dirs.append(np.get_include())
++    ext.include_dirs.append(os.path.abspath("../requirements/numpy/core/include"))  # Chaquopy
+     ext.define_macros.extend([
+         # Ensure that PY_ARRAY_UNIQUE_SYMBOL is uniquely defined for each
+         # extension.
+@@ -563,14 +562,15 @@
+         # appropriate error message if the header indicates a too-old version.
+         ext.sources.insert(0, 'src/checkdep_freetype2.c')
+         if options.get('system_freetype'):
+-            pkg_config_setup_extension(
 -                # FreeType 2.3 has libtool version 9.11.3 as can be checked
 -                # from the tarball.  For FreeType>=2.4, there is a conversion
 -                # table in docs/VERSIONS.txt in the FreeType source tree.
 -                ext, 'freetype2',
 -                atleast_version='9.11.3',
 -                alt_exec=['freetype-config'],
--                default_libraries=['freetype', 'z'])
-+            ext.libraries.append("freetype")  # Chaquopy
+-                default_libraries=['freetype'])
++            # pkg_config_setup_extension(
++            #     # FreeType 2.3 has libtool version 9.11.3 as can be checked
++            #     # from the tarball.  For FreeType>=2.4, there is a conversion
++            #     # table in docs/VERSIONS.txt in the FreeType source tree.
++            #     ext, 'freetype2',
++            #     atleast_version='9.11.3',
++            #     alt_exec=['freetype-config'],
++            #     default_libraries=['freetype'])
++            ext.libraries.append("freetype")
              ext.define_macros.append(('FREETYPE_BUILD_TYPE', 'system'))
- 
-     def do_custom_build(self):
+         else:
+             src_path = Path('build', f'freetype-{LOCAL_FREETYPE_VERSION}')
