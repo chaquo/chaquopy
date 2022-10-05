@@ -3,4 +3,8 @@ package:
   version: 3.1.7
 
 build:
-  number: 2
+  number: 3
+
+requirements:
+  build:
+    - cffi 1.15.1
