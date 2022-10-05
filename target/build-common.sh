@@ -31,7 +31,8 @@ case $abi in
         host_triplet=x86_64-linux-android
         ;;
     *)
-        echo "Unknown ABI: '$abi'"
+        echo "Unknown ABI: '$abi'" >&2
+        exit 1
         ;;
 esac
 

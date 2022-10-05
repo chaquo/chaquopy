@@ -1,6 +1,6 @@
 --- src-original/setup.py	2019-10-19 08:15:34.000000000 +0000
-+++ src/setup.py	2020-01-28 15:38:11.363424620 +0000
-@@ -175,11 +175,14 @@
++++ src/setup.py	2022-10-04 21:19:55.423152993 +0000
+@@ -175,10 +175,14 @@
  # C files must be built once only for coverage to work
  c_lib = ('c_wt', {'sources': sources,
                    'depends': source_templates + header_templates + headers,
@@ -9,11 +9,19 @@
                    'macros': c_macros, })
  
  def get_ext_modules(use_cython):
--    from numpy import get_include as get_numpy_include
 +    # Chaquopy
-+    def get_numpy_include():
-+        return os.path.abspath("../requirements/numpy/core/include")
++    import builtins
++    builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +
+     from numpy import get_include as get_numpy_include
      cython_modules, cython_sources = get_cython_sources(use_cython)
      ext_modules = [
-         Extension('pywt._extensions.{0}'.format(module),
+@@ -439,7 +443,7 @@
+         tests_require=['pytest'],
+ 
+         install_requires=["numpy>=1.13.3"],
+-        setup_requires=["numpy>=1.13.3"],
++        # Chaquopy: removed setup_requires=["numpy>=1.13.3"],
+         python_requires=">=3.5",
+     )
+ 

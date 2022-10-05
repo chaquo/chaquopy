@@ -1,7 +1,7 @@
---- src-original/setup.py	2019-01-05 17:33:50.000000000 +0000
-+++ src/setup.py	2019-03-14 17:28:57.394638198 +0000
-@@ -259,7 +259,7 @@
-     ] + [('add-imaging-libs=', None, 'Add libs to _imaging build')]
+--- src-original/setup.py	2022-07-01 13:14:51.000000000 +0000
++++ src/setup.py	2022-10-04 22:09:03.025799341 +0000
+@@ -333,7 +333,7 @@
+     )
  
      def initialize_options(self):
 -        self.disable_platform_guessing = None
@@ -9,29 +9,26 @@
          self.add_imaging_libs = ""
          build_ext.initialize_options(self)
          for x in self.feature:
-@@ -471,8 +471,9 @@
+@@ -497,8 +497,9 @@
                  for d in os.environ[k].split(os.path.pathsep):
                      _add_directory(library_dirs, d)
-
+ 
 -        _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
 -        _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
 +        # Chaquopy: disabled
 +        # _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
 +        # _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
-
+ 
          #
          # add platform directories
-@@ -538,6 +538,13 @@
-                 _add_directory(library_dirs, os.path.join(best_path, "lib"))
-                 _add_directory(include_dirs, os.path.join(best_path, "include"))
+@@ -636,8 +637,8 @@
  
-+        # Chaquopy
-+        sysroot_dir = os.path.abspath(os.path.join(os.path.dirname(os.environ["CC"]),
-+                                                   "../sysroot/usr"))
-+        _add_directory(library_dirs, os.path.join(sysroot_dir, "lib"))
-+        _add_directory(library_dirs, os.path.join(sysroot_dir, "lib64"))
-+        _add_directory(include_dirs, os.path.join(sysroot_dir, "include"))
-+
-         #
-         # insert new dirs *before* default libs, to avoid conflicts
-         # between Python PYD stub libs and real libraries
+         if feature.want("zlib"):
+             _dbg("Looking for zlib")
+-            if _find_include_file(self, "zlib.h"):
+-                if _find_library_file(self, "z"):
++            if True or _find_include_file(self, "zlib.h"):  # Chaquopy: libz is always
++                if True or _find_library_file(self, "z"):   # available.
+                     feature.zlib = "z"
+                 elif sys.platform == "win32" and _find_library_file(self, "zlib"):
+                     feature.zlib = "zlib"  # alternative name

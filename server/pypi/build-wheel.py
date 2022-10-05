@@ -55,13 +55,13 @@ COMPILER_LIBS = {
 class Abi:
     name: str                               # Android ABI name.
     tool_prefix: str                        # GCC target triplet.
-    api_level: int
+    uname_machine: str
 
 ABIS = {abi.name: abi for abi in [
-    Abi("armeabi-v7a", "arm-linux-androideabi", 16),
-    Abi("arm64-v8a", "aarch64-linux-android", 21),
-    Abi("x86", "i686-linux-android", 16),
-    Abi("x86_64", "x86_64-linux-android", 21),
+    Abi("armeabi-v7a", "arm-linux-androideabi", "armv7l"),
+    Abi("arm64-v8a", "aarch64-linux-android", "aarch64"),
+    Abi("x86", "i686-linux-android", "i686"),
+    Abi("x86_64", "x86_64-linux-android", "x86_64"),
 ]}
 
 
@@ -102,14 +102,14 @@ class BuildWheel:
             sys.exit(1)
 
     def unpack_and_build(self):
-        platform_tag = f"android_{self.api_level}_{self.abi.replace('-', '_')}"
-        self.non_python_compat_tag = f"py3-none-{platform_tag}"
+        self.non_python_tag = "py3-none"
+        self.abi_tag = self.abi.replace('-', '_')
         if self.needs_python:
             self.find_python()
-            python_tag = "cp" + self.python.replace('.', '')
-            self.compat_tag = f"{python_tag}-{python_tag}-{platform_tag}"
+            self.python_tag = "-".join(["cp" + self.python.replace('.', '')] * 2)
         else:
-            self.compat_tag = self.non_python_compat_tag
+            self.python_tag = self.non_python_tag
+        self.compat_tag = f"{self.python_tag}-android_{self.api_level}_{self.abi_tag}"
 
         build_reqs = self.get_requirements("build")
         if build_reqs:
@@ -130,14 +130,15 @@ class BuildWheel:
             self.unpack_source()
             self.apply_patches()
 
+        self.reqs_dir = f"{self.build_dir}/requirements"
+        if self.no_reqs:
+            log("Skipping requirements extraction due to --no-reqs")
+        else:
+            self.extract_requirements()
+
         if self.no_build:
             log("Skipping build due to --no-build")
         else:
-            self.reqs_dir = f"{self.build_dir}/requirements"
-            if self.no_reqs:
-                log("Skipping requirements extraction due to --no-reqs")
-            else:
-                self.extract_requirements()
             self.update_env()
             wheel_filename = self.build_wheel()
             return self.fix_wheel(wheel_filename)
@@ -157,18 +158,15 @@ class BuildWheel:
         ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
                         "(any existing build/.../requirements directory will be reused)")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
-                        help="Android ABI: choices=%(choices)s")
-        default_api_level = {abi.name: abi.api_level for abi in ABIS.values()}
-        ap.add_argument("--api-level", metavar="LEVEL",
-                        help=f"Android API level: default={default_api_level}")
+                        help="Android ABI: choices=[%(choices)s]")
+        ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
+                        help="Android API level: default=%(default)s")
         ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
                         "Python packages)"),
         ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
                         f"contains a slash, path to a recipe directory")
         ap.parse_args(namespace=self)
 
-        if not self.api_level:
-            self.api_level = default_api_level[self.abi]
         self.standard_libs = sum((names for min_level, names in STANDARD_LIBS
                                   if self.api_level >= min_level),
                                  start=[])
@@ -326,10 +324,10 @@ class BuildWheel:
                 for filename in os.listdir(dist_dir):
                     match = re.search(fr"^{normalize_name_wheel(package)}-"
                                       fr"{normalize_version(version)}-(?P<build_num>\d+)-"
-                                      fr"({self.compat_tag}|"
-                                      fr"{self.non_python_compat_tag})"
+                                      fr"({self.python_tag}|{self.non_python_tag})-"
+                                      fr"android_(?P<api_level>\d+)_{self.abi_tag}"
                                       fr"\.whl$", filename)
-                    if match:
+                    if match and (int(match["api_level"]) <= self.api_level):
                         matches.append(match)
             if not matches:
                 raise CommandError(f"Couldn't find wheel for requirement {package} {version}")
@@ -396,11 +394,13 @@ class BuildWheel:
 
     def build_with_pip(self):
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
-        # setuptools-aware setup.py files. We pass -v unconditionally, because we always want
-        # to see the build process output.
-        run(f"{self.pip} wheel -v --no-deps "
-            # --no-clean doesn't currently work: see build-packages/sitecustomize.py
-            f"--no-clean --build-option --keep-temp "
+        # setuptools-aware setup.py files.
+        run(f"{self.pip} wheel --no-deps "
+            # --no-clean doesn't currently work: see env/python/sitecustomize.py.
+            #
+            # We pass -v unconditionally, because we always want to see the build process
+            # output. --global-option=-vv enables additional distutils logging.
+            f"-v {'--global-option=-vv ' if self.verbose else ''}"
             f"-e .")
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)
@@ -410,9 +410,9 @@ class BuildWheel:
         for line in run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
             f". {PYPI_DIR}/../../target/build-common.sh; export",
-            shell=True, text=True, capture_output=True
+            shell=True, executable="bash", text=True, stdout=subprocess.PIPE
         ).stdout.splitlines():
-            match = re.search(r"^export (\w+)='(.*)'$", line)
+            match = re.search(r'^declare -x (\w+)="(.*)"$', line)
             if match:
                 key, value = match.groups()
                 if os.environ.get(key) != value:
@@ -452,9 +452,19 @@ class BuildWheel:
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] += f" -lpython{self.python}"
 
-        env.update({  # Conda variable names, except those starting with CHAQUOPY.
+        env.update({
+            # TODO: make everything use HOST instead, and remove this.
             "CHAQUOPY_ABI": self.abi,
-            "CHAQUOPY_TRIPLET": ABIS[self.abi].tool_prefix,
+
+            # Set by conda-forge's compiler activation scripts, e.g.
+            # https://github.com/conda-forge/clang-compiler-activation-feedstock/blob/main/recipe/activate-clang.sh
+            "HOST": ABIS[self.abi].tool_prefix,
+
+            # Overrides sysconfig.get_platform and distutils.util.get_platform.
+            "_PYTHON_HOST_PLATFORM": f"linux_{ABIS[self.abi].uname_machine}",
+
+            # conda-build variable names defined at
+            # https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html
             "CPU_COUNT": str(multiprocessing.cpu_count()),
             "PKG_BUILDNUM": str(self.meta["build"]["number"]),
             "PKG_NAME": self.package,
@@ -557,9 +567,10 @@ class BuildWheel:
         if meta_license:
             license_files += [f"{self.src_dir}/{meta_license}"]
         if license_files:
-            for name in license_files:
-                # We use `-a` because pandas comes with a whole directory of licenses.
-                run(f"cp -a {name} {info_dir}")
+            for path in license_files:
+                if not exists(f"{info_dir}/{basename(path)}"):
+                    # We use `-a` because pandas comes with a whole directory of licenses.
+                    run(f"cp -a {path} {info_dir}")
         else:
             raise CommandError("Couldn't find license file: see license_file in "
                                "meta-schema.yaml")
