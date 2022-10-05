@@ -6,7 +6,7 @@
              "--with-pic",
 +
 +            # Chaquopy
-+            "--host", os.environ["CHAQUOPY_TRIPLET"],
++            "--host", os.environ["HOST"],
          ]
          if platform.system() == "SunOS":
              # On Solaris, libssp doesn't link statically and causes linker
@@ -15,7 +15,7 @@
          )
  
 +        # Chaquopy
-+        os.environ["LIBSODIUM_MAKE_ARGS"] = f"-j {os.cpu_count()}"
++        os.environ["LIBSODIUM_MAKE_ARGS"] = f"-j {os.environ['CPU_COUNT']}"
 +
          make_args = os.environ.get("LIBSODIUM_MAKE_ARGS", "").split()
          # Build the library

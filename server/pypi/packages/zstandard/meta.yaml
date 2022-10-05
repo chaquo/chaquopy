@@ -2,6 +2,9 @@ package:
   name: zstandard
   version: 0.15.2
 
+build:
+  number: 1
+
 requirements:
   build:
-    - cffi 1.13.2
+    - cffi 1.15.1

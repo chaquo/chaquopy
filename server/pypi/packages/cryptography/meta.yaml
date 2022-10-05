@@ -3,12 +3,13 @@ package:
   version: 3.4.8
 
 build:
+  number: 1
   script_env:
     - CRYPTOGRAPHY_DONT_BUILD_RUST=1
 
 requirements:
   build:
-    - cffi 1.13.2
+    - cffi 1.15.1
     - setuptools-rust 0.11.6
   host:
     - openssl
