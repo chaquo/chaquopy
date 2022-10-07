@@ -40,7 +40,7 @@ tmp_prefix="$install_dir/usr/local"
 rm -rf $prefix/include/openssl
 cp -af $tmp_prefix/include/* $prefix/include
 rm -rf $prefix/lib/lib{crypto,ssl}*.so*
-cp -af $tmp_prefix/lib/*.so* $prefix/lib
+cp -af $tmp_prefix/lib/*.{so*,a} $prefix/lib
 rm -r $install_dir
 
 # We add a _chaquopy suffix in case libraries of the same name are provided by Android

@@ -83,17 +83,18 @@ class BuildWheel:
                 self.meta["requirements"]["build"].remove("cmake")
                 self.needs_cmake = True
 
+            self.needs_target = False
             self.needs_python = (self.meta["source"] == "pypi")
-            self.bundled_reqs = []
             for name in ["openssl", "python", "sqlite"]:
                 if name in self.meta["requirements"]["host"]:
                     self.meta["requirements"]["host"].remove(name)
+                    self.needs_target = True
                     if name == "python":
                         self.needs_python = True
                     else:
                         # OpenSSL and SQLite currently work without any build flags, but it's
                         # worth keeping them in existing meta.yaml files in case that changes.
-                        self.bundled_reqs.append(name)
+                        pass
 
             self.unpack_and_build()
 
@@ -104,8 +105,9 @@ class BuildWheel:
     def unpack_and_build(self):
         self.non_python_tag = "py3-none"
         self.abi_tag = self.abi.replace('-', '_')
+        if self.needs_target:
+            self.find_target()
         if self.needs_python:
-            self.find_python()
             self.python_tag = "-".join(["cp" + self.python.replace('.', '')] * 2)
         else:
             self.python_tag = self.non_python_tag
@@ -171,10 +173,10 @@ class BuildWheel:
                                   if self.api_level >= min_level),
                                  start=[])
 
-    def find_python(self):
+    def find_target(self):
         if self.python is None:
-            raise CommandError("This package requires Python: specify a version number "
-                               "with the --python argument")
+            raise CommandError("This package requires a target package: specify a "
+                               "Python version number with the --python argument")
 
         # Check version number format.
         ERROR = CommandError("--python version must be in the form X.Y, where X and Y "
@@ -314,8 +316,8 @@ class BuildWheel:
         for subdir in ["include", "lib"]:
             ensure_dir(f"{self.reqs_dir}/chaquopy/{subdir}")
         self.create_dummy_libs()
-        if self.needs_python:
-            self.extract_python()
+        if self.needs_target:
+            self.extract_target()
 
         for package, version in self.get_requirements("host"):
             dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
@@ -370,20 +372,13 @@ class BuildWheel:
         for name in ["pthread", "rt"]:
             run(f"ar rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
 
-    def extract_python(self):
+    def extract_target(self):
         run(f"unzip -q -d {self.reqs_dir}/chaquopy "
             f"{self.python_maven_dir}/target-*-{self.abi}.zip "
             f"include/* jniLibs/*")
         run(f"mv {self.reqs_dir}/chaquopy/jniLibs/{self.abi}/* {self.reqs_dir}/chaquopy/lib",
             shell=True)
         run(f"rm -r {self.reqs_dir}/chaquopy/jniLibs")
-
-        self.python_include_dir = f"{self.reqs_dir}/chaquopy/include/python{self.python}"
-        assert_exists(self.python_include_dir)
-        libpython = f"libpython{self.python}.so"
-        self.python_lib = f"{self.reqs_dir}/chaquopy/lib/{libpython}"
-        assert_exists(self.python_lib)
-        self.standard_libs.append(libpython)
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -445,10 +440,17 @@ class BuildWheel:
         env["CXXFLAGS"] = ""
         env["LDSHARED"] = f"{env['CC']} -shared"
 
-        # Use -idirafter so that package-specified -I directories take priority (e.g. in grpcio
-        # and typed-ast).
         if self.needs_python:
+            self.python_include_dir = f"{self.reqs_dir}/chaquopy/include/python{self.python}"
+            assert_exists(self.python_include_dir)
+            libpython = f"libpython{self.python}.so"
+            self.python_lib = f"{self.reqs_dir}/chaquopy/lib/{libpython}"
+            assert_exists(self.python_lib)
+            self.standard_libs.append(libpython)
+
             env["CHAQUOPY_PYTHON"] = self.python
+            # Use -idirafter so that package-specified -I directories take priority (e.g.
+            # in grpcio and typed-ast).
             env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
             env["LDFLAGS"] += f" -lpython{self.python}"
 

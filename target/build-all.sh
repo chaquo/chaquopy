@@ -4,7 +4,8 @@ set -eu
 cd $(dirname $(realpath $0))
 
 for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-    mkdir -p prefix/$abi
+    # OpenSSL build fails if lib doesn't already exist.
+    mkdir -p prefix/$abi/{bin,include,lib,share}
 done
 
 # Build libraries shared by all Python versions.

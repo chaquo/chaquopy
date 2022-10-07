@@ -2,6 +2,10 @@ package:
   name: pycurl
   version: 7.43.0.6
 
+build:
+  number: 2
+
 requirements:
   host:
-    - chaquopy-curl 7.76.1
+    - chaquopy-curl-openssl-3 7.76.1
+    - openssl
