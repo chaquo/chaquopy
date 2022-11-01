@@ -4,6 +4,9 @@ set -eu
 recipe_dir=$(dirname $(realpath $0))
 prefix=$(realpath ${1:?})
 version=${2:?}
+read version_major version_minor < <(echo $version | sed -E 's/^([0-9]+)\.([0-9]+).*/\1 \2/')
+version_short=$version_major.$version_minor
+version_int=$(($version_major * 100 + $version_minor))
 
 cd $recipe_dir
 . ../build-common.sh
@@ -21,8 +24,12 @@ cd $build_dir
 tar -xf $version_dir/$src_filename
 cd $(basename $src_filename .tgz)
 
-for patch in $recipe_dir/patches/*; do
-    patch -p1 -i $patch
+patches="dynload_shlib lfs sysroot_paths"
+if [ $version_int -ge 311 ]; then
+    patches+=" python_for_build_deps"
+fi
+for name in $patches; do
+    patch -p1 -i $recipe_dir/patches/$name.patch
 done
 
 # Add sysroot paths, otherwise Python 3.8's setup.py will think libz is unavailable.
@@ -68,7 +75,6 @@ make install prefix=$prefix
 # If future Python versions ever start using ABI flags again (like "m" in Python 3.7), we
 # will remove them here as well, to avoid dealing with them in the rest of the system.
 cd $prefix/lib
-version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 new_name=libpython$version_short.so
 old_name=$(basename $(realpath $new_name))  # Follow symlinks.
 patchelf --set-soname "$new_name" "$new_name"

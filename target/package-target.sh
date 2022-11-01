@@ -71,6 +71,7 @@ mkdir "$tmp_dir"
 cd "$tmp_dir"
 
 for prefix in $prefix_dir/*; do
+    unset abi api_level
     . "$this_dir/build-common.sh"
     echo "$abi"
     mkdir "$abi"
@@ -120,7 +121,8 @@ find -name test -or -name tests | xargs rm -r
 # real files, not via zipimport.
 full_ver_no_build=$(echo $full_ver | sed 's/-.*//')
 for src_filename in lib2to3/*.pickle; do
-    tgt_filename=$(echo $src_filename | sed -E "s/$short_ver\\.[0-9]+/$full_ver_no_build/")
+    tgt_filename=$(echo $src_filename |
+                   sed -E "s/$short_ver.*\$/$full_ver_no_build.final.0.pickle/")
     if [[ $src_filename != $tgt_filename ]]; then
         mv $src_filename $tgt_filename
     fi
