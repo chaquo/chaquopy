@@ -353,9 +353,9 @@ Simple example::
                                                       }
 
 For more examples, see the `demo app
-<https://github.com/chaquo/chaquopy-demo/blob/master/app/src/main/python/chaquopy/demo/ui_demo.py>`__
+<https://github.com/chaquo/chaquopy/blob/master/demo/app/src/main/python/chaquopy/demo/ui_demo.py>`__
 and `unit tests
-<https://github.com/chaquo/chaquopy-demo/tree/master/app/src/main/python/chaquopy/test/static_proxy>`__.
+<https://github.com/chaquo/chaquopy/tree/master/product/runtime/src/test/python/chaquopy/test/static_proxy>`__.
 
 Because the :ref:`static proxy generator <static-proxy-generator>` works by static analysis of the
 Python source code, there are some restrictions on the code's structure:

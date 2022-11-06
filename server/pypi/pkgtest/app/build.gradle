@@ -57,11 +57,9 @@ android {
         minSdkVersion 21
         targetSdkVersion 33
 
-        // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
-        // builds in the public repo.
-        versionName rootProject.version + "-SNAPSHOT"
+        versionName rootProject.version
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
-        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
+        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10))
 
         addPackages(delegate, [])
         python {

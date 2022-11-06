@@ -26,13 +26,9 @@ android {
         minSdkVersion 21
         targetSdkVersion 33
 
-        // *** Replace in public repository **********************************
-        // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
-        // builds in the public repo.
-        versionName rootProject.version + "-SNAPSHOT"
+        versionName rootProject.version
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
-        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
-        // **********************************************************************
+        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10))
 
         python {
             // If Chaquopy fails to find Python on your build machine, enable the following
@@ -58,9 +54,8 @@ android {
                 // code in stack traces.
                 src false
 
-                // *** Remove in public repository ***************************************
-                pip true  // For testing bytecode compilation during build.
-                // ***********************************************************************
+                // For testing bytecode compilation during build.
+                pip true
             }
         }
 
@@ -82,7 +77,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    // *** Remove in public repository ***************************************
     // For testing with minifyEnabled (see release/README.md).
     buildTypes {
         releaseMinify {
@@ -117,7 +111,6 @@ android {
             }
         }
     }
-    // **********************************************************************
 }
 
 dependencies {

@@ -14,19 +14,6 @@ update_version() {
 }
 
 
-echo -n "demo: "
-public_root="../public/demo"
-update_version "$public_root/build.gradle"
-sed -i "s/versionName .*/versionName '${new_ver}'/" "$public_root/app/build.gradle"
-
-public_src_dir="$public_root/app/src"
-rm -rf "$public_src_dir/main"
-cp -a "$private_src_dir/main" "$public_src_dir"
-cp -a $private_src_dir/utils/* "$public_src_dir/main"
-cp -a product/runtime/src/test/* "$public_src_dir/main"
-echo "done"
-
-
 echo -n "console: "
 public_root="../public/console"
 update_version "$public_root/build.gradle"

@@ -19,9 +19,6 @@ This repository contains the following components:
 * `target` contains build processes for Python and its dependencies.
 * `server/pypi` contains build processes for third-party Python packages.
 
-The open-source demo apps are contained in separate repositories under
-https://github.com/chaquo/.
-
 
 ## Build
 
