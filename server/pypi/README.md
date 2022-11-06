@@ -36,11 +36,6 @@ x86_64 only.
 Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
 to use the current stable Chaquopy version. Then run the tests.
 
-If this is a new version of an existing package, we should check that it won't break any
-existing apps with unpinned version numbers. So temporarily edit `pkgtest/build.gradle` to
-use the oldest Chaquopy version which supported this package with this Python version. If
-necessary, also downgrade the Android Gradle plugin, and Gradle itself. Then run the tests.
-
 If any changes are needed to make the tests work, increment the build number in `meta.yaml`
 before re-running `build-wheel.py` as above.
 
@@ -52,18 +47,18 @@ Once everything's working on x86_64, save any edits in the package's `patches` d
 then run `build-wheel.py` for all other ABIs, and copy their wheels to the private package
 repository.
 
-Restore `abiFilters` to include all ABIs. Then test the app with the same Chaquopy versions
-used above, on the following devices, with at least one device being a clean install:
+Restore `abiFilters` to include all ABIs. Then test the app on the following devices, with
+at least one device being a clean install:
 
 * x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion (or 23 before Chaquopy 7.0.3)
+* x86_64 emulator with minSdkVersion
 * x86_64 emulator with targetSdkVersion
 * Any armeabi-v7a device
 * Any arm64-v8a device
 
 Move the wheels to the public package repository.
 
-Update any GitHub issues, and notify any affected users who contacted us outside of GitHub.
+Notify any users who requested this package on GitHub or elsewhere.
 
 
 ## Testing the most popular packages

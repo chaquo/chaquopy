@@ -113,6 +113,7 @@ be given here.
 
 * Update `MIN_SDK_VERSION` in Common.java.
 * Update `api_level` in target/build-common.sh.
+* Update default API level in server/pypi/build-wheel.py.
 * Search `product` directory to see if there are any workarounds which can now be removed:
   * `git ls-files | xargs -d '\n' grep -EnHi 'api.level|android.(ver|[0-9])|min.sdk|sdk.int'`
 * Integration tests:

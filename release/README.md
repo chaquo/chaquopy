@@ -136,7 +136,7 @@ If major.minor version number has changed:
 
 ## Version control
 
-Commit and push all public repositories.
+Commit and push all example app repositories.
 
 Commit this repository, add version number tag, and push.
 

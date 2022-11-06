@@ -1,10 +1,32 @@
 Change log
 ##########
 
+13.0.0 (2022-11-06)
+===================
+* Android Gradle plugin version 7.3 is now supported (`#663
+  <https://github.com/chaquo/chaquopy/issues/663>`_).
+* [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 21. This
+  still covers `98% of active devices
+  <https://dl.google.com/android/studio/metadata/distributions.json>`_.
+* Python versions 3.9, 3.10 and 3.11 are now supported (`#661
+  <https://github.com/chaquo/chaquopy/issues/661>`_).
+* Detect changes to files or directories listed in requirements files (`#660
+  <https://github.com/chaquo/chaquopy/issues/660>`_).
+* Projects are no longer required to have a local.properties file, as long as the
+  `ANDROID_HOME` or `ANDROID_SDK_ROOT` environment variable is set (`#672
+  <https://github.com/chaquo/chaquopy/issues/672>`_).
+* Enable all warnings, including :any:`DeprecationWarning`,
+  :any:`PendingDeprecationWarning`, :any:`ImportWarning` and :any:`ResourceWarning`.
+* Update to pkg_resources version 56.2.0.
+* Update to SQLite version 3.39.2.
+* Update Python 3.9 and later to OpenSSL version 3.0.5.
+
+
 12.0.1 (2022-07-24)
 ===================
 
-* First open-source release.
+* First open-source release. Apart from removing the license restrictions, this is
+  identical to version 12.0.0.
 
 12.0.0 (2022-05-12)
 ===================
