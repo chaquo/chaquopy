@@ -145,6 +145,8 @@ Increment python/VERSION.txt for next version number.
 
 ## User communication
 
+Create release page on GitHub with a link to the change log section.
+
 Post blog entry to website.
 
 Post links to Facebook and Twitter.

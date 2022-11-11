@@ -1,8 +1,11 @@
 Change log
 ##########
 
+.. _v13.0.0:
+
 13.0.0 (2022-11-06)
 ===================
+
 * Android Gradle plugin version 7.3 is now supported (`#663
   <https://github.com/chaquo/chaquopy/issues/663>`_).
 * [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 21. This
@@ -21,12 +24,15 @@ Change log
 * Update to SQLite version 3.39.2.
 * Update Python 3.9 and later to OpenSSL version 3.0.5.
 
+.. _v12.0.1:
 
 12.0.1 (2022-07-24)
 ===================
 
 * First open-source release. Apart from removing the license restrictions, this is
   identical to version 12.0.0.
+
+.. _v12.0.0:
 
 12.0.0 (2022-05-12)
 ===================
