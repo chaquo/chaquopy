@@ -526,13 +526,13 @@ class PythonSrc(GradleTestCase):
         run = self.RunGradle("base", "PythonSrc/metaclass_leak_1", app=["two.py"])
         run.apply_layers("PythonSrc/metaclass_leak_2")  # Non-Chaquopy project
         run.rerun(succeed=False)
-        if agp_version_info < (4, 1):
-            self.assertInLong("Could not find method python()", run.stderr)
-        else:
-            # This is a much worse error message because it no longer indicates the line with
-            # the unknown name, but it doesn't look as if there's anything we can do about it.
+        if agp_version_info < (7, 4):
+            # This is a terrible error message because it doesn't indicate which line has
+            # the error, but it doesn't look as if there's anything we can do about it.
             self.assertInLong(r"No signature of method: build_\w+\.android\(\) is applicable",
                               run.stderr, re=True)
+        else:
+            self.assertInLong("Could not find method python()", run.stderr)
 
     @skip("TODO #5341 setRoot not implemented")
     def test_set_root(self):
