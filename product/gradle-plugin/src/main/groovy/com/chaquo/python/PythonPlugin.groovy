@@ -264,32 +264,23 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Task createBuildPackagesTask() {
-        // pip by default finds the cacert file using a path relative to __file__, which won't work
-        // when __file__ is something like path/to/a.zip/path/to/module.py. It's easier to run
-        // directly from the ZIP and extract the cacert file, than it is to extract the entire ZIP
-        // and then deal with auto-generated pyc files complicating the up-to-date checks.
         return project.task("extractPythonBuildPackages") {
-            // With Python 2.7 on Windows, zipimport has a maximum path length of about 256
-            // characters, including the path of the ZIP file itself. The longest path within
-            // the ZIP is currently 66 characters, which means the maximum ZIP file path length
-            // is about 190. The integration tests with the longest names get quite close to that,
-            // so make the filename as short as possible.
-            def zipName = "bp.zip"
-            ext.buildPackagesZip = "$genDir/$zipName"
-            def cacertRelPath = "pip/_vendor/certifi/cacert.pem"
-            ext.cacertPem = "$genDir/$cacertRelPath"
-            outputs.files(buildPackagesZip, cacertPem)
+            // To avoid the the Windows 260-character limit, make the path as short as
+            // possible.
+            ext.pythonPath = "$genDir/bp"
+            outputs.files(project.fileTree(pythonPath) {
+                exclude "**/__pycache__"
+            })
             doLast {
-                extractResource("gradle/build-packages.zip", genDir, zipName)
-
-                // Remove existing directory, otherwise failure to extract will go unnoticed if a
-                // previous file still exists.
-                project.delete("$genDir/${cacertRelPath.split("/")[0]}")
+                project.delete(pythonPath)
+                project.mkdir(pythonPath)
+                def zipPath = extractResource("gradle/build-packages.zip", genDir)
                 project.copy {
-                    from project.zipTree(buildPackagesZip)
-                    include cacertRelPath
-                    into genDir
+                    from project.zipTree(zipPath)
+                    into pythonPath
                 }
+                project.delete(zipPath)
+                project.delete("$genDir/bp.zip")  // From Chaquopy 13.0 and older.
             }
         }
     }
@@ -337,10 +328,7 @@ class PythonPlugin implements Plugin<Project> {
                         args("--android-abis", *abis)
                         args reqsArgs
                         args "--"
-                        args "--chaquopy", PLUGIN_VERSION
-                        args "--no-build-isolation", "--no-use-pep517"  // TODO #5711
                         args "--disable-pip-version-check"
-                        args "--cert", buildPackagesTask.cacertPem
                         if (!("--index-url" in python.pip.options ||
                               "-i" in python.pip.options)) {
                             // If the user passes --index-url, disable our repository as well
@@ -510,7 +498,7 @@ class PythonPlugin implements Plugin<Project> {
         ExecResult execResult = null
         try {
             execResult = project.exec {
-                environment "PYTHONPATH", buildPackagesTask.buildPackagesZip
+                environment "PYTHONPATH", buildPackagesTask.pythonPath
                 commandLine python.buildPython
                 args "-S"  // Avoid interference from site-packages. This is not inherited by
                            // subprocesses, so it's used again in pip_install.py.

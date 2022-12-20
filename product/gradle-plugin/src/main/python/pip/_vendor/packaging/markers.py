@@ -240,7 +240,8 @@ def format_full_version(info):
         version += kind[0] + str(info.serial)
     return version
 
-# Chaquopy: this variable is set in cli/cmdoptions.py.
+# Chaquopy: when installing for the target platform, this variable is set in
+# cli/cmdoptions.py.
 python_version_info = None
 
 def default_environment():
@@ -251,20 +252,36 @@ def default_environment():
         iver = "0"
         implementation_name = ""
 
-    # Chaquopy: changed to use markers of the target platform rather than the build platform.
-    return {
-        "implementation_name": "cpython",
-        "implementation_version": ".".join(str(x) for x in python_version_info),
-        "os_name": "posix",
-        "platform_machine": "",  # Not needed yet.
-        "platform_release": "",
-        "platform_system": "Linux",
-        "platform_version": "",
-        "python_full_version": ".".join(str(x) for x in python_version_info),
-        "platform_python_implementation": "CPython",
-        "python_version": ".".join(str(x) for x in python_version_info[:2]),
-        "sys_platform": "linux",
-    }
+    if python_version_info:
+        # Chaquopy: use markers of the target platform.
+        return {
+            "implementation_name": "cpython",
+            "implementation_version": ".".join(str(x) for x in python_version_info),
+            "os_name": "posix",
+            "platform_machine": "",  # Not needed yet.
+            "platform_release": "",
+            "platform_system": "Linux",
+            "platform_version": "",
+            "python_full_version": ".".join(str(x) for x in python_version_info),
+            "platform_python_implementation": "CPython",
+            "python_version": ".".join(str(x) for x in python_version_info[:2]),
+            "sys_platform": "linux",
+        }
+    else:
+        # Chaquopy: use markers of the build platform.
+        return {
+            "implementation_name": implementation_name,
+            "implementation_version": iver,
+            "os_name": os.name,
+            "platform_machine": platform.machine(),
+            "platform_release": platform.release(),
+            "platform_system": platform.system(),
+            "platform_version": platform.version(),
+            "python_full_version": platform.python_version(),
+            "platform_python_implementation": platform.python_implementation(),
+            "python_version": platform.python_version()[:3],
+            "sys_platform": sys.platform,
+        }
 
 
 class Marker(object):

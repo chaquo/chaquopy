@@ -142,7 +142,6 @@ class Command(object):
     def main(self, args):
         # type: (List[str]) -> int
         options, args = self.parse_args(args)
-        assert options.chaquopy, "Chaquopy pip called without --chaquopy"
 
         # Set verbosity so that it can be used elsewhere.
         self.verbosity = options.verbose - options.quiet

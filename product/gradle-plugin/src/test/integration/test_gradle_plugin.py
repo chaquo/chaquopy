@@ -223,22 +223,6 @@ class ChaquopyPlugin(GradleTestCase):
     def test_apply_buildscript(self):
         self.RunGradle("base", "ChaquopyPlugin/apply_buildscript")
 
-    # Since this version, the extracted copy of build-packages.zip has been renamed to bp.zip.
-    # We distinguish the old version by it not supporting arm64-v8a.
-    def test_upgrade_3_0_0(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_3_0_0", succeed=False)
-        self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
-        run.apply_layers("base", "ChaquopyPlugin/upgrade_current")
-        run.rerun(abis=["arm64-v8a"])
-
-    # Since this version, there has been no change in the build-packages.zip filename. We
-    # distinguish the old version by it not supporting arm64-v8a.
-    def test_upgrade_4_0_0(self):
-        run = self.RunGradle("base", "ChaquopyPlugin/upgrade_4_0_0", succeed=False)
-        self.assertInLong("Chaquopy does not support the ABI 'arm64-v8a'", run.stderr)
-        run.apply_layers("base", "ChaquopyPlugin/upgrade_current")
-        run.rerun(abis=["arm64-v8a"])
-
 
 class AndroidPlugin(GradleTestCase):
     ADVICE = ("please edit the version of com.android.application, com.android.library or "
@@ -904,10 +888,16 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
-    # We currently disable PEP 517, and patch pip to fall back on setup.py, as it did in
-    # previous versions.
-    def test_sdist_pep517(self):
-        self.RunGradle("base", "PythonReqs/sdist_pep517", requirements=["sdist_pep517.py"])
+    # This project uses pyproject.toml to require a specific version of setuptools, then
+    # gives itself the same version number.
+    def test_pep517(self):
+        self.RunGradle("base", "PythonReqs/pep517", requirements=["sdist_pep517.py"],
+                       dist_versions=[("sdist_pep517", "40.8.0")])
+
+    # Same as test_pep517, but pyproject.toml does not contain a `build-backend` setting.
+    def test_pep517_default_backend(self):
+        self.RunGradle("base", "PythonReqs/pep517", requirements=["sdist_pep517.py"],
+                       dist_versions=[("sdist_pep517", "40.8.0")])
 
     # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):

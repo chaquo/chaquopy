@@ -134,13 +134,6 @@ def check_dist_restriction(options, check_target=False):
 # options #
 ###########
 
-# Adding this option ensures that if we run the system copy of pip by mistake, we fail
-# immediately and with a distinctive error message.
-chaquopy = partial(
-    Option,
-    '--chaquopy',
-    help="Chaquopy version number")
-
 help_ = partial(
     Option,
     '-h', '--help',
@@ -912,7 +905,6 @@ def check_list_path_option(options):
 general_group = {
     'name': 'General Options',
     'options': [
-        chaquopy,
         help_,
         isolated_mode,
         require_virtualenv,
