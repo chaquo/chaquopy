@@ -623,14 +623,10 @@ class InstallRequirement(object):
             ensure_dir(egg_info_dir)
             egg_base_option = ['--egg-base', 'pip-egg-info']
         with self.build_env:
-            try:
-                call_subprocess(
-                    egg_info_cmd + egg_base_option,
-                    cwd=self.setup_py_dir,
-                    command_desc='python setup.py egg_info')
-            except InstallationError as exc:
-                self.chaquopy_setup_py_failed(exc)
-
+            call_subprocess(
+                egg_info_cmd + egg_base_option,
+                cwd=self.setup_py_dir,
+                command_desc='python setup.py egg_info')
 
     @property
     def egg_info_path(self):
@@ -1006,7 +1002,7 @@ class InstallRequirement(object):
             with open(inst_files_path, 'w') as f:
                 f.write('\n'.join(new_lines) + '\n')
 
-    def chaquopy_setup_py_failed(self, exc):
+    def chaquopy_setup_py_failed(self):
         from pip._internal.exceptions import CommandError
         # {} may be a long URL, hence the newline.
         message = ("Failed to install {}.\nFor assistance, please raise an issue "
@@ -1019,7 +1015,6 @@ class InstallRequirement(object):
             if wheel_versions:
                 message += ("\nOr try using one of the following versions, which are available "
                             "as pre-built wheels: {}.".format(wheel_versions))
-        logger.critical(str(exc))
         raise CommandError(message)
 
     def get_install_args(

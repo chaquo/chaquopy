@@ -111,7 +111,7 @@ def check_dist_restriction(options, check_target=False):
     # guaranteed to be locally compatible.
     #
     # Chaquopy: added False to disable this restriction. It's safe for us to run source
-    # distributions, because we monkey-patch setuptools to ensure they fail immediately if they
+    # distributions, because chaquopy_monkey ensures they fail immediately if they
     # try to build anything native.
     if False and dist_restriction_set and sdist_dependencies_allowed:
         raise CommandError(

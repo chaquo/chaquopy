@@ -13,6 +13,7 @@ if MYPY_CHECK_RUNNING:
 # warning: "warning: manifest_maker: standard file '-c' not found".
 _SETUPTOOLS_SHIM = (
     "import sys, setuptools, tokenize; sys.argv[0] = {0!r}; __file__={0!r};"
+    "{chaquopy_monkey};"
     "f=getattr(tokenize, 'open', open)(__file__);"
     "code=f.read().replace('\\r\\n', '\\n');"
     "f.close();"
@@ -36,8 +37,15 @@ def make_setuptools_shim_args(setup_py_path, unbuffered_output=False):
     # Chaquopy: added '-S' to avoid interference from site-packages. This makes
     # non-installable packages fail more quickly and consistently. Also, some packages
     # (e.g. Cython) install distutils hooks which can interfere with our attempts to
-    # disable compilers in setuptools/monkey.py.
+    # disable compilers in chaquopy_monkey.
     args.append('-S')
 
-    args.extend(['-c', _SETUPTOOLS_SHIM.format(setup_py_path)])
+    from pip._vendor.packaging import markers
+    chaquopy_monkey = (
+        "import chaquopy_monkey; chaquopy_monkey.disable_native()"
+        if markers.python_version_info
+        else "pass"
+    )
+    args.extend(['-c', _SETUPTOOLS_SHIM.format(setup_py_path,
+                                               chaquopy_monkey=chaquopy_monkey)])
     return args

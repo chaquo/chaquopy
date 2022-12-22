@@ -11,7 +11,7 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "sdist_native_optional_ext-1.0.zip"
+                install "./sdist_native"
             }
         }
         ndk {

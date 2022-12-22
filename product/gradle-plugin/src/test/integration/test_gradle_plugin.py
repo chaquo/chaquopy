@@ -888,16 +888,16 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
-    # This project uses pyproject.toml to require a specific version of setuptools, then
-    # gives itself the same version number.
-    def test_pep517(self):
-        self.RunGradle("base", "PythonReqs/pep517", requirements=["sdist_pep517.py"],
-                       dist_versions=[("sdist_pep517", "40.8.0")])
-
-    # Same as test_pep517, but pyproject.toml does not contain a `build-backend` setting.
+    # These tests install a package with a native build requirement in its pyproject.toml,
+    # which is used to generate the package's version number. This verifies that the build
+    # environment is installed for the build platform, not the target platform.
     def test_pep517_default_backend(self):
-        self.RunGradle("base", "PythonReqs/pep517", requirements=["sdist_pep517.py"],
-                       dist_versions=[("sdist_pep517", "40.8.0")])
+        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_default_backend",
+                       dist_versions=[("pep517", "2324772522")])
+
+    def test_pep517_explicit_backend(self):
+        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_explicit_backend",
+                       dist_versions=[("pep517", "2324772522")])
 
     # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):
@@ -915,13 +915,25 @@ class PythonReqs(GradleTestCase):
     # can use the absence of the string in other tests to prove that no fallback occurred.
     RUNNING_INSTALL = "Running setup.py install"
 
-    def test_sdist_native(self):
-        run = self.RunGradle("base", run=False)
-        for name in ["sdist_native_ext", "sdist_native_clib", "sdist_native_compiler",
-                     "sdist_native_cc"]:
-            with self.subTest(name=name):
-                run.apply_layers(f"PythonReqs/{name}")
-                run.rerun(succeed=False)
+    def test_sdist_native_ext(self):
+        self.sdist_native("sdist_native_ext")
+
+    def test_sdist_native_clib(self):
+        self.sdist_native("sdist_native_clib")
+
+    def test_sdist_native_compiler(self):
+        self.sdist_native("sdist_native_compiler")
+
+    def test_sdist_native_cc(self):
+        self.sdist_native("sdist_native_cc")
+
+    def sdist_native(self, name):
+        for pep517 in [True, False]:
+            with self.subTest(pep517=pep517):
+                layers = ["base", f"PythonReqs/{name}"]
+                if pep517:
+                    layers.append("PythonReqs/sdist_native_pep517")
+                run = self.RunGradle(*layers, succeed=False)
 
                 if name == "sdist_native_cc":
                     setup_error = "Failed to run Chaquopy_cannot_compile_native_code"
@@ -933,7 +945,7 @@ class PythonReqs(GradleTestCase):
                 # setup.py install.
                 self.assertNotInLong(self.RUNNING_INSTALL, run.stdout)
 
-                url = fr"file:.*app/{name}-1.0.tar.gz"
+                url = r"file:.*app/sdist_native"
                 if name in ["sdist_native_compiler", "sdist_native_cc"]:
                     # These tests fail at the egg_info stage, so the name and version are
                     # unavailable.
@@ -945,12 +957,19 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong(fr"Failed to install {req_str}." +
                                   self.tracker_advice() + r"$", run.stderr, re=True)
 
-    def test_sdist_native_optional(self):
-        run = self.RunGradle("base", run=False)
-        for name in ["sdist_native_optional_ext", "sdist_native_optional_compiler"]:
-            with self.subTest(name=name):
-                run.apply_layers(f"PythonReqs/{name}")
-                run.rerun(requirements=[f"{name}.py"])
+    def test_sdist_native_optional_ext(self):
+        self.sdist_native_optional("sdist_native_optional_ext")
+
+    def test_sdist_native_optional_compiler(self):
+        self.sdist_native_optional("sdist_native_optional_compiler")
+
+    def sdist_native_optional(self, name):
+        for pep517 in [True, False]:
+            with self.subTest(pep517=pep517):
+                layers = ["base", f"PythonReqs/{name}"]
+                if pep517:
+                    layers.append("PythonReqs/sdist_native_pep517")
+                self.RunGradle(*layers, requirements=[f"{name}.py"])
 
     # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
     # install. For example, see acoustics==0.2.4 (#5630).

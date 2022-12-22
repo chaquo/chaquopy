@@ -7,3 +7,10 @@ commands in the src/ subdirectories:
 Some of the scripts require extra arguments: see comments.
 
 Some of the packages were then renamed to meet the needs of the tests.
+
+However, unless a test actually requires a package file, it's better to put the Python
+source tree inside the test's own data directory, and install it like this:
+
+     pip {
+         install "./dir_name"
+     }

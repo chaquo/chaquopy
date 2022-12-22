@@ -211,9 +211,13 @@ class RequirementPreparer(object):
                 )
             abstract_dist = make_distribution_for_install_requirement(req)
             with self.req_tracker.track(req):
-                abstract_dist.prepare_distribution_metadata(
-                    finder, self.build_isolation,
-                )
+                try:
+                    abstract_dist.prepare_distribution_metadata(
+                        finder, self.build_isolation,
+                    )
+                except InstallationError:
+                    abstract_dist.req.chaquopy_setup_py_failed()
+
             if self._download_should_save:
                 # Make a .zip of the source_dir we already created.
                 if not req.link.is_artifact:

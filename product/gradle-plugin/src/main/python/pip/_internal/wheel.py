@@ -921,7 +921,9 @@ class WheelBuilder(object):
                 except Exception:
                     pass
             # Ignore return, we can't do anything else useful.
-            self._clean_one(req)
+            # Chaquopy: backport from https://github.com/pypa/pip/pull/7477
+            if not req.use_pep517:
+                self._clean_one_legacy(req)
             return None
 
     def _base_setup_args(self, req):
@@ -963,6 +965,7 @@ class WheelBuilder(object):
                 # Reassign to simplify the return at the end of function
                 wheel_name = new_name
         except Exception:
+            self.check_chaquopy_exception(req)
             logger.error('Failed building wheel for %s', req.name)
             return None
         return os.path.join(tempd, wheel_name)
@@ -988,20 +991,7 @@ class WheelBuilder(object):
                                          spinner=spinner)
             except Exception:
                 spinner.finish("error")
-
-                # Chaquopy: if `bdist_wheel` failed because of native code, don't fall back on
-                # `install` because it'll definitely fail, wasting the user's time and making
-                # the failure message harder to read. But if `bdist_wheel` failed for some
-                # other reason, then it's still worth trying `install` (#5630).
-                #
-                # The error message may use spaces or underscores (see
-                # setuptools.monkey.disable_native).
-                from setuptools.monkey import CHAQUOPY_NATIVE_ERROR
-                exc = sys.exc_info()[1]
-                if isinstance(exc, InstallationError) and \
-                   re.search(CHAQUOPY_NATIVE_ERROR.replace(" ", "."), exc.output):
-                    req.chaquopy_setup_py_failed(exc)
-
+                self.check_chaquopy_exception(req)
                 logger.error('Failed building wheel for %s', req.name)
                 return None
             names = os.listdir(tempd)
@@ -1014,7 +1004,21 @@ class WheelBuilder(object):
             )
             return wheel_path
 
-    def _clean_one(self, req):
+    def check_chaquopy_exception(self, req):
+        # If `bdist_wheel` failed because of native code, don't fall back on `install`
+        # because it'll definitely fail, wasting the user's time and making the failure
+        # message harder to read. But if `bdist_wheel` failed for some other reason, then
+        # it's still worth trying `install` (#5630).
+        #
+        # The error message may use spaces or underscores (see
+        # chaquopy_monkey.disable_native).
+        from chaquopy_monkey import CHAQUOPY_NATIVE_ERROR
+        exc = sys.exc_info()[1]
+        if isinstance(exc, InstallationError) and \
+           re.search(CHAQUOPY_NATIVE_ERROR.replace(" ", "."), exc.output):
+            req.chaquopy_setup_py_failed()
+
+    def _clean_one_legacy(self, req):
         base_args = self._base_setup_args(req)
 
         logger.info('Running setup.py clean for %s', req.name)
