@@ -74,7 +74,6 @@ if DEBUNDLED:
     vendored("pep517")
     vendored("pkg_resources")
     vendored("progress")
-    vendored("pytoml")
     vendored("retrying")
     vendored("requests")
     vendored("requests.exceptions")
@@ -106,4 +105,8 @@ if DEBUNDLED:
     vendored("requests.packages.urllib3.util.ssl_")
     vendored("requests.packages.urllib3.util.timeout")
     vendored("requests.packages.urllib3.util.url")
+
+    # Chaquopy: backport from https://github.com/pypa/pip/pull/10035
+    vendored("tomli")
+
     vendored("urllib3")

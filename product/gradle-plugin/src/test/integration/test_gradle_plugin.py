@@ -899,6 +899,12 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_explicit_backend",
                        dist_versions=[("pep517", "2324772522")])
 
+    # Test pip can handle TOML 1.0 syntax (e.g.
+    # https://github.com/zeromq/pyzmq/issues/1807).
+    def test_pep517_toml_1_0(self):
+        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_toml_1_0",
+                       dist_versions=[("pep517", "2324772522")])
+
     # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):
         self.RunGradle("base", "PythonReqs/cfg_wheel", requirements=["apple/__init__.py"])
