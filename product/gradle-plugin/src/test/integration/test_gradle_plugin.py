@@ -891,19 +891,25 @@ class PythonReqs(GradleTestCase):
     # These tests install a package with a native build requirement in its pyproject.toml,
     # which is used to generate the package's version number. This verifies that the build
     # environment is installed for the build platform, not the target platform.
+    PEP517_KWARGS = dict(dist_versions=[("pep517", "2324772522")])
+
     def test_pep517_default_backend(self):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_default_backend",
-                       dist_versions=[("pep517", "2324772522")])
+                       **self.PEP517_KWARGS)
 
     def test_pep517_explicit_backend(self):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_explicit_backend",
-                       dist_versions=[("pep517", "2324772522")])
+                       **self.PEP517_KWARGS)
 
     # Test pip can handle TOML 1.0 syntax (e.g.
     # https://github.com/zeromq/pyzmq/issues/1807).
     def test_pep517_toml_1_0(self):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_toml_1_0",
-                       dist_versions=[("pep517", "2324772522")])
+                       **self.PEP517_KWARGS)
+
+    def test_pep517_backend_path(self):
+        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_backend_path",
+                       **self.PEP517_KWARGS)
 
     # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):

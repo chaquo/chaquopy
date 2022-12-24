@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import io
 import os
 import sys
+from collections import namedtuple
 
 # Chaquopy: backport from https://github.com/pypa/pip/pull/10035
 from pip._vendor import tomli, six
@@ -31,6 +32,12 @@ def make_pyproject_path(setup_py_dir):
         path = path.encode(sys.getfilesystemencoding())
 
     return path
+
+
+# Chaquopy: backport from https://github.com/pypa/pip/pull/7394
+BuildSystemDetails = namedtuple('BuildSystemDetails', [
+    'requires', 'backend', 'check', 'backend_path'
+])
 
 
 def load_pyproject_toml(
@@ -153,6 +160,10 @@ def load_pyproject_toml(
         ))
 
     backend = build_system.get("build-backend")
+
+    # Chaquopy: backport from https://github.com/pypa/pip/pull/7394
+    backend_path = build_system.get("backend-path", [])
+
     check = []  # type: List[str]
     if backend is None:
         # If the user didn't specify a backend, we assume they want to use
@@ -170,4 +181,5 @@ def load_pyproject_toml(
         backend = "setuptools.build_meta:__legacy__"
         check = ["setuptools>=40.8.0", "wheel"]
 
-    return (requires, backend, check)
+    # Chaquopy: backport from https://github.com/pypa/pip/pull/7394
+    return BuildSystemDetails(requires, backend, check, backend_path)

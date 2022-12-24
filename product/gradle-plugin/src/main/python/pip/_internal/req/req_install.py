@@ -511,10 +511,13 @@ class InstallRequirement(object):
         if not self.use_pep517:
             return
 
-        requires, backend, check = pyproject_toml_data
+        # Chaquopy: backport from https://github.com/pypa/pip/pull/7394
+        requires, backend, check, backend_path = pyproject_toml_data
         self.requirements_to_check = check
         self.pyproject_requires = requires
-        self.pep517_backend = Pep517HookCaller(self.setup_py_dir, backend)
+        self.pep517_backend = Pep517HookCaller(
+            self.setup_py_dir, backend, backend_path=backend_path,
+        )
 
         # Use a custom function to call subprocesses
         self.spin_message = ""
