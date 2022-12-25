@@ -83,8 +83,7 @@ class BuildWheel:
                 self.meta["requirements"]["build"].remove("cmake")
                 self.needs_cmake = True
 
-            self.needs_target = False
-            self.needs_python = (self.meta["source"] == "pypi")
+            self.needs_python = self.needs_target = (self.meta["source"] == "pypi")
             for name in ["openssl", "python", "sqlite"]:
                 if name in self.meta["requirements"]["host"]:
                     self.meta["requirements"]["host"].remove(name)
