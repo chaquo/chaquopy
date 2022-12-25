@@ -63,7 +63,7 @@ Notify any users who requested this package on GitHub or elsewhere.
 
 ## Testing the most popular packages
 
-### Get the lists
+### Get the list
 
 To list the most downloaded packages on PyPI, run the following query on
 [BigQuery](https://bigquery.cloud.google.com/dataset/the-psf:pypi?pli=1). I had to create
@@ -77,27 +77,14 @@ GROUP BY file.project
 ORDER BY downloads DESC
 LIMIT 10000
 ```
-
 Use a 7-day window to avoid any bias from weekday/weekend differences.
-
-Or to list the number of distinct /16 netblocks attempting to install each package, run
-the following script on the web server logs:
-
-`zcat chaquo-access.log.{2..START_NUM}.gz | grep -E 'GET /pypi-(2\.1|7\.0)/.*/ HTTP.*pip/' | cut -d' ' -f2,8 | grep -Ev '^(SERVER_ADDR)' | sed -E 's|/pypi-[0-9]+\.[0-9]+/(.*)/|\1|' | sed -E 's/^([0-9]+\.[0-9]+)\.[0-9]+\.[0-9]+/\1/' | sort -k2 | uniq | uniq -f1 -c | tr -s ' ' | cut -d' ' -f2,4 | sort -k 1nr,2`
-
-Where:
-
-* `START_NUM` is the number of the earliest log file to include.
-* `SERVER_ADDR` is a pattern matching the IP addresses from which mass piptest runs have
-  been done within the given period, to exclude packages which haven't been installed by a
-  real user.
 
 ### Run the tests
 
 Build scripts can run arbitrary code, so these tests must be done within Docker, like
 this:
 
-`cat pypi-downloads-20180201-20180207.csv | head -n 1000 | cut -d, -f1 | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log chaquopy-piptest`
+`cat pypi-downloads-20210828-20210903.csv | head -n 1000 | cut -d, -f1 | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log -v $ANDROID_HOME:/root/android-sdk chaquopy-piptest`
 
 ### Analyze the results
 
@@ -115,4 +102,7 @@ You may also wish to check the following:
   * `for package in <list>; do egrep -H 'BUILD (SUCCESSFUL|FAILED) in [2-9]m' log/$package.txt; done`
 * Failed requirements which many packages depend on. This will also reveal dependencies on
   packages which we do have in the repository, but with an incompatible version:
-  * `pattern='Failed to install|No matching distribution found for'; cat log-pypi/* | grep -Eia "$pattern" | sed -E "s/.*($pattern)//; s/[ (]from.*//" | sort | uniq -c | sort -nr`
+  * `pattern='Failed to install|No matching distribution found for|Failed building wheel for'; cat log/* | grep -Eia "$pattern" | sed -E "s/.*($pattern)//; s/[ (]from.*//" | sort | uniq -c | sort -nr`
+
+Do whatever's necessary to maintain the 90% support level mentioned in
+product/runtime/docs/sphinx/android.rst.
