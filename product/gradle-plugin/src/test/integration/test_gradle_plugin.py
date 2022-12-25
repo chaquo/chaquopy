@@ -651,12 +651,6 @@ class BuildPython(GradleTestCase):
         self.assertInLong("Minor version was used", run.stdout)
         self.assertNotInLong("Major version was used", run.stdout)
 
-    @skipUnless(os.name == "nt", "Windows-specific")
-    def test_py_not_found(self):
-        run = self.RunGradle("base", "BuildPython/py_not_found", succeed=False)
-        self.assertInLong("[py, -2.8]: couldn't find the requested version of Python. " +
-                          self.INSTALL, run.stderr)
-
     # Test a buildPython which returns success without doing anything (#5631).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)

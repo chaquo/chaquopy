@@ -512,13 +512,6 @@ class PythonPlugin implements Plugin<Project> {
         } catch (ExecException e) {
             throw new BuildPythonInvalidException(e.message)
         }
-        if (python.buildPython[0].equals("py") && (execResult.exitValue == 103)) {
-            // Before Python 3.6, stderr from the `py` command was lost
-            // (https://bugs.python.org/issue25789). This is the only likely error.
-            throw new BuildPythonMissingException(
-                "$python.buildPython: couldn't find the requested version of Python")
-        }
-
         try {
             execResult.assertNormalExitValue()
         } catch (ExecException e) {
