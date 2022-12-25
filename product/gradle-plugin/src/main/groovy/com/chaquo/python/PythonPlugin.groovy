@@ -294,6 +294,7 @@ class PythonPlugin implements Plugin<Project> {
             ext.destinationDir = new File(project.buildDir, "pip/$variant.dirName")
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
+            inputs.property("minApiLevel", variant.mergedFlavor.minSdkVersion.apiLevel)
             inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pip", python.pip)
             inputs.property("pyc", python.pyc.pip).optional(true)
@@ -326,6 +327,7 @@ class PythonPlugin implements Plugin<Project> {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
                         args("--android-abis", *abis)
+                        args("--min-api-level", inputs.properties["minApiLevel"])
                         args reqsArgs
                         args "--"
                         args "--disable-pip-version-check"
@@ -334,7 +336,8 @@ class PythonPlugin implements Plugin<Project> {
                             // If the user passes --index-url, disable our repository as well
                             // as the default one.
                             args "--extra-index-url", "https://chaquo.com/pypi-7.0"
-                        }
+                            args "--extra-index-url", "https://chaquo.com/pypi-13.1"
+                            }
                         args "--implementation", Common.PYTHON_IMPLEMENTATION
                         args "--python-version", pythonVersionInfo(python.version).key
                         args "--abi", (Common.PYTHON_IMPLEMENTATION +

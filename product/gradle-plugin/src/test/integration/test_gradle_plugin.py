@@ -731,7 +731,8 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
 
     def test_download_wheel(self):
-        CHAQUO_URL = r"https://.+/murmurhash-0.28.0-7-cp38-cp38-android_16_x86.whl"
+        CHAQUO_URL = (r"https://chaquo.com/pypi-7.0/murmurhash/"
+                      r"murmurhash-0.28.0-7-cp38-cp38-android_16_x86.whl")
         PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
         common_reqs = (["murmurhash/" + name for name in
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
@@ -1035,6 +1036,23 @@ class PythonReqs(GradleTestCase):
         run.apply_layers("PythonReqs/wheel_index_2")
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
+
+    # This package has wheels tagged as API levels 22 and 24, with corresponding
+    # version numbers. Which one is selected should depend on the app's minSdkVersion.
+    def test_api_level(self):
+        run = self.RunGradle("base", run=False)
+        for min_api_level, expected_version in [
+            (21, None), (22, 22), (23, 22), (24, 24), (25, 24)
+        ]:
+            if expected_version:
+                kwargs = dict(dist_versions=[("api_level", f"1.{expected_version}")],
+                              abis=["arm64-v8a"])
+            else:
+                kwargs = dict(succeed=False)
+            run.rerun(f"PythonReqs/api_level_{min_api_level}", **kwargs)
+            if not expected_version:
+                self.assertInLong("No matching distribution found for api_level",
+                                  run.stderr)
 
     # Even though this is now a standard pip feature, we should still test it because we've
     # modified the index preference order.

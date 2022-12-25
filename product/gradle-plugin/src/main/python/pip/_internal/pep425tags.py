@@ -332,6 +332,12 @@ def get_supported(
             else:
                 # arch pattern didn't match (?!)
                 arches = [arch]
+        elif arch_prefix == "android":  # Chaquopy
+            # The minimum API level of the app is the maximum API level tag we accept.
+            min_api_level, _, android_abi = arch_suffix.partition("_")
+            arches = []
+            for api_level in reversed(range(int(min_api_level) + 1)):
+                arches.append("_".join([arch_prefix, str(api_level), android_abi]))
         elif arch_prefix == 'manylinux2010':
             # manylinux1 wheels run on most manylinux2010 systems with the
             # exception of wheels depending on ncurses. PEP 571 states

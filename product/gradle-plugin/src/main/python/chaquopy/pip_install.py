@@ -28,13 +28,6 @@ from wheel.util import urlsafe_b64encode  # Not the same as the version in base6
 from .util import CommandError
 
 
-ABI_API_LEVELS = {
-    "armeabi-v7a": 16,
-    "arm64-v8a": 21,
-    "x86": 16,
-    "x86_64": 21,
-}
-
 # Files which aren't needed at runtime should be omitted from the APK.
 EXCLUDE_PATTERNS = [
     "chaquopy/include/*",
@@ -212,7 +205,7 @@ class PipInstall(object):
             renames(abi_filename, common_filename)
 
     def platform_tag(self, abi):
-        return "android_{}_{}".format(ABI_API_LEVELS[abi], re.sub(r"[-.]", "_", abi))
+        return "android_{}_{}".format(self.min_api_level, re.sub(r"[-.]", "_", abi))
 
     def parse_args(self):
         class ReqFileAppend(argparse.Action):
@@ -224,6 +217,7 @@ class PipInstall(object):
         # and https://bitbucket.org/pypa/distlib/src/0.2.7/distlib/resources.py#lines-135
         ap.add_argument("--target", metavar="DIR", type=realpath, required=True)
         ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
+        ap.add_argument("--min-api-level", metavar="LEVEL", type=int, required=True)
 
         # Passing the requirements this way ensures their order is maintained on the pip install
         # command line, which may be significant because of pip's simple-minded dependency
