@@ -64,6 +64,16 @@ After stable release:
 * Update android.rst.
 
 
+## Updating certifi cacert.pem
+
+* Copy cacert.pem from the newest certifi wheel on PyPI into
+  gradle-plugin/src/main/resources/com/chaquo/python.
+* Build the Gradle plugin.
+* Use that plugin to build the demo app, and run the Python unit tests on any device
+  (TestAndroidStdlib.test_ssl).
+* Update the certifi version number in android.rst.
+
+
 ## Browsing Android Gradle plugin source code
 
 Create a Gradle Java project in IntelliJ (NOT an Android app project) and add the Android
