@@ -104,16 +104,16 @@ You can set your app's Python version like this::
           }
       }
 
-In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8, and
-the other available versions are 3.9, 3.10 and 3.11. Note that versions other than the
-default may have fewer :ref:`packages <android-requirements>` available.
+In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8. The
+other available versions are 3.9, 3.10 and 3.11, but these may have fewer :ref:`packages
+<android-requirements>` available.
 
 .. _buildPython:
 
 buildPython
 -----------
 
-Some features require Python 3.5 or later to be available on the build machine. These features
+Some features require Python 3.7 or later to be available on the build machine. These features
 are indicated by a note in their documentation sections.
 
 By default, Chaquopy will try to find Python on the PATH with the standard command for your

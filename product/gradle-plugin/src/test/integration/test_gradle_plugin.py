@@ -48,9 +48,15 @@ for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/pyth
 
 if not DEFAULT_PYTHON_VERSION:
     raise Exception("Failed to find DEFAULT_PYTHON_VERSION")
+assert DEFAULT_PYTHON_VERSION == "3.8"
+
 if not PYTHON_VERSIONS:
     raise Exception("Failed to find PYTHON_VERSIONS")
+assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
+
+NON_DEFAULT_PYTHON_VERSION = "3.10"
+assert NON_DEFAULT_PYTHON_VERSION != DEFAULT_PYTHON_VERSION
 
 def run_build_python(args, **kwargs):
     for k, v in dict(check=True, capture_output=True, text=True).items():
@@ -64,8 +70,8 @@ def run_build_python(args, **kwargs):
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
-OLD_BUILD_PYTHON_VERSION = "3.4"
-MIN_BUILD_PYTHON_VERSION = "3.5"
+OLD_BUILD_PYTHON_VERSION = "3.6"
+MIN_BUILD_PYTHON_VERSION = "3.7"
 MAX_BUILD_PYTHON_VERSION = "3.11"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
@@ -349,9 +355,6 @@ class PythonVersion(GradleTestCase):
                DEFAULT_PYTHON_VERSION + ".")
 
     def test_change(self):
-        self.assertEqual("3.8", DEFAULT_PYTHON_VERSION)
-        self.assertEqual(["3.8", "3.9", "3.10", "3.11"], list(PYTHON_VERSIONS))
-
         run = self.RunGradle("base", run=False)
         for version in ["3.8", "3.9"]:
             self.check_version(run, version)
@@ -537,7 +540,7 @@ class ExtractPackages(GradleTestCase):
 
 class Pyc(GradleTestCase):
     FAILED = "Failed to compile to .pyc format: "
-    INCOMPATIBLE = r"buildPython version 3.5.\d+ is incompatible. "
+    INCOMPATIBLE = fr"buildPython version {NON_DEFAULT_PYTHON_VERSION}.\d+ is incompatible. "
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
 
     def test_change(self):
@@ -573,12 +576,16 @@ class Pyc(GradleTestCase):
         self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
     def test_magic_warning(self):
-        run = self.RunGradle("base", "Pyc/magic_warning", requirements=["six.py"], pyc=["stdlib"])
+        run = self.RunGradle("base", "Pyc/magic_warning",
+                             env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
+                             requirements=["six.py"], pyc=["stdlib"])
         self.assertInLong(WARNING + self.FAILED + self.INCOMPATIBLE + self.SEE,
                           run.stdout, re=True)
 
     def test_magic_error(self):
-        run = self.RunGradle("base", "Pyc/magic_error", succeed=False)
+        run = self.RunGradle("base", "Pyc/magic_error",
+                             env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
+                             succeed=False)
         self.assertInLong(self.FAILED + self.INCOMPATIBLE + self.SEE, run.stdout, re=True)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 

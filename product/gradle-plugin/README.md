@@ -62,7 +62,6 @@ After stable release:
 * Update `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in test_gradle_plugin,
   and run the tests which use them.
 * Update android.rst.
-* Update `buildPython` comment in app/build.gradle in all public apps.
 
 
 ## Browsing Android Gradle plugin source code
