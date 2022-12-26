@@ -22,7 +22,7 @@ done
 # within the same include directory, because they use the same header file names. So we
 # build each OpenSSL version immediately before all the Python versions that use it.
 
-./for-each-abi.sh openssl/build.sh 1.1.1b
+./for-each-abi.sh openssl/build.sh 1.1.1s
 python/build-and-package.sh 3.8
 
 ./for-each-abi.sh openssl/build.sh 3.0.5
