@@ -108,7 +108,7 @@ Task testPythonTask(String name, String version, Closure closure) {
 }
 
 // Test on the minimum supported buildPython version.
-testPythonTask("testPython", "3.5") {
+testPythonTask("testPython", "3.7") {
     workingDir "$projectDir/src/test/python"
 }
 check.dependsOn(testPython)

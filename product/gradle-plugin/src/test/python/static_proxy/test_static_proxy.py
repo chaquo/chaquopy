@@ -35,8 +35,7 @@ class TestStaticProxy(FilterWarningsCase):
 
     def test_encoding(self):
         self.run_json("encoding", "utf8")
-        if sys.version_info[0] >= 3:  # PEP 3131
-            self.run_json("encoding", "utf8_identifiers")
+        self.run_json("encoding", "utf8_identifiers")
         self.run_json("encoding", "big5_marked")  # PEP 263
         self.run_json("encoding", "big5_unmarked", False,
                       "'utf-?8' codec can't decode byte 0xa4", re=True)
@@ -77,13 +76,11 @@ class TestStaticProxy(FilterWarningsCase):
 
     def test_bindings_py3(self):
         self.run_json("bindings", "def_async", False,
-                      r"def_async.py:4:9: invalid syntax" if sys.version_info < (3, 5)
-                      else (r"def_async.py:6:22: cannot resolve 'x' "
-                            r"\(bound at .*def_async.py:4:7\)"), re=True)
+                      (r"def_async.py:6:22: cannot resolve 'x' "
+                       r"\(bound at .*def_async.py:4:1\)"), re=True)
         self.run_json("bindings", "assign_ann", False,
-                      r"assign_ann.py:4:3: invalid syntax" if sys.version_info < (3, 6)
-                      else (r"assign_ann.py:6:22: cannot resolve 'x' "
-                            r"\(bound at .*assign_ann.py:4:1\)"), re=True)
+                      (r"assign_ann.py:6:22: cannot resolve 'x' "
+                       r"\(bound at .*assign_ann.py:4:1\)"), re=True)
 
     def test_header(self):
         self.run_json("header", "bases")

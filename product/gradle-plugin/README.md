@@ -59,6 +59,7 @@ After stable release:
 ## Removing support for a buildPython version
 
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
+* Update `testPython` in gradle-plugin/build.gradle, and run the tests.
 * Update `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in test_gradle_plugin,
   and run the tests which use them.
 * Update android.rst.
