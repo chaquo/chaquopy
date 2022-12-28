@@ -424,10 +424,10 @@ sys
 ---
 
 :any:`sys.stdout` and :any:`sys.stderr` are redirected to the `Logcat
-<https://developer.android.com/studio/debug/am-logcat.html>`__ with the tags `python.stdout` and
-`python.stderr` respectively. The streams will produce one log line for each call to `write()`,
-which may result in lines being split up in the log. Lines may also be split if they exceed the
-Logcat message length limit of approximately 4000 bytes.
+<https://developer.android.com/studio/debug/am-logcat.html>`__ with the tags
+`python.stdout` and `python.stderr` respectively. These streams are line-buffered by
+default: if you want to disable that, use :any:`io.TextIOWrapper.reconfigure` to set
+`write_through=True`.
 
 By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
 interactive text input, have a look at the `console app template

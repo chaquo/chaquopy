@@ -25,6 +25,15 @@ class FilterWarningsCase(TestCase):
         self.cw.__exit__(None, None, None)
         super().tearDown()
 
+    def assertPredicate(self, f, *args):
+        self.check_predicate(self.assertTrue, f, *args)
+
+    def assertNotPredicate(self, f, *args):
+        self.check_predicate(self.assertFalse, f, *args)
+
+    def check_predicate(self, assertion, f, *args):
+        assertion(f(*args), f"{f.__name__}{args!r}")
+
 
 Object_names = {"clone", "equals", "finalize", "getClass", "hashCode", "notify",
                 "notifyAll", "toString", "wait"}
