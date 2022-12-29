@@ -575,6 +575,11 @@ class Pyc(GradleTestCase):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
         self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
 
+    def test_buildpython_missing(self):
+        run = self.RunGradle("base", "Pyc/buildpython_missing", "BuildPython/missing",
+                             add_path=["bin"], succeed=False)
+        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning",
                              env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
@@ -635,9 +640,8 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", "BuildPython/space", succeed=False)
         self.assertInLong("Hello Chaquopy", run.stdout)
 
-    def test_missing(self):
-        run = self.RunGradle("base", "BuildPython/missing", add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + self.INSTALL, run.stderr)
+    # test_missing was replaced with one test_buildpython_missing method for each task
+    # that uses buildPython.
 
     def test_missing_minor(self):
         run = self.RunGradle("base", "BuildPython/missing_minor", add_path=["bin"],
@@ -730,6 +734,12 @@ class PythonReqs(GradleTestCase):
                 run = self.RunGradle(*layers, env={"buildpython_version": version},
                                      succeed=False)
                 self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+
+    def test_buildpython_missing(self):
+        run = self.RunGradle(
+            "base", "PythonReqs/buildpython_missing", "BuildPython/missing",
+            add_path=["bin"], succeed=False)
+        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
 
     def test_download_wheel(self):
         CHAQUO_URL = (r"https://chaquo.com/pypi-7.0/murmurhash/"
@@ -1336,6 +1346,12 @@ class StaticProxy(GradleTestCase):
                 run = self.RunGradle(*layers, env={"buildpython_version": version},
                                      succeed=False)
                 self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+
+    def test_buildpython_missing(self):
+        run = self.RunGradle(
+            "base", "StaticProxy/buildpython_missing", "BuildPython/missing",
+            add_path=["bin"], succeed=False)
+        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
 
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
