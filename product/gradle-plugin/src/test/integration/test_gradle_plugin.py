@@ -648,12 +648,14 @@ class BuildPython(GradleTestCase):
                              succeed=False)
         self.assertNotInLong("Minor version was used", run.stdout)
         self.assertInLong("Major version was used", run.stdout)
+        self.assertNotInLong("Versionless executable was used", run.stdout)
 
     def test_missing_major(self):
         run = self.RunGradle("base", "BuildPython/missing_major", add_path=["bin"],
                              succeed=False)
         self.assertInLong("Minor version was used", run.stdout)
         self.assertNotInLong("Major version was used", run.stdout)
+        self.assertNotInLong("Versionless executable was used", run.stdout)
 
     def test_missing_both(self):
         run = self.RunGradle("base", "BuildPython/missing_both", add_path=["bin"],
