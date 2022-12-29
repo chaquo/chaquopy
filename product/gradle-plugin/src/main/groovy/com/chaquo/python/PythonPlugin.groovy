@@ -849,25 +849,32 @@ class PythonExtension extends BaseExtension {
     }
 
     String[] getBuildPython() {
-        if (buildPython != null) {
-            return buildPython
-        } else {
-            List<String> bp
+        if (buildPython == null) {
+            List<List<String>> bps = new ArrayList<>()
             for (suffix in [version, version.split(/\./)[0]]) {
                 if (System.getProperty("os.name").startsWith("Windows")) {
                     // See PEP 397. After running the official Windows installer with
                     // default settings, this will be the only Python thing on the PATH.
-                    bp = ["py", "-$suffix"]
+                    bps.add(["py", "-$suffix"])
                 } else {
                     // See PEP 394.
-                    bp = ["python$suffix"]
+                    bps.add(["python$suffix"])
                 }
+            }
+
+            // On Windows, both venv and conda create environments containing only a
+            // `python` executable, not `python3`, `python3.x`, or `py`. It's also
+            // reasonable to use this as a final fallback on Unix (#752).
+            bps.add(["python"])
+
+            for (bp in bps) {
                 if (checkBuildPython(bp)) {
-                    return bp as String[]
+                    buildPython = bp as String[]
+                    break
                 }
             }
         }
-        return null
+        return buildPython
     }
 
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
