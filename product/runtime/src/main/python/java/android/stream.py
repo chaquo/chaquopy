@@ -8,6 +8,8 @@ import sys
 # level 30, messages longer than this will be be truncated by logcat. This limit has already
 # been reduced at least once in the history of Android (from 4076 to 4068 between API level 23
 # and 26), so leave some headroom.
+#
+# This should match the native stdio buffer size in android_platform.c.
 MAX_LINE_LEN_BYTES = 4000
 
 # UTF-8 uses a maximum of 4 bytes per character. However, if the actual number of bytes
@@ -80,13 +82,7 @@ class BinaryLogStream(io.RawIOBase):
         # to the AttributeError we would probably get from trying to call `encode`.
         s = str(b, self.text_stream.encoding, self.text_stream.errors)
 
-        # Writing an empty string to the stream should have no effect. Writing an empty
-        # line should log an empty line, but Logcat would drop that on some devices, at
-        # least according to the command-line `logcat` tool. So we log a single space
-        # instead.
+        # Writing an empty string to the stream should have no effect.
         if s:
-            # TODO: replace with removesuffix once our minimum Python version is 3.9.
-            if s.endswith("\n"):
-                s = s[:-1]
-            Log.println(self.level, self.tag, s or " ")
+            Log.println(self.level, self.tag, s)
         return len(b)

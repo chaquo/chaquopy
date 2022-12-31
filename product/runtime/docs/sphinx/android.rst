@@ -122,6 +122,7 @@ For example, if :ref:`your app's Python version <python-version>` is 3.8, then:
 
 * On Linux and Mac it will try `python3.8`, then `python3`.
 * On Windows, it will try `py -3.8`, then `py -3`.
+* On all platforms, it will finally try `python`.
 
 If this doesn't work for you, set your Python command using the `buildPython` setting.
 For example, on Windows you might use one of the following::
@@ -428,6 +429,11 @@ sys
 `python.stdout` and `python.stderr` respectively. These streams are line-buffered by
 default: if you want to disable that, use :any:`io.TextIOWrapper.reconfigure` to set
 `write_through=True`.
+
+This redirection does not affect the native stdout and stderr streams, which may be used
+by non-Python libraries. If you want to redirect them as well, see
+`AndroidPlatform.redirectStdioToLogcat
+<java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat()>`_.
 
 By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
 interactive text input, have a look at the `console app template

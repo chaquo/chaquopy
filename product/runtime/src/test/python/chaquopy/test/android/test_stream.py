@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import ctypes.util
 import queue
 import re
 import subprocess
@@ -9,6 +10,9 @@ from time import time
 from android.util import Log
 
 from ..test_utils import API_LEVEL, FilterWarningsCase
+
+
+redirected_native = False
 
 
 class TestOutput(FilterWarningsCase):
@@ -42,9 +46,10 @@ class TestOutput(FilterWarningsCase):
                 line = self.logcat_queue.get(timeout=(deadline - time()))
             except queue.Empty:
                 self.fail(f"line not found: {expected!r}")
-            if match := re.fullmatch(fr"{level}/{tag}: (.*)", line):
+            if match := re.fullmatch(fr"(.)/{tag}: (.*)", line):
                 try:
-                    self.assertEqual(expected, match[1])
+                    self.assertEqual(level, match[1])
+                    self.assertEqual(expected, match[2])
                     break
                 except AssertionError:
                     if not skip:
@@ -110,33 +115,31 @@ class TestOutput(FilterWarningsCase):
 
                 # Multi-line messages. Avoid identical consecutive lines, as they may
                 # activate "chatty" filtering and break the tests.
-                #
-                # Logcat may drop empty lines, so they should be logged as a single space.
-                write("\nx", [" "])
+                write("\nx", [""])
                 write("\na\n", ["x", "a"])
-                write("\n", [" "])
+                write("\n", [""])
                 write("b\n", ["b"])
-                write("c\n\n", ["c", " "])
+                write("c\n\n", ["c", ""])
                 write("d\ne", ["d"])
                 write("xx", [])
-                write("f\n\ng", ["exxf", " "])
+                write("f\n\ng", ["exxf", ""])
                 write("\n", ["g"])
 
                 with self.unbuffered(stream):
-                    write("\nx", [" ", "x"])
-                    write("\na\n", [" ", "a"])
-                    write("\n", [" "])
+                    write("\nx", ["", "x"])
+                    write("\na\n", ["", "a"])
+                    write("\n", [""])
                     write("b\n", ["b"])
-                    write("c\n\n", ["c", " "])
+                    write("c\n\n", ["c", ""])
                     write("d\ne", ["d", "e"])
                     write("xx", ["xx"])
-                    write("f\n\ng", ["f", " ", "g"])
-                    write("\n", [" "])
+                    write("f\n\ng", ["f", "", "g"])
+                    write("\n", [""])
 
                 # "\r\n" should be translated into "\n".
                 write("hello\r\n", ["hello"])
                 write("hello\r\nworld\r\n", ["hello", "world"])
-                write("\r\n", [" "])
+                write("\r\n", [""])
 
                 for obj in [b"", b"hello", None, 42]:
                     with self.subTest(obj=obj):
@@ -218,25 +221,24 @@ class TestOutput(FilterWarningsCase):
                 write(b"\xffb", [r"\xffb"])
                 write(b"a\xffb", [r"a\xffb"])
 
-                # The only transformation that we do at this level is to remove a single
-                # trailing newline, and if that leaves the string empty, replace it with a
-                # single space to prevent Logcat dropping it.
+                # Log entries containing newlines are shown differently by `logcat -v
+                # tag`, `logcat -v long`, and Android Studio. We currently use `logcat -v
+                # tag`, which shows each line as if it was a separate log entry, but
+                # strips a single trailing newline.
                 #
-                # However, according to the command-line `logcat` tool, Logcat itself then
-                # strips all trailing newlines, and on newer versions of Android, leading
-                # newlines as well.
+                # On newer versions of Android, all three of the above tools (or maybe
+                # Logcat itself) will also strip any number of leading newlines.
                 write(b"\nx", ["", "x"] if API_LEVEL < 30 else ["x"])
                 write(b"\na\n", ["", "a"] if API_LEVEL < 30 else ["a"])
-                write(b"\n", [" "])
+                write(b"\n", [""])
                 write(b"b\n", ["b"])
-                write(b"c\n\n", ["c"])
+                write(b"c\n\n", ["c", ""])
                 write(b"d\ne", ["d", "e"])
                 write(b"xx", ["xx"])
                 write(b"f\n\ng", ["f", "", "g"])
-                write(b"\n", [" "])
+                write(b"\n", [""])
 
-                # "\r\n" is not treated specially by us, but is apparently stripped by
-                # Logcat itself.
+                # "\r\n" should be translated into "\n".
                 write(b"hello\r\n", ["hello"])
                 write(b"hello\r\nworld\r\n", ["hello", "world"])
                 write(b"\r\n", [""])
@@ -250,6 +252,54 @@ class TestOutput(FilterWarningsCase):
                                        fr"{type(obj).__name__} found")
                         with self.assertRaisesRegex(TypeError, message):
                             stream.write(obj)
+
+    def test_native(self):
+        c_write = ctypes.CDLL(ctypes.util.find_library("c")).write
+        streams = [("native.stdout", "I", 1), ("native.stderr", "W", 2)]
+
+        def write(b, lines=None):
+            self.assertIsInstance(b, bytes)
+            self.assertEqual(len(b), c_write(fileno, b, len(b)))
+            if lines is None:
+                lines = [b.decode()]
+            self.assert_logs(level, tag, lines)
+
+        # By default, the native streams are not redirected, so everything written to them
+        # will be lost. Because there's no way to undo the redirection, we can only test
+        # this mode once per process.
+        global redirected_native
+        if redirected_native:
+            print("Can't re-run non-redirected tests")
+        else:
+            print("Running non-redirected tests")
+            for tag, level, fileno in streams:
+                with self.subTest(tag=tag):
+                    # Add begin and end markers to make sure these writes don't get mixed
+                    # up with the redirected writes below.
+                    for b in [
+                        b"BEGIN non-redirected tests",
+                        b"", b"a", b"Hello", b"Hello world", b"Hello world\n",
+                        b"END non-redirected tests"
+                    ]:
+                        with self.subTest(b=b):
+                            write(b, [])
+
+        from com.chaquo.python import Python
+        Python.getPlatform().redirectStdioToLogcat()
+        redirected_native = True
+
+        for tag, level, fileno in streams:
+            with self.subTest(tag=tag):
+                write(b"", [])
+                write(b"a")
+                write(b"Hello")
+                write(b"Hello world")
+
+                # See above comment: "Log entries containing newlines..."
+                write(b"\n", [""])
+                write(b"Hello world\n", ["Hello world"])
+                write(b"Hello\nworld", ["Hello", "world"])
+                write(b"Hello\nworld\n", ["Hello", "world"])
 
 
 class TestInput(FilterWarningsCase):
