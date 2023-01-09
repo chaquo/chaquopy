@@ -2,7 +2,7 @@
 set -eu -o pipefail
 shopt -s inherit_errexit
 
-# Positional arguments:
+# Positional arguments (order is the same as unpackage-target.sh):
 #  * `prefix` directory to pack from.
 #  * Maven directory to pack into, e.g. /path/to/com/chaquo/python/target/3.10.6-3. Must
 #    not already exist.

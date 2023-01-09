@@ -1,35 +1,32 @@
 # Introduction
 
-This file contains instructions for building and testing Chaquopy. These instructions have been
-tested on Linux x86-64, and Windows x86-64 with MSYS2. However, the resulting packages can be
-used on any supported Android build platform (Windows, Linux or Mac).
-
-Alternatively, you might want to use the automated Docker-based build process: see
-`../README.md`.
+This file contains instructions for building and testing Chaquopy.
 
 
 # Build prerequisites
 
-* JDK versions 8 and 11. Version 8 is used for the runtime tests (see javaHome in
-  product/runtime/build.gradle), while the integration tests use whichever version was bundled
+* JDK versions 8 and 11. Version 8 is used for the runtime tests (see `javaHome` in
+  runtime/build.gradle), while the integration tests use whichever version was bundled
   with the corresponding version of Android Studio: 4.1 and older use version 8, while 4.2 and
   newer use version 11.
-* Python requirements in `runtime/requirements-build.txt`.
-* Android SDK, including the following packages:
-   * CMake: see `Dockerfile` for version number.
-   * NDK (side by side): see `target/Dockerfile` for version number.
-   * SDK Platform corresponding to `COMPILE_SDK_VERSION` in
-     `product/buildSrc/src/main/java/com/chaquo/python/Common.java`.
-* Android sysroots in `../target/toolchains/<abi>/sysroot`. Either generate them using the
-  commands in `../build-maven.sh`, or copy them from another machine. For this purpose, you
-  only need to copy the Python headers in `usr/include/pythonX.Y` and the library
-  `usr/lib/libpythonX.Y.so`.
+* Python requirements from runtime/requirements-build.txt. In particular, `cython` must be
+  on the PATH.
+* Android SDK. Set the `ANDROID_HOME` environment variable to point at its location, and
+  install the following packages:
+   * CMake: version from `sdkCmakeDir` in runtime/build.gradle.
+   * NDK (side by side): version from `ndkDir` in runtime/build.gradle.
+   * SDK Platform: version from `COMPILE_SDK_VERSION` in
+     buildSrc/src/main/java/com/chaquo/python/Common.java.
+* Android Python headers and libraries in ../target/prefix. To obtain these:
+  * Download https://repo.maven.apache.org/maven2/com/chaquo/python/target/ to
+    ../maven/com/chaquo/python/target.
+  * `cd ../target`
+  * `./unpackage-target.sh ./prefix ../maven/com/chaquo/python/target/VERSION`, for each
+    Python version you want to build against.
 
 Create a `local.properties` file in `product` (i.e. the same directory as this README), with
 the following content:
 
-    sdk.dir=<Android SDK directory>
-    ndk.dir=<Android SDK directory>/ndk/<version>
     chaquopy.java.home.8=<path>
     chaquopy.java.home.11=<path>
 
@@ -108,6 +105,8 @@ be given here.
 
 
 # Update checklists
+
+For component-specific checklists, see README.md files in subdirectories.
 
 ## Increasing minimum API level (minSdkVersion)
 

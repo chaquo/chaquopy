@@ -87,8 +87,19 @@ String getLocalProperty(String key, String defaultValue = null) {
     return result
 }
 
-def sdkDir = getLocalProperty('sdk.dir')
-def ndkDir = "$sdkDir/ndk/22.1.7171670"  // Should match the version in target/build-common.sh.
+String sdkPath(String path) {
+    def sdkDir = System.getenv("ANDROID_HOME")
+    if (sdkDir == null) {
+        throw new GradleException("ANDROID_HOME environment variable is required")
+    }
+    def absPath = "$sdkDir/$path"
+    if (!file(absPath).exists()) {
+        throw new GradleException("$path not found: install it using the SDK Manager")
+    }
+    return absPath
+}
+
+def ndkDir = sdkPath("ndk/22.1.7171670")  // Should match the version in target/build-common.sh.
 
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
@@ -170,13 +181,8 @@ cythonTask("cythonJava") {
     }
 }
 
-def sdkCmakeDir = "$sdkDir/cmake/3.22.1"  // Should match the version in the root Dockerfile.
-
-def androidJar = "$sdkDir/platforms/android-$Common.COMPILE_SDK_VERSION/android.jar"
-if (!file(androidJar).exists()) {
-    throw new GradleException("Android SDK Platform $Common.COMPILE_SDK_VERSION not found: " +
-                              "install it using the SDK Manager")
-}
+def sdkCmakeDir = sdkPath("cmake/3.22.1")  // Should match the version in the root Dockerfile.
+def androidJar = "${sdkPath("platforms/android-" + Common.COMPILE_SDK_VERSION)}/android.jar"
 
 dependencies {
     compileOnly files(androidJar)
