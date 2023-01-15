@@ -14,7 +14,8 @@ public class PythonTestActivity extends PythonConsoleActivity {
 
     public static class Task extends PythonConsoleActivity.Task {
         public Task(Application app) {
-            super(app, InputType.TYPE_NULL);  // test_android expects stdin to return EOF.
+            // TestAndroidInput expects stdin to return EOF.
+            super(app, InputType.TYPE_NULL);
         }
 
         @SuppressWarnings("unused")  // For pkgtest app.

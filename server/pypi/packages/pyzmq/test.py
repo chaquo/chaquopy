@@ -62,8 +62,8 @@ class TestPyzmq(unittest.TestCase):
 
             origin = mod.__spec__.origin
             if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-                # This test covers Python modules: for non-Python libraries, see test_ctypes in
-                # test_android.py.
+                # This test covers Python modules: for non-Python libraries, see
+                # TestAndroidImport. test_ctypes.
                 self.assertNotIn("/", origin)
                 origin = join(dirname(file), origin)
             else:

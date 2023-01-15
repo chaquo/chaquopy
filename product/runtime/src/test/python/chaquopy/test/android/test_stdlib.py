@@ -10,7 +10,7 @@ from ..test_utils import FilterWarningsCase
 from . import ABI, context
 
 
-class TestStdlib(FilterWarningsCase):
+class TestAndroidStdlib(FilterWarningsCase):
 
     # For ctypes, see test_import.py.
 

@@ -15,7 +15,7 @@ from ..test_utils import API_LEVEL, FilterWarningsCase
 redirected_native = False
 
 
-class TestOutput(FilterWarningsCase):
+class TestAndroidOutput(FilterWarningsCase):
 
     maxDiff = None
 
@@ -302,7 +302,7 @@ class TestOutput(FilterWarningsCase):
                 write(b"Hello\nworld\n", ["Hello", "world"])
 
 
-class TestInput(FilterWarningsCase):
+class TestAndroidInput(FilterWarningsCase):
 
     def test_str(self):
         self.assertTrue(sys.stdin.readable())

@@ -1,3 +1,3 @@
-# This package is used by test_android.
+# This package is used by TestAndroidImport.
 
 x = "android1"

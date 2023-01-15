@@ -39,7 +39,7 @@ def asset_path(zip_name, *paths):
                 zip_name.partition("-")[0], *paths)
 
 
-class TestImport(FilterWarningsCase):
+class TestAndroidImport(FilterWarningsCase):
 
     def test_bootstrap(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
@@ -73,7 +73,7 @@ class TestImport(FilterWarningsCase):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
                       is_package=True)
         self.check_py("android1", APP_ZIP, "android1/__init__.py", "x",
-                      source_head="# This package is used by test_android.", is_package=True)
+                      source_head="# This package is used by TestAndroidImport.", is_package=True)
 
     def test_py(self):
         self.check_py("murmurhash.about", REQS_COMMON_ZIP, "murmurhash/about.py", "__summary__")
@@ -321,13 +321,14 @@ class TestImport(FilterWarningsCase):
         return mod
 
     # Verify that the traceback builder can get source code from the loader in all contexts.
-    # (The "package1" test files are also used in test_import.py.)
+    # (The "package1" test files are also used in TestImport.)
     def test_exception(self):
         col_marker = r'( +\^+\n)?'  # Column marker (Python >= 3.11)
-        test_frame = (fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/test_android.py", '
-                      fr'line \d+, in test_exception\n'
-                      fr'    .+?\n'  # Source code line from this file
-                      + col_marker)
+        test_frame = (
+            fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/android/test_import.py", '
+            fr'line \d+, in test_exception\n'
+            fr'    .+?\n'  # Source code line from this file
+            + col_marker)
         import_frame = r'  File "import.pxi", line \d+, in java.chaquopy.import_override\n'
 
         # Compilation

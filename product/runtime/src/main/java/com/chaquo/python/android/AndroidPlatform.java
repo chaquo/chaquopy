@@ -14,7 +14,7 @@ import org.json.*;
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform extends Python.Platform {
 
-    /** @deprecated Internal use in importer.py and test_android.py. */
+    /** @deprecated Internal use in importer.py and the Android unit tests. */
     public static String ABI;
 
     // TODO: this list could be eliminated if we simply removed all files or directories
