@@ -61,7 +61,6 @@ Linux prerequisites:
 Windows prerequisites:
 
 * Install MSYS2.
-* Add the following line to `local.properties`: `mingw.dir=C\:/msys64/mingw64`
 * Make sure the `mingw64\bin` directory is on the `PATH`, and is the directory actually used
   for invocations of `pythonX.Y`.
 
@@ -89,7 +88,7 @@ Prerequisites:
 * The test script requires the packages listed in
   `gradle-plugin/src/test/integration/requirements.txt`. It does not currently work in a
   virtualenv, so use `pip install --user` instead, making sure that you run pip with the same
-  major.minor Python version as Chaquopy currently uses.
+  major.minor Python version as Chaquopy currently uses by default.
 * On Windows, integration tests are not run with the MSYS2 Python, but rather with the `py`
   launcher (PEP 397). This is installed by default by the official Windows releases from
   python.com.

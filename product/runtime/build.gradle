@@ -3,9 +3,36 @@ import com.chaquo.python.Common;
 group = "com.chaquo.python.runtime"
 
 
-// See product/README.md for Windows build instructions.
-def windowsHost = System.properties['os.name'].toLowerCase().contains('windows')
-def mingwDir = windowsHost ? getLocalProperty('mingw.dir') : null
+def osNameProperty = System.properties['os.name']
+String osName = null
+for (name in ["linux", "mac", "windows"]) {
+    if (osNameProperty.toLowerCase(Locale.ENGLISH).startsWith(name)) {
+        osName = name
+        break
+    }
+}
+if (osName == null) {
+    throw new GradleException("unknown os.name: '$osNameProperty'")
+}
+
+def pyPlusVersion = "python$Common.DEFAULT_PYTHON_VERSION"
+// filenames with dots require the ".exe" suffix with Exec tasks on Windows.
+def pyPlusVersionExe = "$pyPlusVersion"
+if (osName == "windows") {
+    pyPlusVersionExe += ".exe"
+}
+
+String pythonHome
+new ByteArrayOutputStream().withStream { output ->
+    exec {
+        executable pyPlusVersionExe
+        args "-c", "import sys; print(sys.base_prefix)"
+        standardOutput = output
+    }
+    pythonHome = output.toString().trim()
+}
+
+
 
 void addArtifact(Task task, Object filename, String pyVersion=null, String abi=null) {
     File f = file(filename)
@@ -51,7 +78,7 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
         doLast {
             exec {
                 workingDir destinationDir
-                if (windowsHost) {
+                if (osName == "windows") {
                     commandLine "py", "-$pyVersion"
                 } else {
                     commandLine "python$pyVersion"
@@ -75,8 +102,8 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
     addArtifact(zipPython, zipPython.archivePath, pyVersion)
 }
 
-// The following properties file should be created manually. It's also used in
-// test_gradle_plugin.py.
+// The following properties file should be created manually, as described in
+// product/README.md. It's also used in test_gradle_plugin.py.
 String getLocalProperty(String key, String defaultValue = null) {
     def localProps = new Properties()
     localProps.load(project.rootProject.file('local.properties').newDataInputStream())
@@ -234,17 +261,20 @@ for (abi in ["host"] + Common.ABIS) {
              "-DCHAQUOPY_SRC_DIR=build/cython"
 
         if (abi == "host") {
-            args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
-            if (windowsHost) {
+            String javaIncludeSubdir
+            if (osName == "windows") {
                 pyLibSuffix = ".pyd"
-                args "-DCHAQUOPY_INCLUDE_PYTHON=$mingwDir/include"
-                args "-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;$javaHome/include/win32"
+                javaIncludeSubdir = "win32"
+            } else if (osName == "mac") {
+                javaIncludeSubdir = "darwin"
             } else {
-                // TODO #5482: support Mac
-                // TODO: This won't work for installations in /usr/local, or via pyenv.
-                args "-DCHAQUOPY_INCLUDE_PYTHON=/usr/include"
-                args "-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;$javaHome/include/linux"
+                javaIncludeSubdir = osName
             }
+            args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
+            args "-DCHAQUOPY_LIB_DIRS=$pythonHome/lib"
+            args "-DCHAQUOPY_INCLUDE_PYTHON=$pythonHome/include"
+            args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
+                  "$javaHome/include/$javaIncludeSubdir")
         } else {
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
@@ -295,18 +325,12 @@ for (abi in ["host"] + Common.ABIS) {
 
             // Can't use -Djava.library.path because we need something which also works
             // for Python processes.
-            def pathVar = windowsHost ? "PATH" : "LD_LIBRARY_PATH"
+            def pathVar = (osName == "windows") ? "PATH"
+                          : (osName == "mac") ? "DYLD_LIBRARY_PATH"
+                          : "LD_LIBRARY_PATH"
             environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
                                   (System.getenv(pathVar) ?: ""))
-            environment "PYTHONHOME", windowsHost ? mingwDir : "/usr"
             environment "PYTHONPATH", mainPythonDir + File.pathSeparator + testPythonDir
-        }
-
-        def pyPlusVersion = "python$Common.DEFAULT_PYTHON_VERSION"
-        // filenames with dots require the ".exe" suffix with Exec tasks on Windows.
-        def pyPlusVersionExe = "$pyPlusVersion"
-        if (windowsHost) {
-            pyPlusVersionExe += ".exe"
         }
 
         // For consistency with Android demo app, run via test suite rather than using
@@ -335,15 +359,14 @@ for (abi in ["host"] + Common.ABIS) {
         test.exclude "**"  // Disable the default test task
         task("testJava", type: Test, group: "verification") {
             outputs.upToDateWhen { false }
-            if (!windowsHost) {
+            environment "PYTHONHOME", pythonHome
+            if (osName == "linux") {
                 // libchaquopy_java.so is linked against libpython, but that doesn't add
                 // the libpython symbols to the global scope, which is required in order to
                 // load native modules like ctypes. Loading libpython with
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
-                // the proper solution, but let's do it the easy way for now.
-                //
-                // TODO #5482: support Mac
+                // the proper solution, but let's do it the easy way for now. See #5695.
                 environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
             }
             testClassesDirs = sourceSets.test.output.classesDirs
@@ -379,6 +402,7 @@ for (abi in ["host"] + Common.ABIS) {
             // because Sphinx needs to be able to import the runtime module.
             executable pyPlusVersionExe
             args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
+            environment "JAVA_HOME", javaHome
         }
         sphinx.configure(testCommonConfig)
         doc.dependsOn(sphinx)
