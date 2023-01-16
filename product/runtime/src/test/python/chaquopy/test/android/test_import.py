@@ -8,7 +8,7 @@ import importlib.util
 from importlib.util import cache_from_source, MAGIC_NUMBER
 import marshal
 import os
-from os.path import dirname, exists, join, realpath, splitext
+from os.path import dirname, exists, join, realpath, relpath, splitext
 import pkgutil
 import platform
 import re
@@ -24,7 +24,7 @@ from ..test_utils import API_LEVEL, FilterWarningsCase
 from . import ABI, context
 
 
-REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments"]
+REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments", "extract-packages"]
 
 # REQS_COMMON_ZIP and REQS_ABI_ZIP are now both extracted into the same directory, but we
 # maintain the distinction in the tests in case that changes again in the future.
@@ -260,6 +260,39 @@ class TestAndroidImport(FilterWarningsCase):
         with self.assertModifies(cache_filename):
             self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
+
+    def test_extract_packages(self):
+        self.check_extract_packages("ep_alpha", [])
+        self.check_extract_packages("ep_bravo", [
+            "__init__.py", "mod.py", "one/__init__.py", "two/__init__.py"
+        ])
+        self.check_extract_packages("ep_charlie", ["one/__init__.py"])
+
+        # If a module has both a .py and a .pyc file, the .pyc file should be used because
+        # it'll load faster.
+        import ep_bravo
+        py_path = asset_path(REQS_COMMON_ZIP, "ep_bravo/__init__.py")
+        self.assertEqual(py_path, ep_bravo.__file__)
+        self.assertEqual(py_path + "c", ep_bravo.__spec__.origin)
+
+    def check_extract_packages(self, package, files):
+        mod = import_module(package)
+        cache_dir = asset_path(REQS_COMMON_ZIP, package)
+        self.assertEqual(cache_dir, dirname(mod.__file__))
+        if exists(cache_dir):
+            rmtree(cache_dir)
+
+        self.clean_reload(mod)
+        if not files:
+            self.assertNotPredicate(exists, cache_dir)
+        else:
+            self.assertCountEqual(files,
+                                 [relpath(join(dirpath, name), cache_dir)
+                                  for dirpath, _, filenames in os.walk(cache_dir)
+                                  for name in filenames])
+            for path in files:
+                with open(f"{cache_dir}/{path}") as file:
+                    self.assertEqual(f"# This file is {package}/{path}\n", file.read())
 
     def clean_reload(self, mod):
         sys.modules.pop(mod.__name__, None)

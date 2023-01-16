@@ -6,17 +6,35 @@ from types import ModuleType
 import warnings
 from . import stream, importer
 
+from org.json import JSONArray, JSONObject
 
-def initialize(context_local, build_json, app_path):
+
+def initialize(context_local, build_json_object, app_path):
     global context
     context = context_local
 
     stream.initialize()
-    importer.initialize(context, build_json, app_path)
+    importer.initialize(context, convert_json_object(build_json_object), app_path)
 
     # These are ordered roughly from low to high level.
     for name in ["warnings", "sys", "os", "tempfile", "multiprocessing"]:
         globals()[f"initialize_{name}"]()
+
+
+def convert_json_object(obj):
+    if isinstance(obj, JSONObject):
+        result = {}
+        i_keys = obj.keys()
+        while i_keys.hasNext():
+            key = i_keys.next()
+            result[key] = convert_json_object(obj.get(key))
+    elif isinstance(obj, JSONArray):
+        result = [convert_json_object(obj.get(i))
+                  for i in range(obj.length())]
+    else:
+        assert isinstance(obj, (type(None), bool, int, float, str)), obj
+        result = obj
+    return result
 
 
 # Several warning classes are ignored by default to avoid confusing end-users. But on

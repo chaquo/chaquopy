@@ -282,6 +282,25 @@ follows::
 Packaging
 =========
 
+.. _extractPackages:
+
+extractPackages
+---------------
+
+At runtime, Python modules are usually loaded directly from the APK, and don’t exist as
+separate files. If there are certain packages in your :ref:`source code <android-source>`
+or :ref:`requirements <android-requirements>` which need to exist as separate files, you
+can do this with the `extractPackages` setting, like this::
+
+    defaultConfig {
+        python {
+            extractPackages "package1", "package2.subpkg"
+        }
+    }
+
+Each extracted file will slightly slow down your app's startup, so this setting should be
+used on the deepest possible package.
+
 .. _android-data:
 
 Data files
@@ -304,9 +323,10 @@ If the data file and the Python file are in different directories, then change t
 accordingly. For example, if the Python file is `alpha/hello.py`, and the data file is
 `bravo/filename.txt`, then replace `filename.txt` above with `../bravo/filename.txt`.
 
-Data files within a top-level package (i.e. a top-level directory containing an `__init__.py`
-file) will not be available until the first time that package is imported. All other data files
-will be available as soon as Python has started.
+Unlike :ref:`Python modules <extractPackages>`, data files are always extracted onto the
+filesystem at runtime. However, files stored within a top-level directory containing an
+`__init__.py` file will not be extracted until the corresponding Python package is
+imported. All other files will be extracted when Python starts.
 
 Do not write any files to these directories at runtime, as they may be deleted when the app is
 upgraded. Instead, write files to `os.environ["HOME"]`, as described in the ":ref:`android-os`"
@@ -323,7 +343,9 @@ Bytecode compilation
 Your app will start up faster if its Python code is compiled to .pyc format, so this is
 enabled by default.
 
-Compilation prevents source code text from appearing in stack traces, so during development you
+If bytecode compilation succeeds, the original .py files will not be included in the APK,
+unless they're covered by the :ref:`extractPackages <extractPackages>` setting. However,
+this prevents source code text from appearing in stack traces, so during development you
 may wish to disable it. There are individual settings for:
 
 * `src`: :ref:`local source code <android-source>`

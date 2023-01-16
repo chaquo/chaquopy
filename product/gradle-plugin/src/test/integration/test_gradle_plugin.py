@@ -27,11 +27,10 @@ data_dir = join(integration_dir, "data")
 repo_root = abspath(join(integration_dir, "../../../../.."))
 chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 
-# The following properties file should be created manually. It's also used in
-# runtime/build.gradle.
+# The following properties file should be created manually, as described in
+# product/README.md. It's also used in runtime/build.gradle.
 with open(join(repo_root, "product/local.properties")) as props_file:
     product_props = PropertiesFile.load(props_file)
-sdk_dir = product_props["sdk.dir"]
 
 DEFAULT_PYTHON_VERSION = None
 PYTHON_VERSIONS = {}
@@ -148,11 +147,15 @@ class GradleTestCase(TestCase):
     # must either be attributes of ZipInfo, or a "content" string which will be compared with
     # the UTF-8 decoded file.
     #
+    # If `pyc` is true and a filename ends with ".py", then a .pyc file will be expected
+    # instead, unless the module is covered by `extract_packages`, in which case both
+    # files will be expected.
+    #
     # The content of .dist_info directories is ignored unless `include_dist_info` is true.
     # However, the *names* of .dist_info directories can be tested by passing `dist_versions`
     # as a list of (name, version) tuples.
-    def checkZip(self, zip_filename, files, *, pyc=False, include_dist_info=False,
-                 dist_versions=None):
+    def checkZip(self, zip_filename, files, *, pyc=False, extract_packages=[],
+                 include_dist_info=False, dist_versions=None):
         with ZipFile(zip_filename) as zip_file:
             actual_files = []
             actual_dist_versions = set()
@@ -173,6 +176,9 @@ class GradleTestCase(TestCase):
                 with self.subTest(f=f):
                     filename, attrs = f if isinstance(f, tuple) else (f, {})
                     if pyc and filename.endswith(".py"):
+                        if any(filename.startswith(ep.replace(".", "/") + "/")
+                               for ep in extract_packages):
+                            expected_files.append(filename)
                         filename += "c"
                     expected_files.append(filename)
                     try:
@@ -528,14 +534,30 @@ class PythonSrc(GradleTestCase):
 
 
 class ExtractPackages(GradleTestCase):
-    def test_warning(self):
-        message = (WARNING + "Python 'extractPackages' setting is no longer required and should "
-                   "be removed from build.gradle.")
-        run = self.RunGradle("base")
-        self.assertNotInLong(message, run.stdout, re=True)
-        run.apply_layers("ExtractPackages/warning")
-        run.rerun()
-        self.assertInLong(message, run.stdout, re=True)
+
+    def test_change(self):
+        # This sdist is also installed by the demo app for use in TestAndroidImport.
+        PY_FILES = [
+            f"{pkg}/{path}"
+            for pkg in ["ep_alpha", "ep_bravo", "ep_charlie"]
+            for path in ["__init__.py", "mod.py", "one/__init__.py", "two/__init__.py"]
+        ]
+        kwargs = dict(app=PY_FILES, requirements=PY_FILES)
+        run = self.RunGradle("base", "ExtractPackages/change_1", **kwargs)
+        run.rerun("ExtractPackages/change_2",
+                  extract_packages=["ep_bravo", "ep_charlie.one"], **kwargs)
+
+    def test_variant(self):
+        self.RunGradle("base", "ExtractPackages/variant",
+                       app=["red/__init__.py", "blue/__init__.py"],
+                       variants={"red-debug": dict(extract_packages=["red"]),
+                                 "blue-debug": dict(extract_packages=["blue"])})
+
+    def test_variant_merge(self):
+        self.RunGradle("base", "ExtractPackages/variant_merge",
+                       app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
+                       variants={"red-debug": dict(extract_packages=["common"]),
+                                 "blue-debug": dict(extract_packages=["common", "blue"])})
 
 
 class Pyc(GradleTestCase):
@@ -1420,9 +1442,6 @@ class RunGradle(object):
             if layer == "base":
                 self.apply_layers("base-" + agp_version)
 
-    def set_local_property(self, key, value):
-        set_property(f"{self.project_dir}/local.properties", key, value)
-
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
               **kwargs):
         self.apply_layers(*layers)
@@ -1436,7 +1455,6 @@ class RunGradle(object):
         gradle_props = f"{self.project_dir}/gradle.properties"
         set_property(gradle_props, "chaquopyRepository", f"{repo_root}/maven")
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
-        self.set_local_property("sdk.dir", sdk_dir)
 
         if env is None:
             env = {}
@@ -1568,8 +1586,9 @@ class RunGradle(object):
 
         # Python source
         pyc = kwargs.get("pyc", ["src", "pip", "stdlib"])
+        extract_packages = kwargs.get("extract_packages", [])
         self.test.checkZip(f"{asset_dir}/app.imy", kwargs.get("app", []),
-                           pyc=("src" in pyc))
+                           pyc=("src" in pyc), extract_packages=extract_packages)
 
         # Python requirements
         requirements = kwargs.get("requirements", [])
@@ -1580,7 +1599,7 @@ class RunGradle(object):
                     (requirements[suffix] if isinstance(requirements, dict)
                      else requirements if suffix == "common"
                      else []),
-                    pyc=("pip" in pyc),
+                    pyc=("pip" in pyc), extract_packages=extract_packages,
                     include_dist_info=kwargs.get("include_dist_info", False),
                     dist_versions=(kwargs.get("dist_versions") if suffix == "common"
                                    else None))
@@ -1653,8 +1672,10 @@ class RunGradle(object):
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
-        self.test.assertCountEqual(["python_version", "assets"], build_json)
+        self.test.assertCountEqual(["python_version", "assets", "extract_packages"],
+                                    build_json)
         self.test.assertEqual(python_version, build_json["python_version"])
+        self.test.assertCountEqual(extract_packages, build_json["extract_packages"])
         asset_list = []
         for dirpath, dirnames, filenames in os.walk(asset_dir):
             asset_list += [relpath(join(dirpath, f), asset_dir).replace("\\", "/")
@@ -1727,7 +1748,7 @@ class KwargsWrapper(object):
 
 
 def dex_classes(apk_dir):
-    build_tools_dir = join(sdk_dir, "build-tools")
+    build_tools_dir = join(os.environ["ANDROID_HOME"], "build-tools")
     newest_ver = sorted(os.listdir(build_tools_dir))[-1]
     dexdump_cmd = f"{build_tools_dir}/{newest_ver}/dexdump"
 

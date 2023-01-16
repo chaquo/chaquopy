@@ -42,7 +42,12 @@ android {
                 // In newer versions, importing murmurhash automatically imports and
                 // extracts murmurhash/mrmr.so, which would complicate the tests.
                 install "murmurhash==0.28.0"  // Requires chaquopy-libcxx
+
+                // Because we set pyc.src to false, we must test extractPackages via pip.
+                install ("../../product/gradle-plugin/src/test/integration/data/" +
+                        "ExtractPackages/change_1/app/extract_packages")
             }
+            extractPackages "ep_bravo", "ep_charlie.one"
             staticProxy("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
                         "chaquopy.test.static_proxy.method")
             pyc {

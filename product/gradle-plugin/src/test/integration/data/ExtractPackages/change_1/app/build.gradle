@@ -10,10 +10,20 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            extractPackages "alpha"
+            pip {
+                install "./extract_packages"
+            }
         }
         ndk {
             abiFilters "x86"
+        }
+    }
+
+    sourceSets {
+        main {
+            python {
+                srcDir "./extract_packages/src"
+            }
         }
     }
 }

@@ -522,14 +522,18 @@ class PythonPlugin implements Plugin<Project> {
     void createAssetsTasks(variant, PythonExtension python, Task reqsTask,
                            Task mergeSrcTask) {
         def excludePy = { FileTreeElement fte ->
-            if (!fte.name.endsWith(".py")) {
+            if (fte.name.endsWith(".py") &&
+                new File(fte.file.parent, fte.name + "c").exists()) {
+                def dottedPath = fte.path.replace("/", ".")
+                return ! python.extractPackages.any { dottedPath.startsWith(it + ".") }
+            } else {
                 return false
             }
-            return new File(fte.file.parent, fte.name + "c").exists()
         }
 
         def appAssetsTask = assetTask(variant, "app") {
             inputs.files(mergeSrcTask)
+            inputs.property("extractPackages", python.extractPackages)
             doLast {
                 makeZip(project.fileTree(mergeSrcTask.destinationDir)
                             .matching { exclude excludePy },
@@ -539,6 +543,7 @@ class PythonPlugin implements Plugin<Project> {
 
         def reqsAssetsTask = assetTask(variant, "requirements") {
             inputs.files(reqsTask)
+            inputs.property("extractPackages", python.extractPackages)
             doLast {
                 for (subdir in reqsTask.destinationDir.listFiles()) {
                     makeZip(project.fileTree(subdir).matching { exclude excludePy },
@@ -620,6 +625,7 @@ class PythonPlugin implements Plugin<Project> {
                 buildJson.put("python_version", python.version)
                 buildJson.put("assets", hashAssets(appAssetsTask, reqsAssetsTask,
                                                    miscAssetsTask))
+                buildJson.put("extract_packages", new JSONArray(python.extractPackages))
                 project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
             }
         }
@@ -799,6 +805,7 @@ class PythonExtension extends BaseExtension {
     String version
     String[] buildPython
     Set<String> staticProxy = new TreeSet<>()
+    Set<String> extractPackages = new TreeSet<>()
     PipExtension pip = new PipExtension()
     PycExtension pyc = new PycExtension()
 
@@ -878,18 +885,15 @@ class PythonExtension extends BaseExtension {
     }
 
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
+    void extractPackages(String... packages)    { extractPackages.addAll(packages) }
     void pip(Closure closure)                   { applyClosure(pip, closure) }
     void pyc(Closure closure)                   { applyClosure(pyc, closure) }
-
-    void extractPackages(String... packages) {
-        println("Warning: Python 'extractPackages' setting is no longer required and should " +
-                "be removed from build.gradle.")
-    }
 
     void mergeFrom(PythonExtension overlay) {
         version = chooseNotNull(overlay.version, this.version)
         buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
         staticProxy.addAll(overlay.staticProxy)
+        extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)
         pyc.mergeFrom(overlay.pyc)
     }

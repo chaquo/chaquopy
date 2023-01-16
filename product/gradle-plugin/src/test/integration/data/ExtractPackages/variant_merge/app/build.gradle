@@ -1,0 +1,30 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    compileSdkVersion 23
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdkVersion 21
+        targetSdkVersion 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            extractPackages "common"
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+
+    flavorDimensions "color"
+    productFlavors {
+        red {
+            dimension "color"
+        }
+        blue {
+            dimension "color"
+            python { extractPackages "blue" }
+        }
+    }
+}
