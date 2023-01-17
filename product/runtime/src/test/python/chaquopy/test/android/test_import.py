@@ -790,6 +790,22 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
         self.assertEqual(["chaquopy-libcxx (>=11000)"], dist.requires)
 
+        # Distribution objects don't implement __eq__.
+        def dist_attrs(dist):
+            return (dist.version, dist.metadata.items())
+
+        # Check it still works with an unreadable directory on sys.path.
+        unreadable_dir = "/"  # Blocked by SELinux.
+        try:
+            sys.path.insert(0, unreadable_dir)
+            self.assertEqual(list(map(dist_attrs, dists)),
+                             list(map(dist_attrs, metadata.distributions())))
+        finally:
+            try:
+                sys.path.remove(unreadable_dir)
+            except ValueError:
+                pass
+
     @contextmanager
     def assertModifies(self, filename):
         TEST_MTIME = calendar.timegm((2020, 1, 2, 3, 4, 5))

@@ -326,10 +326,13 @@ class ChaquopyPathFinder(machinery.PathFinder):
         for entry in context.path:
             path_cls = AssetPath if entry.startswith(ASSET_PREFIX + "/") else pathlib.Path
             entry_path = path_cls(entry)
-            if entry_path.is_dir():
-                for sub_path in entry_path.iterdir():
-                    if re.search(pattern, sub_path.name, re.IGNORECASE):
-                        yield metadata.PathDistribution(sub_path)
+            try:
+                if entry_path.is_dir():
+                    for sub_path in entry_path.iterdir():
+                        if re.search(pattern, sub_path.name, re.IGNORECASE):
+                            yield metadata.PathDistribution(sub_path)
+            except PermissionError:
+                pass  # Inaccessible path entries should be ignored.
 
 
 class AssetPath(pathlib.PosixPath):
