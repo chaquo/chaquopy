@@ -10,6 +10,7 @@ import os
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath
 import re
 import shutil
+import subprocess
 from subprocess import run
 import sys
 from tempfile import TemporaryDirectory
@@ -843,23 +844,23 @@ class PythonReqs(GradleTestCase):
                        requirements=["six.py"])
 
     def test_isolated_config(self):
+        config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
+                                "pip.ini" if (os.name == "nt") else "pip.conf")
+        config_backup = f"{config_filename}.{os.getpid()}"
+        os.makedirs(dirname(config_filename), exist_ok=True)
+        if exists(config_filename):
+            os.replace(config_filename, config_backup)
         try:
-            config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
-                                   "pip.ini" if (os.name == "nt") else "pip.conf")
-            config_backup = f"{config_filename}.{__name__}"
-            os.makedirs(dirname(config_filename), exist_ok=True)
-            if exists(config_filename):
-                os.rename(config_filename, config_backup)
             with open(config_filename, "x") as config_file:
                 print("[global]\n"
                       "index-url = https://chaquo.com/nonexistent",
                       file=config_file)
             self.RunGradle("base", "PythonReqs/isolated", requirements=["six.py"])
         finally:
+            if exists(config_filename):
+                os.remove(config_filename)
             if exists(config_backup):
-                if exists(config_filename):
-                    os.remove(config_filename)
-                os.rename(config_backup, config_filename)
+                os.replace(config_backup, config_filename)
 
     def test_install_variant(self):
         self.RunGradle("base", "PythonReqs/install_variant",
@@ -1065,19 +1066,31 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
     def test_wheel_index(self):
-        # If testing on another platform, add it to the list below, and add corresponding
-        # wheels to packages/dist.
-        self.assertIn(distutils.util.get_platform(), ["linux-x86_64", "win-amd64"])
-
         # This test has build platform wheels for version 0.2, and an Android wheel for version
         # 0.1, to test that pip always picks the target platform, not the workstation platform.
+        self.check_build_platform_wheel("native1", "0.2")
         run = self.RunGradle("base", "PythonReqs/wheel_index_1",
+                             dist_versions=[("native1", "0.1")],
                              requirements=["native1_android_15_x86/__init__.py"])
 
         # This test only has build platform wheels.
+        self.check_build_platform_wheel("native2", "0.2")
         run.apply_layers("PythonReqs/wheel_index_2")
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
+
+    # Checks that standard pip, when installing for the build platform, selects the given
+    # version of the given package. This requires the platform to have a compatible wheel
+    # in packages/dist.
+    def check_build_platform_wheel(self, package, version):
+        with TemporaryDirectory() as tmp_dir:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "--quiet", "install", "--target", tmp_dir,
+                 "--no-index", "--find-links", f"{integration_dir}/packages/dist",
+                 package], check=True)
+            self.assertCountEqual(
+                [f"{package}-{version}.dist-info"],
+                [name for name in os.listdir(tmp_dir) if name.endswith(".dist-info")])
 
     # This package has wheels tagged as API levels 22 and 24, with corresponding
     # version numbers. Which one is selected should depend on the app's minSdkVersion.
@@ -1455,12 +1468,10 @@ class RunGradle(object):
         gradle_props = f"{self.project_dir}/gradle.properties"
         set_property(gradle_props, "chaquopyRepository", f"{repo_root}/maven")
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
+        java_version = get_property(gradle_props, "chaquopy.java.version")
 
         if env is None:
             env = {}
-        java_version = get_property(gradle_props, "chaquopy.java.version")
-        env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
-
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             if os.name == "nt":
@@ -1478,7 +1489,7 @@ class RunGradle(object):
             else:
                 env["PATH"] = os.pathsep.join(add_path + [os.environ["PATH"]])
 
-        status, self.stdout, self.stderr = self.run_gradle(variants, env)
+        status, self.stdout, self.stderr = self.run_gradle(variants, env, java_version)
         if status == 0:
             if not succeed:
                 self.dump_run("run unexpectedly succeeded")
@@ -1498,42 +1509,45 @@ class RunGradle(object):
 
             # Run a second time to check all tasks are considered up to date.
             first_stdout = self.stdout
-            status, second_stdout, second_stderr = self.run_gradle(variants, env)
+            status, second_stdout, second_stderr = \
+                self.run_gradle(variants, env, java_version)
             if status != 0:
                 self.stdout, self.stderr = second_stdout, second_stderr
                 self.dump_run("Second run: exit status {}".format(status))
 
             num_tasks = 0
-            for line in second_stdout.splitlines():
-                if re.search(r"^> Task .*Python", line):
-                    self.test.assertIn("UP-TO-DATE", line,
-                                       msg=("=== FIRST RUN ===\n" + first_stdout +
-                                            "=== SECOND RUN ===\n" + second_stdout))
+            for line in first_stdout.splitlines():
+                if match := re.search(r"^> Task (\S+Python\S+)", line):
+                    self.test.assertInLong(f"> Task {match[1]} UP-TO-DATE", second_stdout,
+                                           msg=("=== FIRST RUN ===\n" + first_stdout))
                     num_tasks += 1
-            self.test.assertGreater(num_tasks, 0, msg=second_stdout)
+            self.test.assertGreater(num_tasks, 0, msg=first_stdout)
 
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status))
 
-    def run_gradle(self, variants, env):
-        merged_env = os.environ.copy()
-        merged_env["integration_dir"] = integration_dir
-        merged_env.update(env)
-
+    def run_gradle(self, variants, env, java_version):
         # `--info` explains why tasks were not considered up to date.
         # `--console plain` prevents "String index out of range: -1" error on Windows.
         gradlew_flags = ["--stacktrace", "--info", "--console", "plain"]
-        if any(name in env for name in ["PATH", "TZ"]):
-            # The Gradle client passes its environment to the daemon, but on Linux, changes to
-            # these variables apparently requires a process restart to take effect.
+        if env:
+            # On macOS, the Gradle client doesn't update the environment of a running
+            # daemon (https://github.com/gradle/gradle/issues/12905). On the other
+            # platforms, this only affects specific variables such as PATH and TZ
+            # (https://github.com/gradle/gradle/issues/10483).
             gradlew_flags.append("--no-daemon")
+
+        # The following environment variables aren't affected by the above issue, either
+        # because they never change, or because they aren't passed to the daemon.
+        env["integration_dir"] = integration_dir
+        env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
 
         process = run([join(self.project_dir,
                             "gradlew.bat" if (os.name == "nt") else "gradlew")] +
                       gradlew_flags + [task_name("assemble", v) for v in variants],
                       cwd=self.project_dir,  # See Windows notes for add_path above.
-                      capture_output=True, text=True, env=merged_env, timeout=600)
+                      capture_output=True, text=True, env={**os.environ, **env}, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     def check_apk(self, variant, kwargs):

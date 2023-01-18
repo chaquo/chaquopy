@@ -257,6 +257,10 @@ def get_darwin_arches(major, minor, machine):
         if machine in groups[garch] and _supports_arch(major, minor, garch):
             arches.append(garch)
 
+    # Chaquopy: update architecture support for test_download_sdist.
+    if machine in ["x86_64", "arm64"]:
+        arches.append("universal2")
+
     arches.append('universal')
 
     return arches
@@ -324,11 +328,18 @@ def get_supported(
             match = _osx_arch_pat.match(arch)
             if match:
                 name, major, minor, actual_arch = match.groups()
-                tpl = '{}_{}_%i_%s'.format(name, major)
+                tpl = '{}_%i_%i_%s'.format(name)  # Chaquopy: added major version.
                 arches = []
+
+                # Chaquopy: update version number support for test_download_sdist.
+                if int(major) >= 11:
+                    for m in reversed(range(11, int(major) + 1)):
+                        for a in get_darwin_arches(m, 0, actual_arch):
+                            arches.append(tpl % (m, 0, a))
+                    major, minor = (10, 15)
                 for m in reversed(range(int(minor) + 1)):
                     for a in get_darwin_arches(int(major), m, actual_arch):
-                        arches.append(tpl % (m, a))
+                        arches.append(tpl % (int(major), m, a))
             else:
                 # arch pattern didn't match (?!)
                 arches = [arch]
