@@ -1470,8 +1470,7 @@ class RunGradle(object):
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
         java_version = get_property(gradle_props, "chaquopy.java.version")
 
-        if env is None:
-            env = {}
+        env = {} if env is None else env.copy()
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             if os.name == "nt":
@@ -1540,14 +1539,18 @@ class RunGradle(object):
 
         # The following environment variables aren't affected by the above issue, either
         # because they never change, or because they aren't passed to the daemon.
-        env["integration_dir"] = integration_dir
-        env["JAVA_HOME"] = product_props[f"chaquopy.java.home.{java_version}"]
+        merged_env = {
+            **os.environ,
+            **env,
+            "integration_dir": integration_dir,
+            "JAVA_HOME": product_props[f"chaquopy.java.home.{java_version}"],
+        }
 
         process = run([join(self.project_dir,
                             "gradlew.bat" if (os.name == "nt") else "gradlew")] +
                       gradlew_flags + [task_name("assemble", v) for v in variants],
                       cwd=self.project_dir,  # See Windows notes for add_path above.
-                      capture_output=True, text=True, env={**os.environ, **env}, timeout=600)
+                      capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     def check_apk(self, variant, kwargs):
