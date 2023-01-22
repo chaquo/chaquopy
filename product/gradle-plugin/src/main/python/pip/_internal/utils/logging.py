@@ -1,3 +1,6 @@
+# The following comment should be removed at some point in the future.
+# mypy: disallow-untyped-defs=False
+
 from __future__ import absolute_import
 
 import contextlib
@@ -6,13 +9,13 @@ import logging
 import logging.handlers
 import os
 import sys
-from logging import Filter
+from logging import Filter, getLogger
 
 from pip._vendor.six import PY2
 
 from pip._internal.utils.compat import WINDOWS
 from pip._internal.utils.deprecation import DEPRECATION_MSG_PREFIX
-from pip._internal.utils.misc import ensure_dir, subprocess_logger
+from pip._internal.utils.misc import ensure_dir
 
 try:
     import threading
@@ -49,7 +52,7 @@ else:
 
 
 _log_state = threading.local()
-_log_state.indentation = 0
+subprocess_logger = getLogger('pip.subprocessor')
 
 
 class BrokenStdoutLoggingError(Exception):
@@ -100,6 +103,8 @@ def indent_log(num=2):
     A context manager which will cause the log output to be indented for any
     log messages emitted inside it.
     """
+    # For thread-safety
+    _log_state.indentation = get_indentation()
     _log_state.indentation += num
     try:
         yield
@@ -152,7 +157,7 @@ class IndentingFormatter(logging.Formatter):
         if self.add_timestamp:
             # TODO: Use Formatter.default_time_format after dropping PY2.
             t = self.formatTime(record, "%Y-%m-%dT%H:%M:%S")
-            prefix = '%s,%03d ' % (t, record.msecs)
+            prefix = '{t},{record.msecs:03.0f} '.format(**locals())
         prefix += " " * get_indentation()
         formatted = "".join([
             prefix + line
