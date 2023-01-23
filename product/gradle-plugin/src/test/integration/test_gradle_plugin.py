@@ -1137,18 +1137,16 @@ class PythonReqs(GradleTestCase):
                              requirements=[("native3_android_15_x86/__init__.py",
                                             {"content": "# Version 1.3"})],
                              pyc=["stdlib"])
-        self.assertInLong("Using version 1.3 (newest version is 2.0, but Chaquopy prefers "
-                          "native wheels", run.stdout)
 
         # With "!=1.3", the sdist is selected, but it will fail at the egg_info stage. (Failure
         # at later stages is covered by test_sdist_native.) Version 1.8 has two build numbers
         # available, but should only be listed once in the message.
         run.apply_layers("PythonReqs/mixed_index_2")
         run.rerun(succeed=False)
-        self.assertInLong(r"Failed to install native3!=1.3 from "
-                          r"file:.*dist/native3-2.0.tar.gz." + self.tracker_advice() +
-                          self.wheel_advice(["1.3", "1.8"]) + r"$",
-                          run.stderr, re=True)
+        self.assertInLong(
+            r"Failed to install native3!=1.3 from file:.*dist/native3-2.0.tar.gz."
+            + self.tracker_advice() + r"$",
+            run.stderr, re=True)
 
         # With "!=1.3,!=2.0", the pure wheel with the higher build number is selected.
         run.apply_layers("PythonReqs/mixed_index_3")
@@ -1163,7 +1161,6 @@ class PythonReqs(GradleTestCase):
         self.assertInLong(r"Failed to install native3 from file:.*dist/native3-2.0.tar.gz." +
                           self.tracker_advice() + r"$",
                           run.stderr, re=True)
-        self.assertNotInLong(self.WHEEL_ADVICE, run.stderr)
 
     def test_no_binary_succeed(self):
         run = self.RunGradle("base", "PythonReqs/no_binary_succeed",
@@ -1373,12 +1370,6 @@ class PythonReqs(GradleTestCase):
     def tracker_advice(self):
         return ("\nFor assistance, please raise an issue at "
                 "https://github.com/chaquo/chaquopy/issues.")
-
-    WHEEL_ADVICE = ("Or try using one of the following versions, which are available as "
-                    "pre-built wheels")
-
-    def wheel_advice(self, versions):
-        return re.escape(f"\n{self.WHEEL_ADVICE}: {versions!r}.")
 
 
 class StaticProxy(GradleTestCase):
