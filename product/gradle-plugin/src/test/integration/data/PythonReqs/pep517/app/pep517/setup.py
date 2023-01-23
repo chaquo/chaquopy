@@ -9,4 +9,5 @@ version = google_crc32c.value(b"\x00" * 32)
 setup(
     name="pep517",
     version=version,
+    packages=[],  # Disable auto-discovery, which might pick up the backend path.
 )

@@ -407,6 +407,7 @@ class PythonPlugin implements Plugin<Project> {
                 inputs.files(project.fileTree(file) {
                     // Ignore any files which may be written while installing.
                     exclude "build", "dist", "*.dist-info", "*.egg-info"
+                    exclude "**/__pycache__"  // See test_pep517_backend_path
                 })
             } else {
                 inputs.files(file)

@@ -775,9 +775,12 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
 
     def test_download_wheel(self):
+        # Our current version of pip shows the full URL for custom indexes, but only
+        # the filename for PyPI.
         CHAQUO_URL = (r"https://chaquo.com/pypi-7.0/murmurhash/"
                       r"murmurhash-0.28.0-7-cp38-cp38-android_16_x86.whl")
-        PYPI_URL = r"https://.+/six-1.14.0-py2.py3-none-any.whl"
+        PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
+
         common_reqs = (["murmurhash/" + name for name in
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                          "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
@@ -1165,7 +1168,7 @@ class PythonReqs(GradleTestCase):
     def test_no_binary_succeed(self):
         run = self.RunGradle("base", "PythonReqs/no_binary_succeed",
                              requirements=["no_binary_sdist/__init__.py"])
-        self.assertInLong("Skipping bdist_wheel", run.stdout)
+        self.assertInLong("Skipping wheel build", run.stdout)
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     def test_requires_python(self):
