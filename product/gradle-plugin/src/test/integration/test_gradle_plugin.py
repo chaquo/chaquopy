@@ -967,6 +967,12 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
+    # Check that pip builds source directories in place, not in a temporary directory.
+    # For example, this is required by setuptools-scm.
+    def test_sdist_in_place(self):
+        self.RunGradle("base", "PythonReqs/sdist_in_place",
+                       dist_versions=[("sdist_in_place", "1.2.3")])
+
     # By checking that this string is output in tests which fall back on setup.py install, we
     # can use the absence of the string in other tests to prove that no fallback occurred.
     RUNNING_INSTALL = "Running setup.py install"
@@ -1514,6 +1520,9 @@ class RunGradle(object):
                 self.stdout, self.stderr = second_stdout, second_stderr
                 self.dump_run("Second run: exit status {}".format(status))
 
+            # I've occasionally seen Gradle print a task header twice: once without
+            # “UP-TO-DATE” and once with, even though the task was not re-run. So simply
+            # searching the second run output for "Python" tasks is not reliable.
             num_tasks = 0
             for line in first_stdout.splitlines():
                 if match := re.search(r"^> Task (\S+Python\S+)", line):
