@@ -207,6 +207,7 @@ def _build_one_inside_env(
                 metadata_directory=req.metadata_directory,
                 build_options=build_options,
                 tempd=temp_dir.path,
+                req=req,  # Chaquopy: added
             )
         else:
             wheel_path = build_wheel_legacy(
@@ -216,6 +217,7 @@ def _build_one_inside_env(
                 global_options=global_options,
                 build_options=build_options,
                 tempd=temp_dir.path,
+                req=req,  # Chaquopy: added
             )
 
         if wheel_path is not None:

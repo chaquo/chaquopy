@@ -17,6 +17,7 @@ def build_wheel_pep517(
     metadata_directory,  # type: str
     build_options,  # type: List[str]
     tempd,  # type: str
+    req,  # Chaquopy: added
 ):
     # type: (...) -> Optional[str]
     """Build one InstallRequirement using the PEP 517 build process.
@@ -41,7 +42,7 @@ def build_wheel_pep517(
                 metadata_directory=metadata_directory,
             )
     except Exception:
-        self.check_chaquopy_exception(req)
+        req.check_chaquopy_exception()
         logger.error('Failed building wheel for %s', name)
         return None
     return os.path.join(tempd, wheel_name)
