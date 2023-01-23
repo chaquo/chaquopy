@@ -26,16 +26,18 @@ from retrying import retry
 integration_dir = abspath(dirname(__file__))
 data_dir = join(integration_dir, "data")
 repo_root = abspath(join(integration_dir, "../../../../.."))
+product_dir = f"{repo_root}/product"
+plugin_dir = f"{product_dir}/gradle-plugin"
 chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 
 # The following properties file should be created manually, as described in
 # product/README.md. It's also used in runtime/build.gradle.
-with open(join(repo_root, "product/local.properties")) as props_file:
+with open(f"{product_dir}/local.properties") as props_file:
     product_props = PropertiesFile.load(props_file)
 
 DEFAULT_PYTHON_VERSION = None
 PYTHON_VERSIONS = {}
-for line in open(join(repo_root, "product/buildSrc/src/main/java/com/chaquo/python/Common.java")):
+for line in open(f"{product_dir}/buildSrc/src/main/java/com/chaquo/python/Common.java"):
     match = re.search(r'DEFAULT_PYTHON_VERSION = "(.+)"', line)
     if match:
         DEFAULT_PYTHON_VERSION = match[1]
@@ -92,8 +94,7 @@ class GradleTestCase(TestCase):
 
     def setUp(self):
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", self.id()).groups()
-        self.run_dir = join(repo_root, "product/gradle-plugin/build/test/integration",
-                            agp_version, cls, func)
+        self.run_dir = join(plugin_dir, "build/test/integration", agp_version, cls, func)
 
     def tearDown(self):
         # Remove build directory if test passed.
@@ -804,21 +805,21 @@ class PythonReqs(GradleTestCase):
     # platform even when the native components are omitted. This test checks that the wheel is
     # cached and reused on subsequent runs of pip, even if the ABI is different.
     def test_download_sdist(self):
-        URL = r"https://.+/PyYAML-3.12.tar.gz"
+        FILENAME = "PyYAML-3.12.tar.gz"
         BUILD = "Successfully built PyYAML"
         REQS = ["yaml/" + name + ".py" for name in
                 ["__init__", "composer", "constructor", "cyaml", "dumper", "emitter", "error",
                  "events", "loader", "nodes", "parser", "reader", "representer", "resolver",
                  "scanner", "serializer", "tokens"]]
         run = self.RunGradle("base", "PythonReqs/download_sdist_1", requirements=REQS)
-        self.assertInLong("Downloading " + URL, run.stdout, re=True)
+        self.assertInLong("Downloading " + FILENAME, run.stdout, re=True)
         self.assertInLong(BUILD, run.stdout)
 
         run.apply_layers("PythonReqs/download_sdist_2")
         run.rerun(requirements=REQS, abis=["armeabi-v7a"])
         # pip prints lots of detail when it puts a wheel into the cache, but says absolutely
         # nothing when it takes one out.
-        self.assertNotInLong(URL, run.stdout, re=True)
+        self.assertNotInLong(FILENAME, run.stdout, re=True)
         self.assertNotInLong(BUILD, run.stdout)
 
     # Test the OpenSSL PATH workaround for conda on Windows.
@@ -1085,15 +1086,18 @@ class PythonReqs(GradleTestCase):
         run.rerun(succeed=False)
         self.assertInLong("No matching distribution found for native2", run.stderr)
 
-    # Checks that standard pip, when installing for the build platform, selects the given
+    # Checks that when pip is installing for the build platform, it selects the given
     # version of the given package. This requires the platform to have a compatible wheel
     # in packages/dist.
     def check_build_platform_wheel(self, package, version):
         with TemporaryDirectory() as tmp_dir:
+            plugin_src = f"{plugin_dir}/src/main/python"
+            self.assertTrue(exists(f"{plugin_src}/pip"))
             subprocess.run(
                 [sys.executable, "-m", "pip", "--quiet", "install", "--target", tmp_dir,
                  "--no-index", "--find-links", f"{integration_dir}/packages/dist",
-                 package], check=True)
+                 package],
+                env={**os.environ, "PYTHONPATH": plugin_src}, check=True)
             self.assertCountEqual(
                 [f"{package}-{version}.dist-info"],
                 [name for name in os.listdir(tmp_dir) if name.endswith(".dist-info")])
