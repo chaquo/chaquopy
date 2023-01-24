@@ -516,7 +516,11 @@ def group_locations(locations, expand_dir=False):
             else:
                 path = url_to_path(url)
             if os.path.isdir(path):
-                if expand_dir:
+                # Chaquopy: added `or is_local_path` to allow a local directory to be
+                # passed as an index URL without using file: syntax, as we recommend in
+                # the FAQ and the build-wheel documentation. It's not clear why upstream
+                # pip ignores such an option (https://github.com/pypa/pip/issues/5846).
+                if expand_dir or is_local_path:
                     path = os.path.realpath(path)
                     for item in os.listdir(path):
                         sort_path(os.path.join(path, item))

@@ -1075,6 +1075,24 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
 
+    # This is not necessarily the ideal behavior, but it's the current behavior, slightly
+    # modified by a patch (https://github.com/pypa/pip/issues/5846).
+    def test_index_url(self):
+        kwargs = dict(requirements=["six.py"])
+
+        # With a file: URL, pip looks for an index.html file, and ignores all other files.
+        run = self.RunGradle("base", "PythonReqs/index_url_file",
+                             dist_versions=[("six", "1.12.0")], **kwargs)
+
+        # With a simple path, pip scans the directory and ignores any index.html file.
+        # This was enabled by a patch.
+        run.rerun("PythonReqs/index_url_path",
+                  dist_versions=[("six", "1.14.0")], **kwargs)
+
+        # For completeness, check an HTTP index URL as well.
+        run.rerun("PythonReqs/index_url_http",
+                  dist_versions=[("six", "1.16.0")], **kwargs)
+
     def test_wheel_index(self):
         # This test has build platform wheels for version 0.2, and an Android wheel for version
         # 0.1, to test that pip always picks the target platform, not the workstation platform.
