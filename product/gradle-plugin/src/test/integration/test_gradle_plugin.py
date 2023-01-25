@@ -538,7 +538,7 @@ class PythonSrc(GradleTestCase):
 class ExtractPackages(GradleTestCase):
 
     def test_change(self):
-        # This sdist is also installed by the demo app for use in TestAndroidImport.
+        # This directory is also installed by the demo app for use in TestAndroidImport.
         PY_FILES = [
             f"{pkg}/{path}"
             for pkg in ["ep_alpha", "ep_bravo", "ep_charlie"]
