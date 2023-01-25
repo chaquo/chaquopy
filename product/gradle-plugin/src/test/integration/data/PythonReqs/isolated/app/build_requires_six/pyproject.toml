@@ -1,0 +1,2 @@
+[build-system]
+requires = ["setuptools", "six==1.14.0"]

@@ -65,7 +65,8 @@ class SourceDistribution(AbstractDistribution):
         self.req.build_env = BuildEnvironment()
         self.req.build_env.install_requirements(
             finder, pyproject_requires, 'overlay',
-            "Installing build dependencies"
+            "Installing build dependencies",
+            isolated=self.req.isolated,  # Chaquopy: added
         )
         conflicting, missing = self.req.build_env.check_requirements(
             self.req.requirements_to_check
@@ -100,5 +101,6 @@ class SourceDistribution(AbstractDistribution):
             _raise_conflicts("the backend dependencies", conflicting)
         self.req.build_env.install_requirements(
             finder, missing, 'normal',
-            "Installing backend dependencies"
+            "Installing backend dependencies",
+            isolated=self.req.isolated,  # Chaquopy: added
         )

@@ -106,10 +106,11 @@ class PipInstall(object):
             return [], {}
 
         try:
+            # Disable all config files (https://github.com/pypa/pip/issues/3828).
+            os.environ["PIP_CONFIG_FILE"] = os.devnull
+
             # Warning: `pip install --target` is very simple-minded: see
-            # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
-            # altered its behaviour somewhat for performance: see commands/install.py.
-            os.environ["PIP_CONFIG_FILE"] = os.devnull  # Disables all config files.
+            # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = ([sys.executable,
                        "-S",  # Avoid interference from site-packages. This is not inherited
                               # by subprocesses, so it's used again in pip (see wheel.py and

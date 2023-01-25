@@ -840,13 +840,17 @@ class PythonReqs(GradleTestCase):
                             "PATH": path},
                        requirements=["six.py"])
 
-    # Because we run pip in `--isolated` mode, `PIP` environment variables should have no
-    # effect.
+    ISOLATED_KWARGS = dict(
+        dist_versions=[("six", "1.14.0"), ("build_requires_six", "1.14.0")],
+        requirements=["six.py"])
+
+    # `PIP_...` environment variables should have no effect.
     def test_isolated_env(self):
         self.RunGradle("base", "PythonReqs/isolated",
-                       env={"PIP_INDEX_URL": "https://chaquo.com/nonexistent"},
-                       requirements=["six.py"])
+                       env={"PIP_CERT": "invalid"},
+                       **self.ISOLATED_KWARGS)
 
+    # Pip configuration files should have no effect.
     def test_isolated_config(self):
         config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
                                 "pip.ini" if (os.name == "nt") else "pip.conf")
@@ -857,9 +861,9 @@ class PythonReqs(GradleTestCase):
         try:
             with open(config_filename, "x") as config_file:
                 print("[global]\n"
-                      "index-url = https://chaquo.com/nonexistent",
+                      "cert = invalid",
                       file=config_file)
-            self.RunGradle("base", "PythonReqs/isolated", requirements=["six.py"])
+            self.RunGradle("base", "PythonReqs/isolated", **self.ISOLATED_KWARGS)
         finally:
             if exists(config_filename):
                 os.remove(config_filename)

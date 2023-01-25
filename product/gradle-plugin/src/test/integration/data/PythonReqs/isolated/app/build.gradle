@@ -11,7 +11,8 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "six"
+                install "six==1.14.0"
+                install "./build_requires_six"
             }
         }
         ndk {
