@@ -299,12 +299,10 @@ class PythonPlugin implements Plugin<Project> {
             inputs.property("pip", python.pip)
             inputs.property("pyc", python.pyc.pip).optional(true)
 
-            def task = delegate
             def reqsArgs = []
-            ext.dirReqs = []
             for (req in python.pip.reqs) {
                 reqsArgs.addAll(["--req", req])
-                addReqInput(task, req, project.projectDir)
+                addReqInput(inputs, req, project.projectDir)
             }
             for (reqFile in python.pip.reqFiles) {
                 reqsArgs.addAll(["--req-file", reqFile])
@@ -317,7 +315,7 @@ class PythonPlugin implements Plugin<Project> {
                         // file, while paths to actual requirements are resolved relative
                         // to the working directory
                         // (https://github.com/pypa/pip/pull/4208#issuecomment-429120743).
-                        addReqInput(task, it, project.projectDir)
+                        addReqInput(inputs, it, project.projectDir)
                     }
                 } catch (FileNotFoundException e) {}
             }
@@ -327,14 +325,6 @@ class PythonPlugin implements Plugin<Project> {
                 project.delete(destinationDir)
                 project.mkdir(destinationDir)
                 if (!reqsArgs.isEmpty()) {
-                    // Work around https://github.com/pypa/setuptools/issues/1871. This is
-                    // covered by test_directory and test_reqs_file_content.
-                    for (File dir : dirReqs) {
-                        if (new File(dir, "setup.py").exists()) {
-                            project.delete("$dir/build")
-                        }
-                    }
-
                     execBuildPython(python) {
                         args "-m", "chaquopy.pip_install"
                         args "--target", destinationDir
@@ -379,7 +369,7 @@ class PythonPlugin implements Plugin<Project> {
 
     // This does not currently detect changes to indirect requirements or constraints
     // files (#719).
-    void addReqInput(Task task, String req, File baseDir) {
+    void addReqInput(TaskInputs inputs, String req, File baseDir) {
         // # is used for comments, and ; for environment markers.
         req = req.replaceAll(/[#;].*/, "").trim()
         if (req.isEmpty()) return
@@ -401,9 +391,7 @@ class PythonPlugin implements Plugin<Project> {
         }
         // Do this outside of the try block to avoid hiding exceptions.
         if (file != null) {
-            def inputs = task.inputs
             if (file.isDirectory()) {
-                task.dirReqs.add(file)
                 inputs.files(project.fileTree(file) {
                     // Ignore any files which may be written while installing.
                     exclude "build", "dist", "**/*.dist-info", "**/*.egg-info"

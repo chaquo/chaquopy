@@ -893,14 +893,23 @@ class PythonReqs(GradleTestCase):
                                  "blue-debug": {"requirements": ["alpha/__init__.py"]}})
 
     def test_directory(self):
-        run = self.RunGradle("base", "PythonReqs/directory_1",
-                             requirements=["alpha1.py"])
-        run.rerun("PythonReqs/directory_2",                     # Modify setup.py
-                  requirements=["bravo1.py"])
-        run.rerun("PythonReqs/directory_3",                     # Add file
-                  requirements=["bravo1.py", "bravo2.py"])
-        os.remove(f"{run.project_dir}/app/alpha/bravo1.py")     # Remove file
+        run = self.RunGradle("base", "PythonReqs/directory_1", requirements=["alpha1.py"])
+
+        # Modify setup.py
+        self.clean_package(run, "alpha")
+        run.rerun("PythonReqs/directory_2", requirements=["bravo1.py"])
+
+        # Add file
+        run.rerun("PythonReqs/directory_3", requirements=["bravo1.py", "bravo2.py"])
+
+        # Remove file
+        self.clean_package(run, "alpha")
+        os.remove(f"{run.project_dir}/app/alpha/bravo1.py")
         run.rerun(requirements=["bravo2.py"])
+
+    # Work around https://github.com/pypa/setuptools/issues/1871.
+    def clean_package(self, run, path):
+        rmtree(f"{run.project_dir}/app/{path}/build/lib")
 
     def test_reqs_file(self):
         run = self.RunGradle("base", "PythonReqs/reqs_file",
@@ -914,8 +923,13 @@ class PythonReqs(GradleTestCase):
     def test_reqs_file_content(self):
         run = self.RunGradle("base", "PythonReqs/reqs_file_content_1",
                              requirements=["apple/__init__.py", "alpha1.py"])
+
+        # Modify setup.py.
+        self.clean_package(run, "alpha")
         run.rerun("PythonReqs/reqs_file_content_2",
                   requirements=["apple/__init__.py", "bravo1.py"])
+
+        # Modify .whl file.
         run.rerun("PythonReqs/reqs_file_content_3",
                   requirements=["apple2/__init__.py", "bravo1.py"])
 
