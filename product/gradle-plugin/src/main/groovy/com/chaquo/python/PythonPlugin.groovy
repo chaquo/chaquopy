@@ -426,6 +426,7 @@ class PythonPlugin implements Plugin<Project> {
                 project.copy {
                     into mergeDir
                     exclude "**/*.pyc", "**/*.pyo"
+                    exclude "**/*.egg-info"  // See ExtractPackages.test_change.
                     duplicatesStrategy "fail"
                     for (dirSet in dirSets) {
                         for (File srcDir in dirSet.srcDirs) {
