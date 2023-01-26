@@ -1,7 +1,6 @@
 import json
 import os
 from os.path import abspath, dirname, join
-import six
 import subprocess
 import sys
 
@@ -46,8 +45,7 @@ class TestStaticProxy(FilterWarningsCase):
 
         self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
         self.run_json("errors", "syntax_py2", False,
-                      "syntax_py2.py: no static_proxy classes found" if six.PY2
-                      else "syntax_py2.py:1:13: Missing parentheses in call to 'print'")
+                      "syntax_py2.py:1:13: Missing parentheses in call to 'print'")
 
         for name in ["starargs", "kwargs"]:
             self.run_json("errors", name, False,
