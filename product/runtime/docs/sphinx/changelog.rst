@@ -1,7 +1,9 @@
+:tocdepth: 2
+
 Change log
 ##########
 
-.. _v13.0.0:
+.. towncrier release notes start
 
 13.0.0 (2022-11-06)
 ===================
@@ -24,15 +26,11 @@ Change log
 * Update to SQLite version 3.39.2.
 * Update Python 3.9 and later to OpenSSL version 3.0.5.
 
-.. _v12.0.1:
-
 12.0.1 (2022-07-24)
 ===================
 
 * First open-source release. Apart from removing the license restrictions, this is
   identical to version 12.0.0.
-
-.. _v12.0.0:
 
 12.0.0 (2022-05-12)
 ===================

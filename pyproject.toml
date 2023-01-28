@@ -1,0 +1,13 @@
+[tool.towncrier]
+directory = "product/runtime/docs/sphinx/changes"
+filename = "product/runtime/docs/sphinx/changelog.rst"
+issue_format = "`#{issue} <https://github.com/chaquo/chaquopy/issues/{issue}>`__"
+wrap = true
+
+# Rename "Deprecations and Removals" to match the term used in older versions, and set the
+# section order to match the components of the version number.
+type = [
+    { directory = "removal", name = "Backward incompatible", showcontent = true },
+    { directory = "feature", name = "Features", showcontent = true },
+    { directory = "bugfix", name = "Bugfixes", showcontent = true },
+]
