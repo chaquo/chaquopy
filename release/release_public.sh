@@ -10,7 +10,10 @@ new_ver=${2:?"$usage"}
 private_src_dir="demo/app/src"
 
 update_version() {
-    sed -i -E "s/(com.chaquo.python.+version ')[0-9.]+/\1${new_ver}/" "$1"
+    # We can't use `sed -i` with no argument, because macOS and Linux handle that in
+    # incompatible ways.
+    sed -i.original -E "s/(com.chaquo.python.+version ')[0-9.]+/\1${new_ver}/" "$1"
+    rm "$1.original"
 }
 
 

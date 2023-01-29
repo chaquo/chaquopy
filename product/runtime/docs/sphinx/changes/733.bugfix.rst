@@ -1,1 +1,0 @@
-Show correct error message when buildPython autodetection fails.

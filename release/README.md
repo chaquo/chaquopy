@@ -19,6 +19,7 @@ conditions:
   could prevent users importing classes in the Python console).
 * Change back to "debug" variant, and test a single-ABI build by temporarily changing
   abiFilters.
+* Re-enable all ABIs.
 
 Run Build > Generate Signed APK with the "release" variant. Save a copy of this APK,
 because we'll be releasing it on Google Play later.
@@ -43,13 +44,14 @@ Test all the non-default Python versions on the same devices.
 
 ## Gradle plugin
 
-On one test machine, run `gradlew -P cmakeBuildType=Release publish`. Then copy `gradle`,
-`runtime` and (if necessary) `target` to the other machines. On those other machines, to make
-sure the artifacts are not overwritten, temporarily disable the `dependsOn publish` line in
-`gradle-plugin/build.gradle`.
+On one test machine, run `gradlew -P cmakeBuildType=Release publish`. Then, on each test
+machine:
 
-On each test machine, pull the current version of this repository, then run `gradlew --continue
--P cmakeBuildType=Release gradle:check`.
+* Copy `gradle`, `runtime` and (if necessary) `target` from the first test machine.
+* Pull the current version of this repository.
+* To make sure the artifacts are not overwritten, temporarily disable the `dependsOn
+  publish` line in `gradle-plugin/build.gradle`.
+* Run `gradlew --continue -P cmakeBuildType=Release gradle:check`.
 
 
 ## Package tests
@@ -61,7 +63,8 @@ install it while running the next build. This is why we test the slowest devices
 Temporarily edit pkgtest/app/build.gradle to replace the empty list in the `addPackages`
 line with `PACKAGE_GROUPS[1]`.
 
-Set `abiFilters` to each of the following values, and test on a corresponding device:
+Set `abiFilters` to each of the following values (this tests the single-ABI case), and
+test on a corresponding device:
 
 * armeabi-v7a (use a 32-bit device)
 * arm64-v8a
@@ -99,12 +102,9 @@ repository from which the public repositories were last updated.
 
 If the script reports any files which require manual merging (e.g. build.gradle), examine them
 and update all the public repositories as necessary.
-* The public apps should use the newest Android Gradle plugin version which is at least one
-  year old. Not newer, because new versions of AGP are incompatible with old versions of
-  Android Studio
+* The public apps should use an Android Gradle plugin version which is at least one year
+  old, because new versions of AGP are incompatible with old versions of Android Studio
   (https://android-developers.googleblog.com/2020/12/announcing-android-gradle-plugin.html).
-  And not older, otherwise it'll be impossible to use the webserver logs to determine when it's
-  safe to remove support for it.
 * If updating the AGP version, also update to the corresponding versions of these things
   (see the integration tests):
   * Gradle
@@ -122,8 +122,12 @@ Set reminder to check for Google Play crash reports regularly over the next mont
 
 ## Documentation
 
+Add news fragments as necessary, and check the release notes by running `towncrier build
+--version VERSION --draft`. Once happy, save the fragments in a separate commit, because
+they'll be deleted when running `towncrier` in non-draft mode.
+
 Update:
-* `changelog.rst`
+* `changelog.rst`, by running the above `towncrier` command without `--draft`.
 * `versions.rst`
 * `release` in `conf.py`
 

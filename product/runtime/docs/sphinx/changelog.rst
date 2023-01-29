@@ -5,6 +5,55 @@ Change log
 
 .. towncrier release notes start
 
+14.0.2 (2023-01-29)
+===================
+
+Backward incompatible
+---------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
+
+
+Features
+--------
+
+- `sys.stdout` and `sys.stderr` are now line-buffered by default. (`#654
+  <https://github.com/chaquo/chaquopy/issues/654>`__, `#746
+  <https://github.com/chaquo/chaquopy/issues/746>`__, `#757
+  <https://github.com/chaquo/chaquopy/issues/757>`__)
+- Add option to `redirect native stdout and stderr to Logcat
+  <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat-->`__.
+  (`#725 <https://github.com/chaquo/chaquopy/issues/725>`__)
+- Update to Python version 3.8.16 and OpenSSL version 1.1.1s. This fixes the
+  Google Play warning "Your app uses a defective version of the OpenSSL
+  library". (`#727 <https://github.com/chaquo/chaquopy/issues/727>`__)
+- Update CA bundle to certifi 2022.12.7. (`#747
+  <https://github.com/chaquo/chaquopy/issues/747>`__)
+- Add `python` executable as a final fallback when searching for buildPython.
+  (`#752 <https://github.com/chaquo/chaquopy/issues/752>`__)
+- Restore the `extractPackages` setting, for code that requires its modules to
+  exist as separate .py files. (`#754
+  <https://github.com/chaquo/chaquopy/issues/754>`__)
+- Android Gradle plugin version 7.4 is now supported. (`#756
+  <https://github.com/chaquo/chaquopy/issues/756>`__)
+- Update to pip version 20.1.
+
+
+Bugfixes
+--------
+
+- Enable PEP 517 builds in pip. (`#715
+  <https://github.com/chaquo/chaquopy/issues/715>`__)
+- Show correct error message when buildPython autodetection fails. (`#733
+  <https://github.com/chaquo/chaquopy/issues/733>`__)
+- Fix error when calling `entry_points` with an unreadable directory on
+  `sys.path`. (`#755 <https://github.com/chaquo/chaquopy/issues/755>`__)
+- Fix "Could not find an activated virtualenv" error when
+  `PIP_REQUIRE_VIRTUALENV` environment variable is set. (`#777
+  <https://github.com/chaquo/chaquopy/issues/777>`__)
+
+
 13.0.0 (2022-11-06)
 ===================
 

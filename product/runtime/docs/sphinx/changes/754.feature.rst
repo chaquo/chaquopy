@@ -1,1 +1,0 @@
-Restore the `extractPackages` setting, for code that requires its modules to exist as separate .py files.

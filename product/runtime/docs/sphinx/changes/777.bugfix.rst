@@ -1,1 +1,0 @@
-Fix "Could not find an activated virtualenv" error when `PIP_REQUIRE_VIRTUALENV` environment variable is set.

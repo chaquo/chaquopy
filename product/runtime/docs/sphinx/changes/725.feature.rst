@@ -1,1 +1,0 @@
-Add option to `redirect native stdout and stderr to Logcat <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat-->`__.
