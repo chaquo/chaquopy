@@ -1,0 +1,1 @@
+Add `python` executable as a final fallback when searching for buildPython.

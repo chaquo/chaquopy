@@ -1,0 +1,1 @@
+Fix error when calling `entry_points` with an unreadable directory on `sys.path`.

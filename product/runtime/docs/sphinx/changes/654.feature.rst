@@ -1,0 +1,1 @@
+`sys.stdout` and `sys.stderr` are now line-buffered by default.

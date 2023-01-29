@@ -1,0 +1,1 @@
+Update to Python version 3.8.16 and OpenSSL version 1.1.1s. This fixes the Google Play warning "Your app uses a defective version of the OpenSSL library".
