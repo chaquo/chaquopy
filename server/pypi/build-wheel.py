@@ -193,7 +193,7 @@ class BuildWheel:
         versions = [ver for ver in os.listdir(target_dir) if ver.startswith(self.python)]
         if not versions:
             raise CommandError(f"Can't find Python {self.python} in {target_dir}")
-        max_ver = max(versions, key=lambda ver: map(int, re.split(r"[.-]", ver)))
+        max_ver = max(versions, key=lambda ver: [int(x) for x in re.split(r"[.-]", ver)])
         self.python_maven_dir = f"{target_dir}/{max_ver}"
 
         # Many setup.py scripts will behave differently depending on the Python version,
@@ -478,65 +478,31 @@ class BuildWheel:
             key, value = var.split("=")
             env[key] = value
 
+        if self.needs_cmake:
+            self.generate_cmake_toolchain(env)
+
         if self.verbose:
             # Format variables so they can be pasted into a shell when troubleshooting.
             log("Environment set as follows:\n" +
                 "\n".join(f"export {key}='{value}'" for key, value in env.items()))
         os.environ.update(env)
 
-        if self.needs_cmake:
-            self.generate_cmake_toolchain()
-
-    def generate_cmake_toolchain(self):
-        raise CommandError("TODO: CMake support needs to be updated.")
-        # TODO: Generate a toolchain file which sets ANDROID_ABI, ANDROID_PLATFORM, and
-        # any other necessary variables (see
-        # https://developer.android.com/ndk/guides/cmake#build-command -- though these
-        # might not all be necessary with the current NDK), and then includes the
-        # toolchain file from the NDK. To avoid needing to patch every package that uses
-        # CMake, we can then set the CMAKE_TOOLCHAIN_FILE environment variable, which was
-        # added in CMake 3.21.
-
-        # See build/cmake/android.toolchain.cmake in the NDK.
-        CMAKE_PROCESSORS = {
-            "armeabi-v7a": "armv7-a",
-            "arm64-v8a": "aarch64",
-            "x86": "i686",
-            "x86_64": "x86_64",
-        }
-        clang_target = f"{ABIS[self.abi].tool_prefix}{self.api_level}".replace("arm-", "armv7a-")
-
-        # Define the minimum necessary to keep CMake happy. To avoid confusion about where
-        # settings are coming from, we still want to configure as much as possible via
-        # environment variables.
+    def generate_cmake_toolchain(self, env):
+        ndk = abspath(f"{env['CC']}/../../../../../..")
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
+        env["CMAKE_TOOLCHAIN_FILE"] = toolchain_filename
         log(f"Generating {toolchain_filename}")
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
-                set(ANDROID TRUE)
-                set(CMAKE_ANDROID_STANDALONE_TOOLCHAIN {self.toolchain})
-                set(CMAKE_SYSTEM_NAME Android)
-
-                set(CMAKE_SYSTEM_VERSION {self.api_level})
-                set(ANDROID_PLATFORM_LEVEL {self.api_level})
-                set(ANDROID_NATIVE_API_LEVEL {self.api_level})  # Deprecated, but used by llvm.
-
                 set(ANDROID_ABI {self.abi})
-                set(CMAKE_SYSTEM_PROCESSOR {CMAKE_PROCESSORS[self.abi]})
-
-                # cmake 3.16.3 defaults to passing a target containing "none", which isn't
-                # recognized by NDK r19.
-                set(CMAKE_C_COMPILER_TARGET {clang_target})
-                set(CMAKE_CXX_COMPILER_TARGET {clang_target})
+                set(ANDROID_PLATFORM {self.api_level})
+                set(ANDROID_STL c++_shared)
+                include({ndk}/build/cmake/android.toolchain.cmake)
 
                 # Our requirements dir comes before the sysroot, because the sysroot include
                 # directory contains headers for third-party libraries like libjpeg which may
                 # be of different versions to what we want to use.
-                set(CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy {self.toolchain}/sysroot)
-                set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-                set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-                set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-                set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+                list(PREPEND CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy)
                 """), file=toolchain_file)
 
             if self.needs_python:
