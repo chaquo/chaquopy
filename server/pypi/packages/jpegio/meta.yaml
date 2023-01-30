@@ -1,0 +1,9 @@
+package:
+  name: jpegio
+  version: 0.2.8
+
+requirements:
+  build:
+    - cython 0.29.32
+  host:
+    - numpy 1.23.3

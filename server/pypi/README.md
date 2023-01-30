@@ -25,13 +25,14 @@ Inside the recipe directory, add the following files.
 * For non-Python packages, a `build.sh` script. See `build-wheel.py` for environment variables
   which are passed to it.
 
-Run `build-wheel.py` for x86_64. If any changes are needed to make the build work, edit the
+Run `build-wheel.py`, specifying Chaquopy's default Python version, and whichever ABI is most
+convenient for you to test. If any changes are needed to make the build work, edit the
 package source code in the `build` subdirectory, and re-run `build-wheel.py` with the
 `--no-unpack` option. Then copy the resulting wheel from `dist` to a private package repository
 (edit `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
 
 Temporarily add the new package to `pkgtest/app/build.gradle`, and set `abiFilters` to
-x86_64 only.
+the ABI you just built for.
 
 Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
 to use the current stable Chaquopy version. Then run the tests.
@@ -43,7 +44,7 @@ Once the package itself is working, also test any packages that list it as a req
 meta.yaml, since these usually indicate a dependency on native interfaces which may be less
 stable. Include these packages in all the remaining tests.
 
-Once everything's working on x86_64, save any edits in the package's `patches` directory,
+Once everything's working on this ABI, save any edits in the package's `patches` directory,
 then run `build-wheel.py` for all other ABIs, and copy their wheels to the private package
 repository.
 
@@ -55,6 +56,8 @@ at least one device being a clean install:
 * x86_64 emulator with targetSdkVersion
 * Any armeabi-v7a device
 * Any arm64-v8a device
+
+Repeat the build and test for all other Python versions.
 
 Move the wheels to the public package repository.
 
