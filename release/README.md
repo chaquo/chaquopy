@@ -144,7 +144,7 @@ Commit and push all example app repositories.
 
 Commit this repository, add version number tag, and push.
 
-Increment python/VERSION.txt for next version number.
+Increment VERSION.txt for next version number.
 
 
 ## User communication
@@ -155,7 +155,7 @@ Post blog entry to website.
 
 Post links to Facebook and Twitter.
 
-Update any affected GitHub issues, StackOverflow questions, or users who contacted me directly.
+Update any affected GitHub issues, StackOverflow questions, email threads, etc.
 
 If there are any packages whose announcement was postponed until this release, go through the
 package release procedure in pypi/README.md.

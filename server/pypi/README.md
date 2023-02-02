@@ -16,7 +16,7 @@ First, clone this repository.
 
 Then, go to [this Maven Central
 page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
-Python version you want to build for. Within a given Python minor version (e.g. 3.9),
+Python version you want to build for. Within a given Python minor version (e.g. 3.8),
 you should usually use the newest version available. On that version's page, find
 the .zip for the ABI you want to build for, and download it into a corresponding
 subdirectory of `maven` in the root of this repository. For example, anything you download
@@ -24,8 +24,8 @@ from https://repo.maven.apache.org/maven2/com/chaquo/python/target/3.8.16-0/ sho
 placed in `maven/com/chaquo/python/target/3.8.16-0`.
 
 You'll also need a matching version of Python installed on your build machine. For
-example, if you're building for Python 3.9, then `python3.9` must be on the PATH. You may
-be able to get this from your distribution, or from an unofficial package repository. 
+example, if you're building for Python 3.8, then `python3.8` must be on the PATH. You may
+be able to get this from your distribution, or from an unofficial package repository.
 Otherwise, here's how to install it with Miniconda:
 
 * Download the installer from <https://docs.conda.io/en/latest/miniconda.html>.
@@ -47,7 +47,7 @@ already have the SDK, here's how to install it:
 
 Use pip to install the `requirements.txt` in this directory.
 
-Use your distribution's package manager to install the following build tools: 
+Use your distribution's package manager to install the following build tools:
 * patch
 * patchelf
 
@@ -142,6 +142,6 @@ Open the pkgtest app in Android Studio, and temporarily edit it as follows:
   * List the package in the `addPackages` line.
   * Change the Python `version` setting if necessary.
   * Set the `--extra-index-url` as described above.
-  * Set `abiFilters` to the ABIs you've built .whl files for. 
+  * Set `abiFilters` to the ABIs you've built .whl files for.
 
 Then run the app.
