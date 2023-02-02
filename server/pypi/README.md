@@ -16,9 +16,9 @@ First, clone this repository.
 
 Then, go to [this Maven Central
 page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
-Python version you want to build against. Within a given Python minor version (e.g. 3.9),
-you should usually use the newest version available. Then, on that version's page, find
-the .zip for the ABI you want to build against, and download it into a corresponding
+Python version you want to build for. Within a given Python minor version (e.g. 3.9),
+you should usually use the newest version available. On that version's page, find
+the .zip for the ABI you want to build for, and download it into a corresponding
 subdirectory of `maven` in the root of this repository. For example, anything you download
 from https://repo.maven.apache.org/maven2/com/chaquo/python/target/3.8.16-0/ should be
 placed in `maven/com/chaquo/python/target/3.8.16-0`.
@@ -28,22 +28,20 @@ example, if you're building for Python 3.9, then `python3.9` must be on the PATH
 be able to get this from your distribution, or from an unofficial package repository. 
 Otherwise, here's how to install it with Miniconda:
 
-* Download the installer from https://docs.conda.io/en/latest/miniconda.html
-* To work around https://github.com/conda/conda/issues/10431, execute it like this: 
-  ```
-  bash Miniconda3-latest-Linux-x86_64.sh
-  ```
-  When asked whether to run `conda init`, answer yes, and follow the instructions.
+* Download the installer from <https://docs.conda.io/en/latest/miniconda.html>.
+  * To work around <https://github.com/conda/conda/issues/10431>, run it like this:
+    `bash Miniconda3-latest-Linux-x86_64.sh`.
+  * When asked whether to run `conda init`, answer yes, and follow the instructions.
 * `conda create -n build-wheel python=X.Y`, where `X.Y` is the Python version you want to
-  build against.
+  build for.
 * `conda activate build-wheel`
 
-Set the `ANDROID_HOME` environment variable to point at your Android SDK. If you don't
+Export the `ANDROID_HOME` environment variable to point at your Android SDK. If you don't
 already have the SDK, here's how to install it:
 
-* Create a directory `android-sdk/cmdline-tools`.
-* Download the "Command line tools" from https://developer.android.com/studio
-* Unzip the package into the directory you just created.
+* Download the "Command line tools" from <https://developer.android.com/studio>.
+* Create a directory `android-sdk/cmdline-tools`, and unzip the command line tools package
+  into it.
 * Rename `android-sdk/cmdline-tools/cmdline-tools` to `android-sdk/cmdline-tools/latest`.
 * `export ANDROID_HOME=/path/to/android-sdk`
 
@@ -75,11 +73,12 @@ The resulting .whl files will be generated in the `dist` subdirectory of this di
 
 ## Adding a package
 
-Create a recipe directory in `packages`. Its name must be in PyPI normalized form (PEP 503).
-Alternatively, you can create this directory somewhere else, and pass its path when calling
-build-wheel.
+Under `packages` in this directory, create a recipe directory named after the package,
+normalized according to [PEP
+503](https://peps.python.org/pep-0503/#normalized-names). Alternatively, you can create
+this directory somewhere else, and pass its path when calling build-wheel.
 
-Inside the recipe directory, add the following files.
+Inside the recipe directory, add the following files:
 
 * A `meta.yaml` file. This supports a subset of Conda syntax, defined in `meta-schema.yaml`.
 * For non-Python packages, a `build.sh` script.
@@ -89,18 +88,17 @@ Here are some examples of existing recipes:
 
 * multidict: a minimal example, downloaded from PyPI.
 * cython-example: a minimal example, built from a local directory.
-* cryptography: a package with a build-time requirement.
 * python-example: a pybind11-based package, downloaded from a Git repository.
 * cmake-example: similar to python-example, but uses CMake. A patch is used to help CMake
   find the Android toolchain file.
 * chaquopy-libzmq: a non-Python library, downloaded from a URL.
-* pyzmq: a Python package which depends on a non-Python library. A patch is used to help
+* pyzmq: a Python package which depends on chaquopy-libzmq. A patch is used to help
   `setup.py` find the library.
 * scikit-learn: lists several requirements in `meta.yaml`:
   * The "build" requirement (Cython) will be installed automatically.
-  * The "host" requirements (NumPy etc.) currently need to be downloaded manually from
+  * The "host" requirements (NumPy etc.) must be downloaded manually from
     [the public repository](https://chaquo.com/pypi-7.0/). Save them into a corresponding
-    subdirectory of `dist` (e.g. `dist/numpy`). before running the build.
+    subdirectory of `dist` (e.g. `dist/numpy`), before running the build.
 
 Then run build-wheel as shown above.
 

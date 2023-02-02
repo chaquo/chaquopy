@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+# See meta.yaml for an explanation.
 set -eux
 
 python=${1:?}

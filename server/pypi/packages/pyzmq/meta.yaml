@@ -4,8 +4,11 @@ package:
   # the matching version.
   version: 24.0.1
 
+build:
+  number: 1
+
 requirements:
   build:
     - packaging 22.0
   host:
-    - chaquopy-libzmq 4.3.2
+    - chaquopy-libzmq 4.3.4

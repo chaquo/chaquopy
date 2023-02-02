@@ -7,7 +7,7 @@ def PACKAGE_GROUPS = [
     // Group 0 is not included in regular pre-release testing.
     [
         // Not in the public package repository.
-        "cmake-example", "python-example", "rpi-gpio",
+        "cmake-example", "cython-example", "python-example", "rpi-gpio",
 
         // Conflicts with opencv-python and opencv-contrib-python.
         "opencv-contrib-python-headless", "opencv-python-headless",
@@ -63,6 +63,8 @@ android {
 
         addPackages(delegate, [])
         python {
+	    version "3.8"
+
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"

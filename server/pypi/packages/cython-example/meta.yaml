@@ -1,0 +1,12 @@
+package:
+  name: cython-example
+  version: 1.0
+
+source:
+  path: src
+
+requirements:
+  build:
+    - cython 0.29.14
+  host:
+    - python
