@@ -141,6 +141,7 @@ class BuildWheel:
             log("Skipping build due to --no-build")
         else:
             self.update_env()
+            self.create_dummy_libs()
             wheel_filename = self.build_wheel()
             return self.fix_wheel(wheel_filename)
 
@@ -194,7 +195,12 @@ class BuildWheel:
         if not versions:
             raise CommandError(f"Can't find Python {self.python} in {target_dir}")
         max_ver = max(versions, key=lambda ver: [int(x) for x in re.split(r"[.-]", ver)])
-        self.python_maven_dir = f"{target_dir}/{max_ver}"
+        target_version_dir = f"{target_dir}/{max_ver}"
+
+        zips = glob(f"{target_version_dir}/target-*-{self.abi}.zip")
+        if len(zips) != 1:
+            raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
+        self.target_zip = zips[0]
 
         # Many setup.py scripts will behave differently depending on the Python version,
         # so we run pip with a matching version.
@@ -314,7 +320,6 @@ class BuildWheel:
         ensure_empty(self.reqs_dir)
         for subdir in ["include", "lib"]:
             ensure_dir(f"{self.reqs_dir}/chaquopy/{subdir}")
-        self.create_dummy_libs()
         if self.needs_target:
             self.extract_target()
 
@@ -369,12 +374,10 @@ class BuildWheel:
     # don't have to patch everything that links against them.
     def create_dummy_libs(self):
         for name in ["pthread", "rt"]:
-            run(f"ar rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
+            run(f"{os.environ['AR']} rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
 
     def extract_target(self):
-        run(f"unzip -q -d {self.reqs_dir}/chaquopy "
-            f"{self.python_maven_dir}/target-*-{self.abi}.zip "
-            f"include/* jniLibs/*")
+        run(f"unzip -q -d {self.reqs_dir}/chaquopy {self.target_zip} include/* jniLibs/*")
         run(f"mv {self.reqs_dir}/chaquopy/jniLibs/{self.abi}/* {self.reqs_dir}/chaquopy/lib",
             shell=True)
         run(f"rm -r {self.reqs_dir}/chaquopy/jniLibs")
@@ -401,16 +404,22 @@ class BuildWheel:
 
     def update_env(self):
         env = {}
-        for line in run(
+        build_common_output = run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
             f". {PYPI_DIR}/../../target/build-common.sh; export",
             shell=True, executable="bash", text=True, stdout=subprocess.PIPE
-        ).stdout.splitlines():
+        ).stdout
+        for line in build_common_output.splitlines():
+            # We don't require every line to match, e.g. there may be some output from
+            # installing the NDK.
             match = re.search(r'^declare -x (\w+)="(.*)"$', line)
             if match:
                 key, value = match.groups()
                 if os.environ.get(key) != value:
                     env[key] = value
+        if not env:
+            raise CommandError("Found no variables in build-common.sh output:\n"
+                               + build_common_output)
 
         # See env/bin/pkg-config.
         del env["PKG_CONFIG"]
@@ -490,7 +499,12 @@ class BuildWheel:
     def generate_cmake_toolchain(self, env):
         ndk = abspath(f"{env['CC']}/../../../../../..")
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
+
+        # This environment variable requires CMake 3.21 or later, so until we can rely on
+        # that being available, we'll still need to patch packages to pass it on the
+        # command line.
         env["CMAKE_TOOLCHAIN_FILE"] = toolchain_filename
+
         log(f"Generating {toolchain_filename}")
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
@@ -502,7 +516,7 @@ class BuildWheel:
                 # Our requirements dir comes before the sysroot, because the sysroot include
                 # directory contains headers for third-party libraries like libjpeg which may
                 # be of different versions to what we want to use.
-                list(PREPEND CMAKE_FIND_ROOT_PATH {self.reqs_dir}/chaquopy)
+                list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.reqs_dir}/chaquopy)
                 """), file=toolchain_file)
 
             if self.needs_python:

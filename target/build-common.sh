@@ -13,6 +13,8 @@
 ndk_version=22.1.7171670  # Should match ndkDir in product/runtime/build.gradle.
 ndk=${ANDROID_HOME:?}/ndk/$ndk_version
 if ! [ -e $ndk ]; then
+    # Print all messages on stderr so they're visible when running within build-wheel.
+    echo "Installing NDK: this may take several minutes" >&2
     yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$ndk_version"
 fi
 
