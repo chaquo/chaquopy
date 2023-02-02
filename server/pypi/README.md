@@ -1,111 +1,149 @@
 # Chaquopy packages
 
-## Introduction
+This directory contains the build-wheel tool, which produces Android .whl files compatible
+with Chaquopy.
 
-This directory contains the build-wheel tool, which produces Android .whl files for Chaquopy.
-build-wheel itself is only supported on Linux x86-64. However, the resulting .whls can be built
-into an app on any supported Android build platform, as described in the [Chaquopy
-documentation](https://chaquo.com/chaquopy/doc/current/android.html#requirements).
-
-Install the requirements in `requirements.txt`, then run `build-wheel.py --help` for more
-information.
+build-wheel can build .whl files for all [Android
+ABIs](https://developer.android.com/ndk/guides/abis) (armeabi-v7a, arm64-v8a, x86 and
+x86_64). However, the tool itself only runs on Linux x86-64. If you don't already have a
+Linux machine available, a cheap virtual server from somewhere like DigitalOcean will do
+just fine.
 
 
-## Adding a new package
+## Setup
+
+First, clone this repository.
+
+Then, go to [this Maven Central
+page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
+Python version you want to build against. Within a given Python minor version (e.g. 3.9),
+you should usually use the newest version available. Then, on that version's page, find
+the .zip for the ABI you want to build against, and download it into a corresponding
+subdirectory of `maven` in the root of this repository. For example, anything you download
+from https://repo.maven.apache.org/maven2/com/chaquo/python/target/3.8.16-0/ should be
+placed in `maven/com/chaquo/python/target/3.8.16-0`.
+
+You'll also need a matching version of Python installed on your build machine. For
+example, if you're building for Python 3.9, then `python3.9` must be on the PATH. You may
+be able to get this from your distribution, or from an unofficial package repository. 
+Otherwise, here's how to install it with Miniconda:
+
+* Download the installer from https://docs.conda.io/en/latest/miniconda.html
+* To work around https://github.com/conda/conda/issues/10431, execute it like this: 
+  ```
+  bash Miniconda3-latest-Linux-x86_64.sh
+  ```
+  When asked whether to run `conda init`, answer yes, and follow the instructions.
+* `conda create -n build-wheel python=X.Y`, where `X.Y` is the Python version you want to
+  build against.
+* `conda activate build-wheel`
+
+Set the `ANDROID_HOME` environment variable to point at your Android SDK. If you don't
+already have the SDK, here's how to install it:
+
+* Create a directory `android-sdk/cmdline-tools`.
+* Download the "Command line tools" from https://developer.android.com/studio
+* Unzip the package into the directory you just created.
+* Rename `android-sdk/cmdline-tools/cmdline-tools` to `android-sdk/cmdline-tools/latest`.
+* `export ANDROID_HOME=/path/to/android-sdk`
+
+Use pip to install the `requirements.txt` in this directory.
+
+Use your distribution's package manager to install the following build tools: 
+* patch
+* patchelf
+
+Depending on which package you're building, you may need additional tools. The Dockerfile
+in this directory contains instructions for installing some of them.
+
+
+## Building a package
+
+Run build-wheel from this directory as follows:
+
+    ./build-wheel.py --python X.Y --abi ABI PACKAGE
+
+Where:
+
+* `X.Y` is the Python version you set up above.
+* `ABI` is an [Android ABI](https://developer.android.com/ndk/guides/abis).
+* `PACKAGE` is a subdirectory of `packages` in this directory, or the path to another
+  directory laid out in the same way (see "adding a package" below).
+
+The resulting .whl files will be generated in the `dist` subdirectory of this directory.
+
+
+## Adding a package
 
 Create a recipe directory in `packages`. Its name must be in PyPI normalized form (PEP 503).
 Alternatively, you can create this directory somewhere else, and pass its path when calling
-`build-wheel.py`.
+build-wheel.
 
 Inside the recipe directory, add the following files.
 
 * A `meta.yaml` file. This supports a subset of Conda syntax, defined in `meta-schema.yaml`.
-* A `test.py` file (or `test` package), to run on a target installation. This should contain a
-  unittest.TestCase subclass which imports the package and does some basic checks.
-* For non-Python packages, a `build.sh` script. See `build-wheel.py` for environment variables
-  which are passed to it.
+* For non-Python packages, a `build.sh` script.
+* If necessary, a `patches` subdirectory containing patch files.
 
-Run `build-wheel.py`, specifying Chaquopy's default Python version, and whichever ABI is most
-convenient for you to test. If any changes are needed to make the build work, edit the
-package source code in the `build` subdirectory, and re-run `build-wheel.py` with the
-`--no-unpack` option. Then copy the resulting wheel from `dist` to a private package repository
-(edit `--extra-index-url` in `pkgtest/app/build.gradle` if necessary).
+Here are some examples of existing recipes:
 
-Temporarily add the new package to `pkgtest/app/build.gradle`, and set `abiFilters` to
-the ABI you just built for.
+* multidict: a minimal example, downloaded from PyPI.
+* cython-example: a minimal example, built from a local directory.
+* cryptography: a package with a build-time requirement.
+* python-example: a pybind11-based package, downloaded from a Git repository.
+* cmake-example: similar to python-example, but uses CMake. A patch is used to help CMake
+  find the Android toolchain file.
+* chaquopy-libzmq: a non-Python library, downloaded from a URL.
+* pyzmq: a Python package which depends on a non-Python library. A patch is used to help
+  `setup.py` find the library.
+* scikit-learn: lists several requirements in `meta.yaml`:
+  * The "build" requirement (Cython) will be installed automatically.
+  * The "host" requirements (NumPy etc.) currently need to be downloaded manually from
+    [the public repository](https://chaquo.com/pypi-7.0/). Save them into a corresponding
+    subdirectory of `dist` (e.g. `dist/numpy`). before running the build.
 
-Unless the package depends on changes in the development version, edit `pkgtest/build.gradle`
-to use the current stable Chaquopy version. Then run the tests.
+Then run build-wheel as shown above.
 
-If any changes are needed to make the tests work, increment the build number in `meta.yaml`
-before re-running `build-wheel.py` as above.
+If any changes are needed to make the build work, the easiest procedure is:
 
-Once the package itself is working, also test any packages that list it as a requirement in
-meta.yaml, since these usually indicate a dependency on native interfaces which may be less
-stable. Include these packages in all the remaining tests.
-
-Once everything's working on this ABI, save any edits in the package's `patches` directory,
-then run `build-wheel.py` for all other ABIs, and copy their wheels to the private package
-repository.
-
-Restore `abiFilters` to include all ABIs. Then test the app on the following devices, with
-at least one device being a clean install:
-
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-* x86_64 emulator with targetSdkVersion
-* Any armeabi-v7a device
-* Any arm64-v8a device
-
-Repeat the build and test for all other Python versions.
-
-Move the wheels to the public package repository.
-
-Notify any users who requested this package on GitHub or elsewhere.
+* In the recipe directory, enter the `build` subdirectory and locate the package's source
+  code.
+* Edit the source code as necessary.
+* Re-run build-wheel with the `--no-unpack` option to prevent your changes from being
+  overwritten.
+* Once everything's working, save your changes in a patch file in the recipe's `patches`
+  subdirectory. This will be applied automatically in any future builds.
 
 
-## Testing the most popular packages
+## Using a package in your app
 
-### Get the list
+.whl files can be built into your app using the [`pip`
+block](https://chaquo.com/chaquopy/doc/current/android.html#requirements) in your
+`build.gradle` file. First, add an `options` line to pass
+[`--extra-index-url`](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-extra-index-url)
+with the location of the `dist` directory mentioned above. Either an HTTP URL or a local path
+can be used. Then add an `install` line giving the name of your package.
 
-To list the most downloaded packages on PyPI, run the following query on
-[BigQuery](https://bigquery.cloud.google.com/dataset/the-psf:pypi?pli=1). I had to create
-my own Google Cloud project and run the query within that, otherwise I got the error "User
-does not have bigquery.jobs.create permission in project the-psf".
-```
-SELECT file.project, COUNT(*) as downloads,
-FROM `bigquery-public-data.pypi.file_downloads`
-WHERE DATE(timestamp) BETWEEN DATE("2021-08-28") and DATE("2021-09-03")
-GROUP BY file.project
-ORDER BY downloads DESC
-LIMIT 10000
-```
-Use a 7-day window to avoid any bias from weekday/weekend differences.
 
-### Run the tests
+## Testing a package
 
-Build scripts can run arbitrary code, so these tests must be done within Docker, like
-this:
+The pkgtest app in this directory is a test harness for checking package builds. Here's
+how to use it.
 
-`cat pypi-downloads-20210828-20210903.csv | head -n 1000 | cut -d, -f1 | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log -v $ANDROID_HOME:/root/android-sdk chaquopy-piptest`
+First, create a `test.py` file in the recipe directory, or a `test` subdirectory with an
+`__init__.py` if you need to include additional files. This should contain a `TestCase`
+class which imports the package and does some basic checks. See the existing recipes for
+examples.
 
-### Analyze the results
+Open the pkgtest app in Android Studio, and temporarily edit it as follows:
 
-The results can be summarized as follows:
-* Successful: search for `BUILD SUCCESSFUL`.
-* Failed: search for `BUILD FAILED`. This can be divided into:
-  * Failed (native): search for `Chaquopy.cannot.compile.native.code`.
-  * Failed (other). Review these to see if they indicate any bug in the build process.
+* In `build.gradle`:
+  * Use the current stable Chaquopy version, unless the package depends on changes in the
+    development version.
+* In `app/build.gradle`:
+  * List the package in the `addPackages` line.
+  * Change the Python `version` setting if necessary.
+  * Set the `--extra-index-url` as described above.
+  * Set `abiFilters` to the ABIs you've built .whl files for. 
 
-You may also wish to check the following:
-
-* Packages which took more than 2 minutes. Even if they succeeded, this may indicate that
-  they were building native code with a host compiler, or doing something else they
-  shouldn't be:
-  * `for package in <list>; do egrep -H 'BUILD (SUCCESSFUL|FAILED) in [2-9]m' log/$package.txt; done`
-* Failed requirements which many packages depend on. This will also reveal dependencies on
-  packages which we do have in the repository, but with an incompatible version:
-  * `pattern='Failed to install|No matching distribution found for|Failed building wheel for'; cat log/* | grep -Eia "$pattern" | sed -E "s/.*($pattern)//; s/[ (]from.*//" | sort | uniq -c | sort -nr`
-
-Do whatever's necessary to maintain the 90% support level mentioned in
-product/runtime/docs/sphinx/android.rst.
+Then run the app.
