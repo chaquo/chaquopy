@@ -63,7 +63,7 @@ android {
 
         addPackages(delegate, [])
         python {
-	    version "3.8"
+            version "3.8"
 
             pip {
                 // After a package is tested, remember to move it to the public repository!
