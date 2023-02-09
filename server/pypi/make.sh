@@ -116,7 +116,7 @@ for PACKAGE in ${PACKAGES}; do
       python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" iOS "${PACKAGE}" 2>&1 | tee "${LOGS}/${PYTHON_VERSION}/${PACKAGE}.log"
 
       # shellcheck disable=SC2010
-      if [ "$(ls "dist/${PACKAGE}" | grep -c "cp${PYTHON_VERSION/./}")" == "3" ]; then
+      if [ "$(ls "dist/${PACKAGE}" | grep -c "cp${PYTHON_VERSION/./}")" -ge "4" ]; then
         echo "${PACKAGE}-${PACKAGE_VERSION} with Python ${PYTHON_VERSION}" >> "${LOGS}/success.log"
       else
         echo "${PACKAGE}=${PACKAGE_VERSION} with Python ${PYTHON_VERSION}" >> "${LOGS}/fail.log"
@@ -125,4 +125,11 @@ for PACKAGE in ${PACKAGES}; do
   done
 done
 
+echo ""
+echo "Packages built successfully:"
+cat "${LOGS}/success.log"
+echo ""
+echo "Packages with errors:"
+cat "${LOGS}/fail.log"
+echo ""
 echo "Completed successfully."
