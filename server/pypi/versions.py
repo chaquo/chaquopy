@@ -4,7 +4,6 @@ import json
 import sys
 from urllib.request import urlopen
 
-exclude = ['rc', 'dev']
 
 def versions(package_name):
     url = "https://pypi.org/pypi/%s/json" % (package_name,)
@@ -13,11 +12,12 @@ def versions(package_name):
 
     for release in releases:
         try:
-            if int(releases[release][0]['upload_time'].split("-")[0]) >= 2021:
-                if not any([x in release for x in exclude]):
-                    print(release, end = ' ')
+            if int(releases[release][0]['upload_time'].split("-")[0]) >= int(sys.argv[1]):
+                if not any(c.isalpha() for c in release):
+                    print(release, end=' ')
         except Exception:
             pass
     print()
 
-versions(sys.argv[1])
+
+versions(sys.argv[2])
