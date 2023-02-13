@@ -1,4 +1,14 @@
-# This file is imported on startup in pip and all of its Python subprocesses.
+# build-wheel sets PYTHONPATH to ensure this file is imported on startup in pip and all of
+# its Python subprocesses.
+#
+# build-wheel currently disables all pyproject.toml files by renaming them. At some point
+# we'll have to stop doing this in order to enable PEP 517 builds. However, pip overrides
+# PYTHONPATH when launching a PEP 517 build, which will prevent this file from taking
+# effect in the subprocess. So we may need to use a different approach, perhaps even using
+# a different PEP 517 front end like pypa/build.
+#
+# Since we're now using a setuptools version later than 60, all references to distutils
+# will be redirected to setuptools._distutils.
 
 import os
 import sys
@@ -24,6 +34,8 @@ Distribution.run_command = run_command_override
 # level handles both default paths added by distutils itself, and paths added explicitly by
 # setup.py scripts.
 import distutils.ccompiler
+import distutils.sysconfig
+
 gen_preprocess_options_original = distutils.ccompiler.gen_preprocess_options
 
 def gen_preprocess_options_override(macros, include_dirs):
@@ -37,8 +49,14 @@ def gen_preprocess_options_override(macros, include_dirs):
 distutils.ccompiler.gen_preprocess_options = gen_preprocess_options_override
 
 
+# Override the CFLAGS from the build Python sysconfigdata file.
+# TODO: look into using crossenv to extract this from the Android sysconfigdata.
+distutils.sysconfig.get_config_vars()  # Ensure _config_vars has been initialized.
+distutils.sysconfig._config_vars["CFLAGS"] = \
+    "-Wno-unused-result -Wsign-compare -Wunreachable-code -DNDEBUG -g -fwrapv -O3 -Wall"
+
+
 # Fix distutils ignoring LDFLAGS when building executables.
-import distutils.sysconfig
 from distutils.util import split_quoted
 customize_compiler_original = distutils.sysconfig.customize_compiler
 
