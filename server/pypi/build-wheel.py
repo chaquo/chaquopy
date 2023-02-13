@@ -538,7 +538,7 @@ class BuildWheel:
         tmp_dir = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
         run(f"unzip -d {tmp_dir} -q {in_filename}")
-        info_dir = f"{tmp_dir}/{self.name_version}.dist-info"
+        info_dir = assert_isdir(f"{tmp_dir}/{self.name_version}.dist-info")
 
         # This can't be done before the build, because sentencepiece generates a license file
         # in the source directory during the build.
@@ -607,8 +607,7 @@ class BuildWheel:
 
     def package_wheel(self, in_dir, out_dir):
         build_num = os.environ["PKG_BUILDNUM"]
-        info_dir = f"{in_dir}/{self.name_version}.dist-info"
-        ensure_dir(info_dir)
+        info_dir = ensure_dir(f"{in_dir}/{self.name_version}.dist-info")
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",
                              "Root-Is-Purelib": "false"},
