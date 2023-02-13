@@ -10,7 +10,6 @@ TOOLCHAINS="support"
 CMAKE_VERSION="3.26.0-rc1"
 PYTHON_APPLE_SUPPORT="Python-Apple-support"
 PYTHON_VERSIONS="3.8 3.9 3.10 3.11"
-#PYTHON_VERSIONS="3.8 3.9 3.10 3.11"
 declare -A PYTHON_EXACT_VERSIONS
 PYTHON_EXACT_VERSIONS["3.8"]="3.8.16"
 PYTHON_EXACT_VERSIONS["3.9"]="3.9.16"
@@ -153,11 +152,17 @@ while [[ $# -gt 0 ]] ; do
       echo "Usage: make.sh options
 
       options
+              --dependency dependency
               --package package
               --skip-deps
               --skip-envs
               --year year"
       exit 0
+      ;;
+    --dependency)
+      DEPENDENCIES=${2}
+      shift
+      shift
       ;;
     --package)
       PACKAGES=${2}
@@ -258,6 +263,7 @@ for PACKAGE in ${PACKAGES}; do
   printf "\n### Attempting package %s with versions: %s ###\n" "${PACKAGE}" "${PACKAGE_VERSIONS}"
 
   for PACKAGE_VERSION in ${PACKAGE_VERSIONS}; do
+    # TODO: fix this so git don't see a change
     sed -i '' "s/version: .*/version: ${PACKAGE_VERSION}/g" "packages/${PACKAGE}/meta.yaml"
 
     for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
