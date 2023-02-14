@@ -7,6 +7,6 @@ build:
 
 requirements:
   host:
-    - numpy 1.23.3
+    - numpy 1.15.0
     - srsly 1.0.1
     - blis 0.4.1
