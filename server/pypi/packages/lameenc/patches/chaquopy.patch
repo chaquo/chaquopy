@@ -11,3 +11,13 @@ diff -ur src-original/setup.py src/setup.py
  
  # Grab the library location from the command line
  libdir = None
+@@ -32,7 +35,8 @@
+     include_dirs=[incdir],
+     libraries=['libmp3lame'] if sys.platform == 'win32' else [],
+     extra_objects=
+-        [] if sys.platform == 'win32' else [os.path.join(libdir, 'libmp3lame.a')],
++        # Chaquopy: changed .a to .so.
++        [] if sys.platform == 'win32' else [os.path.join(libdir, 'libmp3lame.so')],
+     library_dirs=[libdir] if sys.platform == 'win32' else [],
+     sources=['lameenc.c']
+ ) 
