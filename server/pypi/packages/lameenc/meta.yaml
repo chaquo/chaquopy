@@ -10,5 +10,5 @@ source:
 
 requirements:
   host:
-    - chaquopy-liblame 3.100
+    - chaquopy-lame 3.100
     - python
