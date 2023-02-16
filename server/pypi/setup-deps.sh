@@ -21,26 +21,8 @@ DEPENDENCIES="
     chaquopy-curl \
     chaquopy-ta-lib \
     chaquopy-zbar \
+    chaquopy-openblas \
     "
-
-# TODO: to investigate if we need those dependencies
-
-# chaquopy-crc32c
-# chaquopy-flac
-# chaquopy-geos
-# chaquopy-hdf5
-# chaquopy-libcxx
-# chaquopy-libffi
-# chaquopy-libgfortran
-# chaquopy-libomp
-# chaquopy-libraw
-# chaquopy-libsndfile
-# chaquopy-libvorbis
-# chaquopy-libxslt
-# chaquopy-libzmq
-# chaquopy-llvm
-# chaquopy-openblas
-# chaquopy-secp256k1
 
 # build dependencies
 

@@ -142,8 +142,16 @@ for PACKAGE in ${PACKAGES}; do
   printf "\n### Attempting package %s with versions: %s ###\n" "${PACKAGE}" "${PACKAGE_VERSIONS}"
 
   for PACKAGE_VERSION in ${PACKAGE_VERSIONS}; do
-    # TODO: fix this so git don't see a change
+    # edit package version
     sed -i '' "s/version: .*/version: ${PACKAGE_VERSION}/g" "packages/${PACKAGE}/meta.yaml"
+
+    # edit package dependencies
+    for DEPENDENCY in numpy; do
+      if grep "${DEPENDENCY}" "packages/${PACKAGE}/meta.yaml" &>/dev/null; then
+        sed -i '' "s/- ${DEPENDENCY}.*/- ${DEPENDENCY} $(ls -1 "${DIST_DIR}/${DEPENDENCY}"/*"${PYTHON_VERSION/./}"* | head -1 | awk -F '-' '{ print $2 }' )/g" "packages/${PACKAGE}/meta.yaml"
+      fi
+    done
+
     printf "\n\n*** Building package %s version %s for Python %s ***\n\n" "${PACKAGE}" "${PACKAGE_VERSION}" "${PYTHON_VERSION}"
     python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" iOS "${PACKAGE}" 2>&1 | tee "${LOGS}/${PYTHON_VERSION}/${PACKAGE}.log"
 
