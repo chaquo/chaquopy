@@ -45,8 +45,8 @@ fi
 
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 DOCKER_BUILDKIT=1 docker build -t flang --compress . $*
-docker stop flang || true
-docker rm flang  || true
+docker stop flang &>/dev/null || true
+docker rm flang  &>/dev/null || true
 docker run -d --name flang -v "$(pwd)/share:/root/host" -v /Users:/Users -v /var/folders:/var/folders -it flang
 
 echo "Completed successfully."
