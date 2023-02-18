@@ -1,32 +1,9 @@
 #!/bin/bash
 set -eu
 
-case $CHAQUOPY_ABI in
-    iphoneos_arm64)
-        TARGET="ARMV8"
-        ARCH="arm64"
-        SYSROOT_PATH="$(xcrun -sdk iphoneos -show-sdk-path)"
-        ;;
-
-    iphonesimulator_arm64)
-        TARGET="ARMV8"
-        ARCH="arm64"
-        SYSROOT_PATH="$(xcrun -sdk iphonesimulator -show-sdk-path)"
-        ;;
-
-    iphonesimulator_x86_64)
-        # This corresponds to the instruction set extensions listed at
-        # https://developer.android.com/ndk/guides/abis#86-64.
-        TARGET="NEHALEM"
-        ARCH="x86_64"
-        SYSROOT_PATH="$(xcrun -sdk iphonesimulator -show-sdk-path)"
-        ;;
-
-    *)
-        echo "Unknown ABI '$CHAQUOPY_ABI'"
-        exit 1
-        ;;
-esac
+export CROSS="1"
+export CROSS_SUFFIX=$(echo $CC | sed 's/gcc$//')  # Actually a prefix
+export HOSTCC="gcc"
 
 # "If your application is already multi-threaded, it will conflict with OpenBLAS
 # multi-threading. Thus, you must set OpenBLAS to use single thread."
@@ -44,6 +21,64 @@ export USE_THREAD=0
 # memory regions."
 export NUM_THREADS=8
 
-TOOLCHAIN_PATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
-make TARGET=${TARGET} BINARY=64 HOSTCC=clang CC="$TOOLCHAIN_PATH/clang -isysroot $SYSROOT_PATH -arch ${ARCH} -miphoneos-version-min=12.0 -O2" NOFORTRAN=1 libs
+# Prevent large local variables silently being treated as static, thus destroying thread-safety
+# (http://wwwf.imperial.ac.uk/~mab201/20120814.html and
+# https://github.com/xianyi/OpenBLAS/issues/477#issuecomment-222378330).
+export FFLAGS="-frecursive"
+
+case $CHAQUOPY_ABI in
+    armeabi-v7a)
+        # OpenBLAS ARMv7 build requires VFPv3-D32
+        # (https://github.com/xianyi/OpenBLAS/issues/388 and
+        # https://github.com/xianyi/OpenBLAS/issues/662), which in practice always seems to
+        # come with NEON (aka "Advanced SIMD"), which requires it
+        # (https://developer.android.com/ndk/guides/cpu-arm-neon.html). But the Android
+        # armeabi-v7a ABI only guarantees VFPv3-D16
+        # (https://developer.android.com/ndk/guides/abis.html). The Google compatibility
+        # definition does require NEON from API level 23 (Android 6.0,
+        # https://source.android.com/compatibility/cdd), but by the time it's safe to set that
+        # as our minimum level, most people will probably be on ARMv8 anyway.
+        #
+        # There do exist devices with API level 15 or higher which are limited to VFPv3-D16,
+        # but they are rare and probably from 2013 or older. One example is the Asus
+        # Transformer TF101 (NOT the TF201 which I have), which has an Nvidia Tegra 2
+        # processor. The NDK developers believe that that the Tegra 2 was the *only*
+        # armeabi-v7a processor which didn't support NEON, and its number of active devices is
+        # now so low that they've enabled NEON by default in NDK r21 and later
+        # (https://github.com/android/ndk/issues/859). But we'll target ARMv6 for now anyway,
+        # just to be safe.
+        export TARGET="ARMV6"
+        export ARM_SOFTFP_ABI="1"
+
+        # Update assembly syntax for Clang (https://github.com/xianyi/OpenBLAS/issues/1774).
+        script='s/fldmias/vldmia.f32/; s/fldmiad/vldmia.f64/; s/fstmias/vstmia.f32/; s/fstmiad/vstmia.f64/'
+        find kernel/arm -name '*.S' | xargs sed -i "$script"
+        ;;
+
+    arm64-v8a)
+        export TARGET="ARMV8"
+        ;;
+
+    x86)
+        export TARGET="ATOM"
+        ;;
+
+    x86_64)
+        # This corresponds to the instruction set extensions listed at
+        # https://developer.android.com/ndk/guides/abis#86-64.
+        export TARGET="NEHALEM"
+        ;;
+
+    *)
+        echo "Unknown ABI '$CHAQUOPY_ABI'"
+        exit 1
+        ;;
+esac
+
+make -j "$CPU_COUNT"
+
 make install  # The PREFIX environment variable will be respected.
+cd $PREFIX/lib
+rm *.a
+find -type l | xargs rm
+mv *.so libopenblas.so

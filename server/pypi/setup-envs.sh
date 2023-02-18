@@ -36,17 +36,4 @@ for PYTHON_VERSION in ${PYTHON_VERSIONS}; do
   rm -rf "python-apple-support-${PYTHON_VERSION}.tar.gz" "${LOGS:?}/${PYTHON_VERSION:?}"/*
 done
 
-# build docker image for flang
-
-if ! docker info &>/dev/null; then
-    echo "Docker daemon not running!"
-    exit 1
-fi
-
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-DOCKER_BUILDKIT=1 docker build -t flang --compress . $*
-docker stop flang &>/dev/null || true
-docker rm flang  &>/dev/null || true
-docker run -d --name flang -v "$(pwd)/share:/root/host" -v /Users:/Users -v /var/folders:/var/folders -it flang
-
 echo "Completed successfully."

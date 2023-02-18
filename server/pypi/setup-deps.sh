@@ -21,7 +21,6 @@ DEPENDENCIES="
     chaquopy-curl \
     chaquopy-ta-lib \
     chaquopy-zbar \
-    chaquopy-openblas \
     "
 
 # build dependencies
