@@ -6,4 +6,4 @@ requirements:
   build:
     - cython 0.29.32
   host:
-    - numpy 1.17.0
+    - numpy 1.23.3

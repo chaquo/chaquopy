@@ -4,4 +4,4 @@ package:
 
 requirements:
   host:
-    - numpy 1.17
+    - numpy 1.23.3
