@@ -7,4 +7,4 @@ requirements:
     - cython 0.29.32
   host:
     - chaquopy-geos 3.8.1
-    - numpy 1.14
+    - numpy 1.23.3
