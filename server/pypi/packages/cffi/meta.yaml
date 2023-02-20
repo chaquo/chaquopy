@@ -1,6 +1,5 @@
 package:
   name: cffi
-  version: 1.15.1
 
 build:
   number: 1

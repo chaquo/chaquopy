@@ -1,6 +1,5 @@
 package:
   name: scikit-image
-  version: 0.18.3
 
 requirements:
   build:

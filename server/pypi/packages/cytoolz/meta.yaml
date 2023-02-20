@@ -1,6 +1,5 @@
 package:
   name: cytoolz
-  version: 0.10.1
 
 build:
   number: 1

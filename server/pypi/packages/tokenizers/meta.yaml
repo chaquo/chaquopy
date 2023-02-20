@@ -1,6 +1,5 @@
 package:
   name: tokenizers
-  version: 0.10.3
 
 requirements:
   build:

@@ -1,6 +1,5 @@
 package:
   name: spacy
-  version: 2.2.3
 
 build:
   number: 1

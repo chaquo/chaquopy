@@ -109,11 +109,14 @@ ABIS = {
 
 
 class Package:
-    def __init__(self, package_name_or_recipe):
-        self.recipe_dir = self.find_package(package_name_or_recipe)
+    def __init__(self, package_name, package_version):
+        self.recipe_dir = self.find_package(package_name)
         self.meta = self.load_meta(self.recipe_dir)
         self.name = self.meta["package"]["name"]
-        self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
+        self.version = package_version
+        if self.version is None:
+            self.version = self.meta["package"]["version"]
+
         self.version_dir = f"{self.recipe_dir}/build/{self.version}"
 
         self.name_version = normalize_name_wheel(self.name) + "-" + normalize_version(self.version)
@@ -1123,20 +1126,22 @@ def main():
                     "(any existing build/.../requirements directory will be reused)")
     ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
                     help="Path to toolchain")
-    ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
+    ap.add_argument("--python", metavar="X.Y", required=True, help="Python version (required for "
                     "Python packages)"),
-    ap.add_argument("os", help="OS to build")
-    ap.add_argument("package_name_or_recipe", help=f"Name of a package in {RECIPES_DIR}, or if it "
+    ap.add_argument("--os", required=True, help="OS to build")
+    ap.add_argument("--package_name", required=True, help=f"Name of a package in {RECIPES_DIR}, or if it "
                     f"contains a slash, path to a recipe directory")
+    ap.add_argument("--package_version", help="Package version to build")
 
     args = ap.parse_args()
     kwargs = vars(args)
 
     os = kwargs.pop("os")
-    package_name_or_recipe = kwargs.pop("package_name_or_recipe")
+    package_name = kwargs.pop("package_name")
     toolchain = kwargs.pop("toolchain")
     python_version = kwargs.pop("python")
-    package = Package(package_name_or_recipe)
+    package_version = kwargs.pop("package_version")
+    package = Package(package_name, package_version)
 
     if os == "android":
         abi, api_level, standard_libs = AndroidWheelBuilder.detect_toolchain(toolchain)

@@ -1,6 +1,5 @@
 package:
   name: matplotlib
-  version: 3.6.0
 
 build:
   number: 1
@@ -9,7 +8,7 @@ requirements:
   host:
     - chaquopy-freetype 2.9.1
     - chaquopy-libpng 1.6.34
-    - numpy 1.23.3
+    - numpy 1.23.2
 
 # about:
 #   license_file: LICENSE/LICENSE

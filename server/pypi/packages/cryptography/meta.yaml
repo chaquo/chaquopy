@@ -1,6 +1,5 @@
 package:
   name: cryptography
-  version: 3.4.8
 
 build:
   script_env:

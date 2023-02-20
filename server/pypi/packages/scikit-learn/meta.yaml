@@ -1,6 +1,5 @@
 package:
   name: scikit-learn
-  version: 0.24.1
 
 requirements:
   build:

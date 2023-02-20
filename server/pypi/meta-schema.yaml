@@ -7,7 +7,7 @@ properties:
 
   package:
     type: object
-    required: [name, version]
+    required: [name]
     properties:
       name:             # Must be in its original form, as used in sdist filenames.
         type: string

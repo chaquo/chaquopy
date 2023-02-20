@@ -4,7 +4,6 @@
 
 package:
   name: SoundFile
-  version: 0.10.3.post1
 
 requirements:
   host:

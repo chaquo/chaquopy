@@ -1,6 +1,5 @@
 package:
   name: argon2-cffi
-  version: 20.1.0
 
 requirements:
   build:

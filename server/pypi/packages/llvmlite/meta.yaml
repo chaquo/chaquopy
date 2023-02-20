@@ -1,6 +1,5 @@
 package:
   name: llvmlite
-  version: 0.31.0
 
 build:
   number: 2

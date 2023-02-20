@@ -1,6 +1,5 @@
 package:
   name: Shapely
-  version: 1.7.0
 
 requirements:
   build:

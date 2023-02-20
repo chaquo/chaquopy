@@ -1,6 +1,5 @@
 package:
   name: pycares
-  version: 3.1.1
 
 build:
   number: 2
