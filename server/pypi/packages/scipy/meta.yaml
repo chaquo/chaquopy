@@ -1,5 +1,6 @@
 package:
   name: scipy
+  version: 1.4.1
 
 requirements:
   build:

@@ -1,8 +1,6 @@
 package:
   name: dlib
-
-build:
-  number: 4
+  version: 19.19.0
 
 requirements:
   build:

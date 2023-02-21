@@ -1,8 +1,6 @@
 package:
   name: xgboost
-
-build:
-  number: 2
+  version: 1.1.1
 
 about:
   license_file: xgboost/LICENSE

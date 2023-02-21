@@ -1,8 +1,6 @@
 package:
   name: editdistance
-
-build:
-  number: 1
+  version: 0.6.1
 
 about:
   license_file: README.rst

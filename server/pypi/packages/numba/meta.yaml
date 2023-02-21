@@ -1,8 +1,6 @@
 package:
   name: numba
-
-build:
-  number: 9
+  version: 0.48.0
 
 requirements:
   host:

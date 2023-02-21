@@ -1,5 +1,6 @@
 package:
   name: pandas
+  version: 1.5.3
 
 requirements:
   build:

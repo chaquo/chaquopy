@@ -1,8 +1,6 @@
 package:
   name: h5py
-
-build:
-  number: 1
+  version: 2.10.0
 
 requirements:
   build:

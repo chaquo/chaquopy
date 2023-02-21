@@ -1,6 +1,7 @@
 package:
   name: gensim
+  version: 4.2.0
 
 requirements:
   host:
-    - numpy 1.23.2
+    - numpy 1.17.3

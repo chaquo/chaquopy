@@ -4,9 +4,6 @@ package:
   name: tensorflow
   version: {{ version }}
 
-build:
-  number: 9
-
 source:
   url: https://github.com/tensorflow/tensorflow/archive/v{{ version }}.tar.gz
 

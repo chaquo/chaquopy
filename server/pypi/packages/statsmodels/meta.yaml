@@ -1,6 +1,7 @@
 package:
   name: statsmodels
+  version: 0.11.0
 
 requirements:
   host:
-    - numpy 1.23.2
+    - numpy 1.23.3

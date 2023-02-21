@@ -1,8 +1,6 @@
 package:
   name: pycrypto
-
-build:
-  number: 1
+  version: 2.6.1
 
 about:
   license_file: COPYRIGHT

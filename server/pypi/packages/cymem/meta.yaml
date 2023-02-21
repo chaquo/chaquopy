@@ -1,5 +1,3 @@
 package:
   name: cymem
-
-build:
-  number: 1
+  version: 2.0.7

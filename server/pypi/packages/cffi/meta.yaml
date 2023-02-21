@@ -1,8 +1,6 @@
 package:
   name: cffi
-
-build:
-  number: 1
+  version: 1.15.1
 
 requirements:
   host:

@@ -1,8 +1,6 @@
 package:
   name: sentencepiece
-
-build:
-  number: 2
+  version: 0.1.95
 
 requirements:
   build:

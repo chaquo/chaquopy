@@ -1,8 +1,6 @@
 package:
   name: spacy
-
-build:
-  number: 1
+  version: 2.2.3
 
 requirements:
   host:

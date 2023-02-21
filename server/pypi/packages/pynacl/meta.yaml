@@ -1,5 +1,6 @@
 package:
   name: PyNaCl
+  version: 1.5.0
 
 requirements:
   build:

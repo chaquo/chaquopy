@@ -1,8 +1,6 @@
 package:
   name: cvxopt
-
-build:
-  number: 9
+  version: 1.2.5
 
 requirements:
   host:

@@ -1,5 +1,7 @@
 package:
   name: pyzmq
+  # When updating, check buildutils/bundle.py and update chaquopy-libzmq as well.
+  version: 18.1.1
 
 requirements:
   host:

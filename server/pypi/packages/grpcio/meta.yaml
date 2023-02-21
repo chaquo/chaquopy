@@ -1,2 +1,3 @@
 package:
   name: grpcio
+  version: 1.39.0

@@ -1,5 +1,3 @@
 package:
   name: pysha3
-
-build:
-  number: 1
+  version: 1.0.2

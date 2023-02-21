@@ -1,5 +1,3 @@
 package:
   name: Brotli
-
-build:
-  number: 12
+  version: 1.0.9

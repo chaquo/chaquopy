@@ -1,5 +1,3 @@
 package:
   name: ujson
-
-build:
-  number: 4
+  version: 5.7.0
