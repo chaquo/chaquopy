@@ -15,18 +15,14 @@ PACKAGES="
     cffi \
     numpy \
     aiohttp \
-    argon2-cffi \
     backports-zoneinfo \
-    bcrypt \
     bitarray \
     brotli \
-    cryptography \
     cymem \
     cytoolz \
     editdistance \
     ephem \
     frozenlist \
-    gensim \
     greenlet \
     kiwisolver \
     lru-dict \
@@ -113,7 +109,7 @@ for PACKAGE in ${PACKAGES}; do
     done
 
     printf "\n\n*** Building package %s version %s for Python %s ***\n\n" "${PACKAGE}" "${PACKAGE_VERSION}" "${PYTHON_VERSION}"
-    python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" --os iOS --package_name "${PACKAGE}" --package_version "${PACKAGE_VERSION}" 2>&1 | tee "${LOGS}/${PYTHON_VERSION}/${PACKAGE}.log"
+    python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" --os iOS "${PACKAGE}" "${PACKAGE_VERSION}" 2>&1 | tee "${LOGS}/${PYTHON_VERSION}/${PACKAGE}.log"
 
     # shellcheck disable=SC2010
     if [ "$(ls "dist/${PACKAGE}" | grep "cp${PYTHON_VERSION/./}" | grep -c "${PACKAGE_VERSION}")" -ge "4" ]; then

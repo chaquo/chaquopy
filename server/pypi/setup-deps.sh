@@ -48,7 +48,7 @@ touch "${LOGS}/success.log" "${LOGS}/fail.log"
 
 for DEPENDENCY in ${DEPENDENCIES}; do
   printf "\n\n*** Building dependency %s ***\n\n" "${DEPENDENCY}"
-  python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" --os iOS --package_name "${DEPENDENCY}" 2>&1 | tee "${LOGS}/deps/${DEPENDENCY}.log"
+  python build-wheel.py --toolchain "${TOOLCHAINS}" --python "${PYTHON_VERSION}" --os iOS "${DEPENDENCY}" 2>&1 | tee "${LOGS}/deps/${DEPENDENCY}.log"
 
   # shellcheck disable=SC2010
   if [ "$(ls "dist/${DEPENDENCY}" | grep -c py3)" -ge "2" ]; then

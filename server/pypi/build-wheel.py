@@ -109,13 +109,11 @@ ABIS = {
 
 
 class Package:
-    def __init__(self, package_name, package_version):
+    def __init__(self, package_name, package_version, build_number):
         self.recipe_dir = self.find_package(package_name)
-        self.meta = self.load_meta(self.recipe_dir)
+        self.meta = self.load_meta(self.recipe_dir, override_version=package_version, override_build=build_number)
         self.name = self.meta["package"]["name"]
-        self.version = package_version
-        if self.version is None:
-            self.version = self.meta["package"]["version"]
+        self.version = self.meta["package"]["version"]
 
         self.version_dir = f"{self.recipe_dir}/build/{self.version}"
 
@@ -150,7 +148,7 @@ class Package:
         assert_isdir(package_dir)
         return package_dir
 
-    def load_meta(self, package_dir):
+    def load_meta(self, package_dir, override_version, override_build):
         # http://python-jsonschema.readthedocs.io/en/latest/faq/
         def with_defaults(validator_cls):
             def set_defaults(validator, properties, instance, schema):
@@ -167,8 +165,38 @@ class Package:
         Validator = jsonschema.Draft4Validator
         schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
         Validator.check_schema(schema)
-        meta_str = jinja2.Template(open(f"{package_dir}/meta.yaml").read()).render()
+
+        with open(f"{package_dir}/meta.yaml") as f:
+            meta_template = f.read()
+            if override_version:
+                # If there's an override version, look for any {% set version... %}
+                # content in the template, and ensure it is replaced with the
+                # override version.
+                meta_template = re.sub(
+                    r'{% set version = ".*?" %}',
+                    f'{{% set version = "{override_version}" %}}',
+                    meta_template
+                )
+
+        # Render the meta template.
+        meta_str = jinja2.Template(meta_template).render()
+
+        # Parse the rendered meta template
         meta = yaml.safe_load(meta_str)
+
+        # If there's a version override, set it in the package metadata;
+        # if there's a build number override, set it; otherwise purge
+        # the build number (since it won't match the override version)
+        if override_version:
+            try:
+                meta["package"]["version"] = override_version
+                if override_build:
+                    meta.setdefault("build", {})["number"] = override_build
+                else:
+                    del meta["build"]["number"]
+            except KeyError:
+                pass
+
         with_defaults(Validator)(schema).validate(meta)
         return meta
 
@@ -1116,32 +1144,65 @@ def main():
     ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
 
     skip_group = ap.add_mutually_exclusive_group()
-    skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                            "(an existing build/.../src directory must exist, and will be "
-                            "reused)")
-    skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
-                            "skip build")
+    skip_group.add_argument(
+        "--no-unpack",
+        action="store_true",
+        help="Skip download and unpack (an existing build/.../src directory must exist, and will be reused)"
+    )
+    skip_group.add_argument(
+        "--no-build",
+        action="store_true",
+        help="Download and unpack, but skip build"
+    )
 
-    ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
-                    "(any existing build/.../requirements directory will be reused)")
-    ap.add_argument("--toolchain", metavar="DIR", type=abspath, required=True,
-                    help="Path to toolchain")
-    ap.add_argument("--python", metavar="X.Y", required=True, help="Python version (required for "
-                    "Python packages)"),
+    ap.add_argument(
+        "--no-reqs",
+        action="store_true",
+        help="Skip extracting requirements (any existing build/.../requirements directory will be reused)"
+    )
+    ap.add_argument(
+        "--toolchain",
+        metavar="DIR",
+        type=abspath,
+        required=True,
+        help="Path to toolchain"
+    )
+    ap.add_argument(
+        "--python",
+        metavar="X.Y",
+        required=True,
+        help="Python version (required for Python packages)"
+    )
     ap.add_argument("--os", required=True, help="OS to build")
-    ap.add_argument("--package_name", required=True, help=f"Name of a package in {RECIPES_DIR}, or if it "
-                    f"contains a slash, path to a recipe directory")
-    ap.add_argument("--package_version", help="Package version to build")
+    ap.add_argument(
+        "package_name_or_recipe",
+        help=f"Name of a package in {RECIPES_DIR}, or if it contains a slash, path to a recipe directory"
+    )
+    ap.add_argument(
+        "package_version",
+        nargs="?",
+        default=None,
+        help="Package version to build (Optional; overrides version in meta.yaml)"
+    )
+    ap.add_argument(
+        "build_number",
+        type=int,
+        nargs="?",
+        default=None,
+        help="Package build number to build (Optional; overrides version in meta.yaml)"
+    )
 
     args = ap.parse_args()
     kwargs = vars(args)
 
     os = kwargs.pop("os")
-    package_name = kwargs.pop("package_name")
+    package_name_or_recipe = kwargs.pop("package_name_or_recipe")
     toolchain = kwargs.pop("toolchain")
     python_version = kwargs.pop("python")
     package_version = kwargs.pop("package_version")
-    package = Package(package_name, package_version)
+    build_number = kwargs.pop("build_number")
+
+    package = Package(package_name_or_recipe, package_version, build_number)
 
     if os == "android":
         abi, api_level, standard_libs = AndroidWheelBuilder.detect_toolchain(toolchain)
