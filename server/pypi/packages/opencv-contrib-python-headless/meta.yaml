@@ -4,9 +4,6 @@ package:
   name: opencv-contrib-python-headless
   version: 4.5.1.48
 
-build:
-  number: 2
-
 requirements:
   build:
     - cmake

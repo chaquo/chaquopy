@@ -2,9 +2,6 @@ package:
   name: numba
   version: 0.48.0
 
-build:
-  number: 9
-
 requirements:
   host:
     - numpy 1.23.3

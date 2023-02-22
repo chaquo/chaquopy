@@ -4,9 +4,6 @@ package:
   name: torch
   version: {{ version }}
 
-build:
-  number: 3
-
 source:
   git_url: https://github.com/pytorch/pytorch.git
   git_rev: v{{ version }}

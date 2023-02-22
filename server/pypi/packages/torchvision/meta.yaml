@@ -4,9 +4,6 @@ package:
   name: torchvision
   version: {{ version }}
 
-build:
-  number: 1
-
 source:
   git_url: https://github.com/pytorch/vision.git
   git_rev: v{{ version }}

@@ -108,6 +108,7 @@ sysconfig._INSTALL_SCHEMES['posix_prefix'] = {
     'scripts': '/bin',
     'data': '/Resources',
 }
+sysconfig._INSTALL_SCHEMES['venv'] = sysconfig._INSTALL_SCHEMES['posix_prefix']
 
 # Call the next sitecustomize script if there is one
 # (https://nedbatchelder.com/blog/201001/running_code_at_python_startup.html).

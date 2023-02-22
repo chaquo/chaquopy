@@ -2,9 +2,6 @@ package:
   name: cffi
   version: 1.15.1
 
-build:
-  number: 1
-
 requirements:
   host:
     - libffi 3.4.2

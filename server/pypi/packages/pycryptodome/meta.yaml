@@ -3,6 +3,3 @@
 package:
   name: pycryptodome
   version: 3.9.4
-
-build:
-  number: 1

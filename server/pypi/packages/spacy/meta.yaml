@@ -2,9 +2,6 @@ package:
   name: spacy
   version: 2.2.3
 
-build:
-  number: 1
-
 requirements:
   host:
     - numpy 1.23.3

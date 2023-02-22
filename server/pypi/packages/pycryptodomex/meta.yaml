@@ -3,6 +3,3 @@
 package:
   name: pycryptodomex
   version: 3.9.4
-
-build:
-  number: 1

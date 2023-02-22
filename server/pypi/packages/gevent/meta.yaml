@@ -2,9 +2,6 @@ package:
   name: gevent
   version: 1.4.0
 
-build:
-  number: 3
-
 requirements:
   host:
     - greenlet 0.4.15

@@ -1,11 +1,6 @@
 package:
   name: numpy
-  # version: 1.19.5
-  # version: 1.17.4
-  # Most recent release as of 20221021
-  version: 1.23.3
-  # Most recent release with universal2 wheels
-  # version: 1.22.1
+  version: 1.24.2
 
 requirements:
   build:
