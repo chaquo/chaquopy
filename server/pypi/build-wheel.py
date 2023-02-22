@@ -109,8 +109,8 @@ ABIS = {
 
 
 class Package:
-    def __init__(self, package_name, package_version, build_number):
-        self.recipe_dir = self.find_package(package_name)
+    def __init__(self, package_name_or_recipe, package_version, build_number):
+        self.recipe_dir = self.find_package(package_name_or_recipe)
         self.meta = self.load_meta(self.recipe_dir, override_version=package_version, override_build=build_number)
         self.name = self.meta["package"]["name"]
         self.version = self.meta["package"]["version"]
