@@ -7,7 +7,7 @@ set -e
 # default values and settings
 
 PYTHON_APPLE_SUPPORT="Python-Apple-support"
-PYTHON_VERSION="3.10"
+PYTHON_VERSION=$(python --version | awk '{ print $2 }' | awk -F '.' '{ print $1 "." $2 }')
 
 # dependencies to build
 

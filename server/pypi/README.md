@@ -79,37 +79,38 @@ Update any GitHub issues, and notify any affected users who contacted us outside
 
 ### Quickstart
 
-Obtain a Beeware [Apple Support
-package](https://github.com/beeware/Python-Apple-support) for the Python version
-you are using, and unpack the support package into a folder that matches the Python
-version you are supporting (i.e., unpack a 3.10 support package into a folder named
-`3.10`)
+Create and activate a Python virtual environment, and run:
 
-Then run:
+    ./setup-deps.sh
 
-    ./make-deps.sh <path to support folder> <python version>
-    ./make.sh <path to support folder> <python version>
+then go get a very large meal - this will take a while to run. When the script
+finishes, it will tell you the packages that succeeded, and the packages that
+failed; if there are any failures, you can investigate further.
 
-For example, if you put the support folder in the same directory as this README, and
-you want to build Python 3.10, run:
+This will ensure you have a Python support package for your selected Python
+version, and will build the binary dependencies that aren't Python-specific.
 
-    ./make-deps.sh ./support 3.10
-    ./make.sh ./support 3.10
+### Build all packages
 
-Once you've run `make-deps.sh` for a single Python version, you don't need to run it
-for other Python versions; it is sufficient to just run `./make.sh`.
+Having run `setup-deps.sh`, run:
 
-When each script finishes, it will tell you how many packages were built, and how
-many were expected. If there is a discrepancy, you can investigate further.
+    ./make.sh
+
+Then go get an even larger meal. This will build multiple versions of all the
+packages for your current Python version. Again, when the script finishes, it will tell
+you the packages that succeeded, and the packages that failed.
 
 ### Individual packages
 
-Obtain a Beeware [Apple Support
-package](https://github.com/beeware/Python-Apple-support) for the Python version
-you are using, and unpack the support package into a folder that matches the Python
-version you are supporting (i.e., unpack a 3.10 support package into a folder named
-`3.10`). The location that contains the `3.10` folder will be provided to the
-`--toolchain` argument.
+Having run `setup-deps.sh`, run:
+
+    python build-wheel.py --toolchain support --python <python version> --os iOS <package name>
+
+For example:
+
+    python build-wheel.py --toolchain support --python 3.10 --os iOS lru-dict
+
+would build the lru-dict package for Python 3.10.
 
 If you want to build a package that uses `cmake`, you will also need to obtain
 a macOS install of cmake. Get a 'tar.gz' package, and unpack it; copy the `CMake.app`
