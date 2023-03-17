@@ -5,10 +5,10 @@ setuptools==67.0.0
 wheel==0.33.6
 
 # Other direct requirements
-Jinja2==2.10
+Jinja2==2.11.3
 jsonschema==2.6.0
-pyelftools==0.24
-PyYAML==3.12
+pyelftools==0.29
+PyYAML==6.0
 
 # Indirect requirements
 MarkupSafe==2.0.1
