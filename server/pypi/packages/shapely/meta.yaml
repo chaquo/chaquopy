@@ -1,10 +1,10 @@
 package:
   name: Shapely
-  version: 1.7.0
+  version: 1.8.5
 
 requirements:
   build:
-    - cython 0.29.14
+    - cython 0.29.32
   host:
     - chaquopy-geos 3.8.1
-    - numpy 1.17.4
+    - numpy 1.23.3
