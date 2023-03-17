@@ -513,9 +513,6 @@ class BuildWheel:
                 set(ANDROID_STL c++_shared)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
-                # Our requirements dir comes before the sysroot, because the sysroot include
-                # directory contains headers for third-party libraries like libjpeg which may
-                # be of different versions to what we want to use.
                 list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.reqs_dir}/chaquopy)
                 """), file=toolchain_file)
 
@@ -669,8 +666,13 @@ class BuildWheel:
         Validator = jsonschema.Draft4Validator
         schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
         Validator.check_schema(schema)
-        meta_str = jinja2.Template(open(f"{self.package_dir}/meta.yaml").read()).render()
-        meta = yaml.safe_load(meta_str)
+
+        meta_input = open(f"{self.package_dir}/meta.yaml").read()
+        meta_vars = {}
+        if self.python:
+            meta_vars["PY_VER"] = self.python
+
+        meta = yaml.safe_load(jinja2.Template(meta_input).render(**meta_vars))
         with_defaults(Validator)(schema).validate(meta)
         return meta
 

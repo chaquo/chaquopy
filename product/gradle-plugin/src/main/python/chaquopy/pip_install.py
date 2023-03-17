@@ -34,6 +34,8 @@ EXCLUDE_PATTERNS = [
     "chaquopy/lib/*.la",
     "chaquopy/lib/cmake/*",
     "chaquopy/lib/pkgconfig/*",
+    "chaquopy/share/doc",
+    "chaquopy/share/man",
 ]
 
 
