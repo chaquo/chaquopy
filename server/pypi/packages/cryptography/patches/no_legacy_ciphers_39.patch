@@ -1,0 +1,11 @@
+--- src-original/src/cryptography/hazmat/bindings/openssl/binding.py
++++ src/src/cryptography/hazmat/bindings/openssl/binding.py
+@@ -185,7 +185,7 @@
+                 # are ugly legacy, but we aren't going to get rid of them
+                 # any time soon.
+                 if cls.lib.CRYPTOGRAPHY_OPENSSL_300_OR_GREATER:
+-                    if not os.environ.get("CRYPTOGRAPHY_OPENSSL_NO_LEGACY"):
++                    if False:
+                         cls._legacy_provider = cls.lib.OSSL_PROVIDER_load(
+                             cls.ffi.NULL, b"legacy"
+                         )
