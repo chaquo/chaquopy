@@ -404,6 +404,9 @@ class BuildWheel:
 
     def update_env(self):
         env = {}
+        for key, value in os.environ.items():
+            env[key] = value
+
         build_common_output = run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
             f". {PYPI_DIR}/../../target/build-common.sh; export",
