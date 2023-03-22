@@ -1,0 +1,24 @@
+{% set version = "1.6.2" %}
+
+package:
+  name: chaquopy-netcdf4
+  version: {{ version }}
+
+source:
+#  url: https://pypi.org/project/netCDF4/#files/netcdf4-{{ version }}.tar.gz
+#  url: https://pypi.org/project/netCDF4/#files/netCDF4-1.6.2.tar.gz
+#  url:  http://www.unidata.ucar.edu/downloads/netcdf/ftp/netCDF4-1.6.2.tar.gz
+  git_url: https://github.com/Unidata/netcdf4-python.git
+  git_rev: v{{ version }}
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - numpy 1.24.2
+#    - h5py 3.8.0
+#    - hdf5 1.12.2
+    - cftime 1.6.2
+  host:
+    - python
