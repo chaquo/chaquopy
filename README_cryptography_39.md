@@ -2,14 +2,16 @@ This file explains how to build the cryptography 39 wheels for Python 3.10 (chaq
 
 See also https://github.com/chaquo/chaquopy/issues/657 for an overview and old instructions.
 
+Pre-built wheels available at https://github.com/emanuele-f/chaquopy-wheels
+
+*NOTE*: the patches included in this repo disable the cryptography "legacy" ciphers, which will be unavailable (as if `CRYPTOGRAPHY_OPENSSL_NO_LEGACY` were defined).
+
 The new chaquopy version extends the compatibility to Python 3.10 and Python 3.11.
 W.r.t. the old instrucitons, there are some changes made in the toolchain, mainly:
 
  - 217ada59d3ac2e592c48dd1fbd6598f9b6bb4a75  - Increase minimum API level to 21
  - 73d79a3218421de5648cc1a852106e7ee4f484c6 - Update build-wheel for new toolchain arrangement
  - now that chaquopy is opensource, the old build-wheel repository has been merged to the main chaquopy repo
-
-NOTE: armv7 is currently not working properly
 
 ## Preparing the build environment
 
@@ -128,7 +130,7 @@ export NM="$TOOLCHAIN/bin/llvm-nm"
 export READELF="$TOOLCHAIN/bin/llvm-readelf"
 export CFLAGS="-fPIC -DANDROID --sysroot=$SYSROOT"
 export CXXFLAGS="$CFLAGS"
-export LD_FLAGS="--sysroot=$SYSROOT -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_real.a -Wl,--exclude-libs,libunwind.a -Wl,--build-id=sha1 -Wl,--no-rosegment -lm -Wl,--no-undefined"
+export LDFLAGS="--sysroot=$SYSROOT -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_real.a -Wl,--exclude-libs,libunwind.a -Wl,--build-id=sha1 -Wl,--no-rosegment -lm -Wl,--no-undefined"
 
 cd $ARCH/Python-$version
 ./configure --build=x86_64-unknown-linux-gnu --host=$CPU-linux-android --enable-shared --prefix=`readlink -f ../sysroot/usr` \
@@ -150,9 +152,3 @@ patchelf --set-soname libpython3.10.so $SYSROOT/usr/lib/libpython3.10.so
 cd ~/src/chaquopy/server/pypi
 ./build-wheel.py --python 3.10 --abi $ARCH cryptography
 ```
-
-
-## Known issues
-
-- On arm7, importing the wheel at runtime throws `ImportError: dlopen failed: cannot locate symbol "decode_eht_entry"`
-- Cryptography "legacy" ciphers are disabled (as if `CRYPTOGRAPHY_OPENSSL_NO_LEGACY` were defined)
