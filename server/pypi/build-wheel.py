@@ -687,7 +687,7 @@ class BuildWheel:
 
 def find_license_files(path):
     return [f"{path}/{name}" for name in os.listdir(path)
-            if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
+            if re.search(r"^(LICEN[CS]E|COPYING|COPYRIGHT)", name.upper())]
 
 
 def update_requirements(filename, reqs):
