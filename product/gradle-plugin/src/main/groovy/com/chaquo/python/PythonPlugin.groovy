@@ -22,7 +22,7 @@ import static java.nio.file.StandardCopyOption.*
 class PythonPlugin implements Plugin<Project> {
     static final def NAME = "python"
     static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("4.1.0")
+    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("4.2.0")
 
     Project project
     ScriptHandler buildscript

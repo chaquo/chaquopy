@@ -6,9 +6,9 @@ Gradle plugin
 Chaquopy is distributed as a plugin for Android's Gradle-based build system. It can be used in
 any app which meets the following requirements:
 
-* In your project's top-level `build.gradle` file, the Android Gradle plugin version should be
-  between 4.1 and 7.2. Older versions as far back as 2.2 are supported by :doc:`older versions
-  of Chaquopy <../versions>`.
+* In your project's top-level `build.gradle` file, the Android Gradle plugin version
+  should be between 4.2 and 8.0. Older versions as far back as 2.2 are supported by
+  :doc:`older versions of Chaquopy <../versions>`.
 
   * The Android plugin may be listed as `com.android.application`, `com.android.library` or
     `com.android.tools.build:gradle`.

@@ -4,21 +4,18 @@
 
 After first release candidate:
 
-* Install Android Studio RC using the EXE installer.
-* Use the new project wizard to create a test project.
-* Integration tests:
-  * Update PATH and product/local.properties to point at the bundled JDK, and restart all programs which may depend on this.
-  * Add "base" directory, with the following all based on the new project wizard:
-      * gradle-wrapper.properties
-      * gradle.properties
-      * settings.gradle
-      * build.gradle
-  * Run tests on all platforms.
+* Check the bundled JDK version, and update product/local.properties to point at it.
+* Use the new project wizard to create an "Empty Activity" project.
+* Create a directory integration/data/base-X.Y, where X.Y is the Android Gradle plugin
+  version.
+* Copy the contents from the previous base-X.Y directory, then update them with the
+  settings from the "Empty Activity" project.
+* Run tests on all platforms.
 
 After stable release:
 
-* Update to stable, using the built-in updater if possible.
-* Create a new test project with the new project wizard, and update the "base" directory as above.
+* As above, update the integration/data/base-X.Y directory with the settings from the
+  new project wizard.
 * Update the following apps with settings from the new project wizard: demo, pkgtest, piptest. Leave the public apps alone for now: they will be dealt with during the next release (see release/README.md).
   * Update all items listed under "base" directory above.
   * Update .gitignore file, and git rm any newly-ignored files.
@@ -27,7 +24,7 @@ After stable release:
 * Run integration tests on all platforms.
 * If we're not already planning to make a Chaquopy release soon, temporarily edit
   `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new
-  AGP version.
+  AGP version, on all platforms.
   * If it passes, update android.rst and versions.rst for the existing version, add a note
     in changelog.rst, and publish them to the website.
   * If it fails, perform a Chaquopy release as soon as possible, because Android Studio's
@@ -38,16 +35,17 @@ After stable release:
 
 * Increment Chaquopy major version if not already done.
 * Update MIN_ANDROID_PLUGIN_VER in PythonPlugin.
+* Check if there's any version-dependent code in the plugin or the tests which can now
+  be removed.
 * Integration tests:
   * Remove AndroidPlugin/old, then move the old base-X.Y directory to replace it.
   * Update test_old expected message, then run the test.
 * Update android.rst and versions.rst.
-* Consider increasing the Gradle version of the "product" project (see product/gradle/wrapper/gradle-wrapper.properties).
-* (Optional) Uninstall the corresponding Android Studio version to free up space:
-  * Check note about `javaHome` in product/runtime/build.gradle.
-  * If bundled JDK was in the PATH or product/local.properties, update them, and restart all programs which may depend on this.
-  * Run uninstaller in program directory.
-  * Remove configuration directory (AppData/Roaming/Google/AndroidStudioX.Y)
+* Consider increasing the Gradle version of the "product" project (see
+  product/gradle/wrapper/gradle-wrapper.properties).
+* (Optional) Uninstall the corresponding Android Studio version to free up space, but
+  first check the note about `javaHome` in product/runtime/build.gradle.
+  * Update product/local.properties if necessary.
 
 
 ## Adding support for a buildPython version
