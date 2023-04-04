@@ -5,3 +5,6 @@
 -keep class kotlin.jvm.functions.** { * ; }
 -keep class kotlin.jvm.internal.FunctionBase { * ; }
 -keep class kotlin.reflect.KAnnotatedElement { *; }
+
+# TODO: https://github.com/chaquo/chaquopy/issues/842
+-dontwarn org.jetbrains.annotations.NotNull
