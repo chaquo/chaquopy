@@ -645,7 +645,10 @@ class BuildWheel:
     def get_requirements(self, req_type):
         reqs = []
         for req in self.meta["requirements"][req_type]:
-            package, version = req.split()
+            try:
+                package, version = req.split()
+            except ValueError:
+                raise CommandError(f"Failed to parse requirement {req!r}")
             reqs.append((package, version))
         return reqs
 
