@@ -1,0 +1,9 @@
+package:
+  name: astropy
+  version: 5.1
+
+requirements:
+  build:
+    - cython 0.29.32
+    - extension-helpers 1.0.0
+    - setuptools-scm 7.1.0

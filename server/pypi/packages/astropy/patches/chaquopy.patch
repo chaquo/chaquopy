@@ -1,0 +1,9 @@
+--- src-original/setup.py       2022-05-24 19:43:02.000000000 +0000
++++ src/setup.py        2023-02-13 12:07:48.893006417 +0000
+@@ -65,4 +65,5 @@
+ from setuptools import setup  # noqa
+ from extension_helpers import get_extensions  # noqa
+ 
+-setup(ext_modules=get_extensions())
++from setuptools_scm import get_version
++setup(ext_modules=get_extensions(), version=get_version())
