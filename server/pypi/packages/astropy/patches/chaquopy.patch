@@ -1,6 +1,17 @@
---- src-original/setup.py       2022-05-24 19:43:02.000000000 +0000
-+++ src/setup.py        2023-02-13 12:07:48.893006417 +0000
-@@ -65,4 +65,5 @@
+--- src-oririginal/setup.py	2022-05-24 19:43:02.000000000 +0000
++++ src/setup.py	2023-04-06 16:08:59.631926941 +0000
+@@ -4,6 +4,10 @@
+ # NOTE: The configuration for the package, including the name, version, and
+ # other information are set in the setup.cfg file.
+ 
++# Chaquopy
++import builtins
++builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++
+ import sys
+ 
+ # First provide helpful messages if contributors try and run legacy commands
+@@ -65,4 +69,5 @@
  from setuptools import setup  # noqa
  from extension_helpers import get_extensions  # noqa
  
