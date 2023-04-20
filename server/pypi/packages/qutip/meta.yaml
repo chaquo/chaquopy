@@ -1,0 +1,11 @@
+package:
+  name: qutip
+  version: 5.0.0a1
+
+requirements:
+  build:
+    - cython 0.29.34
+    - packaging 23.1
+  host:
+    - numpy 1.19.5
+    - scipy 1.4.1
