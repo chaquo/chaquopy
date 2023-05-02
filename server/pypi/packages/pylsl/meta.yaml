@@ -1,3 +1,12 @@
 package:
     name : pylsl
     version : 1.10.4
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - packaging 22.0
+  host:
+    - lsl 16.1.2
