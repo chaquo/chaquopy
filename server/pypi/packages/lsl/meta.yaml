@@ -1,11 +1,11 @@
-{% set version = "16.1.2" %}
+{% set version = "1.16.1" %}
 
 package:
   name: lsl
-  version: {{ version }}  # See buildutils/bundle.py in pyzmq
+  version: {{ version }}
 
 build:
   number: 0
 
 source:
-  url: https://github.com/zeromq/libzmq/releases/download/v{{ version }}/zeromq-{{ version }}.tar.gz
+  url: https://github.com/sccn/liblsl/releases/download/v{{ version }}/liblsl-{{ version }}-focal_amd64.deb
