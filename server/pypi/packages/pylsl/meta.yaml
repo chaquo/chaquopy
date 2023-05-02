@@ -9,4 +9,4 @@ requirements:
   build:
     - packaging 22.0
   host:
-    - lsl 16.1.2
+    - lsl 16.1.1
