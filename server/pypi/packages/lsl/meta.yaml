@@ -9,3 +9,7 @@ build:
 
 source:
   url: https://github.com/sccn/liblsl.git
+
+requirements:
+  build:
+    - cmake
