@@ -8,7 +8,7 @@ build:
   number: 0
 
 source:
-  url: https://github.com/sccn/liblsl/releases/download/v{{ version }}/liblsl-{{ version }}-OSX_amd64.tar.bz2
+  url: https://github.com/sccn/liblsl/releases/download/v{{ version }}/liblsl-{{ version }}-focal_amd64.deb
 
 requirements:
   build:
