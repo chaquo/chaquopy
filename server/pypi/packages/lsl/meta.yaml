@@ -8,8 +8,7 @@ build:
   number: 0
 
 source:
-  git_url: https://github.com/sccn/liblsl.git
-  git_rev: v{{ version }}
+  url: https://github.com/sccn/liblsl/releases/download/v{{ version }}/liblsl-{{ version }}-OSX_amd64.tar.bz2
 
 requirements:
   build:
