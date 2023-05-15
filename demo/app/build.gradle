@@ -19,6 +19,7 @@ afterEvaluate {
 }
 
 android {
+    namespace "com.chaquo.python.demo"
     compileSdkVersion 33
 
     defaultConfig {

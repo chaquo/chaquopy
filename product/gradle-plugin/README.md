@@ -16,11 +16,15 @@ After stable release:
 
 * As above, update the integration/data/base-X.Y directory with the settings from the
   new project wizard.
-* Update the following apps with settings from the new project wizard: demo, pkgtest, piptest. Leave the public apps alone for now: they will be dealt with during the next release (see release/README.md).
-  * Update all items listed under "base" directory above.
+* Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
+  will be dealt with during the next release (see release/README.md).
+  * Run Android Studio Upgrade Assistant.
+  * Update all items from the "base" directory above.
   * Update .gitignore file, and git rm any newly-ignored files.
   * Test the app.
-* Sync the "product" project in the new Android Studio version in case of any .idea file updates, but see note in product/gradle/wrapper/gradle-wrapper.properties before updating the Gradle version.
+* Sync the "product" project in the new Android Studio version in case of any .idea file
+  updates, but see the note in product/gradle/wrapper/gradle-wrapper.properties before
+  updating the Gradle version.
 * Run integration tests on all platforms.
 * If we're not already planning to make a Chaquopy release soon, temporarily edit
   `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new

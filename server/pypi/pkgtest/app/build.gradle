@@ -51,6 +51,7 @@ ext.TEST_PACKAGES = [
 
 
 android {
+    namespace "com.chaquo.python.pkgtest3"
     compileSdkVersion 33
 
     defaultConfig {
