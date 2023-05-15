@@ -1,6 +1,6 @@
 package:
   name: qutip
-  version: 5.0.0a1
+  version: 4.7.1
 
 requirements:
   build:

@@ -136,13 +136,15 @@ class TestQutip(unittest.TestCase):
         ])
 
     def test_qobjevo_create(self):
-        from qutip import QobjEvo, sigmax
+        from qutip import __version__, QobjEvo, sigmax
         import numpy as np
+
+        version_major = int(__version__.split(".")[0])
 
         q = QobjEvo([[sigmax(), "sin(w * t)"]], args={"w": 0.5})
 
-        assert q.type == "oper"
-        assert q.isconstant is False
+        assert q.type == "string" if (version_major < 5) else "oper"
+        assert (q.const if (version_major < 5) else q.isconstant) is False
 
         assert_qobj_data(q(0), [
             [0, 0],
