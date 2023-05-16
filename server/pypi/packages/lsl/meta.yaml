@@ -7,7 +7,7 @@ package:
 build:
   number: 0
 
-source:²
+source:
   git_url: https://github.com/sccn/liblsl.git
   git_rev: v{{ version }}
 
