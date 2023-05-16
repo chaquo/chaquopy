@@ -48,8 +48,9 @@ After stable release:
 * Consider increasing the Gradle version of the "product" project (see
   product/gradle/wrapper/gradle-wrapper.properties).
 * (Optional) Uninstall the corresponding Android Studio version to free up space, but
-  first check the note about `javaHome` in product/runtime/build.gradle.
-  * Update product/local.properties if necessary.
+  first make sure it's not referenced from product/local.properties.
+  * Also remove the [configuration
+    directory](https://developer.android.com/studio/intro/studio-config#file_location).
 
 
 ## Adding support for a buildPython version
