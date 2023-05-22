@@ -9,4 +9,4 @@ requirements:
   build:
     - packaging 22.0
   host:
-    - lsl 1.16.1
+    - chaquopy-liblsl 1.16.1

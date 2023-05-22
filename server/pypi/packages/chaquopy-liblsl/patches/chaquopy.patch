@@ -8,6 +8,6 @@ index 860670f..7afd105 100644
 
 -std::vector<lsl::netif> get_interface_addresses() {
 +std::vector<lsl::netif> lsl::get_local_interfaces() {
-        LOG_F(WARNING, "No implementation to enumerate network interfaces found.");
-        return std::vector<lsl::netif>();
+ 	LOG_F(WARNING, "No implementation to enumerate network interfaces found.");
+ 	return std::vector<lsl::netif>();
  }

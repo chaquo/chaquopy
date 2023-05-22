@@ -1,15 +1,14 @@
 {% set version = "1.16.1" %}
 
 package:
-  name: lsl
+  name: chaquopy-liblsl
   version: {{ version }}
 
 build:
   number: 0
 
 source:
-  git_url: https://github.com/sccn/liblsl.git
-  git_rev: v{{ version }}
+  url: https://github.com/sccn/liblsl/archive/refs/tags/v{{ version }}.tar.gz
 
 requirements:
   build:
