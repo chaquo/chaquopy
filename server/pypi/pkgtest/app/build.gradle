@@ -42,6 +42,7 @@ ext.TEST_PACKAGES = [
     "grpcio": ["protobuf"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
+    "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
@@ -50,6 +51,7 @@ ext.TEST_PACKAGES = [
 
 
 android {
+    namespace "com.chaquo.python.pkgtest3"
     compileSdkVersion 33
 
     defaultConfig {

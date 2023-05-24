@@ -37,6 +37,9 @@ Features
   <https://github.com/chaquo/chaquopy/issues/754>`__)
 - Android Gradle plugin version 7.4 is now supported. (`#756
   <https://github.com/chaquo/chaquopy/issues/756>`__)
+- Android Gradle plugin version 8.0 is now supported, though projects which use
+  `minifyEnabled true` will need a workaround. (`#842
+  <https://github.com/chaquo/chaquopy/issues/842>`__)
 - Update to pip version 20.1.
 
 
