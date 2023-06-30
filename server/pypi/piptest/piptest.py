@@ -11,22 +11,22 @@ import subprocess
 import sys
 
 
-PROGRAM_NAME = basename(__file__)
-TIME_LIMIT = 300  # seconds
-piptest_dir = abspath(dirname(__file__))
+PROGRAM_NAME: str = basename(__file__)
+TIME_LIMIT: int = 300  # seconds
+piptest_dir: str = abspath(dirname(__file__))
 
 
 def main():
     args = parse_args()
     print(f"{args.package}: start", flush=True)
 
-    build_dir = ensure_empty(join(piptest_dir, "build", args.package))
+    build_dir: str = ensure_empty(join(piptest_dir, "build", args.package))
     copy_tree(join(piptest_dir, "src"), build_dir)
 
-    log_dir = ensure_dir(join(piptest_dir, "log"))
+    log_dir: str = ensure_dir(join(piptest_dir, "log"))
     with open(join(log_dir, args.package + ".txt"), "wb", buffering=0) as log_file:
         log_file_text = io.TextIOWrapper(log_file, write_through=True)
-        timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        timestamp: str = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         print(f"{PROGRAM_NAME}: testing '{args.package}' at {timestamp}", file=log_file_text)
         os.chdir(build_dir)
         os.environ.update(piptest_verbose=str(args.v), piptest_package=args.package)
@@ -57,12 +57,12 @@ def parse_args():
     return ap.parse_args()
 
 
-def ensure_empty(dir_name):
+def ensure_empty(dir_name: str) -> str:
     if exists(dir_name):
         rmtree(dir_name)
     return ensure_dir(dir_name)
 
-def ensure_dir(dir_name):
+def ensure_dir(dir_name: str) -> str:
     if not exists(dir_name):
         os.makedirs(dir_name)
     return dir_name
