@@ -23,9 +23,9 @@ import jinja2
 import yaml
 
 
-PROGRAM_NAME = basename(__file__)
-PYPI_DIR = abspath(dirname(__file__))
-RECIPES_DIR = f"{PYPI_DIR}/packages"
+PROGRAM_NAME: str = basename(__file__)
+PYPI_DIR: str = abspath(dirname(__file__))
+RECIPES_DIR: str = f"{PYPI_DIR}/packages"
 
 # Libraries are grouped by minimum API level and listed under their SONAMEs.
 STANDARD_LIBS = [
@@ -67,7 +67,7 @@ ABIS = {abi.name: abi for abi in [
 
 class BuildWheel:
 
-    def main(self):
+    def main(self) -> None:
         try:
             self.parse_args()
             self.package_dir = self.find_package(self.package)
@@ -145,7 +145,7 @@ class BuildWheel:
             wheel_filename = self.build_wheel()
             return self.fix_wheel(wheel_filename)
 
-    def parse_args(self):
+    def parse_args(self) -> None:
         ap = argparse.ArgumentParser(add_help=False)
         ap.add_argument("--help", action="help", help=argparse.SUPPRESS)
         ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
@@ -173,7 +173,7 @@ class BuildWheel:
                                   if self.api_level >= min_level),
                                  start=[])
 
-    def find_target(self):
+    def find_target(self) -> None:
         if self.python is None:
             raise CommandError("This package requires a target package: specify a "
                                "Python version number with the --python argument")
@@ -190,12 +190,12 @@ class BuildWheel:
             except ValueError:
                 raise ERROR
 
-        target_dir = abspath(f"{PYPI_DIR}/../../maven/com/chaquo/python/target")
+        target_dir: str = abspath(f"{PYPI_DIR}/../../maven/com/chaquo/python/target")
         versions = [ver for ver in os.listdir(target_dir) if ver.startswith(self.python)]
         if not versions:
             raise CommandError(f"Can't find Python {self.python} in {target_dir}")
-        max_ver = max(versions, key=lambda ver: [int(x) for x in re.split(r"[.-]", ver)])
-        target_version_dir = f"{target_dir}/{max_ver}"
+        max_ver: int = max(versions, key=lambda ver: [int(x) for x in re.split(r"[.-]", ver)])
+        target_version_dir: str = f"{target_dir}/{max_ver}"
 
         zips = glob(f"{target_version_dir}/target-*-{self.abi}.zip")
         if len(zips) != 1:
@@ -206,15 +206,15 @@ class BuildWheel:
         # so we run pip with a matching version.
         self.pip = f"python{self.python} -m pip --disable-pip-version-check"
 
-    def unpack_source(self):
+    def unpack_source(self) -> None:
         source = self.meta["source"]
         if not source:
             ensure_dir(self.src_dir)
         elif "path" in source:
-            abs_path = abspath(join(self.package_dir, source["path"]))
+            abs_path: str = abspath(join(self.package_dir, source["path"]))
             run(f"cp -a {abs_path} {self.src_dir}")
         else:
-            source_filename = (self.download_git(source) if "git_url" in source
+            source_filename: str = (self.download_git(source) if "git_url" in source
                                else self.download_pypi() if source == "pypi"
                                else self.download_url(source["url"]))
             temp_dir = tempfile.mkdtemp(prefix="build-wheel-")
@@ -236,16 +236,16 @@ class BuildWheel:
                 run(f"mv {self.src_dir}/pyproject.toml "
                     f"{self.src_dir}/pyproject-chaquopy-disabled.toml")
 
-    def download_git(self, source):
+    def download_git(self, source) -> str:
         git_rev = source["git_rev"]
-        is_hash = len(str(git_rev)) == 40
+        is_hash: bool = len(str(git_rev)) == 40
 
         # Clones with many submodules can be slow, so cache the clean repository tree.
-        tgz_filename = f"{self.package}-{git_rev}.tar.gz"
+        tgz_filename: str = f"{self.package}-{git_rev}.tar.gz"
         if exists(tgz_filename):
             log("Using cached repository")
         else:
-            clone_cmd = "git clone --recurse-submodules"
+            clone_cmd: str = "git clone --recurse-submodules"
             if not is_hash:
                 # Unfortunately --depth doesn't apply to submodules, and --shallow-submodules
                 # doesn't work either (https://github.com/rust-lang/rust/issues/34228).
@@ -261,8 +261,8 @@ class BuildWheel:
 
         return tgz_filename
 
-    def download_pypi(self):
-        sdist_filename = self.find_sdist()
+    def download_pypi(self) -> str:
+        sdist_filename: str = self.find_sdist()
         if sdist_filename:
             log("Using cached sdist")
         else:
@@ -276,37 +276,37 @@ class BuildWheel:
                 # time, we can't work around it by patching the package, because we haven't had
                 # a chance to apply the patches yet.
                 warn(f"pip download returned exit status {result.returncode}")
-            sdist_filename = self.find_sdist()
+            sdist_filename: str = self.find_sdist()
             if not sdist_filename:
                 raise CommandError("Can't find downloaded source archive. Does the name and "
                                    "version in the package's meta.yaml match the filename "
                                    "shown above?")
         return sdist_filename
 
-    def find_sdist(self):
+    def find_sdist(self) -> str:
         for ext in ["zip", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz"]:
-            filename = f"{self.package}-{self.version}.{ext}"
+            filename: str = f"{self.package}-{self.version}.{ext}"
             if exists(filename):
                 return filename
 
-    def download_url(self, url):
-        source_filename = url[url.rfind("/") + 1:]
+    def download_url(self, url: str) -> str:
+        source_filename: str = url[url.rfind("/") + 1:]
         if exists(source_filename):
             log("Using cached source archive")
         else:
             run(f"wget {url}")
         return source_filename
 
-    def apply_patches(self):
-        patches_dir = f"{self.package_dir}/patches"
+    def apply_patches(self) -> None:
+        patches_dir: str = f"{self.package_dir}/patches"
         if exists(patches_dir):
             cd(self.src_dir)
             for patch_filename in os.listdir(patches_dir):
                 run(f"patch -p1 -i {patches_dir}/{patch_filename}")
 
-    def build_wheel(self):
+    def build_wheel(self) -> str:
         cd(self.src_dir)
-        build_script = f"{self.package_dir}/build.sh"
+        build_script: str = f"{self.package_dir}/build.sh"
         if exists(build_script):
             return self.build_with_script(build_script)
         elif self.needs_python:
@@ -316,7 +316,7 @@ class BuildWheel:
                                "declared as a Python package. Do you need to add a `host` "
                                "requirement of `python`? See meta-schema.yaml.")
 
-    def extract_requirements(self):
+    def extract_requirements(self) -> None:
         ensure_empty(self.reqs_dir)
         for subdir in ["include", "lib"]:
             ensure_dir(f"{self.reqs_dir}/chaquopy/{subdir}")
@@ -324,7 +324,7 @@ class BuildWheel:
             self.extract_target()
 
         for package, version in self.get_requirements("host"):
-            dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
+            dist_dir: str = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
             matches = []
             if exists(dist_dir):
                 for filename in os.listdir(dist_dir):
@@ -338,19 +338,19 @@ class BuildWheel:
             if not matches:
                 raise CommandError(f"Couldn't find wheel for requirement {package} {version}")
             matches.sort(key=lambda match: int(match.group("build_num")))
-            wheel_filename = join(dist_dir, matches[-1].group(0))
+            wheel_filename: str = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
 
             # Move data files into place (used by torchvision to build against torch).
-            data_dir = f"{self.reqs_dir}/{package}-{version}.data/data"
+            data_dir: str = f"{self.reqs_dir}/{package}-{version}.data/data"
             if exists(data_dir):
                 for name in os.listdir(data_dir):
                     run(f"mv {data_dir}/{name} {self.reqs_dir}")
 
             # Put headers on the include path (used by gevent to build against greenlet).
-            include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
+            include_src: str = f"{self.reqs_dir}/{package}-{version}.data/headers"
             if exists(include_src):
-                include_tgt = f"{self.reqs_dir}/chaquopy/include/{package}"
+                include_tgt: str = f"{self.reqs_dir}/chaquopy/include/{package}"
                 run(f"mkdir -p {dirname(include_tgt)}")
                 run(f"mv {include_src} {include_tgt}")
 
@@ -361,10 +361,10 @@ class BuildWheel:
         SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
                            (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
                            (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
-        reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
+        reqs_lib_dir: str = f"{self.reqs_dir}/chaquopy/lib"
         for filename in os.listdir(reqs_lib_dir):
             for pattern, repl in SONAME_PATTERNS:
-                link_filename = re.sub(pattern, repl, filename)
+                link_filename: str = re.sub(pattern, repl, filename)
                 if link_filename in self.standard_libs:
                     continue  # e.g. torch has libc10.so, which would become libc.so.
                 if link_filename != filename:
@@ -372,24 +372,24 @@ class BuildWheel:
 
     # On Android, some libraries are incorporated into libc. Create empty .a files so we
     # don't have to patch everything that links against them.
-    def create_dummy_libs(self):
+    def create_dummy_libs(self) -> None:
         for name in ["pthread", "rt"]:
             run(f"{os.environ['AR']} rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
 
-    def extract_target(self):
+    def extract_target(self) -> None:
         run(f"unzip -q -d {self.reqs_dir}/chaquopy {self.target_zip} include/* jniLibs/*")
         run(f"mv {self.reqs_dir}/chaquopy/jniLibs/{self.abi}/* {self.reqs_dir}/chaquopy/lib",
             shell=True)
         run(f"rm -r {self.reqs_dir}/chaquopy/jniLibs")
 
-    def build_with_script(self, build_script):
-        prefix_dir = f"{self.build_dir}/prefix"
+    def build_with_script(self, build_script) -> str:
+        prefix_dir: str = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
         os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
         run(build_script)
         return self.package_wheel(prefix_dir, self.src_dir)
 
-    def build_with_pip(self):
+    def build_with_pip(self) -> str:
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
         # setuptools-aware setup.py files.
         run(f"{self.pip} wheel --no-deps "
@@ -402,7 +402,7 @@ class BuildWheel:
         wheel_filename, = glob("*.whl")  # Note comma
         return abspath(wheel_filename)
 
-    def update_env(self):
+    def update_env(self) -> None:
         env = {}
         build_common_output = run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
@@ -424,7 +424,7 @@ class BuildWheel:
         # See env/bin/pkg-config.
         del env["PKG_CONFIG"]
 
-        env_dir = f"{PYPI_DIR}/env"
+        env_dir: str = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{env_dir}/bin",
             f"{self.reqs_dir}/chaquopy/bin",  # For "-config" scripts.
@@ -496,9 +496,9 @@ class BuildWheel:
                 "\n".join(f"export {key}='{value}'" for key, value in env.items()))
         os.environ.update(env)
 
-    def generate_cmake_toolchain(self, env):
-        ndk = abspath(f"{env['CC']}/../../../../../..")
-        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
+    def generate_cmake_toolchain(self, env) -> None:
+        ndk: str = abspath(f"{env['CC']}/../../../../../..")
+        toolchain_filename: str = join(self.build_dir, "chaquopy.toolchain.cmake")
 
         # This environment variable requires CMake 3.21 or later, so until we can rely on
         # that being available, we'll still need to patch packages to pass it on the
@@ -531,11 +531,11 @@ class BuildWheel:
                     SET(PYTHON_MODULE_EXTENSION .so)
                     """), file=toolchain_file)
 
-    def fix_wheel(self, in_filename):
-        tmp_dir = f"{self.build_dir}/fix_wheel"
+    def fix_wheel(self, in_filename: str) -> str:
+        tmp_dir: str = f"{self.build_dir}/fix_wheel"
         ensure_empty(tmp_dir)
         run(f"unzip -d {tmp_dir} -q {in_filename}")
-        info_dir = assert_isdir(f"{tmp_dir}/{self.name_version}.dist-info")
+        info_dir: str = assert_isdir(f"{tmp_dir}/{self.name_version}.dist-info")
 
         # This can't be done before the build, because sentencepiece generates a license file
         # in the source directory during the build.
@@ -564,9 +564,9 @@ class BuildWheel:
         reqs = set()
         log("Processing native binaries")
         for path, _, _ in csv.reader(open(f"{info_dir}/RECORD")):
-            is_shared = bool(re.search(SO_PATTERN, path))
-            is_static = path.endswith(".a")
-            is_executable = (path.startswith("chaquopy/bin/") and
+            is_shared: bool = bool(re.search(SO_PATTERN, path))
+            is_static: bool = path.endswith(".a")
+            is_executable: bool = (path.startswith("chaquopy/bin/") and
                              not open(f"{tmp_dir}/{path}", "rb").read().startswith(b"#!"))
             if not any([is_executable, is_shared, is_static]):
                 continue
@@ -574,7 +574,7 @@ class BuildWheel:
             # Because distutils doesn't propertly support cross-compilation, native
             # modules will be tagged with the build platform, e.g.
             # `foo.cpython-36m-x86_64-linux-gnu.so`. Remove these tags.
-            original_path = join(tmp_dir, path)
+            original_path: str = join(tmp_dir, path)
             fixed_path = re.sub(r"\.(cpython-[^.]+|abi3)\.so$", ".so", original_path)
             if fixed_path != original_path:
                 run(f"mv {original_path} {fixed_path}")
@@ -593,18 +593,18 @@ class BuildWheel:
         if reqs:
             update_requirements(f"{info_dir}/METADATA", reqs)
             # Remove the optional JSON copy to save us from having to update it too.
-            info_metadata_json = f"{info_dir}/metadata.json"
+            info_metadata_json: str = f"{info_dir}/metadata.json"
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
+        out_dir: str = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
+        out_filename: str = self.package_wheel(tmp_dir, out_dir)
         log(f"Wrote {out_filename}")
         return out_filename
 
-    def package_wheel(self, in_dir, out_dir):
-        build_num = os.environ["PKG_BUILDNUM"]
-        info_dir = ensure_dir(f"{in_dir}/{self.name_version}.dist-info")
+    def package_wheel(self, in_dir: str, out_dir: str) -> str:
+        build_num: str = os.environ["PKG_BUILDNUM"]
+        info_dir: str = ensure_dir(f"{in_dir}/{self.name_version}.dist-info")
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",
                              "Root-Is-Purelib": "false"},
@@ -624,7 +624,7 @@ class BuildWheel:
         run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {build_num}")
         return join(out_dir, f"{self.name_version}-{build_num}-{self.compat_tag}.whl")
 
-    def check_requirements(self, filename, available_libs):
+    def check_requirements(self, filename: str, available_libs):
         reqs = []
         ef = ELFFile(open(filename, "rb"))
         dynamic = ef.get_section_by_name(".dynamic")
@@ -679,7 +679,7 @@ class BuildWheel:
         with_defaults(Validator)(schema).validate(meta)
         return meta
 
-    def find_package(self, name):
+    def find_package(self, name: str) -> str:
         if "/" in name:
             package_dir = abspath(name)
         else:
@@ -688,12 +688,12 @@ class BuildWheel:
         return package_dir
 
 
-def find_license_files(path):
+def find_license_files(path: str):
     return [f"{path}/{name}" for name in os.listdir(path)
             if re.search(r"^(LICEN[CS]E|COPYING|COPYRIGHT)", name.upper())]
 
 
-def update_requirements(filename, reqs):
+def update_requirements(filename: str, reqs) -> None:
     msg = read_message(filename)
     for name, version in reqs:
         # If the package provides its own requirement, leave it unchanged.
@@ -706,7 +706,7 @@ def update_requirements(filename, reqs):
     write_message(msg, filename)
 
 
-def update_message_file(filename, d, *args, **kwargs):
+def update_message_file(filename: str, d, *args, **kwargs):
     try:
         msg = read_message(filename)
     except FileNotFoundError:
@@ -716,11 +716,11 @@ def update_message_file(filename, d, *args, **kwargs):
     return msg
 
 
-def read_message(filename):
+def read_message(filename: str):
     return parser.Parser().parse(open(filename))
 
 
-def update_message(msg, d, *, if_exist):
+def update_message(msg, d, *, if_exist: str) -> None:
     for key, values in d.items():
         if if_exist == "keep":
             if key in msg:
@@ -736,22 +736,22 @@ def update_message(msg, d, *, if_exist):
             msg[key] = value  # In this API, __setitem__ doesn't overwrite existing items.
 
 
-def write_message(msg, filename):
+def write_message(msg, filename: str):
     # I don't know whether maxheaderlen is required, but it's used by bdist_wheel.
     generator.Generator(open(filename, "w"), maxheaderlen=0).flatten(msg)
 
 
 # See PEP 503.
-def normalize_name_pypi(name):
+def normalize_name_pypi(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 # This is what bdist_wheel does both for wheel filenames and .dist-info directory names.
 # NOTE: this is not entirely equivalent to the specifications in PEP 427 and PEP 376.
-def normalize_name_wheel(name):
+def normalize_name_wheel(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9.]+", '_', name)
 
 #  e.g. "2017.01.02" -> "2017.1.2"
-def normalize_version(version):
+def normalize_version(version: str) -> str:
     return str(pkg_resources.parse_version(version))
 
 
@@ -768,37 +768,37 @@ def run(command, **kwargs):
         raise CommandError(f"Command returned exit status {e.returncode}")
 
 
-def ensure_empty(dir_name):
+def ensure_empty(dir_name: str) -> str:
     if exists(dir_name):
         run(f"rm -rf {dir_name}")
     return ensure_dir(dir_name)
 
-def ensure_dir(dir_name):
+def ensure_dir(dir_name: str) -> str:
     if not exists(dir_name):
         run(f"mkdir -p {dir_name}")
     return dir_name
 
-def assert_isdir(filename):
+def assert_isdir(filename: str) -> str:
     assert_exists(filename)
     if not isdir(filename):
         raise CommandError(f"{filename} is not a directory")
     return filename
 
-def assert_exists(filename):
+def assert_exists(filename: str) -> None:
     if not exists(filename):
         raise CommandError(f"{filename} does not exist")
 
 
-def cd(new_dir):
+def cd(new_dir: str) -> None:
     if new_dir != os.getcwd():
         log(f"cd {new_dir}")
         os.chdir(new_dir)
 
 
-def warn(s):
+def warn(s: str) -> None:
     log(f"Warning: {s}")
 
-def log(s):
+def log(s: str) -> None:
     print(f"{PROGRAM_NAME}: {s}")
     sys.stdout.flush()
 
