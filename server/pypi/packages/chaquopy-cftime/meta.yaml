@@ -1,0 +1,18 @@
+package:
+  name: cftime
+  version: 1.6.2
+
+build:
+  number: 0
+
+source:
+  git_url: https://github.com/Unidata/cftime.git
+  git_rev: v1.6.2rel
+
+requirements:
+  build:
+    - Cython 0.29.32
+  host:
+    - python
+    - numpy 1.23.3
+#    - numpy 1.19.5

@@ -1,0 +1,59 @@
+--- src-original/setup.py	2023-05-29 14:09:26.624130338 -0600
++++ src/setup.py	2023-05-29 14:09:19.180410341 -0600
+@@ -5,6 +5,11 @@
+ from setuptools import setup, Extension
+ from setuptools.dist import Distribution
+ 
++# Chaquopy
++import builtins
++sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
++builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported
++
+ open_kwargs = {'encoding': 'utf-8'}
+ 
+ 
+@@ -390,8 +395,8 @@
+                     sys.stdout.write('%s found in %s\n' %
+                                     (hdf5_version,HDF5_dir))
+                     break
+-            if HDF5_dir is None:
+-                raise ValueError('did not find HDF5 headers')
++#turn off            if HDF5_dir is None:
++#turn off                raise ValueError('did not find HDF5 headers')
+         else:
+             if HDF5_incdir is None:
+                 HDF5_incdir = os.path.join(HDF5_dir, 'include')
+@@ -487,14 +492,14 @@
+     if netCDF4_incdir is not None: inc_dirs.append(netCDF4_incdir)
+ 
+     # add szip to link if desired.
+-    if szip_libdir is None and szip_dir is not None:
++    if szip_libdir is None and szip_dir is not None: 
+         szip_libdir = os.path.join(szip_dir, 'lib')
+     if szip_incdir is None and szip_dir is not None:
+         szip_incdir = os.path.join(szip_dir, 'include')
+     if szip_incdir is not None and szip_libdir is not None:
+         libs.append('sz')
+         lib_dirs.append(szip_libdir)
+-        inc_dirs.append(szip_incdir)
++        inc_dirs.append(szip_incdir) 
+     # add hdf4 to link if desired.
+     if hdf4_libdir is None and hdf4_dir is not None:
+         hdf4_libdir = os.path.join(hdf4_dir, 'lib')
+@@ -515,14 +520,14 @@
+         lib_dirs.append(jpeg_libdir)
+         inc_dirs.append(jpeg_incdir)
+     # add curl to link if desired.
+-    if curl_libdir is None and curl_dir is not None:
++    if curl_libdir is None and curl_dir is not None: 
+         curl_libdir = os.path.join(curl_dir, 'lib')
+     if curl_incdir is None and curl_dir is not None:
+         curl_incdir = os.path.join(curl_dir, 'include')
+     if curl_incdir is not None and curl_libdir is not None:
+         libs.append('curl')
+         lib_dirs.append(curl_libdir)
+-        inc_dirs.append(curl_incdir)
++        inc_dirs.append(curl_incdir) 
+ 
+ if sys.platform == 'win32':
+     runtime_lib_dirs = []
