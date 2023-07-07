@@ -1,14 +1,16 @@
 package:
 #  name: chaquopy-netcdf4-python
   name: netCDF4
-  version: 1.6.3
+#  version: 1.6.3
+  version: 1.6.4
 
 build:
   number: 0
 
 source:
   git_url: https://github.com/Unidata/netcdf4-python.git
-  git_rev: v1.6.3rel
+#  git_rev: v1.6.3rel
+  git_rev: v1.6.4rel
 
 requirements:
   build:
@@ -16,7 +18,8 @@ requirements:
   host:
     - python
 #    - numpy 1.19.5
-    - numpy 1.23.3
+#    - numpy 1.23.3
+    - numpy 1.25.0
     - chaquopy-hdf5 1.10.2
 #    - hdf5 1.10.2
 #is this needed (6/27/23) ?    - h5py 2.10.0
