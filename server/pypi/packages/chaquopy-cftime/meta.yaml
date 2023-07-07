@@ -14,5 +14,6 @@ requirements:
     - Cython 0.29.32
   host:
     - python
-    - numpy 1.23.3
+#    - numpy 1.23.3
+    - numpy 1.25.0
 #    - numpy 1.19.5
