@@ -1,7 +1,8 @@
 package:
   name: numpy
 #  version: 1.23.3
-  version: 1.25.0rc1
+#  version: 1.25.0rc1
+  version: 1.25.0
 
 build:
   number: 0
