@@ -1,0 +1,84 @@
+diff -ru src-original/setup_build.py src/setup_build.py
+--- src-original/setup_build.py	2018-02-11 15:15:06.000000000 +0000
++++ src/setup_build.py	2018-07-28 20:23:17.575560442 +0000
+@@ -76,7 +76,6 @@
+         This is the point at which custom directories, MPI options, etc.
+         enter the build process.
+         """
+-        import numpy
+         import pkgconfig
+ 
+         settings = COMPILER_SETTINGS.copy()
+@@ -98,12 +97,8 @@
+             settings['include_dirs'].extend(FALLBACK_PATHS['include_dirs'])
+             settings['library_dirs'].extend(FALLBACK_PATHS['library_dirs'])
+ 
+-        try:
+-            numpy_includes = numpy.get_include()
+-        except AttributeError:
+-            # if numpy is not installed get the headers from the .egg directory
+-            import numpy.core
+-            numpy_includes = os.path.join(os.path.dirname(numpy.core.__file__), 'include')
++        # Chaquopy
++        numpy_includes = os.path.abspath("../requirements/numpy/core/include")
+ 
+         settings['include_dirs'] += [numpy_includes]
+         if config.mpi:
+@@ -154,7 +149,6 @@
+         """ Distutils calls this method to run the command """
+ 
+         from Cython.Build import cythonize
+-        import numpy
+ 
+         # Provides all of our build options
+         config = self.distribution.get_command_obj('configure')
+@@ -192,7 +186,10 @@
+                     'mpi': bool(config.mpi),
+                     'mpi4py_v2': bool(v2),
+                     'version': tuple(int(x) for x in config.hdf5_version.split('.')),
+-                    'complex256_support': hasattr(numpy, 'complex256')
++
++                    # Chaquopy: was `hasattr(numpy, 'complex256')`: erring on the side of caution.
++                    # TODO: see if there's another way to detect this.
++                    'complex256_support': False
+                 }
+                 s = s.encode('utf-8')
+                 f.write(s)
+diff -ru src-original/setup_configure.py src/setup_configure.py
+--- src-original/setup_configure.py     2018-12-20 04:15:31.000000000 +0000
++++ src/setup_configure.py      2019-03-14 17:58:50.250639920 +0000
+@@ -90,7 +90,7 @@
+                     ('reset', 'r', 'Reset config options') ]
+
+     def initialize_options(self):
+-        self.hdf5 = None
++        self.hdf5 = op.abspath("../requirements/chaquopy")
+         self.hdf5_version = None
+         self.mpi = None
+         self.reset = None
+@@ -203,6 +203,13 @@
+
+     import pkgconfig
+
++    # Chaquopy: added
++    for line in open(op.join(hdf5_dir, "include/H5public.h")):
++        match = re.search(r"HDF5 library version: ([0-9.]+)", line)
++        if match:
++            return match.group(1)
++    raise ValueError("Failed to find version string in header files")
++
+     if sys.platform.startswith('darwin'):
+         regexp = re.compile(r'^libhdf5.dylib')
+     else:
+diff -ru src-original/setup.py src/setup.py
+--- src-original/setup.py	2018-06-05 03:20:51.000000000 +0000
++++ src/setup.py	2018-07-28 20:19:37.761977082 +0000
+@@ -32,7 +32,7 @@
+ # these are required to build h5py
+ # RUN_REQUIRES is included as setup.py test needs RUN_REQUIRES for testing
+ # RUN_REQUIRES can be removed when setup.py test is removed
+-SETUP_REQUIRES = RUN_REQUIRES + [NUMPY_DEP, 'Cython>=0.23', 'pkgconfig']
++SETUP_REQUIRES = []  # Chaquopy: handled by meta.yaml
+ 
+ # Needed to avoid trying to install numpy/cython on pythons which the latest
+ # versions don't support

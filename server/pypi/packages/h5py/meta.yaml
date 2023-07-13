@@ -7,10 +7,12 @@ build:
 
 requirements:
   build:
-    - cython 0.29.14
+#    - cython 0.29.14
+    - cython 0.29.36
     - pkgconfig 1.3.1
   host:
-#    - chaquopy-hdf5 1.10.2
-    - chaquopy-hdf5 1.14.1
+    - chaquopy-hdf5 1.10.2
+#    - chaquopy-hdf5 1.14.1
 #    - numpy 1.17.4
-    - numpy 1.25.0
+#    - numpy 1.25.0
+    - numpy 1.23.3
