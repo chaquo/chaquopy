@@ -18,8 +18,10 @@ jobs:
         run: |
           cd target
           for mode in short long; do
-              echo "$mode=$(./list-versions.py --$mode)" >> $GITHUB_OUTPUT
-          done
+              echo "$mode<<EOF"
+              ./list-versions.py --$mode
+              echo EOF
+          done >> $$GITHUB_OUTPUT
 
       - uses: actions/setup-python@v4.6.1
         with:
