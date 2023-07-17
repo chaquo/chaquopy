@@ -31,7 +31,7 @@ jobs:
       - name: Download target Python builds
         run: |
           cd target
-          for version in ${{ steps.python-versions.outputs.long }}; do
+          echo "${{ steps.python-versions.outputs.long }}" | while read version; do
               ./download-and-unpackage.sh prefix $version
           done
 
@@ -72,4 +72,3 @@ jobs:
 
   #   runs-on: ${{ matrix.os }}-latest
   #   steps:
-  #     - FIXME

@@ -5,22 +5,32 @@ This file contains instructions for building and testing Chaquopy.
 
 # Build prerequisites
 
-* A Python executable for each supported version of Python. This must be on the PATH as
-  `pythonX.Y` on Unix, or `py -X.Y` on Windows.
-* Android Python headers and libraries in target/prefix. These can be installed using
-  target/download-and-unpackage.sh, as shown in ci.yml.
+* A local Python installation for each Python version suported by Chaquopy (list them
+  with `target/list-versions.py --short`). These must be on the PATH as `pythonX.Y` on
+  Unix, or `py -X.Y` on Windows.
+
+* Android Python headers and libraries in target/prefix. These can be installed as
+  follows:
+
+      cd target
+      for version in $(./list-versions.py --long); do
+          ./download-and-unpackage.sh prefix $version
+      done
+
 * Python requirements from runtime/requirements-build.txt. In particular, `cython` must be
   on the PATH.
+
 * Android SDK. Set the `ANDROID_HOME` environment variable to point at its location, and
   install the following packages:
    * CMake: version from `sdkCmakeDir` in runtime/build.gradle.
    * NDK (side by side): version from `ndkDir` in runtime/build.gradle.
    * SDK Platform: version from `COMPILE_SDK_VERSION` in
      buildSrc/src/main/java/com/chaquo/python/Common.java.
+
 * JDK version 8. Create a `local.properties` file in `product` (i.e. the same directory
   as this README), setting the JDK location as follows:
 
-    chaquopy.java.home.8=<path>
+      chaquopy.java.home.8=<path>
 
 # Build
 
