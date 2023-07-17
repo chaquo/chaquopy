@@ -21,7 +21,7 @@ jobs:
               echo "$mode<<EOF"
               ./list-versions.py --$mode
               echo EOF
-          done >> $$GITHUB_OUTPUT
+          done >> $GITHUB_OUTPUT
 
       - uses: actions/setup-python@v4.6.1
         with:

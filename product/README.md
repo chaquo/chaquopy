@@ -5,10 +5,10 @@ This file contains instructions for building and testing Chaquopy.
 
 # Build prerequisites
 
-* JDK versions 8 and 11. Version 8 is used for the runtime tests (see `javaHome` in
-  runtime/build.gradle), while the integration tests use whichever version was bundled
-  with the corresponding version of Android Studio: 4.1 and older use version 8, while 4.2 and
-  newer use version 11.
+* A Python executable for each supported version of Python. This must be on the PATH as
+  `pythonX.Y` on Unix, or `py -X.Y` on Windows.
+* Android Python headers and libraries in target/prefix. These can be installed using
+  target/download-and-unpackage.sh, as shown in ci.yml.
 * Python requirements from runtime/requirements-build.txt. In particular, `cython` must be
   on the PATH.
 * Android SDK. Set the `ANDROID_HOME` environment variable to point at its location, and
@@ -17,19 +17,10 @@ This file contains instructions for building and testing Chaquopy.
    * NDK (side by side): version from `ndkDir` in runtime/build.gradle.
    * SDK Platform: version from `COMPILE_SDK_VERSION` in
      buildSrc/src/main/java/com/chaquo/python/Common.java.
-* Android Python headers and libraries in ../target/prefix. To obtain these:
-  * Download https://repo.maven.apache.org/maven2/com/chaquo/python/target/ to
-    ../maven/com/chaquo/python/target.
-  * `cd ../target`
-  * `./unpackage-target.sh ./prefix ../maven/com/chaquo/python/target/VERSION`, for each
-    Python version you want to build against.
-
-Create a `local.properties` file in `product` (i.e. the same directory as this README), with
-the following content:
+* JDK version 8. Create a `local.properties` file in `product` (i.e. the same directory
+  as this README), setting the JDK location as follows:
 
     chaquopy.java.home.8=<path>
-    chaquopy.java.home.11=<path>
-
 
 # Build
 
@@ -95,6 +86,10 @@ Prerequisites:
 
 The integration tests are run by the Gradle task `gradle-plugin:testIntegration-X.Y`, where
 `X.Y` is the Android Gradle plugin version to test against (e.g. `7.0`).
+
+Each Android Gradle plugin version has a corresponding JDK version specified in
+test/integration/data/base-X.Y/gradle.properties. The location of this JDK must be
+set in `product/local.properties` as described above.
 
 The full set of tests will take a long time. To run only some of them, add `-P
 testPythonArgs=<args>` to the Gradle command line, where `<args>` is a space-separated list of
