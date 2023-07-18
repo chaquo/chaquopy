@@ -10,12 +10,7 @@ This file contains instructions for building and testing Chaquopy.
   Unix, or `py -X.Y` on Windows.
 
 * Android Python headers and libraries in target/prefix. These can be installed as
-  follows:
-
-      cd target
-      for version in $(./list-versions.py --long); do
-          ./download-and-unpackage.sh prefix $version
-      done
+  shown in ci.yml.
 
 * Python requirements from runtime/requirements-build.txt. In particular, `cython` must be
   on the PATH.

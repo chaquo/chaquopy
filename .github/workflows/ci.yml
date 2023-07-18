@@ -27,12 +27,15 @@ jobs:
         with:
           python-version: ${{ steps.python-versions.outputs.short }}
 
-      # TODO: build these in CI as well
-      - name: Download target Python builds
+      # This step uses a self-contained script rather than steps.python-versions,
+      # because it's referenced from product/README.md.
+      - name: Download Android Python builds
         run: |
           cd target
-          echo "${{ steps.python-versions.outputs.long }}" | while read version; do
-              ./download-and-unpackage.sh prefix $version
+          for version in $(./list-versions.py --long); do
+              target_dir=../maven/com/chaquo/python/target/$version
+              ./download-target.sh $target_dir
+              ./unpackage-target.sh prefix $target_dir
           done
 
       - name: Install Python requirements

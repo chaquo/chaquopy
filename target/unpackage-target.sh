@@ -4,7 +4,6 @@ set -eu
 # Positional arguments (order is the same as package-target.sh):
 #  * `prefix` directory to unpack into.
 #  * Maven directory to unpack from, e.g. /path/to/com/chaquo/python/target/3.10.6-3.
-#    Must end in a version number.
 
 mkdir -p "${1:?}"
 prefix_dir=$(cd ${1:?} && pwd)
