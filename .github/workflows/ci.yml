@@ -50,7 +50,9 @@ jobs:
           done
 
       - name: Install Python requirements
-        run: pip install -r product/runtime/requirements-build.txt
+        run: |
+          python$(target/list-versions.py --default) -m \
+              pip install -r product/runtime/requirements-build.txt
 
       # TODO: move versions to a single location used by both CI and
       # runtime/build.gradle. COMPILE_SDK_VERSION can then be removed from Common.java,
@@ -116,4 +118,4 @@ jobs:
       - name: Test
         run: |
           cd product
-          ./gradlew testIntegration-${{ matrix.agp-version }}
+          CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

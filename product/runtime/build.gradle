@@ -126,8 +126,6 @@ String sdkPath(String path) {
     return absPath
 }
 
-def ndkDir = sdkPath("ndk/22.1.7171670")  // Should match the version in target/build-common.sh.
-
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
 //
@@ -276,6 +274,8 @@ for (abi in ["host"] + Common.ABIS) {
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
+            // Should match the version in target/build-common.sh.
+            def ndkDir = sdkPath("ndk/22.1.7171670")
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
@@ -397,6 +397,7 @@ for (abi in ["host"] + Common.ABIS) {
             }
         }
 
+        // Requires the Python packages in requirements-docs.txt.
         task("sphinx", type: Exec, group: "documentation") {
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.

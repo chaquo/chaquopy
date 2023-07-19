@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager
 from distutils import dir_util
-import distutils.util
 from fnmatch import fnmatch
 import hashlib
 import json
@@ -80,7 +79,7 @@ EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.
 
 
 # Android Gradle Plugin version (passed from Gradle task).
-agp_version = os.environ["AGP_VERSION"]
+agp_version = os.environ["CHAQUOPY_AGP_VERSION"]
 agp_version_info = tuple(map(int, agp_version.split(".")))
 
 # This pattern causes Android Studio to show the line as a warning in tree view. However, the
@@ -853,7 +852,7 @@ class PythonReqs(GradleTestCase):
     # Pip configuration files should have no effect.
     def test_isolated_config(self):
         config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
-                                "pip.ini" if (os.name == "nt") else "pip.conf")
+                               "pip.ini" if (os.name == "nt") else "pip.conf")
         config_backup = f"{config_filename}.{os.getpid()}"
         os.makedirs(dirname(config_filename), exist_ok=True)
         if exists(config_filename):
@@ -1733,7 +1732,7 @@ class RunGradle(object):
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
         self.test.assertCountEqual(["python_version", "assets", "extract_packages"],
-                                    build_json)
+                                   build_json)
         self.test.assertEqual(python_version, build_json["python_version"])
         self.test.assertCountEqual(extract_packages, build_json["extract_packages"])
         asset_list = []
