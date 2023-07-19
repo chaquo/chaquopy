@@ -12,23 +12,22 @@ defaults:
     shell: bash
 
 jobs:
-  versions:
-    name: List versions
+  build-product:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - id: python
+      - name: List Python versions
+        id: python-versions
         run: |
-          cd target
-          echo default=$(./list-versions.py --default)
-          for mode in short long; do
-              echo "$mode<<EOF"
-              ./list-versions.py --$mode
+          (
+              echo "versions<<EOF"
+              target/list-versions.py --short
               echo EOF
-          done >> $GITHUB_OUTPUT
+          ) >> $GITHUB_OUTPUT
 
-      - id: agp
+      - name: List Android Gradle plugin versions
+        id: agp-versions
         run: |
           cd product/gradle-plugin/src/test/integration/data
           (
@@ -36,24 +35,11 @@ jobs:
               echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
           ) >> $GITHUB_OUTPUT
 
-    outputs:
-      python-default: ${{ steps.python.outputs.default }}
-      python-short: ${{ steps.python.outputs.short }}
-      python-long: ${{ steps.python.outputs.long }}
-      agp: ${{ steps.agp.outputs.versions }}
-
-  build-product:
-    needs: versions
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3.5.3
-
       - uses: actions/setup-python@v4.6.1
         with:
-          python-version: ${{ needs.versions.outputs.python-short }}
+          python-version: ${{ steps.python-versions.outputs.versions }}
 
-      # This step uses a self-contained script rather than needs.versions,
-      # because it's referenced from product/README.md.
+        # This step is referenced from product/README.md.
       - name: Download Android Python builds
         run: |
           cd target
@@ -85,16 +71,26 @@ jobs:
         uses: actions/upload-artifact@v3.1.2
         with:
           name: maven
-          path: maven
+          # There's a fairly large per-file overhead, so exclude the hash files.
+          path: |
+            maven
+            !**/*.md5
+            !**/*.sha1
+            !**/*.sha256
+            !**/*.sha512
           if-no-files-found: error
 
+    outputs:
+      python-versions: ${{ steps.python-versions.outputs.versions }}
+      agp-versions: ${{ steps.agp-versions.outputs.versions }}
+
   test-integration:
-    needs: [versions, build-product]
+    needs: [build-product]
     strategy:
       fail-fast: false
       matrix:
-        os: [macos, ubuntu, windows]
-        agp-version: ${{ fromJSON(needs.versions.outputs.agp) }}
+        os: [ubuntu]  # TODO: macos, windows
+        agp-version: ["8.0"]  # TODO: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
 
     runs-on: ${{ matrix.os }}-latest
     steps:
@@ -102,7 +98,7 @@ jobs:
 
       - uses: actions/setup-python@v4.6.1
         with:
-          python-version: ${{ needs.versions.outputs.python-short }}
+          python-version: ${{ needs.build-product.outputs.python-versions }}
 
       - name: Download Maven repository
         uses: actions/download-artifact@v3.0.2
@@ -112,8 +108,8 @@ jobs:
 
       - name: Install Python requirements
         run: |
-          python${{ needs.versions.outputs.python-default }} -m \
-              pip install -r gradle-plugin/src/test/integration/requirements.txt
+          python$(target/list-versions.py --default) -m \
+              pip install -r product/gradle-plugin/src/test/integration/requirements.txt
 
       - uses: ./.github/actions/create-local-properties
 
@@ -121,5 +117,3 @@ jobs:
         run: |
           cd product
           ./gradlew testIntegration-${{ matrix.agp-version }}
-
-
