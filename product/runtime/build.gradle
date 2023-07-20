@@ -274,8 +274,10 @@ for (abi in ["host"] + Common.ABIS) {
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
-            // Should match the version in target/build-common.sh.
-            def ndkDir = sdkPath("ndk/22.1.7171670")
+            // This must be one of the NDK versions which are pre-installed on the
+            // GitHub Actions runner. Ideally it would also match the version in
+            // target/build-common.sh, but the latter is more difficult to change.
+            def ndkDir = sdkPath("ndk/23.2.8568313")
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",

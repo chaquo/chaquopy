@@ -54,14 +54,6 @@ jobs:
           python$(target/list-versions.py --default) -m \
               pip install -r product/runtime/requirements-build.txt
 
-      # TODO: move versions to a single location used by both CI and
-      # runtime/build.gradle. COMPILE_SDK_VERSION can then be removed from Common.java,
-      # since it's not used anywhere else.
-      - name: Set up Android SDK
-        run: |
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-              'cmake;3.22.1' 'ndk;22.1.7171670' 'platforms;android-30'
-
       - uses: ./.github/actions/create-local-properties
 
       - name: Build
