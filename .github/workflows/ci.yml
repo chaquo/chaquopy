@@ -83,8 +83,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu]  # TODO: macos, windows
-        agp-version: ["8.0"]  # TODO: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
+        os: [macos, ubuntu, windows]
+        agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
 
     runs-on: ${{ matrix.os }}-latest
     steps:
