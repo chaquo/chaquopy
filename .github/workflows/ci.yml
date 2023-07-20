@@ -72,12 +72,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # We pin specific OS versions, because we need them to be compatible with the
-        # Python `extra-versions` listed below.
         agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
-        os: [macos-12, ubuntu-20.04, windows-2022]
+        os: [linux, macos, windows]
+        include:
+          # We pin specific OS versions to ensure that the Python `extra-versions`
+          # listed below are all available. To avoid clutter in the GitHub UI, OS
+          # versions are not added to the `os` dimension directly.
+          - os: linux
+            runs-on: ubuntu-20.04
+          - os: macos
+            runs-on: macos-12
+          - os: windows
+            runs-on: windows-2022
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v3.5.3
 
