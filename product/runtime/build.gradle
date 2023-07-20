@@ -23,15 +23,21 @@ if (osName == "windows") {
 }
 
 String pythonHome
-new ByteArrayOutputStream().withStream { output ->
-    exec {
-        executable pyPlusVersionExe
-        args "-c", "import sys; print(sys.base_prefix)"
-        standardOutput = output
+if (osName == "windows" && System.getenv("CI") != null) {
+    // All the tasks that use pythonHome require MSYS2 Python on Windows, but we don't
+    // install that in CI because we don't run any of those tasks. TODO: fix this by
+    //  moving to the standard Windows Python builds.
+    pythonHome = "disabled/in/CI"
+} else {
+    new ByteArrayOutputStream().withStream { output ->
+        exec {
+            executable pyPlusVersionExe
+            args "-c", "import sys; print(sys.base_prefix)"
+            standardOutput = output
+        }
+        pythonHome = output.toString().trim()
     }
-    pythonHome = output.toString().trim()
 }
-
 
 
 void addArtifact(Task task, Object filename, String pyVersion=null, String abi=null) {
