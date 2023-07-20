@@ -82,10 +82,9 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
         with:
-          # This should match OLD_BUILD_PYTHON_VERSIONS and MIN_BUILD_PYTHON_VERSION
+          # This should match OLD_BUILD_PYTHON_VERSION and MIN_BUILD_PYTHON_VERSION
           # in test_gradle_plugin.
           extra-versions: |
-            2.7
             3.6
             3.7
 

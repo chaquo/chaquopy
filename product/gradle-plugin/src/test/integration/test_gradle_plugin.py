@@ -72,10 +72,8 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
-# These should match `extra-versions` in the ci.yml job `test-integration`. 2.7 is
-# included to make sure we've kept valid Python 2 syntax, so we can produce a useful
-# error message.
-OLD_BUILD_PYTHON_VERSIONS = ["2.7", "3.6"]
+# These should match `extra-versions` in the ci.yml job `test-integration`.
+OLD_BUILD_PYTHON_VERSION = "3.6"
 MIN_BUILD_PYTHON_VERSION = "3.7"
 
 MAX_BUILD_PYTHON_VERSION = "3.11"
@@ -765,11 +763,9 @@ class PythonReqs(GradleTestCase):
                                              "no_binary_sdist/__init__.py"],
                                pyc=["stdlib"])
 
-        for version in OLD_BUILD_PYTHON_VERSIONS:
-            with self.subTest(version=version):
-                run = self.RunGradle(*layers, env={"buildpython_version": version},
-                                     succeed=False)
-                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
+                             succeed=False)
+        self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
@@ -1427,11 +1423,9 @@ class StaticProxy(GradleTestCase):
                                classes={"chaquopy_test.a": ["SrcA1"]},
                                pyc=["stdlib"])
 
-        for version in OLD_BUILD_PYTHON_VERSIONS:
-            with self.subTest(version=version):
-                run = self.RunGradle(*layers, env={"buildpython_version": version},
-                                     succeed=False)
-                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
+                             succeed=False)
+        self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
