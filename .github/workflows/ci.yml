@@ -67,15 +67,15 @@ jobs:
     outputs:
       agp-versions: ${{ steps.agp-versions.outputs.versions }}
 
-  test-integration:
+  integration:
     needs: [build-product]
     strategy:
       fail-fast: false
       matrix:
         # We pin specific OS versions, because we need them to be compatible with the
         # Python `extra-versions` listed below.
-        os: [macos-12, ubuntu-20.04, windows-2022]
         agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
+        os: [macos-12, ubuntu-20.04, windows-2022]
 
     runs-on: ${{ matrix.os }}
     steps:

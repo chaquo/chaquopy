@@ -634,9 +634,9 @@ class BuildPython(GradleTestCase):
               r"\* Then scroll up to see the full output.")
 
     @classmethod
-    def old_version_error(cls, version):
+    def old_version_error(cls):
         return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
-                fr"this is version {version}\.\d+\. " + cls.SEE)
+                fr"this is version {OLD_BUILD_PYTHON_VERSION}\.\d+\. " + cls.SEE)
 
     # Default buildPython depends on selected Python version.
     def test_default(self):
@@ -765,7 +765,7 @@ class PythonReqs(GradleTestCase):
 
         run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
                              succeed=False)
-        self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        self.assertInLong(BuildPython.old_version_error(), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
@@ -1425,7 +1425,7 @@ class StaticProxy(GradleTestCase):
 
         run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
                              succeed=False)
-        self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        self.assertInLong(BuildPython.old_version_error(), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
