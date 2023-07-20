@@ -72,10 +72,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos, ubuntu, windows]
+        # We pin specific OS versions, because we need them to be compatible with the
+        # Python `extra-versions` listed below.
+        os: [macos-12, ubuntu-20.04, windows-2022]
         agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
 
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3.5.3
 
