@@ -71,8 +71,13 @@ def run_build_python(args, **kwargs):
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
-OLD_BUILD_PYTHON_VERSION = "3.6"
+
+# These should match `extra-versions` in the ci.yml job `test-integration`. 2.7 is
+# included to make sure we've kept valid Python 2 syntax, so we can produce a useful
+# error message.
+OLD_BUILD_PYTHON_VERSIONS = ["2.7", "3.6"]
 MIN_BUILD_PYTHON_VERSION = "3.7"
+
 MAX_BUILD_PYTHON_VERSION = "3.11"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
@@ -760,8 +765,7 @@ class PythonReqs(GradleTestCase):
                                              "no_binary_sdist/__init__.py"],
                                pyc=["stdlib"])
 
-        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
-        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
+        for version in OLD_BUILD_PYTHON_VERSIONS:
             with self.subTest(version=version):
                 run = self.RunGradle(*layers, env={"buildpython_version": version},
                                      succeed=False)
@@ -1423,8 +1427,7 @@ class StaticProxy(GradleTestCase):
                                classes={"chaquopy_test.a": ["SrcA1"]},
                                pyc=["stdlib"])
 
-        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
-        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
+        for version in OLD_BUILD_PYTHON_VERSIONS:
             with self.subTest(version=version):
                 run = self.RunGradle(*layers, env={"buildpython_version": version},
                                      succeed=False)

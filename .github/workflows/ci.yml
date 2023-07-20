@@ -13,33 +13,14 @@ defaults:
 
 jobs:
   build-product:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - name: List Python versions
-        id: python-versions
-        run: |
-          (
-              echo "versions<<EOF"
-              target/list-versions.py --short
-              echo EOF
-          ) >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/setup-python
+        id: setup-python
 
-      - name: List Android Gradle plugin versions
-        id: agp-versions
-        run: |
-          cd product/gradle-plugin/src/test/integration/data
-          (
-              echo -n versions=
-              echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
-          ) >> $GITHUB_OUTPUT
-
-      - uses: actions/setup-python@v4.6.1
-        with:
-          python-version: ${{ steps.python-versions.outputs.versions }}
-
-        # This step is referenced from product/README.md.
+      # This step is referenced from product/README.md.
       - name: Download Android Python builds
         run: |
           cd target
@@ -51,7 +32,7 @@ jobs:
 
       - name: Install Python requirements
         run: |
-          python$(target/list-versions.py --default) -m \
+          ${{ steps.setup-python.outputs.python-default }} -m \
               pip install -r product/runtime/requirements-build.txt
 
       - uses: ./.github/actions/create-local-properties
@@ -74,8 +55,16 @@ jobs:
             !**/*.sha512
           if-no-files-found: error
 
+      - name: List Android Gradle plugin versions
+        id: agp-versions
+        run: |
+          cd product/gradle-plugin/src/test/integration/data
+          (
+              echo -n versions=
+              echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
+          ) >> $GITHUB_OUTPUT
+
     outputs:
-      python-versions: ${{ steps.python-versions.outputs.versions }}
       agp-versions: ${{ steps.agp-versions.outputs.versions }}
 
   test-integration:
@@ -90,9 +79,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3.5.3
 
-      - uses: actions/setup-python@v4.6.1
+      - uses: ./.github/actions/setup-python
+        id: setup-python
         with:
-          python-version: ${{ needs.build-product.outputs.python-versions }}
+          # This should match OLD_BUILD_PYTHON_VERSIONS and MIN_BUILD_PYTHON_VERSION
+          # in test_gradle_plugin.
+          extra-versions: |
+            2.7
+            3.6
+            3.7
 
       - name: Download Maven repository
         uses: actions/download-artifact@v3.0.2
@@ -102,7 +97,7 @@ jobs:
 
       - name: Install Python requirements
         run: |
-          python$(target/list-versions.py --default) -m \
+          ${{ steps.setup-python.outputs.python-default }} -m \
               pip install -r product/gradle-plugin/src/test/integration/requirements.txt
 
       - uses: ./.github/actions/create-local-properties
