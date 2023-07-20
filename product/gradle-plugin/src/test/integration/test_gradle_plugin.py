@@ -824,7 +824,8 @@ class PythonReqs(GradleTestCase):
         self.assertNotInLong(FILENAME, run.stdout, re=True)
         self.assertNotInLong(BUILD, run.stdout)
 
-    # Test the OpenSSL PATH workaround for conda on Windows.
+    # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
+    # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
     @skipUnless(os.name == "nt", "Windows only")
     def test_conda(self):
         # Remove PATH entries which contain any copy of libssl. If it's installed in
@@ -837,7 +838,7 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/conda",
                        env={"chaquopy_conda_env": product_props["chaquopy.conda.env"],
                             "PATH": path},
-                       requirements=["six.py"])
+                       requirements=["six.py"], pyc=["stdlib"])
 
     ISOLATED_KWARGS = dict(
         dist_versions=[("six", "1.14.0"), ("build_requires_six", "1.14.0")],
