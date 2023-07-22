@@ -1464,6 +1464,15 @@ class StaticProxy(GradleTestCase):
 
 
 class RunGradle(object):
+    # With AGP 8.0 on Windows, the full test run sometimes causes OutOfMemoryErrors.
+    # Editing gradle.properties to increase -Xmx to 4096m was enough to work around this
+    # locally, but we still had native crashes in CI towards the end of the run. No
+    # reports yet of this affecting any users, so it's probably just because we're
+    # reusing the daemon to build many different projects, and exposing a leak
+    # somewhere. So set a limit to the number of times we reuse it.
+    MAX_RUNS_PER_DAEMON = 100
+    runs_per_daemon = 0
+
     def __init__(self, test, *layers, run=True, **kwargs):
         self.test = test
         if os.path.exists(test.run_dir):
@@ -1494,6 +1503,11 @@ class RunGradle(object):
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
               **kwargs):
+        if RunGradle.runs_per_daemon >= RunGradle.MAX_RUNS_PER_DAEMON:
+            run([self.gradlew_path, "--stop"], cwd=self.project_dir, check=True)
+            RunGradle.runs_per_daemon = 0
+        RunGradle.runs_per_daemon += 1
+
         self.apply_layers(*layers)
 
         # In Android Studio Bumblebee and later, the new project wizard sets all plugin
@@ -1575,6 +1589,9 @@ class RunGradle(object):
             # daemon (https://github.com/gradle/gradle/issues/12905). On the other
             # platforms, this only affects specific variables such as PATH and TZ
             # (https://github.com/gradle/gradle/issues/10483).
+            #
+            # TODO: avoid this by changing as many tests as possible to use
+            # gradle.properties instead.
             gradlew_flags.append("--no-daemon")
 
         # The following environment variables aren't affected by the above issue, either
@@ -1586,12 +1603,16 @@ class RunGradle(object):
             "JAVA_HOME": product_props[f"chaquopy.java.home.{java_version}"],
         }
 
-        process = run([join(self.project_dir,
-                            "gradlew.bat" if (os.name == "nt") else "gradlew")] +
-                      gradlew_flags + [task_name("assemble", v) for v in variants],
+        process = run([self.gradlew_path] + gradlew_flags +
+                      [task_name("assemble", v) for v in variants],
                       cwd=self.project_dir,  # See Windows notes for add_path above.
                       capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
+
+    @property
+    def gradlew_path(self):
+        return join(self.project_dir,
+                    "gradlew.bat" if (os.name == "nt") else "gradlew")
 
     def check_apk(self, variant, kwargs):
         apk_zip, apk_dir = self.get_output("app", variant, "apk")
