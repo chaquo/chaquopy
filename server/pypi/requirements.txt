@@ -1,14 +1,13 @@
-# These packages are included by default in a new virtualenv, but since we use them directly,
-# specify exact versions for reproducible builds.
-pip==19.3
-setuptools==67.0.0
-wheel==0.33.6
+# These are the requirements of build-wheel itself.
+#
+# For requirements of the build environment, see requirements-build-env.txt.
 
-# Other direct requirements
+# Direct requirements
 Jinja2==2.11.3
 jsonschema==2.6.0
 pyelftools==0.29
 PyYAML==6.0
+wheel==0.33.6
 
 # Indirect requirements
 MarkupSafe==2.0.1

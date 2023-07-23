@@ -112,24 +112,29 @@ class BuildWheel:
             self.python_tag = self.non_python_tag
         self.compat_tag = f"{self.python_tag}-android_{self.api_level}_{self.abi_tag}"
 
-        build_reqs = self.get_requirements("build")
-        if build_reqs:
-            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
-                " ".join(f"{name}=={version}" for name, version in build_reqs))
-
         self.version_dir = f"{self.package_dir}/build/{self.version}"
         ensure_dir(self.version_dir)
         cd(self.version_dir)
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
 
+        build_env_dir = f"{self.build_dir}/env"
+        self.pip = f"{build_env_dir}/bin/pip --disable-pip-version-check"
+
         if self.no_unpack:
             log("Skipping download and unpack due to --no-unpack")
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
+            run(f"python{self.python} -m venv {build_env_dir}")
+            run(f"{self.pip} install -r {PYPI_DIR}/requirements-build-env.txt")
             self.unpack_source()
             self.apply_patches()
+
+        build_reqs = self.get_requirements("build")
+        if build_reqs:
+            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
+                " ".join(f"{name}=={version}" for name, version in build_reqs))
 
         self.reqs_dir = f"{self.build_dir}/requirements"
         if self.no_reqs:
@@ -143,7 +148,7 @@ class BuildWheel:
             self.update_env()
             self.create_dummy_libs()
             wheel_filename = self.build_wheel()
-            return self.fix_wheel(wheel_filename)
+            self.fix_wheel(wheel_filename)
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -201,10 +206,6 @@ class BuildWheel:
         if len(zips) != 1:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
-
-        # Many setup.py scripts will behave differently depending on the Python version,
-        # so we run pip with a matching version.
-        self.pip = f"python{self.python} -m pip --disable-pip-version-check"
 
     def unpack_source(self):
         source = self.meta["source"]
@@ -597,10 +598,9 @@ class BuildWheel:
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
-        log(f"Wrote {out_filename}")
-        return out_filename
+        # `wheel pack` logs the absolute wheel filename.
+        self.package_wheel(
+            tmp_dir, ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
 
     def package_wheel(self, in_dir, out_dir):
         build_num = os.environ["PKG_BUILDNUM"]
