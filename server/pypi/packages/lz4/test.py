@@ -1,7 +1,7 @@
 import unittest
 
 
-class TestMultidict(unittest.TestCase):
+class TestLz4(unittest.TestCase):
 
     def test_basic(self):
         import os
