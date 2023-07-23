@@ -3,11 +3,10 @@ import unittest
 
 class TestMiniaudio(unittest.TestCase):
 
-    def test_mp3_info(self):
+    def test_mp3(self):
         import miniaudio
 
-        sound = open(join(dirname(__file__), "sample.mp3"), "rb")
-        info = miniaudio.mp3_get_info(sound)
-        self.assertGreater(info.duration, 10.0)
+        info = miniaudio.mp3_get_file_info(join(dirname(__file__), "sample.mp3"))
+        self.assertAlmostEqual(info.duration, 10.1093878)
         self.assertEqual(info.sample_format, miniaudio.SampleFormat.SIGNED16)
         self.assertEqual(info.nchannels, 2)
