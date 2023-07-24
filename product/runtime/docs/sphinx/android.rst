@@ -7,7 +7,7 @@ Chaquopy is distributed as a plugin for Android's Gradle-based build system. It 
 any app which meets the following requirements:
 
 * In your project's top-level `build.gradle` file, the Android Gradle plugin version
-  should be between 4.2 and 8.0. Older versions as far back as 2.2 are supported by
+  should be between 7.0 and 8.1. Older versions as far back as 2.2 are supported by
   :doc:`older versions of Chaquopy <../versions>`.
 
   * The Android plugin may be listed as `com.android.application`, `com.android.library` or
@@ -60,7 +60,7 @@ The Chaquopy plugin can also be used in an `Android library module
 <https://developer.android.com/studio/projects/android-library>`_ (AAR). However, it can only
 be used in one module in a project: either in the app module, or in exactly one library module.
 If you use it in multiple modules, the build may fail, and even if it succeeds, only one
-module's Python code will be included in the app
+module's Python code will be included in the app.
 
 .. _android-abis:
 
@@ -376,7 +376,7 @@ storage space.
 Python standard library
 =======================
 
-Chaquopy supports the entire Python standard library, except for the modules listed below. If you
+Chaquopy supports the entire Python standard library, except as documented below. If you
 discover a problem with any other module, please `let us know
 <https://github.com/chaquo/chaquopy/issues>`_.
 
@@ -408,7 +408,7 @@ multiprocessing
 
 Because Android doesn't support POSIX semaphores, most of the :any:`multiprocessing` APIs will
 fail with the error "This platform lacks a functioning sem_open implementation". The simplest
-solution is to edit your code to use :any:`multiprocessing.dummy` instead.
+solution is to use :any:`multiprocessing.dummy` instead.
 
 .. _android-os:
 
@@ -435,6 +435,16 @@ If your app is `debuggable <https://developer.android.com/studio/debug#enable-de
 read and write this directory from Android Studio using the `Device File Explorer
 <https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
 like `/data/data/your.application.id/files`.
+
+socket
+------
+
+The following functions are unavailable because they're not supported by our minimum
+Android version:
+
+* :any:`socket.if_nameindex`
+* :any:`socket.if_nametoindex`
+* :any:`socket.if_indextoname`
 
 ssl
 ---

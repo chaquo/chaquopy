@@ -1,0 +1,8 @@
+# These requirements are installed in the build environment, in addition to any `build`
+# requirements listed in the meta.yaml file.
+#
+# For requirements of build-wheel itself, see requirements.txt.
+
+pip==19.3
+setuptools==67.0.0
+wheel==0.33.6

@@ -10,7 +10,7 @@
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
 #   where XX is the NDK version. Do a diff against the version you're upgrading from.
-ndk_version=22.1.7171670  # Should match ndkDir in product/runtime/build.gradle.
+ndk_version=22.1.7171670  # See ndkDir in product/runtime/build.gradle.
 ndk=${ANDROID_HOME:?}/ndk/$ndk_version
 if ! [ -e $ndk ]; then
     # Print all messages on stderr so they're visible when running within build-wheel.

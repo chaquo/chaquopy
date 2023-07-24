@@ -15,6 +15,7 @@ android {
             pip {
                 install "six"
             }
+            pyc { pip false }  // We don't know what version buildPython will be.
         }
         ndk {
             abiFilters "x86"

@@ -1,3 +1,9 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: Shapely
   version: 1.8.5
@@ -7,4 +13,4 @@ requirements:
     - cython 0.29.32
   host:
     - chaquopy-geos 3.8.1
-    - numpy 1.23.3
+    - numpy {{ numpy_version }}

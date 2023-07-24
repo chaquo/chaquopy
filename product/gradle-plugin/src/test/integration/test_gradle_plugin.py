@@ -2,7 +2,6 @@
 
 from contextlib import contextmanager
 from distutils import dir_util
-import distutils.util
 from fnmatch import fnmatch
 import hashlib
 import json
@@ -72,15 +71,18 @@ def run_build_python(args, **kwargs):
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
+
+# These should match `extra-versions` in the ci.yml job `test-integration`.
 OLD_BUILD_PYTHON_VERSION = "3.6"
 MIN_BUILD_PYTHON_VERSION = "3.7"
+
 MAX_BUILD_PYTHON_VERSION = "3.11"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
 
 # Android Gradle Plugin version (passed from Gradle task).
-agp_version = os.environ["AGP_VERSION"]
+agp_version = os.environ["CHAQUOPY_AGP_VERSION"]
 agp_version_info = tuple(map(int, agp_version.split(".")))
 
 # This pattern causes Android Studio to show the line as a warning in tree view. However, the
@@ -251,7 +253,7 @@ class AndroidPlugin(GradleTestCase):
 
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
-                   "4.2.0 or later")
+                   "7.0.0 or later")
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
         self.assertInLong(f"{MESSAGE}: {self.ADVICE}", run.stderr)
 
@@ -632,9 +634,9 @@ class BuildPython(GradleTestCase):
               r"\* Then scroll up to see the full output.")
 
     @classmethod
-    def old_version_error(cls, version):
+    def old_version_error(cls):
         return (fr"buildPython must be version {MIN_BUILD_PYTHON_VERSION} or later: "
-                fr"this is version {version}\.\d+\. " + cls.SEE)
+                fr"this is version {OLD_BUILD_PYTHON_VERSION}\.\d+\. " + cls.SEE)
 
     # Default buildPython depends on selected Python version.
     def test_default(self):
@@ -761,12 +763,9 @@ class PythonReqs(GradleTestCase):
                                              "no_binary_sdist/__init__.py"],
                                pyc=["stdlib"])
 
-        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
-        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
-            with self.subTest(version=version):
-                run = self.RunGradle(*layers, env={"buildpython_version": version},
-                                     succeed=False)
-                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
+                             succeed=False)
+        self.assertInLong(BuildPython.old_version_error(), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
@@ -825,7 +824,8 @@ class PythonReqs(GradleTestCase):
         self.assertNotInLong(FILENAME, run.stdout, re=True)
         self.assertNotInLong(BUILD, run.stdout)
 
-    # Test the OpenSSL PATH workaround for conda on Windows.
+    # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
+    # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
     @skipUnless(os.name == "nt", "Windows only")
     def test_conda(self):
         # Remove PATH entries which contain any copy of libssl. If it's installed in
@@ -838,7 +838,7 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/conda",
                        env={"chaquopy_conda_env": product_props["chaquopy.conda.env"],
                             "PATH": path},
-                       requirements=["six.py"])
+                       requirements=["six.py"], pyc=["stdlib"])
 
     ISOLATED_KWARGS = dict(
         dist_versions=[("six", "1.14.0"), ("build_requires_six", "1.14.0")],
@@ -853,7 +853,7 @@ class PythonReqs(GradleTestCase):
     # Pip configuration files should have no effect.
     def test_isolated_config(self):
         config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
-                                "pip.ini" if (os.name == "nt") else "pip.conf")
+                               "pip.ini" if (os.name == "nt") else "pip.conf")
         config_backup = f"{config_filename}.{os.getpid()}"
         os.makedirs(dirname(config_filename), exist_ok=True)
         if exists(config_filename):
@@ -1424,12 +1424,9 @@ class StaticProxy(GradleTestCase):
                                classes={"chaquopy_test.a": ["SrcA1"]},
                                pyc=["stdlib"])
 
-        # Make sure we've kept valid Python 2 syntax so we can produce a useful error message.
-        for version in ["2.7", OLD_BUILD_PYTHON_VERSION]:
-            with self.subTest(version=version):
-                run = self.RunGradle(*layers, env={"buildpython_version": version},
-                                     succeed=False)
-                self.assertInLong(BuildPython.old_version_error(version), run.stderr, re=True)
+        run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
+                             succeed=False)
+        self.assertInLong(BuildPython.old_version_error(), run.stderr, re=True)
 
     def test_buildpython_missing(self):
         run = self.RunGradle(
@@ -1467,6 +1464,15 @@ class StaticProxy(GradleTestCase):
 
 
 class RunGradle(object):
+    # With AGP 8.0 on Windows, the full test run sometimes causes OutOfMemoryErrors.
+    # Editing gradle.properties to increase -Xmx to 4096m was enough to work around this
+    # locally, but we still had native crashes in CI towards the end of the run. No
+    # reports yet of this affecting any users, so it's probably just because we're
+    # reusing the daemon to build many different projects, and exposing a leak
+    # somewhere. So set a limit to the number of times we reuse it.
+    MAX_RUNS_PER_DAEMON = 100
+    runs_per_daemon = 0
+
     def __init__(self, test, *layers, run=True, **kwargs):
         self.test = test
         if os.path.exists(test.run_dir):
@@ -1497,6 +1503,11 @@ class RunGradle(object):
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
               **kwargs):
+        if RunGradle.runs_per_daemon >= RunGradle.MAX_RUNS_PER_DAEMON:
+            run([self.gradlew_path, "--stop"], cwd=self.project_dir, check=True)
+            RunGradle.runs_per_daemon = 0
+        RunGradle.runs_per_daemon += 1
+
         self.apply_layers(*layers)
 
         # In Android Studio Bumblebee and later, the new project wizard sets all plugin
@@ -1578,6 +1589,9 @@ class RunGradle(object):
             # daemon (https://github.com/gradle/gradle/issues/12905). On the other
             # platforms, this only affects specific variables such as PATH and TZ
             # (https://github.com/gradle/gradle/issues/10483).
+            #
+            # TODO: avoid this by changing as many tests as possible to use
+            # gradle.properties instead.
             gradlew_flags.append("--no-daemon")
 
         # The following environment variables aren't affected by the above issue, either
@@ -1589,12 +1603,16 @@ class RunGradle(object):
             "JAVA_HOME": product_props[f"chaquopy.java.home.{java_version}"],
         }
 
-        process = run([join(self.project_dir,
-                            "gradlew.bat" if (os.name == "nt") else "gradlew")] +
-                      gradlew_flags + [task_name("assemble", v) for v in variants],
+        process = run([self.gradlew_path] + gradlew_flags +
+                      [task_name("assemble", v) for v in variants],
                       cwd=self.project_dir,  # See Windows notes for add_path above.
                       capture_output=True, text=True, env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
+
+    @property
+    def gradlew_path(self):
+        return join(self.project_dir,
+                    "gradlew.bat" if (os.name == "nt") else "gradlew")
 
     def check_apk(self, variant, kwargs):
         apk_zip, apk_dir = self.get_output("app", variant, "apk")
@@ -1733,7 +1751,7 @@ class RunGradle(object):
         with open(join(asset_dir, "build.json")) as build_json_file:
             build_json = json.load(build_json_file)
         self.test.assertCountEqual(["python_version", "assets", "extract_packages"],
-                                    build_json)
+                                   build_json)
         self.test.assertEqual(python_version, build_json["python_version"])
         self.test.assertCountEqual(extract_packages, build_json["extract_packages"])
         asset_list = []
