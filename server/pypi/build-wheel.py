@@ -66,7 +66,6 @@ ABIS = {abi.name: abi for abi in [
 
 
 class BuildWheel:
-
     def main(self):
         try:
             self.parse_args()
@@ -126,8 +125,7 @@ class BuildWheel:
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
-            run(f"python{self.python} -m venv {build_env_dir}")
-            run(f"{self.pip} install -r {PYPI_DIR}/requirements-build-env.txt")
+            run(f"python{self.python} {PYPI_DIR}/create-build-env.py {build_env_dir}")
             self.unpack_source()
             self.apply_patches()
 
