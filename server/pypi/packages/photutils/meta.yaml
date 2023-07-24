@@ -1,6 +1,12 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: photutils
-  version: 1.8.0
+  version: 1.1.0
 
 requirements:
   build:
@@ -8,4 +14,4 @@ requirements:
     - extension-helpers 1.0.0
     - setuptools-scm 7.1.0
   host:
-    - numpy 1.21.4
+    - numpy {{ numpy_version }}
