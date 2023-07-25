@@ -1,0 +1,20 @@
+{% set proj_version = "9.1.1" %}
+
+{% if PY_VER == "3.8" %}
+    {% set openssl_suffix = "" %}
+{% else %}
+   {% set openssl_suffix = "-openssl-3" %}
+{% endif %}
+
+package:
+  name: pyproj
+  version: "3.4.1"
+
+build:
+  number: 3
+  script_env:
+    - PROJ_VERSION={{ proj_version }}
+
+requirements:
+  host:
+    - chaquopy-proj{{ openssl_suffix }} {{ proj_version }}

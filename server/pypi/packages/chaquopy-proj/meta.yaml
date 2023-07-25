@@ -1,0 +1,25 @@
+{% set version = "9.1.1" %}
+
+{% if PY_VER == "3.8" %}
+    {% set openssl_suffix = "" %}
+{% else %}
+   {% set openssl_suffix = "-openssl-3" %}
+{% endif %}
+
+package:
+  name: chaquopy-proj{{ openssl_suffix }}
+  version: {{ version }}
+
+build:
+  number: 1
+
+source:
+  url: https://download.osgeo.org/proj/proj-{{ version }}.tar.gz
+
+requirements:
+  build:
+    - cmake
+  host:
+    - chaquopy-libtiff 4.5.0
+    - chaquopy-curl{{ openssl_suffix }} 7.76.1
+    - sqlite

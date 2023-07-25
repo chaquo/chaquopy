@@ -66,7 +66,6 @@ ABIS = {abi.name: abi for abi in [
 
 
 class BuildWheel:
-
     def main(self):
         try:
             self.parse_args()
@@ -112,24 +111,28 @@ class BuildWheel:
             self.python_tag = self.non_python_tag
         self.compat_tag = f"{self.python_tag}-android_{self.api_level}_{self.abi_tag}"
 
-        build_reqs = self.get_requirements("build")
-        if build_reqs:
-            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
-                " ".join(f"{name}=={version}" for name, version in build_reqs))
-
         self.version_dir = f"{self.package_dir}/build/{self.version}"
         ensure_dir(self.version_dir)
         cd(self.version_dir)
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
 
+        build_env_dir = f"{self.build_dir}/env"
+        self.pip = f"{build_env_dir}/bin/pip --disable-pip-version-check"
+
         if self.no_unpack:
             log("Skipping download and unpack due to --no-unpack")
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
+            run(f"python{self.python} {PYPI_DIR}/create-build-env.py {build_env_dir}")
             self.unpack_source()
             self.apply_patches()
+
+        build_reqs = self.get_requirements("build")
+        if build_reqs:
+            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
+                " ".join(f"{name}=={version}" for name, version in build_reqs))
 
         self.reqs_dir = f"{self.build_dir}/requirements"
         if self.no_reqs:
@@ -143,7 +146,7 @@ class BuildWheel:
             self.update_env()
             self.create_dummy_libs()
             wheel_filename = self.build_wheel()
-            return self.fix_wheel(wheel_filename)
+            self.fix_wheel(wheel_filename)
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -201,10 +204,6 @@ class BuildWheel:
         if len(zips) != 1:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
-
-        # Many setup.py scripts will behave differently depending on the Python version,
-        # so we run pip with a matching version.
-        self.pip = f"python{self.python} -m pip --disable-pip-version-check"
 
     def unpack_source(self):
         source = self.meta["source"]
@@ -513,9 +512,6 @@ class BuildWheel:
                 set(ANDROID_STL c++_shared)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
-                # Our requirements dir comes before the sysroot, because the sysroot include
-                # directory contains headers for third-party libraries like libjpeg which may
-                # be of different versions to what we want to use.
                 list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.reqs_dir}/chaquopy)
                 """), file=toolchain_file)
 
@@ -600,10 +596,9 @@ class BuildWheel:
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
-        log(f"Wrote {out_filename}")
-        return out_filename
+        # `wheel pack` logs the absolute wheel filename.
+        self.package_wheel(
+            tmp_dir, ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
 
     def package_wheel(self, in_dir, out_dir):
         build_num = os.environ["PKG_BUILDNUM"]
@@ -648,7 +643,10 @@ class BuildWheel:
     def get_requirements(self, req_type):
         reqs = []
         for req in self.meta["requirements"][req_type]:
-            package, version = req.split()
+            try:
+                package, version = req.split()
+            except ValueError:
+                raise CommandError(f"Failed to parse requirement {req!r}")
             reqs.append((package, version))
         return reqs
 
@@ -669,8 +667,13 @@ class BuildWheel:
         Validator = jsonschema.Draft4Validator
         schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
         Validator.check_schema(schema)
-        meta_str = jinja2.Template(open(f"{self.package_dir}/meta.yaml").read()).render()
-        meta = yaml.safe_load(meta_str)
+
+        meta_input = open(f"{self.package_dir}/meta.yaml").read()
+        meta_vars = {}
+        if self.python:
+            meta_vars["PY_VER"] = self.python
+
+        meta = yaml.safe_load(jinja2.Template(meta_input).render(**meta_vars))
         with_defaults(Validator)(schema).validate(meta)
         return meta
 
@@ -685,7 +688,7 @@ class BuildWheel:
 
 def find_license_files(path):
     return [f"{path}/{name}" for name in os.listdir(path)
-            if re.search(r"^(LICEN[CS]E|COPYING)", name.upper())]
+            if re.search(r"^(LICEN[CS]E|COPYING|COPYRIGHT)", name.upper())]
 
 
 def update_requirements(filename, reqs):

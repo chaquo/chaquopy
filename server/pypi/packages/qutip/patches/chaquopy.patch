@@ -1,0 +1,31 @@
+--- src-original/setup.py	2023-02-07 18:36:34.000000000 +0000
++++ src/setup.py	2023-04-20 02:48:59.078240567 +0000
+@@ -1,5 +1,9 @@
+ #!/usr/bin/env python
+ 
++# Chaquopy
++import builtins
++builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++
+ import collections
+ import os
+ import pathlib
+--- src-original/setup.cfg	2023-02-07 18:37:46.970661900 +0000
++++ src/setup.cfg	2023-04-20 02:53:18.745237940 +0000
+@@ -34,11 +34,11 @@
+ 	numpy>=1.16.6
+ 	scipy>=1.0
+ 	packaging
+-setup_requires = 
+-	numpy>=1.13.3
+-	scipy>=1.0
+-	cython>=0.29.20
+-	packaging
++# setup_requires =
++# 	numpy>=1.13.3
++# 	scipy>=1.0
++# 	cython>=0.29.20
++# 	packaging
+ 
+ [options.packages.find]
+ include = qutip*

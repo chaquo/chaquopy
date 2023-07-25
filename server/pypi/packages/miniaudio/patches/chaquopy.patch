@@ -1,0 +1,13 @@
+--- src-original/build_ffi_module.py	2023-06-04 14:39:41.000000000 +0000
++++ src/build_ffi_module.py	2023-07-23 10:11:23.154952325 +0000
+@@ -828,6 +828,10 @@
+     Test if linker on system needs libatomic.
+     This has been copied from https://github.com/grpc/grpc/blob/master/setup.py#L205
+     """
++    # Chaquopy: we do need libatomic, at least on x86, but this test doesn't return true
++    # for some reason.
++    return True
++
+     code_test = (b'#include <atomic>\n' +
+                  b'int main() { return std::atomic<int64_t>{}; }')
+     cxx = shlex.split(os.environ.get('CXX', 'c++'))

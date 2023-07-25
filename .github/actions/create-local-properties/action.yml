@@ -1,0 +1,17 @@
+name: Create local.properties
+description:
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        for version in 8 11 17; do
+            java_home_var=JAVA_HOME_${version}_X64
+            echo chaquopy.java.home.$version=${!java_home_var} | sed 's|\\|\\\\|g'
+        done > product/local.properties
+
+    - if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo chaquopy.conda.env=$CONDA | sed 's|\\|\\\\|g' >> product/local.properties

@@ -1,0 +1,117 @@
+name: CI
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-product:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+
+      # This step is referenced from product/README.md.
+      - name: Download Android Python builds
+        run: |
+          cd target
+          for version in $(./list-versions.py --long); do
+              target_dir=../maven/com/chaquo/python/target/$version
+              ./download-target.sh $target_dir
+              ./unpackage-target.sh prefix $target_dir
+          done
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/runtime/requirements-build.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Build
+        run: |
+          cd product
+          ./gradlew publish
+
+      - name: Upload Maven repository
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: maven
+          # There's a fairly large per-file overhead, so exclude the hash files.
+          path: |
+            maven
+            !**/*.md5
+            !**/*.sha1
+            !**/*.sha256
+            !**/*.sha512
+          if-no-files-found: error
+
+      - name: List Android Gradle plugin versions
+        id: agp-versions
+        run: |
+          cd product/gradle-plugin/src/test/integration/data
+          (
+              echo -n versions=
+              echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
+          ) >> $GITHUB_OUTPUT
+
+    outputs:
+      agp-versions: ${{ steps.agp-versions.outputs.versions }}
+
+  integration:
+    needs: [build-product]
+    strategy:
+      fail-fast: false
+      matrix:
+        agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
+        os: [linux, macos, windows]
+        include:
+          # We pin specific OS versions to ensure that the Python `extra-versions`
+          # listed below are all available. To avoid clutter in the GitHub UI, OS
+          # versions are not added to the `os` dimension directly.
+          - os: linux
+            runs-on: ubuntu-20.04
+          - os: macos
+            runs-on: macos-12
+          - os: windows
+            runs-on: windows-2022
+
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+        with:
+          # This should match OLD_BUILD_PYTHON_VERSION and MIN_BUILD_PYTHON_VERSION
+          # in test_gradle_plugin.
+          extra-versions: |
+            3.6
+            3.7
+
+      - name: Download Maven repository
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: maven
+          path: maven
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/gradle-plugin/src/test/integration/requirements.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Test
+        run: |
+          cd product
+          CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

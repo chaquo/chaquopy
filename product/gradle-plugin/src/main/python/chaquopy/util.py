@@ -1,6 +1,3 @@
-# Keep valid Python 2 syntax so we can produce an actionable error message.
-from __future__ import absolute_import, division, print_function
-
 import sys
 
 

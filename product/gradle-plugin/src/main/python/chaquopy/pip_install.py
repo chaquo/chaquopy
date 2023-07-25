@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Keep valid Python 2 syntax so we can produce an error message.
-from __future__ import absolute_import, division, print_function
-
 # Do this as early as possible to minimize the chance of something else going wrong and causing
 # a less comprehensible error message.
 from .util import check_build_python
@@ -34,6 +31,8 @@ EXCLUDE_PATTERNS = [
     "chaquopy/lib/*.la",
     "chaquopy/lib/cmake/*",
     "chaquopy/lib/pkgconfig/*",
+    "chaquopy/share/doc",
+    "chaquopy/share/man",
 ]
 
 

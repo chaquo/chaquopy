@@ -1,18 +1,5 @@
 --- src-original/setup.py	2020-01-28 17:21:32.000000000 +0000
 +++ src/setup.py	2020-08-13 22:40:42.501283313 +0000
-@@ -82,8 +82,10 @@
- 
- # Get geos_version from GEOS dynamic library, which depends on
- # GEOS_LIBRARY_PATH and/or GEOS_CONFIG environment variables
--from shapely._buildcfg import geos_version_string, geos_version, \
--        geos_config, get_geos_config
-+#
-+# Chaquopy: these imports aren't actually used.
-+# from shapely._buildcfg import geos_version_string, geos_version, \
-+#         geos_config, get_geos_config
- 
- logging.basicConfig()
- log = logging.getLogger(__file__)
 @@ -135,6 +137,7 @@
  
  # Allow GEOS_CONFIG to be bypassed in favor of CFLAGS and LDFLAGS

@@ -8,7 +8,9 @@ This file contains checklists for use by Chaquopy's own developers.
 Build the package, as described in README.md. Start with Chaquopy's default Python
 version, and whichever ABI is most convenient for you to test.
 
-Test the resulting .whl file using the pkgtest app, as described in README.md.
+Test the resulting .whl file using the pkgtest app, as described in README.md. Use the
+current stable Chaquopy version, unless the package depends on changes in the development
+version.
 
 If any changes are needed to make the tests work, increment the build number in
 `meta.yaml` before re-running build-wheel.
