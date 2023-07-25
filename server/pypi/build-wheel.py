@@ -125,7 +125,8 @@ class BuildWheel:
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
-            run(f"python{self.python} {PYPI_DIR}/create-build-env.py {build_env_dir}")
+            if self.python:
+                run(f"python{self.python} {PYPI_DIR}/create-build-env.py {build_env_dir}")
             self.unpack_source()
             self.apply_patches()
 

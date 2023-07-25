@@ -1,4 +1,4 @@
-{% set version = "1.4.2" %}
+{% set version = "1.5.1" %}
 
 package:
   name: lameenc
@@ -6,7 +6,7 @@ package:
   version: "{{ version }}"
 
 source:
-  url: https://github.com/chrisstaite/lameenc/archive/refs/tags/v"{{ version }}".tar.gz
+  url: https://github.com/chrisstaite/lameenc/archive/refs/tags/v{{ version }}.tar.gz
 
 requirements:
   host:
