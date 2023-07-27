@@ -3,9 +3,12 @@
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel target="1.7">
       <module name="gradle-plugin" target="1.7" />
-      <module name="product.buildSrc" target="11" />
-      <module name="product.buildSrc.main" target="11" />
-      <module name="product.buildSrc.test" target="11" />
+      <module name="product.buildSrc" target="1.8" />
+      <module name="product.buildSrc.main" target="1.8" />
+      <module name="product.buildSrc.test" target="1.8" />
+      <module name="product.gradle" target="1.8" />
+      <module name="product.gradle.main" target="1.8" />
+      <module name="product.gradle.test" target="1.8" />
       <module name="product.runtime.test" target="1.8" />
       <module name="runtime" target="1.7" />
     </bytecodeTargetLevel>
