@@ -123,9 +123,11 @@ for (f in file("$INTEGRATION_DIR/data").listFiles()) {
         def version = it[1]
         def task = testPythonTask("testIntegration-$version",
                                   Common.DEFAULT_PYTHON_VERSION) {
-            dependsOn publish, ":runtime:publish"
+            if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI
+                dependsOn publish, ":runtime:publish"
+            }
             workingDir INTEGRATION_DIR
-            environment "AGP_VERSION", version
+            environment "CHAQUOPY_AGP_VERSION", version
         }
         testIntegration.dependsOn(task)
     }

@@ -40,8 +40,10 @@ ext.TEST_PACKAGES = [
     "backports-zoneinfo": ["tzdata"],
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
+    "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
+    "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
@@ -50,6 +52,7 @@ ext.TEST_PACKAGES = [
 
 
 android {
+    namespace "com.chaquo.python.pkgtest3"
     compileSdkVersion 33
 
     defaultConfig {
@@ -72,10 +75,11 @@ android {
             pyc {
                 src false  // Include test source code in stack traces.
             }
+            extractPackages "astropy"
         }
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
          }
     }
 

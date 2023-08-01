@@ -1,0 +1,14 @@
+{% set version = "1.5.1" %}
+
+package:
+  name: lameenc
+  # When updating, consider updating chaquopy-lame as well.
+  version: "{{ version }}"
+
+source:
+  url: https://github.com/chrisstaite/lameenc/archive/refs/tags/v{{ version }}.tar.gz
+
+requirements:
+  host:
+    - chaquopy-lame 3.100
+    - python

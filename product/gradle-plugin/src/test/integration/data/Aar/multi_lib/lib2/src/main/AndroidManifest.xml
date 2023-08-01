@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest package="com.chaquo.python.test_library2"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
 </manifest>

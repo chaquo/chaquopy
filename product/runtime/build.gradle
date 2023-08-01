@@ -23,15 +23,21 @@ if (osName == "windows") {
 }
 
 String pythonHome
-new ByteArrayOutputStream().withStream { output ->
-    exec {
-        executable pyPlusVersionExe
-        args "-c", "import sys; print(sys.base_prefix)"
-        standardOutput = output
+if (osName == "windows" && System.getenv("CI") != null) {
+    // All the tasks that use pythonHome require MSYS2 Python on Windows, but we don't
+    // install that in CI because we don't run any of those tasks. TODO: fix this by
+    //  moving to the standard Windows Python builds.
+    pythonHome = "disabled/in/CI"
+} else {
+    new ByteArrayOutputStream().withStream { output ->
+        exec {
+            executable pyPlusVersionExe
+            args "-c", "import sys; print(sys.base_prefix)"
+            standardOutput = output
+        }
+        pythonHome = output.toString().trim()
     }
-    pythonHome = output.toString().trim()
 }
-
 
 
 void addArtifact(Task task, Object filename, String pyVersion=null, String abi=null) {
@@ -125,8 +131,6 @@ String sdkPath(String path) {
     }
     return absPath
 }
-
-def ndkDir = sdkPath("ndk/22.1.7171670")  // Should match the version in target/build-common.sh.
 
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
@@ -276,6 +280,10 @@ for (abi in ["host"] + Common.ABIS) {
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
+            // This must be one of the NDK versions which are pre-installed on the
+            // GitHub Actions runner. Ideally it would also match the version in
+            // target/build-common.sh, but the latter is more difficult to change.
+            def ndkDir = sdkPath("ndk/23.2.8568313")
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
@@ -397,6 +405,7 @@ for (abi in ["host"] + Common.ABIS) {
             }
         }
 
+        // Requires the Python packages in requirements-docs.txt.
         task("sphinx", type: Exec, group: "documentation") {
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
