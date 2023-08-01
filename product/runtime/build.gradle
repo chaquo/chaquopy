@@ -1,4 +1,5 @@
 import com.chaquo.python.Common;
+import static com.chaquo.python.Common.findOnPath;
 
 group = "com.chaquo.python.runtime"
 
@@ -22,23 +23,6 @@ if (osName == "windows") {
     pyPlusVersionExe += ".exe"
 }
 pyPlusVersionExe = findOnPath(pyPlusVersionExe)
-
-
-// The default PATH on Mac is /usr/bin:/bin:/usr/sbin:/sbin. However, apps can't install
-// anything into these locations, so the python.org installers use /usr/local/bin
-// instead. This directory may also appear to be on the default PATH, but this is
-// because it's listed in /etc/paths, which only affects shells, not other apps like
-// Android Studio, or its Gradle subprocesses.
-String findOnPath(String basename) {
-    def path = System.getenv("PATH").split(File.pathSeparator) + ["/usr/local/bin"]
-    for (dir in path) {
-        def file = new File(dir, basename)
-        if (file.exists()) {
-            return file.toString()
-        }
-    }
-    throw new GradleException("Couldn't find '$basename' on PATH")
-}
 
 String pythonHome
 if (osName == "windows" && System.getenv("CI") != null) {

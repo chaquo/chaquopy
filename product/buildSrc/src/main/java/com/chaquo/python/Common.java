@@ -1,10 +1,17 @@
 package com.chaquo.python;
 
+import java.io.*;
 import java.util.*;
 
 
-/** @deprecated internal use */
+/** Constants and utilities shared between the Gradle plugin, the runtime, and their
+ * respective build scripts.
+ *
+ * @deprecated internal use */
 public class Common {
+    // Minimum Android Gradle plugin version
+    public static final String MIN_AGP_VERSION = "7.0.0";
+
     // This should match api_level in target/build-common.sh.
     public static final int MIN_SDK_VERSION = 21;
 
@@ -75,4 +82,26 @@ public class Common {
     public static final String ASSET_BOOTSTRAP_NATIVE = "bootstrap-native";
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";
+
+    // The default PATH on Mac is /usr/bin:/bin:/usr/sbin:/sbin. However, apps can't
+    // install anything into these locations, so the python.org installers use
+    // /usr/local/bin instead. This directory may also appear to be on the default PATH,
+    // but this is because it's listed in /etc/paths, which only affects shells, not
+    // other apps like Android Studio, or its Gradle subprocesses.
+    public static String findOnPath(String basename) throws FileNotFoundException {
+        List<String> path = new ArrayList<>();
+        Collections.addAll(path, System.getenv("PATH").split(File.pathSeparator));
+        if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
+            path.add("/usr/local/bin");
+        }
+
+        for (String dir : path) {
+            File file = new File(dir, basename);
+            if (file.exists()) {
+                return file.toString();
+            }
+        }
+        throw new FileNotFoundException("Couldn't find '" + basename + "' on PATH");
+    }
+
 }
