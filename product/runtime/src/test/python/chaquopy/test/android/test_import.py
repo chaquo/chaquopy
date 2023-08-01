@@ -581,6 +581,19 @@ class TestAndroidImport(FilterWarningsCase):
         # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
 
+    # Ensure that a package can be imported by a bare name when its in an AssetFinder subdirectory.
+    # This is typically done when vendoring packages and dynamically adjusting sys.path. See #820.
+    def test_imp_subdir(self):
+        sys.modules.pop("about", None)
+        murmur_path = asset_path(REQS_COMMON_ZIP, "murmurhash")
+        about_path = join(murmur_path, "about.py")
+        sys.path.insert(0, murmur_path)
+        try:
+            import about
+        finally:
+            sys.path.remove(murmur_path)
+        self.assertEqual(about_path, about.__file__)
+
     # Make sure the standard library importer implements the new loader API
     # (https://stackoverflow.com/questions/63574951).
     def test_zipimport(self):
