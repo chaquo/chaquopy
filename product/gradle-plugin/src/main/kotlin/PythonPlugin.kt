@@ -12,6 +12,7 @@ import org.gradle.util.*
 import java.io.*
 import java.nio.file.*
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
+import java.util.*
 import kotlin.properties.Delegates.notNull
 
 
@@ -24,9 +25,13 @@ class PythonPlugin : Plugin<Project> {
 
     lateinit var project: Project
     var isLibrary by notNull<Boolean>()
-    lateinit var android: CommonExtension<*, *, *, *>
     lateinit var extension: ChaquopyExtension
     val variants = ArrayList<Variant>()
+
+    // This must be private to prevent Gradle from throwing a
+    // MalformedParameterizedTypeException with AGP 8.1, in which CommonExtension has an
+    // additional type parameter.
+    private lateinit var android: CommonExtension<*, *, *, *>
 
     override fun apply(project: Project) {
         this.project = project
@@ -202,7 +207,30 @@ class PythonPlugin : Plugin<Project> {
     fun afterVariant(variant: Variant) {
         // TODO: merge flavors
         val python = extension.defaultConfig
-        TaskFactory(this).createTasks(variant, python)
+        TaskBuilder(this, variant, python, getAbis(variant)).build()
+    }
+
+    /** The ABIs enabled for the variant, in ASCII order. Preserving the order specified
+     * in the build.gradle file is not possible, because the DSL uses a HashSet. */
+    fun getAbis(variant: Variant): List<String> {
+        // variant.externalNativeBuild returns "null if no cmake external build is
+        // configured for this variant", so we'll have to determine the abiFilters from
+        // the DSL.
+        val abis = TreeSet(android.defaultConfig.ndk.abiFilters)
+
+        // Replicate the accumulation behaviour of MergedNdkConfig.append
+        for ((_, flavor) in variant.productFlavors) {
+            abis.addAll(android.productFlavors.getByName(flavor).ndk.abiFilters)
+        }
+        if (abis.isEmpty()) {
+            // The Android plugin doesn't make abiFilters compulsory, but we will,
+            // because adding every single ABI to the APK is not something we want to do
+            // by default.
+            throw GradleException(
+                "Variant '${variant.name}': Chaquopy requires ndk.abiFilters: " +
+                "you may want to add it to android.defaultConfig.")
+        }
+        return ArrayList(abis)
     }
 
     fun extractResource(name: String, targetDir: File): File {

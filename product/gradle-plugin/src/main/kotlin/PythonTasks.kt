@@ -17,26 +17,29 @@ import java.util.*
 import kotlin.reflect.*
 
 
-internal class TaskFactory(val plugin: PythonPlugin) {
+internal class TaskBuilder(
+    val plugin: PythonPlugin, val variant: Variant, val python: PythonExtension, 
+    val abis: List<String>
+) {
     val project = plugin.project
 
-    fun createTasks(variant: Variant, python: PythonExtension) {
-        createConfigs(variant, python)
-        val srcTask = createSrcTask(variant, python)
-        val reqsTask = createReqsTask(variant, python)
-        createProxyTask(variant, python, srcTask, reqsTask)
-        createAssetsTasks(variant, python, srcTask, reqsTask)
-        createJniLibsTasks(variant, python)
+    fun build() {
+        createConfigs()
+        val srcTask = createSrcTask()
+        val reqsTask = createReqsTask()
+        createProxyTask(srcTask, reqsTask)
+        createAssetsTasks(srcTask, reqsTask)
+        createJniLibsTasks()
     }
 
-    fun createConfigs(variant: Variant, python: PythonExtension) {
+    fun createConfigs() {
         plugin.addRuntimeDependency(
             "bootstrap", assetZip(Common.ASSET_BOOTSTRAP), variant, python)
         plugin.addTargetDependency(
             "stdlib", variant, python,
             if (python.pyc.stdlib!!) "stdlib-pyc" else "stdlib")
 
-        for (abi in getAbis(variant)) {
+        for (abi in abis) {
             if (! Common.ABIS.contains(abi)) {
                 throw GradleException(
                     "Variant '${variant.name}': Chaquopy does not support the ABI " +
@@ -50,21 +53,20 @@ internal class TaskFactory(val plugin: PythonPlugin) {
         }
     }
 
-
     /*
     * TODO sourceSets - all we actually need is their names, which can easily be
     * generated from productFlavors/buildType.
     */
-    fun createSrcTask(variant: Variant, python: PythonExtension) =
-        registerTask("merge", variant, "sources") {
+    fun createSrcTask() =
+        registerTask("merge", "sources") {
             destinationDir = plugin.buildSubdir("sources", variant)
         }
 
-    fun createReqsTask(variant: Variant, python: PythonExtension) =
-        registerTask("generate", variant, "requirements") {
+    fun createReqsTask() =
+        registerTask("generate", "requirements") {
             destinationDir = plugin.buildSubdir("requirements", variant)
             doLast {
-                for (subdirName in listOf(Common.ABI_COMMON) + getAbis(variant)) {
+                for (subdirName in listOf(Common.ABI_COMMON) + abis) {
                     val subdir = File(destinationDir, subdirName)
                     project.mkdir(subdir)
                 }
@@ -77,13 +79,11 @@ internal class TaskFactory(val plugin: PythonPlugin) {
     * deprecated API instead.
     */
     fun createProxyTask(
-        variant: Variant, python: PythonExtension,
         srcTask: Provider<OutputDirTask>, reqsTask: Provider<OutputDirTask>
     ) {
     }
 
     fun createAssetsTasks(
-        variant: Variant, python: PythonExtension,
         srcTask: Provider<OutputDirTask>, reqsTask: Provider<OutputDirTask>
     ) {
         val excludePy = { fte: FileTreeElement ->
@@ -98,7 +98,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
             } else false
         }
 
-        val srcAssetsTask = assetTask(variant, "source") {
+        val srcAssetsTask = assetTask("source") {
             inputs.files(srcTask)
             // TODO inputs.property("extractPackages", python.extractPackages)
             doLast {
@@ -108,7 +108,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
             }
         }
 
-        val reqsAssetsTask = assetTask(variant, "requirements") {
+        val reqsAssetsTask = assetTask("requirements") {
             inputs.files(reqsTask)
             // TODO inputs.property("extractPackages", python.extractPackages)
             doLast {
@@ -120,7 +120,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
             }
         }
 
-        val miscAssetsTask = assetTask(variant, "misc") {
+        val miscAssetsTask = assetTask("misc") {
             val runtimeBootstrap = plugin.getConfig("runtimeBootstrap", variant)
             val runtimeModules = plugin.getConfig("runtimeModules", variant)
             val targetStdlib = plugin.getConfig("targetStdlib", variant)
@@ -130,7 +130,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
             doLast {
                 project.copy {
                     into(assetDir)
-                    fromRuntimeArtifact(runtimeBootstrap, python)
+                    fromRuntimeArtifact(runtimeBootstrap)
                     from(targetStdlib) {
                         rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
                     }
@@ -152,7 +152,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
                     "zlib.so"  // zipimport
                 )
 
-                for (abi in getAbis(variant)) {
+                for (abi in abis) {
                     project.copy {
                         from(project.zipTree(resolveArtifact(targetNative, abi).file))
                         include("lib-dynload/**")
@@ -171,7 +171,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
                     project.delete("$assetDir/lib-dynload")
 
                     project.copy {
-                        fromRuntimeArtifact(runtimeModules, python, abi)
+                        fromRuntimeArtifact(runtimeModules, abi)
                         into("$bootstrapDir/java")
                     }
                 }
@@ -179,7 +179,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
             }
         }
 
-        assetTask(variant, "build") {
+        assetTask("build") {
             val tasks = arrayOf(srcAssetsTask, reqsAssetsTask, miscAssetsTask)
             inputs.files(*tasks)
             doLast {
@@ -194,17 +194,15 @@ internal class TaskFactory(val plugin: PythonPlugin) {
     }
 
     fun assetTask(
-        variant: Variant, name: String, configure: AssetDirTask.() -> Unit
+        name: String, configure: AssetDirTask.() -> Unit
     ): Provider<AssetDirTask> {
-        val task = registerTask(
-            "generate", variant, "${name}Assets", AssetDirTask::class
-        ) {
+        val task = registerTask("generate", "${name}Assets", AssetDirTask::class) {
             destinationDir = plugin.buildSubdir("assets/$name", variant)
             configure()
         }
 
         extendMergeTask(if (plugin.isLibrary) "package" else "merge",
-                        variant, "assets", task)
+                        "assets", task)
         return task
     }
 
@@ -215,7 +213,7 @@ internal class TaskFactory(val plugin: PythonPlugin) {
     //   * variant.artifacts supports Java files and assets from AGP 7.1 (though you
     //     have to compile the Java files yourself), and native libs from 8.1.
     fun <T: OutputDirTask> extendMergeTask(
-        verb: String, variant: Variant, noun: String, inputTask: Provider<T>
+        verb: String, noun: String, inputTask: Provider<T>
     ) {
         project.tasks.named("$verb${variant.name.capitalize()}${noun.capitalize()}") {
             inputs.files(inputTask)
@@ -230,8 +228,8 @@ internal class TaskFactory(val plugin: PythonPlugin) {
         }
     }
 
-    fun createJniLibsTasks(variant: Variant, python: PythonExtension) {
-        val task = registerTask("generate", variant, "jniLibs") {
+    fun createJniLibsTasks() {
+        val task = registerTask("generate", "jniLibs") {
             val runtimeJni = plugin.getConfig("runtimeJni", variant)
             val targetNative = plugin.getConfig("targetNative", variant)
             inputs.files(runtimeJni, targetNative)
@@ -258,52 +256,43 @@ internal class TaskFactory(val plugin: PythonPlugin) {
                     }
                 }
 
-                for (abi in getAbis(variant)) {
+                for (abi in abis) {
                     project.copy {
-                        fromRuntimeArtifact(runtimeJni, python, abi)
+                        fromRuntimeArtifact(runtimeJni, abi)
                         into("$destinationDir/$abi")
                     }
                 }
             }
         }
-        extendMergeTask("merge", variant, "jniLibFolders", task)
-    }
-
-    /** The ABIs enabled for the variant, in ASCII order. Preserving the order specified
-     * in the build.gradle file is not possible, because the DSL uses a HashSet. */
-    fun getAbis(variant: Variant): List<String> {
-        // variant.externalNativeBuild returns "null if no cmake external build is
-        // configured for this variant", so we'll have to determine the abiFilters from
-        // the DSL.
-        val abis = TreeSet(plugin.android.defaultConfig.ndk.abiFilters)
-
-        // Replicate the accumulation behaviour of MergedNdkConfig.append
-        for ((_, flavor) in variant.productFlavors) {
-            abis.addAll(plugin.android.productFlavors.getByName(flavor).ndk.abiFilters)
-        }
-        if (abis.isEmpty()) {
-            // The Android plugin doesn't make abiFilters compulsory, but we will,
-            // because adding every single ABI to the APK is not something we want to do
-            // by default.
-            throw GradleException(
-                "Variant '${variant.name}': Chaquopy requires ndk.abiFilters: " +
-                "you may want to add it to android.defaultConfig.")
-        }
-        return ArrayList(abis)
+        extendMergeTask("merge", "jniLibFolders", task)
     }
 
     fun registerTask(
-        verb: String, variant: Variant, noun: String, configure: OutputDirTask.() -> Unit
-    ) = registerTask(verb, variant, noun, OutputDirTask::class, configure)
+        verb: String, noun: String, configure: OutputDirTask.() -> Unit
+    ) = registerTask(verb, noun, OutputDirTask::class, configure)
 
     fun <T: OutputDirTask> registerTask(
-        verb: String, variant: Variant, noun: String,
-        cls: KClass<T>, configure: T.() -> Unit
+        verb: String, noun: String, cls: KClass<T>, configure: T.() -> Unit
     ): Provider<T> {
         // This matches the format of the AGP's own task names.
         return project.tasks.register(
             "$verb${variant.name.capitalize()}Python${noun.capitalize()}",
             cls, configure)
+    }
+
+    fun resolveArtifact(config: Configuration, classifier: String): ResolvedArtifact {
+        return config.resolvedConfiguration.resolvedArtifacts.find {
+            it.classifier == classifier
+        }!!
+    }
+
+    fun CopySpec.fromRuntimeArtifact(
+        config: Configuration, abi: String? = null
+    ) {
+        val art = resolveArtifact(config, runtimeClassifier(python, abi))
+        from(art.file) {
+            rename { "${art.name}.${art.extension}" }
+        }
     }
 }
 
@@ -363,22 +352,6 @@ fun hashAssets(json: JSONObject, dir: File, prefix: String) {
             }
             json.put(path, digest.digest().joinToString("") { "%02x".format(it) })
         }
-    }
-}
-
-
-fun resolveArtifact(config: Configuration, classifier: String): ResolvedArtifact {
-    return config.resolvedConfiguration.resolvedArtifacts.find {
-        it.classifier == classifier
-    }!!
-}
-
-fun CopySpec.fromRuntimeArtifact(
-    config: Configuration, python: PythonExtension, abi: String? = null
-) {
-    val art = resolveArtifact(config, runtimeClassifier(python, abi))
-    from(art.file) {
-        rename { "${art.name}.${art.extension}" }
     }
 }
 
