@@ -16,7 +16,7 @@ runs:
       run: |
         (
             echo "versions<<EOF"
-            target/list-versions.py --short
+            target/list-versions.py --minor
             echo EOF
         ) >> $GITHUB_OUTPUT
 

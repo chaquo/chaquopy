@@ -8,7 +8,7 @@ COPY product/buildSrc product/buildSrc
 
 # The cmake version should match sdkCmakeDir in product/runtime/build.gradle.
 RUN platform_ver=$(grep COMPILE_SDK_VERSION \
-                   product/buildSrc/src/main/java/com/chaquo/python/Common.java \
+                   product/buildSrc/src/main/java/com/chaquo/python/internal/Common.java \
                    | sed 's|.* = \(.*\);.*|\1|'); \
     yes | android-sdk/cmdline-tools/tools/bin/sdkmanager \
         "cmake;3.6.4111459" "platforms;android-$platform_ver"

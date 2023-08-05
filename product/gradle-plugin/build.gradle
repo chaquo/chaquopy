@@ -1,4 +1,4 @@
-import com.chaquo.python.Common;
+import com.chaquo.python.internal.Common;
 
 apply plugin: 'java-gradle-plugin'
 apply plugin: 'groovy'
@@ -66,6 +66,7 @@ Task testPythonTask(String name, String version, Closure closure) {
         }
         args "-m", "unittest"
         if (project.hasProperty("testPythonArgs")) {
+            args "-v"
             args project.testPythonArgs.split(" ")
         } else {
             args "discover", "-v"

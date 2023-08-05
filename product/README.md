@@ -6,7 +6,7 @@ This file contains instructions for building and testing Chaquopy.
 # Build prerequisites
 
 * A local Python installation for each Python major.minor version suported by Chaquopy
-  (list them with `target/list-versions.py --short`). These must be on the PATH as
+  (list them with `target/list-versions.py --minor`). These must be on the PATH as
   `pythonX.Y` on Unix, or `py -X.Y` on Windows.
   * On Linux, install them from your distribution, or use Miniconda.
   * On Mac and Windows, download them from https://python.org/.
@@ -22,7 +22,7 @@ This file contains instructions for building and testing Chaquopy.
    * CMake: version from `sdkCmakeDir` in runtime/build.gradle.
    * NDK (side by side): version from `ndkDir` in runtime/build.gradle.
    * SDK Platform: version from `COMPILE_SDK_VERSION` in
-     buildSrc/src/main/java/com/chaquo/python/Common.java.
+     buildSrc/src/main/java/com/chaquo/python/internal/Common.java.
 
 * JDK version 8. Create a `local.properties` file in `product` (i.e. the same directory
   as this README), setting the JDK location as follows:

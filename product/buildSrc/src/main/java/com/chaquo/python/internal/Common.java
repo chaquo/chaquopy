@@ -1,9 +1,8 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
 import java.util.*;
 
 
-/** @deprecated internal use */
 public class Common {
     // This should match api_level in target/build-common.sh.
     public static final int MIN_SDK_VERSION = 21;

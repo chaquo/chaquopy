@@ -2,7 +2,7 @@
 set -eu
 
 target_dir=maven/com/chaquo/python/target
-common_java="product/buildSrc/src/main/java/com/chaquo/python/Common.java"
+common_java="product/buildSrc/src/main/java/com/chaquo/python/internal/Common.java"
 extract_string='s/.*"(.*)".*/\1/'
 python_version=$(grep "PYTHON_VERSION =" $common_java | sed -E "$extract_string")
 build=$(grep "PYTHON_BUILD_NUM =" $common_java | sed -E "$extract_string")

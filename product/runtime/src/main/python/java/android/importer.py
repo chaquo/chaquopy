@@ -24,8 +24,8 @@ import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
 
 from android.os import Build
-from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
+from com.chaquo.python.internal import Common
 
 
 def initialize(context, build_json, app_path):
