@@ -1684,7 +1684,8 @@ class RunGradle(object):
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
-                # PythonPlugin.groovy explains why each of these modules are needed.
+                # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
+                # in PythonTasks.kt.
                 ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))

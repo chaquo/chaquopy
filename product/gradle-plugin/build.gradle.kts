@@ -12,7 +12,7 @@ gradlePlugin {
     plugins {
         create("gradle") {
             id = "com.chaquo.python"
-            implementationClass = "com.chaquo.python.ChaquopyPlugin"
+            implementationClass = "com.chaquo.python.PythonPlugin"
 
             // For these fields, the `pom` block in the root build.gradle doesn't have
             // any effect on the plugin marker artifact.
@@ -144,14 +144,5 @@ for (f in file("$INTEGRATION_DIR/data").listFiles()!!) {
             environment["CHAQUOPY_AGP_VERSION"] = version
         }
         tasks.named("testIntegration") { dependsOn(task) }
-    }
-}
-
-
-tasks.jar {
-    manifest {
-        // Enables getClass().getPackage().getImplementationVersion(), which
-        // PythonPlugin uses to discover its own version number.
-        attributes(mapOf("Implementation-Version" to project.version))
     }
 }

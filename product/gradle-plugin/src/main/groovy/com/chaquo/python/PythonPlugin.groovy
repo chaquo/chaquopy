@@ -1,149 +1,17 @@
 package com.chaquo.python
 
-import org.apache.commons.compress.archivers.zip.*
-import org.gradle.api.*
-import org.gradle.api.artifacts.Configuration
-import org.gradle.api.file.*
-import org.gradle.api.initialization.dsl.ScriptHandler
-import org.gradle.api.plugins.*
-import org.gradle.api.tasks.TaskInputs
-import org.gradle.process.ExecResult
-import org.gradle.process.internal.ExecException
-import org.gradle.util.*
-import org.json.*
-
-import java.nio.file.*
-import java.security.MessageDigest
-
 import com.chaquo.python.internal.*
-import static com.chaquo.python.internal.Common.assetZip;
-import static java.nio.file.StandardCopyOption.*
-
+import org.gradle.api.*
+import org.gradle.api.file.*
+import org.gradle.api.tasks.*
+import org.gradle.process.*
+import org.gradle.process.internal.*
 
 class PythonPlugin implements Plugin<Project> {
-    static final def NAME = "python"
-    static final def PLUGIN_VERSION = PythonPlugin.class.package.implementationVersion
-    static final def MIN_ANDROID_PLUGIN_VER = VersionNumber.parse("7.0.0")
 
-    Project project
-    ScriptHandler buildscript
-    Object android
-    boolean isLibrary
-    VersionNumber androidPluginVer
-    File genDir
     Task buildPackagesTask
 
     public void apply(Project p) {
-        project = p
-        genDir = new File(project.buildDir, "generated/$NAME")
-
-        // Load dependencies from the same buildscript context as the Chaquopy plugin itself,
-        // so they'll come from the same repository.
-        buildscript = findPlugin("com.chaquo.python", "gradle").project.buildscript
-
-        if (!project.hasProperty("android")) {
-            throw new GradleException(
-                "project.android not set. Did you apply plugin com.android.application or " +
-                "com.android.library before com.chaquo.python?")
-        }
-        android = project.android
-        androidPluginVer = getAndroidPluginVersion()
-        isLibrary = project.pluginManager.hasPlugin("com.android.library")
-
-        File proguardFile = extractResource("proguard-rules.pro", genDir)
-        android.defaultConfig.proguardFile(proguardFile)
-        if (isLibrary) {
-            android.defaultConfig.consumerProguardFile(proguardFile)
-        }
-        extendProductFlavor(android.defaultConfig).setDefaults()
-        android.productFlavors.all { extendProductFlavor(it) }
-
-        extendSourceSets()
-        setupDependencies()
-        project.afterEvaluate { afterEvaluate() }
-    }
-
-    static class PluginInfo {
-        Project project
-        VersionNumber version
-    }
-
-    PluginInfo findPlugin(String group, String name) {
-        Project p = project
-        while (p != null) {
-            for (art in p.buildscript.configurations.getByName("classpath")
-                        .resolvedConfiguration.resolvedArtifacts) {
-                def dep = art.moduleVersion.id
-                if (dep.group == group  &&  dep.name == name) {
-                    return new PluginInfo(project: p,
-                                          version: VersionNumber.parse(dep.version))
-                }
-            }
-            p = p.parent
-        }
-        return null;
-    }
-
-    VersionNumber getAndroidPluginVersion() {
-        final def ADVICE =
-            "please edit the version of com.android.application, com.android.library or " +
-            "com.android.tools.build:gradle in your top-level build.gradle file. See " +
-            "https://chaquo.com/chaquopy/doc/current/versions.html."
-
-        def info = findPlugin("com.android.tools.build", "gradle")
-        if (info == null) {
-            // This wording is checked by AndroidPlugin.test_old.
-            println("Warning: Chaquopy was unable to determine the Android Gradle plugin " +
-                    "version. The minimum supported version is $MIN_ANDROID_PLUGIN_VER. " +
-                    "If you experience problems, " + ADVICE)
-            return null
-        }
-        if (info.version < MIN_ANDROID_PLUGIN_VER) {
-            throw new GradleException(
-                "This version of Chaquopy requires Android Gradle plugin " +
-                "version $MIN_ANDROID_PLUGIN_VER or later: " + ADVICE)
-        }
-        return info.version
-    }
-
-    PythonExtension extendProductFlavor(ExtensionAware ea) {
-        def python = new PythonExtension(project)
-        ea.extensions.add(NAME, python)
-        return python
-    }
-
-    // TODO #5341: support setRoot
-    void extendSourceSets() {
-        android.sourceSets.all { sourceSet ->
-            Object[] args = null
-            def javaSet = sourceSet.java
-            if (androidPluginVer < VersionNumber.parse("7.2.0-alpha01")) {
-                args = [sourceSet.name + " Python source", project, javaSet.type]
-            } else {
-                args = [sourceSet.name, "Python source", project, javaSet.type]
-            }
-            sourceSet.metaClass.pyDirSet = javaSet.getClass().newInstance(args)
-
-            sourceSet.metaClass.getPython = { return pyDirSet }
-            sourceSet.metaClass.python = { closure ->
-                closure.delegate = pyDirSet
-                closure()
-            }
-            sourceSet.python.srcDirs = ["src/$sourceSet.name/python"]
-        }
-    }
-
-    void setupDependencies() {
-        def runtimeJava = getConfig("runtimeJava")
-        buildscript.dependencies.add(runtimeJava.name, runtimeDep("chaquopy_java.jar"))
-        project.dependencies {
-            // Use `api` rather than `implementation` so it's available to dynamic feature
-            // modules.
-            //
-            // Can't depend directly on runtimeJava, because "Currently you can only declare
-            // dependencies on configurations from the same project."
-            api project.files(runtimeJava)
-        }
     }
 
     void afterEvaluate() {
@@ -155,113 +23,7 @@ class PythonPlugin implements Plugin<Project> {
             for (flavor in variant.getProductFlavors().reverse()) {
                 python.mergeFrom(flavor.python)
             }
-
-            if (variant.mergedFlavor.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
-                throw new GradleException(
-                    "$variant.name: This version of Chaquopy requires minSdkVersion " +
-                    "$Common.MIN_SDK_VERSION or higher. See " +
-                    "https://chaquo.com/chaquopy/doc/current/versions.html.")
-            }
-
-            createConfigs(variant, python)
-            Task reqsTask = createReqsTask(variant, python)
-            Task mergeSrcTask = createMergeSrcTask(variant, python)
-            createProxyTask(variant, python, reqsTask, mergeSrcTask)
-            createAssetsTasks(variant, python, reqsTask, mergeSrcTask)
-            createJniLibsTasks(variant, python)
         }
-    }
-
-    void createConfigs(variant, PythonExtension python) {
-        buildscript.dependencies {
-            add(getConfig("runtimePython").name,
-                runtimeDep(assetZip(Common.ASSET_BOOTSTRAP), python.version))
-            add(getConfig("targetStdlib", variant).name,
-                targetDep(python, python.pyc.stdlib ? "stdlib-pyc" : "stdlib"))
-        }
-
-        for (abi in getAbis(variant)) {
-            if (! Common.ABIS.contains(abi)) {
-                throw new GradleException("$variant.name: Chaquopy does not support the ABI " +
-                                          "'$abi'. Supported ABIs are ${Common.ABIS}.")
-            }
-            buildscript.dependencies {
-                add(getConfig("runtimeJni", variant).name,
-                    runtimeDep("libchaquopy_java.so", python.version, abi))
-                add(getConfig("runtimeModules", variant).name,
-                    runtimeDep("chaquopy.so", python.version, abi))
-                add(getConfig("targetNative", variant).name,
-                    targetDep(python, abi))
-            }
-        }
-    }
-
-    Configuration getConfig(String name, variant=null) {
-        def variantName = (variant != null) ? variant.name : ""
-        def configName = "$NAME${variantName.capitalize()}${name.capitalize()}"
-        return buildscript.configurations.maybeCreate(configName)
-    }
-
-    Object targetDep(PythonExtension python, String classifier) {
-        def entry = pythonVersionInfo(python.version)
-        return "com.chaquo.python:target:$entry.key-$entry.value:$classifier@zip"
-    }
-
-    Map.Entry<String, String> pythonVersionInfo(String version) {
-        for (entry in Common.PYTHON_VERSIONS.entrySet()) {
-            if (entry.key.startsWith(version)) {
-                return entry
-            }
-        }
-        // Since the version has already been validated by PythonExtension.version, this
-        // should be impossible.
-        throw new GradleException("Failed to find information for Python version " +
-                                  "'$version'.")
-    }
-
-    Object runtimeDep(String filename, String pyVersion=null, String abi=null) {
-        def dotPos = filename.lastIndexOf(".")
-        def result = [
-            group: "com.chaquo.python.runtime",
-            name: filename.substring(0, dotPos),
-            version: PLUGIN_VERSION,
-            ext: filename.substring(dotPos + 1),
-        ]
-        def classifiers = [pyVersion, abi].findAll { it != null }
-        if (!classifiers.isEmpty()) {
-            result.put("classifier", classifiers.join("-"))
-        }
-        return result
-    }
-
-    File getNativeArtifact(Configuration config, String pyVersion, String abi) {
-        return config.resolvedConfiguration.resolvedArtifacts.find {
-            it.classifier == [pyVersion, abi].findAll { it != null }.join("-")
-        }.file
-    }
-
-    List<String> getAbis(variant) {
-        // variant.getMergedFlavor returns a DefaultProductFlavor base class object, which, perhaps
-        // by an oversight, doesn't contain the NDK options.
-        def abis = new TreeSet<String>()
-        def ndk = android.defaultConfig.ndkConfig
-        if (ndk.abiFilters) {
-            abis.addAll(ndk.abiFilters)  // abiFilters is a HashSet, so its order is undefined.
-        }
-        for (flavor in variant.getProductFlavors().reverse()) {
-            ndk = flavor.ndkConfig
-            if (ndk.abiFilters) {
-                // Replicate the accumulation behaviour of MergedNdkConfig.append
-                abis.addAll(ndk.abiFilters)
-            }
-        }
-        if (abis.isEmpty()) {
-            // The Android plugin doesn't make abiFilters compulsory, but we will, because
-            // adding every single ABI to the APK is not something we want to do by default.
-            throw new GradleException("$variant.name: Chaquopy requires ndk.abiFilters: " +
-                                       "you may want to add it to defaultConfig.")
-        }
-        return new ArrayList(abis)
     }
 
     Task createBuildPackagesTask() {
@@ -287,12 +49,12 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Task createReqsTask(variant, PythonExtension python) {
-        return project.task(taskName("generate", variant, "requirements")) {
+        return registerTask("generate", variant, "requirements") {
             def abis = getAbis(variant)
             // Using variantGenDir could cause us to exceed the Windows 260-character filename
             // limit with some packages (e.g. https://github.com/chaquo/chaquopy/issues/164),
             // so use something shorter.
-            ext.destinationDir = new File(project.buildDir, "pip/$variant.dirName")
+            ext.destinationDir = plugin.buildSubdir("pip", variant)
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
             inputs.property("minApiLevel", variant.mergedFlavor.minSdkVersion.apiLevel)
@@ -404,7 +166,7 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    Task createMergeSrcTask(variant, PythonExtension python) {
+    Task createSrcTask(variant, PythonExtension python) {
         // Create the main source set directory if it doesn't already exist, to invite the user
         // to put things in it.
         for (dir in android.sourceSets.main.python.srcDirs) {
@@ -413,8 +175,8 @@ class PythonPlugin implements Plugin<Project> {
 
         def dirSets = (variant.sourceSets.collect { it.python }
                        .findAll { ! it.sourceFiles.isEmpty() })
-        def mergeDir = variantGenDir(variant, "sources")
-        return project.task(taskName("merge", variant, "sources")) {
+        def mergeDir = plugin.buildSubdir("sources", variant)
+        return registerTask("merge", variant, "sources") {
             ext.destinationDir = mergeDir
             dependsOn buildPackagesTask
             inputs.property("buildPython", python.buildPython).optional(true)
@@ -480,10 +242,10 @@ class PythonPlugin implements Plugin<Project> {
         }
     }
 
-    void createProxyTask(variant, PythonExtension python, Task reqsTask, Task mergeSrcTask) {
-        File destinationDir = variantGenDir(variant, "proxies")
-        Task proxyTask = project.task(taskName("generate", variant, "proxies")) {
-            inputs.files(buildPackagesTask, reqsTask, mergeSrcTask)
+    void createProxyTask(variant, PythonExtension python, Task reqsTask, Task srcTask) {
+        File destinationDir = plugin.buildSubdir("proxies", variant)
+        Task proxyTask = registerTask("generate", variant, "proxies") {
+            inputs.files(buildPackagesTask, reqsTask, srcTask)
             inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("staticProxy", python.staticProxy)
             outputs.dir(destinationDir)
@@ -493,7 +255,7 @@ class PythonPlugin implements Plugin<Project> {
                 if (!python.staticProxy.isEmpty()) {
                     execBuildPython(python) {
                         args "-m", "chaquopy.static_proxy"
-                        args "--path", (mergeSrcTask.destinationDir.toString() +
+                        args "--path", (srcTask.destinationDir.toString() +
                                         File.pathSeparator +
                                         "$reqsTask.destinationDir/common")
                         args "--java", destinationDir
@@ -529,285 +291,6 @@ class PythonPlugin implements Plugin<Project> {
         } catch (ExecException e) {
             throw new BuildPythonFailedException(e.message)
         }
-    }
-
-    void createAssetsTasks(variant, PythonExtension python, Task reqsTask,
-                           Task mergeSrcTask) {
-        def excludePy = { FileTreeElement fte ->
-            if (fte.name.endsWith(".py") &&
-                new File(fte.file.parent, fte.name + "c").exists()) {
-                def dottedPath = fte.path.replace("/", ".")
-                return ! python.extractPackages.any { dottedPath.startsWith(it + ".") }
-            } else {
-                return false
-            }
-        }
-
-        def appAssetsTask = assetTask(variant, "app") {
-            inputs.files(mergeSrcTask)
-            inputs.property("extractPackages", python.extractPackages)
-            doLast {
-                makeZip(project.fileTree(mergeSrcTask.destinationDir)
-                            .matching { exclude excludePy },
-                        "$assetDir/${assetZip(Common.ASSET_APP)}")
-            }
-        }
-
-        def reqsAssetsTask = assetTask(variant, "requirements") {
-            inputs.files(reqsTask)
-            inputs.property("extractPackages", python.extractPackages)
-            doLast {
-                for (subdir in reqsTask.destinationDir.listFiles()) {
-                    makeZip(project.fileTree(subdir).matching { exclude excludePy },
-                            "$assetDir/${assetZip(Common.ASSET_REQUIREMENTS, subdir.name)}")
-                }
-            }
-        }
-
-        def miscAssetsTask = assetTask(variant, "misc") {
-            def runtimePython = getConfig("runtimePython")
-            def runtimeModules = getConfig("runtimeModules", variant)
-            def targetStdlib = getConfig("targetStdlib", variant)
-            def targetNative = getConfig("targetNative", variant)
-            inputs.files(runtimePython, runtimeModules, targetStdlib, targetNative)
-            doLast {
-                project.copy {
-                    into assetDir
-                    from(runtimePython) {
-                        rename { assetZip(Common.ASSET_BOOTSTRAP) }
-                    }
-                    from(targetStdlib) {
-                        rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
-                    }
-                }
-
-                // The following stdlib native modules are needed during bootstrap and are
-                // pre-extracted by AndroidPlatform so they can be loaded with the
-                // standard FileFinder. All other native modules are loaded from a .zip using
-                // AssetFinder.
-                def BOOTSTRAP_NATIVE_STDLIB = [
-                    "_ctypes.so",  // java.primitive and importer
-                    "_datetime.so",  // calendar < importer (see test_datetime)
-                    "_random.so",  // random < tempfile < zipimport
-                    "_sha512.so",  // random < tempfile < zipimport
-                    "_struct.so",  // zipfile < importer
-                    "binascii.so",  // zipfile < importer
-                    "math.so",  // datetime < calendar < importer
-                    "mmap.so",  // elftools < importer
-                    "zlib.so",  // zipimport
-                ]
-
-                for (abi in getAbis(variant)) {
-                    project.ant.unzip(
-                        src: getNativeArtifact(targetNative, null, abi),
-                        dest: assetDir
-                    ) {
-                        patternset() {
-                            include(name: "lib-dynload/**")
-                        }
-                    }
-                    makeZip(project.fileTree("$assetDir/lib-dynload/$abi")
-                                .matching { exclude BOOTSTRAP_NATIVE_STDLIB },
-                            "$assetDir/${assetZip(Common.ASSET_STDLIB, abi)}")
-
-                    def bootstrapDir = "$assetDir/$Common.ASSET_BOOTSTRAP_NATIVE/$abi"
-                    project.copy {
-                        into bootstrapDir
-                        from("$assetDir/lib-dynload/$abi") {
-                            include BOOTSTRAP_NATIVE_STDLIB
-                        }
-                        runtimeModules.resolvedConfiguration.resolvedArtifacts.each { ra ->
-                            if (ra.classifier == "$python.version-$abi") {
-                                from(ra.file) {
-                                    into "java"
-                                    rename { "${ra.name}.${ra.extension}" }
-                                }
-                            }
-                        }
-                    }
-                    project.delete("$assetDir/lib-dynload")
-                }
-                extractResource(Common.ASSET_CACERT, assetDir)
-            }
-        }
-        assetTask(variant, "build") {
-            inputs.files(appAssetsTask, reqsAssetsTask, miscAssetsTask)
-            doLast {
-                def buildJson = new JSONObject()
-                buildJson.put("python_version", python.version)
-                buildJson.put("assets", hashAssets(appAssetsTask, reqsAssetsTask,
-                                                   miscAssetsTask))
-                buildJson.put("extract_packages", new JSONArray(python.extractPackages))
-                project.file("$assetDir/$Common.ASSET_BUILD_JSON").text = buildJson.toString(4)
-            }
-        }
-    }
-
-    // Based on org/gradle/api/internal/file/archive/ZipCopyAction.java. This isn't part of
-    // the Gradle public API except via the Zip task, which we're not using because we'd need
-    // to refactor to have one task per ZIP.
-    //
-    // The usual alternative is to use ant.zip, but that has other problems:
-    //   * It only takes simple exclusion patterns, so there's no way to say "exclude .py
-    //     files which have a corresponding .pyc".
-    //   * It has no equivalent to preserveFileTimestamps, so we'd have to actually set the
-    //     timestamps of all the input files.
-    def makeZip(FileTree tree, Object outFile) {
-        new ZipArchiveOutputStream(project.file(outFile)).withCloseable { zip ->
-            // UTF-8 filename encoding is apparently on by default on Linux and off by default on
-            // Windows: this alters the resulting ZIP file even if all filenames are ASCII.
-            zip.setEncoding("UTF-8")
-
-            // This is the same timestamp used by Gradle's preserveFileTimestamps setting.
-            // The UTC timestamp generated here will vary according to the current timezone,
-            // but the local time will be constant, and that's what gets stored in the ZIP.
-            def timestamp = new GregorianCalendar(1980, Calendar.FEBRUARY, 1, 0, 0, 0)
-                .getTimeInMillis()
-
-            tree.visit(new ReproducibleFileVisitor() {
-                boolean isReproducibleFileOrder() {
-                    return true
-                }
-                void visitDir(FileVisitDetails details) {
-                    def entry = new ZipArchiveEntry(details.path + "/")
-                    entry.setTime(timestamp)
-                    zip.putArchiveEntry(entry)
-                    zip.closeArchiveEntry()
-                }
-                void visitFile(FileVisitDetails details) {
-                    def entry = new ZipArchiveEntry(details.path)
-                    entry.setTime(timestamp)
-                    zip.putArchiveEntry(entry)
-                    details.copyTo(zip)
-                    zip.closeArchiveEntry()
-                }
-            })
-        }
-    }
-
-    Task assetTask(variant, String name, Closure closure) {
-        def assetBaseDir = variantGenDir(variant, "assets")
-        def t = project.task(taskName("generate", variant, "${name}Assets")) {
-            ext.destinationDir = "$assetBaseDir/$name"
-            ext.assetDir = "$destinationDir/$Common.ASSET_DIR"
-            outputs.dir(destinationDir)
-            doLast {
-                project.delete(destinationDir)
-                project.mkdir(assetDir)
-            }
-        }
-        closure.delegate = t
-        closure()
-
-        extendMergeTask(project.tasks.getByName(
-            "${isLibrary ? "package" : "merge"}${variant.name.capitalize()}Assets"), t)
-        return t
-    }
-
-    JSONObject hashAssets(Task... tasks) {
-        def assetsJson = new JSONObject()
-        def digest = MessageDigest.getInstance("SHA-1")
-        for (t in tasks) {
-            hashAssets(assetsJson, digest, project.file("$t.destinationDir/$Common.ASSET_DIR"), "")
-        }
-        return assetsJson
-    }
-
-    void hashAssets(JSONObject assetsJson, MessageDigest digest, File dir, String prefix) {
-        for (file in dir.listFiles()) {
-            def path = prefix + file.name
-            if (file.isDirectory()) {
-                hashAssets(assetsJson, digest, file, path + "/")
-            } else {
-                // file.bytes may exhaust Java heap space, so read the file in smaller blocks.
-                file.withInputStream {
-                    def buf = new byte[1024 * 1024]
-                    def len
-                    while ((len = it.read(buf)) != -1) {
-                        digest.update(buf, 0, len)
-                    }
-                }
-                assetsJson.put(path, digest.digest().encodeHex())
-            }
-        }
-    }
-
-    void createJniLibsTasks(variant, PythonExtension python) {
-        def libsDir = variantGenDir(variant, "jniLibs")
-        def runtimeJni = getConfig("runtimeJni", variant)
-        def targetNative = getConfig("targetNative", variant)
-        def genTask = project.task(taskName("generate", variant, "jniLibs")) {
-            inputs.files(runtimeJni, targetNative)
-            outputs.dir(libsDir)
-            doLast {
-                project.delete(libsDir)
-                def artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
-                for (art in artifacts) {
-                    // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in the build
-                    // directory. (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
-                    project.copy {
-                        from project.zipTree(art.file)
-                        include "jniLibs/**"
-                        into libsDir
-                        eachFile { FileCopyDetails fcd ->
-                            fcd.relativePath = new RelativePath(
-                                 !fcd.file.isDirectory(),
-                                 fcd.relativePath.segments[1..-1] as String[])
-                        }
-                        includeEmptyDirs = false
-                    }
-                }
-
-                for (abi in getAbis(variant)) {
-                    project.copy {
-                        from getNativeArtifact(runtimeJni, python.version, abi)
-                        into "$libsDir/$abi"
-                        rename { "libchaquopy_java.so" }
-                    }
-                }
-            }
-        }
-        extendMergeTask(project.tasks.getByName("merge${variant.name.capitalize()}JniLibFolders"),
-                        genTask)
-    }
-
-    void extendMergeTask(Task mergeTask, Task genTask) {
-        mergeTask.dependsOn(genTask)
-        mergeTask.inputs.files(genTask.outputs)
-        mergeTask.doLast {
-            project.copy {
-                from genTask.outputs
-                into mergeTask.outputDir
-            }
-        }
-    }
-
-    File variantGenDir(variant, String type) {
-        return new File(genDir, "$type/$variant.dirName")
-    }
-
-    String taskName(String verb, variant, String object) {
-        return "$verb${variant.name.capitalize()}${NAME.capitalize()}${object.capitalize()}"
-    }
-
-    File extractResource(String name, targetDir) {
-        return extractResource(name, targetDir, new File(name).name)
-    }
-
-    File extractResource(String name, targetDir, String targetName) {
-        project.mkdir(targetDir)
-        def outFile = new File(targetDir, targetName)
-        def tmpFile = new File("${outFile.path}.tmp")
-        InputStream is = getClass().getResourceAsStream(name)
-        if (is == null) {
-            throw new IOException("getResourceAsString failed for '$name'")
-        }
-        Files.copy(is, tmpFile.toPath(), REPLACE_EXISTING)
-        project.delete(outFile)
-        if (! tmpFile.renameTo(outFile)) {
-            throw new IOException("Failed to create '$outFile'")
-        }
-        return outFile
     }
 }
 
@@ -909,12 +392,6 @@ class PythonExtension extends BaseExtension {
         pip.mergeFrom(overlay.pip)
         pyc.mergeFrom(overlay.pyc)
     }
-
-    // Removed in 0.6.0
-    void pipInstall(String... args) {
-        throw new GradleException("'pipInstall' has been removed: use 'pip { install ... }' " +
-                                  "or 'pip { options ... }' instead")
-    }
 }
 
 
@@ -945,48 +422,6 @@ class PipExtension extends BaseExtension {
         options.addAll(overlay.options)
     }
 }
-
-
-class PycExtension extends BaseExtension {
-    Boolean src
-    Boolean pip
-    Boolean stdlib
-
-    void setDefaults() {
-        src = null
-        pip = null
-        stdlib = true
-    }
-
-    void src(boolean value) { src = value }
-    void pip(boolean value) { pip = value }
-    void stdlib(boolean value) { stdlib = value }
-
-    void mergeFrom(PycExtension overlay) {
-        src = chooseNotNull(overlay.src, src)
-        pip = chooseNotNull(overlay.pip, pip)
-        stdlib = chooseNotNull(overlay.stdlib, stdlib)
-    }
-}
-
-
-class BaseExtension implements Serializable {
-    // If a setting's default value is not null or empty, we can't just set it in a field
-    // initializer, because then a value explicitly set by the user in defaultConfig could be
-    // overridden by a default value from a product flavor. Instead, such values are set in
-    // this method, which is only called on defaultConfig.
-    void setDefaults() {}
-
-    static void applyClosure(BaseExtension be, Closure closure) {
-        closure.delegate = be
-        closure()
-    }
-
-    static <T> T chooseNotNull(T overlay, T base) {
-        return overlay != null ? overlay : base
-    }
-}
-
 
 class BuildPythonException extends GradleException {
     static final String ADVICE = (
