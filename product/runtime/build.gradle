@@ -1,5 +1,5 @@
-import com.chaquo.python.Common;
-import static com.chaquo.python.Common.findOnPath;
+import com.chaquo.python.internal.Common;
+import static com.chaquo.python.internal.Common.findOnPath;
 
 group = "com.chaquo.python.runtime"
 
@@ -151,6 +151,7 @@ task("doc", group: "documentation")
 javadoc {
     destinationDir = file("$docsDir/java")
     title "Chaquopy Java API"
+    exclude "com/chaquo/python/internal/**"
     options {
         addStringOption("source", "8")
         addBooleanOption("Xdoclint:all,-missing", true)

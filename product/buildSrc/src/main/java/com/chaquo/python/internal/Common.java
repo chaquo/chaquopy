@@ -1,13 +1,11 @@
-package com.chaquo.python;
+package com.chaquo.python.internal;
 
 import java.io.*;
 import java.util.*;
 
 
 /** Constants and utilities shared between the Gradle plugin, the runtime, and their
- * respective build scripts.
- *
- * @deprecated internal use */
+ * respective build scripts. */
 public class Common {
     // Minimum Android Gradle plugin version
     public static final String MIN_AGP_VERSION = "7.0.0";

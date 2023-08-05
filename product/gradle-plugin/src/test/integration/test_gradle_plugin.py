@@ -34,30 +34,7 @@ chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 with open(f"{product_dir}/local.properties") as props_file:
     product_props = PropertiesFile.load(props_file)
 
-DEFAULT_PYTHON_VERSION = None
-PYTHON_VERSIONS = {}
-for line in open(f"{product_dir}/buildSrc/src/main/java/com/chaquo/python/Common.java"):
-    match = re.search(r'DEFAULT_PYTHON_VERSION = "(.+)"', line)
-    if match:
-        DEFAULT_PYTHON_VERSION = match[1]
-
-    match = re.search(r'PYTHON_VERSIONS.put\("(.+)", ".+"\)', line)
-    if match:
-        full_version = match[1]
-        version = full_version.rpartition(".")[0]
-        PYTHON_VERSIONS[version] = full_version
-
-if not DEFAULT_PYTHON_VERSION:
-    raise Exception("Failed to find DEFAULT_PYTHON_VERSION")
-assert DEFAULT_PYTHON_VERSION == "3.8"
-
-if not PYTHON_VERSIONS:
-    raise Exception("Failed to find PYTHON_VERSIONS")
-assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11"]
-DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
-
-NON_DEFAULT_PYTHON_VERSION = "3.10"
-assert NON_DEFAULT_PYTHON_VERSION != DEFAULT_PYTHON_VERSION
+DEFAULT_PYTHON_VERSION = "3.8"
 
 def run_build_python(args, **kwargs):
     for k, v in dict(check=True, capture_output=True, text=True).items():
@@ -67,6 +44,22 @@ def run_build_python(args, **kwargs):
     else:
         build_python = ["python" + DEFAULT_PYTHON_VERSION]
     return run(build_python + args, **kwargs)
+
+def list_versions(mode):
+    return (run_build_python([f"{repo_root}/target/list-versions.py", f"--{mode}"])
+            .stdout.strip())
+
+assert list_versions("default") == DEFAULT_PYTHON_VERSION
+
+PYTHON_VERSIONS = {}
+for full_version in list_versions("micro").splitlines():
+    version = full_version.rpartition(".")[0]
+    PYTHON_VERSIONS[version] = full_version
+assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11"]
+DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
+
+NON_DEFAULT_PYTHON_VERSION = "3.10"
+assert NON_DEFAULT_PYTHON_VERSION != DEFAULT_PYTHON_VERSION
 
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])

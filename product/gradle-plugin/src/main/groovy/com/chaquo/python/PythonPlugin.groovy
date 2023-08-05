@@ -15,7 +15,8 @@ import org.json.*
 import java.nio.file.*
 import java.security.MessageDigest
 
-import static com.chaquo.python.Common.assetZip;
+import com.chaquo.python.internal.*
+import static com.chaquo.python.internal.Common.assetZip;
 import static java.nio.file.StandardCopyOption.*
 
 

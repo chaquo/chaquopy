@@ -5,6 +5,7 @@ import android.content.*;
 import android.content.res.*;
 import android.os.*;
 import com.chaquo.python.*;
+import com.chaquo.python.internal.*;
 import java.io.*;
 import java.util.*;
 import org.jetbrains.annotations.*;

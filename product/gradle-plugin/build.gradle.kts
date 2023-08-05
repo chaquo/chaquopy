@@ -1,5 +1,5 @@
-import com.chaquo.python.Common
-import com.chaquo.python.Common.findOnPath
+import com.chaquo.python.internal.Common
+import com.chaquo.python.internal.Common.findOnPath
 
 plugins {
     `java-gradle-plugin`
@@ -80,10 +80,13 @@ abstract class TestPythonTask : DefaultTask() {
             listOf(findOnPath("python$pythonVersion"))
         }
         command += listOf("-m", "unittest")
-        command += (
-            project.findProperty("testPythonArgs")?.toString()?.split(" ")
-            ?: listOf("discover", "-v"))
-
+        val args = project.findProperty("testPythonArgs")
+        if (args != null) {
+            command += "-v"
+            command += args.toString().split(" ")
+        } else {
+            command += listOf("discover", "-v")
+        }
         pb.command(command)
         pb.redirectErrorStream(true)  // Merge stdout and stderr.
         val process = pb.start()

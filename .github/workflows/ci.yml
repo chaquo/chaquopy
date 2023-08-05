@@ -24,7 +24,7 @@ jobs:
       - name: Download Android Python builds
         run: |
           cd target
-          for version in $(./list-versions.py --long); do
+          for version in $(./list-versions.py --build); do
               target_dir=../maven/com/chaquo/python/target/$version
               ./download-target.sh $target_dir
               ./unpackage-target.sh prefix $target_dir
