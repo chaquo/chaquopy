@@ -34,12 +34,22 @@ chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 with open(f"{product_dir}/local.properties") as props_file:
     product_props = PropertiesFile.load(props_file)
 
-def list_versions(mode):
-    return run([f"{repo_root}/target/list-versions.py", f"--{mode}"],
-               check=True, capture_output=True, text=True).stdout.strip()
+DEFAULT_PYTHON_VERSION = "3.8"
 
-DEFAULT_PYTHON_VERSION = list_versions("default")
-assert DEFAULT_PYTHON_VERSION == "3.8"
+def run_build_python(args, **kwargs):
+    for k, v in dict(check=True, capture_output=True, text=True).items():
+        kwargs.setdefault(k, v)
+    if os.name == "nt":
+        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
+    else:
+        build_python = ["python" + DEFAULT_PYTHON_VERSION]
+    return run(build_python + args, **kwargs)
+
+def list_versions(mode):
+    return (run_build_python([f"{repo_root}/target/list-versions.py", f"--{mode}"])
+            .stdout.strip())
+
+assert list_versions("default") == DEFAULT_PYTHON_VERSION
 
 PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
@@ -50,15 +60,6 @@ DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 NON_DEFAULT_PYTHON_VERSION = "3.10"
 assert NON_DEFAULT_PYTHON_VERSION != DEFAULT_PYTHON_VERSION
-
-def run_build_python(args, **kwargs):
-    for k, v in dict(check=True, capture_output=True, text=True).items():
-        kwargs.setdefault(k, v)
-    if os.name == "nt":
-        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
-    else:
-        build_python = ["python" + DEFAULT_PYTHON_VERSION]
-    return run(build_python + args, **kwargs)
 
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])
