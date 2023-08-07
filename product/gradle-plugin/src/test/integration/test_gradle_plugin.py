@@ -234,27 +234,31 @@ class ChaquopyPlugin(GradleTestCase):
 
 
 class AndroidPlugin(GradleTestCase):
-    ADVICE = ("please edit the version of com.android.application, com.android.library or "
+    ADVICE = ("Please edit the version of com.android.application, com.android.library or "
               "com.android.tools.build:gradle in your top-level build.gradle file. See "
               "https://chaquo.com/chaquopy/doc/current/versions.html.")
 
+    # Now that we detect the Android plugin using pluginManager.withPlugin, misordering
+    # is no longer a problem.
     def test_misordered(self):
-        run = self.RunGradle("base", "AndroidPlugin/misordered", succeed=False)
-        self.assertInLong(
-            "project.android not set. Did you apply plugin com.android.application or "
-            "com.android.library before com.chaquo.python?", run.stderr)
+        self.RunGradle("base", "AndroidPlugin/misordered")
+
+    def test_missing(self):
+        run = self.RunGradle("base", "AndroidPlugin/missing", succeed=False)
+        self.assertInLong("Chaquopy requires one of the Android Gradle plugins. Please "
+                          "apply one of the following plugins to ':app' project: "
+                          "[com.android.application, com.android.library]",
+                          run.stderr)
 
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
                    "7.0.0 or later")
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong(f"{MESSAGE}: {self.ADVICE}", run.stderr)
+        self.assertInLong(f"{MESSAGE}. {self.ADVICE}", run.stderr)
 
         run.apply_layers("base")
         run.rerun()
         self.assertNotInLong(MESSAGE, run.stderr)
-        self.assertNotInLong("Chaquopy was unable to determine the Android Gradle plugin version",
-                             run.stdout)
 
 
 class Aar(GradleTestCase):
@@ -321,18 +325,18 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ERROR = ("This version of Chaquopy requires minSdkVersion 21 or higher. "
+    ERROR = ("This version of Chaquopy requires minSdk version 21 or higher. "
              "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: " + self.ERROR, run.stderr)
+        self.assertInLong("Variant 'debug': " + self.ERROR, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: " + self.ERROR, run.stderr)
+        self.assertInLong("Variant 'redDebug': " + self.ERROR, run.stderr)
 
 
 class JavaLib(GradleTestCase):
@@ -357,6 +361,7 @@ class PythonVersion(GradleTestCase):
                "If you experience problems, try switching to version " +
                DEFAULT_PYTHON_VERSION + ".")
 
+    # To allow a quick check of the setting, this test only covers two versions.
     def test_change(self):
         run = self.RunGradle("base", run=False)
         for version in ["3.8", "3.9"]:
@@ -370,12 +375,18 @@ class PythonVersion(GradleTestCase):
 
     def check_version(self, run, version):
         with self.subTest(version=version):
-            run.rerun(f"PythonVersion/{version}", python_version=version,
-                      requirements=["six.py"])
+            run.rerun(f"PythonVersion/{version}", python_version=version)
             if version == DEFAULT_PYTHON_VERSION:
                 self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
             else:
                 self.assertInLong(self.WARNING.format(version), run.stdout, re=True)
+
+    def test_variant(self):
+        self.RunGradle("base", "PythonVersion/variant",
+                       variants={"alpha-one-debug": dict(python_version="3.8"),
+                                 "alpha-two-debug": dict(python_version="3.10"),
+                                 "bravo-one-debug": dict(python_version="3.9"),
+                                 "bravo-two-debug": dict(python_version="3.9")})
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
@@ -391,42 +402,36 @@ class PythonVersion(GradleTestCase):
 class AbiFilters(GradleTestCase):
     def test_missing(self):
         run = self.RunGradle("base", "AbiFilters/missing", succeed=False)
-        self.assertInLong("debug: Chaquopy requires ndk.abiFilters", run.stderr)
+        self.assertInLong("Variant 'debug': Chaquopy requires ndk.abiFilters",
+                          run.stderr)
 
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
-        self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
+        self.assertInLong("Variant 'debug': Chaquopy does not support the ABI 'armeabi'. "
                           "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
                           run.stderr)
 
-    def test_all(self):
-        self.RunGradle("base", "AbiFilters/all",
-                       abis=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"])
+    def test_all(self):  # Also tests making a change.
+        run = self.RunGradle("base", abis=["x86"])
+
+        # Add ABIs
+        run.rerun("AbiFilters/all", abis=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"])
+
+        # Remove ABIs
+        run.rerun("base", abis=["x86"])
 
     def test_variant(self):
-        self.RunGradle("base", "AbiFilters/variant",
-                       variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},
-                                 "x86-debug":         {"abis": ["x86"]}})
-
-    def test_variant_merge(self):
-        self.RunGradle("base", "AbiFilters/variant_merge",
-                       variants={"x86-debug":  {"abis": ["x86"]},
-                                 "both-debug": {"abis": ["armeabi-v7a", "x86"]}})
+        self.RunGradle(
+            "base", "AbiFilters/variant",
+            variants={"alpha-one-debug": dict(abis=["x86"]),
+                      "alpha-two-debug": dict(abis=["x86", "arm64-v8a"]),
+                      "bravo-one-debug": dict(abis=["x86", "armeabi-v7a"]),
+                      "bravo-two-debug": dict(abis=["x86", "armeabi-v7a", "arm64-v8a"])})
 
     def test_variant_missing(self):
         run = self.RunGradle("base", "AbiFilters/variant_missing", succeed=False)
-        self.assertInLong("missingDebug: Chaquopy requires ndk.abiFilters", run.stderr)
-
-    # We only test adding an ABI, because when removing one I kept getting this error: Execution
-    # failed for task ':app:transformNativeLibsWithStripDebugSymbolForDebug'.
-    # java.io.IOException: Failed to delete
-    # ....\app\build\intermediates\transforms\stripDebugSymbol\release\folders\2000\1f\main\lib\armeabi-v7a
-    # I've reported https://issuetracker.google.com/issues/62291921. Other people have had
-    # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
-    def test_change(self):
-        run = self.RunGradle("base")
-        run.apply_layers("AbiFilters/2")
-        run.rerun(abis=["armeabi-v7a", "x86"])
+        self.assertInLong("Variant 'missingDebug': Chaquopy requires ndk.abiFilters",
+                          run.stderr)
 
 
 def make_asset_check(test, hashes):
@@ -1635,7 +1640,14 @@ class RunGradle(object):
     def get_output(self, module, variant, ext):
         output_dir = join(self.project_dir, f"{module}/build/outputs/{ext}")
         if ext == "apk":
-            output_dir = join(output_dir, variant.replace("-", "/"))
+            *flavors, build_type = variant.split("-")
+            if flavors:
+                output_dir = join(
+                    output_dir,
+                    "".join(flavor if i == 0 else cap_first(flavor)
+                            for i, flavor in enumerate(flavors))
+                )
+            output_dir = join(output_dir, build_type)
         zip_file = ZipFile(f"{output_dir}/{module}-{variant}.{ext}")
 
         zip_dir = join(self.test.run_dir, ext, variant)
@@ -1873,15 +1885,16 @@ def chaquopy_classes():
 
 
 def task_name(prefix, variant, suffix=""):
-    # Differs from str.capitalize() because it only affects the first character
-    def cap_first(s):
-        return s if (s == "") else (s[0].upper() + s[1:])
-
     # Don't include the :app: prefix: the project may have multiple modules (e.g.
     # dynamic features or AARs).
     return (prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
+
+
+# Differs from str.capitalize() because it only affects the first character
+def cap_first(s):
+    return s if (s == "") else (s[0].upper() + s[1:])
 
 
 NO_DEFAULT = object()

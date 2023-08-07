@@ -24,8 +24,8 @@ class PythonPlugin : Plugin<Project> {
     val buildscript by lazy { pluginInfo.buildscript }
 
     lateinit var project: Project
-    var isLibrary by notNull<Boolean>()
     lateinit var extension: ChaquopyExtension
+    var isLibrary by notNull<Boolean>()
     val variants = ArrayList<Variant>()
 
     // This must be private to prevent Gradle from throwing a
@@ -35,11 +35,23 @@ class PythonPlugin : Plugin<Project> {
 
     override fun apply(project: Project) {
         this.project = project
+        extension = project.extensions.create<ChaquopyExtension>("chaquopy")
 
-        for (moduleType in listOf("application", "library")) {
-            project.pluginManager.withPlugin("com.android.$moduleType") {
+        val agpPlugins = listOf("com.android.application", "com.android.library")
+        project.afterEvaluate {
+            if (! ::android.isInitialized) {
+                // Message based on the org.jetbrains.kotlin.android plugin
+                throw GradleException(
+                    "Chaquopy requires one of the Android Gradle plugins. Please " +
+                    "apply one of the following plugins to '${project.path}' " +
+                    "project: $agpPlugins")
+            }
+        }
+
+        for (pluginId in agpPlugins) {
+            project.pluginManager.withPlugin(pluginId) {
                 checkAgpVersion()
-                isLibrary = moduleType == "library"
+                isLibrary = pluginId == "com.android.library"
                 android = project.extensions.getByType(CommonExtension::class)
 
                 val proguardFile = extractResource("proguard-rules.pro", buildSubdir())
@@ -119,8 +131,6 @@ class PythonPlugin : Plugin<Project> {
     // ExtensionAware at runtime even if they're not documented as such, because they're
     // created as a _Decorated subclass using ObjectFactory.newInstance.
     fun createDsl() {
-        extension = ChaquopyExtension(project)
-        project.extensions.add("chaquopy", extension)
         (android.defaultConfig as ExtensionAware).extensions.add(  // Old DSL
             "python", extension.defaultConfig)
 
@@ -178,10 +188,10 @@ class PythonPlugin : Plugin<Project> {
         addDependency(
             configName("target${config.capitalize()}", variant),
             HashMap<String, String>().apply {
-                val entry = pythonVersionInfo(python.version)
+                val (version, build) = pythonVersionInfo(python)
                 put("group", "com.chaquo.python")
                 put("name", "target")
-                put("version", "${entry.key}-${entry.value}")
+                put("version", "$version-$build")
                 put("classifier", classifier)
                 put("ext", "zip")
             }
@@ -198,15 +208,23 @@ class PythonPlugin : Plugin<Project> {
         if (variant.minSdkVersion.apiLevel < Common.MIN_SDK_VERSION) {
             throw GradleException(
                 "Variant '${variant.name}': This version of Chaquopy requires " +
-                "minSdkVersion ${Common.MIN_SDK_VERSION} or higher. See " +
+                "minSdk version ${Common.MIN_SDK_VERSION} or higher. See " +
                 "https://chaquo.com/chaquopy/doc/current/versions.html.")
         }
         variants.add(variant)
     }
 
     fun afterVariant(variant: Variant) {
-        // TODO: merge flavors
-        val python = extension.defaultConfig
+        val python = project.objects.newInstance<PythonExtension>(variant.name)
+        python.mergeFrom(extension.defaultConfig)
+
+        // https://developer.android.com/build/build-variants: "Gradle determines the
+        // priority between flavor dimensions based on the order in which they appear
+        // next to the flavorDimensions property, with the first dimension having a
+        // higher priority than the second, and so on."
+        for ((_, flavor) in variant.productFlavors.reversed()) {
+            python.mergeFrom(extension.productFlavors.getByName(flavor))
+        }
         TaskBuilder(this, variant, python, getAbis(variant)).build()
     }
 
@@ -261,14 +279,15 @@ class PythonPlugin : Plugin<Project> {
 
 
 fun runtimeClassifier(python: PythonExtension, abi: String? = null): String {
-    var classifier = python.version
+    var classifier = python.version!!
     if (abi != null) {
         classifier += "-$abi"
     }
     return classifier
 }
 
-fun pythonVersionInfo(version: String): Map.Entry<String, String> {
+fun pythonVersionInfo(python: PythonExtension): Map.Entry<String, String> {
+    val version = python.version!!
     for (entry in Common.PYTHON_VERSIONS.entries) {
         if (entry.key.startsWith(version)) {
             return entry

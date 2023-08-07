@@ -23,8 +23,16 @@ gradlePlugin {
 }
 
 dependencies {
-    // gradleApi() is added automatically by java-gradle-plugin.
-    implementation("com.android.tools.build:gradle-api:${Common.MIN_AGP_VERSION}")
+    // gradleApi() (for the API of Gradle itself) is added automatically by
+    // java-gradle-plugin.
+    //
+    // gradle-api is the API of the Android Gradle plugin. If we made it an
+    // `implementation` dependency, and the user selected an AGP version that was too
+    // old, then Gradle would use the MIN_AGP_VERSION of gradle-api along with the
+    // older version of the AGP, and the build would fail with an incomprehensible
+    // error message before even getting as far as our own AGP version check.
+    compileOnly("com.android.tools.build:gradle-api:${Common.MIN_AGP_VERSION}")
+
     implementation("org.apache.commons:commons-compress:1.18")
     implementation("org.json:json:20160810")
 }

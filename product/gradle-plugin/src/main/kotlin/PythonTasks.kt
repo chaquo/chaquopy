@@ -60,11 +60,18 @@ internal class TaskBuilder(
     fun createSrcTask() =
         registerTask("merge", "sources") {
             destinationDir = plugin.buildSubdir("sources", variant)
+            doLast {
+                project.copy {
+                    into(destinationDir)
+                    from("${project.projectDir}/src/main/python")
+                }
+            }
         }
 
     fun createReqsTask() =
         registerTask("generate", "requirements") {
             destinationDir = plugin.buildSubdir("requirements", variant)
+            inputs.property("abis", abis)
             doLast {
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
                     val subdir = File(destinationDir, subdirName)

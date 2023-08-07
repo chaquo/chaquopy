@@ -16,14 +16,6 @@ class PythonPlugin implements Plugin<Project> {
 
     void afterEvaluate() {
         buildPackagesTask = createBuildPackagesTask()
-
-        for (variant in (isLibrary ? android.libraryVariants : android.applicationVariants)) {
-            def python = new PythonExtension(project)
-            python.mergeFrom(android.defaultConfig.python)
-            for (flavor in variant.getProductFlavors().reverse()) {
-                python.mergeFrom(flavor.python)
-            }
-        }
     }
 
     Task createBuildPackagesTask() {
@@ -51,9 +43,6 @@ class PythonPlugin implements Plugin<Project> {
     Task createReqsTask(variant, PythonExtension python) {
         return registerTask("generate", variant, "requirements") {
             def abis = getAbis(variant)
-            // Using variantGenDir could cause us to exceed the Windows 260-character filename
-            // limit with some packages (e.g. https://github.com/chaquo/chaquopy/issues/164),
-            // so use something shorter.
             ext.destinationDir = plugin.buildSubdir("pip", variant)
             dependsOn buildPackagesTask
             inputs.property("abis", abis)
@@ -167,8 +156,8 @@ class PythonPlugin implements Plugin<Project> {
     }
 
     Task createSrcTask(variant, PythonExtension python) {
-        // Create the main source set directory if it doesn't already exist, to invite the user
-        // to put things in it.
+        // Create the main source set directory if it doesn't already exist, to invite
+        // the user to put things in it.
         for (dir in android.sourceSets.main.python.srcDirs) {
             project.mkdir(dir)
         }
@@ -296,36 +285,14 @@ class PythonPlugin implements Plugin<Project> {
 
 
 class PythonExtension extends BaseExtension {
-    Project project
-    String version
     String[] buildPython
     Set<String> staticProxy = new TreeSet<>()
     Set<String> extractPackages = new TreeSet<>()
     PipExtension pip = new PipExtension()
-    PycExtension pyc = new PycExtension()
-
-    PythonExtension(Project project) {
-        this.project = project
-    }
 
     void setDefaults() {
         version = Common.DEFAULT_PYTHON_VERSION
         pip.setDefaults()
-        pyc.setDefaults()
-    }
-
-    void version(String v) {
-        if (v in Common.PYTHON_VERSIONS_SHORT) {
-            version = v
-            if (v != Common.DEFAULT_PYTHON_VERSION) {
-                println("Warning: Python version $v may have fewer packages available. " +
-                        "If you experience problems, try switching to version " +
-                        "${Common.DEFAULT_PYTHON_VERSION}.")
-            }
-        } else {
-            throw new GradleException("Invalid Python version '$v'. Available versions " +
-                                      "are ${Common.PYTHON_VERSIONS_SHORT}.")
-        }
     }
 
     boolean checkBuildPython(bp) {
@@ -364,9 +331,9 @@ class PythonExtension extends BaseExtension {
                 }
             }
 
-            // On Windows, both venv and conda create environments containing only a
-            // `python` executable, not `python3`, `python3.x`, or `py`. It's also
-            // reasonable to use this as a final fallback on Unix (#752).
+            // On Windows, both venv and conda environments contain only a `python`
+            // executable, not `python3`, `python3.x`, or `py`. It's also reasonable to
+            // use this as a final fallback on Unix (#752).
             bps.add(["python"])
 
             for (bp in bps) {
@@ -382,15 +349,12 @@ class PythonExtension extends BaseExtension {
     void staticProxy(String... modules)         { staticProxy.addAll(modules) }
     void extractPackages(String... packages)    { extractPackages.addAll(packages) }
     void pip(Closure closure)                   { applyClosure(pip, closure) }
-    void pyc(Closure closure)                   { applyClosure(pyc, closure) }
 
     void mergeFrom(PythonExtension overlay) {
-        version = chooseNotNull(overlay.version, this.version)
         buildPython = chooseNotNull(overlay.@buildPython, this.@buildPython)
         staticProxy.addAll(overlay.staticProxy)
         extractPackages.addAll(overlay.extractPackages)
         pip.mergeFrom(overlay.pip)
-        pyc.mergeFrom(overlay.pyc)
     }
 }
 
@@ -410,8 +374,9 @@ class PipExtension extends BaseExtension {
         }
     }
 
-    // Options are tracked separately from requirements because when installing the second and
-    // subsequent ABIs, pip_install uses the same options with a different set of requirements.
+    // Options are tracked separately from requirements because when installing the
+    // second and subsequent ABIs, pip_install uses the same options with a different
+    // set of requirements.
     void options (String... args) {
         options.addAll(Arrays.asList(args))
     }
@@ -442,8 +407,8 @@ class BuildPythonMissingException extends BuildPythonException {
     }
 }
 
-// Message will be something like "Process 'command 'py'' finished with non-zero exit value 1",
-// so we need to tell the user how to see the command output.
+// Message will be something like "Process 'command 'py'' finished with non-zero exit
+// value 1", so we need to tell the user how to see the command output.
 class BuildPythonFailedException extends BuildPythonException {
     BuildPythonFailedException(String message) {
         super(message,
@@ -453,7 +418,8 @@ class BuildPythonFailedException extends BuildPythonException {
     }
 }
 
-// Message will be something like "A problem occurred starting process 'command 'python''".
+// Message will be something like "A problem occurred starting process 'command
+// 'python''".
 class BuildPythonInvalidException extends BuildPythonException {
     BuildPythonInvalidException(String message) {
         super(message, ". Please " + ADVICE)
