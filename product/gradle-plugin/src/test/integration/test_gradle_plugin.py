@@ -37,13 +37,13 @@ with open(f"{product_dir}/local.properties") as props_file:
 DEFAULT_PYTHON_VERSION = "3.8"
 
 def run_build_python(args, **kwargs):
+    # The Gradle plugin's build script finds Python in the same way as the plugin
+    # itself, so we can assume sys.executable is what the plugin will use.
+    assert sys.version.startswith(DEFAULT_PYTHON_VERSION + ".")
+
     for k, v in dict(check=True, capture_output=True, text=True).items():
         kwargs.setdefault(k, v)
-    if os.name == "nt":
-        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
-    else:
-        build_python = ["python" + DEFAULT_PYTHON_VERSION]
-    return run(build_python + args, **kwargs)
+    return run([sys.executable] + args, **kwargs)
 
 def list_versions(mode):
     return (run_build_python([f"{repo_root}/target/list-versions.py", f"--{mode}"])
@@ -105,6 +105,14 @@ class GradleTestCase(TestCase):
         self.longMessage = value
         yield
         self.longMessage = old_value
+
+    def assertInStdout(self, run, a, **kwargs):
+        self.assertInLong(a, run.stdout,
+                          msg="=== STDERR ===\n" + run.stderr, **kwargs)
+
+    # WHen testing the stderr, there's usually no need to display the stdout.
+    def assertInStderr(self, run, a, **kwargs):
+        self.assertInLong(a, run.stderr, **kwargs)
 
     def assertInLong(self, a, b, re=False, msg=None):
         self.assertLong(a, b, self.assertIn, self.assertRegex, "not found in", re, msg)
@@ -536,7 +544,6 @@ class PythonSrc(GradleTestCase):
 
 
 class ExtractPackages(GradleTestCase):
-
     def test_change(self):
         # This directory is also installed by the demo app for use in TestAndroidImport.
         PY_FILES = [
@@ -597,12 +604,12 @@ class Pyc(GradleTestCase):
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
-        self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr)
 
     def test_buildpython_missing(self):
         run = self.RunGradle("base", "Pyc/buildpython_missing", "BuildPython/missing",
                              add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInLong(BuildPython.MISSING, run.stderr)
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning",
@@ -621,12 +628,11 @@ class Pyc(GradleTestCase):
 
 class BuildPython(GradleTestCase):
     # Some of these messages are also used in other test classes.
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
-    ADVICE = "set buildPython to your Python executable path. " + SEE
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
+    MISSING = "Couldn't find Python. " + SEE
     PROBLEM = "A problem occurred starting process 'command '{}''. "
-    INVALID = PROBLEM + "Please " + ADVICE
-    INSTALL = "Please either install it, or " + ADVICE
-    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1\n\n"
+    INVALID = "[{}] does not appear to be a valid Python command. " + SEE
+    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1 \n\n"
               r"To view full details in Android Studio:\n"
               r"\* Click the 'Build: failed' caption to the left of this message.\n"
               r"\* Then scroll up to see the full output.")
@@ -639,30 +645,30 @@ class BuildPython(GradleTestCase):
     # Default buildPython depends on selected Python version.
     def test_default(self):
         run = self.RunGradle("base", "BuildPython/default", add_path=["bin"], succeed=False)
-        self.assertInLong("3.8 was used", run.stdout)
+        self.assertInStdout(run, "3.8 was used")
         self.assertNotInLong("3.9 was used", run.stdout)
 
         run.apply_layers("BuildPython/default_3.9")
         run.rerun(add_path=["bin"], succeed=False)
         self.assertNotInLong("3.8 was used", run.stdout)
-        self.assertInLong("3.9 was used", run.stdout)
+        self.assertInStdout(run, "3.9 was used")
 
         # Default can be overridden.
         run.apply_layers("BuildPython/default_3.9_override")
         run.rerun(add_path=["bin"], succeed=False)
-        self.assertInLong("3.8 was used", run.stdout)
+        self.assertInStdout(run, "3.8 was used")
         self.assertNotInLong("3.9 was used", run.stdout)
 
     def test_args(self):  # Also tests making a change.
         run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
-        self.assertInLong("echo_args1", run.stdout)
+        self.assertInStdout(run, "echo_args1")
         run.apply_layers("BuildPython/args_2")
         run.rerun(succeed=False)
-        self.assertInLong("echo_args2", run.stdout)
+        self.assertInStdout(run, "echo_args2")
 
     def test_space(self):
         run = self.RunGradle("base", "BuildPython/space", succeed=False)
-        self.assertInLong("Hello Chaquopy", run.stdout)
+        self.assertInStdout(run, "Hello Chaquopy")
 
     # test_missing was replaced with one test_buildpython_missing method for each task
     # that uses buildPython.
@@ -671,13 +677,13 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", "BuildPython/missing_minor", add_path=["bin"],
                              succeed=False)
         self.assertNotInLong("Minor version was used", run.stdout)
-        self.assertInLong("Major version was used", run.stdout)
+        self.assertInStdout(run, "Major version was used")
         self.assertNotInLong("Versionless executable was used", run.stdout)
 
     def test_missing_major(self):
         run = self.RunGradle("base", "BuildPython/missing_major", add_path=["bin"],
                              succeed=False)
-        self.assertInLong("Minor version was used", run.stdout)
+        self.assertInStdout(run, "Minor version was used")
         self.assertNotInLong("Major version was used", run.stdout)
         self.assertNotInLong("Versionless executable was used", run.stdout)
 
@@ -686,27 +692,27 @@ class BuildPython(GradleTestCase):
                              succeed=False)
         self.assertNotInLong("Minor version was used", run.stdout)
         self.assertNotInLong("Major version was used", run.stdout)
-        self.assertInLong("Versionless executable was used", run.stdout)
+        self.assertInStdout(run, "Versionless executable was used")
 
     # Test a buildPython which returns success without doing anything (#5631).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
-        self.assertInLong("common was not created: please check your buildPython setting",
-                          run.stderr)
+        self.assertInStderr(
+            run, "common was not created: please check your buildPython setting")
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
+        self.assertInStderr(run, self.INVALID.format("python-red"))
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
+        self.assertInStderr(run, self.INVALID.format("python-blue"))
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
+        self.assertInStderr(run, self.INVALID.format("python-red"))
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
+        self.assertInStderr(run, self.INVALID.format("python-blue"))
 
 
 class PythonReqs(GradleTestCase):
@@ -769,7 +775,7 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle(
             "base", "PythonReqs/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInLong(BuildPython.MISSING, run.stderr)
 
     def test_download_wheel(self):
         # Our current version of pip shows the full URL for custom indexes, but only
@@ -1089,7 +1095,7 @@ class PythonReqs(GradleTestCase):
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
-        self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
+        self.assertInLong("Invalid pip install format: [-e, src]", run.stderr)
 
     # This is not necessarily the ideal behavior, but it's the current behavior, slightly
     # modified by a patch (https://github.com/pypa/pip/issues/5846).
@@ -1430,7 +1436,7 @@ class StaticProxy(GradleTestCase):
         run = self.RunGradle(
             "base", "StaticProxy/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInLong(BuildPython.MISSING, run.stderr)
 
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
@@ -1551,8 +1557,8 @@ class RunGradle(object):
                 merged_kwargs = KwargsWrapper(merged_kwargs)
                 try:
                     self.check_apk(variant, merged_kwargs)
-                except Exception as e:
-                    self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
+                except Exception:
+                    self.dump_run("check_apk failed")
                 self.test.assertFalse(merged_kwargs.unused_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
@@ -1676,16 +1682,15 @@ class RunGradle(object):
         # Python requirements
         requirements = kwargs.get("requirements", [])
         for suffix in abi_suffixes:
-            with self.test.subTest(suffix=suffix):
-                self.test.checkZip(
-                    f"{asset_dir}/requirements-{suffix}.imy",
-                    (requirements[suffix] if isinstance(requirements, dict)
-                     else requirements if suffix == "common"
-                     else []),
-                    pyc=("pip" in pyc), extract_packages=extract_packages,
-                    include_dist_info=kwargs.get("include_dist_info", False),
-                    dist_versions=(kwargs.get("dist_versions") if suffix == "common"
-                                   else None))
+            self.test.checkZip(
+                f"{asset_dir}/requirements-{suffix}.imy",
+                (requirements[suffix] if isinstance(requirements, dict)
+                    else requirements if suffix == "common"
+                    else []),
+                pyc=("pip" in pyc), extract_packages=extract_packages,
+                include_dist_info=kwargs.get("include_dist_info", False),
+                dist_versions=(kwargs.get("dist_versions") if suffix == "common"
+                               else None))
 
         # Python bootstrap
         with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:

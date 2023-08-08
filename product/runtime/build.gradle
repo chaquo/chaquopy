@@ -1,3 +1,4 @@
+import com.chaquo.python.internal.BuildCommon;
 import com.chaquo.python.internal.Common;
 import static com.chaquo.python.internal.Common.findOnPath;
 
@@ -110,30 +111,8 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
     addArtifact(zipPython, zipPython.archivePath, pyVersion)
 }
 
-// The following properties file should be created manually, as described in
-// product/README.md. It's also used in test_gradle_plugin.py.
-String getLocalProperty(String key, String defaultValue = null) {
-    def localProps = new Properties()
-    localProps.load(project.rootProject.file('local.properties').newDataInputStream())
-    def result = localProps.getProperty(key, defaultValue)
-    if (result == null) {
-        throw new GradleException("'$key' is missing from local.properties")
-    }
-    return result
-}
-
 String sdkPath(String path) {
-    def sdkDir = System.getenv("ANDROID_HOME")
-    if (sdkDir == null) {
-        try {
-            sdkDir = getLocalProperty("sdk.dir")
-        } catch (GradleException e) {
-            throw new GradleException(
-                "SDK location not found. Define location with sdk.dir in the " +
-                "local.properties file or with an ANDROID_HOME environment variable.")
-        }
-    }
-    def absPath = "$sdkDir/$path"
+    def absPath = "${BuildCommon.androidHome(project)}/$path"
     if (!file(absPath).exists()) {
         throw new GradleException("$path not found: install it using the SDK Manager")
     }
@@ -144,7 +123,7 @@ String sdkPath(String path) {
 // some of the Python unit tests don't work on Java 11 yet (#5727).
 //
 // This does not affect the Java unit tests, which will use the same Java as Gradle itself.
-def javaHome = getLocalProperty('chaquopy.java.home.8')
+def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
 
 task("doc", group: "documentation")
 

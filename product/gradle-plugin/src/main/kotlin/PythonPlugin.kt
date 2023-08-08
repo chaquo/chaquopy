@@ -228,12 +228,12 @@ class PythonPlugin : Plugin<Project> {
         TaskBuilder(this, variant, python, getAbis(variant)).build()
     }
 
-    /** The ABIs enabled for the variant, in ASCII order. Preserving the order specified
-     * in the build.gradle file is not possible, because the DSL uses a HashSet. */
+    // variant.externalNativeBuild returns "null if no cmake external build is
+    // configured for this variant", so we'll have to determine the abiFilters from
+    // the DSL.
     fun getAbis(variant: Variant): List<String> {
-        // variant.externalNativeBuild returns "null if no cmake external build is
-        // configured for this variant", so we'll have to determine the abiFilters from
-        // the DSL.
+        // We return the variants in ASCII order. Preserving the order specified in the
+        // build.gradle file is not possible, because they're stored in a HashSet.
         val abis = TreeSet(android.defaultConfig.ndk.abiFilters)
 
         // Replicate the accumulation behaviour of MergedNdkConfig.append
@@ -247,6 +247,13 @@ class PythonPlugin : Plugin<Project> {
             throw GradleException(
                 "Variant '${variant.name}': Chaquopy requires ndk.abiFilters: " +
                 "you may want to add it to android.defaultConfig.")
+        }
+        for (abi in abis) {
+            if (abi !in Common.ABIS) {
+                throw GradleException(
+                    "Variant '${variant.name}': Chaquopy does not support the ABI " +
+                    "'$abi'. Supported ABIs are ${Common.ABIS}.")
+            }
         }
         return ArrayList(abis)
     }
@@ -285,6 +292,7 @@ fun runtimeClassifier(python: PythonExtension, abi: String? = null): String {
     }
     return classifier
 }
+
 
 fun pythonVersionInfo(python: PythonExtension): Map.Entry<String, String> {
     val version = python.version!!

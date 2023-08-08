@@ -1,3 +1,4 @@
+import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
 import com.chaquo.python.internal.Common.findOnPath
 
@@ -150,6 +151,7 @@ for (f in file("$INTEGRATION_DIR/data").listFiles()!!) {
             }
             workingDir = INTEGRATION_DIR
             environment["CHAQUOPY_AGP_VERSION"] = version
+            environment["ANDROID_HOME"] = BuildCommon.androidHome(project)
         }
         tasks.named("testIntegration") { dependsOn(task) }
     }
