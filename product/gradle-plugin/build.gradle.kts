@@ -92,7 +92,7 @@ abstract class TestPythonTask : DefaultTask() {
         val args = project.findProperty("testPythonArgs")
         if (args != null) {
             command += "-v"
-            command += args.toString().split(" ")
+            command += args.toString().split(Regex("""\s+"""))
         } else {
             command += listOf("discover", "-v")
         }

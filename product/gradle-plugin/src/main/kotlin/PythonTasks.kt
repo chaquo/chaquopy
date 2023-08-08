@@ -79,20 +79,70 @@ internal class TaskBuilder(
         }
     }
 
-    /*
-    * TODO sourceSets - all we actually need is their names, which can easily be
-    * generated from productFlavors/buildType.
-    */
     fun createSrcTask() =
         registerTask("merge", "sources") {
+            inputs.files(buildPackagesTask)
+            inputs.property("buildPython", python.buildPython).optional(true)
+            inputs.property("pyc", python.pyc.src).optional(true)
+
+            val dirSets = ArrayList<SourceDirectorySet>()
+            for (name in sourceSetNames()) {
+                val dirSet = plugin.extension.sourceSets.findByName(name)
+                if (dirSet != null) {
+                    dirSets += dirSet
+                    inputs.files(dirSet)
+                }
+            }
+
             outputDir = plugin.buildSubdir("sources", variant)
             doLast {
                 project.copy {
+                    for (dirSet in dirSets) {
+                        for (srcDir in dirSet.srcDirs) {
+                            from(srcDir) {
+                                exclude(dirSet.excludes)
+                                include(dirSet.includes)
+                            }
+                        }
+                    }
+                    duplicatesStrategy = DuplicatesStrategy.FAIL  // Overridden below
+
+                    exclude("**/*.pyc", "**/*.pyo")
+                    exclude("**/*.egg-info")  // See ExtractPackages.test_change
                     into(outputDir)
-                    from("${project.projectDir}/src/main/python")
+
+                    // Allow duplicates for empty files (e.g. __init__.py)
+                    eachFile {
+                        if (file.length() == 0L) {
+                            val destFile = File(outputDir, path)
+                            if (destFile.exists() && destFile.length() == 0L) {
+                                duplicatesStrategy = DuplicatesStrategy.INCLUDE
+                            }
+                        }
+                    }
                 }
+                compilePyc(python.pyc.src, outputDir)
             }
         }
+
+    fun sourceSetNames() = sequence {
+        val buildType = variant.buildType!!
+        yield("main")
+        yield(buildType)
+
+        for ((_, flavor) in variant.productFlavors) {
+            yield(flavor)
+            yield(flavor + buildType.capitalize())
+        }
+
+        if (variant.productFlavors.size >= 2) {
+            val flavorName = variant.flavorName  // All flavors combined
+            if (flavorName != null) {
+                yield(flavorName)
+                yield(flavorName + buildType.capitalize())
+            }
+        }
+    }
 
     fun createReqsTask() =
         registerTask("generate", "requirements") {
@@ -259,11 +309,11 @@ internal class TaskBuilder(
 
             doLast {
                 project.copy {
-                    into(assetDir)
                     fromRuntimeArtifact(runtimeBootstrap)
                     from(targetStdlib) {
                         rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
                     }
+                    into(assetDir)
                 }
 
                 // The following stdlib native modules are needed during bootstrap and are
@@ -363,8 +413,8 @@ internal class TaskBuilder(
             val runtimeJni = plugin.getConfig("runtimeJni", variant)
             val targetNative = plugin.getConfig("targetNative", variant)
             inputs.files(runtimeJni, targetNative)
-            outputDir = plugin.buildSubdir("jniLibs", variant)
 
+            outputDir = plugin.buildSubdir("jniLibs", variant)
             doLast {
                 val artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
@@ -416,8 +466,8 @@ internal class TaskBuilder(
                     throw e
                 } else {
                     // Messages should be formatted the same as those from chaquopy.pyc.
-                    warn("Failed to compile to .pyc format: ${e.shortMessage}. See " +
-                        "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode.")
+                    warn("Failed to compile to .pyc format: ${e.shortMessage} See " +
+                        "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode")
                 }
             }
         }

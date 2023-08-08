@@ -5,7 +5,7 @@ import org.gradle.api.*
 import org.gradle.api.file.*
 import org.gradle.api.model.*
 import org.gradle.kotlin.dsl.*
-import java.io.Serializable
+import java.io.*
 import javax.inject.*
 
 
@@ -23,7 +23,9 @@ abstract class BaseExtension : Serializable {
 // All DSL classes must be instantiated via one of Gradle's "decorating" API such as
 // ObjectFactory.newInstance. Otherwise, when Groovy calls the Action methods, it will
 // use the wrong delegate.
-abstract class ChaquopyExtension @Inject constructor(objects: ObjectFactory) {
+abstract class ChaquopyExtension @Inject constructor(
+    objects: ObjectFactory, layout: ProjectLayout
+) {
     val defaultConfig = objects.newInstance<PythonExtension>("defaultConfig").apply {
         setDefaults()
     }
@@ -35,7 +37,14 @@ abstract class ChaquopyExtension @Inject constructor(objects: ObjectFactory) {
 
     val sourceSets = objects.domainObjectContainer(SourceDirectorySet::class) { name ->
         objects.sourceDirectorySet(name, name).apply {
-            srcDir("src/$name/python")
+            val path = File(layout.projectDirectory.asFile, "src/$name/python")
+            srcDir(path)
+
+            // Create the main source directory automatically, to invite the user to put
+            // things in it.
+            if (name == "main") {
+                path.mkdir()
+            }
         }
     }
     fun sourceSets(action: Action<NamedDomainObjectContainer<SourceDirectorySet>>) =
