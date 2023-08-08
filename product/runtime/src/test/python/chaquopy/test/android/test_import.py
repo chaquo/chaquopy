@@ -50,7 +50,8 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         for subdir, entries in [
-            # PythonPlugin.groovy explains why each of these modules are needed.
+            # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
+            # in PythonTasks.kt.
             (ABI, ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so"]),
@@ -287,9 +288,9 @@ class TestAndroidImport(FilterWarningsCase):
             self.assertNotPredicate(exists, cache_dir)
         else:
             self.assertCountEqual(files,
-                                 [relpath(join(dirpath, name), cache_dir)
-                                  for dirpath, _, filenames in os.walk(cache_dir)
-                                  for name in filenames])
+                                  [relpath(join(dirpath, name), cache_dir)
+                                   for dirpath, _, filenames in os.walk(cache_dir)
+                                   for name in filenames])
             for path in files:
                 with open(f"{cache_dir}/{path}") as file:
                     self.assertEqual(f"# This file is {package}/{path}\n", file.read())

@@ -1,0 +1,9 @@
+plugins {
+    id 'com.chaquo.python'
+}
+
+chaquopy {
+    defaultConfig {
+        version "3.8"
+    }
+}

@@ -13,7 +13,7 @@ import subprocess
 from subprocess import run
 import sys
 from tempfile import TemporaryDirectory
-from unittest import skip, skipIf, skipUnless, TestCase
+from unittest import skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
 
 import appdirs
@@ -37,13 +37,13 @@ with open(f"{product_dir}/local.properties") as props_file:
 DEFAULT_PYTHON_VERSION = "3.8"
 
 def run_build_python(args, **kwargs):
+    # The Gradle plugin's build script finds Python in the same way as the plugin
+    # itself, so we can assume sys.executable is what the plugin will use.
+    assert sys.version.startswith(DEFAULT_PYTHON_VERSION + ".")
+
     for k, v in dict(check=True, capture_output=True, text=True).items():
         kwargs.setdefault(k, v)
-    if os.name == "nt":
-        build_python = ["py", "-" + DEFAULT_PYTHON_VERSION]
-    else:
-        build_python = ["python" + DEFAULT_PYTHON_VERSION]
-    return run(build_python + args, **kwargs)
+    return run([sys.executable] + args, **kwargs)
 
 def list_versions(mode):
     return (run_build_python([f"{repo_root}/target/list-versions.py", f"--{mode}"])
@@ -105,6 +105,14 @@ class GradleTestCase(TestCase):
         self.longMessage = value
         yield
         self.longMessage = old_value
+
+    def assertInStdout(self, a, run, **kwargs):
+        self.assertInLong(a, run.stdout,
+                          msg="=== STDERR ===\n" + run.stderr, **kwargs)
+
+    # WHen testing the stderr, there's usually no need to display the stdout.
+    def assertInStderr(self, a, run, **kwargs):
+        self.assertInLong(a, run.stderr, **kwargs)
 
     def assertInLong(self, a, b, re=False, msg=None):
         self.assertLong(a, b, self.assertIn, self.assertRegex, "not found in", re, msg)
@@ -212,7 +220,11 @@ class GradleTestCase(TestCase):
 
 class Basic(GradleTestCase):
     def test_base(self):
-        self.RunGradle("base")
+        run = self.RunGradle("base", run=False)
+        src_dir = f"{run.project_dir}/app/src/main/python"
+        assert not exists(src_dir), src_dir
+        run.rerun()
+        assert exists(src_dir), src_dir
 
     def test_kwargs_wrapper(self):
         with self.assertRaisesRegex(AssertionError, "{'unused'} is not false"):
@@ -234,27 +246,31 @@ class ChaquopyPlugin(GradleTestCase):
 
 
 class AndroidPlugin(GradleTestCase):
-    ADVICE = ("please edit the version of com.android.application, com.android.library or "
+    ADVICE = ("Please edit the version of com.android.application, com.android.library or "
               "com.android.tools.build:gradle in your top-level build.gradle file. See "
               "https://chaquo.com/chaquopy/doc/current/versions.html.")
 
+    # Now that we detect the Android plugin using pluginManager.withPlugin, misordering
+    # is no longer a problem.
     def test_misordered(self):
-        run = self.RunGradle("base", "AndroidPlugin/misordered", succeed=False)
-        self.assertInLong(
-            "project.android not set. Did you apply plugin com.android.application or "
-            "com.android.library before com.chaquo.python?", run.stderr)
+        self.RunGradle("base", "AndroidPlugin/misordered")
+
+    def test_missing(self):
+        run = self.RunGradle("base", "AndroidPlugin/missing", succeed=False)
+        self.assertInLong("Chaquopy requires one of the Android Gradle plugins. Please "
+                          "apply one of the following plugins to ':app' project: "
+                          "[com.android.application, com.android.library]",
+                          run.stderr)
 
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
                    "7.0.0 or later")
         run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
-        self.assertInLong(f"{MESSAGE}: {self.ADVICE}", run.stderr)
+        self.assertInLong(f"{MESSAGE}. {self.ADVICE}", run.stderr)
 
         run.apply_layers("base")
         run.rerun()
         self.assertNotInLong(MESSAGE, run.stderr)
-        self.assertNotInLong("Chaquopy was unable to determine the Android Gradle plugin version",
-                             run.stdout)
 
 
 class Aar(GradleTestCase):
@@ -321,18 +337,18 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ERROR = ("This version of Chaquopy requires minSdkVersion 21 or higher. "
+    ERROR = ("This version of Chaquopy requires minSdk version 21 or higher. "
              "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
         run = self.RunGradle("base", "ApiLevel/minimum")
         run.apply_layers("ApiLevel/old")
         run.rerun(succeed=False)
-        self.assertInLong("debug: " + self.ERROR, run.stderr)
+        self.assertInLong("Variant 'debug': " + self.ERROR, run.stderr)
 
     def test_variant(self):
         run = self.RunGradle("base", "ApiLevel/variant", succeed=False)
-        self.assertInLong("redDebug: " + self.ERROR, run.stderr)
+        self.assertInLong("Variant 'redDebug': " + self.ERROR, run.stderr)
 
 
 class JavaLib(GradleTestCase):
@@ -357,6 +373,7 @@ class PythonVersion(GradleTestCase):
                "If you experience problems, try switching to version " +
                DEFAULT_PYTHON_VERSION + ".")
 
+    # To allow a quick check of the setting, this test only covers two versions.
     def test_change(self):
         run = self.RunGradle("base", run=False)
         for version in ["3.8", "3.9"]:
@@ -370,12 +387,18 @@ class PythonVersion(GradleTestCase):
 
     def check_version(self, run, version):
         with self.subTest(version=version):
-            run.rerun(f"PythonVersion/{version}", python_version=version,
-                      requirements=["six.py"])
+            run.rerun(f"PythonVersion/{version}", python_version=version)
             if version == DEFAULT_PYTHON_VERSION:
                 self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
             else:
                 self.assertInLong(self.WARNING.format(version), run.stdout, re=True)
+
+    def test_variant(self):
+        self.RunGradle("base", "PythonVersion/variant",
+                       variants={"alpha-one-debug": dict(python_version="3.8"),
+                                 "alpha-two-debug": dict(python_version="3.10"),
+                                 "bravo-one-debug": dict(python_version="3.9"),
+                                 "bravo-two-debug": dict(python_version="3.9")})
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
@@ -391,42 +414,36 @@ class PythonVersion(GradleTestCase):
 class AbiFilters(GradleTestCase):
     def test_missing(self):
         run = self.RunGradle("base", "AbiFilters/missing", succeed=False)
-        self.assertInLong("debug: Chaquopy requires ndk.abiFilters", run.stderr)
+        self.assertInLong("Variant 'debug': Chaquopy requires ndk.abiFilters",
+                          run.stderr)
 
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
-        self.assertInLong("debug: Chaquopy does not support the ABI 'armeabi'. "
+        self.assertInLong("Variant 'debug': Chaquopy does not support the ABI 'armeabi'. "
                           "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
                           run.stderr)
 
-    def test_all(self):
-        self.RunGradle("base", "AbiFilters/all",
-                       abis=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"])
+    def test_all(self):  # Also tests making a change.
+        run = self.RunGradle("base", abis=["x86"])
+
+        # Add ABIs
+        run.rerun("AbiFilters/all", abis=["armeabi-v7a", "arm64-v8a", "x86", "x86_64"])
+
+        # Remove ABIs
+        run.rerun("base", abis=["x86"])
 
     def test_variant(self):
-        self.RunGradle("base", "AbiFilters/variant",
-                       variants={"armeabi_v7a-debug": {"abis": ["armeabi-v7a"]},
-                                 "x86-debug":         {"abis": ["x86"]}})
-
-    def test_variant_merge(self):
-        self.RunGradle("base", "AbiFilters/variant_merge",
-                       variants={"x86-debug":  {"abis": ["x86"]},
-                                 "both-debug": {"abis": ["armeabi-v7a", "x86"]}})
+        self.RunGradle(
+            "base", "AbiFilters/variant",
+            variants={"alpha-one-debug": dict(abis=["x86"]),
+                      "alpha-two-debug": dict(abis=["x86", "arm64-v8a"]),
+                      "bravo-one-debug": dict(abis=["x86", "armeabi-v7a"]),
+                      "bravo-two-debug": dict(abis=["x86", "armeabi-v7a", "arm64-v8a"])})
 
     def test_variant_missing(self):
         run = self.RunGradle("base", "AbiFilters/variant_missing", succeed=False)
-        self.assertInLong("missingDebug: Chaquopy requires ndk.abiFilters", run.stderr)
-
-    # We only test adding an ABI, because when removing one I kept getting this error: Execution
-    # failed for task ':app:transformNativeLibsWithStripDebugSymbolForDebug'.
-    # java.io.IOException: Failed to delete
-    # ....\app\build\intermediates\transforms\stripDebugSymbol\release\folders\2000\1f\main\lib\armeabi-v7a
-    # I've reported https://issuetracker.google.com/issues/62291921. Other people have had
-    # similar problems, e.g. https://github.com/mrmaffen/vlc-android-sdk/issues/63.
-    def test_change(self):
-        run = self.RunGradle("base")
-        run.apply_layers("AbiFilters/2")
-        run.rerun(abis=["armeabi-v7a", "x86"])
+        self.assertInLong("Variant 'missingDebug': Chaquopy requires ndk.abiFilters",
+                          run.stderr)
 
 
 def make_asset_check(test, hashes):
@@ -485,15 +502,23 @@ class PythonSrc(GradleTestCase):
             pyc=["stdlib"])
 
     def test_conflict(self):
-        variants = {"red-debug": dict(app=["common.py", ("color.py", {"content": "red"})]),
-                    "blue-debug": dict(app=["common.py", ("color.py", {"content": "blue"})])}
-        run = self.RunGradle("base", "PythonSrc/conflict", variants=variants, succeed=False)
-        self.assertInLong('(?s)mergeBlueDebugPythonSources.*Encountered duplicate path "common.py"',
-                          run.stderr, re=True)
-        run.apply_layers("PythonSrc/conflict_exclude")
-        run.rerun(variants=variants, pyc=["stdlib"])
-        run.apply_layers("PythonSrc/conflict_include")
-        run.rerun(variants=variants, pyc=["stdlib"])
+        common_py = ("common.py", {"content": "common main"})
+        kwargs = dict(
+            pyc=["stdlib"],
+            variants={
+                "red-debug": dict(app=[common_py, ("color.py", {"content": "red"})]),
+                "blue-debug": dict(app=[common_py, ("color.py", {"content": "blue"})])
+            })
+
+        run = self.RunGradle("base", "PythonSrc/conflict", succeed=False, **kwargs)
+        self.assertInStderr(self.conflict_error("BlueDebug", "common.py"), run, re=True)
+
+        run.rerun("PythonSrc/conflict_exclude", **kwargs)
+        run.rerun("PythonSrc/conflict_include", **kwargs)
+
+    def conflict_error(self, variant, filename):
+        return (fr"(?s)failed for task ':app:merge{variant}PythonSources'.*"
+                fr'Encountered duplicate path "{filename}"')
 
     def test_set_dirs(self):
         self.RunGradle("base", "PythonSrc/set_dirs", app=["two.py"])
@@ -503,35 +528,14 @@ class PythonSrc(GradleTestCase):
 
     def test_multi_dir_conflict(self):
         run = self.RunGradle("base", "PythonSrc/multi_dir_conflict", succeed=False)
-        self.assertInLong('(?s)mergeDebugPythonSources.*Encountered duplicate path "one.py"',
-                          run.stderr, re=True)
+        self.assertInStderr(self.conflict_error("Debug", "one.py"), run, re=True)
 
     def test_multi_dir_conflict_empty(self):
         self.RunGradle("base", "PythonSrc/multi_dir_conflict_empty",
                        app=["one.py", "two.py", "empty.py"])
 
-    # Instance metaclasses are buggy (see branch "setroot-metaclass" and #5341) and inadequately
-    # documented. Make absolutely sure none of our modifications leak from build to build.
-    def test_metaclass_leak(self):
-        run = self.RunGradle("base", "PythonSrc/metaclass_leak_1", app=["two.py"])
-        run.apply_layers("PythonSrc/metaclass_leak_2")  # Non-Chaquopy project
-        run.rerun(succeed=False)
-        if agp_version_info < (7, 4):
-            # This is a terrible error message because it doesn't indicate which line has
-            # the error, but it doesn't look as if there's anything we can do about it.
-            self.assertInLong(r"No signature of method: build_\w+\.android\(\) is applicable",
-                              run.stderr, re=True)
-        else:
-            self.assertInLong("Could not find method python()", run.stderr)
-
-    @skip("TODO #5341 setRoot not implemented")
-    def test_set_root(self):
-        self.RunGradle("base", "PythonSrc/set_root", app=["two.py"],
-                       classes={"chaquopy_test": ["Two"]}, pyc=["stdlib"])
-
 
 class ExtractPackages(GradleTestCase):
-
     def test_change(self):
         # This directory is also installed by the demo app for use in TestAndroidImport.
         PY_FILES = [
@@ -560,7 +564,7 @@ class ExtractPackages(GradleTestCase):
 class Pyc(GradleTestCase):
     FAILED = "Failed to compile to .pyc format: "
     INCOMPATIBLE = fr"buildPython version {NON_DEFAULT_PYTHON_VERSION}.\d+ is incompatible. "
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode"
 
     def test_change(self):
         kwargs = dict(app=["hello.py"], requirements=["six.py"])
@@ -583,8 +587,10 @@ class Pyc(GradleTestCase):
 
     def test_build_python_warning(self):
         run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
-        self.assertInLong(WARNING + self.FAILED + BuildPython.PROBLEM.format("pythoninvalid") +
-                          self.SEE, run.stdout, re=True)
+        self.assertInStdout(
+            WARNING + self.FAILED +
+            re.escape(BuildPython.INVALID.format("pythoninvalid")) + self.SEE,
+            run, re=True)
 
         run.apply_layers("Pyc/build_python_warning_suppress")
         run.rerun(pyc=["stdlib"])
@@ -592,36 +598,35 @@ class Pyc(GradleTestCase):
 
     def test_build_python_error(self):
         run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
-        self.assertInLong(BuildPython.INVALID.format("pythoninvalid"), run.stderr, re=True)
+        self.assertInStderr(
+            BuildPython.INVALID.format("pythoninvalid") + BuildPython.SEE, run)
 
     def test_buildpython_missing(self):
         run = self.RunGradle("base", "Pyc/buildpython_missing", "BuildPython/missing",
                              add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInStderr(BuildPython.MISSING, run)
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning",
                              env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
                              requirements=["six.py"], pyc=["stdlib"])
-        self.assertInLong(WARNING + self.FAILED + self.INCOMPATIBLE + self.SEE,
-                          run.stdout, re=True)
+        self.assertInStdout(WARNING + self.FAILED + self.INCOMPATIBLE + self.SEE,
+                            run, re=True)
 
     def test_magic_error(self):
         run = self.RunGradle("base", "Pyc/magic_error",
                              env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
                              succeed=False)
-        self.assertInLong(self.FAILED + self.INCOMPATIBLE + self.SEE, run.stdout, re=True)
-        self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
+        self.assertInStdout(self.FAILED + self.INCOMPATIBLE + self.SEE, run, re=True)
+        self.assertInStderr(BuildPython.FAILED, run, re=True)
 
 
 class BuildPython(GradleTestCase):
     # Some of these messages are also used in other test classes.
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
-    ADVICE = "set buildPython to your Python executable path. " + SEE
-    PROBLEM = "A problem occurred starting process 'command '{}''. "
-    INVALID = PROBLEM + "Please " + ADVICE
-    INSTALL = "Please either install it, or " + ADVICE
-    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1\n\n"
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
+    MISSING = "Couldn't find Python. " + SEE
+    INVALID = "[{}] does not appear to be a valid Python command. "
+    FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1 \n\n"
               r"To view full details in Android Studio:\n"
               r"\* Click the 'Build: failed' caption to the left of this message.\n"
               r"\* Then scroll up to see the full output.")
@@ -634,30 +639,30 @@ class BuildPython(GradleTestCase):
     # Default buildPython depends on selected Python version.
     def test_default(self):
         run = self.RunGradle("base", "BuildPython/default", add_path=["bin"], succeed=False)
-        self.assertInLong("3.8 was used", run.stdout)
+        self.assertInStdout("3.8 was used", run)
         self.assertNotInLong("3.9 was used", run.stdout)
 
         run.apply_layers("BuildPython/default_3.9")
         run.rerun(add_path=["bin"], succeed=False)
         self.assertNotInLong("3.8 was used", run.stdout)
-        self.assertInLong("3.9 was used", run.stdout)
+        self.assertInStdout("3.9 was used", run)
 
         # Default can be overridden.
         run.apply_layers("BuildPython/default_3.9_override")
         run.rerun(add_path=["bin"], succeed=False)
-        self.assertInLong("3.8 was used", run.stdout)
+        self.assertInStdout("3.8 was used", run)
         self.assertNotInLong("3.9 was used", run.stdout)
 
     def test_args(self):  # Also tests making a change.
         run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
-        self.assertInLong("echo_args1", run.stdout)
+        self.assertInStdout("echo_args1", run)
         run.apply_layers("BuildPython/args_2")
         run.rerun(succeed=False)
-        self.assertInLong("echo_args2", run.stdout)
+        self.assertInStdout("echo_args2", run)
 
     def test_space(self):
         run = self.RunGradle("base", "BuildPython/space", succeed=False)
-        self.assertInLong("Hello Chaquopy", run.stdout)
+        self.assertInStdout("Hello Chaquopy", run)
 
     # test_missing was replaced with one test_buildpython_missing method for each task
     # that uses buildPython.
@@ -666,13 +671,13 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", "BuildPython/missing_minor", add_path=["bin"],
                              succeed=False)
         self.assertNotInLong("Minor version was used", run.stdout)
-        self.assertInLong("Major version was used", run.stdout)
+        self.assertInStdout("Major version was used", run)
         self.assertNotInLong("Versionless executable was used", run.stdout)
 
     def test_missing_major(self):
         run = self.RunGradle("base", "BuildPython/missing_major", add_path=["bin"],
                              succeed=False)
-        self.assertInLong("Minor version was used", run.stdout)
+        self.assertInStdout("Minor version was used", run)
         self.assertNotInLong("Major version was used", run.stdout)
         self.assertNotInLong("Versionless executable was used", run.stdout)
 
@@ -681,27 +686,27 @@ class BuildPython(GradleTestCase):
                              succeed=False)
         self.assertNotInLong("Minor version was used", run.stdout)
         self.assertNotInLong("Major version was used", run.stdout)
-        self.assertInLong("Versionless executable was used", run.stdout)
+        self.assertInStdout("Versionless executable was used", run)
 
     # Test a buildPython which returns success without doing anything (#5631).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
-        self.assertInLong("common was not created: please check your buildPython setting",
-                          run.stderr)
+        self.assertInStderr(
+            "common was not created: please check your buildPython setting", run)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
+        self.assertInStderr(self.INVALID.format("python-red") + self.SEE, run)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
+        self.assertInStderr(self.INVALID.format("python-blue"), run)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInLong(self.INVALID.format("python-red"), run.stderr, re=True)
+        self.assertInStderr(self.INVALID.format("python-red") + self.SEE, run)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInLong(self.INVALID.format("python-blue"), run.stderr, re=True)
+        self.assertInStderr(self.INVALID.format("python-blue") + self.SEE, run)
 
 
 class PythonReqs(GradleTestCase):
@@ -764,7 +769,7 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle(
             "base", "PythonReqs/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInLong(BuildPython.MISSING, run.stderr)
 
     def test_download_wheel(self):
         # Our current version of pip shows the full URL for custom indexes, but only
@@ -1084,7 +1089,7 @@ class PythonReqs(GradleTestCase):
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
-        self.assertInLong("Invalid python.pip.install format: '-e src'", run.stderr)
+        self.assertInLong("Invalid pip install format: [-e, src]", run.stderr)
 
     # This is not necessarily the ideal behavior, but it's the current behavior, slightly
     # modified by a patch (https://github.com/pypa/pip/issues/5846).
@@ -1425,7 +1430,7 @@ class StaticProxy(GradleTestCase):
         run = self.RunGradle(
             "base", "StaticProxy/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong("Couldn't find Python. " + BuildPython.INSTALL, run.stderr)
+        self.assertInLong(BuildPython.MISSING, run.stderr)
 
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,
@@ -1546,8 +1551,8 @@ class RunGradle(object):
                 merged_kwargs = KwargsWrapper(merged_kwargs)
                 try:
                     self.check_apk(variant, merged_kwargs)
-                except Exception as e:
-                    self.dump_run(f"check_apk failed: {type(e).__name__}: {e}")
+                except Exception:
+                    self.dump_run("check_apk failed")
                 self.test.assertFalse(merged_kwargs.unused_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
@@ -1635,7 +1640,14 @@ class RunGradle(object):
     def get_output(self, module, variant, ext):
         output_dir = join(self.project_dir, f"{module}/build/outputs/{ext}")
         if ext == "apk":
-            output_dir = join(output_dir, variant.replace("-", "/"))
+            *flavors, build_type = variant.split("-")
+            if flavors:
+                output_dir = join(
+                    output_dir,
+                    "".join(flavor if i == 0 else cap_first(flavor)
+                            for i, flavor in enumerate(flavors))
+                )
+            output_dir = join(output_dir, build_type)
         zip_file = ZipFile(f"{output_dir}/{module}-{variant}.{ext}")
 
         zip_dir = join(self.test.run_dir, ext, variant)
@@ -1664,16 +1676,15 @@ class RunGradle(object):
         # Python requirements
         requirements = kwargs.get("requirements", [])
         for suffix in abi_suffixes:
-            with self.test.subTest(suffix=suffix):
-                self.test.checkZip(
-                    f"{asset_dir}/requirements-{suffix}.imy",
-                    (requirements[suffix] if isinstance(requirements, dict)
-                     else requirements if suffix == "common"
-                     else []),
-                    pyc=("pip" in pyc), extract_packages=extract_packages,
-                    include_dist_info=kwargs.get("include_dist_info", False),
-                    dist_versions=(kwargs.get("dist_versions") if suffix == "common"
-                                   else None))
+            self.test.checkZip(
+                f"{asset_dir}/requirements-{suffix}.imy",
+                (requirements[suffix] if isinstance(requirements, dict)
+                    else requirements if suffix == "common"
+                    else []),
+                pyc=("pip" in pyc), extract_packages=extract_packages,
+                include_dist_info=kwargs.get("include_dist_info", False),
+                dist_versions=(kwargs.get("dist_versions") if suffix == "common"
+                               else None))
 
         # Python bootstrap
         with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:
@@ -1684,7 +1695,8 @@ class RunGradle(object):
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(
-                # PythonPlugin.groovy explains why each of these modules are needed.
+                # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
+                # in PythonTasks.kt.
                 ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                  "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))
@@ -1872,15 +1884,16 @@ def chaquopy_classes():
 
 
 def task_name(prefix, variant, suffix=""):
-    # Differs from str.capitalize() because it only affects the first character
-    def cap_first(s):
-        return s if (s == "") else (s[0].upper() + s[1:])
-
     # Don't include the :app: prefix: the project may have multiple modules (e.g.
     # dynamic features or AARs).
     return (prefix +
             "".join(cap_first(word) for word in variant.split("-")) +
             cap_first(suffix))
+
+
+# Differs from str.capitalize() because it only affects the first character
+def cap_first(s):
+    return s if (s == "") else (s[0].upper() + s[1:])
 
 
 NO_DEFAULT = object()
