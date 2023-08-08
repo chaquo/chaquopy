@@ -6,6 +6,7 @@ import org.gradle.api.file.*
 import org.gradle.api.model.*
 import org.gradle.kotlin.dsl.*
 import java.io.*
+import java.util.*
 import javax.inject.*
 
 
@@ -79,6 +80,12 @@ abstract class PythonExtension @Inject constructor (
     var buildPython: List<String>? = null
     fun buildPython(vararg bp: String) { buildPython = bp.asList() }
 
+    val extractPackages = TreeSet<String>()
+    fun extractPackages(vararg modules: String) { extractPackages += modules }
+
+    val staticProxy = TreeSet<String>()
+    fun staticProxy(vararg modules: String) { staticProxy += modules }
+
     val pip = objects.newInstance<PipExtension>()
     fun pip(action: Action<PipExtension>) = action.execute(pip)
 
@@ -96,6 +103,8 @@ abstract class PythonExtension @Inject constructor (
         _version = overlay.version ?: version
 
         buildPython = overlay.buildPython ?: buildPython
+        extractPackages += overlay.extractPackages
+        staticProxy += overlay.staticProxy
         pip.mergeFrom(overlay.pip)
         pyc.mergeFrom(overlay.pyc)
     }

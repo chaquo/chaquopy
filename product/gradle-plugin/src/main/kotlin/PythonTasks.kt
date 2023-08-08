@@ -257,12 +257,47 @@ internal class TaskBuilder(
         }
     }
 
-    /*
-    * TODO The stable API to add Java source files is variant.sources, which isn't
-    * available in our current minimum AGP version (see extendMergeTask). So we use the
-    * deprecated API instead.
-    */
     fun createProxyTask() {
+        val outputDir = plugin.buildSubdir("proxies", variant)
+        val task = registerTask("generate", "proxies") {
+            inputs.files(buildPackagesTask, reqsTask, srcTask)
+            inputs.property("buildPython", python.buildPython).optional(true)
+            inputs.property("staticProxy", python.staticProxy)
+
+            this.outputDir = outputDir
+            doLast {
+                if (!python.staticProxy.isEmpty()) {
+                    execBuildPython {
+                        args("-m", "chaquopy.static_proxy")
+                        args("--path",
+                             listOf(
+                                srcTask.get().outputDir,
+                                "${reqsTask.get().outputDir}/common"
+                             ).joinToString(File.pathSeparator))
+                        args("--java", outputDir)
+                        args(python.staticProxy)
+                    }
+                }
+            }
+        }
+
+        // The supported API to add Java source files is variant.sources, which isn't
+        // available in our current minimum AGP version (see extendMergeTask). So we use
+        // the deprecated API instead.
+        val android = project.extensions.getByName("android")
+        val oldVariants = android.javaClass.getMethod(
+            if (plugin.isLibrary) "getLibraryVariants" else "getApplicationVariants"
+        ).invoke(android) as DomainObjectSet<*>
+
+        oldVariants.forEach {
+            val cls = it.javaClass
+            if (cls.getMethod("getName").invoke(it) as String == variant.name) {
+                cls.getMethod(
+                    "registerJavaGeneratingTask",
+                    TaskProvider::class.java, Collection::class.java
+                ).invoke(it, task, listOf(outputDir))
+            }
+        }
     }
 
     fun createAssetsTasks() {
@@ -270,17 +305,15 @@ internal class TaskBuilder(
             if (fte.name.endsWith(".py") &&
                 File(fte.file.parent, fte.name + "c").exists()
             ) {
-                true
-                // TODO
-//                ! python.extractPackages.any {
-//                    fte.path.replace("/", ".").startsWith(it + ".")
-//                }
+                ! python.extractPackages.any {
+                    fte.path.replace("/", ".").startsWith(it + ".")
+                }
             } else false
         }
 
         val srcAssetsTask = assetTask("source") {
             inputs.files(srcTask)
-            // TODO inputs.property("extractPackages", python.extractPackages)
+            inputs.property("extractPackages", python.extractPackages)
             doLast {
                 makeZip(project.fileTree(srcTask.get().outputDir)
                             .matching { exclude(excludePy) },
@@ -290,7 +323,7 @@ internal class TaskBuilder(
 
         val reqsAssetsTask = assetTask("requirements") {
             inputs.files(reqsTask)
-            // TODO inputs.property("extractPackages", python.extractPackages)
+            inputs.property("extractPackages", python.extractPackages)
             doLast {
                 for (subdir in reqsTask.get().outputDir.listFiles()!!) {
                     makeZip(
@@ -366,7 +399,7 @@ internal class TaskBuilder(
                 val buildJson = JSONObject()
                 buildJson.put("python_version", python.version)
                 buildJson.put("assets", hashAssets(*tasks))
-                buildJson.put("extract_packages", JSONArray(/* TODO python.extractPackages */))
+                buildJson.put("extract_packages", JSONArray(python.extractPackages))
                 File(assetDir, Common.ASSET_BUILD_JSON).writeText(buildJson.toString(4))
             }
         }
