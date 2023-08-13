@@ -230,13 +230,13 @@ def proxyTask = tasks.register("generateStaticProxy", Exec) {
 }
 sourceSets.test.java.srcDir(proxyTask)
 
-for (abi in ["host"] + Common.ABIS) {
+(["host"] + Common.ABIS).each { abi ->
     def pyLibSuffix = ".so"
     def cmakeBuildSubdir = "$buildDir/cmake/$abi"
     def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
     def cmake = tasks.register("cmake-$abi", Exec) {
         group = "build"
-        dependsOn cythonPython, cythonJava
+        dependsOn("cythonPython", "cythonJava")
         inputs.files "CMakeLists.txt"
         // This is not a complete list of the outputs, but it's enough to detect when the
         // directory has been deleted. We can't declare the whole directory as an output,
@@ -323,7 +323,7 @@ for (abi in ["host"] + Common.ABIS) {
         }
 
         def hostConfig = {
-            dependsOn setupPythonPath, compileTestJava
+            dependsOn("setupPythonPath", "compileTestJava")
             environment "CLASSPATH", sourceSets.test.runtimeClasspath.asPath
 
             // Can't use -Djava.library.path because we need something which also works
@@ -391,7 +391,7 @@ for (abi in ["host"] + Common.ABIS) {
 
         // Generates a script to start a Python REPL with Java and Python paths set up.
         tasks.register("consoleScript") {
-            dependsOn setupPythonPath
+            dependsOn("setupPythonPath")
             doLast {
                 def writer = new PrintWriter("$projectDir/console.sh")
                 writer.println "#!/bin/bash -e"
