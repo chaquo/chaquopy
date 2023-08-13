@@ -96,7 +96,8 @@ public class Common {
         // PATH, but this is because it's listed in /etc/paths, which only affects
         // shells, but not other apps like Android Studio and its Gradle subprocesses.
         List<String> path = new ArrayList<>();
-        if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.startsWith("mac")) {
             final String ETC_PATHS = "/etc/paths";
             try (BufferedReader reader = new BufferedReader(new FileReader(ETC_PATHS))) {
                 String line;
@@ -109,10 +110,19 @@ public class Common {
         }
         Collections.addAll(path, System.getenv("PATH").split(File.pathSeparator));
 
+        List<String> exts = new ArrayList<>();
+        exts.add("");
+        if (osName.startsWith("win")) {
+            exts.add(".exe");
+            exts.add(".bat");
+        }
+
         for (String dir : path) {
-            file = new File(dir, name);
-            if (file.exists()) {
-                return file.toString();
+            for (String ext : exts) {
+                file = new File(dir, name + ext);
+                if (file.exists()) {
+                    return file.toString();
+                }
             }
         }
         throw new FileNotFoundException("Couldn't find '" + name + "' on PATH");

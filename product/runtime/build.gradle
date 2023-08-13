@@ -17,28 +17,18 @@ if (osName == null) {
     throw new GradleException("unknown os.name: '$osNameProperty'")
 }
 
-def pyPlusVersion = "python$Common.DEFAULT_PYTHON_VERSION"
-// filenames with dots require the ".exe" suffix with Exec tasks on Windows.
-def pyPlusVersionExe = "$pyPlusVersion"
-if (osName == "windows") {
-    pyPlusVersionExe += ".exe"
+String hostPythonExe() {
+    return findExecutable("python$Common.DEFAULT_PYTHON_VERSION")
 }
-pyPlusVersionExe = findExecutable(pyPlusVersionExe)
 
-String pythonHome
-if (osName == "windows" && System.getenv("CI") != null) {
-    // All the tasks that use pythonHome require MSYS2 Python on Windows, but we don't
-    // install that in CI because we don't run any of those tasks. TODO: fix this by
-    //  moving to the standard Windows Python builds.
-    pythonHome = "disabled/in/CI"
-} else {
-    new ByteArrayOutputStream().withStream { output ->
+String hostPythonHome() {
+    return new ByteArrayOutputStream().withStream { output ->
         exec {
-            executable pyPlusVersionExe
+            executable hostPythonExe()
             args "-c", "import sys; print(sys.base_prefix)"
             standardOutput = output
         }
-        pythonHome = output.toString().trim()
+        return output.toString().trim()
     }
 }
 
@@ -154,8 +144,8 @@ javadoc {
     }
 }
 
-def cythonTask = { String name, Closure closure ->
-    tasks.register(name, Exec) {
+TaskProvider cythonTask(String name, Closure closure) {
+    return tasks.register(name, Exec) {
         group = "build"
         configure(closure)
 
@@ -173,9 +163,10 @@ def cythonTask = { String name, Closure closure ->
 
         doLast {
             String[][] replacements = [
-                // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
-                // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
-                // some platforms including x86. So alter the generated C code to add it.
+                // All functions called directly by the JVM must be declared JNICALL
+                // JNIEXPORT. JNIEXPORT should be equivalent to Cython's "cdef public",
+                // but JNICALL does make a difference on some platforms including x86.
+                // So alter the generated C code to add it.
                 [/^__PYX_EXTERN_C (\w+)/,
                  '/* cythonTask altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL'],
 
@@ -223,21 +214,21 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-library:2.2'
 }
 
-tasks.register("generateStaticProxy", Exec) {
+def proxyTask = tasks.register("generateStaticProxy", Exec) {
     group = "verification"
     def outputDir = "$buildDir/static_proxy"
     outputs.dir(outputDir)
     outputs.upToDateWhen { false }
     doFirst { delete outputDir }
     environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-    executable pyPlusVersionExe
+    executable hostPythonExe()
     args "-m", "chaquopy.static_proxy"
     args "--path", "$projectDir/src/test/python"
     args "--java", outputDir
     args("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
          "chaquopy.test.static_proxy.method")
 }
-sourceSets.test.java.srcDirs += generateStaticProxy.outputs
+sourceSets.test.java.srcDir(proxyTask)
 
 for (abi in ["host"] + Common.ABIS) {
     def pyLibSuffix = ".so"
@@ -276,8 +267,8 @@ for (abi in ["host"] + Common.ABIS) {
                 javaIncludeSubdir = osName
             }
             args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
-            args "-DCHAQUOPY_LIB_DIRS=$pythonHome/lib"
-            args "-DCHAQUOPY_INCLUDE_PYTHON=$pythonHome/include"
+            args "-DCHAQUOPY_LIB_DIRS=${hostPythonHome()}/lib"
+            args "-DCHAQUOPY_INCLUDE_PYTHON=${hostPythonHome()}/include"
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
@@ -352,7 +343,7 @@ for (abi in ["host"] + Common.ABIS) {
             configure(hostConfig)
             workingDir "$projectDir/src/test/python"
             environment "JAVA_HOME", javaHome
-            executable pyPlusVersionExe
+            executable hostPythonExe()
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
                 args project.testPythonArgs.split(" ")
@@ -373,7 +364,7 @@ for (abi in ["host"] + Common.ABIS) {
             group = "verification"
             configure(hostConfig)
             outputs.upToDateWhen { false }
-            environment "PYTHONHOME", pythonHome
+            environment "PYTHONHOME", hostPythonHome()
             if (osName == "linux") {
                 // libchaquopy_java.so is linked against libpython, but that doesn't add
                 // the libpython symbols to the global scope, which is required in order to
@@ -381,7 +372,10 @@ for (abi in ["host"] + Common.ABIS) {
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
                 // the proper solution, but let's do it the easy way for now. See #5695.
-                environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
+                environment(
+                    "LD_PRELOAD",
+                    "/usr/lib/x86_64-linux-gnu/libpython${Common.DEFAULT_PYTHON_VERSION}.so"
+                )
             }
             testClassesDirs = sourceSets.test.output.classesDirs
             scanForTestClasses = false
@@ -407,7 +401,7 @@ for (abi in ["host"] + Common.ABIS) {
                     writer.println "export $key='${env.get(key)}'"
                 }
                 writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                writer.println "winpty $pyPlusVersionExe " + '"$@"'
+                writer.println "winpty ${hostPythonExe()} " + '"$@"'
                 writer.close()
             }
         }
@@ -419,7 +413,7 @@ for (abi in ["host"] + Common.ABIS) {
 
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
-            executable pyPlusVersionExe
+            executable hostPythonExe()
             args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
             environment "JAVA_HOME", javaHome
         }
