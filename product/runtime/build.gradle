@@ -202,7 +202,7 @@ cythonTask("cythonJava") {
     }
 }
 
-def sdkCmakeDir = sdkPath("cmake/3.22.1")  // Should match the version in the root Dockerfile.
+def sdkCmakeDir = sdkPath("cmake/3.22.1")
 def androidJar = "${sdkPath("platforms/android-" + Common.COMPILE_SDK_VERSION)}/android.jar"
 
 dependencies {

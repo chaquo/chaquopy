@@ -51,8 +51,7 @@ Use your distribution's package manager to install the following build tools:
 * patch
 * patchelf
 
-Depending on which package you're building, you may need additional tools. The Dockerfile
-in this directory contains instructions for installing some of them.
+Depending on which package you're building, you may also need additional tools.
 
 
 ## Building a package

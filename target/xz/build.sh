@@ -8,7 +8,7 @@ version=${2:?}
 cd $recipe_dir
 . ../build-common.sh
 
-# Official packages are on SourceForge, which, within Docker, returned an endless series
+# Official packages are on SourceForge, which returned an endless series
 # of redirections between mirrors. So use GitHub instead.
 version_dir=$recipe_dir/build/$version
 mkdir -p $version_dir
