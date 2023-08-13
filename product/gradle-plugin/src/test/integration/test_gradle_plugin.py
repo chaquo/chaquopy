@@ -221,10 +221,24 @@ class GradleTestCase(TestCase):
 class Basic(GradleTestCase):
     def test_base(self):
         run = self.RunGradle("base", run=False)
-        src_dir = f"{run.project_dir}/app/src/main/python"
-        assert not exists(src_dir), src_dir
+        src_dir = f"{run.project_dir}/app/src"
+        self.assertEqual(
+            list(os.walk(src_dir)),
+            [
+                (src_dir, ["main"], []),
+                (f"{src_dir}/main", [], ["AndroidManifest.xml"]),
+            ])
+
+        # Main source directory should be created automatically, to invite the user to
+        # put things in it.
         run.rerun()
-        assert exists(src_dir), src_dir
+        self.assertEqual(
+            list(os.walk(src_dir)),
+            [
+                (src_dir, ["main"], []),
+                (f"{src_dir}/main", ["python"], ["AndroidManifest.xml"]),
+                (f"{src_dir}/main/python", [], []),
+            ])
 
     def test_kwargs_wrapper(self):
         with self.assertRaisesRegex(AssertionError, "{'unused'} is not false"):
