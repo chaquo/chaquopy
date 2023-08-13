@@ -1,6 +1,6 @@
 import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
-import com.chaquo.python.internal.Common.findOnPath
+import com.chaquo.python.internal.Common.findExecutable
 
 plugins {
     `java-gradle-plugin`
@@ -84,9 +84,9 @@ abstract class TestPythonTask : DefaultTask() {
         pb.environment().putAll(environment)
 
         command += if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-            listOf(findOnPath("py"), "-$pythonVersion")
+            listOf(findExecutable("py"), "-$pythonVersion")
         } else {
-            listOf(findOnPath("python$pythonVersion"))
+            listOf(findExecutable("python$pythonVersion"))
         }
         command += listOf("-m", "unittest")
         val args = project.findProperty("testPythonArgs")
@@ -136,7 +136,7 @@ tasks.register("testIntegration") {
 }
 
 tasks.check {
-    dependsOn(tasks.named("testPython"), tasks.named("testIntegration"))
+    dependsOn("testPython", "testIntegration")
 }
 
 val INTEGRATION_DIR = "$projectDir/src/test/integration"

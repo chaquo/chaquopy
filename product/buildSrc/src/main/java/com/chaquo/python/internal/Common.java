@@ -81,25 +81,41 @@ public class Common {
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";
 
-    // The default PATH on Mac is /usr/bin:/bin:/usr/sbin:/sbin. However, apps can't
-    // install anything into these locations, so the python.org installers use
-    // /usr/local/bin instead. This directory may also appear to be on the default PATH,
-    // but this is because it's listed in /etc/paths, which only affects shells, not
-    // other apps like Android Studio, or its Gradle subprocesses.
-    public static String findOnPath(String basename) throws FileNotFoundException {
-        List<String> path = new ArrayList<>();
-        Collections.addAll(path, System.getenv("PATH").split(File.pathSeparator));
-        if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
-            path.add("/usr/local/bin");
+    public static String findExecutable(String name) throws FileNotFoundException {
+        File file = new File(name);
+        if (file.isAbsolute()) {
+            if (! file.exists()) {
+                throw new FileNotFoundException("'" + name + "' does not exist");
+            }
+            return name;
         }
 
+        // The default PATH on Mac is /usr/bin:/bin:/usr/sbin:/sbin. However, apps can't
+        // install anything into these locations, so the python.org installers use
+        // /usr/local/bin instead. This directory may also appear to be on the default
+        // PATH, but this is because it's listed in /etc/paths, which only affects
+        // shells, but not other apps like Android Studio and its Gradle subprocesses.
+        List<String> path = new ArrayList<>();
+        if (System.getProperty("os.name").toLowerCase().startsWith("mac")) {
+            final String ETC_PATHS = "/etc/paths";
+            try (BufferedReader reader = new BufferedReader(new FileReader(ETC_PATHS))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    path.add(line);
+                }
+            } catch (IOException e) {
+                System.out.println("Warning: while reading " + ETC_PATHS + ": " + e);
+            }
+        }
+        Collections.addAll(path, System.getenv("PATH").split(File.pathSeparator));
+
         for (String dir : path) {
-            File file = new File(dir, basename);
+            file = new File(dir, name);
             if (file.exists()) {
                 return file.toString();
             }
         }
-        throw new FileNotFoundException("Couldn't find '" + basename + "' on PATH");
+        throw new FileNotFoundException("Couldn't find '" + name + "' on PATH");
     }
 
 }
