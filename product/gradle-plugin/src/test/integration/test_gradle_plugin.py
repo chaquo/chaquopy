@@ -226,7 +226,7 @@ class Basic(GradleTestCase):
             list(os.walk(src_dir)),
             [
                 (src_dir, ["main"], []),
-                (f"{src_dir}/main", [], ["AndroidManifest.xml"]),
+                (join(src_dir, "main"), [], ["AndroidManifest.xml"]),
             ])
 
         # Main source directory should be created automatically, to invite the user to
@@ -236,8 +236,8 @@ class Basic(GradleTestCase):
             list(os.walk(src_dir)),
             [
                 (src_dir, ["main"], []),
-                (f"{src_dir}/main", ["python"], ["AndroidManifest.xml"]),
-                (f"{src_dir}/main/python", [], []),
+                (join(src_dir, "main"), ["python"], ["AndroidManifest.xml"]),
+                (join(src_dir, "main", "python"), [], []),
             ])
 
     def test_kwargs_wrapper(self):
