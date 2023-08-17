@@ -83,6 +83,8 @@ jobs:
               pip install -r product/runtime/requirements-build.txt \
                           -r product/runtime/requirements-docs.txt
 
+      - uses: ./.github/actions/create-local-properties
+
       - name: Build
         run: |
           cd product
@@ -115,7 +117,7 @@ jobs:
         env:
           CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |
-          echo $CHAQUO_JKS | base64 -d > demo/chaquo.jks
+          echo "$CHAQUO_JKS" | base64 -d > demo/chaquo.jks
 
       - name: Build
         run: |
