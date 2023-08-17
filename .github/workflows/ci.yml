@@ -112,10 +112,10 @@ jobs:
           path: maven
 
       - name: Get keystore
+        env:
+          CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |
-          base64 -d -o demo/chaquo.jks << EOF
-          ${{ secrets.CHAQUO_JKS }}
-          EOF
+          echo $CHAQUO_JKS | base64 -d > demo/chaquo.jks
 
       - name: Build
         run: |
@@ -128,7 +128,6 @@ jobs:
           name: demo
           path: demo/app/build/outputs/apk/release
           if-no-files-found: error
-
 
 
   integration:
