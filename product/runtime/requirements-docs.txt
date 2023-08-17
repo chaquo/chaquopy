@@ -1,8 +1,8 @@
-
 # Direct requirements
 furo==2022.4.7
 Sphinx==4.5.0
 sphinx-better-subsection==0.1
+sphinx-tabs==3.3.1
 towncrier==22.12.0
 
 # Indirect requirements

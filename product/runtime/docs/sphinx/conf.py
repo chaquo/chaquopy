@@ -35,7 +35,8 @@ import re
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.intersphinx',
-              'sphinx_better_subsection']
+              'sphinx_better_subsection',
+              'sphinx_tabs.tabs']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -62,7 +63,7 @@ copyright = u'{} {}'.format(datetime.now().year, author)
 #
 # Chaquopy: this is no longer auto-generated from VERSION.txt, because that made it awkward to
 # release documentation updates between versions.
-release = "14.0.2"
+release = "15.0.0"
 # The short X.Y version.
 version = release.rpartition(".")[0]
 
@@ -197,14 +198,13 @@ def setup(app):
         "parallel_write_safe": True,
     }
 
-# Sections titled with numbers will by default get auto-numbered anchors like "id5".
-# Replace these with anchors suitable for permanent links (based on
+# Changelog sections titled with version numbers will by default get auto-numbered
+# anchors like "id5". Replace these with anchors suitable for permanent links (based on
 # https://github.com/pypa/pip/blob/22.3.1/docs/pip_sphinxext.py).
 def make_changelog_anchors(app, docname, source):
     if docname == "changelog":
         lines = source[0].splitlines()
         source[0] = "\n".join(_iter_lines_with_refs(lines))
-        # print("FIXME", source[0])
 
 def _iter_lines_with_refs(lines):
     """Transform the input lines to add a ref before each section title.

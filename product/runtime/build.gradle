@@ -127,7 +127,7 @@ String sdkPath(String path) {
 // This does not affect the Java unit tests, which will use the same Java as Gradle itself.
 def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
 
-def doc = tasks.register("doc") {
+def docs = tasks.register("docs") {
     group = "documentation"
     dependsOn("javadoc")
 }
@@ -414,10 +414,11 @@ sourceSets.test.java.srcDir(proxyTask)
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
             executable hostPythonExe()
-            args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
+            args("-m", "sphinx", "-v", "-W", "--keep-going", "-b", "html",
+                 "docs/sphinx", docsDir)
             environment "JAVA_HOME", javaHome
         }
-        doc.configure {
+        docs.configure {
             dependsOn("sphinx")
         }
     }
