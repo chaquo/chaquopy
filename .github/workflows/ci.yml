@@ -12,7 +12,8 @@ defaults:
     shell: bash
 
 jobs:
-  build-product:
+
+  product:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.5.3
@@ -40,7 +41,7 @@ jobs:
       - name: Build
         run: |
           cd product
-          ./gradlew publish
+          ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
         uses: actions/upload-artifact@v3.1.2
@@ -67,12 +68,53 @@ jobs:
     outputs:
       agp-versions: ${{ steps.agp-versions.outputs.versions }}
 
+
+  demo:
+    needs: [product]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.3
+
+      - name: Get default Python version
+        id: default-python
+        run: echo version=$(target/list-version.py --default) >> $GITHUB_OUTPUT
+
+      - uses: actions/setup-python@v4.6.1
+        with:
+          python-version: ${{ steps.default-python.outputs.version }}
+
+      - name: Download Maven repository
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: maven
+          path: maven
+
+      - name: Get keystore
+        run: |
+          base64 -d -o demo/chaquo.jks << EOF
+          ${{ secrets.CHAQUO_JKS }}
+          EOF
+
+      - name: Build
+        run: |
+          cd demo
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: demo
+          path: demo/app/build/outputs/apk/release
+
+
+
   integration:
-    needs: [build-product]
+    needs: [product]
     strategy:
       fail-fast: false
       matrix:
-        agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
+        agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
           # We pin specific OS versions to ensure that the Python `extra-versions`
