@@ -10,4 +10,10 @@ requirements:
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
+    - numpy 1.23.3
+
+# to build scipy package a Fortran compiler is needed in the toolchain
+# you can grab the ones found here from legacy NDK 21e:
+# https://github.com/mzakharo/android-gfortran/releases/tag/r21e
+# and use your OS `update-alternatives` or equivalent command 
+# to temporarly override your `gfrotran` with them

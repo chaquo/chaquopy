@@ -32,8 +32,10 @@ dist.Distribution.run_command = run_command_override
 # Remove include and library directories which are not in known safe locations.
 # Monkey-patching at this level handles both default paths added by distutils itself,
 # and paths added explicitly by package build scripts.
+# We must also allow include directories from env/ dir 
+# as they contain pybind11/pybind11.h headers needed to build some packages like scipy
 src_dir = os.environ["SRC_DIR"]
-valid_dirs = [abspath(path) for path in [src_dir, f"{src_dir}/../requirements"]]
+valid_dirs = [abspath(path) for path in [src_dir, f"{src_dir}/../requirements", f"{src_dir}/../env"]]
 
 def filter_dirs(dir_type, dirs):
     result = []
