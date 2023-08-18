@@ -16,4 +16,4 @@ requirements:
 # you can grab the ones found here from legacy NDK 21e:
 # https://github.com/mzakharo/android-gfortran/releases/tag/r21e
 # and use your OS `update-alternatives` or equivalent command 
-# to temporarly override your `gfrotran` with them
+# to temporarly override your `gfortran` with them
