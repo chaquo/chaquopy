@@ -416,6 +416,7 @@ class AssetFinder:
             self.extract_root = parent.extract_root
             self.prefix = relpath(path, self.extract_root)
             self.zip_files = parent.zip_files
+            self.extract_packages = parent.extract_packages
 
     def __repr__(self):
         return f"{type(self).__name__}({self.path!r})"
