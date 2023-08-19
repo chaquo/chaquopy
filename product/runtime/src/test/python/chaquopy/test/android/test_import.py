@@ -640,6 +640,11 @@ class TestAndroidImport(FilterWarningsCase):
                               [(mi.name, mi.ispkg) for mi in
                                pkgutil.walk_packages(murmurhash.__path__, "murmurhash.")])
 
+        # Check that a non-existent package returns an empty list.
+        for path in ("somemissingpackage", "some/missing/package"):
+            mod_infos = list(pkgutil.iter_modules([f"{murmurhash.__path__[0]}/{path}"]))
+            self.assertEqual([], mod_infos)
+
     def test_pr_distributions(self):
         import pkg_resources as pr
         self.assertCountEqual(REQUIREMENTS, [dist.project_name for dist in pr.working_set])
