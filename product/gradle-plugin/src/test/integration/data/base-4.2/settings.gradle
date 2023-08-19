@@ -1,5 +1,0 @@
-for (f in rootDir.listFiles()) {
-    if (new File(f, "build.gradle").exists()) {
-        include f.name
-    }
-}

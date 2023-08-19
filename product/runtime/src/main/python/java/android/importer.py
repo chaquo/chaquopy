@@ -24,8 +24,8 @@ import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
 
 from android.os import Build
-from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
+from com.chaquo.python.internal import Common
 
 
 def initialize(context, build_json, app_path):
@@ -416,6 +416,7 @@ class AssetFinder:
             self.extract_root = parent.extract_root
             self.prefix = relpath(path, self.extract_root)
             self.zip_files = parent.zip_files
+            self.extract_packages = parent.extract_packages
 
     def __repr__(self):
         return f"{type(self).__name__}({self.path!r})"

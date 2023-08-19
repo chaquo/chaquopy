@@ -38,7 +38,7 @@ After stable release:
 ## Removing support for an Android Gradle plugin version
 
 * Increment Chaquopy major version if not already done.
-* Update MIN_ANDROID_PLUGIN_VER in PythonPlugin.
+* Update MIN_AGP_VERSION in Common.java.
 * Check if there's any version-dependent code in the plugin or the tests which can now
   be removed.
 * Integration tests:
@@ -63,8 +63,9 @@ After stable release:
 
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
 * Update `testPython` in gradle-plugin/build.gradle, and run the tests.
-* Update `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in test_gradle_plugin,
-  and run the tests which use them.
+* In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSIONS` and
+  `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
+* In the ci.yml job `test-integration`, update `extra-versions`.
 * Update android.rst.
 
 

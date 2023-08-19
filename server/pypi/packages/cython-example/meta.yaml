@@ -7,6 +7,6 @@ source:
 
 requirements:
   build:
-    - cython 0.29.14
+    - cython 0.29.36
   host:
     - python

@@ -9,7 +9,7 @@ from glob import glob
 import jsonschema
 import multiprocessing
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join
+from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 import pkg_resources
 import re
 import shlex
@@ -23,7 +23,7 @@ import jinja2
 import yaml
 
 
-PROGRAM_NAME = basename(__file__)
+PROGRAM_NAME = splitext(basename(__file__))[0]
 PYPI_DIR = abspath(dirname(__file__))
 RECIPES_DIR = f"{PYPI_DIR}/packages"
 
@@ -66,7 +66,6 @@ ABIS = {abi.name: abi for abi in [
 
 
 class BuildWheel:
-
     def main(self):
         try:
             self.parse_args()
@@ -112,22 +111,23 @@ class BuildWheel:
             self.python_tag = self.non_python_tag
         self.compat_tag = f"{self.python_tag}-android_{self.api_level}_{self.abi_tag}"
 
-        build_reqs = self.get_requirements("build")
-        if build_reqs:
-            run(f"{self.pip} install{' -v' if self.verbose else ''} " +
-                " ".join(f"{name}=={version}" for name, version in build_reqs))
-
         self.version_dir = f"{self.package_dir}/build/{self.version}"
         ensure_dir(self.version_dir)
         cd(self.version_dir)
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
 
+        build_env = f"{self.build_dir}/env"
+        os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+        self.pip = f"{build_env}/bin/pip"
+
         if self.no_unpack:
             log("Skipping download and unpack due to --no-unpack")
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
+            if self.python:
+                self.create_build_env(build_env)
             self.unpack_source()
             self.apply_patches()
 
@@ -143,7 +143,7 @@ class BuildWheel:
             self.update_env()
             self.create_dummy_libs()
             wheel_filename = self.build_wheel()
-            return self.fix_wheel(wheel_filename)
+            self.fix_wheel(wheel_filename)
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -202,9 +202,45 @@ class BuildWheel:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
 
-        # Many setup.py scripts will behave differently depending on the Python version,
-        # so we run pip with a matching version.
-        self.pip = f"python{self.python} -m pip --disable-pip-version-check"
+    def create_build_env(self, build_env):
+        # Installing Python's bundled pip and setuptools into the environment is
+        # pointless since we'd immediately have to replace them anyway. Instead, we
+        # create one bootstrap environment per Python version, shared between all
+        # packages, and use that to install the build environments. This saves about 3.5
+        # seconds per build on Python 3.8, and 6 seconds on Python 3.11.
+        bootstrap_env = self.get_bootstrap_env()
+        assert not exists(build_env)
+        run(f"python{self.python} -m venv --without-pip {build_env}")
+
+        build_reqs = {"pip": "19.3", "setuptools": "67.0.0", "wheel": "0.33.6"}
+        build_reqs.update(self.get_requirements("build"))
+        run(f"{bootstrap_env}/bin/pip --python {build_env}/bin/python install " +
+            ("-v " if self.verbose else "") +
+            (" ".join(f"{name}=={version}" for name, version in build_reqs.items())))
+
+    def get_bootstrap_env(self):
+        bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{self.python}"
+        pip_version = "23.2.1"
+
+        def check_bootstrap_env():
+            if not run(
+                f"{bootstrap_env}/bin/pip --version", capture_output=True
+            ).stdout.startswith(f"pip {pip_version} "):
+                raise CommandError("pip version mismatch")
+
+        if exists(bootstrap_env):
+            try:
+                check_bootstrap_env()
+                return bootstrap_env
+            except CommandError as e:
+                log(e)
+                log("Invalid bootstrap environment: recreating it")
+                ensure_empty(bootstrap_env)
+
+        run(f"python{self.python} -m venv {bootstrap_env}")
+        run(f"{bootstrap_env}/bin/pip install pip=={pip_version}")
+        check_bootstrap_env()
+        return bootstrap_env
 
     def unpack_source(self):
         source = self.meta["source"]
@@ -597,10 +633,9 @@ class BuildWheel:
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        out_dir = ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}")
-        out_filename = self.package_wheel(tmp_dir, out_dir)
-        log(f"Wrote {out_filename}")
-        return out_filename
+        # `wheel pack` logs the absolute wheel filename.
+        self.package_wheel(
+            tmp_dir, ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
 
     def package_wheel(self, in_dir, out_dir):
         build_num = os.environ["PKG_BUILDNUM"]
@@ -759,13 +794,14 @@ def run(command, **kwargs):
     log(command)
     kwargs.setdefault("check", True)
     kwargs.setdefault("shell", False)
+    kwargs.setdefault("text", True)
 
     if isinstance(command, str) and not kwargs["shell"]:
         command = shlex.split(command)
     try:
         return subprocess.run(command, **kwargs)
-    except subprocess.CalledProcessError as e:
-        raise CommandError(f"Command returned exit status {e.returncode}")
+    except (OSError, subprocess.CalledProcessError) as e:
+        raise CommandError(e)
 
 
 def ensure_empty(dir_name):

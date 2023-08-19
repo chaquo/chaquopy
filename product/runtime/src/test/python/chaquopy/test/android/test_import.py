@@ -50,7 +50,8 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         for subdir, entries in [
-            # PythonPlugin.groovy explains why each of these modules are needed.
+            # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
+            # in PythonTasks.kt.
             (ABI, ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
                    "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so"]),
@@ -287,9 +288,9 @@ class TestAndroidImport(FilterWarningsCase):
             self.assertNotPredicate(exists, cache_dir)
         else:
             self.assertCountEqual(files,
-                                 [relpath(join(dirpath, name), cache_dir)
-                                  for dirpath, _, filenames in os.walk(cache_dir)
-                                  for name in filenames])
+                                  [relpath(join(dirpath, name), cache_dir)
+                                   for dirpath, _, filenames in os.walk(cache_dir)
+                                   for name in filenames])
             for path in files:
                 with open(f"{cache_dir}/{path}") as file:
                     self.assertEqual(f"# This file is {package}/{path}\n", file.read())
@@ -580,6 +581,19 @@ class TestAndroidImport(FilterWarningsCase):
         # ... import`. This seems to contradict the documentation of __import__, but it's not
         # important enough to investigate just now.
         self.assertFalse(hasattr(imp_rename_2, "mod_3"))
+
+    # Ensure that a package can be imported by a bare name when it's in an AssetFinder subdirectory.
+    # This is typically done when vendoring packages and dynamically adjusting sys.path. See #820.
+    def test_path_subdir(self):
+        sys.modules.pop("tests", None)
+        murmur_path = asset_path(REQS_COMMON_ZIP, "murmurhash")
+        tests_path = join(murmur_path, "tests/__init__.py")
+        sys.path.insert(0, murmur_path)
+        try:
+            import tests
+        finally:
+            sys.path.remove(murmur_path)
+        self.assertEqual(tests_path, tests.__file__)
 
     # Make sure the standard library importer implements the new loader API
     # (https://stackoverflow.com/questions/63574951).

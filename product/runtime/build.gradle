@@ -1,4 +1,6 @@
-import com.chaquo.python.Common;
+import com.chaquo.python.internal.BuildCommon;
+import com.chaquo.python.internal.Common;
+import static com.chaquo.python.internal.Common.findExecutable;
 
 group = "com.chaquo.python.runtime"
 
@@ -15,39 +17,42 @@ if (osName == null) {
     throw new GradleException("unknown os.name: '$osNameProperty'")
 }
 
-def pyPlusVersion = "python$Common.DEFAULT_PYTHON_VERSION"
-// filenames with dots require the ".exe" suffix with Exec tasks on Windows.
-def pyPlusVersionExe = "$pyPlusVersion"
-if (osName == "windows") {
-    pyPlusVersionExe += ".exe"
+String hostPythonExe() {
+    return findExecutable("python$Common.DEFAULT_PYTHON_VERSION")
 }
 
-String pythonHome
-new ByteArrayOutputStream().withStream { output ->
-    exec {
-        executable pyPlusVersionExe
-        args "-c", "import sys; print(sys.base_prefix)"
-        standardOutput = output
+String hostPythonHome() {
+    return new ByteArrayOutputStream().withStream { output ->
+        exec {
+            executable hostPythonExe()
+            args "-c", "import sys; print(sys.base_prefix)"
+            standardOutput = output
+        }
+        return output.toString().trim()
     }
-    pythonHome = output.toString().trim()
 }
 
-
-
-void addArtifact(Task task, Object filename, String pyVersion=null, String abi=null) {
-    File f = file(filename)
+void addArtifact(TaskProvider task, File f, String pyVersion, String abi=null) {
     def dotPos = f.name.lastIndexOf(".")
     def dashPos = f.name.indexOf("-")
     def name = f.name.substring(0, (dashPos != -1) ? dashPos : dotPos)
-    def pub = publishing.publications.maybeCreate(name, MavenPublication)
-    pub.artifactId = name
-    pub.artifact(f) {
-        builtBy task
-        def classifiers = [pyVersion, abi].findAll { it != null }
-        if (!classifiers.isEmpty()) {
-            setClassifier(classifiers.join("-"))
+
+    Provider<MavenPublication> pub
+    try {
+        pub = publishing.publications.named(name, MavenPublication)
+    } catch (UnknownDomainObjectException e) {
+        pub = publishing.publications.register(name, MavenPublication)
+    }
+    pub.configure {
+        artifactId = name
+        artifact(f) {
+            builtBy task
+            classifier = pyVersion
+            if (abi != null) {
+                classifier += "-$abi"
+            }
+            extension f.name.substring(dotPos + 1)
         }
-        extension f.name.substring(dotPos + 1)
     }
 }
 
@@ -64,7 +69,8 @@ publishing {
 
 
 Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
-    def compilePython = task("compilePython-$pyVersion", type: Copy, group: "build") {
+    def compilePython = tasks.register("compilePython-$pyVersion", Copy) {
+        group = "build"
         doFirst {
             delete(destinationDir)
             mkdir(destinationDir)
@@ -79,9 +85,9 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
             exec {
                 workingDir destinationDir
                 if (osName == "windows") {
-                    commandLine "py", "-$pyVersion"
+                    commandLine findExecutable("py"), "-$pyVersion"
                 } else {
-                    commandLine "python$pyVersion"
+                    commandLine findExecutable("python$pyVersion")
                 }
                 args "-m", "compileall"
                 args "-q", "-b", "."
@@ -92,53 +98,44 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
         }
     }
 
-    def zipPython = task("zipPython-$pyVersion", type: Zip, group: "build") {
+    def zipFile = new File(
+        "$buildDir/${Common.ASSET_BOOTSTRAP}",
+        Common.assetZip("$Common.ASSET_BOOTSTRAP-$pyVersion")
+    )
+    def zipPython = tasks.register("zipPython-$pyVersion", Zip) {
+        group = "build"
         from compilePython
-        destinationDirectory = new File(buildDir, Common.ASSET_BOOTSTRAP)
-        archiveFileName = Common.assetZip("$Common.ASSET_BOOTSTRAP-$pyVersion")
+        destinationDirectory = zipFile.parentFile
+        archiveFileName = zipFile.name
         preserveFileTimestamps = false
         reproducibleFileOrder = true
     }
-    addArtifact(zipPython, zipPython.archivePath, pyVersion)
-}
-
-// The following properties file should be created manually, as described in
-// product/README.md. It's also used in test_gradle_plugin.py.
-String getLocalProperty(String key, String defaultValue = null) {
-    def localProps = new Properties()
-    localProps.load(project.rootProject.file('local.properties').newDataInputStream())
-    def result = localProps.getProperty(key, defaultValue)
-    if (result == null) {
-        throw new GradleException("'$key' is missing from local.properties")
-    }
-    return result
+    addArtifact(zipPython, zipFile, pyVersion)
 }
 
 String sdkPath(String path) {
-    def sdkDir = System.getenv("ANDROID_HOME")
-    if (sdkDir == null) {
-        throw new GradleException("ANDROID_HOME environment variable is required")
-    }
-    def absPath = "$sdkDir/$path"
+    def absPath = "${BuildCommon.androidHome(project)}/$path"
     if (!file(absPath).exists()) {
         throw new GradleException("$path not found: install it using the SDK Manager")
     }
     return absPath
 }
 
-def ndkDir = sdkPath("ndk/22.1.7171670")  // Should match the version in target/build-common.sh.
-
 // Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
 // some of the Python unit tests don't work on Java 11 yet (#5727).
 //
 // This does not affect the Java unit tests, which will use the same Java as Gradle itself.
-def javaHome = getLocalProperty('chaquopy.java.home.8')
+def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
 
-task("doc", group: "documentation")
+def docs = tasks.register("docs") {
+    group = "documentation"
+    dependsOn("javadoc")
+}
 
 javadoc {
     destinationDir = file("$docsDir/java")
     title "Chaquopy Java API"
+    exclude "com/chaquo/python/internal/**"
     options {
         addStringOption("source", "8")
         addBooleanOption("Xdoclint:all,-missing", true)
@@ -146,14 +143,12 @@ javadoc {
         addStringOption("link", "https://developer.android.com/reference/")
     }
 }
-doc.dependsOn(javadoc)
 
+TaskProvider cythonTask(String name, Closure closure) {
+    return tasks.register(name, Exec) {
+        group = "build"
+        configure(closure)
 
-def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
-    taskArgs["type"] = Exec
-    taskArgs.putIfAbsent("group", "build")
-    def t = task(taskArgs, name, closure)
-    t.configure {
         def pyxFiles = inputs.files.findAll { it.name.endsWith(".pyx") }
         assert(pyxFiles.size() == 1)
         def inFile = pyxFiles.get(0)
@@ -163,14 +158,15 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
         outputs.file outFile
 
         workingDir inFile.parent  // Reduce clutter in exception traces
-        executable "cython"
+        executable findExecutable("cython")
         args "-Wextra", "-Werror", inFile.name, "-I", outDir, "-o", outFile
 
         doLast {
             String[][] replacements = [
-                // All functions called directly by the JVM must be declared JNICALL JNIEXPORT. JNIEXPORT
-                // should be equivalent to Cython's "cdef public", but JNICALL does make a difference on
-                // some platforms including x86. So alter the generated C code to add it.
+                // All functions called directly by the JVM must be declared JNICALL
+                // JNIEXPORT. JNIEXPORT should be equivalent to Cython's "cdef public",
+                // but JNICALL does make a difference on some platforms including x86.
+                // So alter the generated C code to add it.
                 [/^__PYX_EXTERN_C (\w+)/,
                  '/* cythonTask altered */ __PYX_EXTERN_C JNIEXPORT $1 JNICALL'],
 
@@ -192,9 +188,7 @@ def cythonTask = {Map taskArgs=[:], String name, Closure closure ->
                 throw new GradleException("Failed to replace $cFile")
             }
         }
-
     }
-    return t
 }
 
 cythonTask("cythonPython") {
@@ -208,7 +202,7 @@ cythonTask("cythonJava") {
     }
 }
 
-def sdkCmakeDir = sdkPath("cmake/3.22.1")  // Should match the version in the root Dockerfile.
+def sdkCmakeDir = sdkPath("cmake/3.22.1")
 def androidJar = "${sdkPath("platforms/android-" + Common.COMPILE_SDK_VERSION)}/android.jar"
 
 dependencies {
@@ -220,27 +214,29 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest-library:2.2'
 }
 
-task("generateStaticProxy", type: Exec, group: "verification") {
+def proxyTask = tasks.register("generateStaticProxy", Exec) {
+    group = "verification"
     def outputDir = "$buildDir/static_proxy"
     outputs.dir(outputDir)
     outputs.upToDateWhen { false }
     doFirst { delete outputDir }
     environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-    executable pyPlusVersionExe
+    executable hostPythonExe()
     args "-m", "chaquopy.static_proxy"
     args "--path", "$projectDir/src/test/python"
     args "--java", outputDir
     args("chaquopy.test.static_proxy.basic", "chaquopy.test.static_proxy.header",
          "chaquopy.test.static_proxy.method")
 }
-sourceSets.test.java.srcDirs += generateStaticProxy.outputs
+sourceSets.test.java.srcDir(proxyTask)
 
-for (abi in ["host"] + Common.ABIS) {
+(["host"] + Common.ABIS).each { abi ->
     def pyLibSuffix = ".so"
     def cmakeBuildSubdir = "$buildDir/cmake/$abi"
     def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
-    def cmake = task("cmake-$abi", type: Exec, group: "build") {
-        dependsOn cythonPython, cythonJava
+    def cmake = tasks.register("cmake-$abi", Exec) {
+        group = "build"
+        dependsOn("cythonPython", "cythonJava")
         inputs.files "CMakeLists.txt"
         // This is not a complete list of the outputs, but it's enough to detect when the
         // directory has been deleted. We can't declare the whole directory as an output,
@@ -271,11 +267,15 @@ for (abi in ["host"] + Common.ABIS) {
                 javaIncludeSubdir = osName
             }
             args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
-            args "-DCHAQUOPY_LIB_DIRS=$pythonHome/lib"
-            args "-DCHAQUOPY_INCLUDE_PYTHON=$pythonHome/include"
+            args "-DCHAQUOPY_LIB_DIRS=${hostPythonHome()}/lib"
+            args "-DCHAQUOPY_INCLUDE_PYTHON=${hostPythonHome()}/include"
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
+            // This must be one of the NDK versions which are pre-installed on the
+            // GitHub Actions runner. Ideally it would also match the version in
+            // target/build-common.sh, but the latter is more difficult to change.
+            def ndkDir = sdkPath("ndk/23.2.8568313")
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
@@ -288,8 +288,9 @@ for (abi in ["host"] + Common.ABIS) {
              projectDir
     }
 
-    def cmakeBuild = task("cmakeBuild-$abi", type: Exec, group: "build") {
+    def cmakeBuild = tasks.register("cmakeBuild-$abi", Exec) {
         // No inputs or outputs: the command itself determines whether it's up to date.
+        group = "build"
         dependsOn cmake
         executable "$sdkCmakeDir/bin/cmake"
         args "--build", cmakeBuildSubdir
@@ -297,8 +298,9 @@ for (abi in ["host"] + Common.ABIS) {
     if (abi != "host") {
         for (name in ["chaquopy", "libchaquopy_java"]) {
             for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
-                addArtifact(cmakeBuild, "$cmakeBuildSubdir/$name-${pyVersion}.so",
-                            pyVersion, abi)
+                addArtifact(
+                    cmakeBuild, new File(cmakeBuildSubdir, "$name-${pyVersion}.so"),
+                    pyVersion, abi)
             }
         }
     }
@@ -306,7 +308,8 @@ for (abi in ["host"] + Common.ABIS) {
     if (abi == "host") {
         def mainPythonDir = "$projectDir/src/main/python"
         def testPythonDir = "$projectDir/src/test/python"
-        task("setupPythonPath", group: "verification") {
+        tasks.register("setupPythonPath") {
+            group = "verification"
             dependsOn cmakeBuild
             doFirst {
                 copy {
@@ -319,8 +322,8 @@ for (abi in ["host"] + Common.ABIS) {
             }
         }
 
-        def testCommonConfig = {
-            dependsOn setupPythonPath, compileTestJava
+        def hostConfig = {
+            dependsOn("setupPythonPath", "compileTestJava")
             environment "CLASSPATH", sourceSets.test.runtimeClasspath.asPath
 
             // Can't use -Djava.library.path because we need something which also works
@@ -335,10 +338,12 @@ for (abi in ["host"] + Common.ABIS) {
 
         // For consistency with Android demo app, run via test suite rather than using
         // "discover".
-        task("testPython", type: Exec, group: "verification") {
+        tasks.register("testPython", Exec) {
+            group = "verification"
+            configure(hostConfig)
             workingDir "$projectDir/src/test/python"
             environment "JAVA_HOME", javaHome
-            executable pyPlusVersionExe
+            executable hostPythonExe()
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
                 args project.testPythonArgs.split(" ")
@@ -346,8 +351,6 @@ for (abi in ["host"] + Common.ABIS) {
                 args "chaquopy.test"
             }
         }
-        testPython.configure(testCommonConfig)
-        check.dependsOn(testPython)
 
         compileTestJava {
             sourceCompatibility = "1.8"
@@ -357,9 +360,11 @@ for (abi in ["host"] + Common.ABIS) {
         // Run via test suite for consistency with Android demo app. (NOTE: this will not show
         // test results within IntelliJ for some reason.)
         test.exclude "**"  // Disable the default test task
-        task("testJava", type: Test, group: "verification") {
+        tasks.register("testJava", Test) {
+            group = "verification"
+            configure(hostConfig)
             outputs.upToDateWhen { false }
-            environment "PYTHONHOME", pythonHome
+            environment "PYTHONHOME", hostPythonHome()
             if (osName == "linux") {
                 // libchaquopy_java.so is linked against libpython, but that doesn't add
                 // the libpython symbols to the global scope, which is required in order to
@@ -367,7 +372,10 @@ for (abi in ["host"] + Common.ABIS) {
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
                 // the proper solution, but let's do it the easy way for now. See #5695.
-                environment "LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/lib${pyPlusVersion}.so"
+                environment(
+                    "LD_PRELOAD",
+                    "/usr/lib/x86_64-linux-gnu/libpython${Common.DEFAULT_PYTHON_VERSION}.so"
+                )
             }
             testClassesDirs = sourceSets.test.output.classesDirs
             scanForTestClasses = false
@@ -377,12 +385,13 @@ for (abi in ["host"] + Common.ABIS) {
                 showStandardStreams = true
             }
         }
-        testJava.configure(testCommonConfig)
-        check.dependsOn(testJava)
+        tasks.named("check") {
+            dependsOn("testPython", "testJava")
+        }
 
         // Generates a script to start a Python REPL with Java and Python paths set up.
-        task("consoleScript") {
-            dependsOn setupPythonPath
+        tasks.register("consoleScript") {
+            dependsOn("setupPythonPath")
             doLast {
                 def writer = new PrintWriter("$projectDir/console.sh")
                 writer.println "#!/bin/bash -e"
@@ -392,19 +401,25 @@ for (abi in ["host"] + Common.ABIS) {
                     writer.println "export $key='${env.get(key)}'"
                 }
                 writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                writer.println "winpty $pyPlusVersionExe " + '"$@"'
+                writer.println "winpty ${hostPythonExe()} " + '"$@"'
                 writer.close()
             }
         }
 
-        task("sphinx", type: Exec, group: "documentation") {
+        // Requires the Python packages in requirements-docs.txt.
+        tasks.register("sphinx", Exec) {
+            group = "documentation"
+            configure(hostConfig)
+
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
-            executable pyPlusVersionExe
-            args "-m", "sphinx", "-v", "-b", "html", "docs/sphinx", "build/docs"
+            executable hostPythonExe()
+            args("-m", "sphinx", "-v", "-W", "--keep-going", "-b", "html",
+                 "docs/sphinx", docsDir)
             environment "JAVA_HOME", javaHome
         }
-        sphinx.configure(testCommonConfig)
-        doc.dependsOn(sphinx)
+        docs.configure {
+            dependsOn("sphinx")
+        }
     }
 }

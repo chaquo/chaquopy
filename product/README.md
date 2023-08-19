@@ -5,9 +5,11 @@ This file contains instructions for building and testing Chaquopy.
 
 # Build prerequisites
 
-* A local Python installation for each Python version suported by Chaquopy (list them
-  with `target/list-versions.py --short`). These must be on the PATH as `pythonX.Y` on
-  Unix, or `py -X.Y` on Windows.
+* A local Python installation for each Python major.minor version suported by Chaquopy
+  (list them with `target/list-versions.py --minor`). These must be on the PATH as
+  `pythonX.Y` on Unix, or `py -X.Y` on Windows.
+  * On Linux, install them from your distribution, or use Miniconda.
+  * On Mac and Windows, download them from https://python.org/.
 
 * Android Python headers and libraries in target/prefix. These can be installed as
   shown in ci.yml.
@@ -20,12 +22,13 @@ This file contains instructions for building and testing Chaquopy.
    * CMake: version from `sdkCmakeDir` in runtime/build.gradle.
    * NDK (side by side): version from `ndkDir` in runtime/build.gradle.
    * SDK Platform: version from `COMPILE_SDK_VERSION` in
-     buildSrc/src/main/java/com/chaquo/python/Common.java.
+     buildSrc/src/main/java/com/chaquo/python/internal/Common.java.
 
 * JDK version 8. Create a `local.properties` file in `product` (i.e. the same directory
   as this README), setting the JDK location as follows:
 
       chaquopy.java.home.8=<path>
+
 
 # Build
 
@@ -45,29 +48,27 @@ server.
 
 # Runtime tests
 
-Most of the runtime library unit tests included in the [Android demo
-app](https://github.com/chaquo/chaquopy/) can also be run locally. You must have installed the
-same major.minor version of Python as Chaquopy currently uses: this is represented below as
-`X.Y`.
+The runtime unit tests are mainly run on Android via the demo app in ../demo. However,
+the non-Android-specific features, such as the Java/Python interface, can also be tested
+directly on the build platform.
 
-Linux prerequisites:
-
-* Python development headers (e.g. `pythonX.Y-dev` on Debian)
-
-Windows prerequisites:
-
-* Install MSYS2.
-* Make sure the `mingw64\bin` directory is on the `PATH`, and is the directory actually used
-  for invocations of `pythonX.Y`.
-
-Common prerequisities (on Windows, these must be the MSYS2 versions):
+Prerequisities (on Windows, these must be the MSYS2 versions):
 
 * GCC and binutils.
-* The same Python major.minor version as Chaquopy currently uses.
-  * On Linux, if your distribution supplies a different Python version, it's easy to build the
-    correct version from source.
-  * On Windows, if MSYS2 has already moved on to the next Python version, download the correct
-    version from http://repo.msys2.org/mingw/mingw64/ and install it with `pacman -U`.
+
+* The same Python major.minor version as Chaquopy uses by default.
+
+  * On Linux, install it from your distribution, or use Miniconda. Make sure you also
+    include the development headers (e.g. `pythonX.Y-dev` on Debian).
+
+  * On Mac, download it from https://python.org/.
+
+  * On Windows, install it using MSYS2's `pacman`. If MSYS2 has already moved on to a
+    later Python version, download the correct version from
+    http://repo.msys2.org/mingw/mingw64/ and install it with `pacman -U`.
+
+    Make sure your PATH is set so that invocations of `pythonX.Y` will use the MSYS2
+    version.
 
 The tests are run by the Gradle tasks `runtime:testPython` and `runtime:testJava`. Or run
 `runtime:check` to test everything at once.

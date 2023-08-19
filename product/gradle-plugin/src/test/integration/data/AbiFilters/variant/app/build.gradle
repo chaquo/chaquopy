@@ -10,17 +10,24 @@ android {
         targetSdk 23
         versionCode 1
         versionName "0.0.1"
+        ndk { abiFilters "x86" }
     }
 
-    flavorDimensions "abi"
+    flavorDimensions "letter", "number"
     productFlavors {
-        x86 {
-            dimension "abi"
-            ndk { abiFilters "x86" }
+        alpha {
+            dimension "letter"
         }
-        armeabi_v7a {
-            dimension "abi"
+        bravo {
+            dimension "letter"
             ndk { abiFilters "armeabi-v7a" }
+        }
+        one {
+            dimension "number"
+        }
+        two {
+            dimension "number"
+            ndk { abiFilters "arm64-v8a" }
         }
     }
 }
