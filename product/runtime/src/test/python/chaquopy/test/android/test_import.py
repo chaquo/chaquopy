@@ -642,7 +642,7 @@ class TestAndroidImport(FilterWarningsCase):
 
         # Check that a non-existent package returns an empty list.
         for path in ("somemissingpackage", "some/missing/package"):
-            mod_infos = list(pkgutil.iter_modules([path]))
+            mod_infos = list(pkgutil.iter_modules([f"{murmurhash.__path__[0]}/{path}"]))
             self.assertEqual([], mod_infos)
 
     def test_pr_distributions(self):
