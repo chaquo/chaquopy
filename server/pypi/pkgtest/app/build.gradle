@@ -53,12 +53,12 @@ ext.TEST_PACKAGES = [
 
 android {
     namespace "com.chaquo.python.pkgtest3"
-    compileSdkVersion 33
+    compileSdk = 33
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
-        minSdkVersion 21
-        targetSdkVersion 33
+        minSdk = 21
+        targetSdk = 33
 
         versionName rootProject.version
         def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
@@ -141,7 +141,6 @@ def addPackages(flavor, List<String> packages) {
 
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
     // appcompat version 1.2.0 is required to fix an incompatibility with WebView on API level
     // 21 (https://stackoverflow.com/questions/41025200).
     implementation 'androidx.appcompat:appcompat:1.2.0-beta01'
@@ -149,5 +148,4 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:2.1.0'
     implementation 'androidx.preference:preference:1.1.1'
     implementation 'junit:junit:4.12'
-    testImplementation 'junit:junit:4.12'
 }
