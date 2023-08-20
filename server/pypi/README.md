@@ -51,7 +51,17 @@ Use your distribution's package manager to install the following build tools:
 * patch
 * patchelf
 
-Depending on which package you're building, you may also need additional tools.
+Depending on which package you're building, you may also need additional tools. Most of
+these can be installed using your distribution. Some of them have special entries in the
+`build` requirements section of meta.yaml:
+
+* `cmake`: A `chaquopy.toolchain.cmake` file will be generated in the build directory
+  for use with `-DCMAKE_TOOLCHAIN_FILE`.
+
+* `fortran`: You must install the Fortran compiler from
+  [here](https://github.com/mzakharo/android-gfortran/releases/tag/r21e). Create a
+  `fortran` subdirectory in the same directory as this README, and unpack the .bz2 files
+  into it.
 
 
 ## Building a package
