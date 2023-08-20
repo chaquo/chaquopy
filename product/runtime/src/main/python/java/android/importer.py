@@ -416,6 +416,7 @@ class AssetFinder:
             self.extract_root = parent.extract_root
             self.prefix = relpath(path, self.extract_root)
             self.zip_files = parent.zip_files
+            self.extract_packages = parent.extract_packages
 
     def __repr__(self):
         return f"{type(self).__name__}({self.path!r})"
@@ -452,7 +453,13 @@ class AssetFinder:
 
     # Called by pkgutil.iter_modules.
     def iter_modules(self, prefix=""):
-        for filename in self.listdir(self.prefix):
+        try:
+            filenames = self.listdir(self.prefix)
+        except OSError:
+            # ignore unreadable directories like import does
+            filenames = []
+
+        for filename in filenames:
             zip_path = join(self.prefix, filename)
             if self.isdir(zip_path):
                 for sub_filename in self.listdir(zip_path):

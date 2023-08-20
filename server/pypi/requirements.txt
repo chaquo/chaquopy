@@ -1,6 +1,6 @@
 # These are the requirements of build-wheel itself.
 #
-# For requirements of the build environment, see requirements-build-env.txt.
+# Requirements of the build environment are within the script at `create_build_env`.
 
 # Direct requirements
 Jinja2==2.11.3

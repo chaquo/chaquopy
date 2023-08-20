@@ -12,7 +12,8 @@ defaults:
     shell: bash
 
 jobs:
-  build-product:
+
+  product:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.5.3
@@ -40,7 +41,7 @@ jobs:
       - name: Build
         run: |
           cd product
-          ./gradlew publish
+          ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
         uses: actions/upload-artifact@v3.1.2
@@ -67,12 +68,76 @@ jobs:
     outputs:
       agp-versions: ${{ steps.agp-versions.outputs.versions }}
 
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/runtime/requirements-build.txt \
+                          -r product/runtime/requirements-docs.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Build
+        run: |
+          cd product
+          ./gradlew docs
+
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: docs
+          path: |
+            product/runtime/build/docs
+            !**/.doctrees
+          if-no-files-found: error
+
+
+  demo:
+    needs: [product]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Download Maven repository
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: maven
+          path: maven
+
+      - name: Get keystore
+        env:
+          CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
+        run: |
+          echo "$CHAQUO_JKS" | base64 -d > demo/chaquo.jks
+
+      - name: Build
+        run: |
+          cd demo
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          ./gradlew assembleRelease
+
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: demo
+          path: demo/app/build/outputs/apk/release
+          if-no-files-found: error
+
+
   integration:
-    needs: [build-product]
+    needs: [product]
     strategy:
       fail-fast: false
       matrix:
-        agp-version: ${{ fromJSON(needs.build-product.outputs.agp-versions) }}
+        agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
           # We pin specific OS versions to ensure that the Python `extra-versions`
