@@ -18,7 +18,7 @@ After stable release:
   new project wizard.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
-  * Run Android Studio Upgrade Assistant.
+  * In Android Studio, run Tools > AGP Upgrade Assistant.
   * Update all items from the "base" directory above.
   * Update .gitignore file, and git rm any newly-ignored files.
   * Test the app.
