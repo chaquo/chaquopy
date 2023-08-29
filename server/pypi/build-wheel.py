@@ -77,10 +77,14 @@ class BuildWheel:
             self.name_version = (normalize_name_wheel(self.package) + "-" +
                                  normalize_version(self.version))
 
-            self.needs_cmake = False
-            if "cmake" in self.meta["requirements"]["build"]:
-                self.meta["requirements"]["build"].remove("cmake")
-                self.needs_cmake = True
+            self.non_python_build_reqs = set()
+            for name in ["cmake", "fortran"]:
+                try:
+                    self.meta["requirements"]["build"].remove(name)
+                except ValueError:
+                    pass
+                else:
+                    self.non_python_build_reqs.add(name)
 
             self.needs_python = self.needs_target = (self.meta["source"] == "pypi")
             for name in ["openssl", "python", "sqlite"]:
@@ -460,6 +464,18 @@ class BuildWheel:
         # See env/bin/pkg-config.
         del env["PKG_CONFIG"]
 
+        if "fortran" in self.non_python_build_reqs:
+            tool_prefix = ABIS[self.abi].tool_prefix
+            toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
+            gfortran = f"{PYPI_DIR}/fortran/{toolchain}-4.9/bin/{tool_prefix}-gfortran"
+            if not exists(gfortran):
+                raise CommandError(f"This package requries a Fortran compiler, but "
+                                   f"{gfortran} does not exist. See README.md.")
+
+            env["FC"] = gfortran  # Used by OpenBLAS
+            env["F77"] = env["F90"] = gfortran  # Used by numpy.distutils
+            env["FARCH"] = env["CFLAGS"]  # Used by numpy.distutils
+
         env_dir = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{env_dir}/bin",
@@ -523,7 +539,7 @@ class BuildWheel:
             key, value = var.split("=")
             env[key] = value
 
-        if self.needs_cmake:
+        if "cmake" in self.non_python_build_reqs:
             self.generate_cmake_toolchain(env)
 
         if self.verbose:

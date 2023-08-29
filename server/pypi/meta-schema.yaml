@@ -63,9 +63,9 @@ properties:
 
       # Requirements which must be installed in the build environment. One of the following:
       #
-      # * `<package> <version>`: A Python package.
-      # * `cmake`: indicates that CMake is used in the build. A `chaquopy.toolchain.cmake` file
-      #   will be generated in the build directory for use with `-DCMAKE_TOOLCHAIN_FILE`.
+      #   * `cmake`: see README.md
+      #   * `fortran`: see README.md
+      #   * `<package> <version>`: A Python package, which will be installed using pip
       build:
         type: array
         default: []

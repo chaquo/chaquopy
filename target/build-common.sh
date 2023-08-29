@@ -7,10 +7,17 @@
 : ${api_level:=21}  # Should match MIN_SDK_VERSION in Common.java.
 
 # When moving to a new version of the NDK, carefully review the following:
+#
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
+#
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
 #   where XX is the NDK version. Do a diff against the version you're upgrading from.
+#
+# * According to https://github.com/kivy/python-for-android/pull/2615, the mzakharo
+#   build of gfortran is not compatible with NDK version 23, which is the version in
+#   which they removed the GNU binutils.
 ndk_version=22.1.7171670  # See ndkDir in product/runtime/build.gradle.
+
 ndk=${ANDROID_HOME:?}/ndk/$ndk_version
 if ! [ -e $ndk ]; then
     # Print all messages on stderr so they're visible when running within build-wheel.
