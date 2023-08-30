@@ -6,7 +6,6 @@ import csv
 from dataclasses import dataclass
 from email import generator, message, parser
 from glob import glob
-import jsonschema
 import multiprocessing
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join, splitext
@@ -20,6 +19,8 @@ from textwrap import dedent
 
 from elftools.elf.elffile import ELFFile
 import jinja2
+import jsonschema
+import pypi_simple
 import yaml
 
 
@@ -130,15 +131,15 @@ class BuildWheel:
             assert_isdir(self.build_dir)
         else:
             ensure_empty(self.build_dir)
-            if self.python:
-                self.create_build_env(build_env)
             self.unpack_source()
             self.apply_patches()
 
         self.reqs_dir = f"{self.build_dir}/requirements"
         if self.no_reqs:
-            log("Skipping requirements extraction due to --no-reqs")
+            log("Skipping requirements due to --no-reqs")
         else:
+            if self.needs_python:
+                self.create_build_env(build_env)
             self.extract_requirements()
 
         if self.no_build:
@@ -156,13 +157,12 @@ class BuildWheel:
 
         skip_group = ap.add_mutually_exclusive_group()
         skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                                "(an existing build/.../src directory must exist, and will be "
-                                "reused)")
+                                "(an existing build subdirectory must exist, and will be reused)")
         skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
                                 "skip build")
 
-        ap.add_argument("--no-reqs", action="store_true", help="Skip extracting requirements "
-                        "(any existing build/.../requirements directory will be reused)")
+        ap.add_argument("--no-reqs", action="store_true", help="Skip installing requirements "
+                        "(existing environments will be reused)")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
                         help="Android ABI: choices=[%(choices)s]")
         ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
@@ -213,7 +213,7 @@ class BuildWheel:
         # packages, and use that to install the build environments. This saves about 3.5
         # seconds per build on Python 3.8, and 6 seconds on Python 3.11.
         bootstrap_env = self.get_bootstrap_env()
-        assert not exists(build_env)
+        ensure_empty(build_env)
         run(f"python{self.python} -m venv --without-pip {build_env}")
 
         build_reqs = {"pip": "19.3", "setuptools": "67.0.0", "wheel": "0.33.6"}
@@ -302,32 +302,39 @@ class BuildWheel:
         return tgz_filename
 
     def download_pypi(self):
-        sdist_filename = self.find_sdist()
-        if sdist_filename:
-            log("Using cached sdist")
-        else:
-            result = run(f"{self.pip} download{' -v' if self.verbose else ''} --no-deps "
-                         f"--no-binary {self.package} --no-build-isolation "
-                         f"{self.package}=={self.version}", check=False)
-            if result.returncode:
-                # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
-                # downloaded sdist, which installs anything in `setup_requires`
-                # (https://github.com/pypa/pip/issues/1884). If this fails or takes a long
-                # time, we can't work around it by patching the package, because we haven't had
-                # a chance to apply the patches yet.
-                warn(f"pip download returned exit status {result.returncode}")
-            sdist_filename = self.find_sdist()
-            if not sdist_filename:
-                raise CommandError("Can't find downloaded source archive. Does the name and "
-                                   "version in the package's meta.yaml match the filename "
-                                   "shown above?")
-        return sdist_filename
-
-    def find_sdist(self):
-        for ext in ["zip", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz"]:
+        EXTENSIONS = ["zip", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz"]
+        for ext in EXTENSIONS:
             filename = f"{self.package}-{self.version}.{ext}"
             if exists(filename):
+                log("Using cached sdist")
                 return filename
+
+        # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
+        # downloaded sdist, which may fail or take a long time
+        # (https://github.com/pypa/pip/issues/1884). So we download the sdist manually.
+        log("Searching PyPI")
+        pypi = pypi_simple.PyPISimple()
+        try:
+            project = pypi.get_project_page(self.package)
+        except pypi_simple.NoSuchProjectError as e:
+            raise CommandError(e)
+
+        for package in project.packages:
+            if (
+                (package.project, package.version) == (self.package, self.version)
+                and any(package.filename.endswith("." + ext) for ext in EXTENSIONS)
+            ):
+                log(f"Downloading {package.url}")
+                pypi.download_package(
+                    package, package.filename,
+                    progress=pypi_simple.tqdm_progress_factory(
+                        unit="B", unit_scale=True, unit_divisor=1024))
+                return package.filename
+        else:
+            raise CommandError(
+                f"Can't find sdist for {self.package!r} version {self.version!r} at "
+                f"{pypi.get_project_url(self.package)}. Check the name and version "
+                f"for spelling, capitalization and punctuation.")
 
     def download_url(self, url):
         source_filename = url[url.rfind("/") + 1:]
