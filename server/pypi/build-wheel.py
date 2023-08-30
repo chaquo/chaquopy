@@ -122,10 +122,6 @@ class BuildWheel:
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
 
-        build_env = f"{self.build_dir}/env"
-        os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-        self.pip = f"{build_env}/bin/pip"
-
         if self.no_unpack:
             log("Skipping download and unpack due to --no-unpack")
             assert_isdir(self.build_dir)
@@ -134,13 +130,15 @@ class BuildWheel:
             self.unpack_source()
             self.apply_patches()
 
-        self.reqs_dir = f"{self.build_dir}/requirements"
+        self.build_env = f"{self.build_dir}/env"
+        self.host_env = f"{self.build_dir}/requirements"
         if self.no_reqs:
             log("Skipping requirements due to --no-reqs")
         else:
+            os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
             if self.needs_python:
-                self.create_build_env(build_env)
-            self.extract_requirements()
+                self.create_build_env()
+            self.create_host_env()
 
         if self.no_build:
             log("Skipping build due to --no-build")
@@ -206,19 +204,19 @@ class BuildWheel:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
 
-    def create_build_env(self, build_env):
+    def create_build_env(self):
         # Installing Python's bundled pip and setuptools into the environment is
         # pointless since we'd immediately have to replace them anyway. Instead, we
         # create one bootstrap environment per Python version, shared between all
         # packages, and use that to install the build environments. This saves about 3.5
         # seconds per build on Python 3.8, and 6 seconds on Python 3.11.
         bootstrap_env = self.get_bootstrap_env()
-        ensure_empty(build_env)
-        run(f"python{self.python} -m venv --without-pip {build_env}")
+        ensure_empty(self.build_env)
+        run(f"python{self.python} -m venv --without-pip {self.build_env}")
 
         build_reqs = {"pip": "19.3", "setuptools": "67.0.0", "wheel": "0.33.6"}
         build_reqs.update(self.get_requirements("build"))
-        run(f"{bootstrap_env}/bin/pip --python {build_env}/bin/python install " +
+        run(f"{bootstrap_env}/bin/pip --python {self.build_env}/bin/python install " +
             ("-v " if self.verbose else "") +
             (" ".join(f"{name}=={version}" for name, version in build_reqs.items())))
 
@@ -363,10 +361,10 @@ class BuildWheel:
                                "declared as a Python package. Do you need to add a `host` "
                                "requirement of `python`? See meta-schema.yaml.")
 
-    def extract_requirements(self):
-        ensure_empty(self.reqs_dir)
+    def create_host_env(self):
+        ensure_empty(self.host_env)
         for subdir in ["include", "lib"]:
-            ensure_dir(f"{self.reqs_dir}/chaquopy/{subdir}")
+            ensure_dir(f"{self.host_env}/chaquopy/{subdir}")
         if self.needs_target:
             self.extract_target()
 
@@ -383,21 +381,22 @@ class BuildWheel:
                     if match and (int(match["api_level"]) <= self.api_level):
                         matches.append(match)
             if not matches:
-                raise CommandError(f"Couldn't find wheel for requirement {package} {version}")
+                raise CommandError(f"Couldn't find compatible wheel for {package} "
+                                   f"{version} in {dist_dir}")
             matches.sort(key=lambda match: int(match.group("build_num")))
             wheel_filename = join(dist_dir, matches[-1].group(0))
-            run(f"unzip -d {self.reqs_dir} -q {wheel_filename}")
+            run(f"unzip -d {self.host_env} -q {wheel_filename}")
 
             # Move data files into place (used by torchvision to build against torch).
-            data_dir = f"{self.reqs_dir}/{package}-{version}.data/data"
+            data_dir = f"{self.host_env}/{package}-{version}.data/data"
             if exists(data_dir):
                 for name in os.listdir(data_dir):
-                    run(f"mv {data_dir}/{name} {self.reqs_dir}")
+                    run(f"mv {data_dir}/{name} {self.host_env}")
 
             # Put headers on the include path (used by gevent to build against greenlet).
-            include_src = f"{self.reqs_dir}/{package}-{version}.data/headers"
+            include_src = f"{self.host_env}/{package}-{version}.data/headers"
             if exists(include_src):
-                include_tgt = f"{self.reqs_dir}/chaquopy/include/{package}"
+                include_tgt = f"{self.host_env}/chaquopy/include/{package}"
                 run(f"mkdir -p {dirname(include_tgt)}")
                 run(f"mv {include_src} {include_tgt}")
 
@@ -408,7 +407,7 @@ class BuildWheel:
         SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
                            (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
                            (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
-        reqs_lib_dir = f"{self.reqs_dir}/chaquopy/lib"
+        reqs_lib_dir = f"{self.host_env}/chaquopy/lib"
         for filename in os.listdir(reqs_lib_dir):
             for pattern, repl in SONAME_PATTERNS:
                 link_filename = re.sub(pattern, repl, filename)
@@ -421,25 +420,29 @@ class BuildWheel:
     # don't have to patch everything that links against them.
     def create_dummy_libs(self):
         for name in ["pthread", "rt"]:
-            run(f"{os.environ['AR']} rc {self.reqs_dir}/chaquopy/lib/lib{name}.a")
+            run(f"{os.environ['AR']} rc {self.host_env}/chaquopy/lib/lib{name}.a")
 
     def extract_target(self):
-        run(f"unzip -q -d {self.reqs_dir}/chaquopy {self.target_zip} include/* jniLibs/*")
-        run(f"mv {self.reqs_dir}/chaquopy/jniLibs/{self.abi}/* {self.reqs_dir}/chaquopy/lib",
+        run(f"unzip -q -d {self.host_env}/chaquopy {self.target_zip} include/* jniLibs/*")
+        run(f"mv {self.host_env}/chaquopy/jniLibs/{self.abi}/* {self.host_env}/chaquopy/lib",
             shell=True)
-        run(f"rm -r {self.reqs_dir}/chaquopy/jniLibs")
+        run(f"rm -r {self.host_env}/chaquopy/jniLibs")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
         ensure_empty(prefix_dir)
         os.environ["PREFIX"] = ensure_dir(f"{prefix_dir}/chaquopy")  # Conda variable name
-        run(build_script)
+
+        if self.needs_python:
+            run(f". {self.build_env}/bin/activate; {build_script}", shell=True)
+        else:
+            run(build_script)
         return self.package_wheel(prefix_dir, self.src_dir)
 
     def build_with_pip(self):
         # We can't run "setup.py bdist_wheel" directly, because that would only work with
         # setuptools-aware setup.py files.
-        run(f"{self.pip} wheel --no-deps "
+        run(f"{self.build_env}/bin/pip wheel --no-deps "
             # --no-clean doesn't currently work: see env/python/sitecustomize.py.
             #
             # We pass -v unconditionally, because we always want to see the build process
@@ -452,7 +455,7 @@ class BuildWheel:
     def update_env(self):
         env = {}
         build_common_output = run(
-            f"abi={self.abi}; api_level={self.api_level}; prefix={self.reqs_dir}/chaquopy; "
+            f"abi={self.abi}; api_level={self.api_level}; prefix={self.host_env}/chaquopy; "
             f". {PYPI_DIR}/../../target/build-common.sh; export",
             shell=True, executable="bash", text=True, stdout=subprocess.PIPE
         ).stdout
@@ -486,12 +489,12 @@ class BuildWheel:
         env_dir = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{env_dir}/bin",
-            f"{self.reqs_dir}/chaquopy/bin",  # For "-config" scripts.
+            f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
             os.environ["PATH"]])
 
-        # Adding reqs_dir to PYTHONPATH allows setup.py to import requirements, for example to
+        # Adding host_env to PYTHONPATH allows setup.py to import requirements, for example to
         # call numpy.get_include().
-        pythonpath = [f"{env_dir}/lib/python", self.reqs_dir]
+        pythonpath = [f"{env_dir}/lib/python", self.host_env]
         if "PYTHONPATH" in os.environ:
             pythonpath.append(os.environ["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(pythonpath)
@@ -508,10 +511,10 @@ class BuildWheel:
         env["LDSHARED"] = f"{env['CC']} -shared"
 
         if self.needs_python:
-            self.python_include_dir = f"{self.reqs_dir}/chaquopy/include/python{self.python}"
+            self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
             assert_exists(self.python_include_dir)
             libpython = f"libpython{self.python}.so"
-            self.python_lib = f"{self.reqs_dir}/chaquopy/lib/{libpython}"
+            self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
             assert_exists(self.python_lib)
             self.standard_libs.append(libpython)
 
@@ -572,7 +575,7 @@ class BuildWheel:
                 set(ANDROID_STL c++_shared)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
-                list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.reqs_dir}/chaquopy)
+                list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)
                 """), file=toolchain_file)
 
             if self.needs_python:
@@ -614,7 +617,7 @@ class BuildWheel:
 
         SO_PATTERN = r"\.so(\.|$)"
         available_libs = set(self.standard_libs)
-        for dir_name in [f"{self.reqs_dir}/chaquopy/lib", tmp_dir]:
+        for dir_name in [f"{self.host_env}/chaquopy/lib", tmp_dir]:
             if exists(dir_name):
                 for _, _, filenames in os.walk(dir_name):
                     available_libs.update(name for name in filenames
