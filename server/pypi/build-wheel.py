@@ -721,13 +721,19 @@ class BuildWheel:
         schema = yaml.safe_load(open(f"{PYPI_DIR}/meta-schema.yaml"))
         Validator.check_schema(schema)
 
-        meta_input = open(f"{self.package_dir}/meta.yaml").read()
+        meta_filename = assert_exists(f"{self.package_dir}/meta.yaml")
         meta_vars = {}
         if self.python:
             meta_vars["PY_VER"] = self.python
 
-        meta = yaml.safe_load(jinja2.Template(meta_input).render(**meta_vars))
-        with_defaults(Validator)(schema).validate(meta)
+        try:
+            meta = yaml.safe_load(
+                jinja2.Template(open(meta_filename).read()).render(**meta_vars))
+            with_defaults(Validator)(schema).validate(meta)
+        except (
+            jinja2.TemplateSyntaxError, jsonschema.ValidationError, yaml.YAMLError
+        ) as e:
+            raise CommandError(f"Failed to parse {meta_filename}: {e}")
         return meta
 
     def find_package(self, name):
@@ -839,6 +845,7 @@ def assert_isdir(filename):
 def assert_exists(filename):
     if not exists(filename):
         raise CommandError(f"{filename} does not exist")
+    return filename
 
 
 def cd(new_dir):

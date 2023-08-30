@@ -1,6 +1,6 @@
 package:
   name: argon2-cffi
-  version: 20.1.0
+  version: "20.1.0"
 
 build:
   number: 1

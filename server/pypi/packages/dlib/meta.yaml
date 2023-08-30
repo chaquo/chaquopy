@@ -1,6 +1,6 @@
 package:
   name: dlib
-  version: 19.19.0
+  version: "19.19.0"
 
 build:
   number: 4

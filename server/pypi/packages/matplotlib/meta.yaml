@@ -6,7 +6,7 @@
 
 package:
   name: matplotlib
-  version: 3.6.0
+  version: "3.6.0"
 
 build:
   number: 0

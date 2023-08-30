@@ -1,6 +1,6 @@
 package:
   name: chaquopy-libjpeg
-  version: 1.5.3
+  version: "1.5.3"
 
 build:
   number: 1

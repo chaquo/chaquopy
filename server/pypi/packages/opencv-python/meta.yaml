@@ -2,7 +2,7 @@
 # others.
 package:
   name: opencv-python
-  version: 4.5.1.48
+  version: "4.5.1.48"
 
 build:
   number: 2

@@ -1,6 +1,6 @@
 package:
   name: chaquopy-libgfortran
-  version: 4.9   # See build.sh, and COMPILER_LIBS in build-wheel.py.
+  version: "4.9"   # See build.sh, and COMPILER_LIBS in build-wheel.py.
 
 source: null
 

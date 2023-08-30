@@ -1,6 +1,6 @@
 package:
   name: chaquopy-freetype
-  version: 2.9.1
+  version: "2.9.1"
 
 build:
   number: 2

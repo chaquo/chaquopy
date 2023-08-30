@@ -3,7 +3,7 @@ package:
   # When updating, check setup.py and update chaquopy-secp256k1 as well:
   # * Commit ID and version number in meta.yaml
   # * configure script arguments in build.sh
-  version: 13.0.0
+  version: "13.0.0"
 
 build:
   number: 1

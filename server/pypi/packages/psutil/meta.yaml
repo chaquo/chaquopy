@@ -1,6 +1,6 @@
 package:
   name: psutil
-  version: 5.6.7
+  version: "5.6.7"
 
 build:
   number: 1

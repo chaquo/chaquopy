@@ -11,8 +11,8 @@ properties:
     properties:
       name:             # Must be in its original form, as used in sdist filenames.
         type: string
-      version:
-        type: [string, number]
+      version:          # We no longer accept numbers, because that would make it
+        type: string    # impossible to distinguish 0.1 from 0.10.
     additionalProperties: false
 
   source:
