@@ -1,6 +1,6 @@
 package:
   name: python_example
-  version: 0.0.1
+  version: "0.0.1"
 
 source:
   git_url: https://github.com/pybind/python_example.git

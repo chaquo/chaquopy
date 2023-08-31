@@ -1,6 +1,6 @@
 package:
   name: chaquopy-libxml2
-  version: 2.9.8
+  version: "2.9.8"
 
 build:
   number: 2

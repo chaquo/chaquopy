@@ -6,7 +6,7 @@
 
 package:
   name: pycurl
-  version: 7.43.0.6
+  version: "7.43.0.6"
 
 build:
   number: 2

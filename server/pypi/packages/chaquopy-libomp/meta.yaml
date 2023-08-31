@@ -1,5 +1,5 @@
 package:
   name: chaquopy-libomp
-  version: 9.0.9  # See PKG_VERSION in build.sh, and COMPILER_LIBS in build-wheel.py.
+  version: "9.0.9"  # See PKG_VERSION in build.sh, and COMPILER_LIBS in build-wheel.py.
 
 source: null

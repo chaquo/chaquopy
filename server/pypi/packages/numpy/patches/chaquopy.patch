@@ -151,3 +151,17 @@ diff -ur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
+--- src-original/pyproject.toml	2022-09-09 13:36:30.619459000 +0000
++++ src/pyproject.toml	2023-08-31 11:38:08.304445745 +0000
+@@ -2,7 +2,10 @@
+ # Minimum requirements for the build system to execute.
+ requires = [
+     "packaging==20.5; platform_machine=='arm64'",  # macos M1
+-    "setuptools==59.2.0",
++
++    # Chaquopy: was 59.2.0, which failed to detect modf and frexp for some reason.
++    "setuptools==63.0.0",
++
+     "wheel==0.37.0",
+     "Cython>=0.29.30,<3.0",
+ ]

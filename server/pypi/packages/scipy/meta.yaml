@@ -6,7 +6,7 @@
 
 package:
   name: scipy
-  version: 1.6.3
+  version: "1.6.3"
 
 requirements:
   build:

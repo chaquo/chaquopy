@@ -1,5 +1,5 @@
 package:
   name: chaquopy-libcxx
-  version: 11000  # See PKG_VERSION in build.sh, and COMPILER_LIBS in build-wheel.py.
+  version: "11000"  # See PKG_VERSION in build.sh, and COMPILER_LIBS in build-wheel.py.
 
 source: null

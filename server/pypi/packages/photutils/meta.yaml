@@ -6,7 +6,7 @@
 
 package:
   name: photutils
-  version: 1.1.0
+  version: "1.1.0"
 
 requirements:
   build:

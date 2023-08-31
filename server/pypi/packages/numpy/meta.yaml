@@ -1,6 +1,6 @@
 package:
   name: numpy
-  version: 1.23.3
+  version: "1.23.3"
 
 build:
   number: 0
@@ -8,6 +8,5 @@ build:
 requirements:
   build:
     - Cython 0.29.32
-    - setuptools 63.0.0 # Issue with setuptools >= 64 cf https://github.com/pypa/setuptools/issues/3549
   host:
     - chaquopy-openblas 0.2.20

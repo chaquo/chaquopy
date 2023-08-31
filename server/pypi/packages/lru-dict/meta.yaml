@@ -1,6 +1,6 @@
 package:
   name: lru-dict
-  version: 1.1.8
+  version: "1.1.8"
 
 build:
   number: 0
