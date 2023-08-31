@@ -1,7 +1,7 @@
 diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
---- src-original/scipy/__init__.py	2020-11-04 03:24:04.000000000 +0100
-+++ src/scipy/__init__.py	2023-08-31 11:07:04.923259522 +0200
-@@ -58,56 +58,57 @@
+--- src-original/scipy/__init__.py	2023-08-31 12:17:17.197651190 +0200
++++ src/scipy/__init__.py	2023-08-31 12:17:39.438111356 +0200
+@@ -58,50 +58,54 @@
  """
  __all__ = ['test']
  
@@ -9,9 +9,8 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 -if show_numpy_config is None:
 -    raise ImportError(
 -        "Cannot import SciPy when running from NumPy source directory.")
-+# Chaquopy: removed `from numpy import show_config` test
- from numpy import __version__ as __numpy_version__
- 
+-from numpy import __version__ as __numpy_version__
+-
 -# Import numpy symbols to scipy name space (DEPRECATED)
 -from ._lib.deprecation import _deprecated
 -import numpy as _num
@@ -29,14 +28,8 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 -        'use numpy.random.{0} instead')
 -rand = _deprecated(_msg.format('rand'))(rand)
 -randn = _deprecated(_msg.format('randn'))(randn)
--from numpy.fft import fft, ifft
--# fft is especially problematic, so we deprecate it with a shorter window
--fft_msg = ('Using scipy.fft as a function is deprecated and will be '
--           'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
--# for wrapping in scipy.fft.__call__, so the stacklevel is one off from the
--# usual (2)
--_dep_fft = _deprecated(fft_msg, stacklevel=3)(fft)
--fft = _deprecated(fft_msg)(fft)
+-# fft is especially problematic, so was removed in SciPy 1.6.0
+-from numpy.fft import ifft
 -ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
 -                   '2.0.0, use scipy.fft.ifft instead')(ifft)
 -import numpy.lib.scimath as _sci
@@ -49,7 +42,7 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 -    globals()[_key] = _fun
 -
 -__all__ += _num.__all__
--__all__ += ['randn', 'rand', 'fft', 'ifft']
+-__all__ += ['randn', 'rand', 'ifft']
 -
 -del _num
 -# Remove the linalg imported from NumPy so that the scipy.linalg package can be
@@ -60,6 +53,12 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 +try:
 +    __SCIPY_SETUP__
 +except NameError:
++    from numpy import show_config as show_numpy_config
++    if show_numpy_config is None:
++        raise ImportError(
++            "Cannot import SciPy when running from NumPy source directory.")
++    from numpy import __version__ as __numpy_version__
++
 +    # Import numpy symbols to scipy name space (DEPRECATED)
 +    from ._lib.deprecation import _deprecated
 +    import numpy as _num
@@ -77,14 +76,8 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 +            'use numpy.random.{0} instead')
 +    rand = _deprecated(_msg.format('rand'))(rand)
 +    randn = _deprecated(_msg.format('randn'))(randn)
-+    from numpy.fft import fft, ifft
-+    # fft is especially problematic, so we deprecate it with a shorter window
-+    fft_msg = ('Using scipy.fft as a function is deprecated and will be '
-+            'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
-+    # for wrapping in scipy.fft.__call__, so the stacklevel is one off from the
-+    # usual (2)
-+    _dep_fft = _deprecated(fft_msg, stacklevel=3)(fft)
-+    fft = _deprecated(fft_msg)(fft)
++    # fft is especially problematic, so was removed in SciPy 1.6.0
++    from numpy.fft import ifft
 +    ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
 +                    '2.0.0, use scipy.fft.ifft instead')(ifft)
 +    import numpy.lib.scimath as _sci
@@ -97,7 +90,7 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 +        globals()[_key] = _fun
 +
 +    __all__ += _num.__all__
-+    __all__ += ['randn', 'rand', 'fft', 'ifft']
++    __all__ += ['randn', 'rand', 'ifft']
 +
 +    del _num
 +    # Remove the linalg imported from NumPy so that the scipy.linalg package can be
@@ -107,7 +100,7 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
  
  # We first need to detect if we're being called as part of the SciPy
  # setup procedure itself in a reliable manner.
-@@ -121,6 +122,11 @@
+@@ -115,6 +119,11 @@
      import sys as _sys
      _sys.stderr.write('Running from SciPy source directory.\n')
      del _sys
@@ -120,8 +113,8 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
      try:
          from scipy.__config__ import show as show_config
 diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
---- src-original/scipy/special/utils/makenpz.py	2020-04-10 03:54:04.000000000 +0200
-+++ src/scipy/special/utils/makenpz.py	2023-08-31 11:08:00.268591724 +0200
+--- src-original/scipy/special/utils/makenpz.py	2023-08-31 12:17:17.365654666 +0200
++++ src/scipy/special/utils/makenpz.py	2023-08-31 12:17:39.442111438 +0200
 @@ -6,7 +6,8 @@
  """
  
@@ -133,8 +126,8 @@ diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/m
  
  from distutils.util import newer
 diff -Naur src-original/setup.py src/setup.py
---- src-original/setup.py	2020-11-04 03:26:03.000000000 +0100
-+++ src/setup.py	2023-08-31 11:07:28.223822461 +0200
+--- src-original/setup.py	2023-08-31 12:17:17.137649949 +0200
++++ src/setup.py	2023-08-31 12:17:39.442111438 +0200
 @@ -33,6 +33,21 @@
  import builtins
  
@@ -157,12 +150,21 @@ diff -Naur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -514,7 +529,7 @@
-                           else [])
+@@ -466,16 +481,7 @@
  
-     install_requires = build_requires
--    setup_requires = build_requires + ['pybind11>=2.4.3']
-+    setup_requires = ['pybind11>=2.4.3']  # Chaquopy: removed build_requires
+ def check_setuppy_command():
+     run_build = parse_setuppy_commands()
+-    if run_build:
+-        try:
+-            import numpy
+-            import pybind11
+-        except ImportError as exc:  # We do not have our build deps installed
+-            print(textwrap.dedent(
+-                    """Error: '%s' must be installed before running the build.
+-                    """
+-                    % (exc.name,)))
+-            sys.exit(1)
++    # Chaquopy: removed `from numpy import show_config` test
  
-     metadata = dict(
-         name='scipy',
+     return run_build
+ 
