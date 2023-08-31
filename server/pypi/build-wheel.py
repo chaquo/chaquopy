@@ -9,6 +9,7 @@ from glob import glob
 import multiprocessing
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join, splitext
+from pathlib import Path
 import pkg_resources
 import re
 import shlex
@@ -127,6 +128,8 @@ class BuildWheel:
         cd(self.version_dir)
         self.build_dir = f"{self.version_dir}/{self.compat_tag}"
         self.src_dir = f"{self.build_dir}/src"
+        self.build_env = f"{self.build_dir}/env"
+        self.host_env = f"{self.build_dir}/requirements"
 
         if self.no_unpack:
             log("Reusing existing build directory due to --no-unpack")
@@ -136,15 +139,26 @@ class BuildWheel:
             self.unpack_source()
             self.apply_patches()
 
-        self.build_env = f"{self.build_dir}/env"
-        self.host_env = f"{self.build_dir}/requirements"
-        self.builder = build.ProjectBuilder(
-            self.src_dir, python_executable=f"{self.build_env}/bin/python")
+        # ProjectBuilder requires at least one of pyproject.toml or setup.py to exist,
+        # which may not be the case for packages built using build.sh (e.g.
+        # tflite-runtime).
+        if self.needs_python:
+            pyproject_toml = Path(f"{self.src_dir}/pyproject.toml")
+            setup_py = Path(f"{self.src_dir}/setup.py")
+            src_is_pyproject = pyproject_toml.exists() or setup_py.exists()
+            try:
+                if not src_is_pyproject:
+                    pyproject_toml.touch()
+                self.builder = build.ProjectBuilder(
+                    self.src_dir, python_executable=f"{self.build_env}/bin/python")
+            finally:
+                if not src_is_pyproject:
+                    pyproject_toml.unlink()
 
         if not self.no_unpack:
             os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
             if self.needs_python:
-                self.create_build_env()
+                self.create_build_env(src_is_pyproject)
             self.create_host_env()
 
         if self.no_build:
@@ -209,7 +223,7 @@ class BuildWheel:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
 
-    def create_build_env(self):
+    def create_build_env(self, src_is_pyproject):
         # Installing Python's bundled pip and setuptools into a new environment takes
         # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
         # we create one bootstrap environment per Python version, shared between all
@@ -234,7 +248,8 @@ class BuildWheel:
         # In the common case where get_requires_for_build only returns "wheel", which
         # was already in build_system_requires, we can avoid running pip a second time.
         pip_install(build_reqs)
-        pip_install(self.builder.get_requires_for_build("wheel") - set(build_reqs))
+        if src_is_pyproject:
+            pip_install(self.builder.get_requires_for_build("wheel") - set(build_reqs))
 
     def get_bootstrap_env(self):
         bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{self.python}"
