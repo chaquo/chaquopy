@@ -1,8 +1,5 @@
-# These are the requirements of build-wheel itself.
-#
-# Requirements of the build environment are within the script at `create_build_env`.
-
 # Direct requirements
+build==0.10.0
 Jinja2==2.11.3
 jsonschema==2.6.0
 pyelftools==0.29
@@ -21,7 +18,9 @@ mailbits==0.2.1
 MarkupSafe==2.0.1
 packaging==23.1
 pydantic==1.10.12
+pyproject_hooks==1.0.0
 requests==2.31.0
 soupsieve==2.4.1
+tomli==2.0.1; python_version < "3.11"
 typing-extensions==4.7.1
 urllib3==2.0.4

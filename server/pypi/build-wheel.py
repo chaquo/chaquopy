@@ -17,6 +17,7 @@ import sys
 import tempfile
 from textwrap import dedent
 
+import build
 from elftools.elf.elffile import ELFFile
 import jinja2
 import jsonschema
@@ -116,6 +117,11 @@ class BuildWheel:
             self.python_tag = self.non_python_tag
         self.compat_tag = f"{self.python_tag}-android_{self.api_level}_{self.abi_tag}"
 
+        # TODO: move this to {PYPI_DIR}/build/{package}/{version}, which is one level
+        # shallower, more consistent with the layout of dist/ and packages/, and keeps
+        # all the build directories together for easier cleanup. But first, check
+        # whether any build scripts or patches use relative paths to get things from the
+        # RECIPE_DIR, and make them use the environment variable instead.
         self.version_dir = f"{self.package_dir}/build/{self.version}"
         ensure_dir(self.version_dir)
         cd(self.version_dir)
@@ -123,8 +129,8 @@ class BuildWheel:
         self.src_dir = f"{self.build_dir}/src"
 
         if self.no_unpack:
-            log("Skipping download and unpack due to --no-unpack")
-            assert_isdir(self.build_dir)
+            log("Reusing existing build directory due to --no-unpack")
+            assert_isdir(self.src_dir)
         else:
             ensure_empty(self.build_dir)
             self.unpack_source()
@@ -132,9 +138,10 @@ class BuildWheel:
 
         self.build_env = f"{self.build_dir}/env"
         self.host_env = f"{self.build_dir}/requirements"
-        if self.no_reqs:
-            log("Skipping requirements due to --no-reqs")
-        else:
+        self.builder = build.ProjectBuilder(
+            self.src_dir, python_executable=f"{self.build_env}/bin/python")
+
+        if not self.no_unpack:
             os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
             if self.needs_python:
                 self.create_build_env()
@@ -154,13 +161,11 @@ class BuildWheel:
         ap.add_argument("-v", "--verbose", action="store_true", help="Log more detail")
 
         skip_group = ap.add_mutually_exclusive_group()
-        skip_group.add_argument("--no-unpack", action="store_true", help="Skip download and unpack "
-                                "(an existing build subdirectory must exist, and will be reused)")
-        skip_group.add_argument("--no-build", action="store_true", help="Download and unpack, but "
-                                "skip build")
+        skip_group.add_argument("--no-unpack", action="store_true",
+                                help="Reuse an existing build directory")
+        skip_group.add_argument("--no-build", action="store_true",
+                                help="Prepare the build directory, but skip the build")
 
-        ap.add_argument("--no-reqs", action="store_true", help="Skip installing requirements "
-                        "(existing environments will be reused)")
         ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
                         help="Android ABI: choices=[%(choices)s]")
         ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
@@ -205,20 +210,31 @@ class BuildWheel:
         self.target_zip = zips[0]
 
     def create_build_env(self):
-        # Installing Python's bundled pip and setuptools into the environment is
-        # pointless since we'd immediately have to replace them anyway. Instead, we
-        # create one bootstrap environment per Python version, shared between all
-        # packages, and use that to install the build environments. This saves about 3.5
-        # seconds per build on Python 3.8, and 6 seconds on Python 3.11.
+        # Installing Python's bundled pip and setuptools into a new environment takes
+        # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
+        # we create one bootstrap environment per Python version, shared between all
+        # packages, and use that to install the build environments.
         bootstrap_env = self.get_bootstrap_env()
         ensure_empty(self.build_env)
         run(f"python{self.python} -m venv --without-pip {self.build_env}")
 
-        build_reqs = {"pip": "19.3", "setuptools": "67.0.0", "wheel": "0.33.6"}
-        build_reqs.update(self.get_requirements("build"))
-        run(f"{bootstrap_env}/bin/pip --python {self.build_env}/bin/python install " +
-            ("-v " if self.verbose else "") +
-            (" ".join(f"{name}=={version}" for name, version in build_reqs.items())))
+        # In case meta.yaml and pyproject.toml have requirements for the same package,
+        # listing the more specific requirements first will help pip find a solution
+        # faster.
+        build_reqs = ([f"{package}=={version}"
+                       for package, version in self.get_requirements("build")]
+                      + list(self.builder.build_system_requires))
+
+        def pip_install(requirements):
+            if not requirements:
+                return
+            run(f"{bootstrap_env}/bin/pip --python {self.builder.python_executable} "
+                f"install " + " ".join(shlex.quote(req) for req in requirements))
+
+        # In the common case where get_requires_for_build only returns "wheel", which
+        # was already in build_system_requires, we can avoid running pip a second time.
+        pip_install(build_reqs)
+        pip_install(self.builder.get_requires_for_build("wheel") - set(build_reqs))
 
     def get_bootstrap_env(self):
         bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{self.python}"
@@ -267,12 +283,6 @@ class BuildWheel:
                 run(f"rm -rf {temp_dir}")
             else:
                 run(f"mv {temp_dir} {self.src_dir}")
-
-            # pyproject.toml may conflict with our own requirements mechanism, so we currently
-            # disable it.
-            if exists(f"{self.src_dir}/pyproject.toml"):
-                run(f"mv {self.src_dir}/pyproject.toml "
-                    f"{self.src_dir}/pyproject-chaquopy-disabled.toml")
 
     def download_git(self, source):
         git_rev = source["git_rev"]
@@ -355,7 +365,7 @@ class BuildWheel:
         if exists(build_script):
             return self.build_with_script(build_script)
         elif self.needs_python:
-            return self.build_with_pip()
+            return self.build_with_pep517()
         else:
             raise CommandError("Don't know how to build: no build.sh exists, and this is not "
                                "declared as a Python package. Do you need to add a `host` "
@@ -439,18 +449,8 @@ class BuildWheel:
             run(build_script)
         return self.package_wheel(prefix_dir, self.src_dir)
 
-    def build_with_pip(self):
-        # We can't run "setup.py bdist_wheel" directly, because that would only work with
-        # setuptools-aware setup.py files.
-        run(f"{self.build_env}/bin/pip wheel --no-deps "
-            # --no-clean doesn't currently work: see env/python/sitecustomize.py.
-            #
-            # We pass -v unconditionally, because we always want to see the build process
-            # output. --global-option=-vv enables additional distutils logging.
-            f"-v {'--global-option=-vv ' if self.verbose else ''}"
-            f"-e .")
-        wheel_filename, = glob("*.whl")  # Note comma
-        return abspath(wheel_filename)
+    def build_with_pep517(self):
+        return self.builder.build("wheel", "dist")
 
     def update_env(self):
         env = {}
