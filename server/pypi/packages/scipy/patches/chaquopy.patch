@@ -1,13 +1,14 @@
---- src-original/scipy/__init__.py	2019-12-18 19:27:46.000000000 +0000
-+++ src/scipy/__init__.py	2020-01-29 16:07:52.673532778 +0000
-@@ -60,59 +60,60 @@
- 
+diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
+--- src-original/scipy/__init__.py	2020-11-04 03:24:04.000000000 +0100
++++ src/scipy/__init__.py	2023-08-31 11:07:04.923259522 +0200
+@@ -58,56 +58,57 @@
+ """
  __all__ = ['test']
  
 -from numpy import show_config as show_numpy_config
 -if show_numpy_config is None:
 -    raise ImportError(
--        "Cannot import scipy when running from numpy source directory.")
+-        "Cannot import SciPy when running from NumPy source directory.")
 +# Chaquopy: removed `from numpy import show_config` test
  from numpy import __version__ as __numpy_version__
  
@@ -47,14 +48,11 @@
 -        _fun = _deprecated(_msg.format(_key))(_fun)
 -    globals()[_key] = _fun
 -
--# Allow distributors to run custom init code
--from . import _distributor_init
--
 -__all__ += _num.__all__
 -__all__ += ['randn', 'rand', 'fft', 'ifft']
 -
 -del _num
--# Remove the linalg imported from numpy so that the scipy.linalg package can be
+-# Remove the linalg imported from NumPy so that the scipy.linalg package can be
 -# imported.
 -del linalg
 -__all__.remove('linalg')
@@ -82,13 +80,13 @@
 +    from numpy.fft import fft, ifft
 +    # fft is especially problematic, so we deprecate it with a shorter window
 +    fft_msg = ('Using scipy.fft as a function is deprecated and will be '
-+               'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
++            'removed in SciPy 1.5.0, use scipy.fft.fft instead.')
 +    # for wrapping in scipy.fft.__call__, so the stacklevel is one off from the
 +    # usual (2)
 +    _dep_fft = _deprecated(fft_msg, stacklevel=3)(fft)
 +    fft = _deprecated(fft_msg)(fft)
 +    ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
-+                       '2.0.0, use scipy.fft.ifft instead')(ifft)
++                    '2.0.0, use scipy.fft.ifft instead')(ifft)
 +    import numpy.lib.scimath as _sci
 +    _msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
 +            'use numpy.lib.scimath.{0} instead')
@@ -98,23 +96,20 @@
 +            _fun = _deprecated(_msg.format(_key))(_fun)
 +        globals()[_key] = _fun
 +
-+    # Allow distributors to run custom init code
-+    from . import _distributor_init
-+
 +    __all__ += _num.__all__
 +    __all__ += ['randn', 'rand', 'fft', 'ifft']
 +
 +    del _num
-+    # Remove the linalg imported from numpy so that the scipy.linalg package can be
++    # Remove the linalg imported from NumPy so that the scipy.linalg package can be
 +    # imported.
 +    del linalg
 +    __all__.remove('linalg')
  
- # We first need to detect if we're being called as part of the scipy
+ # We first need to detect if we're being called as part of the SciPy
  # setup procedure itself in a reliable manner.
-@@ -126,6 +127,11 @@
+@@ -121,6 +122,11 @@
      import sys as _sys
-     _sys.stderr.write('Running from scipy source directory.\n')
+     _sys.stderr.write('Running from SciPy source directory.\n')
      del _sys
 +
 +    # Chaquopy: the module namespace was originally empty in this mode, but the following
@@ -124,12 +119,25 @@
  else:
      try:
          from scipy.__config__ import show as show_config
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2018-05-05 17:10:14.000000000 +0000
-+++ src/setup.py	2018-12-20 11:40:38.859887187 +0000
-@@ -34,6 +34,21 @@
- else:
-     import builtins
+diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
+--- src-original/scipy/special/utils/makenpz.py	2020-04-10 03:54:04.000000000 +0200
++++ src/scipy/special/utils/makenpz.py	2023-08-31 11:08:00.268591724 +0200
+@@ -6,7 +6,8 @@
+ """
+ 
+ import os
+-import numpy as np
++# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
++# needed.
+ import argparse
+ 
+ from distutils.util import newer
+diff -Naur src-original/setup.py src/setup.py
+--- src-original/setup.py	2020-11-04 03:26:03.000000000 +0100
++++ src/setup.py	2023-08-31 11:07:28.223822461 +0200
+@@ -33,6 +33,21 @@
+ import builtins
+ 
  
 +
 +# Chaquopy: an OpenBLAS test executable is built without using LDFLAGS, so we have to add
@@ -149,24 +157,12 @@ diff -ur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -472,7 +487,7 @@
+@@ -514,7 +529,7 @@
                            else [])
  
      install_requires = build_requires
--    setup_requires = build_requires + ['pybind11>=2.4.0']
-+    setup_requires = ['pybind11>=2.4.0']  # Chaquopy: removed build_requires
+-    setup_requires = build_requires + ['pybind11>=2.4.3']
++    setup_requires = ['pybind11>=2.4.3']  # Chaquopy: removed build_requires
  
      metadata = dict(
          name='scipy',
---- src-original/scipy/special/utils/makenpz.py	2018-05-05 17:10:11.000000000 +0000
-+++ src/scipy/special/utils/makenpz.py	2018-12-15 13:47:45.525539590 +0000
-@@ -8,7 +8,8 @@
- from __future__ import division, print_function, absolute_import
- 
- import os
--import numpy as np
-+# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
-+# needed.
- import argparse
- 
- from distutils.util import newer
