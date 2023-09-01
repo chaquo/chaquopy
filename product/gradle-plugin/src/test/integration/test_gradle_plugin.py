@@ -1712,8 +1712,8 @@ class RunGradle(object):
             self.test.assertCountEqual(
                 # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
                 # in PythonTasks.kt.
-                ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
-                 "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                ["java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
+                 "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "_ctypes.so"), python_version, abi)
 

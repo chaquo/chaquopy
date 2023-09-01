@@ -52,8 +52,8 @@ class TestAndroidImport(FilterWarningsCase):
         for subdir, entries in [
             # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
             # in PythonTasks.kt.
-            (ABI, ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
-                   "_struct.so", "binascii.so",  "math.so", "mmap.so", "zlib.so"]),
+            (ABI, ["java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
+                   "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"]),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
