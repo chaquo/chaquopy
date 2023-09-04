@@ -60,8 +60,20 @@ android {
         minSdk = 21
         targetSdk = 33
 
-        versionName rootProject.version
-        def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
+        String pluginVersion = null
+        for (art in rootProject.buildscript.configurations.getByName("classpath")
+             .resolvedConfiguration.resolvedArtifacts) {
+            def dep = art.moduleVersion.id
+            if (dep.group == "com.chaquo.python" && dep.name == "gradle") {
+                pluginVersion = dep.version
+            }
+        }
+        if (pluginVersion == null) {
+            throw new GradleException("Couldn't find Chaquopy plugin")
+        }
+
+        versionName pluginVersion
+        def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10))
 
         addPackages(delegate, [])
