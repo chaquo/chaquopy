@@ -1,5 +1,7 @@
 {% if PY_VER == "3.8" %}
     {% set numpy_version = "1.19.5" %}
+{% elif PY_VER == "3.9" %}
+    {% set numpy_version = "1.20.3" %}
 {% else %}
     {% set numpy_version = "1.23.3" %}
 {% endif %}
