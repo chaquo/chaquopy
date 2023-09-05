@@ -68,7 +68,7 @@ LDFLAGS+=" -lm"
 
 case $abi in
     armeabi-v7a)
-        CFLAGS+=" -march=armv7-a -mthumb -mfpu=vfpv3-d16"
+        CFLAGS+=" -march=armv7-a -mthumb"
         ;;
     x86)
         # -mstackrealign is unnecessary because it's included in the clang launcher script
