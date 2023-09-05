@@ -112,15 +112,6 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
  else:
      try:
          from scipy.__config__ import show as show_config
-@@ -140,7 +140,7 @@
- 
-     from scipy._lib import _pep440
-     np_minversion = '1.16.5'
--    np_maxversion = '1.23.0'
-+    np_maxversion = '1.24.0'
-     if (_pep440.parse(__numpy_version__) < _pep440.Version(np_minversion) or
-             _pep440.parse(__numpy_version__) >= _pep440.Version(np_maxversion)):
-         import warnings
 diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
 --- src-original/scipy/special/utils/makenpz.py	2023-08-31 12:17:17.365654666 +0200
 +++ src/scipy/special/utils/makenpz.py	2023-08-31 12:17:39.442111438 +0200
@@ -176,14 +167,4 @@ diff -Naur src-original/setup.py src/setup.py
 +    # Chaquopy: removed `from numpy import show_config` test
  
      return run_build
-
-@@ -515,7 +515,7 @@
- 
- def setup_package():
-     np_minversion = '1.16.5'
--    np_maxversion = '1.23.0'
-+    np_maxversion = '1.24.0'
-     python_minversion = '3.7'
-     python_maxversion = '3.10'
-     if IS_RELEASE_BRANCH:
  
