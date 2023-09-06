@@ -1,0 +1,22 @@
+--- src-orginal/setup.py	 20:40:29.736366711 -0400
++++ src/setup.py	2023-08-31 14:23:40.425600970 -0400
+@@ -4,7 +4,6 @@
+ import os.path
+ import glob
+ from setuptools import setup, Extension
+-import builtins
+ 
+ # add ./python/lib to current path
+ sys.path.append(os.path.join('python', 'lib'))  # noqa
+@@ -16,11 +15,6 @@
+ __version__ = get_aubio_pyversion()
+ __aubio_version__ = get_aubio_version()
+ 
+-# Chaquopy added
+-sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
+-builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
+-
+-
+ include_dirs = []
+ library_dirs = []
+ define_macros = [('AUBIO_VERSION', '%s' % __aubio_version__)]
