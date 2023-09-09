@@ -1712,8 +1712,8 @@ class RunGradle(object):
             self.test.assertCountEqual(
                 # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
                 # in PythonTasks.kt.
-                ["java", "_ctypes.so", "_datetime.so", "_random.so", "_sha512.so",
-                 "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
+                ["java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
+                 "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "_ctypes.so"), python_version, abi)
 
@@ -1737,10 +1737,10 @@ class RunGradle(object):
 
         stdlib_native_expected = {
             # This is the list from the minimum supported Python version.
-            "_asyncio.so", "_bisect.so", "_blake2.so", "_bz2.so", "_codecs_cn.so",
+            "_asyncio.so", "_bisect.so", "_blake2.so", "_codecs_cn.so",
             "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
             "_codecs_tw.so", "_contextvars.so", "_csv.so", "_decimal.so", "_elementtree.so",
-            "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_lzma.so", "_md5.so",
+            "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_md5.so",
             "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
             "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
             "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",

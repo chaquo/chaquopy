@@ -1,12 +1,13 @@
---- src-original/setup.py	2021-08-15 12:44:44.000000000 +0000
-+++ src/setup.py	2021-08-27 12:08:30.522085564 +0000
-@@ -15,6 +15,10 @@
+--- src-original/setup.py	2022-08-23 17:16:48.000000000 +0000
++++ src/setup.py	2023-09-05 08:36:00.870847761 +0000
+@@ -15,6 +15,11 @@
  import sys
  from sysconfig import get_config_vars
  
 +# Chaquopy
-+import builtins
-+builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++if "egg_info" not in sys.argv:
++    import builtins
++    builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +
  import numpy
  from pkg_resources import parse_version

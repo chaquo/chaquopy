@@ -15,9 +15,10 @@ To get started, see the [documentation](https://chaquo.com/chaquopy/doc/current/
 
 This repository contains the following components:
 
-* `product` contains Chaquopy itself.
-* `target` contains build processes for Python and its dependencies.
-* `server/pypi` contains build processes for third-party Python packages.
+* `product/gradle-plugin` contains the Chaquopy Gradle plugin.
+* `product/runtime` contains the Chaquopy runtime libraries.
+* `target` contains build scripts for Python and its supporting libraries.
+* `server/pypi` contains build scripts for third-party Python packages.
 
 
 ## Build
