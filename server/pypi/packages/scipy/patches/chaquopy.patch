@@ -112,23 +112,9 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
  else:
      try:
          from scipy.__config__ import show as show_config
-diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
---- src-original/scipy/special/utils/makenpz.py	2023-08-31 12:17:17.365654666 +0200
-+++ src/scipy/special/utils/makenpz.py	2023-08-31 12:17:39.442111438 +0200
-@@ -6,7 +6,8 @@
- """
- 
- import os
--import numpy as np
-+# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
-+# needed.
- import argparse
- 
- from distutils.util import newer
-diff -Naur src-original/setup.py src/setup.py
---- src-original/setup.py	2023-08-31 12:17:17.137649949 +0200
-+++ src/setup.py	2023-08-31 12:17:39.442111438 +0200
-@@ -33,6 +33,21 @@
+--- src-original/setup.py	2021-04-18 14:28:08.000000000 +0000
++++ src/setup.py	2023-09-09 15:45:15.243083019 +0000
+@@ -33,6 +33,20 @@
  import builtins
  
  
@@ -142,29 +128,23 @@ diff -Naur src-original/setup.py src/setup.py
 +                    "extra_link_args = -Wl,-rpath-link,{reqs_dir}/lib\n"
 +                    .format(reqs_dir=os.path.abspath("../requirements/chaquopy")))
 +
-+# Chaquopy added
-+sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
-+builtins.__NUMPY_SETUP__ = True  # Prevent the rest of NumPy from being imported.
++# Chaquopy: prevent the compiled parts NumPy from being imported
++builtins.__NUMPY_SETUP__ = True
 +
 +
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
-@@ -466,16 +481,7 @@
+diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
+--- src-original/scipy/special/utils/makenpz.py	2023-08-31 12:17:17.365654666 +0200
++++ src/scipy/special/utils/makenpz.py	2023-08-31 12:17:39.442111438 +0200
+@@ -6,7 +6,8 @@
+ """
  
- def check_setuppy_command():
-     run_build = parse_setuppy_commands()
--    if run_build:
--        try:
--            import numpy
--            import pybind11
--        except ImportError as exc:  # We do not have our build deps installed
--            print(textwrap.dedent(
--                    """Error: '%s' must be installed before running the build.
--                    """
--                    % (exc.name,)))
--            sys.exit(1)
-+    # Chaquopy: removed `from numpy import show_config` test
+ import os
+-import numpy as np
++# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
++# needed.
+ import argparse
  
-     return run_build
- 
+ from distutils.util import newer

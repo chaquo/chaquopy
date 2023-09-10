@@ -1,11 +1,3 @@
-{% if PY_VER == "3.8" %}
-    {% set numpy_version = "1.19.5" %}
-{% elif PY_VER == "3.9" %}
-    {% set numpy_version = "1.20.3" %}
-{% else %}
-    {% set numpy_version = "1.23.3" %}
-{% endif %}
-
 package:
   name: scipy
   version: "1.6.3"
@@ -13,10 +5,7 @@ package:
 requirements:
   build:
     - fortran
-    # setup.py has pybind11 in setup_requires, but this doesn't work because the headers aren't
-    # unpacked correctly (https://github.com/pybind/python_example/issues/16).
-    - pybind11 2.4.3
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy {{ numpy_version }}
+    - numpy 1.20.3
