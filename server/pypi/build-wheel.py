@@ -507,6 +507,24 @@ class BuildWheel:
             f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
             os.environ["PATH"]])
 
+        # Wrap compiler and linker commands with a script which removes include and
+        # library directories which are not in known safe locations.
+        for var in ["CC", "CXX", "FC", "F77", "F90", "LD"]:
+            try:
+                real_path = env[var]
+            except KeyError:
+                pass
+            else:
+                wrapper_path = join(ensure_dir(f"{self.build_env}/bin"),
+                                    basename(real_path))
+                with open(wrapper_path, "w") as wrapper_file:
+                    print(dedent(f"""\
+                        #!/bin/sh
+                        exec "{PYPI_DIR}/compiler-wrapper.py" "{real_path}" "$@"
+                        """), file=wrapper_file)
+                os.chmod(wrapper_path, 0o755)
+                env[var] = wrapper_path
+
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for example to
         # call numpy.get_include().
         pythonpath = [f"{env_dir}/lib/python", self.host_env]
@@ -574,7 +592,7 @@ class BuildWheel:
         os.environ.update(env)
 
     def generate_cmake_toolchain(self, env):
-        ndk = abspath(f"{env['CC']}/../../../../../..")
+        ndk = abspath(f"{env['AR']}/../../../../../..")
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
 
         # This environment variable requires CMake 3.21 or later, so until we can rely on
