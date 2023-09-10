@@ -151,16 +151,3 @@ diff -ur src-original/setup.py src/setup.py
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
  Intended Audience :: Science/Research
---- src-original/pyproject.toml 2022-09-09 13:36:30.619459000 +0000
-+++ src/pyproject.toml  2023-08-31 11:38:08.304445745 +0000
-@@ -1,7 +1,9 @@
- [build-system]
- # Minimum requirements for the build system to execute.
- requires = [
--    "setuptools<49.2.0",
-+    # Chaquopy: was <49.2.0, which gave the error:
-+    # "Cannot compile 'Python.h'. Perhaps you need to install python-dev|python-devel."
-+    "setuptools==63.0.0",
-     "wheel<=0.35.1",
-     "Cython>=0.29.21,<3.0",  # Note: keep in sync with tools/cythonize.py
- ]
