@@ -1,10 +1,8 @@
 #!/bin/bash
 set -eu
 
-HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
-
 config_args=""
-if [ "$CHAQUOPY_ABI" = "armeabi-v7a" ]; then
+if [ "$HOST" = "arm-linux-androideabi" ]; then
     # On this ABI only, we get the following linker errors:
     #
     # ld: error: noding/.libs/libnoding.a(BasicSegmentString.o): multiple definition of 'typeinfo for geos::noding::BasicSegmentString'
@@ -16,7 +14,7 @@ if [ "$CHAQUOPY_ABI" = "armeabi-v7a" ]; then
     config_args+=" --disable-inline"
 fi
 
-./configure --host=$HOST_TRIPLET --prefix=$PREFIX $config_args
+./configure --host=$HOST --prefix=$PREFIX $config_args
 make -j $CPU_COUNT
 make install
 

@@ -1,9 +1,10 @@
 #!/bin/bash
 set -eu
 
-HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
+# https://stackoverflow.com/a/33279062
+touch aclocal.m4 configure Makefile.am Makefile.in
 
-./configure --host=$HOST_TRIPLET --disable-static --disable-openmp --disable-examples
+./configure --host=$HOST --disable-static --disable-openmp --disable-examples
 make -j $CPU_COUNT
 make install prefix=$PREFIX
 

@@ -138,6 +138,9 @@ class BuildWheel:
             ensure_empty(self.build_dir)
             self.unpack_source()
             self.apply_patches()
+            self.create_host_env()
+
+        self.update_env()
 
         # ProjectBuilder requires at least one of pyproject.toml or setup.py to exist,
         # which may not be the case for packages built using build.sh (e.g.
@@ -155,16 +158,12 @@ class BuildWheel:
                 if not src_is_pyproject:
                     pyproject_toml.unlink()
 
-        if not self.no_unpack:
-            os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-            if self.needs_python:
+            if not self.no_unpack:
                 self.create_build_env(src_is_pyproject)
-            self.create_host_env()
 
         if self.no_build:
             log("Skipping build due to --no-build")
         else:
-            self.update_env()
             self.create_dummy_libs()
             wheel_filename = self.build_wheel()
             self.fix_wheel(wheel_filename)
@@ -245,8 +244,8 @@ class BuildWheel:
             run(f"{bootstrap_env}/bin/pip --python {self.builder.python_executable} "
                 f"install " + " ".join(shlex.quote(req) for req in requirements))
 
-        # In the common case where get_requires_for_build only returns "wheel", which
-        # was already in build_system_requires, we can avoid running pip a second time.
+        # In the common case where get_requires_for_build only returns things which were
+        # already in build_system_requires, we can avoid running pip a second time.
         pip_install(build_reqs)
         if src_is_pyproject:
             pip_install(self.builder.get_requires_for_build("wheel") - set(build_reqs))
@@ -489,6 +488,7 @@ class BuildWheel:
         # See env/bin/pkg-config.
         del env["PKG_CONFIG"]
 
+        compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
             tool_prefix = ABIS[self.abi].tool_prefix
             toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
@@ -497,6 +497,7 @@ class BuildWheel:
                 raise CommandError(f"This package requries a Fortran compiler, but "
                                    f"{gfortran} does not exist. See README.md.")
 
+            compiler_vars += ["FC", "F77", "F90"]
             env["FC"] = gfortran  # Used by OpenBLAS
             env["F77"] = env["F90"] = gfortran  # Used by numpy.distutils
             env["FARCH"] = env["CFLAGS"]  # Used by numpy.distutils
@@ -509,21 +510,17 @@ class BuildWheel:
 
         # Wrap compiler and linker commands with a script which removes include and
         # library directories which are not in known safe locations.
-        for var in ["CC", "CXX", "FC", "F77", "F90", "LD"]:
-            try:
-                real_path = env[var]
-            except KeyError:
-                pass
-            else:
-                wrapper_path = join(ensure_dir(f"{self.build_env}/bin"),
-                                    basename(real_path))
-                with open(wrapper_path, "w") as wrapper_file:
-                    print(dedent(f"""\
-                        #!/bin/sh
-                        exec "{PYPI_DIR}/compiler-wrapper.py" "{real_path}" "$@"
-                        """), file=wrapper_file)
-                os.chmod(wrapper_path, 0o755)
-                env[var] = wrapper_path
+        for var in compiler_vars:
+            real_path = env[var]
+            wrapper_path = join(ensure_dir(f"{self.build_dir}/wrappers"),
+                                basename(real_path))
+            with open(wrapper_path, "w") as wrapper_file:
+                print(dedent(f"""\
+                    #!/bin/sh
+                    exec "{PYPI_DIR}/compiler-wrapper.py" "{real_path}" "$@"
+                    """), file=wrapper_file)
+            os.chmod(wrapper_path, 0o755)
+            env[var] = wrapper_path
 
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for example to
         # call numpy.get_include().
@@ -551,6 +548,7 @@ class BuildWheel:
             assert_exists(self.python_lib)
             self.standard_libs.append(libpython)
 
+            env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
             env["CHAQUOPY_PYTHON"] = self.python
             # Use -idirafter so that package-specified -I directories take priority (e.g.
             # in grpcio and typed-ast).
@@ -566,6 +564,7 @@ class BuildWheel:
             "HOST": ABIS[self.abi].tool_prefix,
 
             # Overrides sysconfig.get_platform and distutils.util.get_platform.
+            # TODO: consider replacing this with crossenv.
             "_PYTHON_HOST_PLATFORM": f"linux_{ABIS[self.abi].uname_machine}",
 
             # conda-build variable names defined at
@@ -586,9 +585,9 @@ class BuildWheel:
             self.generate_cmake_toolchain(env)
 
         if self.verbose:
-            # Format variables so they can be pasted into a shell when troubleshooting.
             log("Environment set as follows:\n" +
-                "\n".join(f"export {key}='{value}'" for key, value in env.items()))
+                "\n".join(f"export {key}={shlex.quote(value)}"
+                          for key, value in env.items()))
         os.environ.update(env)
 
     def generate_cmake_toolchain(self, env):

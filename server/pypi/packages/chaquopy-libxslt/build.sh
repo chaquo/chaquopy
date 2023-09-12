@@ -1,8 +1,7 @@
 #!/bin/bash
 set -eu
 
-host_triplet=$(basename $CC | sed 's/-gcc$//')
-./configure --host=$host_triplet --prefix=$PREFIX --without-python
+./configure --host=$HOST --prefix=$PREFIX --without-crypto --without-python
 make -j $CPU_COUNT V=1
 make install
 

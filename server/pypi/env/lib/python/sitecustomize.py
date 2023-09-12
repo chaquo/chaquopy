@@ -1,13 +1,16 @@
-# build-wheel sets PYTHONPATH to ensure this file is imported on startup in pip and all of
+# build-wheel sets PYTHONPATH to ensure this file is imported on startup in all of
 # its Python subprocesses.
 
 import os
+import shlex
 import sys
 
-from setuptools._distutils import sysconfig, util
+try:
+    from setuptools._distutils import sysconfig
+except ImportError:
+    from distutils import sysconfig
 
 
-# Override the CFLAGS from the build Python sysconfigdata file.
 # TODO: look into using crossenv to extract this from the Android sysconfigdata.
 sysconfig.get_config_vars()  # Ensure _config_vars has been initialized.
 sysconfig._config_vars["CFLAGS"] = \
@@ -21,7 +24,7 @@ def customize_compiler_override(compiler):
     customize_compiler_original(compiler)
     ldflags = os.environ["LDFLAGS"]
     if ldflags not in " ".join(compiler.linker_exe):
-        compiler.linker_exe += util.split_quoted(ldflags)
+        compiler.linker_exe += shlex.split(ldflags)
 
 sysconfig.customize_compiler = customize_compiler_override
 
