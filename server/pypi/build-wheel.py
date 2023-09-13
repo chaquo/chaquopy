@@ -464,7 +464,10 @@ class BuildWheel:
         return self.package_wheel(prefix_dir, self.src_dir)
 
     def build_with_pep517(self):
-        return self.builder.build("wheel", "dist")
+        try:
+            return self.builder.build("wheel", "dist")
+        except build.BuildBackendException as e:
+            raise CommandError(e)
 
     def update_env(self):
         env = {}
