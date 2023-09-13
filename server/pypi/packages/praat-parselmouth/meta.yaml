@@ -1,0 +1,7 @@
+package:
+  name: praat-parselmouth
+  version: "0.4.2"
+
+requirements:
+  build:
+    - cmake
