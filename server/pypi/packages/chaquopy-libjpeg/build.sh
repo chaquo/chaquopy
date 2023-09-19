@@ -1,9 +1,8 @@
 #!/bin/bash
 set -eu
 
-HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
 # SIMD is only available for x86, so disable for consistency between ABIs.
-./configure --host=$HOST_TRIPLET --without-turbojpeg --without-simd
+./configure --host=$HOST --without-turbojpeg --without-simd
 make -j $CPU_COUNT
 make install prefix=$PREFIX
 

@@ -354,8 +354,10 @@ internal class TaskBuilder(
                 // standard FileFinder. All other native modules are loaded from a .zip using
                 // AssetFinder.
                 val BOOTSTRAP_NATIVE_STDLIB = listOf(
+                    "_bz2.so",  // zipfile < importer
                     "_ctypes.so",  // java.primitive and importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
+                    "_lzma.so",  // zipfile < importer
                     "_random.so",  // random < tempfile < zipimport
                     "_sha512.so",  // random < tempfile < zipimport
                     "_struct.so",  // zipfile < importer

@@ -1,9 +1,13 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: pandas
   version: "1.5.0"
 
 requirements:
-  build:
-    - cython 0.29.32
   host:
-    - numpy 1.23.3
+    - numpy {{ numpy_version }}

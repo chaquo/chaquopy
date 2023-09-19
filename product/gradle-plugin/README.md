@@ -5,7 +5,8 @@
 After first release candidate:
 
 * Check the bundled JDK version, and update product/local.properties to point at it.
-* Use the new project wizard to create an "Empty Activity" project.
+* Use the new project wizard to create an "Empty Activity" project, with "Minimum SDK"
+  set to Chaquopy's current minimum.
 * Create a directory integration/data/base-X.Y, where X.Y is the Android Gradle plugin
   version.
 * Copy the contents from the previous base-X.Y directory, then update them with the
