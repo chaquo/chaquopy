@@ -4,5 +4,8 @@ package:
   name: chaquopy-libogg
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://ftp.osuosl.org/pub/xiph/releases/ogg/libogg-{{ version }}.tar.gz

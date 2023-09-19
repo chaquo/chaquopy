@@ -6,5 +6,8 @@ package:
   name: chaquopy-libraw
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://www.libraw.org/data/LibRaw-{{ version }}.tar.gz

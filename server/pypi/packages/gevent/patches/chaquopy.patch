@@ -1,17 +1,19 @@
-diff -ur src-original/_setuplibev.py src/_setuplibev.py
---- src-original/_setuplibev.py	2019-01-04 11:51:44.000000000 +0000
-+++ src/_setuplibev.py	2019-08-05 14:16:18.730590045 +0000
-@@ -29,9 +29,12 @@
+--- src-original/_setuplibev.py 2019-01-04 11:51:44.000000000 +0000
++++ src/_setuplibev.py  2023-09-19 18:16:51.442556988 +0000
+@@ -29,9 +29,15 @@
  # the build/temp.XXX/libev/ directory. If we're building from a
  # source checkout on pypy, OLDPWD will be the location of setup.py
  # and the PyPy branch will clean it up.
 +
-+# Chaquopy: added --host.
++# Chaquopy
 +import os
++host = os.environ.get("HOST")
++host_arg = f" --host={host}" if host else ""
++
  libev_configure_command = ' '.join([
      "(cd ", quoted_dep_abspath('libev'),
 -    " && sh ./configure ",
-+    " && sh ./configure --host=" + os.environ["HOST"],
++    " && sh ./configure " + host_arg,
      " && cp config.h \"$OLDPWD\"",
      ")",
      '> configure-output.txt'

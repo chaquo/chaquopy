@@ -4,6 +4,9 @@ package:
   name: chaquopy-libsndfile
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: http://www.mega-nerd.com/libsndfile/files/libsndfile-{{ version }}.tar.gz
 

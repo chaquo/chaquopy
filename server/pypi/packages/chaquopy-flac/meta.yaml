@@ -4,6 +4,9 @@ package:
   name: chaquopy-flac
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://ftp.osuosl.org/pub/xiph/releases/flac/flac-{{ version }}.tar.xz
 
