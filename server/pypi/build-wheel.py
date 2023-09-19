@@ -140,8 +140,6 @@ class BuildWheel:
             self.apply_patches()
             self.create_host_env()
 
-        self.update_env()
-
         # ProjectBuilder requires at least one of pyproject.toml or setup.py to exist,
         # which may not be the case for packages built using build.sh (e.g.
         # tflite-runtime).
@@ -164,6 +162,10 @@ class BuildWheel:
         if self.no_build:
             log("Skipping build due to --no-build")
         else:
+            # These environment variables are specific to the host platform, so they
+            # must not be visible to create_build_env.
+            self.update_environ()
+
             self.create_dummy_libs()
             wheel_filename = self.build_wheel()
             self.fix_wheel(wheel_filename)
@@ -227,6 +229,7 @@ class BuildWheel:
         # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
         # we create one bootstrap environment per Python version, shared between all
         # packages, and use that to install the build environments.
+        os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         bootstrap_env = self.get_bootstrap_env()
         ensure_empty(self.build_env)
         run(f"python{self.python} -m venv --without-pip {self.build_env}")
@@ -469,7 +472,7 @@ class BuildWheel:
         except build.BuildBackendException as e:
             raise CommandError(e)
 
-    def update_env(self):
+    def update_environ(self):
         env = {}
         build_common_output = run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.host_env}/chaquopy; "
@@ -551,7 +554,6 @@ class BuildWheel:
             assert_exists(self.python_lib)
             self.standard_libs.append(libpython)
 
-            env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
             env["CHAQUOPY_PYTHON"] = self.python
             # Use -idirafter so that package-specified -I directories take priority (e.g.
             # in grpcio and typed-ast).

@@ -1,10 +1,16 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: aubio
   version: "0.4.9"
 
+build:
+  number: 1
+
 requirements:
   host:
-    - chaquopy-libgfortran 4.9
-    - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
-
+    - numpy {{ numpy_version }}

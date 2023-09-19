@@ -1,10 +1,7 @@
-#! /usr/bin/env python
-
-# code taken from aubio test 
-
 from numpy.testing import TestCase, assert_equal
 from numpy import sin, arange, mean, median, isnan, pi
 from aubio import fvec, pitch, freqtomidi, float_type
+
 
 class aubio_pitch_Good_Values(TestCase):
 
@@ -32,6 +29,7 @@ class aubio_pitch_Good_Values(TestCase):
         f = fvec (512)
         f[:] = 1
         for _ in range(10): assert_equal (p(f), 0.)
+
 
 class aubio_pitch_Sinusoid(TestCase):
 
@@ -121,7 +119,3 @@ for algo in pitch_algorithms:
         _test_method.__name__ = 'test_pitch_%s_%d_%d_%dHz_sin_%.0f' % ( algo,
                 mode[0], mode[1], mode[2], mode[3] )
         setattr (aubio_pitch_Sinusoid, _test_method.__name__, _test_method)
-
-if __name__ == '__main__':
-    from unittest import main
-    main()
