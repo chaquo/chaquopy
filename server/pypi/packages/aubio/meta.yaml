@@ -1,0 +1,16 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
+package:
+  name: aubio
+  version: "0.4.9"
+
+build:
+  number: 1
+
+requirements:
+  host:
+    - numpy {{ numpy_version }}

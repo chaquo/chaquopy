@@ -1,0 +1,14 @@
+--- src-original/setup.py	2018-12-24 11:49:22.000000000 +0000
++++ src/setup.py	2023-09-19 17:31:43.825715582 +0000
+@@ -15,6 +15,11 @@
+ __version__ = get_aubio_pyversion()
+ __aubio_version__ = get_aubio_version()
+ 
++# Chaquopy
++if "egg_info" not in sys.argv:
++    import builtins
++    builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++
+ include_dirs = []
+ library_dirs = []
+ define_macros = [('AUBIO_VERSION', '%s' % __aubio_version__)]
