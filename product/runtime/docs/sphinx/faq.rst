@@ -62,24 +62,45 @@ flavor must also have a `different version code
 <https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_. For
 example:
 
-.. code-block:: groovy
+.. tabs::
 
-    android {
-        def versionBase = 123
-        flavorDimensions "abi"
-        productFlavors {
-            arm32 {
-                dimension "abi"
-                ndk { abiFilters "armeabi-v7a" }
-                versionCode 1000000 + versionBase
-            }
-            arm64 {
-                dimension "abi"
-                ndk { abiFilters "arm64-v8a" }
-                versionCode 2000000 + versionBase
+    .. code-tab:: kotlin
+
+        android {
+            val versionBase = 123
+            flavorDimensions += "abi"
+            productFlavors {
+                create("arm32") {
+                    dimension = "abi"
+                    ndk { abiFilters += listOf("armeabi-v7a") }
+                    versionCode = 1000000 + versionBase
+                }
+                create("arm64") {
+                    dimension = "abi"
+                    ndk { abiFilters += listOf("arm64-v8a") }
+                    versionCode = 2000000 + versionBase
+                }
             }
         }
-    }
+
+    .. code-tab:: groovy
+
+        android {
+            def versionBase = 123
+            flavorDimensions "abi"
+            productFlavors {
+                create("arm32") {
+                    dimension = "abi"
+                    ndk { abiFilters "armeabi-v7a" }
+                    versionCode = 1000000 + versionBase
+                }
+                create("arm64") {
+                    dimension = "abi"
+                    ndk { abiFilters "arm64-v8a" }
+                    versionCode = 2000000 + versionBase
+                }
+            }
+        }
 
 If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
 <https://www.tensorflow.org/lite/guide>`_:
@@ -98,12 +119,12 @@ How can I obfuscate my code?
 ----------------------------
 
 As described :ref:`here <android-bytecode>`, your code is automatically compiled to .pyc
-format if possible. To make the build fail if a compatible Python version isn't found, you can
-use the `src true` setting.
+format if possible. To make the build fail if a compatible Python version isn't found,
+you can use the `src = true` setting.
 
-If you want to hide your code further, you can compile it into an .so file using Cython and our
-package build tool. For more details, see `here
-<https://github.com/chaquo/chaquopy/issues/302#issuecomment-637772348>`_.
+If you want to hide your code further, you can compile it into an .so file using Cython
+and our package build tool. For more details, see `here
+<https://github.com/chaquo/chaquopy/issues/800#issuecomment-1413451177>`_.
 
 
 .. _faq-mirror:
@@ -133,10 +154,12 @@ To make your own mirror of our pip repository:
 * Download whatever packages your app needs from https://chaquo.com/pypi-7.0, and arrange them
   in the same directory structure as the server.
 * Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
-  file::
+  file:
 
-      options "--index-url", "https://pypi.org/simple/"
-      options "--extra-index-url", "YOUR_MIRROR"
+  .. code-block:: kotlin
+
+      options("--index-url", "https://pypi.org/simple/")
+      options("--extra-index-url", "YOUR_MIRROR")
 
   Where `YOUR_MIRROR` is the directory containing the package directories you downloaded
   above. Either an HTTP URL or a local path can be used.
@@ -193,7 +216,9 @@ file to Python as a byte array:
         }
     }
 
-The Python function can then access the file content however you like::
+The Python function can then access the file content however you like:
+
+.. code-block:: python
 
     def process(content):
         # `content` is already a bytes-like object, but if you need a standard bytes object:
