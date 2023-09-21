@@ -1,9 +1,49 @@
-diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
---- src-original/scipy/__init__.py	2023-08-31 12:17:17.197651190 +0200
-+++ src/scipy/__init__.py	2023-08-31 12:17:39.438111356 +0200
-@@ -58,50 +58,54 @@
- """
- __all__ = ['test']
+diff -aur src-orig/pyproject.toml src/pyproject.toml
+--- src-orig/pyproject.toml	2023-09-20 11:08:01.936923429 +0200
++++ src/pyproject.toml	2023-09-21 13:34:47.373780906 +0200
+@@ -14,35 +14,7 @@
+     "Cython>=0.29.18,<3.0",
+     "pybind11>=2.4.3,<2.9.0",
+     "pythran>=0.10.0,<0.11.0",
+-
+-    # NumPy dependencies - to update these, sync from
+-    # https://github.com/scipy/oldest-supported-numpy/, and then
+-    # update minimum version to match our install_requires min version
+-    # ----------------------------------------------------------------
+-
+-    # numpy 1.19 was the first minor release to provide aarch64 wheels, but
+-    # wheels require fixes contained in numpy 1.19.2
+-    "numpy==1.19.2; python_version=='3.8' and platform_machine=='aarch64' and platform_python_implementation != 'PyPy'",
+-    # aarch64 for py39 is covered by default requirement below
+-
+-    # arm64 on Darwin supports Python 3.8 and above requires numpy>=1.20.0
+-    "numpy==1.20.0; python_version=='3.8' and platform_machine=='arm64' and platform_system=='Darwin'",
+-    "numpy==1.20.0; python_version=='3.9' and platform_machine=='arm64' and platform_system=='Darwin'",
+-
+-    # Python 3.8 on s390x requires at least 1.17.5, see https://github.com/scipy/oldest-supported-numpy/issues/29
+-    "numpy==1.17.5; python_version=='3.8' and platform_machine=='s390x' and platform_python_implementation != 'PyPy'",
+-
+-    # default numpy requirements
+-    "numpy==1.17.3; python_version=='3.8' and (platform_machine!='arm64' or platform_system!='Darwin') and platform_machine!='aarch64' and platform_machine!='s390x' and platform_python_implementation != 'PyPy'",
+-    "numpy==1.19.3; python_version=='3.9' and (platform_machine!='arm64' or platform_system!='Darwin') and platform_python_implementation != 'PyPy'",
+-    "numpy==1.21.4; python_version=='3.10' and platform_python_implementation != 'PyPy'",
+-
+-    # For Python versions which aren't yet officially supported,
+-    # we specify an unpinned NumPy which allows source distributions
+-    # to be used and allows wheels to be used as soon as they
+-    # become available.
+-    "numpy; python_version>='3.11'",
+-    "numpy; python_version>='3.8' and platform_python_implementation=='PyPy'",
++    "numpy==1.20.3",
+ ]
+ 
+ [project]
+diff -aur src-orig/scipy/__init__.py src/scipy/__init__.py
+--- src-orig/scipy/__init__.py	2023-09-20 11:08:01.936923429 +0200
++++ src/scipy/__init__.py	2023-09-21 13:13:09.267906353 +0200
+@@ -64,50 +64,54 @@
+ 
+ __all__ = __dir__()
  
 -from numpy import show_config as show_numpy_config
 -if show_numpy_config is None:
@@ -100,7 +140,7 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
  
  # We first need to detect if we're being called as part of the SciPy
  # setup procedure itself in a reliable manner.
-@@ -115,6 +119,11 @@
+@@ -121,6 +125,10 @@
      import sys as _sys
      _sys.stderr.write('Running from SciPy source directory.\n')
      del _sys
@@ -108,17 +148,203 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 +    # Chaquopy: the module namespace was originally empty in this mode, but the following
 +    # things are neded by the scikit-learn build.
 +    from scipy.version import version as __version__
-+
  else:
      try:
          from scipy.__config__ import show as show_config
---- src-original/setup.py	2021-04-18 14:28:08.000000000 +0000
-+++ src/setup.py	2023-09-09 15:45:15.243083019 +0000
-@@ -33,6 +33,20 @@
+diff -aur src-orig/scipy/_lib/_testutils.py src/scipy/_lib/_testutils.py
+--- src-orig/scipy/_lib/_testutils.py	2023-09-20 11:08:01.940923505 +0200
++++ src/scipy/_lib/_testutils.py	2023-09-21 13:13:08.763896205 +0200
+@@ -10,7 +10,7 @@
+ import inspect
+ 
+ 
+-__all__ = ['PytestTester', 'check_free_memory', '_TestPythranFunc']
++__all__ = ['PytestTester', 'check_free_memory'] # Chaquopy: we don't want to test Pythran
+ 
+ 
+ class FPUModeChangeWarning(RuntimeWarning):
+@@ -72,79 +72,6 @@
+ 
+         return (code == 0)
+ 
+-
+-class _TestPythranFunc:
+-    '''
+-    These are situations that can be tested in our pythran tests:
+-    - A function with multiple array arguments and then
+-      other positional and keyword arguments.
+-    - A function with array-like keywords (e.g. `def somefunc(x0, x1=None)`.
+-    Note: list/tuple input is not yet tested!
+-
+-    `self.arguments`: A dictionary which key is the index of the argument,
+-                      value is tuple(array value, all supported dtypes)
+-    `self.partialfunc`: A function used to freeze some non-array argument
+-                        that of no interests in the original function
+-    '''
+-    ALL_INTEGER = [np.int8, np.int16, np.int32, np.int64, np.intc, np.intp]
+-    ALL_FLOAT = [np.float32, np.float64]
+-    ALL_COMPLEX = [np.complex64, np.complex128]
+-
+-    def setup_method(self):
+-        self.arguments = {}
+-        self.partialfunc = None
+-        self.expected = None
+-
+-    def get_optional_args(self, func):
+-        # get optional arguments with its default value,
+-        # used for testing keywords
+-        signature = inspect.signature(func)
+-        optional_args = {}
+-        for k, v in signature.parameters.items():
+-            if v.default is not inspect.Parameter.empty:
+-                optional_args[k] = v.default
+-        return optional_args
+-
+-    def get_max_dtype_list_length(self):
+-        # get the the max supported dtypes list length in all arguments
+-        max_len = 0
+-        for arg_idx in self.arguments:
+-            cur_len = len(self.arguments[arg_idx][1])
+-            if cur_len > max_len:
+-                max_len = cur_len
+-        return max_len
+-
+-    def get_dtype(self, dtype_list, dtype_idx):
+-        # get the dtype from dtype_list via index
+-        # if the index is out of range, then return the last dtype
+-        if dtype_idx > len(dtype_list)-1:
+-            return dtype_list[-1]
+-        else:
+-            return dtype_list[dtype_idx]
+-
+-    def test_all_dtypes(self):
+-        for type_idx in range(self.get_max_dtype_list_length()):
+-            args_array = []
+-            for arg_idx in self.arguments:
+-                new_dtype = self.get_dtype(self.arguments[arg_idx][1],
+-                                           type_idx)
+-                args_array.append(self.arguments[arg_idx][0].astype(new_dtype))
+-            self.pythranfunc(*args_array)
+-
+-    def test_views(self):
+-        args_array = []
+-        for arg_idx in self.arguments:
+-            args_array.append(self.arguments[arg_idx][0][::-1][::-1])
+-        self.pythranfunc(*args_array)
+-
+-    def test_strided(self):
+-        args_array = []
+-        for arg_idx in self.arguments:
+-            args_array.append(np.repeat(self.arguments[arg_idx][0],
+-                                        2, axis=0)[::2])
+-        self.pythranfunc(*args_array)
+-
+-
+ def _pytest_has_xdist():
+     """
+     Check if the pytest-xdist plugin is installed, providing parallel tests
+@@ -215,3 +142,5 @@
+             return info['memfree'] + info['cached']
+ 
+     return None
++
++# Chaquopy: we remove _TestPythranFunc function that rely on numpy
+\ No newline at end of file
+diff -aur src-orig/scipy/sparse/linalg/_propack/setup.py src/scipy/sparse/linalg/_propack/setup.py
+--- src-orig/scipy/sparse/linalg/_propack/setup.py	2023-09-20 11:08:03.624955562 +0200
++++ src/scipy/sparse/linalg/_propack/setup.py	2023-09-21 13:13:09.407909172 +0200
+@@ -1,12 +1,14 @@
+ from os.path import join
++from os import getenv
+ import pathlib
+ 
+-import numpy as np
++# Chaquopy: we remove import numpy as np
+ 
+ 
+ def _is_32bit():
+-    return np.intp(0).itemsize < 8
+-
++    # Chaquopy: check 32/64 bit based on ABI instead of numpy
++    # np.intp(0).itemsize < 8  
++    return getenv('HOST') in ["arm-linux-androideabi", "i686-linux-android"]    
+ 
+ def check_propack_submodule():
+     if not (pathlib.Path(__file__).parent / 'PROPACK/README').exists():
+diff -aur src-orig/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh src/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh
+--- src-orig/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh	2023-09-20 11:08:03.696956933 +0200
++++ src/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh	2023-09-21 13:13:09.439909816 +0200
+@@ -4,7 +4,7 @@
+ 
+ #include <cstddef>
+ #include "ellint_typing.hh"
+-
++#include <algorithm>
+ 
+ /* Auxiliary floating-point manipulation utilities.
+  * Ref:
+diff -aur src-orig/scipy/special/_generate_pyx.py src/scipy/special/_generate_pyx.py
+--- src-orig/scipy/special/_generate_pyx.py	2023-09-20 11:08:03.676956552 +0200
++++ src/scipy/special/_generate_pyx.py	2023-09-21 13:13:09.443909897 +0200
+@@ -230,7 +230,7 @@
+ import textwrap
+ from typing import List
+ 
+-import numpy
++# Chaquopy: skip "mport numpy"
+ 
+ 
+ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+@@ -923,7 +923,12 @@
+         all_codes = tuple([codes for _unused, codes in fused_types])
+ 
+         codelens = [len(x) for x in all_codes]
+-        last = numpy.prod(codelens) - 1
++
++        # Chaquopy:  replace  numpy.prod(codelens) - 1
++        last = 1.0
++        for x in codelens:
++            last *= x
++
+         for m, codes in enumerate(itertools.product(*all_codes)):
+             fused_codes, decs = [], []
+             for n, fused_type in enumerate(fused_types):
+diff -aur src-orig/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
+--- src-orig/scipy/special/utils/makenpz.py	2023-09-20 11:08:03.708957161 +0200
++++ src/scipy/special/utils/makenpz.py	2023-09-21 13:13:09.447909977 +0200
+@@ -6,7 +6,8 @@
+ """
+ 
+ import os
+-import numpy as np
++# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
++# needed.
+ import argparse
+ 
+ from distutils.util import newer  # type: ignore
+diff -aur src-orig/scipy/stats/_generate_pyx.py src/scipy/stats/_generate_pyx.py
+--- src-orig/scipy/stats/_generate_pyx.py	2023-09-20 11:08:03.708957161 +0200
++++ src/scipy/stats/_generate_pyx.py	2023-09-21 13:13:09.463910299 +0200
+@@ -8,9 +8,9 @@
+     A new random C API was added in 1.18 and became stable in 1.19.
+     Prefer the new random C API when building with recent numpy.
+     '''
+-    import numpy as np
+-    ver = tuple(int(num) for num in np.__version__.split('.')[:2])
+-    return ver < (1, 19)
++    # Chaquopy: we force Numpy to 1.20 version so not old
++    return False
++    
+ 
+ 
+ def make_biasedurn():
+diff -aur src-orig/setup.py src/setup.py
+--- src-orig/setup.py	2023-09-20 11:08:03.732957618 +0200
++++ src/setup.py	2023-09-21 13:13:08.707895078 +0200
+@@ -32,6 +32,17 @@
+ 
  import builtins
  
- 
-+
 +# Chaquopy: an OpenBLAS test executable is built without using LDFLAGS, so we have to add
 +# --rpath-link here: see note in build-wheel.py.
 +with open(os.path.join(os.path.dirname(__file__), "site.cfg"), "w") as site_file:
@@ -130,21 +356,46 @@ diff -Naur src-original/scipy/__init__.py src/scipy/__init__.py
 +
 +# Chaquopy: prevent the compiled parts NumPy from being imported
 +builtins.__NUMPY_SETUP__ = True
-+
-+
+ 
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
- Intended Audience :: Science/Research
-diff -Naur src-original/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
---- src-original/scipy/special/utils/makenpz.py	2023-08-31 12:17:17.365654666 +0200
-+++ src/scipy/special/utils/makenpz.py	2023-08-31 12:17:39.442111438 +0200
-@@ -6,7 +6,8 @@
- """
+@@ -230,23 +241,12 @@
+     Custom build_ext command to tweak extension building.
+     """
+     from numpy.distutils.command.build_ext import build_ext as npy_build_ext
++
++    # Chaquopy: force SCIPY_USE_PYTHRAN to 0 (not handled yet)
+     if int(os.environ.get('SCIPY_USE_PYTHRAN', 1)):
+-        try:
+-            import pythran
+-            from pythran.dist import PythranBuildExt
+-        except ImportError:
+-            BaseBuildExt = npy_build_ext
+-        else:
+-            BaseBuildExt = PythranBuildExt[npy_build_ext]
+-            _pep440 = importlib.import_module('scipy._lib._pep440')
+-            if _pep440.parse(pythran.__version__) < _pep440.Version('0.10.0'):
+-                raise RuntimeError("The installed `pythran` is too old, >= "
+-                                   "0.10.0 is needed, {} detected. Please "
+-                                   "upgrade Pythran, or use `export "
+-                                   "SCIPY_USE_PYTHRAN=0`.".format(
+-                                   pythran.__version__))
+-    else:
+-        BaseBuildExt = npy_build_ext
++        os.environ['SCIPY_USE_PYTHRAN'] = "0"
++    
++    BaseBuildExt = npy_build_ext
  
- import os
--import numpy as np
-+# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
-+# needed.
- import argparse
- 
- from distutils.util import newer
+     class build_ext(BaseBuildExt):
+         def finalize_options(self):
+@@ -492,8 +492,8 @@
+     run_build = parse_setuppy_commands()
+     if run_build:
+         try:
+-            pkgname = 'numpy'
+-            import numpy
++            # pkgname = 'numpy'
++            # import numpy
+             pkgname = 'pybind11'
+             import pybind11
+         except ImportError as exc:  # We do not have our build deps installed
