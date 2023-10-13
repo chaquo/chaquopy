@@ -1,0 +1,7 @@
+package:
+  name: mahotas
+  version: "1.4.13"
+
+requirements:
+  build:
+    - numpy 1.24.4
