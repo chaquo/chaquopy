@@ -1,3 +1,18 @@
+#You need to install swig to build this package. The easiest way to do this is using
+#the package manager provided by your system.
+#
+#Ubuntu/Debian:
+#   sudo apt-get install swig
+#
+#CentOS
+#   sudo yum install swig
+#
+#Fedora
+#   sudo dnf install swig
+#
+#Arch Linux
+#   sudo pacman -S swig
+
 package:
   name: verovio
   version: "4.0.1"
