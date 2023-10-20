@@ -610,6 +610,7 @@ class BuildWheel:
                 set(ANDROID_ABI {self.abi})
                 set(ANDROID_PLATFORM {self.api_level})
                 set(ANDROID_STL c++_shared)
+                set(ANDROID_USE_LEGACY_TOOLCHAIN_FILE OFF) # Legacy does NOT play well with certain forwarded LDFLAGS (cmake_example error)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
                 list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)

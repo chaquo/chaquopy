@@ -1,0 +1,24 @@
+diff --git a/setup.py b/setup.py
+index 341ab5f2..efdde517 100644
+--- a/setup.py
++++ b/setup.py
+@@ -111,6 +111,8 @@ class CMakeBuild(build_ext):
+             env = {key:env[key] for key in env if key.upper() != 'pythonLocation'.upper()}
+         env['pythonLocation'] = str(Path(sys.executable).parent.absolute())
+
++        # Chaquopy added
++        cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake")]
+
+         # Pass a commit hash
+         if buildCommitHash != None :
+@@ -141,6 +143,10 @@ class CMakeBuild(build_ext):
+             except:
+                 freeMemory = 4000
+
++        # Add additional cmake build args from environment
++        if 'CMAKE_BUILD_ARGS' in os.environ:
++            build_args += [os.environ['CMAKE_BUILD_ARGS']]
++
+         # Configure and build
+         # Windows
+         if platform.system() == "Windows":
