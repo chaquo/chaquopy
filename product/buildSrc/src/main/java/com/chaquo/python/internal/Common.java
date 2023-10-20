@@ -11,7 +11,7 @@ public class Common {
     public static final String MIN_AGP_VERSION = "7.0.0";
 
     // This should match api_level in target/build-common.sh.
-    public static final int MIN_SDK_VERSION = 21;
+    public static final int MIN_SDK_VERSION = 24;
 
     public static final int COMPILE_SDK_VERSION = 30;
 

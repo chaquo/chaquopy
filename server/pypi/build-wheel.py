@@ -183,7 +183,7 @@ class BuildWheel:
 
         ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
                         help="Android ABI: choices=[%(choices)s]")
-        ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
+        ap.add_argument("--api-level", metavar="LEVEL", type=int, default=24,
                         help="Android API level: default=%(default)s")
         ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
                         "Python packages)"),
@@ -535,6 +535,7 @@ class BuildWheel:
             pythonpath.append(os.environ["PYTHONPATH"])
         env["PYTHONPATH"] = os.pathsep.join(pythonpath)
 
+        # NOTE(themarpe) - causes direct issues with pybind11 and PyInit_... symbols
         # This flag often catches errors in .so files which would otherwise be delayed
         # until runtime. (Some of the more complex build.sh scripts need to remove this, or
         # use it more selectively.)
@@ -610,6 +611,7 @@ class BuildWheel:
                 set(ANDROID_ABI {self.abi})
                 set(ANDROID_PLATFORM {self.api_level})
                 set(ANDROID_STL c++_shared)
+                set(ANDROID_USE_LEGACY_TOOLCHAIN_FILE OFF) # Legacy does NOT play well with certain forwarded LDFLAGS (cmake_example error)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
                 list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)

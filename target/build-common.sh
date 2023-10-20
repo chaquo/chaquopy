@@ -4,7 +4,7 @@
 #
 # You may also override the following:
 : ${abi:=$(basename $prefix)}
-: ${api_level:=21}  # Should match MIN_SDK_VERSION in Common.java.
+: ${api_level:=24}  # Should match MIN_SDK_VERSION in Common.java.
 
 # When moving to a new version of the NDK, carefully review the following:
 #
@@ -16,7 +16,7 @@
 # * According to https://github.com/kivy/python-for-android/pull/2615, the mzakharo
 #   build of gfortran is not compatible with NDK version 23, which is the version in
 #   which they removed the GNU binutils.
-ndk_version=22.1.7171670  # See ndkDir in product/runtime/build.gradle.
+ndk_version=26.1.10909125  # See ndkDir in product/runtime/build.gradle.
 
 ndk=${ANDROID_HOME:?}/ndk/$ndk_version
 if ! [ -e $ndk ]; then
