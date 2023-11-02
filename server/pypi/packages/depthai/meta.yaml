@@ -1,0 +1,19 @@
+package:
+  name: depthai
+  version: "2.23.0.0" # If a release is picked
+  # version: "2.23.0.0.dev0+9f00516f332ac22e76ae34bcd7dc4de683436a9d"
+
+source:
+  git_url: https://github.com/luxonis/depthai-python.git
+  git_rev: 9f00516f332ac22e76ae34bcd7dc4de683436a9d
+  # path: [path/to/depthai-python]
+
+requirements:
+  build:
+    - cmake
+  host:
+    - python
+
+build:
+  script_env:
+   - CI=1 # Set for a release

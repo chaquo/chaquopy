@@ -1,0 +1,15 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d8fc4fee..ac3c4859 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -173,8 +173,8 @@ endif()
+
+ # Add stubs (pyi) generation step after building bindings
+ execute_process(COMMAND "${PYTHON_EXECUTABLE}" "-c" "from mypy import api" RESULT_VARIABLE error OUTPUT_QUIET ERROR_QUIET)
+-if(error)
+-    message(WARNING "Mypy not available - stubs won't be generated or checked")
++if(error OR CMAKE_CROSSCOMPILING)
++    message(WARNING "Mypy not available or cross compiling - stubs won't be generated or checked")
+ else()
+     get_target_property(bindings_directory ${TARGET_NAME} LIBRARY_OUTPUT_DIRECTORY)
+     if(NOT bindings_directory)
