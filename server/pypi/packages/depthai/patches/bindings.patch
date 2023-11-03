@@ -1,0 +1,40 @@
+diff --git a/src/py_bindings.cpp b/src/py_bindings.cpp
+index e6db7796..9238ed37 100644
+--- a/src/py_bindings.cpp
++++ b/src/py_bindings.cpp
+@@ -82,9 +82,34 @@ PYBIND11_MODULE(depthai, m)
+         // ignore
+     }
+
++    // Apply JNIEnv pointer
++    constexpr static const char* javavmEnvKey = "DEPTHAI_LIBUSB_ANDROID_JAVAVM";
++    // Retrieve from env first
++    std::string javavmEnvStr = std::getenv(javavmEnvKey) != nullptr ? std::string(std::getenv(javavmEnvKey)) : "";
++    try {
++        auto sysModule = py::module_::import("sys");
++        if(py::hasattr(sysModule, javavmEnvKey)){
++            javavmEnvStr = sysModule.attr(javavmEnvKey).cast<std::string>();
++        }
++    } catch (...) {
++        // ignore
++    }
++    try {
++        auto builtinsModule = py::module_::import("builtins");
++        if(py::hasattr(builtinsModule, javavmEnvKey)){
++            javavmEnvStr = builtinsModule.attr(javavmEnvKey).cast<std::string>();
++        }
++    } catch (...){
++        // ignore
++    }
++    // JNIEnv handling
++    void* javavm = nullptr;
++    // Read the uintptr_t value from the decimal string
++    sscanf(javavmEnvStr.c_str(), "%" SCNuPTR, &javavm);
++
+     // Call dai::initialize on 'import depthai' to initialize asap with additional information to print
+     try {
+-        dai::initialize(std::string("Python bindings - version: ") + DEPTHAI_PYTHON_VERSION + " from " + DEPTHAI_PYTHON_COMMIT_DATETIME + " build: " + DEPTHAI_PYTHON_BUILD_DATETIME, installSignalHandler);
++        dai::initialize(std::string("Python bindings - version: ") + DEPTHAI_PYTHON_VERSION + " from " + DEPTHAI_PYTHON_COMMIT_DATETIME + " build: " + DEPTHAI_PYTHON_BUILD_DATETIME, installSignalHandler, javavm);
+     } catch (const std::exception&) {
+         // ignore, will be initialized later on if possible
+     }
