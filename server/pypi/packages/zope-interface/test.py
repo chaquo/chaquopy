@@ -4,6 +4,10 @@ import sys
 
 class TestZopeInterface(unittest.TestCase):
 
+    def test_coptimizations(self):
+        import zope.interface
+        self.assertIn("zope.interface._zope_interface_coptimizations", sys.modules)
+
     def test_inside_function_call(self):
         from zope.interface.advice import getFrameInfo
 
