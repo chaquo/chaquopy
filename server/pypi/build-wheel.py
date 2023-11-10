@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from contextlib import contextmanager
 from copy import deepcopy
 import csv
 from dataclasses import dataclass
@@ -140,18 +141,19 @@ class BuildWheel:
             self.apply_patches()
             self.create_host_env()
 
-        self.update_env()
-
-        # ProjectBuilder requires at least one of pyproject.toml or setup.py to exist,
-        # which may not be the case for packages built using build.sh (e.g.
-        # tflite-runtime).
+        # The ProjectBuilder constructor requires at least one of pyproject.toml or
+        # setup.py to exist, which may not be the case for packages built using build.sh
+        # (e.g. tflite-runtime).
         if self.needs_python:
             pyproject_toml = Path(f"{self.src_dir}/pyproject.toml")
             setup_py = Path(f"{self.src_dir}/setup.py")
             src_is_pyproject = pyproject_toml.exists() or setup_py.exists()
             try:
                 if not src_is_pyproject:
-                    pyproject_toml.touch()
+                    with open(pyproject_toml, "w") as pyproject_toml_file:
+                        print('[build-system]\n'
+                              'requires = ["setuptools", "wheel"]',
+                              file=pyproject_toml_file)
                 self.builder = build.ProjectBuilder(
                     self.src_dir, python_executable=f"{self.build_env}/bin/python")
             finally:
@@ -159,14 +161,15 @@ class BuildWheel:
                     pyproject_toml.unlink()
 
             if not self.no_unpack:
-                self.create_build_env(src_is_pyproject)
+                self.create_build_env()
 
         if self.no_build:
             log("Skipping build due to --no-build")
         else:
-            self.create_dummy_libs()
-            wheel_filename = self.build_wheel()
-            self.fix_wheel(wheel_filename)
+            with self.env_vars():
+                self.create_dummy_libs()
+                wheel_filename = self.build_wheel()
+                self.fix_wheel(wheel_filename)
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -222,7 +225,7 @@ class BuildWheel:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
 
-    def create_build_env(self, src_is_pyproject):
+    def create_build_env(self):
         # Installing Python's bundled pip and setuptools into a new environment takes
         # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
         # we create one bootstrap environment per Python version, shared between all
@@ -247,8 +250,9 @@ class BuildWheel:
         # In the common case where get_requires_for_build only returns things which were
         # already in build_system_requires, we can avoid running pip a second time.
         pip_install(build_reqs)
-        if src_is_pyproject:
-            pip_install(self.builder.get_requires_for_build("wheel") - set(build_reqs))
+        with self.env_vars():
+            requires_for_build = self.builder.get_requires_for_build("wheel")
+        pip_install(requires_for_build - set(build_reqs))
 
     def get_bootstrap_env(self):
         bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{self.python}"
@@ -469,8 +473,7 @@ class BuildWheel:
         except build.BuildBackendException as e:
             raise CommandError(e)
 
-    def update_env(self):
-        env = {}
+    def get_common_env_vars(self, env):
         build_common_output = run(
             f"abi={self.abi}; api_level={self.api_level}; prefix={self.host_env}/chaquopy; "
             f". {PYPI_DIR}/../../target/build-common.sh; export",
@@ -479,17 +482,26 @@ class BuildWheel:
         for line in build_common_output.splitlines():
             # We don't require every line to match, e.g. there may be some output from
             # installing the NDK.
-            match = re.search(r'^declare -x (\w+)="(.*)"$', line)
-            if match:
+            if match := re.search(r'^declare -x (\w+)="(.*)"$', line):
                 key, value = match.groups()
+                if key == "PKG_CONFIG":  # See env/bin/pkg-config
+                    continue
                 if os.environ.get(key) != value:
                     env[key] = value
         if not env:
             raise CommandError("Found no variables in build-common.sh output:\n"
                                + build_common_output)
 
-        # See env/bin/pkg-config.
-        del env["PKG_CONFIG"]
+        # This flag often catches errors in .so files which would otherwise be delayed
+        # until runtime. (Some of the more complex build.sh scripts need to remove this, or
+        # use it more selectively.)
+        env["LDFLAGS"] += " -Wl,--no-undefined"
+
+        # Set all other variables used by distutils to prevent the host Python values (if
+        # any) from taking effect.
+        env["CPPFLAGS"] = ""
+        env["CXXFLAGS"] = ""
+        env["LDSHARED"] = f"{env['CC']} -shared"
 
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
@@ -505,12 +517,6 @@ class BuildWheel:
             env["F77"] = env["F90"] = gfortran  # Used by numpy.distutils
             env["FARCH"] = env["CFLAGS"]  # Used by numpy.distutils
 
-        env_dir = f"{PYPI_DIR}/env"
-        env["PATH"] = os.pathsep.join([
-            f"{env_dir}/bin",
-            f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
-            os.environ["PATH"]])
-
         # Wrap compiler and linker commands with a script which removes include and
         # library directories which are not in known safe locations.
         for var in compiler_vars:
@@ -525,38 +531,43 @@ class BuildWheel:
             os.chmod(wrapper_path, 0o755)
             env[var] = wrapper_path
 
-        # Adding host_env to PYTHONPATH allows setup.py to import requirements, for example to
-        # call numpy.get_include().
-        pythonpath = [f"{env_dir}/lib/python", self.host_env]
-        if "PYTHONPATH" in os.environ:
-            pythonpath.append(os.environ["PYTHONPATH"])
-        env["PYTHONPATH"] = os.pathsep.join(pythonpath)
+    def get_python_env_vars(self, env, pypi_env):
+        # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
+        # example to call numpy.get_include().
+        env["PYTHONPATH"] = os.pathsep.join([f"{pypi_env}/lib/python", self.host_env])
 
-        # This flag often catches errors in .so files which would otherwise be delayed
-        # until runtime. (Some of the more complex build.sh scripts need to remove this, or
-        # use it more selectively.)
-        env["LDFLAGS"] += " -Wl,--no-undefined"
+        self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
+        assert_exists(self.python_include_dir)
+        libpython = f"libpython{self.python}.so"
+        self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
+        assert_exists(self.python_lib)
+        self.standard_libs.append(libpython)
 
-        # Set all other variables used by distutils to prevent the host Python values (if
-        # any) from taking effect.
-        env["CPPFLAGS"] = ""
-        env["CXXFLAGS"] = ""
-        env["LDSHARED"] = f"{env['CC']} -shared"
+        env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+        env["CHAQUOPY_PYTHON"] = self.python
+
+        # Use -idirafter so that package-specified -I directories take priority (e.g.
+        # in grpcio and typed-ast).
+        env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
+        env["LDFLAGS"] += f" -lpython{self.python}"
+
+        # Overrides sysconfig.get_platform and distutils.util.get_platform.
+        # TODO: consider replacing this with crossenv.
+        env["_PYTHON_HOST_PLATFORM"] = f"linux_{ABIS[self.abi].uname_machine}"
+
+    @contextmanager
+    def env_vars(self):
+        env = {}
+        self.get_common_env_vars(env)
+
+        pypi_env = f"{PYPI_DIR}/env"
+        env["PATH"] = os.pathsep.join([
+            f"{pypi_env}/bin",
+            f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
+            os.environ["PATH"]])
 
         if self.needs_python:
-            self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
-            assert_exists(self.python_include_dir)
-            libpython = f"libpython{self.python}.so"
-            self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
-            assert_exists(self.python_lib)
-            self.standard_libs.append(libpython)
-
-            env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-            env["CHAQUOPY_PYTHON"] = self.python
-            # Use -idirafter so that package-specified -I directories take priority (e.g.
-            # in grpcio and typed-ast).
-            env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
-            env["LDFLAGS"] += f" -lpython{self.python}"
+            self.get_python_env_vars(env, pypi_env)
 
         env.update({
             # TODO: make everything use HOST instead, and remove this.
@@ -565,10 +576,6 @@ class BuildWheel:
             # Set by conda-forge's compiler activation scripts, e.g.
             # https://github.com/conda-forge/clang-compiler-activation-feedstock/blob/main/recipe/activate-clang.sh
             "HOST": ABIS[self.abi].tool_prefix,
-
-            # Overrides sysconfig.get_platform and distutils.util.get_platform.
-            # TODO: consider replacing this with crossenv.
-            "_PYTHON_HOST_PLATFORM": f"linux_{ABIS[self.abi].uname_machine}",
 
             # conda-build variable names defined at
             # https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html
@@ -591,7 +598,17 @@ class BuildWheel:
             log("Environment set as follows:\n" +
                 "\n".join(f"export {key}={shlex.quote(value)}"
                           for key, value in env.items()))
+
+        original_env = {key: os.environ.get(key) for key in env}
         os.environ.update(env)
+        try:
+            yield
+        finally:
+            for key, value in original_env.items():
+                if value is None:
+                    del os.environ[key]
+                else:
+                    os.environ[key] = value
 
     def generate_cmake_toolchain(self, env):
         ndk = abspath(f"{env['AR']}/../../../../../..")

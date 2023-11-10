@@ -3,6 +3,7 @@ package:
   version: "1.8.1"
 
 build:
+  number: 1
   script_env:
     - SCIPY_USE_PYTHRAN=0
 
