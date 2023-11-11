@@ -1,6 +1,11 @@
 package:
   name: scipy
-  version: "1.6.3"
+  version: "1.8.1"
+
+build:
+  number: 1
+  script_env:
+    - SCIPY_USE_PYTHRAN=0
 
 requirements:
   build:
@@ -8,4 +13,4 @@ requirements:
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy 1.20.3
+    - numpy 1.23.3
