@@ -230,6 +230,7 @@ class BuildWheel:
         # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
         # we create one bootstrap environment per Python version, shared between all
         # packages, and use that to install the build environments.
+        os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         bootstrap_env = self.get_bootstrap_env()
         ensure_empty(self.build_env)
         run(f"python{self.python} -m venv --without-pip {self.build_env}")
@@ -535,6 +536,7 @@ class BuildWheel:
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
         # example to call numpy.get_include().
         env["PYTHONPATH"] = os.pathsep.join([f"{pypi_env}/lib/python", self.host_env])
+        env["CHAQUOPY_PYTHON"] = self.python
 
         self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
         assert_exists(self.python_include_dir)
@@ -542,9 +544,6 @@ class BuildWheel:
         self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
         assert_exists(self.python_lib)
         self.standard_libs.append(libpython)
-
-        env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-        env["CHAQUOPY_PYTHON"] = self.python
 
         # Use -idirafter so that package-specified -I directories take priority (e.g.
         # in grpcio and typed-ast).

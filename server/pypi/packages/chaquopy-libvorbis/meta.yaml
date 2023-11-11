@@ -4,6 +4,9 @@ package:
   name: chaquopy-libvorbis
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: https://ftp.osuosl.org/pub/xiph/releases/vorbis/libvorbis-{{ version }}.tar.gz
 

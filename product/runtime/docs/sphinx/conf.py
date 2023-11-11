@@ -22,6 +22,7 @@
 
 from datetime import datetime
 import re
+import sys
 
 
 # -- General configuration ------------------------------------------------
@@ -186,8 +187,12 @@ texinfo_documents = [
 
 # -- Options for Intersphinx ----------------------------------------------
 
-intersphinx_mapping = {'https://docs.python.org/3': None}
-
+intersphinx_mapping = {
+    'python': (
+        f'https://docs.python.org/{".".join(map(str, sys.version_info[:2]))}',
+        None,
+    )
+}
 
 # -- Local extensions -----------------------------------------------------
 
