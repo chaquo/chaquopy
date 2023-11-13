@@ -4,35 +4,46 @@ import os
 import sys
 import io
 import contextlib
+from itertools import chain
 
-from setuptools.extern import six
-
-from .py36compat import sdist_add_defaults
-
-import pkg_resources
+from .._importlib import metadata
+from .build import _ORIGINAL_SUBCOMMANDS
 
 _default_revctrl = list
 
 
 def walk_revctrl(dirname=''):
     """Find all files under revision control"""
-    for ep in pkg_resources.iter_entry_points('setuptools.file_finders'):
+    for ep in metadata.entry_points(group='setuptools.file_finders'):
         for item in ep.load()(dirname):
             yield item
 
 
-class sdist(sdist_add_defaults, orig.sdist):
+class sdist(orig.sdist):
     """Smart sdist that finds anything supported by revision control"""
 
     user_options = [
-        ('formats=', None,
-         "formats for source distribution (comma-separated list)"),
-        ('keep-temp', 'k',
-         "keep the distribution tree around after creating " +
-         "archive file(s)"),
-        ('dist-dir=', 'd',
-         "directory to put the source distribution archive(s) in "
-         "[default: dist]"),
+        ('formats=', None, "formats for source distribution (comma-separated list)"),
+        (
+            'keep-temp',
+            'k',
+            "keep the distribution tree around after creating " + "archive file(s)",
+        ),
+        (
+            'dist-dir=',
+            'd',
+            "directory to put the source distribution archive(s) in " "[default: dist]",
+        ),
+        (
+            'owner=',
+            'u',
+            "Owner name used when creating a tar file [default: current user]",
+        ),
+        (
+            'group=',
+            'g',
+            "Group name used when creating a tar file [default: current group]",
+        ),
     ]
 
     negative_opt = {}
@@ -98,49 +109,56 @@ class sdist(sdist_add_defaults, orig.sdist):
             if orig_val is not NoValue:
                 setattr(os, 'link', orig_val)
 
-    def __read_template_hack(self):
-        # This grody hack closes the template file (MANIFEST.in) if an
-        #  exception occurs during read_template.
-        # Doing so prevents an error when easy_install attempts to delete the
-        #  file.
-        try:
-            orig.sdist.read_template(self)
-        except Exception:
-            _, _, tb = sys.exc_info()
-            tb.tb_next.tb_frame.f_locals['template'].close()
-            raise
+    def add_defaults(self):
+        super().add_defaults()
+        self._add_defaults_build_sub_commands()
 
-    # Beginning with Python 2.7.2, 3.1.4, and 3.2.1, this leaky file handle
-    #  has been fixed, so only override the method if we're using an earlier
-    #  Python.
-    has_leaky_handle = (
-        sys.version_info < (2, 7, 2)
-        or (3, 0) <= sys.version_info < (3, 1, 4)
-        or (3, 2) <= sys.version_info < (3, 2, 1)
-    )
-    if has_leaky_handle:
-        read_template = __read_template_hack
+    def _add_defaults_optional(self):
+        super()._add_defaults_optional()
+        if os.path.isfile('pyproject.toml'):
+            self.filelist.append('pyproject.toml')
 
     def _add_defaults_python(self):
         """getting python files"""
         if self.distribution.has_pure_modules():
             build_py = self.get_finalized_command('build_py')
             self.filelist.extend(build_py.get_source_files())
-            # This functionality is incompatible with include_package_data, and
-            # will in fact create an infinite recursion if include_package_data
-            # is True.  Use of include_package_data will imply that
-            # distutils-style automatic handling of package_data is disabled
-            if not self.distribution.include_package_data:
-                for _, src_dir, _, filenames in build_py.data_files:
-                    self.filelist.extend([os.path.join(src_dir, filename)
-                                          for filename in filenames])
+            self._add_data_files(self._safe_data_files(build_py))
+
+    def _add_defaults_build_sub_commands(self):
+        build = self.get_finalized_command("build")
+        missing_cmds = set(build.get_sub_commands()) - _ORIGINAL_SUBCOMMANDS
+        # ^-- the original built-in sub-commands are already handled by default.
+        cmds = (self.get_finalized_command(c) for c in missing_cmds)
+        files = (c.get_source_files() for c in cmds if hasattr(c, "get_source_files"))
+        self.filelist.extend(chain.from_iterable(files))
+
+    def _safe_data_files(self, build_py):
+        """
+        Since the ``sdist`` class is also used to compute the MANIFEST
+        (via :obj:`setuptools.command.egg_info.manifest_maker`),
+        there might be recursion problems when trying to obtain the list of
+        data_files and ``include_package_data=True`` (which in turn depends on
+        the files included in the MANIFEST).
+
+        To avoid that, ``manifest_maker`` should be able to overwrite this
+        method and avoid recursive attempts to build/analyze the MANIFEST.
+        """
+        return build_py.data_files
+
+    def _add_data_files(self, data_files):
+        """
+        Add data files as found in build_py.data_files.
+        """
+        self.filelist.extend(
+            os.path.join(src_dir, name)
+            for _, src_dir, _, filenames in data_files
+            for name in filenames
+        )
 
     def _add_defaults_data_files(self):
         try:
-            if six.PY2:
-                sdist_add_defaults._add_defaults_data_files(self)
-            else:
-                super()._add_defaults_data_files()
+            super()._add_defaults_data_files()
         except TypeError:
             log.warn("data_files contains unexpected objects")
 
@@ -150,8 +168,7 @@ class sdist(sdist_add_defaults, orig.sdist):
                 return
         else:
             self.warn(
-                "standard file not found: should have one of " +
-                ', '.join(self.READMES)
+                "standard file not found: should have one of " + ', '.join(self.READMES)
             )
 
     def make_release_tree(self, base_dir, files):
@@ -174,8 +191,7 @@ class sdist(sdist_add_defaults, orig.sdist):
 
         with io.open(self.manifest, 'rb') as fp:
             first_line = fp.readline()
-        return (first_line !=
-                '# file GENERATED by distutils, do NOT edit\n'.encode())
+        return first_line != '# file GENERATED by distutils, do NOT edit\n'.encode()
 
     def read_manifest(self):
         """Read the manifest file (named by 'self.manifest') and use it to
@@ -186,36 +202,14 @@ class sdist(sdist_add_defaults, orig.sdist):
         manifest = open(self.manifest, 'rb')
         for line in manifest:
             # The manifest must contain UTF-8. See #303.
-            if six.PY3:
-                try:
-                    line = line.decode('UTF-8')
-                except UnicodeDecodeError:
-                    log.warn("%r not UTF-8 decodable -- skipping" % line)
-                    continue
+            try:
+                line = line.decode('UTF-8')
+            except UnicodeDecodeError:
+                log.warn("%r not UTF-8 decodable -- skipping" % line)
+                continue
             # ignore comments and blank lines
             line = line.strip()
             if line.startswith('#') or not line:
                 continue
             self.filelist.append(line)
         manifest.close()
-
-    def check_license(self):
-        """Checks if license_file' is configured and adds it to
-        'self.filelist' if the value contains a valid path.
-        """
-
-        opts = self.distribution.get_option_dict('metadata')
-
-        # ignore the source of the value
-        _, license_file = opts.get('license_file', (None, None))
-
-        if license_file is None:
-            log.debug("'license_file' option was not specified")
-            return
-
-        if not os.path.exists(license_file):
-            log.warn("warning: Failed to find the configured license file '%s'",
-                    license_file)
-            return
-
-        self.filelist.append(license_file)

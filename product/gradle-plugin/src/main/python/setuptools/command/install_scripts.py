@@ -3,7 +3,7 @@ import distutils.command.install_scripts as orig
 import os
 import sys
 
-from pkg_resources import Distribution, PathMetadata, ensure_directory
+from .._path import ensure_directory
 
 
 class install_scripts(orig.install_scripts):
@@ -14,8 +14,6 @@ class install_scripts(orig.install_scripts):
         self.no_ep = False
 
     def run(self):
-        import setuptools.command.easy_install as ei
-
         self.run_command("egg_info")
         if self.distribution.scripts:
             orig.install_scripts.run(self)  # run first to set up self.outfiles
@@ -24,20 +22,23 @@ class install_scripts(orig.install_scripts):
         if self.no_ep:
             # don't install entry point scripts into .egg file!
             return
+        self._install_ep_scripts()
+
+    def _install_ep_scripts(self):
+        # Delay import side-effects
+        from pkg_resources import Distribution, PathMetadata
+        from . import easy_install as ei
 
         ei_cmd = self.get_finalized_command("egg_info")
         dist = Distribution(
-            ei_cmd.egg_base, PathMetadata(ei_cmd.egg_base, ei_cmd.egg_info),
-            ei_cmd.egg_name, ei_cmd.egg_version,
+            ei_cmd.egg_base,
+            PathMetadata(ei_cmd.egg_base, ei_cmd.egg_info),
+            ei_cmd.egg_name,
+            ei_cmd.egg_version,
         )
         bs_cmd = self.get_finalized_command('build_scripts')
         exec_param = getattr(bs_cmd, 'executable', None)
-        bw_cmd = self.get_finalized_command("bdist_wininst")
-        is_wininst = getattr(bw_cmd, '_is_running', False)
         writer = ei.ScriptWriter
-        if is_wininst:
-            exec_param = "python.exe"
-            writer = ei.WindowsScriptWriter
         if exec_param == sys.executable:
             # In case the path to the Python executable contains a space, wrap
             # it so it's not split up.
