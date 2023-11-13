@@ -7,7 +7,7 @@ import os
 import importlib.util
 import importlib.machinery
 
-from .py34compat import module_from_spec
+from importlib.util import module_from_spec
 
 
 PY_SOURCE = 1
@@ -17,9 +17,18 @@ C_BUILTIN = 6
 PY_FROZEN = 7
 
 
+def find_spec(module, paths):
+    finder = (
+        importlib.machinery.PathFinder().find_spec
+        if isinstance(paths, list)
+        else importlib.util.find_spec
+    )
+    return finder(module, paths)
+
+
 def find_module(module, paths=None):
     """Just like 'imp.find_module()', but with package support"""
-    spec = importlib.util.find_spec(module, paths)
+    spec = find_spec(module, paths)
     if spec is None:
         raise ImportError("Can't find %s" % module)
     if not spec.has_location and hasattr(spec, 'submodule_search_locations'):
@@ -28,16 +37,22 @@ def find_module(module, paths=None):
     kind = -1
     file = None
     static = isinstance(spec.loader, type)
-    if spec.origin == 'frozen' or static and issubclass(
-            spec.loader, importlib.machinery.FrozenImporter):
+    if (
+        spec.origin == 'frozen'
+        or static
+        and issubclass(spec.loader, importlib.machinery.FrozenImporter)
+    ):
         kind = PY_FROZEN
         path = None  # imp compabilty
-        suffix = mode = ''  # imp compability
-    elif spec.origin == 'built-in' or static and issubclass(
-            spec.loader, importlib.machinery.BuiltinImporter):
+        suffix = mode = ''  # imp compatibility
+    elif (
+        spec.origin == 'built-in'
+        or static
+        and issubclass(spec.loader, importlib.machinery.BuiltinImporter)
+    ):
         kind = C_BUILTIN
         path = None  # imp compabilty
-        suffix = mode = ''  # imp compability
+        suffix = mode = ''  # imp compatibility
     elif spec.has_location:
         path = spec.origin
         suffix = os.path.splitext(path)[1]
@@ -60,14 +75,14 @@ def find_module(module, paths=None):
 
 
 def get_frozen_object(module, paths=None):
-    spec = importlib.util.find_spec(module, paths)
+    spec = find_spec(module, paths)
     if not spec:
         raise ImportError("Can't find %s" % module)
     return spec.loader.get_code(module)
 
 
 def get_module(module, paths, info):
-    spec = importlib.util.find_spec(module, paths)
+    spec = find_spec(module, paths)
     if not spec:
         raise ImportError("Can't find %s" % module)
     return module_from_spec(spec)
