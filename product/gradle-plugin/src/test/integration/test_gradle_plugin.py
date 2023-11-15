@@ -714,9 +714,10 @@ class BuildPython(GradleTestCase):
     # Test a buildPython which returns success without doing anything (#5631).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
-        self.assertInStderr(
-            f"{join('python', 'env', 'debug', '[Ll]ib')} does not exist",
-            run, re=True)
+        lib_path = "python/env/debug/lib"
+        if os.name == "nt":
+            lib_path = lib_path.replace("/", "\\").replace("lib", "Lib")
+        self.assertInStderr(f"{lib_path} does not exist", run)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
