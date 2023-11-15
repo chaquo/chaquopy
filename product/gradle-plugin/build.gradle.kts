@@ -1,6 +1,7 @@
 import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
 import com.chaquo.python.internal.Common.findExecutable
+import com.chaquo.python.internal.Common.osName
 
 plugins {
     `java-gradle-plugin`
@@ -83,7 +84,7 @@ abstract class TestPythonTask : DefaultTask() {
         pb.directory(File(workingDir))
         pb.environment().putAll(environment)
 
-        command += if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        command += if (osName() == "windows") {
             listOf(findExecutable("py"), "-$pythonVersion")
         } else {
             listOf(findExecutable("python$pythonVersion"))

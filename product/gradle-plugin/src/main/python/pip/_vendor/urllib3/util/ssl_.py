@@ -38,7 +38,11 @@ _const_compare_digest = getattr(hmac, "compare_digest", _const_compare_digest_ba
 
 try:  # Test for SSL features
     import ssl
-    from ssl import wrap_socket, CERT_REQUIRED
+
+    # Chaquopy: removed wrap_socket, which was removed in Python 3.12, and is only used
+    # in this file by Python 2 code.
+    from ssl import CERT_REQUIRED
+
     from ssl import HAS_SNI  # Has SNI?
 except ImportError:
     pass

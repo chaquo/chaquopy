@@ -161,11 +161,13 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
         with:
-          # This should match OLD_BUILD_PYTHON_VERSION and MIN_BUILD_PYTHON_VERSION
-          # in test_gradle_plugin.
+          # This should include OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
+          # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin, if they're not already
+          # returned by `list-versions.py --minor`.
           extra-versions: |
             3.6
             3.7
+            3.12
 
       - name: Download Maven repository
         uses: actions/download-artifact@v3.0.2

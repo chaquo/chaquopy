@@ -135,12 +135,12 @@ class PythonPlugin : Plugin<Project> {
             "python", extension.defaultConfig)
 
         android.productFlavors.all {
-            val python = extension.productFlavors.maybeCreate(name)
+            val python = extension.productFlavors.maybeCreate(name)  // New DSL
             (this as ExtensionAware).extensions.add("python", python)  // Old DSL
         }
 
         android.sourceSets.all {
-           val dirSet = extension.sourceSets.maybeCreate(name)
+           val dirSet = extension.sourceSets.maybeCreate(name)  // New DSL
            (this as ExtensionAware).extensions.add("python", dirSet)  // Old DSL
         }
    }

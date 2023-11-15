@@ -22,6 +22,7 @@ public class Common {
         PYTHON_VERSIONS.put("3.9.13", "1");
         PYTHON_VERSIONS.put("3.10.6", "1");
         PYTHON_VERSIONS.put("3.11.0", "2");
+        // TODO: once we add 3.12, remove it from extra-versions in ci.yml
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();
@@ -80,6 +81,17 @@ public class Common {
     public static final String ASSET_BOOTSTRAP_NATIVE = "bootstrap-native";
     public static final String ASSET_BUILD_JSON = "build.json";
     public static final String ASSET_CACERT = "cacert.pem";
+
+    public static String osName() {
+        String property = System.getProperty("os.name");
+        String[] knownNames = new String[] {"linux", "mac", "windows"};
+        for (String name : knownNames) {
+            if (property.toLowerCase(Locale.ENGLISH).startsWith(name)) {
+                return name;
+            }
+        }
+        throw new RuntimeException("unknown os.name: " + property);
+    }
 
     public static String findExecutable(String name) throws FileNotFoundException {
         File file = new File(name);

@@ -65,11 +65,11 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
-# These should match `extra-versions` in the ci.yml job `test-integration`.
+# When updating these, consider also updating extra-versions in ci.yml.
 OLD_BUILD_PYTHON_VERSION = "3.6"
 MIN_BUILD_PYTHON_VERSION = "3.7"
+MAX_BUILD_PYTHON_VERSION = "3.12"
 
-MAX_BUILD_PYTHON_VERSION = "3.11"
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
@@ -772,7 +772,8 @@ class PythonReqs(GradleTestCase):
             with self.subTest(version=version):
                 self.RunGradle(*layers, env={"buildpython_version": version},
                                requirements=["apple/__init__.py",
-                                             "no_binary_sdist/__init__.py"],
+                                             "no_binary_sdist/__init__.py",
+                                             "six.py"],
                                pyc=["stdlib"])
 
         run = self.RunGradle(*layers, env={"buildpython_version": OLD_BUILD_PYTHON_VERSION},
@@ -988,6 +989,13 @@ class PythonReqs(GradleTestCase):
     def test_pep517_backend_path(self):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_backend_path",
                        **self.PEP517_KWARGS)
+
+    # An alternative backend, with setuptools not installed in the build environment.
+    def test_pep517_hatch(self):
+        self.RunGradle(
+            "base", "PythonReqs/pep517_hatch",
+            dist_versions=[("pep517_hatch", "5.1.7")],
+            requirements=["hatch1.py"])
 
     # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
     def test_cfg_wheel(self):

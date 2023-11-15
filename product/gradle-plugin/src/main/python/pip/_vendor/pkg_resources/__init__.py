@@ -2161,7 +2161,8 @@ def resolve_egg_link(path):
     return next(dist_groups, ())
 
 
-register_finder(pkgutil.ImpImporter, find_on_path)
+# Chaquopy: ImpImporter was removed in Python 3.12.
+# register_finder(pkgutil.ImpImporter, find_on_path)
 
 if hasattr(importlib_machinery, 'FileFinder'):
     register_finder(importlib_machinery.FileFinder, find_on_path)
@@ -2312,7 +2313,8 @@ def file_ns_handler(importer, path_item, packageName, module):
         return subpath
 
 
-register_namespace_handler(pkgutil.ImpImporter, file_ns_handler)
+# Chaquopy: ImpImporter was removed in Python 3.12.
+# register_namespace_handler(pkgutil.ImpImporter, file_ns_handler)
 register_namespace_handler(zipimport.zipimporter, file_ns_handler)
 
 if hasattr(importlib_machinery, 'FileFinder'):

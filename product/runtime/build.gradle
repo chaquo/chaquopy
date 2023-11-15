@@ -1,21 +1,10 @@
 import com.chaquo.python.internal.BuildCommon;
 import com.chaquo.python.internal.Common;
 import static com.chaquo.python.internal.Common.findExecutable;
+import static com.chaquo.python.internal.Common.osName;
 
 group = "com.chaquo.python.runtime"
 
-
-def osNameProperty = System.properties['os.name']
-String osName = null
-for (name in ["linux", "mac", "windows"]) {
-    if (osNameProperty.toLowerCase(Locale.ENGLISH).startsWith(name)) {
-        osName = name
-        break
-    }
-}
-if (osName == null) {
-    throw new GradleException("unknown os.name: '$osNameProperty'")
-}
 
 String hostPythonExe() {
     return findExecutable("python$Common.DEFAULT_PYTHON_VERSION")
@@ -84,7 +73,7 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
         doLast {
             exec {
                 workingDir destinationDir
-                if (osName == "windows") {
+                if (osName() == "windows") {
                     commandLine findExecutable("py"), "-$pyVersion"
                 } else {
                     commandLine findExecutable("python$pyVersion")
@@ -258,13 +247,13 @@ sourceSets.test.java.srcDir(proxyTask)
 
         if (abi == "host") {
             String javaIncludeSubdir
-            if (osName == "windows") {
+            if (osName() == "windows") {
                 pyLibSuffix = ".pyd"
                 javaIncludeSubdir = "win32"
-            } else if (osName == "mac") {
+            } else if (osName() == "mac") {
                 javaIncludeSubdir = "darwin"
             } else {
-                javaIncludeSubdir = osName
+                javaIncludeSubdir = osName()
             }
             args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
             args "-DCHAQUOPY_LIB_DIRS=${hostPythonHome()}/lib"
@@ -328,8 +317,8 @@ sourceSets.test.java.srcDir(proxyTask)
 
             // Can't use -Djava.library.path because we need something which also works
             // for Python processes.
-            def pathVar = (osName == "windows") ? "PATH"
-                          : (osName == "mac") ? "DYLD_LIBRARY_PATH"
+            def pathVar = (osName() == "windows") ? "PATH"
+                          : (osName() == "mac") ? "DYLD_LIBRARY_PATH"
                           : "LD_LIBRARY_PATH"
             environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
                                   (System.getenv(pathVar) ?: ""))
@@ -365,7 +354,7 @@ sourceSets.test.java.srcDir(proxyTask)
             configure(hostConfig)
             outputs.upToDateWhen { false }
             environment "PYTHONHOME", hostPythonHome()
-            if (osName == "linux") {
+            if (osName() == "linux") {
                 // libchaquopy_java.so is linked against libpython, but that doesn't add
                 // the libpython symbols to the global scope, which is required in order to
                 // load native modules like ctypes. Loading libpython with

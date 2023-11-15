@@ -1,3 +1,8 @@
+import os
+import sys
+import types
+
+
 # We want to cause a quick and comprehensible failure when a package attempts to build
 # native code, while still allowing a pure-Python fallback if available. This is tricky,
 # because different packages have different approaches to pure-Python fallbacks:
@@ -30,6 +35,11 @@
 # list (e.g. minorminer, lz4), but the error messages from these packages aren't too bad, and
 # I've never seen one which has a pure-Python fallback.
 def disable_native():
+    disable_native_distutils()
+    disable_native_environ()
+
+
+def disable_native_distutils():
     # Recent versions of setuptools redirect distutils to their own bundled copy, so try
     # to import that first.
     try:
@@ -37,11 +47,15 @@ def disable_native():
     except ImportError:
         pass
 
+    try:
+        import distutils  # noqa: F401
+    except ImportError:
+        # distutils was removed in Python 3.12, so it will only exist if setuptools is
+        # in the build environment.
+        return
+
     from distutils import ccompiler
     from distutils.unixccompiler import UnixCCompiler
-    import os
-    import sys
-    import types
 
     ccompiler.get_default_compiler = lambda *args, **kwargs: "disabled"
     ccompiler.compiler_class["disabled"] = (
@@ -73,6 +87,8 @@ def disable_native():
     disabled_mod.DisabledCompiler = DisabledCompiler
     sys.modules[disabled_mod_name] = disabled_mod
 
+
+def disable_native_environ():
     # Try to disable native builds for packages which don't use the distutils native build
     # system at all (e.g. uwsgi), or only use it to wrap an external build script (e.g. pynacl).
     for tool in ["ar", "as", "cc", "cxx", "ld"]:

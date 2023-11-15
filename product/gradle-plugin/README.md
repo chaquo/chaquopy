@@ -103,8 +103,8 @@ do the following:
 
 Check out the upstream-pip branch.
 
-Delete the relevant directories in src/main/python, including the .dist-info directory. Note
-that pkg_resources is part of setuptools.
+Delete the package from src/main/python, including the .dist-info directory. Note that
+setuptools includes some files outside of its main directory.
 
 Download the wheel of the new version, and unpack it into src/main/python.
 

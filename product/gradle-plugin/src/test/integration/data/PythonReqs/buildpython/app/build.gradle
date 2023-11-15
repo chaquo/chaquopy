@@ -15,10 +15,10 @@ android {
             buildPython (System.getProperty("os.name").startsWith("Windows") ?
                          "py -$version" : "python$version")
             pip {
-                options "--no-index"
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
-                install "apple"  // wheel
+                install "apple==0.0.1"  // wheel
                 install "no_binary==1.0"  // sdist
+                install "six==1.16.0"  // PyPI download
             }
         }
         ndk {

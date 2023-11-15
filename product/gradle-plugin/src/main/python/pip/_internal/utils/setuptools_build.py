@@ -41,12 +41,6 @@ def make_setuptools_shim_args(
     if unbuffered_output:
         args += ["-u"]
 
-    # Chaquopy: added '-S' to avoid interference from site-packages. This makes
-    # non-installable packages fail more quickly and consistently. Also, some packages
-    # (e.g. Cython) install distutils hooks which can interfere with our attempts to
-    # disable compilers in chaquopy_monkey.
-    args.append('-S')
-
     from pip._vendor.packaging import markers
     chaquopy_monkey = (
         "import chaquopy_monkey; chaquopy_monkey.disable_native()"

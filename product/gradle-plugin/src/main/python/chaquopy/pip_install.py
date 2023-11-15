@@ -111,9 +111,6 @@ class PipInstall(object):
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = ([sys.executable,
-                       "-S",  # Avoid interference from site-packages. This is not inherited
-                              # by subprocesses, so it's used again in pip (see wheel.py and
-                              # req_install.py).
                         "-m", "pip", "install",
                         "--isolated",  # Disables environment variables.
                         "--target", abi_dir,
