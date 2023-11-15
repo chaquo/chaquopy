@@ -599,26 +599,35 @@ class Pyc(GradleTestCase):
     def test_syntax_error(self):
         self.RunGradle("base", "Pyc/syntax_error", app=["bad.py", "good.pyc"], pyc=["stdlib"])
 
-    def test_build_python_warning(self):
-        run = self.RunGradle("base", "Pyc/build_python_warning", pyc=["stdlib"])
+    def test_buildpython_warning(self):
+        run = self.RunGradle("base", "Pyc/buildpython_warning", pyc=["stdlib"])
         self.assertInStdout(
             WARNING + self.FAILED +
             re.escape(BuildPython.INVALID.format("pythoninvalid")) + self.SEE,
             run, re=True)
 
-        run.apply_layers("Pyc/build_python_warning_suppress")
+        run.apply_layers("Pyc/buildpython_warning_suppress")
         run.rerun(pyc=["stdlib"])
         self.assertNotInLong(self.FAILED, run.stdout)
 
-    def test_build_python_error(self):
-        run = self.RunGradle("base", "Pyc/build_python_error", succeed=False)
+    def test_buildpython_error(self):
+        run = self.RunGradle("base", "Pyc/buildpython_error", succeed=False)
         self.assertInStderr(
             BuildPython.INVALID.format("pythoninvalid") + BuildPython.SEE, run)
 
-    def test_buildpython_missing(self):
-        run = self.RunGradle("base", "Pyc/buildpython_missing", "BuildPython/missing",
-                             add_path=["bin"], succeed=False)
-        self.assertInStderr(BuildPython.MISSING, run)
+    def test_buildpython_missing_warning(self):
+        run = self.RunGradle(
+            "base", "Pyc/buildpython_missing_warning", "BuildPython/missing",
+            add_path=["bin"])
+        self.assertInStdout(
+            WARNING + self.FAILED + BuildPython.MISSING + self.SEE,
+            run, re=True)
+
+    def test_buildpython_missing_error(self):
+        run = self.RunGradle(
+            "base", "Pyc/buildpython_missing_error", "BuildPython/missing",
+            add_path=["bin"], succeed=False)
+        self.assertInStderr(BuildPython.MISSING + BuildPython.SEE, run)
 
     def test_magic_warning(self):
         run = self.RunGradle("base", "Pyc/magic_warning",
@@ -638,7 +647,7 @@ class Pyc(GradleTestCase):
 class BuildPython(GradleTestCase):
     # Some of these messages are also used in other test classes.
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
-    MISSING = "Couldn't find Python. " + SEE
+    MISSING = "Couldn't find Python. "
     INVALID = "[{}] does not appear to be a valid Python command. "
     FAILED = (r"Process 'command '.+'' finished with non-zero exit value 1 \n\n"
               r"To view full details in Android Studio:\n"
@@ -706,7 +715,8 @@ class BuildPython(GradleTestCase):
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
         self.assertInStderr(
-            "common was not created: please check your buildPython setting", run)
+            f"{join('python', 'env', 'debug', '[Ll]ib')} does not exist",
+            run, re=True)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
@@ -784,7 +794,7 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle(
             "base", "PythonReqs/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong(BuildPython.MISSING, run.stderr)
+        self.assertInLong(BuildPython.MISSING + BuildPython.SEE, run.stderr)
 
     def test_download_wheel(self):
         # Our current version of pip shows the full URL for custom indexes, but only
@@ -1452,7 +1462,7 @@ class StaticProxy(GradleTestCase):
         run = self.RunGradle(
             "base", "StaticProxy/buildpython_missing", "BuildPython/missing",
             add_path=["bin"], succeed=False)
-        self.assertInLong(BuildPython.MISSING, run.stderr)
+        self.assertInLong(BuildPython.MISSING + BuildPython.SEE, run.stderr)
 
     def test_change(self):
         run = self.RunGradle("base", "StaticProxy/reqs", requirements=self.reqs,

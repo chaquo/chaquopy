@@ -55,45 +55,39 @@ internal class TaskBuilder(
         }
     }
 
-    fun createBuildPackagesTask(): Provider<BuildPackagesTask> {
-        val taskName = "extractPythonBuildPackages"
-        try {
-            return project.tasks.named<BuildPackagesTask>(taskName)
-        } catch (e: UnknownDomainObjectException) {
-            return project.tasks.register<BuildPackagesTask>(taskName) {
-                var bp: List<String>?
-                try {
-                    bp = findBuildPython()
-                } catch (e: BuildPythonException) {
-                    bp = null
-                    exception = e
-                }
-                inputs.property("buildPython", bp).optional(true)
+    fun createBuildPackagesTask() =
+        registerTask("extract", "buildPackages", BuildPackagesTask::class) {
+            var bp: List<String>?
+            try {
+                bp = findBuildPython()
+            } catch (e: BuildPythonException) {
+                bp = null
+                exception = e
+            }
+            inputs.property("buildPython", bp).optional(true)
 
-                // Keep the path short to avoid the the Windows 260-character limit.
-                outputFiles = project.fileTree(plugin.buildSubdir("env")) {
-                    exclude("**/__pycache__")
-                }
+            // Keep the path short to avoid the the Windows 260-character limit.
+            outputFiles = project.fileTree(plugin.buildSubdir("env", variant)) {
+                exclude("**/__pycache__")
+            }
 
-                if (bp != null) {
-                    doLast {
-                        project.exec {
-                            commandLine(bp)
-                            args("-m", "venv", "--without-pip", outputDir)
-                        }
-
-                        val zipPath = plugin.extractResource(
-                            "gradle/build-packages.zip", plugin.buildSubdir())
-                        project.copy {
-                            from(project.zipTree(zipPath))
-                            into(sitePackages)
-                        }
-                        project.delete(zipPath)
+            if (bp != null) {
+                doLast {
+                    project.exec {
+                        commandLine(bp)
+                        args("-m", "venv", "--without-pip", outputDir)
                     }
+
+                    val zipPath = plugin.extractResource(
+                        "gradle/build-packages.zip", plugin.buildSubdir())
+                    project.copy {
+                        from(project.zipTree(zipPath))
+                        into(sitePackages)
+                    }
+                    project.delete(zipPath)
                 }
             }
         }
-    }
 
     open class BuildPackagesTask : OutputDirTask() {
         @get:Internal
@@ -112,10 +106,10 @@ internal class TaskBuilder(
 
         @get:Internal
         val sitePackages by lazy {
-            if (osName() == "windows") {
-                outputDir.resolve("Lib/site-packages")
+            val libPythonDir = if (osName() == "windows") {
+                assertExists(outputDir.resolve("Lib"))
             } else {
-                val libDir = outputDir.resolve("lib")
+                val libDir = assertExists(outputDir.resolve("lib"))
                 val pythonDirs = libDir.listFiles()!!.filter {
                     it.name.startsWith("python")
                 }
@@ -123,8 +117,9 @@ internal class TaskBuilder(
                     throw GradleException(
                         "found ${pythonDirs.size} python directories in $libDir")
                 }
-                pythonDirs[0].resolve("site-packages")
+                pythonDirs[0]
             }
+            libPythonDir.resolve("site-packages")
         }
     }
 
@@ -768,4 +763,12 @@ fun makeZip(tree: FileTree, outFile: File) {
             }
         })
     }
+}
+
+
+fun assertExists(f: File) : File {
+    if (!f.exists()) {
+        throw GradleException("$f does not exist")
+    }
+    return f
 }
