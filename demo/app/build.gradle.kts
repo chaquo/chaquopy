@@ -30,7 +30,17 @@ android {
         minSdk = 21
         targetSdk = 33
 
-        versionName = System.getProperty("chaquopyVersion")  // Set in the root project
+        val plugins = buildscript.configurations.getByName("classpath")
+             .resolvedConfiguration.resolvedArtifacts.map {
+                 it.moduleVersion.id
+            }.filter {
+                it.group == "com.chaquo.python" && it.name == "gradle"
+            }
+        if (plugins.size != 1) {
+            throw GradleException("found ${plugins.size} Chaquopy plugins")
+        }
+        versionName = plugins[0].version
+
         val verParsed = versionName!!.split(".").map { it.toInt() }
         versionCode = verParsed[0] * 1000000 +
                       verParsed[1] * 1000 +

@@ -94,7 +94,7 @@ The integration tests are run by the Gradle task `gradle-plugin:testIntegration-
 `X.Y` is the Android Gradle plugin version to test against (e.g. `7.0`).
 
 Each Android Gradle plugin version has a corresponding JDK version specified in
-test/integration/data/base-X.Y/gradle.properties. The location of this JDK must be
+test/integration/data/base/X.Y/gradle.properties. The location of this JDK must be
 set in `product/local.properties` as described above.
 
 The full set of tests will take a long time. To run only some of them, add `-P

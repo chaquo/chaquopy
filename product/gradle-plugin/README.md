@@ -7,15 +7,15 @@ After first release candidate:
 * Check the bundled JDK version, and update product/local.properties to point at it.
 * Use the new project wizard to create an "Empty Activity" project, with "Minimum SDK"
   set to Chaquopy's current minimum.
-* Create a directory integration/data/base-X.Y, where X.Y is the Android Gradle plugin
+* Create a directory integration/data/base/X.Y, where X.Y is the Android Gradle plugin
   version.
-* Copy the contents from the previous base-X.Y directory, then update them with the
+* Copy the contents from the previous base/X.Y directory, then update them with the
   settings from the "Empty Activity" project.
 * Run tests on all platforms.
 
 After stable release:
 
-* As above, update the integration/data/base-X.Y directory with the settings from the
+* As above, update the integration/data/base/X.Y directory with the settings from the
   new project wizard.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
@@ -43,7 +43,7 @@ After stable release:
 * Check if there's any version-dependent code in the plugin or the tests which can now
   be removed.
 * Integration tests:
-  * Remove AndroidPlugin/old, then move the old base-X.Y directory to replace it.
+  * Remove AndroidPlugin/old, then move the old base/X.Y directory to replace it.
   * Update test_old expected message, then run the test.
 * Update android.rst and versions.rst.
 * Consider increasing the Gradle version of the "product" project (see

@@ -93,11 +93,17 @@ abstract class TestPythonTask : DefaultTask() {
         val args = project.findProperty("testPythonArgs")
         if (args != null) {
             command += "-v"
-            command += args.toString().split(Regex("""\s+"""))
+            command += args.toString().split(Regex("""\s+""")).filter { !it.isEmpty() }
         } else {
             command += listOf("discover", "-v")
         }
         pb.command(command)
+
+        // Lower levels mean more logging.
+        if (project.gradle.startParameter.logLevel <= LogLevel.INFO) {
+            println("TestPythonTask: $command")
+        }
+
         pb.redirectErrorStream(true)  // Merge stdout and stderr.
         val process = pb.start()
 
@@ -106,7 +112,7 @@ abstract class TestPythonTask : DefaultTask() {
         // daemon's *native* stdout, which isn't connected to anything. So we
         // capture the output manually and send it to System.out, which is connected
         // to the Gradle client.
-        val stdout = process.getInputStream()  // sic
+        val stdout = process.inputStream  // It's an input from our point of view.
         val buffer = ByteArray(1024 * 1024)
         while (true) {
             val available = stdout.available()
@@ -140,11 +146,11 @@ tasks.check {
     dependsOn("testPython", "testIntegration")
 }
 
+// This should match the version discovery logic in ci.yml.
 val INTEGRATION_DIR = "$projectDir/src/test/integration"
-val PATTERN = Regex("^base-(.+)$")
-for (f in file("$INTEGRATION_DIR/data").listFiles()!!) {
-    PATTERN.find(f.name)?.let {
-        val version = it.groupValues[1]
+for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
+    val version = f.name
+    if (version.contains(".")) {
         val task = tasks.register<TestPythonTask>("testIntegration-$version") {
             pythonVersion = Common.DEFAULT_PYTHON_VERSION
             if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI

@@ -5,6 +5,9 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    plugins {
+        id("com.chaquo.python") version file("../VERSION.txt").readText().trim()
+    }
 }
 
 dependencyResolutionManagement {

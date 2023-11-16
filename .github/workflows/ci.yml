@@ -57,13 +57,14 @@ jobs:
             !**/*.sha512
           if-no-files-found: error
 
+      # This should match the version discovery logic in gradle-plugin/build.gradle.kts.
       - name: List Android Gradle plugin versions
         id: agp-versions
         run: |
-          cd product/gradle-plugin/src/test/integration/data
+          cd product/gradle-plugin/src/test/integration/data/base
           (
               echo -n versions=
-              echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
+              echo *.* | jq -cR 'split(" ")'
           ) >> $GITHUB_OUTPUT
 
     outputs:

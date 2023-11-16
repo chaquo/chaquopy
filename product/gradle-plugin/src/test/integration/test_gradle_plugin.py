@@ -256,7 +256,14 @@ class ChaquopyPlugin(GradleTestCase):
     # Make sure we still work if the plugin is applied in the app module buildscript rather
     # than the root project.
     def test_apply_buildscript(self):
-        self.RunGradle("base", "ChaquopyPlugin/apply_buildscript")
+        # The version-numbered "base" layers differ in whether their top-level
+        # build.gradle and settings.gradle files are in Kotlin or Groovy. This test
+        # provides its own Groovy files.
+        run = self.RunGradle("base", run=False)
+        if agp_version_info >= (8, 2):
+            os.remove(f"{run.project_dir}/build.gradle.kts")
+            os.remove(f"{run.project_dir}/settings.gradle.kts")
+        run.rerun("ChaquopyPlugin/apply_buildscript")
 
 
 class AndroidPlugin(GradleTestCase):
@@ -279,7 +286,8 @@ class AndroidPlugin(GradleTestCase):
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
                    "7.0.0 or later")
-        run = self.RunGradle("base", "AndroidPlugin/old", succeed=False)
+        # This test doesn't use the version-numbered "base" layers.
+        run = self.RunGradle("base/0", "AndroidPlugin/old", succeed=False)
         self.assertInLong(f"{MESSAGE}. {self.ADVICE}", run.stderr)
 
         run.apply_layers("base")
@@ -1524,13 +1532,15 @@ class RunGradle(object):
 
     def apply_layers(self, *layers):
         for layer in layers:
-            # We use dir_utils.copy_tree because shutil.copytree can't merge into a destination
-            # that already exists.
-            dir_util._path_created.clear()  # https://bugs.python.org/issue10948
-            dir_util.copy_tree(join(data_dir, layer), self.project_dir,
-                               preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
             if layer == "base":
-                self.apply_layers("base-" + agp_version)
+                self.apply_layers("base/0", f"base/{agp_version}")
+            else:
+                # We use dir_util.copy_tree, because shutil.copytree can't merge into a
+                # destination that already exists.
+                dir_util._path_created.clear()  # https://bugs.python.org/issue10948
+                dir_util.copy_tree(
+                    join(data_dir, layer), self.project_dir,
+                    preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
               **kwargs):
