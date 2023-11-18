@@ -125,7 +125,7 @@ For component-specific checklists, see README.md files in subdirectories.
   (see release/README.md).
 
 
-## Increasing target API level (targetSdkVersion)
+## Increasing target API level (targetSdk)
 
 This should be done for each new version of Android, as soon as Google starts encouraging
 developers to test against it.

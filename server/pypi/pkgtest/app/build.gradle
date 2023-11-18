@@ -53,12 +53,12 @@ ext.TEST_PACKAGES = [
 
 android {
     namespace "com.chaquo.python.pkgtest3"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
         minSdk = 21
-        targetSdk = 33
+        targetSdk = 34
 
         String pluginVersion = null
         for (art in rootProject.buildscript.configurations.getByName("classpath")

@@ -23,12 +23,12 @@ afterEvaluate {
 
 android {
     namespace = "com.chaquo.python.demo"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
         minSdk = 21
-        targetSdk = 33
+        targetSdk = 34
 
         val plugins = buildscript.configurations.getByName("classpath")
              .resolvedConfiguration.resolvedArtifacts.map {
