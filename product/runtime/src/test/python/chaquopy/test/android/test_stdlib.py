@@ -117,6 +117,10 @@ class TestAndroidStdlib(FilterWarningsCase):
             with self.subTest(name=name):
                 self.assertTrue(os.access(name, os.X_OK))
 
+        for args in [[], [1]]:
+            with self.assertRaisesRegex(OSError, "Inappropriate ioctl for device"):
+                os.get_terminal_size(*args)
+
     def test_pickle(self):
         import pickle
         # This attribute will only exist if the native _pickle module was available when

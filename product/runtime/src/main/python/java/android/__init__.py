@@ -59,6 +59,8 @@ def initialize_sys():
 
 
 def initialize_os():
+    import errno
+
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
@@ -71,6 +73,16 @@ def initialize_os():
                 if os.access(name, os.X_OK)]  # Read permission is not required.
     get_exec_path_original = os.get_exec_path
     os.get_exec_path = get_exec_path_override
+
+    # Our redirectStdioToLogcat mechanism replaces the native stdout with a pipe, so
+    # attempting to get its terminal size returns EPERM rather than ENOTTY. Both of
+    # these result in an OSError, so the calling code will still work, but it generates
+    # a log message like `avc: denied { ioctl } for path="pipe:[10138300]"`, which can
+    # be a problem if the app is doing it repeatedly.
+    def get_terminal_size_override(*args, **kwargs):
+        error = errno.ENOTTY
+        raise OSError(error, os.strerror(error))
+    os.get_terminal_size = get_terminal_size_override
 
 
 def initialize_tempfile():
