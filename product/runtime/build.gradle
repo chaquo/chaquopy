@@ -219,10 +219,18 @@ def proxyTask = tasks.register("generateStaticProxy", Exec) {
 }
 sourceSets.test.java.srcDir(proxyTask)
 
+// CMakeLists.txt may contain configuration-specific settings, so make sure we only use
+// one of the known configurations.
+String cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
+def KNOWN_BUILD_TYPES = ["Debug", "Release"]
+if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
+    throw new GradleException(
+        "Unknown build type '$cmakeBuildType'; valid values are $KNOWN_BUILD_TYPES")
+}
+
 (["host"] + Common.ABIS).each { abi ->
     def pyLibSuffix = ".so"
     def cmakeBuildSubdir = "$buildDir/cmake/$abi"
-    def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
     def cmake = tasks.register("cmake-$abi", Exec) {
         group = "build"
         dependsOn("cythonPython", "cythonJava")
@@ -264,7 +272,7 @@ sourceSets.test.java.srcDir(proxyTask)
             // This must be one of the NDK versions which are pre-installed on the
             // GitHub Actions runner. Ideally it would also match the version in
             // target/build-common.sh, but the latter is more difficult to change.
-            def ndkDir = sdkPath("ndk/23.2.8568313")
+            def ndkDir = sdkPath("ndk/26.1.10909125")
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",

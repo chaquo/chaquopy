@@ -7,6 +7,8 @@ add_compile_options(-DNDEBUG)
 # This warning appears on Python 3.8 only (https://github.com/python/cpython/pull/14193).
 add_compile_options(-Wno-deprecated-declarations)
 
+# The Android Gradle plugin may strip libraries before building them into an app, but
+# we don't want to require the app developer to have the NDK installed.
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
 include_directories(
