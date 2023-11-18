@@ -28,6 +28,9 @@ from com.chaquo.python.android import AndroidPlatform
 from com.chaquo.python.internal import Common
 
 
+import_triggers = {}
+
+
 def initialize(context, build_json, app_path):
     global nativeLibraryDir
     nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir
@@ -588,14 +591,27 @@ class AssetLoader:
         return join(dirname(self.path), name)
 
 
+def add_import_trigger(name, trigger):
+    """Register a callable to be called immediately after the module of the given name
+    is imported. If the module has already been imported, the trigger is called
+    immediately."""
+
+    if name in sys.modules:
+        trigger()
+    else:
+        import_triggers[name] = trigger
+
+
 def exec_module_trigger(mod):
     name = mod.__name__
     if name == "pkg_resources":
         initialize_pkg_resources()
     elif name == "numpy":
         java.chaquopy.numpy = mod  # See conversion.pxi.
-    elif name == "ssl":
-        java.android.initialize_ssl()
+    else:
+        trigger = import_triggers.pop(name, None)
+        if trigger:
+            trigger()
 
 
 # The SourceFileLoader base class will automatically create and use _pycache__ directories.

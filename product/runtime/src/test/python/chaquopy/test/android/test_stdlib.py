@@ -21,21 +21,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         # imported.
         self.assertTrue(datetime.datetime_CAPI)
 
-    def test_json(self):
-        from json import encoder, scanner
-        # These attributes will be None if the native _json module was unavailable when json
-        # was first imported, which would significantly reduce the module's performance.
-        self.assertTrue(encoder.c_make_encoder)
-        self.assertTrue(scanner.c_make_scanner)
-
-    def test_lib2to3(self):
-        with catch_warnings():
-            for category in [DeprecationWarning, PendingDeprecationWarning]:
-                filterwarnings("default", category=category)
-
-            # Requires grammar files to be available in stdlib zip.
-            from lib2to3 import pygram  # noqa: F401
-
     def test_hashlib(self):
         import hashlib
         INPUT = b"The quick brown fox jumps over the lazy dog"
@@ -68,6 +53,21 @@ class TestAndroidStdlib(FilterWarningsCase):
                     self.assertEqual(expected, h.hexdigest())
                 else:
                     self.assertFalse(hasattr(hashlib, name))
+
+    def test_json(self):
+        from json import encoder, scanner
+        # These attributes will be None if the native _json module was unavailable when json
+        # was first imported, which would significantly reduce the module's performance.
+        self.assertTrue(encoder.c_make_encoder)
+        self.assertTrue(scanner.c_make_scanner)
+
+    def test_lib2to3(self):
+        with catch_warnings():
+            for category in [DeprecationWarning, PendingDeprecationWarning]:
+                filterwarnings("default", category=category)
+
+            # Requires grammar files to be available in stdlib zip.
+            from lib2to3 import pygram  # noqa: F401
 
     def test_locale(self):
         import locale
@@ -159,6 +159,15 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertIsInstance(vs[0], signal.Signals)
         self.assertIsInstance(vs[0], enum.IntEnum)
         self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
+
+    def test_socket(self):
+        import socket
+        for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
+            for args in [[], ["whatever"]]:
+                with self.assertRaisesRegex(
+                    OSError, "this function is not available in this build of Python"
+                ):
+                    getattr(socket, name)(*args)
 
     def test_sqlite(self):
         import sqlite3
