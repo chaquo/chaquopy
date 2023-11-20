@@ -157,5 +157,5 @@ Post links to Facebook and Twitter.
 
 Update any affected GitHub issues, StackOverflow questions, email threads, etc.
 
-If there are any packages whose announcement was postponed until this release, go through the
-package release procedure in pypi/README.md.
+If there are any packages whose announcement was postponed until this release, go
+through the package release procedure in pypi/README-internal.md.
