@@ -22,8 +22,9 @@ Data types are converted between Python and Java as follows:
 
 * Java `String` and `char` both correspond to Python `str`.
 
-* A Java array is represented by a :any:`jarray` object. Java array parameters and fields
-  can also be implicitly converted from any sequence, except a string.
+* A Java array is represented by a :any:`jarray` object. Java arrays can also be
+  :ref:`implicitly created <python-array-create>` from any Python sequence, except a
+  string.
 
 * All other Java objects are represented by a :any:`jclass` object.
 
@@ -164,10 +165,17 @@ useful, so the equivalent Python operations are defined as follows:
 Creating
 ........
 
-There's usually no need to create `jarray` objects directly, because any sequence (except a
-string) can be passed directly to a Java method or field which takes an array type.
+There's usually no need to create `jarray` objects directly, because any Python sequence
+(except a string) can be passed directly to a Java method or field which takes an array
+type:
 
-However, where a method has multiple array-type overloads, you may need to disambiguate the
+* When passing a sequence to a Java method, Chaquopy will create a Java array and copy
+  the sequence into it. If the sequence is writable, it will also copy the Java array
+  back into the sequence after the method returns.
+* Assigning a sequence to a Java field is the same, except modifications will not be
+  copied back.
+
+When a Java method has multiple array-type overloads, you may need to disambiguate the
 call. For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
 `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
 `f(jarray(jint)([1,2,3]))`.
