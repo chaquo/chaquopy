@@ -1,6 +1,6 @@
 package:
   name: TA-Lib
-  version: 0.4.17
+  version: "0.4.17"
 
 requirements:
   host:

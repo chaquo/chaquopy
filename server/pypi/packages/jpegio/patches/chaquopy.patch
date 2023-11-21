@@ -1,0 +1,31 @@
+--- src-original/setup.py	2021-10-15 14:26:07.000000000 +0000
++++ src/setup.py	2023-01-30 15:30:10.166631599 +0000
+@@ -11,6 +11,10 @@
+ import platform
+ import glob
+ 
++# Chaquopy
++import builtins
++builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++
+ import numpy
+ 
+ incs = ["."]
+@@ -40,7 +44,7 @@
+     largs.append('-stdlib=libc++')
+     largs.append('-mmacosx-version-min=10.9')
+ 
+-if arch == 'x64':
++if False and arch == 'x64':  # Chaquopy: let the compiler use its default number of bits.
+     cargs.append('-m64')
+ 
+ DIR_LIBJPEG_HEADER = pjoin(DIR_ROOT,"jpegio", "libjpeg", "include")
+@@ -107,7 +111,7 @@
+       license='Apache License 2.0',
+       packages=find_packages(exclude=['tests']),
+       package_data=package_data,
+-      setup_requires=requirements,
++      install_requires=["numpy"],  # Chaquopy: was setup_requires=requirements
+       ext_modules=cythonize(ext_modules,
+                             include_path=incs,
+                             language_level="3"),

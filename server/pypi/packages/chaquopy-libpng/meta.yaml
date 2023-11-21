@@ -1,9 +1,9 @@
 package:
   name: chaquopy-libpng
-  version: 1.6.34
+  version: "1.6.34"
 
 build:
-  number: 1
+  number: 2
 
 source:
   url: ftp://ftp-osl.osuosl.org/pub/libpng/src/libpng16/libpng-1.6.34.tar.gz

@@ -8,15 +8,22 @@ import sys
 # level 30, messages longer than this will be be truncated by logcat. This limit has already
 # been reduced at least once in the history of Android (from 4076 to 4068 between API level 23
 # and 26), so leave some headroom.
-MAX_LINE_LEN = 4000
+#
+# This should match the native stdio buffer size in android_platform.c.
+MAX_LINE_LEN_BYTES = 4000
+
+# UTF-8 uses a maximum of 4 bytes per character. However, if the actual number of bytes
+# per character is smaller than that, then TextIOWrapper may join multiple consecutive
+# writes before passing them to the binary stream.
+MAX_LINE_LEN_CHARS = MAX_LINE_LEN_BYTES // 4
 
 
 def initialize():
     sys.stdin = EmptyInputStream()
 
     # Log levels are consistent with those used by Java.
-    sys.stdout = LogOutputStream(Log.INFO, "python.stdout")
-    sys.stderr = LogOutputStream(Log.WARN, "python.stderr")
+    sys.stdout = TextLogStream(Log.INFO, "python.stdout")
+    sys.stderr = TextLogStream(Log.WARN, "python.stderr")
 
 
 class EmptyInputStream(io.TextIOBase):
@@ -30,62 +37,52 @@ class EmptyInputStream(io.TextIOBase):
         return ""
 
 
-class LogOutputStream(io.TextIOBase):
+class TextLogStream(io.TextIOWrapper):
     def __init__(self, level, tag):
-        self.level = level
-        self.tag = tag
-        self.buffer = BytesOutputWrapper(self)
+        super().__init__(BinaryLogStream(self, level, tag),
+                         encoding="UTF-8", errors="backslashreplace",
+                         line_buffering=True)
+        self._CHUNK_SIZE = MAX_LINE_LEN_BYTES
 
     def __repr__(self):
-        return f"<LogOutputStream {self.tag!r}>"
+        return f"<TextLogStream {self.buffer.tag!r}>"
 
-    @property
-    def encoding(self):
-        return "UTF-8"
+    def write(self, s):
+        if not isinstance(s, str):
+            # Same wording as TextIOWrapper.write.
+            raise TypeError(f"write() argument must be str, not {type(s).__name__}")
 
-    @property
-    def errors(self):
-        return "backslashreplace"
+        # To avoid combining multiple lines into a single log message, we split the string
+        # into separate lines before sending it to the superclass. Note that
+        # "".splitlines() == [], so nothing will be logged in that case.
+        for line, line_keepends in zip(s.splitlines(), s.splitlines(keepends=True)):
+            # Simplify the later stages by translating all newlines into "\n".
+            if line != line_keepends:
+                line += "\n"
+            while line:
+                super().write(line[:MAX_LINE_LEN_CHARS])
+                line = line[MAX_LINE_LEN_CHARS:]
+        return len(s)
+
+
+class BinaryLogStream(io.RawIOBase):
+    def __init__(self, text_stream, level, tag):
+        self.text_stream = text_stream
+        self.level = level
+        self.tag = tag
+
+    def __repr__(self):
+        return f"<BinaryLogStream {self.tag!r}>"
 
     def writable(self):
         return True
 
-    # print() calls write() separately to write the ending newline, which will unfortunately
-    # produce multiple log messages. The only alternatives would be buffering, or ignoring
-    # empty lines, both of which would be bad for debugging.
-    def write(self, s):
-        if not isinstance(s, str):
-            # Same wording as the standard TextIOWrapper stdout.
-            raise TypeError(f"write() argument must be str, not {type(s).__name__}")
-
-        for line in s.splitlines():  # "".splitlines() == [], so nothing will be logged.
-            line = line or " "  # Empty lines are dropped by logcat, so pass a single space.
-            while line:
-                # TODO #5730: max line length should be measured in bytes.
-                Log.println(self.level, self.tag, line[:MAX_LINE_LEN])
-                line = line[MAX_LINE_LEN:]
-        return len(s)
-
-
-class BytesOutputWrapper(io.RawIOBase):
-    def __init__(self, stream):
-        self.stream = stream
-
-    def __repr__(self):
-        return f"<BytesOutputWrapper {self.stream}>"
-
-    @property
-    def encoding(self):
-        return self.stream.encoding
-
-    @property
-    def errors(self):
-        return self.stream.errors
-
-    def writable(self):
-        return self.stream.writable()
-
     def write(self, b):
-        # This form of `str` throws a TypeError on any non-bytes-like object.
-        self.stream.write(str(b, self.stream.encoding, self.stream.errors))
+        # This form of `str` throws a TypeError on any non-bytes-like object, as opposed
+        # to the AttributeError we would probably get from trying to call `encode`.
+        s = str(b, self.text_stream.encoding, self.text_stream.errors)
+
+        # Writing an empty string to the stream should have no effect.
+        if s:
+            Log.println(self.level, self.tag, s)
         return len(b)

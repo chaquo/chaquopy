@@ -1,5 +1,11 @@
 {% set version = "2.5.0" %}
 
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: tflite-runtime
   version: {{ version }}
@@ -11,6 +17,8 @@ source:
   url: https://github.com/tensorflow/tensorflow/archive/v{{ version }}.tar.gz
 
 requirements:
+  build:
+    - pybind11 2.4.3
   host:
     - python
-    - numpy 1.17.4
+    - numpy {{ numpy_version }}

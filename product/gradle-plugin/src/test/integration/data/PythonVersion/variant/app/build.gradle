@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace "com.chaquo.python.test"
+    compileSdk 23
+
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdk 21
+        targetSdk 23
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            version "3.8"
+        }
+        ndk {
+            abiFilters "x86"
+        }
+    }
+
+    // Letter comes first, so it should take priority.
+    flavorDimensions "letter", "number"
+    productFlavors {
+        alpha {
+            dimension "letter"
+        }
+        bravo {
+            dimension "letter"
+            python { version "3.9" }
+        }
+        one {
+            dimension "number"
+        }
+        two {
+            dimension "number"
+            python { version "3.10" }
+        }
+    }
+}

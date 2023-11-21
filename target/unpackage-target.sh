@@ -2,12 +2,12 @@
 set -eu
 
 # Positional arguments:
-#  * `prefix` directory to unpack into. Must already contain ABI subdirectories, but can
-#    otherwise be empty.
 #  * Maven directory to unpack from, e.g. /path/to/com/chaquo/python/target/3.10.6-3.
+#  * `prefix` directory to unpack into.
 
-prefix_dir=$(realpath ${1:?})
-target_dir=$(realpath -m ${2:?})
+mkdir -p "${1:?}"
+target_dir=$(cd ${1:?} && pwd)
+prefix_dir=$(cd ${2:?} && pwd)
 
 version=$(basename "$target_dir")
 version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
@@ -15,8 +15,16 @@ version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
 tmp_dir="/tmp/unpackage-target-$$"
 mkdir "$tmp_dir"
 
-cd "$prefix_dir"
-for abi in *; do
+for zip_path in $target_dir/*.zip; do
+    zip_basename=$(basename $zip_path)
+    abi_regex="^target-$version-(.+).zip$"
+    if ! echo "$zip_basename" | grep -qE "$abi_regex"; then
+        echo "$zip_basename does not match $abi_regex"
+        exit 1
+    fi
+    abi=$(echo "$zip_basename" | sed -E "s/$abi_regex/\1/")
+    if echo $abi | grep -q stdlib; then continue; fi
+
     echo "$abi"
     abi_dir="$tmp_dir/$abi"
     mkdir "$abi_dir"

@@ -1,7 +1,10 @@
 package:
   name: PyNaCl
-  version: 1.5.0
+  version: "1.5.0"
+
+build:
+  number: 1
 
 requirements:
   build:
-    - cffi 1.13.2
+    - cffi 1.15.1

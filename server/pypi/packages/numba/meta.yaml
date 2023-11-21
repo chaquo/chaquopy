@@ -1,6 +1,6 @@
 package:
   name: numba
-  version: 0.48.0
+  version: "0.48.0"
 
 build:
   number: 9

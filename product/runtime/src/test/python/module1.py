@@ -1,4 +1,4 @@
-# This module is used by test_import and test_android.
+# This module is used by TestImport and TestAndroidImport.
 
 
 def test_relative(self):

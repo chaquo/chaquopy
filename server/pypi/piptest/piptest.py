@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.8
 
 import argparse
 from datetime import datetime
@@ -18,8 +18,7 @@ piptest_dir = abspath(dirname(__file__))
 
 def main():
     args = parse_args()
-    print(args.package + ": ", end="")
-    sys.stdout.flush()
+    print(f"{args.package}: start", flush=True)
 
     build_dir = ensure_empty(join(piptest_dir, "build", args.package))
     copy_tree(join(piptest_dir, "src"), build_dir)
@@ -40,13 +39,13 @@ def main():
             # To help search for failures, use the same "BUILD FAILED" phrase as Gradle.
             print(f"{PROGRAM_NAME}: BUILD FAILED: timeout after {TIME_LIMIT} seconds",
                   file=log_file_text)
-            print("FAIL (timeout)")
+            print(f"{args.package}: FAIL (timeout)")
             sys.exit(1)
         except subprocess.CalledProcessError:
-            print("FAIL")
+            print(f"{args.package}: FAIL")
             sys.exit(1)
         else:
-            print("OK")
+            print(f"{args.package}: PASS")
             os.chdir(piptest_dir)
             rmtree(build_dir)
 

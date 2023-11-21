@@ -21,6 +21,8 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 from datetime import datetime
+import re
+import sys
 
 
 # -- General configuration ------------------------------------------------
@@ -34,7 +36,8 @@ from datetime import datetime
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.intersphinx',
-              'sphinx_better_subsection']
+              'sphinx_better_subsection',
+              'sphinx_tabs.tabs']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -61,7 +64,7 @@ copyright = u'{} {}'.format(datetime.now().year, author)
 #
 # Chaquopy: this is no longer auto-generated from VERSION.txt, because that made it awkward to
 # release documentation updates between versions.
-release = "12.0.1"
+release = "15.0.0"
 # The short X.Y version.
 version = release.rpartition(".")[0]
 
@@ -75,7 +78,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = []
+exclude_patterns = ["changes"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 # Leave unset to use the theme's default style.
@@ -184,4 +187,58 @@ texinfo_documents = [
 
 # -- Options for Intersphinx ----------------------------------------------
 
-intersphinx_mapping = {'https://docs.python.org/3': None}
+intersphinx_mapping = {
+    'python': (
+        f'https://docs.python.org/{".".join(map(str, sys.version_info[:2]))}',
+        None,
+    )
+}
+
+# -- Local extensions -----------------------------------------------------
+
+def setup(app):
+    app.connect("source-read", make_changelog_anchors)
+    return {
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
+    }
+
+# Changelog sections titled with version numbers will by default get auto-numbered
+# anchors like "id5". Replace these with anchors suitable for permanent links (based on
+# https://github.com/pypa/pip/blob/22.3.1/docs/pip_sphinxext.py).
+def make_changelog_anchors(app, docname, source):
+    if docname == "changelog":
+        lines = source[0].splitlines()
+        source[0] = "\n".join(_iter_lines_with_refs(lines))
+
+def _iter_lines_with_refs(lines):
+    """Transform the input lines to add a ref before each section title.
+    This is done by looking one line ahead and locate a title's underline,
+    and add a ref before the title text.
+    Dots in the version is converted into dash, and a ``v`` is prefixed.
+    This makes Sphinx use them as HTML ``id`` verbatim without generating
+    auto numbering (which would make the the anchors unstable).
+    """
+    prev = None
+    for line in lines:
+        # Transform the previous line to include an explicit ref.
+        if _is_version_section_title_underline(prev, line):
+            assert prev is not None
+            vref = prev.split(None, 1)[0].replace(".", "-")
+            yield f".. _`v{vref}`:"
+            yield ""  # Empty line between ref and the title.
+        if prev is not None:
+            yield prev
+        prev = line
+    if prev is not None:
+        yield prev
+
+def _is_version_section_title_underline(prev, curr):
+    """Find a ==== line that marks the version section title."""
+    if prev is None:
+        return False
+    if re.match(r"^=+$", curr) is None:
+        return False
+    if len(curr) < len(prev):
+        return False
+    return True

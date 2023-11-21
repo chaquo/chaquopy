@@ -1,0 +1,188 @@
+name: CI
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  product:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+
+      # This step is referenced from product/README.md.
+      - name: Download Android Python builds
+        run: |
+          cd target
+          for version in $(./list-versions.py --build); do
+              target_dir=../maven/com/chaquo/python/target/$version
+              ./download-target.sh $target_dir
+              ./unpackage-target.sh $target_dir prefix
+          done
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/runtime/requirements-build.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Build
+        run: |
+          cd product
+          ./gradlew publish -P cmakeBuildType=Release
+
+      - name: Upload Maven repository
+        uses: actions/upload-artifact@v3.1.2
+        with:
+          name: maven
+          # There's a fairly large per-file overhead, so exclude the hash files.
+          path: |
+            maven
+            !**/*.md5
+            !**/*.sha1
+            !**/*.sha256
+            !**/*.sha512
+          if-no-files-found: error
+
+      # This should match the version discovery logic in gradle-plugin/build.gradle.kts.
+      - name: List Android Gradle plugin versions
+        id: agp-versions
+        run: |
+          cd product/gradle-plugin/src/test/integration/data/base
+          (
+              echo -n versions=
+              echo *.* | jq -cR 'split(" ")'
+          ) >> $GITHUB_OUTPUT
+
+    outputs:
+      agp-versions: ${{ steps.agp-versions.outputs.versions }}
+
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/runtime/requirements-build.txt \
+                          -r product/runtime/requirements-docs.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Build
+        run: |
+          cd product
+          ./gradlew docs
+
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: docs
+          path: |
+            product/runtime/build/docs
+            !**/.doctrees
+          if-no-files-found: error
+
+
+  demo:
+    needs: [product]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Download Maven repository
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: maven
+          path: maven
+
+      - name: Get keystore
+        env:
+          CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
+        run: |
+          echo "$CHAQUO_JKS" | base64 -d > demo/chaquo.jks
+
+      - name: Build
+        run: |
+          cd demo
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          ./gradlew assembleRelease
+
+      - uses: actions/upload-artifact@v3.1.2
+        with:
+          name: demo
+          path: demo/app/build/outputs/apk/release
+          if-no-files-found: error
+
+
+  integration:
+    needs: [product]
+    strategy:
+      fail-fast: false
+      matrix:
+        agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
+        os: [linux, macos, windows]
+        include:
+          # We pin specific OS versions to ensure that the Python `extra-versions`
+          # listed below are all available. To avoid clutter in the GitHub UI, OS
+          # versions are not added to the `os` dimension directly.
+          - os: linux
+            runs-on: ubuntu-20.04
+          - os: macos
+            runs-on: macos-12
+          - os: windows
+            runs-on: windows-2022
+
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+      - uses: actions/checkout@v3.5.3
+
+      - uses: ./.github/actions/setup-python
+        id: setup-python
+        with:
+          # This should include OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
+          # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin, if they're not already
+          # returned by `list-versions.py --minor`.
+          extra-versions: |
+            3.6
+            3.7
+
+      - name: Download Maven repository
+        uses: actions/download-artifact@v3.0.2
+        with:
+          name: maven
+          path: maven
+
+      - name: Install Python requirements
+        run: |
+          ${{ steps.setup-python.outputs.python-default }} -m \
+              pip install -r product/gradle-plugin/src/test/integration/requirements.txt
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Test
+        run: |
+          cd product
+          CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

@@ -1,0 +1,10 @@
+package:
+  name: miniaudio
+  version: "1.59"
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - cffi 1.15.1

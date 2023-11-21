@@ -4,5 +4,8 @@ package:
   name: chaquopy-geos
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   url: http://download.osgeo.org/geos/geos-{{ version }}.tar.bz2

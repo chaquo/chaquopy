@@ -1,8 +1,21 @@
 {% set version = "7.76.1" %}
 
+{% if PY_VER == "3.8" %}
+    {% set openssl_suffix = "" %}
+{% else %}
+   {% set openssl_suffix = "-openssl-3" %}
+{% endif %}
+
 package:
-  name: chaquopy-curl
+  name: chaquopy-curl{{ openssl_suffix }}
   version: {{ version }}
 
 source:
   url: https://curl.se/download/curl-{{ version }}.tar.gz
+
+build:
+  number: 1
+
+requirements:
+  host:
+    - openssl

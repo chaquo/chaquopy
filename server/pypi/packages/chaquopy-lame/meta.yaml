@@ -1,0 +1,11 @@
+{% set version = "3.100" %}
+
+package:
+  name: chaquopy-lame
+  version: "{{ version }}"
+
+build:
+  number: 0
+
+source:
+  url: "https://sourceforge.net/projects/lame/files/lame/{{ version }}/lame-{{ version }}.tar.gz"

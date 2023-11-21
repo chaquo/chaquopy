@@ -1,5 +1,5 @@
 appdirs==1.4.3
 javaproperties==0.7.0
-pyelftools==0.24
-retrying==1.3.3
+pyelftools==0.25
+retrying==1.3.4
 wheel==0.31.1  # For manually generating test files.

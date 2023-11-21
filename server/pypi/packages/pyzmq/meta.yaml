@@ -1,8 +1,14 @@
 package:
   name: pyzmq
-  # When updating, check buildutils/bundle.py and update chaquopy-libzmq as well.
-  version: 18.1.1
+  # When updating, check buildutils/bundle.py and consider updating chaquopy-libzmq to
+  # the matching version.
+  version: "24.0.1"
+
+build:
+  number: 1
 
 requirements:
+  build:
+    - packaging 22.0
   host:
-    - chaquopy-libzmq 4.3.2
+    - chaquopy-libzmq 4.3.4

@@ -5,6 +5,7 @@ import android.content.*;
 import android.content.res.*;
 import android.os.*;
 import com.chaquo.python.*;
+import com.chaquo.python.internal.*;
 import java.io.*;
 import java.util.*;
 import org.jetbrains.annotations.*;
@@ -14,7 +15,7 @@ import org.json.*;
 /** Platform for Chaquopy on Android. */
 public class AndroidPlatform extends Python.Platform {
 
-    /** @deprecated Internal use in importer.py and test_android.py. */
+    /** @deprecated Internal use in importer.py and the Android unit tests. */
     public static String ABI;
 
     // TODO: this list could be eliminated if we simply removed all files or directories
@@ -63,6 +64,14 @@ public class AndroidPlatform extends Python.Platform {
         sp = mContext.getSharedPreferences(Common.ASSET_DIR, Context.MODE_PRIVATE);
         am = mContext.getAssets();
 
+        try {
+            String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
+            buildJson = new JSONObject(streamToString(am.open(buildJsonPath)));
+            loadNativeLibs();
+        } catch (IOException | JSONException e) {
+            throw new RuntimeException(e);
+        }
+
         // TODO: this complexity is unnecessary if the only ABI we can actually use is
         // Build.CPU_ABI, which is the ABI of the current process
         // (https://stackoverflow.com/a/53158339). Verify this is true across all API
@@ -93,6 +102,16 @@ public class AndroidPlatform extends Python.Platform {
         return mContext;
     }
 
+    /** <p>Redirects the native stdout and stderr streams to Logcat. They will appear with
+     * the tags {@code native.stdout} and {@code native.stderr} respectively. This may be
+     * useful for debugging the Python startup process, or seeing messages produced by
+     * non-Python libraries.</p>
+     *
+     * <p>This method has no effect on stdin. It also has no effect on Python's {@code
+     * sys.stdout} and {@code sys.stderr}, which are always redirected as described <a
+     * href="../../../../../android.html#sys">here</a>.</p> */
+    public native void redirectStdioToLogcat();
+
     @Override
     public @NotNull String getPath() {
         // These assets will be extracted to separate files and used as the initial PYTHONPATH.
@@ -116,7 +135,6 @@ public class AndroidPlatform extends Python.Platform {
             deleteObsolete(mContext.getFilesDir(), OBSOLETE_FILES);
             deleteObsolete(mContext.getCacheDir(), OBSOLETE_CACHE);
             extractAssets(bootstrapAssets);
-            loadNativeLibs();
         } catch (IOException | JSONException e) {
             throw new RuntimeException(e);
         }
@@ -143,12 +161,9 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void extractAssets(List<String> assets) throws IOException, JSONException {
-        String buildJsonPath = Common.ASSET_DIR + "/" + Common.ASSET_BUILD_JSON;
-        buildJson = new JSONObject(streamToString(am.open(buildJsonPath)));
-        JSONObject assetsJson = buildJson.getJSONObject("assets");
-
         // AssetManager.list() is surprisingly slow (20 ms per call on the API 23 emulator), so
         // we'll avoid using it.
+        JSONObject assetsJson = buildJson.getJSONObject("assets");
         Set<String> unextracted = new HashSet<>(assets);
         Set<String> directories = new HashSet<>();
         SharedPreferences.Editor spe = sp.edit();

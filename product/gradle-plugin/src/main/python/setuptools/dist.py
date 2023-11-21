@@ -1,202 +1,42 @@
-# -*- coding: utf-8 -*-
 __all__ = ['Distribution']
 
+
 import io
-import sys
-import re
-import os
-import warnings
-import numbers
-import distutils.log
-import distutils.core
-import distutils.cmd
-import distutils.dist
-from distutils.util import strtobool
-from distutils.debug import DEBUG
-from distutils.fancy_getopt import translate_longopt
 import itertools
+import numbers
+import os
+import re
+import sys
+from contextlib import suppress
+from glob import iglob
+from pathlib import Path
+from typing import List, Optional, Set
 
-from collections import defaultdict
-from email import message_from_file
+import distutils.cmd
+import distutils.command
+import distutils.core
+import distutils.dist
+import distutils.log
+from distutils.debug import DEBUG
+from distutils.errors import DistutilsOptionError, DistutilsSetupError
+from distutils.fancy_getopt import translate_longopt
+from distutils.util import strtobool
 
-from distutils.errors import (
-    DistutilsOptionError, DistutilsPlatformError, DistutilsSetupError,
-)
-from distutils.util import rfc822_escape
-from distutils.version import StrictVersion
+from .extern.more_itertools import partition, unique_everseen
+from .extern.ordered_set import OrderedSet
+from .extern.packaging.markers import InvalidMarker, Marker
+from .extern.packaging.specifiers import InvalidSpecifier, SpecifierSet
+from .extern.packaging.version import InvalidVersion, Version
 
-from setuptools.extern import six
-from setuptools.extern import packaging
-from setuptools.extern import ordered_set
-from setuptools.extern.six.moves import map, filter, filterfalse
-
-from . import SetuptoolsDeprecationWarning
-
-from setuptools.depends import Require
-from setuptools import windows_support
-from setuptools.monkey import get_unpatched
-from setuptools.config import parse_configuration
-import pkg_resources
-
-__import__('setuptools.extern.packaging.specifiers')
-__import__('setuptools.extern.packaging.version')
-
-
-def _get_unpatched(cls):
-    warnings.warn("Do not call this function", DistDeprecationWarning)
-    return get_unpatched(cls)
-
-
-def get_metadata_version(self):
-    mv = getattr(self, 'metadata_version', None)
-
-    if mv is None:
-        if self.long_description_content_type or self.provides_extras:
-            mv = StrictVersion('2.1')
-        elif (self.maintainer is not None or
-              self.maintainer_email is not None or
-              getattr(self, 'python_requires', None) is not None or
-              self.project_urls):
-            mv = StrictVersion('1.2')
-        elif (self.provides or self.requires or self.obsoletes or
-                self.classifiers or self.download_url):
-            mv = StrictVersion('1.1')
-        else:
-            mv = StrictVersion('1.0')
-
-        self.metadata_version = mv
-
-    return mv
-
-
-def read_pkg_file(self, file):
-    """Reads the metadata values from a file object."""
-    msg = message_from_file(file)
-
-    def _read_field(name):
-        value = msg[name]
-        if value == 'UNKNOWN':
-            return None
-        return value
-
-    def _read_list(name):
-        values = msg.get_all(name, None)
-        if values == []:
-            return None
-        return values
-
-    self.metadata_version = StrictVersion(msg['metadata-version'])
-    self.name = _read_field('name')
-    self.version = _read_field('version')
-    self.description = _read_field('summary')
-    # we are filling author only.
-    self.author = _read_field('author')
-    self.maintainer = None
-    self.author_email = _read_field('author-email')
-    self.maintainer_email = None
-    self.url = _read_field('home-page')
-    self.license = _read_field('license')
-
-    if 'download-url' in msg:
-        self.download_url = _read_field('download-url')
-    else:
-        self.download_url = None
-
-    self.long_description = _read_field('description')
-    self.description = _read_field('summary')
-
-    if 'keywords' in msg:
-        self.keywords = _read_field('keywords').split(',')
-
-    self.platforms = _read_list('platform')
-    self.classifiers = _read_list('classifier')
-
-    # PEP 314 - these fields only exist in 1.1
-    if self.metadata_version == StrictVersion('1.1'):
-        self.requires = _read_list('requires')
-        self.provides = _read_list('provides')
-        self.obsoletes = _read_list('obsoletes')
-    else:
-        self.requires = None
-        self.provides = None
-        self.obsoletes = None
-
-
-# Based on Python 3.5 version
-def write_pkg_file(self, file):
-    """Write the PKG-INFO format data to a file object.
-    """
-    version = self.get_metadata_version()
-
-    if six.PY2:
-        def write_field(key, value):
-            file.write("%s: %s\n" % (key, self._encode_field(value)))
-    else:
-        def write_field(key, value):
-            file.write("%s: %s\n" % (key, value))
-
-    write_field('Metadata-Version', str(version))
-    write_field('Name', self.get_name())
-    write_field('Version', self.get_version())
-    write_field('Summary', self.get_description())
-    write_field('Home-page', self.get_url())
-
-    if version < StrictVersion('1.2'):
-        write_field('Author', self.get_contact())
-        write_field('Author-email', self.get_contact_email())
-    else:
-        optional_fields = (
-            ('Author', 'author'),
-            ('Author-email', 'author_email'),
-            ('Maintainer', 'maintainer'),
-            ('Maintainer-email', 'maintainer_email'),
-        )
-
-        for field, attr in optional_fields:
-            attr_val = getattr(self, attr)
-
-            if attr_val is not None:
-                write_field(field, attr_val)
-
-    write_field('License', self.get_license())
-    if self.download_url:
-        write_field('Download-URL', self.download_url)
-    for project_url in self.project_urls.items():
-        write_field('Project-URL',  '%s, %s' % project_url)
-
-    long_desc = rfc822_escape(self.get_long_description())
-    write_field('Description', long_desc)
-
-    keywords = ','.join(self.get_keywords())
-    if keywords:
-        write_field('Keywords', keywords)
-
-    if version >= StrictVersion('1.2'):
-        for platform in self.get_platforms():
-            write_field('Platform', platform)
-    else:
-        self._write_list(file, 'Platform', self.get_platforms())
-
-    self._write_list(file, 'Classifier', self.get_classifiers())
-
-    # PEP 314
-    self._write_list(file, 'Requires', self.get_requires())
-    self._write_list(file, 'Provides', self.get_provides())
-    self._write_list(file, 'Obsoletes', self.get_obsoletes())
-
-    # Setuptools specific for PEP 345
-    if hasattr(self, 'python_requires'):
-        write_field('Requires-Python', self.python_requires)
-
-    # PEP 566
-    if self.long_description_content_type:
-        write_field(
-            'Description-Content-Type',
-            self.long_description_content_type
-        )
-    if self.provides_extras:
-        for extra in self.provides_extras:
-            write_field('Provides-Extra', extra)
+from . import _entry_points
+from . import _normalization
+from . import _reqs
+from . import command as _  # noqa  -- imported for side-effects
+from ._importlib import metadata
+from .config import setupcfg, pyprojecttoml
+from .discovery import ConfigDiscovery
+from .monkey import get_unpatched
+from .warnings import InformationOnly, SetuptoolsDeprecationWarning
 
 
 sequence = tuple, list
@@ -204,13 +44,12 @@ sequence = tuple, list
 
 def check_importable(dist, attr, value):
     try:
-        ep = pkg_resources.EntryPoint.parse('x=' + value)
+        ep = metadata.EntryPoint(value=value, name=None, group=None)
         assert not ep.extras
-    except (TypeError, ValueError, AttributeError, AssertionError):
+    except (TypeError, ValueError, AttributeError, AssertionError) as e:
         raise DistutilsSetupError(
-            "%r must be importable 'module:attrs' string (got %r)"
-            % (attr, value)
-        )
+            "%r must be importable 'module:attrs' string (got %r)" % (attr, value)
+        ) from e
 
 
 def assert_string_list(dist, attr, value):
@@ -221,10 +60,10 @@ def assert_string_list(dist, attr, value):
         assert isinstance(value, (list, tuple))
         # verify that elements of value are strings
         assert ''.join(value) != value
-    except (TypeError, ValueError, AttributeError, AssertionError):
+    except (TypeError, ValueError, AttributeError, AssertionError) as e:
         raise DistutilsSetupError(
             "%r must be a list of strings (got %r)" % (attr, value)
-        )
+        ) from e
 
 
 def check_nsp(dist, attr, value):
@@ -234,34 +73,55 @@ def check_nsp(dist, attr, value):
     for nsp in ns_packages:
         if not dist.has_contents_for(nsp):
             raise DistutilsSetupError(
-                "Distribution contains no modules or packages for " +
-                "namespace package %r" % nsp
+                "Distribution contains no modules or packages for "
+                + "namespace package %r" % nsp
             )
         parent, sep, child = nsp.rpartition('.')
         if parent and parent not in ns_packages:
             distutils.log.warn(
                 "WARNING: %r is declared as a package namespace, but %r"
-                " is not: please correct this in setup.py", nsp, parent
+                " is not: please correct this in setup.py",
+                nsp,
+                parent,
             )
+        SetuptoolsDeprecationWarning.emit(
+            "The namespace_packages parameter is deprecated.",
+            "Please replace its usage with implicit namespaces (PEP 420).",
+            see_docs="references/keywords.html#keyword-namespace-packages"
+            # TODO: define due_date, it may break old packages that are no longer
+            # maintained (e.g. sphinxcontrib extensions) when installed from source.
+            # Warning officially introduced in May 2022, however the deprecation
+            # was mentioned much earlier in the docs (May 2020, see #2149).
+        )
 
 
 def check_extras(dist, attr, value):
     """Verify that extras_require mapping is valid"""
     try:
         list(itertools.starmap(_check_extra, value.items()))
-    except (TypeError, ValueError, AttributeError):
+    except (TypeError, ValueError, AttributeError) as e:
         raise DistutilsSetupError(
             "'extras_require' must be a dictionary whose values are "
             "strings or lists of strings containing valid project/version "
             "requirement specifiers."
-        )
+        ) from e
 
 
 def _check_extra(extra, reqs):
     name, sep, marker = extra.partition(':')
-    if marker and pkg_resources.invalid_marker(marker):
-        raise DistutilsSetupError("Invalid environment marker: " + marker)
-    list(pkg_resources.parse_requirements(reqs))
+    try:
+        _check_marker(marker)
+    except InvalidMarker:
+        msg = f"Invalid environment marker: {marker} ({extra!r})"
+        raise DistutilsSetupError(msg) from None
+    list(_reqs.parse(reqs))
+
+
+def _check_marker(marker):
+    if not marker:
+        return
+    m = Marker(marker)
+    m.evaluate()
 
 
 def assert_bool(dist, attr, value):
@@ -271,10 +131,18 @@ def assert_bool(dist, attr, value):
         raise DistutilsSetupError(tmpl.format(attr=attr, value=value))
 
 
+def invalid_unless_false(dist, attr, value):
+    if not value:
+        DistDeprecationWarning.emit(f"{attr} is ignored.")
+        # TODO: should there be a `due_date` here?
+        return
+    raise DistutilsSetupError(f"{attr} is invalid.")
+
+
 def check_requirements(dist, attr, value):
     """Verify that install_requires is a valid requirements list"""
     try:
-        list(pkg_resources.parse_requirements(value))
+        list(_reqs.parse(value))
         if isinstance(value, (dict, set)):
             raise TypeError("Unordered types are not allowed")
     except (TypeError, ValueError) as error:
@@ -282,31 +150,30 @@ def check_requirements(dist, attr, value):
             "{attr!r} must be a string or list of strings "
             "containing valid project/version requirement specifiers; {error}"
         )
-        raise DistutilsSetupError(tmpl.format(attr=attr, error=error))
+        raise DistutilsSetupError(tmpl.format(attr=attr, error=error)) from error
 
 
 def check_specifier(dist, attr, value):
     """Verify that value is a valid version specifier"""
     try:
-        packaging.specifiers.SpecifierSet(value)
-    except packaging.specifiers.InvalidSpecifier as error:
+        SpecifierSet(value)
+    except (InvalidSpecifier, AttributeError) as error:
         tmpl = (
-            "{attr!r} must be a string "
-            "containing valid version specifiers; {error}"
+            "{attr!r} must be a string " "containing valid version specifiers; {error}"
         )
-        raise DistutilsSetupError(tmpl.format(attr=attr, error=error))
+        raise DistutilsSetupError(tmpl.format(attr=attr, error=error)) from error
 
 
 def check_entry_points(dist, attr, value):
     """Verify that entry_points map is parseable"""
     try:
-        pkg_resources.EntryPoint.parse_map(value)
-    except ValueError as e:
-        raise DistutilsSetupError(e)
+        _entry_points.load(value)
+    except Exception as e:
+        raise DistutilsSetupError(e) from e
 
 
 def check_test_suite(dist, attr, value):
-    if not isinstance(value, six.string_types):
+    if not isinstance(value, str):
         raise DistutilsSetupError("test_suite must be a string")
 
 
@@ -315,12 +182,12 @@ def check_package_data(dist, attr, value):
     if not isinstance(value, dict):
         raise DistutilsSetupError(
             "{!r} must be a dictionary mapping package names to lists of "
-            "string wildcard patterns".format(attr))
+            "string wildcard patterns".format(attr)
+        )
     for k, v in value.items():
-        if not isinstance(k, six.string_types):
+        if not isinstance(k, str):
             raise DistutilsSetupError(
-                "keys of {!r} dict must be strings (got {!r})"
-                .format(attr, k)
+                "keys of {!r} dict must be strings (got {!r})".format(attr, k)
             )
         assert_string_list(dist, 'values of {!r} dict'.format(attr), v)
 
@@ -330,7 +197,8 @@ def check_packages(dist, attr, value):
         if not re.match(r'\w+(\.\w+)*', pkgname):
             distutils.log.warn(
                 "WARNING: %r not a valid package name; please use only "
-                ".-separated package names in setup.py", pkgname
+                ".-separated package names in setup.py",
+                pkgname,
             )
 
 
@@ -338,7 +206,7 @@ _Distribution = get_unpatched(distutils.core.Distribution)
 
 
 class Distribution(_Distribution):
-    """Distribution with support for features, tests, and package data
+    """Distribution with support for tests and package data
 
     This is an enhanced version of 'distutils.dist.Distribution' that
     effectively adds the following new optional keyword arguments to 'setup()':
@@ -365,21 +233,6 @@ class Distribution(_Distribution):
         EasyInstall and requests one of your extras, the corresponding
         additional requirements will be installed if needed.
 
-     'features' **deprecated** -- a dictionary mapping option names to
-        'setuptools.Feature'
-        objects.  Features are a portion of the distribution that can be
-        included or excluded based on user options, inter-feature dependencies,
-        and availability on the current system.  Excluded features are omitted
-        from all setup commands, including source and binary distributions, so
-        you can create multiple distributions from the same source tree.
-        Feature names should be valid Python identifiers, except that they may
-        contain the '-' (minus) sign.  Features can be included or excluded
-        via the command line options '--with-X' and '--without-X', where 'X' is
-        the name of the feature.  Whether a feature is included by default, and
-        whether you are allowed to control this from the command line, is
-        determined by the Feature object.  See the 'Feature' class for more
-        information.
-
      'test_suite' -- the name of a test suite to run for the 'test' command.
         If the user runs 'python setup.py test', the package will be installed,
         and the named test suite will be run.  The format is the same as
@@ -401,14 +254,17 @@ class Distribution(_Distribution):
     for manipulating the distribution's contents.  For example, the 'include()'
     and 'exclude()' methods can be thought of as in-place add and subtract
     commands that add or remove packages, modules, extensions, and so on from
-    the distribution.  They are used by the feature subsystem to configure the
-    distribution for the included and excluded features.
+    the distribution.
     """
 
     _DISTUTILS_UNSUPPORTED_METADATA = {
-        'long_description_content_type': None,
+        'long_description_content_type': lambda: None,
         'project_urls': dict,
-        'provides_extras': ordered_set.OrderedSet,
+        'provides_extras': OrderedSet,
+        'license_file': lambda: None,
+        'license_files': lambda: None,
+        'install_requires': list,
+        'extras_require': dict,
     }
 
     _patched_dist = None
@@ -420,70 +276,108 @@ class Distribution(_Distribution):
         #
         if not attrs or 'name' not in attrs or 'version' not in attrs:
             return
-        key = pkg_resources.safe_name(str(attrs['name'])).lower()
-        dist = pkg_resources.working_set.by_key.get(key)
-        if dist is not None and not dist.has_metadata('PKG-INFO'):
-            dist._version = pkg_resources.safe_version(str(attrs['version']))
-            self._patched_dist = dist
+        name = _normalization.safe_name(str(attrs['name'])).lower()
+        with suppress(metadata.PackageNotFoundError):
+            dist = metadata.distribution(name)
+            if dist is not None and not dist.read_text('PKG-INFO'):
+                dist._version = _normalization.safe_version(str(attrs['version']))
+                self._patched_dist = dist
 
     def __init__(self, attrs=None):
         have_package_data = hasattr(self, "package_data")
         if not have_package_data:
             self.package_data = {}
         attrs = attrs or {}
-        if 'features' in attrs or 'require_features' in attrs:
-            Feature.warn_deprecated()
-        self.require_features = []
-        self.features = {}
         self.dist_files = []
         # Filter-out setuptools' specific options.
         self.src_root = attrs.pop("src_root", None)
         self.patch_missing_pkg_info(attrs)
         self.dependency_links = attrs.pop('dependency_links', [])
         self.setup_requires = attrs.pop('setup_requires', [])
-        for ep in pkg_resources.iter_entry_points('distutils.setup_keywords'):
+        for ep in metadata.entry_points(group='distutils.setup_keywords'):
             vars(self).setdefault(ep.name, None)
-        _Distribution.__init__(self, {
-            k: v for k, v in attrs.items()
-            if k not in self._DISTUTILS_UNSUPPORTED_METADATA
-        })
 
-        # Fill-in missing metadata fields not supported by distutils.
-        # Note some fields may have been set by other tools (e.g. pbr)
-        # above; they are taken preferrentially to setup() arguments
-        for option, default in self._DISTUTILS_UNSUPPORTED_METADATA.items():
-            for source in self.metadata.__dict__, attrs:
-                if option in source:
-                    value = source[option]
-                    break
-            else:
-                value = default() if default else None
-            setattr(self.metadata, option, value)
+        metadata_only = set(self._DISTUTILS_UNSUPPORTED_METADATA)
+        metadata_only -= {"install_requires", "extras_require"}
+        dist_attrs = {k: v for k, v in attrs.items() if k not in metadata_only}
+        _Distribution.__init__(self, dist_attrs)
 
-        if isinstance(self.metadata.version, numbers.Number):
-            # Some people apparently take "version number" too literally :)
-            self.metadata.version = str(self.metadata.version)
+        # Private API (setuptools-use only, not restricted to Distribution)
+        # Stores files that are referenced by the configuration and need to be in the
+        # sdist (e.g. `version = file: VERSION.txt`)
+        self._referenced_files: Set[str] = set()
 
-        if self.metadata.version is not None:
-            try:
-                ver = packaging.version.Version(self.metadata.version)
-                normalized_version = str(ver)
-                if self.metadata.version != normalized_version:
-                    warnings.warn(
-                        "Normalizing '%s' to '%s'" % (
-                            self.metadata.version,
-                            normalized_version,
-                        )
-                    )
-                    self.metadata.version = normalized_version
-            except (packaging.version.InvalidVersion, TypeError):
-                warnings.warn(
-                    "The version specified (%r) is an invalid version, this "
-                    "may not work as expected with newer versions of "
-                    "setuptools, pip, and PyPI. Please see PEP 440 for more "
-                    "details." % self.metadata.version
-                )
+        self.set_defaults = ConfigDiscovery(self)
+
+        self._set_metadata_defaults(attrs)
+
+        self.metadata.version = self._normalize_version(
+            self._validate_version(self.metadata.version)
+        )
         self._finalize_requires()
+
+    def _validate_metadata(self):
+        required = {"name"}
+        provided = {
+            key
+            for key in vars(self.metadata)
+            if getattr(self.metadata, key, None) is not None
+        }
+        missing = required - provided
+
+        if missing:
+            msg = f"Required package metadata is missing: {missing}"
+            raise DistutilsSetupError(msg)
+
+    def _set_metadata_defaults(self, attrs):
+        """
+        Fill-in missing metadata fields not supported by distutils.
+        Some fields may have been set by other tools (e.g. pbr).
+        Those fields (vars(self.metadata)) take precedence to
+        supplied attrs.
+        """
+        for option, default in self._DISTUTILS_UNSUPPORTED_METADATA.items():
+            vars(self.metadata).setdefault(option, attrs.get(option, default()))
+
+    @staticmethod
+    def _normalize_version(version):
+        from . import sic
+
+        if isinstance(version, sic) or version is None:
+            return version
+
+        normalized = str(Version(version))
+        if version != normalized:
+            InformationOnly.emit(f"Normalizing '{version}' to '{normalized}'")
+            return normalized
+        return version
+
+    @staticmethod
+    def _validate_version(version):
+        if isinstance(version, numbers.Number):
+            # Some people apparently take "version number" too literally :)
+            version = str(version)
+
+        if version is not None:
+            try:
+                Version(version)
+            except (InvalidVersion, TypeError):
+                from . import sic
+
+                SetuptoolsDeprecationWarning.emit(
+                    f"Invalid version: {version!r}.",
+                    """
+                    The version specified is not a valid version according to PEP 440.
+                    This may not work as expected with newer versions of
+                    setuptools, pip, and PyPI.
+                    """,
+                    see_url="https://peps.python.org/pep-0440/",
+                    due_date=(2023, 9, 26),
+                    # Warning initially introduced in 26 Sept 2014
+                    # pypa/packaging already removed legacy versions.
+                )
+                return sic(version)
+        return version
 
     def _finalize_requires(self):
         """
@@ -493,91 +387,89 @@ class Distribution(_Distribution):
         if getattr(self, 'python_requires', None):
             self.metadata.python_requires = self.python_requires
 
-        if getattr(self, 'extras_require', None):
+        self._normalize_requires()
+        self.metadata.install_requires = self.install_requires
+        self.metadata.extras_require = self.extras_require
+
+        if self.extras_require:
             for extra in self.extras_require.keys():
-                # Since this gets called multiple times at points where the
-                # keys have become 'converted' extras, ensure that we are only
-                # truly adding extras we haven't seen before here.
+                # Setuptools allows a weird "<name>:<env markers> syntax for extras
                 extra = extra.split(':')[0]
                 if extra:
                     self.metadata.provides_extras.add(extra)
 
-        self._convert_extras_requirements()
-        self._move_install_requirements_markers()
+    def _normalize_requires(self):
+        """Make sure requirement-related attributes exist and are normalized"""
+        install_requires = getattr(self, "install_requires", None) or []
+        extras_require = getattr(self, "extras_require", None) or {}
+        self.install_requires = list(map(str, _reqs.parse(install_requires)))
+        self.extras_require = {
+            k: list(map(str, _reqs.parse(v or []))) for k, v in extras_require.items()
+        }
 
-    def _convert_extras_requirements(self):
-        """
-        Convert requirements in `extras_require` of the form
-        `"extra": ["barbazquux; {marker}"]` to
-        `"extra:{marker}": ["barbazquux"]`.
-        """
-        spec_ext_reqs = getattr(self, 'extras_require', None) or {}
-        self._tmp_extras_require = defaultdict(list)
-        for section, v in spec_ext_reqs.items():
-            # Do not strip empty sections.
-            self._tmp_extras_require[section]
-            for r in pkg_resources.parse_requirements(v):
-                suffix = self._suffix_for(r)
-                self._tmp_extras_require[section + suffix].append(r)
+    def _finalize_license_files(self):
+        """Compute names of all license files which should be included."""
+        license_files: Optional[List[str]] = self.metadata.license_files
+        patterns: List[str] = license_files if license_files else []
 
-    @staticmethod
-    def _suffix_for(req):
-        """
-        For a requirement, return the 'extras_require' suffix for
-        that requirement.
-        """
-        return ':' + str(req.marker) if req.marker else ''
+        license_file: Optional[str] = self.metadata.license_file
+        if license_file and license_file not in patterns:
+            patterns.append(license_file)
 
-    def _move_install_requirements_markers(self):
-        """
-        Move requirements in `install_requires` that are using environment
-        markers `extras_require`.
-        """
+        if license_files is None and license_file is None:
+            # Default patterns match the ones wheel uses
+            # See https://wheel.readthedocs.io/en/stable/user_guide.html
+            # -> 'Including license files in the generated wheel file'
+            patterns = ('LICEN[CS]E*', 'COPYING*', 'NOTICE*', 'AUTHORS*')
 
-        # divide the install_requires into two sets, simple ones still
-        # handled by install_requires and more complex ones handled
-        # by extras_require.
-
-        def is_simple_req(req):
-            return not req.marker
-
-        spec_inst_reqs = getattr(self, 'install_requires', None) or ()
-        inst_reqs = list(pkg_resources.parse_requirements(spec_inst_reqs))
-        simple_reqs = filter(is_simple_req, inst_reqs)
-        complex_reqs = filterfalse(is_simple_req, inst_reqs)
-        self.install_requires = list(map(str, simple_reqs))
-
-        for r in complex_reqs:
-            self._tmp_extras_require[':' + str(r.marker)].append(r)
-        self.extras_require = dict(
-            (k, [str(r) for r in map(self._clean_req, v)])
-            for k, v in self._tmp_extras_require.items()
+        self.metadata.license_files = list(
+            unique_everseen(self._expand_patterns(patterns))
         )
 
-    def _clean_req(self, req):
+    @staticmethod
+    def _expand_patterns(patterns):
         """
-        Given a Requirement, remove environment markers and return it.
+        >>> list(Distribution._expand_patterns(['LICENSE']))
+        ['LICENSE']
+        >>> list(Distribution._expand_patterns(['setup.cfg', 'LIC*']))
+        ['setup.cfg', 'LICENSE']
         """
-        req.marker = None
-        return req
+        return (
+            path
+            for pattern in patterns
+            for path in sorted(iglob(pattern))
+            if not path.endswith('~') and os.path.isfile(path)
+        )
 
-    def _parse_config_files(self, filenames=None):
+    # FIXME: 'Distribution._parse_config_files' is too complex (14)
+    def _parse_config_files(self, filenames=None):  # noqa: C901
         """
         Adapted from distutils.dist.Distribution.parse_config_files,
         this method provides the same functionality in subtly-improved
         ways.
         """
-        from setuptools.extern.six.moves.configparser import ConfigParser
+        from configparser import ConfigParser
 
         # Ignore install directory options if we have a venv
-        if six.PY3 and sys.prefix != sys.base_prefix:
-            ignore_options = [
-                'install-base', 'install-platbase', 'install-lib',
-                'install-platlib', 'install-purelib', 'install-headers',
-                'install-scripts', 'install-data', 'prefix', 'exec-prefix',
-                'home', 'user', 'root']
-        else:
-            ignore_options = []
+        ignore_options = (
+            []
+            if sys.prefix == sys.base_prefix
+            else [
+                'install-base',
+                'install-platbase',
+                'install-lib',
+                'install-platlib',
+                'install-purelib',
+                'install-headers',
+                'install-scripts',
+                'install-data',
+                'prefix',
+                'exec-prefix',
+                'home',
+                'user',
+                'root',
+            ]
+        )
 
         ignore_options = frozenset(ignore_options)
 
@@ -588,62 +480,107 @@ class Distribution(_Distribution):
             self.announce("Distribution.parse_config_files():")
 
         parser = ConfigParser()
+        parser.optionxform = str
         for filename in filenames:
             with io.open(filename, encoding='utf-8') as reader:
                 if DEBUG:
                     self.announce("  reading {filename}".format(**locals()))
-                (parser.read_file if six.PY3 else parser.readfp)(reader)
+                parser.read_file(reader)
             for section in parser.sections():
                 options = parser.options(section)
                 opt_dict = self.get_option_dict(section)
 
                 for opt in options:
-                    if opt != '__name__' and opt not in ignore_options:
-                        val = self._try_str(parser.get(section, opt))
-                        opt = opt.replace('-', '_')
-                        opt_dict[opt] = (filename, val)
+                    if opt == '__name__' or opt in ignore_options:
+                        continue
+
+                    val = parser.get(section, opt)
+                    opt = self.warn_dash_deprecation(opt, section)
+                    opt = self.make_option_lowercase(opt, section)
+                    opt_dict[opt] = (filename, val)
 
             # Make the ConfigParser forget everything (so we retain
             # the original filenames that options come from)
             parser.__init__()
 
+        if 'global' not in self.command_options:
+            return
+
         # If there was a "global" section in the config file, use it
         # to set Distribution options.
 
-        if 'global' in self.command_options:
-            for (opt, (src, val)) in self.command_options['global'].items():
-                alias = self.negative_opt.get(opt)
-                try:
-                    if alias:
-                        setattr(self, alias, not strtobool(val))
-                    elif opt in ('verbose', 'dry_run'):  # ugh!
-                        setattr(self, opt, strtobool(val))
-                    else:
-                        setattr(self, opt, val)
-                except ValueError as msg:
-                    raise DistutilsOptionError(msg)
+        for opt, (src, val) in self.command_options['global'].items():
+            alias = self.negative_opt.get(opt)
+            if alias:
+                val = not strtobool(val)
+            elif opt in ('verbose', 'dry_run'):  # ugh!
+                val = strtobool(val)
 
-    @staticmethod
-    def _try_str(val):
-        """
-        On Python 2, much of distutils relies on string values being of
-        type 'str' (bytes) and not unicode text. If the value can be safely
-        encoded to bytes using the default encoding, prefer that.
+            try:
+                setattr(self, alias or opt, val)
+            except ValueError as e:
+                raise DistutilsOptionError(e) from e
 
-        Why the default encoding? Because that value can be implicitly
-        decoded back to text if needed.
+    def warn_dash_deprecation(self, opt, section):
+        if section in (
+            'options.extras_require',
+            'options.data_files',
+        ):
+            return opt
 
-        Ref #1653
-        """
-        if six.PY3:
-            return val
+        underscore_opt = opt.replace('-', '_')
+        commands = list(
+            itertools.chain(
+                distutils.command.__all__,
+                self._setuptools_commands(),
+            )
+        )
+        if (
+            not section.startswith('options')
+            and section != 'metadata'
+            and section not in commands
+        ):
+            return underscore_opt
+
+        if '-' in opt:
+            SetuptoolsDeprecationWarning.emit(
+                "Invalid dash-separated options",
+                f"""
+                Usage of dash-separated {opt!r} will not be supported in future
+                versions. Please use the underscore name {underscore_opt!r} instead.
+                """,
+                see_docs="userguide/declarative_config.html",
+                due_date=(2023, 9, 26),
+                # Warning initially introduced in 3 Mar 2021
+            )
+        return underscore_opt
+
+    def _setuptools_commands(self):
         try:
-            return val.encode()
-        except UnicodeEncodeError:
-            pass
-        return val
+            return metadata.distribution('setuptools').entry_points.names
+        except metadata.PackageNotFoundError:
+            # during bootstrapping, distribution doesn't exist
+            return []
 
-    def _set_command_options(self, command_obj, option_dict=None):
+    def make_option_lowercase(self, opt, section):
+        if section != 'metadata' or opt.islower():
+            return opt
+
+        lowercase_opt = opt.lower()
+        SetuptoolsDeprecationWarning.emit(
+            "Invalid uppercase configuration",
+            f"""
+            Usage of uppercase key {opt!r} in {section!r} will not be supported in
+            future versions. Please use lowercase {lowercase_opt!r} instead.
+            """,
+            see_docs="userguide/declarative_config.html",
+            due_date=(2023, 9, 26),
+            # Warning initially introduced in 6 Mar 2021
+        )
+        return lowercase_opt
+
+    # FIXME: 'Distribution._set_command_options' is too complex (14)
+    def _set_command_options(self, command_obj, option_dict=None):  # noqa: C901
         """
         Set the options for 'command_obj' from 'option_dict'.  Basically
         this means copying elements of a dictionary ('option_dict') to
@@ -661,13 +598,11 @@ class Distribution(_Distribution):
 
         if DEBUG:
             self.announce("  setting options for '%s' command:" % command_name)
-        for (option, (source, value)) in option_dict.items():
+        for option, (source, value) in option_dict.items():
             if DEBUG:
-                self.announce("    %s = %s (from %s)" % (option, value,
-                                                         source))
+                self.announce("    %s = %s (from %s)" % (option, value, source))
             try:
-                bool_opts = [translate_longopt(o)
-                             for o in command_obj.boolean_options]
+                bool_opts = [translate_longopt(o) for o in command_obj.boolean_options]
             except AttributeError:
                 bool_opts = []
             try:
@@ -676,7 +611,7 @@ class Distribution(_Distribution):
                 neg_opt = {}
 
             try:
-                is_string = isinstance(value, six.string_types)
+                is_string = isinstance(value, str)
                 if option in neg_opt and is_string:
                     setattr(command_obj, neg_opt[option], not strtobool(value))
                 elif option in bool_opts and is_string:
@@ -686,197 +621,136 @@ class Distribution(_Distribution):
                 else:
                     raise DistutilsOptionError(
                         "error in %s: command '%s' has no such option '%s'"
-                        % (source, command_name, option))
-            except ValueError as msg:
-                raise DistutilsOptionError(msg)
+                        % (source, command_name, option)
+                    )
+            except ValueError as e:
+                raise DistutilsOptionError(e) from e
+
+    def _get_project_config_files(self, filenames):
+        """Add default file and split between INI and TOML"""
+        tomlfiles = []
+        standard_project_metadata = Path(self.src_root or os.curdir, "pyproject.toml")
+        if filenames is not None:
+            parts = partition(lambda f: Path(f).suffix == ".toml", filenames)
+            filenames = list(parts[0])  # 1st element => predicate is False
+            tomlfiles = list(parts[1])  # 2nd element => predicate is True
+        elif standard_project_metadata.exists():
+            tomlfiles = [standard_project_metadata]
+        return filenames, tomlfiles
 
     def parse_config_files(self, filenames=None, ignore_option_errors=False):
         """Parses configuration files from various levels
         and loads configuration.
-
         """
-        self._parse_config_files(filenames=filenames)
+        inifiles, tomlfiles = self._get_project_config_files(filenames)
 
-        parse_configuration(self, self.command_options,
-                            ignore_option_errors=ignore_option_errors)
+        self._parse_config_files(filenames=inifiles)
+
+        setupcfg.parse_configuration(
+            self, self.command_options, ignore_option_errors=ignore_option_errors
+        )
+        for filename in tomlfiles:
+            pyprojecttoml.apply_configuration(self, filename, ignore_option_errors)
+
         self._finalize_requires()
-
-    def parse_command_line(self):
-        """Process features after parsing command line options"""
-        result = _Distribution.parse_command_line(self)
-        if self.features:
-            self._finalize_features()
-        return result
-
-    def _feature_attrname(self, name):
-        """Convert feature name to corresponding option attribute name"""
-        return 'with_' + name.replace('-', '_')
+        self._finalize_license_files()
 
     def fetch_build_eggs(self, requires):
         """Resolve pre-setup requirements"""
-        resolved_dists = pkg_resources.working_set.resolve(
-            pkg_resources.parse_requirements(requires),
-            installer=self.fetch_build_egg,
-            replace_conflicting=True,
-        )
-        for dist in resolved_dists:
-            pkg_resources.working_set.add(dist, replace=True)
-        return resolved_dists
+        from .installer import _fetch_build_eggs
+
+        return _fetch_build_eggs(self, requires)
 
     def finalize_options(self):
-        _Distribution.finalize_options(self)
-        if self.features:
-            self._set_global_opts_from_features()
+        """
+        Allow plugins to apply arbitrary operations to the
+        distribution. Each hook may optionally define a 'order'
+        to influence the order of execution. Smaller numbers
+        go first and the default is 0.
+        """
+        group = 'setuptools.finalize_distribution_options'
 
-        for ep in pkg_resources.iter_entry_points('distutils.setup_keywords'):
+        def by_order(hook):
+            return getattr(hook, 'order', 0)
+
+        defined = metadata.entry_points(group=group)
+        filtered = itertools.filterfalse(self._removed, defined)
+        loaded = map(lambda e: e.load(), filtered)
+        for ep in sorted(loaded, key=by_order):
+            ep(self)
+
+    @staticmethod
+    def _removed(ep):
+        """
+        When removing an entry point, if metadata is loaded
+        from an older version of Setuptools, that removed
+        entry point will attempt to be loaded and will fail.
+        See #2765 for more details.
+        """
+        removed = {
+            # removed 2021-09-05
+            '2to3_doctests',
+        }
+        return ep.name in removed
+
+    def _finalize_setup_keywords(self):
+        for ep in metadata.entry_points(group='distutils.setup_keywords'):
             value = getattr(self, ep.name, None)
             if value is not None:
-                ep.require(installer=self.fetch_build_egg)
                 ep.load()(self, ep.name, value)
-        if getattr(self, 'convert_2to3_doctests', None):
-            # XXX may convert to set here when we can rely on set being builtin
-            self.convert_2to3_doctests = [
-                os.path.abspath(p)
-                for p in self.convert_2to3_doctests
-            ]
-        else:
-            self.convert_2to3_doctests = []
 
     def get_egg_cache_dir(self):
+        from . import windows_support
+
         egg_cache_dir = os.path.join(os.curdir, '.eggs')
         if not os.path.exists(egg_cache_dir):
             os.mkdir(egg_cache_dir)
             windows_support.hide_file(egg_cache_dir)
             readme_txt_filename = os.path.join(egg_cache_dir, 'README.txt')
             with open(readme_txt_filename, 'w') as f:
-                f.write('This directory contains eggs that were downloaded '
-                        'by setuptools to build, test, and run plug-ins.\n\n')
-                f.write('This directory caches those eggs to prevent '
-                        'repeated downloads.\n\n')
+                f.write(
+                    'This directory contains eggs that were downloaded '
+                    'by setuptools to build, test, and run plug-ins.\n\n'
+                )
+                f.write(
+                    'This directory caches those eggs to prevent '
+                    'repeated downloads.\n\n'
+                )
                 f.write('However, it is safe to delete this directory.\n\n')
 
         return egg_cache_dir
 
     def fetch_build_egg(self, req):
         """Fetch an egg needed for building"""
-        from setuptools.command.easy_install import easy_install
-        dist = self.__class__({'script_args': ['easy_install']})
-        opts = dist.get_option_dict('easy_install')
-        opts.clear()
-        opts.update(
-            (k, v)
-            for k, v in self.get_option_dict('easy_install').items()
-            if k in (
-                # don't use any other settings
-                'find_links', 'site_dirs', 'index_url',
-                'optimize', 'site_dirs', 'allow_hosts',
-            ))
-        if self.dependency_links:
-            links = self.dependency_links[:]
-            if 'find_links' in opts:
-                links = opts['find_links'][1] + links
-            opts['find_links'] = ('setup', links)
-        install_dir = self.get_egg_cache_dir()
-        cmd = easy_install(
-            dist, args=["x"], install_dir=install_dir,
-            exclude_scripts=True,
-            always_copy=False, build_directory=None, editable=False,
-            upgrade=False, multi_version=True, no_report=True, user=False
-        )
-        cmd.ensure_finalized()
-        return cmd.easy_install(req)
+        from .installer import fetch_build_egg
 
-    def _set_global_opts_from_features(self):
-        """Add --with-X/--without-X options based on optional features"""
-
-        go = []
-        no = self.negative_opt.copy()
-
-        for name, feature in self.features.items():
-            self._set_feature(name, None)
-            feature.validate(self)
-
-            if feature.optional:
-                descr = feature.description
-                incdef = ' (default)'
-                excdef = ''
-                if not feature.include_by_default():
-                    excdef, incdef = incdef, excdef
-
-                new = (
-                    ('with-' + name, None, 'include ' + descr + incdef),
-                    ('without-' + name, None, 'exclude ' + descr + excdef),
-                )
-                go.extend(new)
-                no['without-' + name] = 'with-' + name
-
-        self.global_options = self.feature_options = go + self.global_options
-        self.negative_opt = self.feature_negopt = no
-
-    def _finalize_features(self):
-        """Add/remove features and resolve dependencies between them"""
-
-        # First, flag all the enabled items (and thus their dependencies)
-        for name, feature in self.features.items():
-            enabled = self.feature_is_included(name)
-            if enabled or (enabled is None and feature.include_by_default()):
-                feature.include_in(self)
-                self._set_feature(name, 1)
-
-        # Then disable the rest, so that off-by-default features don't
-        # get flagged as errors when they're required by an enabled feature
-        for name, feature in self.features.items():
-            if not self.feature_is_included(name):
-                feature.exclude_from(self)
-                self._set_feature(name, 0)
+        return fetch_build_egg(self, req)
 
     def get_command_class(self, command):
         """Pluggable version of get_command_class()"""
         if command in self.cmdclass:
             return self.cmdclass[command]
 
-        eps = pkg_resources.iter_entry_points('distutils.commands', command)
+        eps = metadata.entry_points(group='distutils.commands', name=command)
         for ep in eps:
-            ep.require(installer=self.fetch_build_egg)
             self.cmdclass[command] = cmdclass = ep.load()
             return cmdclass
         else:
             return _Distribution.get_command_class(self, command)
 
     def print_commands(self):
-        for ep in pkg_resources.iter_entry_points('distutils.commands'):
+        for ep in metadata.entry_points(group='distutils.commands'):
             if ep.name not in self.cmdclass:
-                # don't require extras as the commands won't be invoked
-                cmdclass = ep.resolve()
+                cmdclass = ep.load()
                 self.cmdclass[ep.name] = cmdclass
         return _Distribution.print_commands(self)
 
     def get_command_list(self):
-        for ep in pkg_resources.iter_entry_points('distutils.commands'):
+        for ep in metadata.entry_points(group='distutils.commands'):
             if ep.name not in self.cmdclass:
-                # don't require extras as the commands won't be invoked
-                cmdclass = ep.resolve()
+                cmdclass = ep.load()
                 self.cmdclass[ep.name] = cmdclass
         return _Distribution.get_command_list(self)
-
-    def _set_feature(self, name, status):
-        """Set feature's inclusion status"""
-        setattr(self, self._feature_attrname(name), status)
-
-    def feature_is_included(self, name):
-        """Return 1 if feature is included, 0 if excluded, 'None' if unknown"""
-        return getattr(self, self._feature_attrname(name))
-
-    def include_feature(self, name):
-        """Request inclusion of feature named 'name'"""
-
-        if self.feature_is_included(name) == 0:
-            descr = self.features[name].description
-            raise DistutilsOptionError(
-                descr + " is required, but was excluded or is not available"
-            )
-        self.features[name].include_in(self)
-        self._set_feature(name, 1)
 
     def include(self, **attrs):
         """Add items to distribution that are named in keyword arguments
@@ -906,19 +780,18 @@ class Distribution(_Distribution):
         pfx = package + '.'
         if self.packages:
             self.packages = [
-                p for p in self.packages
-                if p != package and not p.startswith(pfx)
+                p for p in self.packages if p != package and not p.startswith(pfx)
             ]
 
         if self.py_modules:
             self.py_modules = [
-                p for p in self.py_modules
-                if p != package and not p.startswith(pfx)
+                p for p in self.py_modules if p != package and not p.startswith(pfx)
             ]
 
         if self.ext_modules:
             self.ext_modules = [
-                p for p in self.ext_modules
+                p
+                for p in self.ext_modules
                 if p.name != package and not p.name.startswith(pfx)
             ]
 
@@ -939,10 +812,8 @@ class Distribution(_Distribution):
             )
         try:
             old = getattr(self, name)
-        except AttributeError:
-            raise DistutilsSetupError(
-                "%s: No such distribution setting" % name
-            )
+        except AttributeError as e:
+            raise DistutilsSetupError("%s: No such distribution setting" % name) from e
         if old is not None and not isinstance(old, sequence):
             raise DistutilsSetupError(
                 name + ": this setting cannot be changed via include/exclude"
@@ -954,15 +825,11 @@ class Distribution(_Distribution):
         """Handle 'include()' for list/tuple attrs without a special handler"""
 
         if not isinstance(value, sequence):
-            raise DistutilsSetupError(
-                "%s: setting must be a list (%r)" % (name, value)
-            )
+            raise DistutilsSetupError("%s: setting must be a list (%r)" % (name, value))
         try:
             old = getattr(self, name)
-        except AttributeError:
-            raise DistutilsSetupError(
-                "%s: No such distribution setting" % name
-            )
+        except AttributeError as e:
+            raise DistutilsSetupError("%s: No such distribution setting" % name) from e
         if old is None:
             setattr(self, name, value)
         elif not isinstance(old, sequence):
@@ -1015,6 +882,7 @@ class Distribution(_Distribution):
             src, alias = aliases[command]
             del aliases[command]  # ensure each alias can expand only once!
             import shlex
+
             args[:1] = shlex.split(alias, True)
             command = args[0]
 
@@ -1042,9 +910,7 @@ class Distribution(_Distribution):
         d = {}
 
         for cmd, opts in self.command_options.items():
-
             for opt, (src, val) in opts.items():
-
                 if src != "command line":
                     continue
 
@@ -1095,7 +961,7 @@ class Distribution(_Distribution):
         """
         import sys
 
-        if six.PY2 or self.help_commands:
+        if self.help_commands:
             return _Distribution.handle_display_options(self, option_order)
 
         # Stdout may be StringIO (e.g. in tests)
@@ -1109,171 +975,18 @@ class Distribution(_Distribution):
 
         # Print metadata in UTF-8 no matter the platform
         encoding = sys.stdout.encoding
-        errors = sys.stdout.errors
-        newline = sys.platform != 'win32' and '\n' or None
-        line_buffering = sys.stdout.line_buffering
-
-        sys.stdout = io.TextIOWrapper(
-            sys.stdout.detach(), 'utf-8', errors, newline, line_buffering)
+        sys.stdout.reconfigure(encoding='utf-8')
         try:
             return _Distribution.handle_display_options(self, option_order)
         finally:
-            sys.stdout = io.TextIOWrapper(
-                sys.stdout.detach(), encoding, errors, newline, line_buffering)
+            sys.stdout.reconfigure(encoding=encoding)
 
+    def run_command(self, command):
+        self.set_defaults()
+        # Postpone defaults until all explicit configuration is considered
+        # (setup() args, config files, command line and plugins)
 
-class Feature:
-    """
-    **deprecated** -- The `Feature` facility was never completely implemented
-    or supported, `has reported issues
-    <https://github.com/pypa/setuptools/issues/58>`_ and will be removed in
-    a future version.
-
-    A subset of the distribution that can be excluded if unneeded/wanted
-
-    Features are created using these keyword arguments:
-
-      'description' -- a short, human readable description of the feature, to
-         be used in error messages, and option help messages.
-
-      'standard' -- if true, the feature is included by default if it is
-         available on the current system.  Otherwise, the feature is only
-         included if requested via a command line '--with-X' option, or if
-         another included feature requires it.  The default setting is 'False'.
-
-      'available' -- if true, the feature is available for installation on the
-         current system.  The default setting is 'True'.
-
-      'optional' -- if true, the feature's inclusion can be controlled from the
-         command line, using the '--with-X' or '--without-X' options.  If
-         false, the feature's inclusion status is determined automatically,
-         based on 'availabile', 'standard', and whether any other feature
-         requires it.  The default setting is 'True'.
-
-      'require_features' -- a string or sequence of strings naming features
-         that should also be included if this feature is included.  Defaults to
-         empty list.  May also contain 'Require' objects that should be
-         added/removed from the distribution.
-
-      'remove' -- a string or list of strings naming packages to be removed
-         from the distribution if this feature is *not* included.  If the
-         feature *is* included, this argument is ignored.  This argument exists
-         to support removing features that "crosscut" a distribution, such as
-         defining a 'tests' feature that removes all the 'tests' subpackages
-         provided by other features.  The default for this argument is an empty
-         list.  (Note: the named package(s) or modules must exist in the base
-         distribution when the 'setup()' function is initially called.)
-
-      other keywords -- any other keyword arguments are saved, and passed to
-         the distribution's 'include()' and 'exclude()' methods when the
-         feature is included or excluded, respectively.  So, for example, you
-         could pass 'packages=["a","b"]' to cause packages 'a' and 'b' to be
-         added or removed from the distribution as appropriate.
-
-    A feature must include at least one 'requires', 'remove', or other
-    keyword argument.  Otherwise, it can't affect the distribution in any way.
-    Note also that you can subclass 'Feature' to create your own specialized
-    feature types that modify the distribution in other ways when included or
-    excluded.  See the docstrings for the various methods here for more detail.
-    Aside from the methods, the only feature attributes that distributions look
-    at are 'description' and 'optional'.
-    """
-
-    @staticmethod
-    def warn_deprecated():
-        msg = (
-            "Features are deprecated and will be removed in a future "
-            "version. See https://github.com/pypa/setuptools/issues/65."
-        )
-        warnings.warn(msg, DistDeprecationWarning, stacklevel=3)
-
-    def __init__(
-            self, description, standard=False, available=True,
-            optional=True, require_features=(), remove=(), **extras):
-        self.warn_deprecated()
-
-        self.description = description
-        self.standard = standard
-        self.available = available
-        self.optional = optional
-        if isinstance(require_features, (str, Require)):
-            require_features = require_features,
-
-        self.require_features = [
-            r for r in require_features if isinstance(r, str)
-        ]
-        er = [r for r in require_features if not isinstance(r, str)]
-        if er:
-            extras['require_features'] = er
-
-        if isinstance(remove, str):
-            remove = remove,
-        self.remove = remove
-        self.extras = extras
-
-        if not remove and not require_features and not extras:
-            raise DistutilsSetupError(
-                "Feature %s: must define 'require_features', 'remove', or "
-                "at least one of 'packages', 'py_modules', etc."
-            )
-
-    def include_by_default(self):
-        """Should this feature be included by default?"""
-        return self.available and self.standard
-
-    def include_in(self, dist):
-        """Ensure feature and its requirements are included in distribution
-
-        You may override this in a subclass to perform additional operations on
-        the distribution.  Note that this method may be called more than once
-        per feature, and so should be idempotent.
-
-        """
-
-        if not self.available:
-            raise DistutilsPlatformError(
-                self.description + " is required, "
-                "but is not available on this platform"
-            )
-
-        dist.include(**self.extras)
-
-        for f in self.require_features:
-            dist.include_feature(f)
-
-    def exclude_from(self, dist):
-        """Ensure feature is excluded from distribution
-
-        You may override this in a subclass to perform additional operations on
-        the distribution.  This method will be called at most once per
-        feature, and only after all included features have been asked to
-        include themselves.
-        """
-
-        dist.exclude(**self.extras)
-
-        if self.remove:
-            for item in self.remove:
-                dist.exclude_package(item)
-
-    def validate(self, dist):
-        """Verify that feature makes sense in context of distribution
-
-        This method is called by the distribution just before it parses its
-        command line.  It checks to ensure that the 'remove' attribute, if any,
-        contains only valid package/module names that are present in the base
-        distribution when 'setup()' is called.  You may override it in a
-        subclass to perform any other required validation of the feature
-        against a target distribution.
-        """
-
-        for item in self.remove:
-            if not dist.has_contents_for(item):
-                raise DistutilsSetupError(
-                    "%s wants to be able to remove %s, but the distribution"
-                    " doesn't contain any packages or modules under %s"
-                    % (self.description, item, item)
-                )
+        super().run_command(command)
 
 
 class DistDeprecationWarning(SetuptoolsDeprecationWarning):

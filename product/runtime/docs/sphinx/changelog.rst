@@ -1,10 +1,88 @@
+:tocdepth: 2
+
 Change log
 ##########
+
+.. towncrier release notes start
+
+14.0.2 (2023-01-29)
+===================
+
+Backward incompatible
+---------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
+
+
+Features
+--------
+
+- `sys.stdout` and `sys.stderr` are now line-buffered by default. (`#654
+  <https://github.com/chaquo/chaquopy/issues/654>`__, `#746
+  <https://github.com/chaquo/chaquopy/issues/746>`__, `#757
+  <https://github.com/chaquo/chaquopy/issues/757>`__)
+- Add option to `redirect native stdout and stderr to Logcat
+  <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat-->`__.
+  (`#725 <https://github.com/chaquo/chaquopy/issues/725>`__)
+- Update to Python version 3.8.16 and OpenSSL version 1.1.1s. This fixes the
+  Google Play warning "Your app uses a defective version of the OpenSSL
+  library". (`#727 <https://github.com/chaquo/chaquopy/issues/727>`__)
+- Update CA bundle to certifi 2022.12.7. (`#747
+  <https://github.com/chaquo/chaquopy/issues/747>`__)
+- Add `python` executable as a final fallback when searching for buildPython.
+  (`#752 <https://github.com/chaquo/chaquopy/issues/752>`__)
+- Restore the `extractPackages` setting, for code that requires its modules to
+  exist as separate .py files. (`#754
+  <https://github.com/chaquo/chaquopy/issues/754>`__)
+- Android Gradle plugin version 7.4 is now supported. (`#756
+  <https://github.com/chaquo/chaquopy/issues/756>`__)
+- Android Gradle plugin version 8.0 is now supported, though projects which use
+  `minifyEnabled true` will need a workaround. (`#842
+  <https://github.com/chaquo/chaquopy/issues/842>`__)
+- Update to pip version 20.1.
+
+
+Bugfixes
+--------
+
+- Enable PEP 517 builds in pip. (`#715
+  <https://github.com/chaquo/chaquopy/issues/715>`__)
+- Show correct error message when buildPython autodetection fails. (`#733
+  <https://github.com/chaquo/chaquopy/issues/733>`__)
+- Fix error when calling `entry_points` with an unreadable directory on
+  `sys.path`. (`#755 <https://github.com/chaquo/chaquopy/issues/755>`__)
+- Fix "Could not find an activated virtualenv" error when
+  `PIP_REQUIRE_VIRTUALENV` environment variable is set. (`#777
+  <https://github.com/chaquo/chaquopy/issues/777>`__)
+
+
+13.0.0 (2022-11-06)
+===================
+
+* Android Gradle plugin version 7.3 is now supported (`#663
+  <https://github.com/chaquo/chaquopy/issues/663>`_).
+* [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 21. This
+  still covers `98% of active devices
+  <https://dl.google.com/android/studio/metadata/distributions.json>`_.
+* Python versions 3.9, 3.10 and 3.11 are now supported (`#661
+  <https://github.com/chaquo/chaquopy/issues/661>`_).
+* Detect changes to files or directories listed in requirements files (`#660
+  <https://github.com/chaquo/chaquopy/issues/660>`_).
+* Projects are no longer required to have a local.properties file, as long as the
+  `ANDROID_HOME` or `ANDROID_SDK_ROOT` environment variable is set (`#672
+  <https://github.com/chaquo/chaquopy/issues/672>`_).
+* Enable all warnings, including :any:`DeprecationWarning`,
+  :any:`PendingDeprecationWarning`, :any:`ImportWarning` and :any:`ResourceWarning`.
+* Update to pkg_resources version 56.2.0.
+* Update to SQLite version 3.39.2.
+* Update Python 3.9 and later to OpenSSL version 3.0.5.
 
 12.0.1 (2022-07-24)
 ===================
 
-* First open-source release.
+* First open-source release. Apart from removing the license restrictions, this is
+  identical to version 12.0.0.
 
 12.0.0 (2022-05-12)
 ===================

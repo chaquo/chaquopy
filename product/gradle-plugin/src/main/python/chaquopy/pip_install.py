@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Keep valid Python 2 syntax so we can produce an error message.
-from __future__ import absolute_import, division, print_function
-
 # Do this as early as possible to minimize the chance of something else going wrong and causing
 # a less comprehensible error message.
 from .util import check_build_python
@@ -28,19 +25,14 @@ from wheel.util import urlsafe_b64encode  # Not the same as the version in base6
 from .util import CommandError
 
 
-ABI_API_LEVELS = {
-    "armeabi-v7a": 16,
-    "arm64-v8a": 21,
-    "x86": 16,
-    "x86_64": 21,
-}
-
 # Files which aren't needed at runtime should be omitted from the APK.
 EXCLUDE_PATTERNS = [
     "chaquopy/include/*",
     "chaquopy/lib/*.la",
     "chaquopy/lib/cmake/*",
     "chaquopy/lib/pkgconfig/*",
+    "chaquopy/share/doc",
+    "chaquopy/share/man",
 ]
 
 
@@ -113,14 +105,12 @@ class PipInstall(object):
             return [], {}
 
         try:
+            # Disable all config files (https://github.com/pypa/pip/issues/3828).
+            os.environ["PIP_CONFIG_FILE"] = os.devnull
+
             # Warning: `pip install --target` is very simple-minded: see
-            # https://github.com/pypa/pip/issues/4625#issuecomment-375977073. Also, we've
-            # altered its behaviour somewhat for performance: see commands/install.py.
-            os.environ["PIP_CONFIG_FILE"] = os.devnull  # Disables all config files.
+            # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = ([sys.executable,
-                       "-S",  # Avoid interference from site-packages. This is not inherited
-                              # by subprocesses, so it's used again in pip (see wheel.py and
-                              # req_install.py).
                         "-m", "pip", "install",
                         "--isolated",  # Disables environment variables.
                         "--target", abi_dir,
@@ -212,7 +202,7 @@ class PipInstall(object):
             renames(abi_filename, common_filename)
 
     def platform_tag(self, abi):
-        return "android_{}_{}".format(ABI_API_LEVELS[abi], re.sub(r"[-.]", "_", abi))
+        return "android_{}_{}".format(self.min_api_level, re.sub(r"[-.]", "_", abi))
 
     def parse_args(self):
         class ReqFileAppend(argparse.Action):
@@ -224,6 +214,7 @@ class PipInstall(object):
         # and https://bitbucket.org/pypa/distlib/src/0.2.7/distlib/resources.py#lines-135
         ap.add_argument("--target", metavar="DIR", type=realpath, required=True)
         ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
+        ap.add_argument("--min-api-level", metavar="LEVEL", type=int, required=True)
 
         # Passing the requirements this way ensures their order is maintained on the pip install
         # command line, which may be significant because of pip's simple-minded dependency

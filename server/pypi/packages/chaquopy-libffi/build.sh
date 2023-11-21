@@ -1,9 +1,7 @@
 #!/bin/bash
 set -eu
 
-HOST_TRIPLET=$(basename $CC | sed 's/-gcc$//')
-
-./configure --host=$HOST_TRIPLET --prefix=$PREFIX
+./configure --host=$HOST --prefix=$PREFIX
 make -j $CPU_COUNT
 make install
 
@@ -12,6 +10,5 @@ if [ -d $PREFIX/lib64 ]; then
     rmdir $PREFIX/lib64
 fi
 
-rm $PREFIX/lib/libffi.{a,la}
-rm -r $PREFIX/lib/pkgconfig
+rm $PREFIX/lib/*.a
 rm -r $PREFIX/share

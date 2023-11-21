@@ -5,7 +5,7 @@ version="${1:?}"
 
 cd "$(dirname $(realpath $0))/../maven"
 
-find -name $version | while read dir; do (
+find . -name $version | while read dir; do (
     cd $dir
 
     # Maven Central adds hashes to every file in the bundle, even existing hash files.

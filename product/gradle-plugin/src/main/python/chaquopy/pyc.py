@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Keep valid Python 2 syntax so we can produce an error message.
-from __future__ import absolute_import, division, print_function
-
 # Do this as early as possible to minimize the chance of something else going wrong and causing
 # a less comprehensible error message.
 from .util import check_build_python
@@ -18,13 +15,14 @@ import sys
 import warnings
 
 
-# See importlib._bootstrap_external.MAGIC_NUMBER.
+# See the list in importlib/_bootstrap_external.py.
 MAGIC = {
     "3.7": 3394,
     "3.8": 3413,
     "3.9": 3425,
     "3.10": 3439,
     "3.11": 3495,
+    "3.12": 3531,
 }
 
 

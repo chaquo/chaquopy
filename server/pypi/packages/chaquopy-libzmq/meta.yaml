@@ -1,11 +1,11 @@
-{% set version = "4.3.2" %}
+{% set version = "4.3.4" %}
 
 package:
   name: chaquopy-libzmq
   version: {{ version }}  # See buildutils/bundle.py in pyzmq
 
 build:
-  number: 1
+  number: 0
 
 source:
   url: https://github.com/zeromq/libzmq/releases/download/v{{ version }}/zeromq-{{ version }}.tar.gz

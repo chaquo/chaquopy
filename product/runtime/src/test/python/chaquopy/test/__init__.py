@@ -1,4 +1,10 @@
-from .test_android import *             # noqa: F401, F403
+from .test_utils import API_LEVEL
+
+if API_LEVEL:
+    from .android.test_import import *  # noqa: F401, F403
+    from .android.test_stdlib import *  # noqa: F401, F403
+    from .android.test_stream import *  # noqa: F401, F403
+
 from .test_array import *               # noqa: F401, F403
 from .test_conversion import *          # noqa: F401, F403
 from .test_exception import *           # noqa: F401, F403

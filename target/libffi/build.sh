@@ -12,7 +12,7 @@ version_dir=$recipe_dir/build/$version
 mkdir -p $version_dir
 cd $version_dir
 src_filename=libffi-$version.tar.gz
-wget -c ftp://sourceware.org/pub/libffi/libffi-$version.tar.gz
+wget -c https://github.com/libffi/libffi/releases/download/v$version/$src_filename
 
 build_dir=$version_dir/$abi
 rm -rf $build_dir

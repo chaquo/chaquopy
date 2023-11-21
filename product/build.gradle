@@ -12,6 +12,7 @@ subprojects {
 
     repositories {
         mavenCentral()
+        google()
     }
 
     // Maven Central requires every JAR to come with javadoc and sources JARs.

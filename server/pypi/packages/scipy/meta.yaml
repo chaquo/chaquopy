@@ -1,13 +1,16 @@
 package:
   name: scipy
-  version: 1.4.1
+  version: "1.8.1"
+
+build:
+  number: 1
+  script_env:
+    - SCIPY_USE_PYTHRAN=0
 
 requirements:
   build:
-    # setup.py has pybind11 in setup_requires, but this doesn't work because the headers aren't
-    # unpacked correctly (https://github.com/pybind/python_example/issues/16).
-    - pybind11 2.4.3
+    - fortran
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
+    - numpy 1.23.3

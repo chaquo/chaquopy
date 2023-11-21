@@ -5,11 +5,15 @@ The principle here is to define options once, but *not* instantiate them
 globally. One reason being that options with action='append' can carry state
 between parses. pip parses general options twice internally, and shouldn't
 pass on state. To be consistent, all options will follow this design.
-
 """
+
+# The following comment should be removed at some point in the future.
+# mypy: strict-optional=False
+
 from __future__ import absolute_import
 
 import logging
+import os
 import textwrap
 import warnings
 from distutils.util import strtobool
@@ -17,16 +21,14 @@ from functools import partial
 from optparse import SUPPRESS_HELP, Option, OptionGroup
 from textwrap import dedent
 
+from pip._internal.cli.progress_bars import BAR_TYPES
 from pip._internal.exceptions import CommandError
 from pip._internal.locations import USER_CACHE_DIR, get_src_prefix
 from pip._internal.models.format_control import FormatControl
 from pip._internal.models.index import PyPI
-from pip._internal.models.search_scope import SearchScope
 from pip._internal.models.target_python import TargetPython
 from pip._internal.utils.hashes import STRONG_HASHES
-from pip._internal.utils.misc import redact_password_from_url
 from pip._internal.utils.typing import MYPY_CHECK_RUNNING
-from pip._internal.utils.ui import BAR_TYPES
 
 if MYPY_CHECK_RUNNING:
     from typing import Any, Callable, Dict, Optional, Tuple
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def raise_option_error(parser, option, msg):
+    # type: (OptionParser, Option, str) -> None
     """
     Raise an option parsing error using parser.error().
 
@@ -75,14 +78,15 @@ def check_install_build_global(options, check_options=None):
         check_options = options
 
     def getname(n):
+        # type: (str) -> Optional[Any]
         return getattr(check_options, n, None)
     names = ["build_options", "global_options", "install_options"]
     if any(map(getname, names)):
         control = options.format_control
         control.disallow_binaries()
         warnings.warn(
-            'Disabling all use of wheels due to the use of --build-options '
-            '/ --global-options / --install-options.', stacklevel=2,
+            'Disabling all use of wheels due to the use of --build-option '
+            '/ --global-option / --install-option.', stacklevel=2,
         )
 
 
@@ -111,7 +115,7 @@ def check_dist_restriction(options, check_target=False):
     # guaranteed to be locally compatible.
     #
     # Chaquopy: added False to disable this restriction. It's safe for us to run source
-    # distributions, because we monkey-patch setuptools to ensure they fail immediately if they
+    # distributions, because chaquopy_monkey ensures they fail immediately if they
     # try to build anything native.
     if False and dist_restriction_set and sdist_dependencies_allowed:
         raise CommandError(
@@ -130,16 +134,20 @@ def check_dist_restriction(options, check_target=False):
             )
 
 
+def _path_option_check(option, opt, value):
+    # type: (Option, str, str) -> str
+    return os.path.expanduser(value)
+
+
+class PipOption(Option):
+    TYPES = Option.TYPES + ("path",)
+    TYPE_CHECKER = Option.TYPE_CHECKER.copy()
+    TYPE_CHECKER["path"] = _path_option_check
+
+
 ###########
 # options #
 ###########
-
-# Adding this option ensures that if we run the system copy of pip by mistake, we fail
-# immediately and with a distinctive error message.
-chaquopy = partial(
-    Option,
-    '--chaquopy',
-    help="Chaquopy version number")
 
 help_ = partial(
     Option,
@@ -224,10 +232,11 @@ progress_bar = partial(
 )  # type: Callable[..., Option]
 
 log = partial(
-    Option,
+    PipOption,
     "--log", "--log-file", "--local-log",
     dest="log",
     metavar="path",
+    type="path",
     help="Path to a verbose appending log."
 )  # type: Callable[..., Option]
 
@@ -270,16 +279,6 @@ timeout = partial(
     help='Set the socket timeout (default %default seconds).',
 )  # type: Callable[..., Option]
 
-skip_requirements_regex = partial(
-    Option,
-    # A regex to be used to skip requirements
-    '--skip-requirements-regex',
-    dest='skip_requirements_regex',
-    type='str',
-    default='',
-    help=SUPPRESS_HELP,
-)  # type: Callable[..., Option]
-
 
 def exists_action():
     # type: () -> Option
@@ -298,19 +297,19 @@ def exists_action():
 
 
 cert = partial(
-    Option,
+    PipOption,
     '--cert',
     dest='cert',
-    type='str',
+    type='path',
     metavar='path',
     help="Path to alternate CA bundle.",
 )  # type: Callable[..., Option]
 
 client_cert = partial(
-    Option,
+    PipOption,
     '--client-cert',
     dest='client_cert',
-    type='str',
+    type='path',
     default=None,
     metavar='path',
     help="Path to SSL client certificate, a single file containing the "
@@ -331,6 +330,7 @@ index_url = partial(
 
 
 def extra_index_url():
+    # type: () -> Option
     return Option(
         '--extra-index-url',
         dest='extra_index_urls',
@@ -361,34 +361,12 @@ def find_links():
         action='append',
         default=[],
         metavar='url',
-        help="If a url or path to an html file, then parse for links to "
-             "archives. If a local path or file:// url that's a directory, "
-             "then look for archives in the directory listing.",
+        help="If a URL or path to an html file, then parse for links to "
+             "archives such as sdist (.tar.gz) or wheel (.whl) files. "
+             "If a local path or file:// URL that's a directory,  "
+             "then look for archives in the directory listing. "
+             "Links to VCS project URLs are not supported.",
     )
-
-
-def make_search_scope(options, suppress_no_index=False):
-    # type: (Values, bool) -> SearchScope
-    """
-    :param suppress_no_index: Whether to ignore the --no-index option
-        when constructing the SearchScope object.
-    """
-    index_urls = [options.index_url] + options.extra_index_urls
-    if options.no_index and not suppress_no_index:
-        logger.debug(
-            'Ignoring indexes: %s',
-            ','.join(redact_password_from_url(url) for url in index_urls),
-        )
-        index_urls = []
-
-    # Make sure find_links is a list before passing to create().
-    find_links = options.find_links or []
-
-    search_scope = SearchScope.create(
-        find_links=find_links, index_urls=index_urls,
-    )
-
-    return search_scope
 
 
 def trusted_host():
@@ -399,8 +377,8 @@ def trusted_host():
         action="append",
         metavar="HOSTNAME",
         default=[],
-        help="Mark this host as trusted, even though it does not have valid "
-             "or any HTTPS.",
+        help="Mark this host or host:port pair as trusted, even though it "
+             "does not have valid or any HTTPS.",
     )
 
 
@@ -443,12 +421,21 @@ def editable():
     )
 
 
+def _handle_src(option, opt_str, value, parser):
+    # type: (Option, str, str, OptionParser) -> None
+    value = os.path.abspath(value)
+    setattr(parser.values, option.dest, value)
+
+
 src = partial(
-    Option,
+    PipOption,
     '--src', '--source', '--source-dir', '--source-directory',
     dest='src_dir',
+    type='path',
     metavar='dir',
     default=get_src_prefix(),
+    action='callback',
+    callback=_handle_src,
     help='Directory to check out editable projects into. '
     'The default in a virtualenv is "<venv path>/src". '
     'The default for global installs is "<current dir>/src".'
@@ -484,12 +471,12 @@ def no_binary():
         "--no-binary", dest="format_control", action="callback",
         callback=_handle_no_binary, type="str",
         default=format_control,
-        help="Do not use binary packages. Can be supplied multiple times, and "
-             "each time adds to the existing value. Accepts either :all: to "
-             "disable all binary packages, :none: to empty the set, or one or "
-             "more package names with commas between them. Note that some "
-             "packages are tricky to compile and may fail to install when "
-             "this option is used on them.",
+        help='Do not use binary packages. Can be supplied multiple times, and '
+             'each time adds to the existing value. Accepts either ":all:" to '
+             'disable all binary packages, ":none:" to empty the set (notice '
+             'the colons), or one or more package names with commas between '
+             'them (no colons). Note that some packages are tricky to compile '
+             'and may fail to install when this option is used on them.',
     )
 
 
@@ -500,12 +487,12 @@ def only_binary():
         "--only-binary", dest="format_control", action="callback",
         callback=_handle_only_binary, type="str",
         default=format_control,
-        help="Do not use source packages. Can be supplied multiple times, and "
-             "each time adds to the existing value. Accepts either :all: to "
-             "disable all source packages, :none: to empty the set, or one or "
-             "more package names with commas between them. Packages without "
-             "binary distributions will fail to install when this option is "
-             "used on them.",
+        help='Do not use source packages. Can be supplied multiple times, and '
+             'each time adds to the existing value. Accepts either ":all:" to '
+             'disable all source packages, ":none:" to empty the set, or one '
+             'or more package names with commas between them. Packages '
+             'without binary distributions will fail to install when this '
+             'option is used on them.',
     )
 
 
@@ -651,11 +638,12 @@ def prefer_binary():
 
 
 cache_dir = partial(
-    Option,
+    PipOption,
     "--cache-dir",
     dest="cache_dir",
     default=USER_CACHE_DIR,
     metavar="dir",
+    type='path',
     help="Store the cache data in <dir>."
 )  # type: Callable[..., Option]
 
@@ -706,11 +694,22 @@ no_deps = partial(
     help="Don't install package dependencies.",
 )  # type: Callable[..., Option]
 
+
+def _handle_build_dir(option, opt, value, parser):
+    # type: (Option, str, str, OptionParser) -> None
+    if value:
+        value = os.path.abspath(value)
+    setattr(parser.values, option.dest, value)
+
+
 build_dir = partial(
-    Option,
+    PipOption,
     '-b', '--build', '--build-dir', '--build-directory',
     dest='build_dir',
+    type='path',
     metavar='dir',
+    action='callback',
+    callback=_handle_build_dir,
     help='Directory to unpack packages into and build in. Note that '
          'an initial build still takes place in a temporary directory. '
          'The location of temporary directories can be controlled by setting '
@@ -852,12 +851,12 @@ def _handle_merge_hash(option, opt_str, value, parser):
     try:
         algo, digest = value.split(':', 1)
     except ValueError:
-        parser.error('Arguments to %s must be a hash name '
-                     'followed by a value, like --hash=sha256:abcde...' %
-                     opt_str)
+        parser.error('Arguments to {} must be a hash name '
+                     'followed by a value, like --hash=sha256:'
+                     'abcde...'.format(opt_str))
     if algo not in STRONG_HASHES:
-        parser.error('Allowed hash algorithms for %s are %s.' %
-                     (opt_str, ', '.join(STRONG_HASHES)))
+        parser.error('Allowed hash algorithms for {} are {}.'.format(
+                     opt_str, ', '.join(STRONG_HASHES)))
     parser.values.hashes.setdefault(algo, []).append(digest)
 
 
@@ -888,9 +887,10 @@ require_hashes = partial(
 
 
 list_path = partial(
-    Option,
+    PipOption,
     '--path',
     dest='path',
+    type='path',
     action='append',
     help='Restrict to the specified installation path for listing '
          'packages (can be used multiple times).'
@@ -905,6 +905,29 @@ def check_list_path_option(options):
         )
 
 
+no_python_version_warning = partial(
+    Option,
+    '--no-python-version-warning',
+    dest='no_python_version_warning',
+    action='store_true',
+    default=False,
+    help='Silence deprecation warnings for upcoming unsupported Pythons.',
+)  # type: Callable[..., Option]
+
+
+unstable_feature = partial(
+    Option,
+    '--unstable-feature',
+    dest='unstable_features',
+    metavar='feature',
+    action='append',
+    default=[],
+    choices=['resolver'],
+    help=SUPPRESS_HELP,  # TODO: Enable this when the resolver actually works.
+    # help='Enable unstable feature(s) that may be backward incompatible.',
+)  # type: Callable[..., Option]
+
+
 ##########
 # groups #
 ##########
@@ -912,7 +935,6 @@ def check_list_path_option(options):
 general_group = {
     'name': 'General Options',
     'options': [
-        chaquopy,
         help_,
         isolated_mode,
         require_virtualenv,
@@ -924,7 +946,6 @@ general_group = {
         proxy,
         retries,
         timeout,
-        skip_requirements_regex,
         exists_action,
         trusted_host,
         cert,
@@ -933,6 +954,8 @@ general_group = {
         no_cache,
         disable_pip_version_check,
         no_color,
+        no_python_version_warning,
+        unstable_feature,
     ]
 }  # type: Dict[str, Any]
 

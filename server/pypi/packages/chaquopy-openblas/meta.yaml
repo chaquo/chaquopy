@@ -1,6 +1,6 @@
 package:
   name: chaquopy-openblas
-  version: 0.2.20
+  version: "0.2.20"
 
 source:
   url: https://github.com/xianyi/OpenBLAS/archive/v0.2.20.tar.gz
@@ -9,5 +9,7 @@ build:
   number: 5
 
 requirements:
+  build:
+    - fortran
   host:
     - chaquopy-libgfortran 4.9

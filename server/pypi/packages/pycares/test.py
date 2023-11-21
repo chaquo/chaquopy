@@ -1,7 +1,7 @@
 import unittest
 
 
-TIMEOUT = 1
+TIMEOUT = 3  # Seconds
 
 
 class TestPycares(unittest.TestCase):

@@ -19,18 +19,21 @@ class TestPyzmq(unittest.TestCase):
 
     def test_basic(self):
         import zmq
-        ctx = zmq.Context()
 
-        server = ctx.socket(zmq.PAIR)
-        port = server.bind_to_random_port(ADDRESS)
-        client = ctx.socket(zmq.PAIR)
-        client.connect("{}:{}".format(ADDRESS, port))
+        with zmq.Context() as ctx:
+            server = ctx.socket(zmq.PAIR)
+            port = server.bind_to_random_port(ADDRESS)
+            client = ctx.socket(zmq.PAIR)
+            client.connect("{}:{}".format(ADDRESS, port))
 
-        for msg_send in [b"hello", b"world"]:
-            client.send(msg_send)
-            server.poll(TIMEOUT)
-            msg_recv = server.recv()
-            self.assertEqual(msg_send, msg_recv)
+            for msg_send in [b"hello", b"world"]:
+                client.send(msg_send)
+                server.poll(TIMEOUT)
+                msg_recv = server.recv()
+                self.assertEqual(msg_send, msg_recv)
+
+            server.close()
+            client.close()
 
     # Several packages have modules with the filename utils.so. Before API level 23, if you
     # loaded two of them from their original filenames, their __file__ attributes would appear
@@ -59,8 +62,8 @@ class TestPyzmq(unittest.TestCase):
 
             origin = mod.__spec__.origin
             if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-                # This test covers Python modules: for non-Python libraries, see test_ctypes in
-                # test_android.py.
+                # This test covers Python modules: for non-Python libraries, see
+                # TestAndroidImport. test_ctypes.
                 self.assertNotIn("/", origin)
                 origin = join(dirname(file), origin)
             else:

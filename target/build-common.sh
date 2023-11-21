@@ -6,13 +6,31 @@
 : ${abi:=$(basename $prefix)}
 : ${api_level:=21}  # Should match MIN_SDK_VERSION in Common.java.
 
+# Print all messages on stderr so they're visible when running within build-wheel.
+log() {
+    echo "$1" >&2
+}
+
+fail() {
+    log "$1"
+    exit 1
+}
+
 # When moving to a new version of the NDK, carefully review the following:
+#
 # * The release notes (https://developer.android.com/ndk/downloads/revision_history)
+#
 # * https://android.googlesource.com/platform/ndk/+/ndk-release-rXX/docs/BuildSystemMaintainers.md,
 #   where XX is the NDK version. Do a diff against the version you're upgrading from.
-ndk_version=22.1.7171670  # Should match ndkDir in product/runtime/build.gradle.
+#
+# * According to https://github.com/kivy/python-for-android/pull/2615, the mzakharo
+#   build of gfortran is not compatible with NDK version 23, which is the version in
+#   which they removed the GNU binutils.
+ndk_version=22.1.7171670  # See ndkDir in product/runtime/build.gradle.
+
 ndk=${ANDROID_HOME:?}/ndk/$ndk_version
 if ! [ -e $ndk ]; then
+    log "Installing NDK: this may take several minutes"
     yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;$ndk_version"
 fi
 
@@ -31,13 +49,13 @@ case $abi in
         host_triplet=x86_64-linux-android
         ;;
     *)
-        echo "Unknown ABI: '$abi'"
+        fail "Unknown ABI: '$abi'"
         ;;
 esac
 
 # These variables are based on BuildSystemMaintainers.md above, and
 # $ndk/build/cmake/android.toolchain.cmake.
-toolchain="$ndk/toolchains/llvm/prebuilt/linux-x86_64"
+toolchain=$(echo $ndk/toolchains/llvm/prebuilt/*)
 export AR="$toolchain/bin/llvm-ar"
 export AS="$toolchain/bin/$host_triplet-as"
 export CC="$toolchain/bin/${clang_triplet:-$host_triplet}$api_level-clang"
@@ -47,6 +65,13 @@ export NM="$toolchain/bin/llvm-nm"
 export RANLIB="$toolchain/bin/llvm-ranlib"
 export READELF="$toolchain/bin/llvm-readelf"
 export STRIP="$toolchain/bin/llvm-strip"
+
+# The quotes make sure the wildcard in the `toolchain` assignment has been expanded.
+for path in "$AR" "$AS" "$CC" "$CXX" "$LD" "$NM" "$RANLIB" "$READELF" "$STRIP"; do
+    if ! [ -e "$path" ]; then
+        fail "$path does not exist"
+    fi
+done
 
 export CFLAGS="-I${prefix:?}/include"
 export LDFLAGS="-L${prefix:?}/lib \
@@ -58,7 +83,7 @@ LDFLAGS+=" -lm"
 
 case $abi in
     armeabi-v7a)
-        CFLAGS+=" -march=armv7-a -mthumb -mfpu=vfpv3-d16"
+        CFLAGS+=" -march=armv7-a -mthumb"
         ;;
     x86)
         # -mstackrealign is unnecessary because it's included in the clang launcher script
@@ -68,3 +93,10 @@ esac
 
 export PKG_CONFIG="pkg-config --define-prefix"
 export PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig"
+
+# conda-build variable name
+if [ $(uname) = "Darwin" ]; then
+    export CPU_COUNT=$(sysctl -n hw.ncpu)
+else
+    export CPU_COUNT=$(nproc)
+fi

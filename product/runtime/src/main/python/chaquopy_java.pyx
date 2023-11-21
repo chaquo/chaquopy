@@ -21,9 +21,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport getenv, malloc
 from libc.stdio cimport printf, snprintf
 from libc.string cimport strerror, strlen
-from posix.fcntl cimport open as c_open, O_APPEND, O_CREAT, O_WRONLY
 from posix.stdlib cimport putenv
-from posix.unistd cimport dup2, getpid, STDERR_FILENO, STDOUT_FILENO, write
 
 import java
 from java.jni cimport *
@@ -49,14 +47,6 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
 # We're running in a Java process, so start the Python VM.
 cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path):
-    # Enable the following lines to help debug low-level startup failures. Requires
-    # WRITE_EXTERNAL_STORAGE permission, and on API 23 and higher, this permission must have
-    # been activated by the user. /sdcard is not guaranteed to be the correct path for
-    # external storage, so this may have to be changed for some devices. Any failure in the
-    # redirection process will be silent.
-    # redirect(STDOUT_FILENO, "/sdcard/stdout.txt")
-    # redirect(STDERR_FILENO, "/sdcard/stderr.txt")
-
     cdef const char *python_path
     if j_python_path != NULL:
         python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
@@ -131,21 +121,6 @@ cdef bint set_env(JNIEnv *env, const char *name, const char *value):
         return False
 
     return True
-
-
-# For debugging packages which write to native stdout and stderr.
-def redirect_streams():
-    home = os.environ["HOME"]
-    pid = os.getpid()
-    redirect(STDOUT_FILENO, f"{home}/{pid}-stdout.txt".encode())
-    redirect(STDERR_FILENO, f"{home}/{pid}-stderr.txt".encode())
-
-
-cdef int redirect(int stream_fd, char *filename):
-    file_fd = c_open(filename, O_WRONLY|O_CREAT|O_APPEND, 0666)
-    cdef char buf[64]
-    write(file_fd, buf, snprintf(buf, 64, "=== PID %d ===\n", getpid()))
-    dup2(file_fd, stream_fd)
 
 
 cdef public jlong Java_com_chaquo_python_Python_getModuleNative \

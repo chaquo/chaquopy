@@ -7,6 +7,8 @@ add_compile_options(-DNDEBUG)
 # This warning appears on Python 3.8 only (https://github.com/python/cpython/pull/14193).
 add_compile_options(-Wno-deprecated-declarations)
 
+# The Android Gradle plugin may strip libraries before building them into an app, but
+# we don't want to require the app developer to have the NDK installed.
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -s")
 
 include_directories(
@@ -47,7 +49,11 @@ foreach(VERSION ${CHAQUOPY_PYTHON_VERSIONS})
     add_library(${CHAQUOPY_JAVA} SHARED ${CHAQUOPY_SRC_DIR}/chaquopy_java.c)
     target_include_directories(${CHAQUOPY_JAVA} PRIVATE ${INCLUDE_PYTHON})
     target_link_libraries(${CHAQUOPY_JAVA} ${LIBPYTHON})
-    if(WIN32)
+    if(ANDROID)
+        target_sources(${CHAQUOPY_JAVA} PRIVATE src/main/c/android_platform.c)
+        target_link_libraries(${CHAQUOPY_JAVA} log)
+    elseif(WIN32)
+        # System.loadLibary expects a "lib" prefix on Unix, but not on Windows.
         set_target_properties(${CHAQUOPY_JAVA} PROPERTIES PREFIX "")
     endif()
 endforeach()

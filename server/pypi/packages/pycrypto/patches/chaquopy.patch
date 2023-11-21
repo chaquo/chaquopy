@@ -14,14 +14,13 @@ diff -ur src-original/configure src/configure
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py	2013-10-14 21:38:10.000000000 +0000
 +++ src/setup.py	2018-12-29 16:05:22.612534092 +0000
-@@ -272,6 +272,11 @@
+@@ -272,6 +272,10 @@
              if os.system("chmod 0755 configure") != 0:
                  raise RuntimeError("chmod error")
              cmd = "sh configure"    # we use "sh" here so that it'll work on mingw32 with standard python.org binaries
 +
 +            # Chaquopy
-+            host_triplet = os.path.basename(os.environ["CC"]).replace("-gcc", "")
-+            cmd += " --host=" + host_triplet
++            cmd += " --host=" + os.environ["HOST"]
 +
              if self.verbose < 1:
                  cmd += " -q"

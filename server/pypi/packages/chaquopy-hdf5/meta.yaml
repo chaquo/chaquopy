@@ -5,7 +5,7 @@ package:
   version: {{ version }}
 
 build:
-  number: 1
+  number: 2
 
 source:
-  url: https://github.com/live-clones/hdf5/archive/hdf5-{{ version | replace(".", "_") }}.tar.gz
+  url: https://github.com/hdfgroup/hdf5/archive/hdf5-{{ version | replace(".", "_") }}.tar.gz

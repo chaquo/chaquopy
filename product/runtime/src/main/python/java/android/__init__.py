@@ -6,17 +6,37 @@ from types import ModuleType
 import warnings
 from . import stream, importer
 
+from org.json import JSONArray, JSONObject
 
-def initialize(context_local, build_json, app_path):
+
+def initialize(context_local, build_json_object, app_path):
     global context
     context = context_local
 
     stream.initialize()
-    importer.initialize(context, build_json, app_path)
+    importer.initialize(context, convert_json_object(build_json_object), app_path)
 
     # These are ordered roughly from low to high level.
-    for name in ["warnings", "sys", "os", "tempfile", "multiprocessing"]:
-        globals()[f"initialize_{name}"]()
+    for name in [
+        "warnings", "sys", "os", "tempfile", "socket", "ssl", "multiprocessing"
+    ]:
+        importer.add_import_trigger(name, globals()[f"initialize_{name}"])
+
+
+def convert_json_object(obj):
+    if isinstance(obj, JSONObject):
+        result = {}
+        i_keys = obj.keys()
+        while i_keys.hasNext():
+            key = i_keys.next()
+            result[key] = convert_json_object(obj.get(key))
+    elif isinstance(obj, JSONArray):
+        result = [convert_json_object(obj.get(i))
+                  for i in range(obj.length())]
+    else:
+        assert isinstance(obj, (type(None), bool, int, float, str)), obj
+        result = obj
+    return result
 
 
 # Several warning classes are ignored by default to avoid confusing end-users. But on
@@ -39,6 +59,8 @@ def initialize_sys():
 
 
 def initialize_os():
+    import errno
+
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
@@ -52,6 +74,16 @@ def initialize_os():
     get_exec_path_original = os.get_exec_path
     os.get_exec_path = get_exec_path_override
 
+    # Our redirectStdioToLogcat mechanism replaces the native stdout with a pipe, so
+    # attempting to get its terminal size returns EPERM rather than ENOTTY. Both of
+    # these result in an OSError, so the calling code will still work, but it generates
+    # a log message like `avc: denied { ioctl } for path="pipe:[10138300]"`, which can
+    # be a problem if the app is doing it repeatedly.
+    def get_terminal_size_override(*args, **kwargs):
+        error = errno.ENOTTY
+        raise OSError(error, os.strerror(error))
+    os.get_terminal_size = get_terminal_size_override
+
 
 def initialize_tempfile():
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
@@ -59,7 +91,22 @@ def initialize_tempfile():
     os.environ["TMPDIR"] = tmpdir
 
 
-# Called from importer.exec_module_trigger.
+def initialize_socket():
+    import socket
+
+    # Some functions aren't available until API level 24, so Python omits them from the
+    # module. Instead, make them throw OSError as documented.
+    def unavailable(*args, **kwargs):
+        raise OSError("this function is not available in this build of Python")
+
+    for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
+        if hasattr(socket, name):
+            raise Exception(
+                f"socket.{name} now exists: check if its workaround can be removed"
+            )
+        setattr(socket, name, unavailable)
+
+
 def initialize_ssl():
     # OpenSSL may be able to find the system CA store on some devices, but for consistency
     # we disable this and use our own bundled file.

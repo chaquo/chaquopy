@@ -1,71 +1,25 @@
-diff -ur src-original/_setuplibev.py src/_setuplibev.py
---- src-original/_setuplibev.py	2019-01-04 11:51:44.000000000 +0000
-+++ src/_setuplibev.py	2019-08-05 14:16:18.730590045 +0000
-@@ -29,9 +29,14 @@
- # the build/temp.XXX/libev/ directory. If we're building from a
- # source checkout on pypy, OLDPWD will be the location of setup.py
- # and the PyPy branch will clean it up.
-+
-+# Chaquopy: added --host.
+--- src-original/_setuplibev.py 2023-09-12 17:14:39.000000000 +0000
++++ src/_setuplibev.py  2023-11-09 16:39:57.623434764 +0000
+@@ -25,10 +25,15 @@
+ 
+ LIBEV_EMBED = should_embed('libev')
+ 
++# Chaquopy
 +import os
-+host_triplet = os.path.basename(os.environ["CC"]).replace("-gcc", "")
++host = os.environ.get("HOST")
++host_arg = f" --host={host}" if host else ""
 +
+ # Configure libev in place
  libev_configure_command = ' '.join([
      "(cd ", quoted_dep_abspath('libev'),
--    " && sh ./configure ",
-+    " && sh ./configure --host=" + host_triplet,
-     " && cp config.h \"$OLDPWD\"",
+-    " && sh ./configure -C > configure-output.txt",
++    f" && sh ./configure {host_arg} -C > configure-output.txt",
      ")",
-     '> configure-output.txt'
---- src-original/deps/libev/ev.c        2019-01-04 11:51:44.000000000 +0000
-+++ src/deps/libev/ev.c 2020-01-26 14:27:44.895063112 +0000
-@@ -4401,7 +4401,8 @@
- inline_size int
- infy_newfd (void)
- {
--#if defined IN_CLOEXEC && defined IN_NONBLOCK
-+/* Chaquopy: added __ANDROID_API__ */
-+#if __ANDROID_API__ >= 21 && defined IN_CLOEXEC && defined IN_NONBLOCK
-   int fd = inotify_init1 (IN_CLOEXEC | IN_NONBLOCK);
-   if (fd >= 0)
-     return fd;
+ ])
+ 
 diff -ur src-original/setup.py src/setup.py
 --- src-original/setup.py       2019-01-04 11:51:44.000000000 +0000
 +++ src/setup.py        2019-08-05 20:46:00.204601700 +0000
-@@ -52,17 +52,22 @@
- # Get access to the greenlet header file.
- # The sysconfig dir is not enough if we're in a virtualenv
- # See https://github.com/pypa/pip/issues/4610
--include_dirs = [sysconfig.get_path("include")]
--venv_include_dir = os.path.join(sys.prefix, 'include', 'site',
--                                'python' + sysconfig.get_python_version())
--venv_include_dir = os.path.abspath(venv_include_dir)
--if os.path.exists(venv_include_dir):
--    include_dirs.append(venv_include_dir)
--
--# If we're installed via buildout, and buildout also installs
--# greenlet, we have *NO* access to greenlet.h at all. So include
--# our own copy as a fallback.
--include_dirs.append('deps')
-+
-+# Chaquopy: the greenlet header should already be on the include path, because meta.yaml
-+# declares greenlet as a requirement.
-+include_dirs = []
-+
-+# include_dirs = [sysconfig.get_path("include")]
-+# venv_include_dir = os.path.join(sys.prefix, 'include', 'site',
-+#                                 'python' + sysconfig.get_python_version())
-+# venv_include_dir = os.path.abspath(venv_include_dir)
-+# if os.path.exists(venv_include_dir):
-+#     include_dirs.append(venv_include_dir)
-+
-+# # If we're installed via buildout, and buildout also installs
-+# # greenlet, we have *NO* access to greenlet.h at all. So include
-+# # our own copy as a fallback.
-+# include_dirs.append('deps')
- 
- SEMAPHORE = Extension(name="gevent.__semaphore",
-                       sources=["src/gevent/_semaphore.py"],
 @@ -160,7 +165,8 @@
  
  EXT_MODULES = [
@@ -76,18 +30,15 @@ diff -ur src-original/setup.py src/setup.py
      ABSTRACT_LINKABLE,
      SEMAPHORE,
      LOCAL,
-diff -ur src-original/_setuputils.py src/_setuputils.py
---- src-original/_setuputils.py	2019-01-04 11:51:44.000000000 +0000
-+++ src/_setuputils.py	2019-08-05 18:06:01.223597204 +0000
-@@ -83,7 +83,10 @@
-                      'Please set it to 1, 0 or an empty string' % (key, value))
- 
- IGNORE_CFFI = _parse_environ("GEVENT_NO_CFFI_BUILD")
--SKIP_LIBUV = _parse_environ('GEVENT_NO_LIBUV_BUILD')
+--- src-original/src/gevent/libuv/_corecffi_build.py    2023-09-12 17:14:39.000000000 +0000
++++ src/src/gevent/libuv/_corecffi_build.py     2023-11-09 17:05:14.935975179 +0000
+@@ -155,6 +155,9 @@
+         _libuv_source('unix/thread.c'),
+         _libuv_source('unix/tty.c'),
+         _libuv_source('unix/udp.c'),
 +
-+# Chaquopy: disable libuv: it has build errors, and it isn't currently included in the
-+# Linux wheels on PyPI anyway.
-+SKIP_LIBUV = True or _parse_environ('GEVENT_NO_LIBUV_BUILD')
++        # Chaquopy
++        _libuv_source('unix/pthread-fixes.c'),
+     ]
  
- def _get_config_value(key, defkey, path=None):
-     """
+ 

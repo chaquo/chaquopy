@@ -1,6 +1,5 @@
-/maven
-
 __pycache__/
+.DS_Store
 *.jks
 *.pyc
 hs_err*.log

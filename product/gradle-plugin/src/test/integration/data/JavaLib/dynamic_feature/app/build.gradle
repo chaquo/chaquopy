@@ -2,11 +2,12 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.chaquo.python'
 
 android {
-    compileSdkVersion 28
+    namespace "com.chaquo.python.test"
+    compileSdk 28
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdkVersion 21
-        targetSdkVersion 28
+        minSdk 21
+        targetSdk 28
         versionCode 1
         versionName "0.0.1"
         ndk {

@@ -1,6 +1,6 @@
 package:
   name: spectrum
-  version: 0.8.0
+  version: "0.8.0"
 
 build:
   number: 1

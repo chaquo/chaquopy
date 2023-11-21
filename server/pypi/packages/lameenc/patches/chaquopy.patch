@@ -1,0 +1,23 @@
+diff -ur src-original/setup.py src/setup.py
+--- src-original/setup.py	2023-02-05 11:19:39.000000000 +0100
++++ src/setup.py	2023-02-14 07:34:48.026530622 +0100
+@@ -3,6 +3,9 @@
+ import distutils.core
+ import os.path
+ 
++# Chaquopy added
++sys.argv.append("--libdir=../requirements/chaquopy/lib")
++sys.argv.append("--incdir=../requirements/chaquopy/include/lame")
+ 
+ # Grab the library location from the command line
+ libdir = None
+@@ -32,7 +35,8 @@
+     include_dirs=[incdir],
+     libraries=['libmp3lame'] if sys.platform == 'win32' else [],
+     extra_objects=
+-        [] if sys.platform == 'win32' else [os.path.join(libdir, 'libmp3lame.a')],
++        # Chaquopy: changed .a to .so.
++        [] if sys.platform == 'win32' else [os.path.join(libdir, 'libmp3lame.so')],
+     library_dirs=[libdir] if sys.platform == 'win32' else [],
+     sources=['lameenc.c']
+ ) 

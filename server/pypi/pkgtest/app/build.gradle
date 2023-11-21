@@ -7,7 +7,7 @@ def PACKAGE_GROUPS = [
     // Group 0 is not included in regular pre-release testing.
     [
         // Not in the public package repository.
-        "cmake-example", "python-example", "rpi-gpio",
+        "cmake-example", "cython-example", "python-example", "rpi-gpio",
 
         // Conflicts with opencv-python and opencv-contrib-python.
         "opencv-contrib-python-headless", "opencv-python-headless",
@@ -40,8 +40,10 @@ ext.TEST_PACKAGES = [
     "backports-zoneinfo": ["tzdata"],
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
+    "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
+    "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
@@ -50,21 +52,34 @@ ext.TEST_PACKAGES = [
 
 
 android {
-    compileSdkVersion 33
+    namespace "com.chaquo.python.pkgtest3"
+    compileSdk = 34
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
-        minSdkVersion 21
-        targetSdkVersion 33
+        minSdk = 21
+        targetSdk = 34
 
-        // Final digit of versionCode is 0 for -SNAPSHOT builds in this repo, and 1 for released
-        // builds in the public repo.
-        versionName rootProject.version + "-SNAPSHOT"
-        def verParsed = rootProject.version.split(/\./).collect { Integer.parseInt(it) }
-        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10) + 0)
+        String pluginVersion = null
+        for (art in rootProject.buildscript.configurations.getByName("classpath")
+             .resolvedConfiguration.resolvedArtifacts) {
+            def dep = art.moduleVersion.id
+            if (dep.group == "com.chaquo.python" && dep.name == "gradle") {
+                pluginVersion = dep.version
+            }
+        }
+        if (pluginVersion == null) {
+            throw new GradleException("Couldn't find Chaquopy plugin")
+        }
+
+        versionName pluginVersion
+        def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
+        versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10))
 
         addPackages(delegate, [])
         python {
+            version "3.8"
+
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
@@ -72,10 +87,11 @@ android {
             pyc {
                 src false  // Include test source code in stack traces.
             }
+            extractPackages "astropy"
         }
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
          }
     }
 
@@ -137,7 +153,6 @@ def addPackages(flavor, List<String> packages) {
 
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
     // appcompat version 1.2.0 is required to fix an incompatibility with WebView on API level
     // 21 (https://stackoverflow.com/questions/41025200).
     implementation 'androidx.appcompat:appcompat:1.2.0-beta01'
@@ -145,5 +160,4 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-extensions:2.1.0'
     implementation 'androidx.preference:preference:1.1.1'
     implementation 'junit:junit:4.12'
-    testImplementation 'junit:junit:4.12'
 }

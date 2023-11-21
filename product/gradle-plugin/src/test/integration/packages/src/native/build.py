@@ -14,7 +14,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("setup_command")
 ap.add_argument("name")
 ap.add_argument("version")
-ap.add_argument("suffix")
+ap.add_argument("--package", dest="packages", default=[], action="append")
 ap.add_argument("--disable-sdist-install", action="store_true")
 args = ap.parse_args()
 
@@ -24,11 +24,11 @@ for name in os.listdir(src_dir):
         abs_name = join(src_dir, name)
         (shutil.rmtree if isdir(abs_name) else os.remove)(abs_name)
 
-pkg_name = "{}_{}".format(args.name, args.suffix)
-pkg_dir = join(src_dir, pkg_name)
-os.mkdir(pkg_dir)
-with open(join(pkg_dir, "__init__.py"), "w") as init_file:
-    print("# Version " + args.version, file=init_file)
+for pkg_name in args.packages:
+    pkg_dir = join(src_dir, pkg_name)
+    os.mkdir(pkg_dir)
+    with open(join(pkg_dir, "__init__.py"), "w") as init_file:
+        print("# Version " + args.version, file=init_file)
 
 setup_filename = join(src_dir, "setup.py")
 with open(setup_filename, "w") as setup_file:
@@ -48,7 +48,7 @@ with open(setup_filename, "w") as setup_file:
         setup(
             name="{args.name}",
             version="{args.version}",
-            packages=["{pkg_name}"]
+            packages={args.packages},
         )
     """))
 

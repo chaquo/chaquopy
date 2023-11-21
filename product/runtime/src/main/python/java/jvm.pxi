@@ -94,8 +94,7 @@ cdef jvm_lib_path():
             raise Exception(f"JAVA_HOME ({java_home}) does not exist")
 
     if sys.platform.startswith("darwin"):
-        # TODO #5482: untested
-        subdirs = ["lib"]
+        subdirs = ["jre/lib"]
         filename = "libjvm.dylib"
     elif sys.platform.startswith("win") or sys.platform.startswith("cygwin"):
         subdirs = ["jre/bin",  # Java 8

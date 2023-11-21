@@ -71,26 +71,19 @@ class ConsoleOutputStream(TextIOBase):
         self.stream = stream
         self.method = getattr(obj, method_name)
 
-        try:
-            from java.android.stream import BytesOutputWrapper
-        except ImportError:
-            pass  # Stay compatible with old versions of Chaquopy.
-        else:
-            self.buffer = BytesOutputWrapper(self)
-
     def __repr__(self):
         return f"<ConsoleOutputStream {self.stream}>"
 
-    @property
-    def encoding(self):
-        return self.stream.encoding
-
-    @property
-    def errors(self):
-        return self.stream.errors
-
-    def writable(self):
-        return self.stream.writable()
+    def __getattribute__(self, name):
+        # Forward all attributes that have useful implementations.
+        if name in [
+            "close", "closed", "flush", "writable",  # IOBase
+            "encoding", "errors", "newlines", "buffer", "detach",  # TextIOBase
+            "line_buffering", "write_through", "reconfigure",  # TextIOWrapper
+        ]:
+            return getattr(self.stream, name)
+        else:
+            return super().__getattribute__(name)
 
     def write(self, s):
         # Pass the write to the underlying stream first, so that if it throws an exception, the
@@ -98,6 +91,3 @@ class ConsoleOutputStream(TextIOBase):
         result = self.stream.write(s)
         self.method(s)
         return result
-
-    def flush(self):
-        self.stream.flush()

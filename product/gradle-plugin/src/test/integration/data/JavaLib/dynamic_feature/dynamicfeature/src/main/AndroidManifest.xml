@@ -1,5 +1,4 @@
-<manifest package="com.example.dynamicfeature"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:dist="http://schemas.android.com/apk/distribution">
 
     <dist:module

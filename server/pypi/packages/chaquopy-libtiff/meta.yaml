@@ -1,0 +1,12 @@
+{% set version = "4.5.0" %}
+
+package:
+  name: chaquopy-libtiff
+  version: {{ version }}
+
+source:
+  url: https://download.osgeo.org/libtiff/tiff-{{ version }}.tar.gz
+
+requirements:
+  host:
+    - chaquopy-libjpeg 1.5.3

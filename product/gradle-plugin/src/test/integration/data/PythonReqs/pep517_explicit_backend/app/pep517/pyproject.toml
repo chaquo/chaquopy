@@ -1,0 +1,3 @@
+[build-system]
+requires = ["setuptools", "wheel", "google-crc32c"]
+build-backend = "setuptools.build_meta"

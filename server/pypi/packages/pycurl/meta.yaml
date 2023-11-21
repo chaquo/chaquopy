@@ -1,7 +1,17 @@
+{% if PY_VER == "3.8" %}
+    {% set openssl_suffix = "" %}
+{% else %}
+   {% set openssl_suffix = "-openssl-3" %}
+{% endif %}
+
 package:
   name: pycurl
-  version: 7.43.0.6
+  version: "7.43.0.6"
+
+build:
+  number: 2
 
 requirements:
   host:
-    - chaquopy-curl 7.76.1
+    - chaquopy-curl{{ openssl_suffix }} 7.76.1
+    - openssl

@@ -24,8 +24,11 @@ import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
 
 from android.os import Build
-from com.chaquo.python import Common
 from com.chaquo.python.android import AndroidPlatform
+from com.chaquo.python.internal import Common
+
+
+import_triggers = {}
 
 
 def initialize(context, build_json, app_path):
@@ -326,10 +329,13 @@ class ChaquopyPathFinder(machinery.PathFinder):
         for entry in context.path:
             path_cls = AssetPath if entry.startswith(ASSET_PREFIX + "/") else pathlib.Path
             entry_path = path_cls(entry)
-            if entry_path.is_dir():
-                for sub_path in entry_path.iterdir():
-                    if re.search(pattern, sub_path.name, re.IGNORECASE):
-                        yield metadata.PathDistribution(sub_path)
+            try:
+                if entry_path.is_dir():
+                    for sub_path in entry_path.iterdir():
+                        if re.search(pattern, sub_path.name, re.IGNORECASE):
+                            yield metadata.PathDistribution(sub_path)
+            except PermissionError:
+                pass  # Inaccessible path entries should be ignored.
 
 
 class AssetPath(pathlib.PosixPath):
@@ -378,7 +384,8 @@ class AssetFinder:
             self.extract_root = path
             self.prefix = ""
             sp = context.getSharedPreferences(Common.ASSET_DIR, context.MODE_PRIVATE)
-            assets_json = build_json.get("assets")
+            assets_json = build_json["assets"]
+            self.extract_packages = build_json["extract_packages"]
 
             # To allow modules in both requirements ZIPs to access data files from the other
             # ZIP, we extract both ZIPs to the same directory, and make both ZIPs generate
@@ -396,7 +403,7 @@ class AssetFinder:
                 # See also similar code in AndroidPlatform.java.
                 # TODO #5677: multi-process race conditions.
                 sp_key = "asset." + asset_name
-                new_hash = assets_json.get(asset_name)
+                new_hash = assets_json[asset_name]
                 if sp.getString(sp_key, "") != new_hash:
                     if exists(self.extract_root):
                         rmtree(self.extract_root)
@@ -412,6 +419,7 @@ class AssetFinder:
             self.extract_root = parent.extract_root
             self.prefix = relpath(path, self.extract_root)
             self.zip_files = parent.zip_files
+            self.extract_packages = parent.extract_packages
 
     def __repr__(self):
         return f"{type(self).__name__}({self.path!r})"
@@ -448,7 +456,13 @@ class AssetFinder:
 
     # Called by pkgutil.iter_modules.
     def iter_modules(self, prefix=""):
-        for filename in self.listdir(self.prefix):
+        try:
+            filenames = self.listdir(self.prefix)
+        except OSError:
+            # ignore unreadable directories like import does
+            filenames = []
+
+        for filename in filenames:
             zip_path = join(self.prefix, filename)
             if self.isdir(zip_path):
                 for sub_filename in self.listdir(zip_path):
@@ -467,13 +481,18 @@ class AssetFinder:
         return self.extract_if_changed(f"chaquopy/lib/{filename}")
 
     def extract_dir(self, zip_dir, recursive=True):
+        dotted_dir = zip_dir.replace("/", ".")
+        extract_package = any((dotted_dir == ep) or dotted_dir.startswith(ep + ".")
+                              for ep in self.extract_packages)
+
         for filename in self.listdir(zip_dir):
             zip_path = join(zip_dir, filename)
             if self.isdir(zip_path):
                 if recursive:
                     self.extract_dir(zip_path)
-            elif not (any(filename.endswith(suffix) for suffix in LOADERS) or
-                      re.search(r"^lib.*\.so\.", filename)):  # e.g. libgfortran
+            elif (extract_package and filename.endswith(".py")
+                  or not (any(filename.endswith(suffix) for suffix in LOADERS) or
+                          re.search(r"^lib.*\.so\.", filename))):  # e.g. libgfortran
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
@@ -572,14 +591,27 @@ class AssetLoader:
         return join(dirname(self.path), name)
 
 
+def add_import_trigger(name, trigger):
+    """Register a callable to be called immediately after the module of the given name
+    is imported. If the module has already been imported, the trigger is called
+    immediately."""
+
+    if name in sys.modules:
+        trigger()
+    else:
+        import_triggers[name] = trigger
+
+
 def exec_module_trigger(mod):
     name = mod.__name__
     if name == "pkg_resources":
         initialize_pkg_resources()
     elif name == "numpy":
         java.chaquopy.numpy = mod  # See conversion.pxi.
-    elif name == "ssl":
-        java.android.initialize_ssl()
+    else:
+        trigger = import_triggers.pop(name, None)
+        if trigger:
+            trigger()
 
 
 # The SourceFileLoader base class will automatically create and use _pycache__ directories.
@@ -738,9 +770,11 @@ def atomic_symlink(target, link):
     os.replace(tmp_link, link)
 
 
+# If a module has both a .py and a .pyc file, the .pyc file should be used because
+# it'll load faster.
 LOADERS = {
-    ".py": SourceAssetLoader,
     ".pyc": SourcelessAssetLoader,
+    ".py": SourceAssetLoader,
     ".so": ExtensionAssetLoader,
 }
 

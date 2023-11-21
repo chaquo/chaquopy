@@ -1,0 +1,14 @@
+--- src-original/pyproj/__init__.py	2022-12-13 01:49:26.000000000 +0000
++++ src/pyproj/__init__.py	2023-03-17 11:20:34.043656839 +0000
+@@ -85,6 +85,11 @@
+ __proj_version__ = proj_version_str
+ 
+ 
++# Chaquopy
++import os
++from os.path import dirname
++os.environ["PROJ_DATA"] = f"{dirname(dirname(__file__))}/chaquopy/share/proj"
++
+ try:
+     _pyproj_global_context_initialize()
+ except DataDirError as err:

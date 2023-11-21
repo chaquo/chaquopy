@@ -1,7 +1,7 @@
 from java import dynamic_proxy, jboolean, jvoid, Override, static_proxy
 
 from android.app import AlertDialog
-from android.content import Context, DialogInterface
+from android.content import DialogInterface
 from android.graphics.drawable import ColorDrawable
 from android.os import Bundle
 from androidx.appcompat.app import AppCompatActivity
@@ -68,11 +68,8 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
     @Override(jboolean, [Preference])
     def onPreferenceTreeClick(self, pref):
         method = getattr(self, pref.getKey())
-        if method:
-            method(self.getActivity())
-            return True
-        else:
-            return False
+        method(self.getActivity())
+        return True
 
     def demo_dialog(self, activity):
         ColorDialog().show(self.getFragmentManager(), "color")
@@ -84,10 +81,6 @@ class MenuFragment(static_proxy(PreferenceFragmentCompat)):
 
     def demo_sound(self, activity):
         self.sound_pool.play(self.sound_id, 1, 1, 0, 0, 1)
-
-    def demo_vibrate(self, activity):
-        activity.getSystemService(Context.VIBRATOR_SERVICE)\
-            .vibrate(200)
 
 
 class ColorDialog(static_proxy(DialogFragment)):

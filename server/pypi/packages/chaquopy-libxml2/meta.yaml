@@ -1,9 +1,9 @@
 package:
   name: chaquopy-libxml2
-  version: 2.9.8
+  version: "2.9.8"
 
 build:
-  number: 2
+  number: 3
 
 source:
   url: ftp://xmlsoft.org/libxml2/libxml2-2.9.8.tar.gz
