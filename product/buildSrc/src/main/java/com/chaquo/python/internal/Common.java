@@ -39,8 +39,22 @@ public class Common {
     // Wheel tags (PEP 425).
     public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython
 
-    public static final List<String> ABIS = Arrays.asList
-        ("armeabi-v7a", "arm64-v8a", "x86", "x86_64");
+    public static List<String> supportedAbis(String pythonVersion) {
+        if (!PYTHON_VERSIONS_SHORT.contains(pythonVersion)) {
+            throw new IllegalArgumentException(
+                "Unknown Python version: '" + pythonVersion + "'");
+        }
+
+        List<String> result = new ArrayList<>();
+        result.add("arm64-v8a");
+        result.add("x86_64");
+        if (Arrays.asList("3.8", "3.9", "3.10", "3.11").contains(pythonVersion)) {
+            result.add("armeabi-v7a");
+            result.add("x86");
+        }
+        result.sort(null);  // For testing error messages
+        return result;
+    }
 
     // Subdirectory name to use within assets, getFilesDir() and getCacheDir()
     public static final String ASSET_DIR = "chaquopy";

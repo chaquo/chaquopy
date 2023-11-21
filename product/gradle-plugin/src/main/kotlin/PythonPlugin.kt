@@ -225,13 +225,13 @@ class PythonPlugin : Plugin<Project> {
         for ((_, flavor) in variant.productFlavors.reversed()) {
             python.mergeFrom(extension.productFlavors.getByName(flavor))
         }
-        TaskBuilder(this, variant, python, getAbis(variant)).build()
+        TaskBuilder(this, variant, python, getAbis(variant, python)).build()
     }
 
     // variant.externalNativeBuild returns "null if no cmake external build is
     // configured for this variant", so we'll have to determine the abiFilters from
     // the DSL.
-    fun getAbis(variant: Variant): List<String> {
+    fun getAbis(variant: Variant, python: PythonExtension): List<String> {
         // We return the variants in ASCII order. Preserving the order specified in the
         // build.gradle file is not possible, because they're stored in a HashSet.
         val abis = TreeSet(android.defaultConfig.ndk.abiFilters)
@@ -248,11 +248,13 @@ class PythonPlugin : Plugin<Project> {
                 "Variant '${variant.name}': Chaquopy requires ndk.abiFilters: " +
                 "you may want to add it to android.defaultConfig.")
         }
+
+        val supported = Common.supportedAbis(python.version)
         for (abi in abis) {
-            if (abi !in Common.ABIS) {
+            if (abi !in supported) {
                 throw GradleException(
-                    "Variant '${variant.name}': Chaquopy does not support the ABI " +
-                    "'$abi'. Supported ABIs are ${Common.ABIS}.")
+                    "Variant '${variant.name}': Python ${python.version} is not " +
+                    "available for the ABI '$abi'. Supported ABIs are $supported.")
             }
         }
         return ArrayList(abis)

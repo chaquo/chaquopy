@@ -228,7 +228,10 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
         "Unknown build type '$cmakeBuildType'; valid values are $KNOWN_BUILD_TYPES")
 }
 
-(["host"] + Common.ABIS).each { abi ->
+(["host"] + Common.supportedAbis("3.11")).each { abi ->
+    def pyVersions = Common.PYTHON_VERSIONS_SHORT.findAll {
+        Common.supportedAbis(it).contains(abi)
+    }
     def pyLibSuffix = ".so"
     def cmakeBuildSubdir = "$buildDir/cmake/$abi"
     def cmake = tasks.register("cmake-$abi", Exec) {
@@ -273,11 +276,12 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             // GitHub Actions runner. Ideally it would also match the version in
             // target/build-common.sh, but the latter is more difficult to change.
             def ndkDir = sdkPath("ndk/26.1.10909125")
+
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
                  "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",
-                 "-DCHAQUOPY_PYTHON_VERSIONS=${Common.PYTHON_VERSIONS_SHORT.join(';')}",
+                 "-DCHAQUOPY_PYTHON_VERSIONS=${pyVersions.join(';')}",
                  "-DCHAQUOPY_INCLUDE_PYTHON=$prefixDir/include",
                  "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
         }
@@ -294,7 +298,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
     }
     if (abi != "host") {
         for (name in ["chaquopy", "libchaquopy_java"]) {
-            for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
+            for (pyVersion in pyVersions) {
                 addArtifact(
                     cmakeBuild, new File(cmakeBuildSubdir, "$name-${pyVersion}.so"),
                     pyVersion, abi)

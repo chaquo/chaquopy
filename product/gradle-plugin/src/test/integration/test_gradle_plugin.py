@@ -55,7 +55,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11"]
+assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 NON_DEFAULT_PYTHON_VERSION = "3.10"
@@ -398,18 +398,24 @@ class PythonVersion(GradleTestCase):
     # To allow a quick check of the setting, this test only covers two versions.
     def test_change(self):
         run = self.RunGradle("base", run=False)
-        for version in ["3.8", "3.9"]:
+        for version in [DEFAULT_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
             self.check_version(run, version)
 
     # Test all versions not covered by test_change.
     def test_others(self):
         run = self.RunGradle("base", run=False)
-        for version in ["3.10", "3.11"]:
-            self.check_version(run, version)
+        for version in PYTHON_VERSIONS:
+            if version not in [DEFAULT_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
+                self.check_version(run, version)
 
     def check_version(self, run, version):
         with self.subTest(version=version):
-            run.rerun(f"PythonVersion/{version}", python_version=version)
+            # Make sure every ABI has the full set of native stdlib module files.
+            abis = ["arm64-v8a", "x86_64"]
+            if version in ["3.8", "3.9", "3.10", "3.11"]:
+                abis += ["armeabi-v7a", "x86"]
+            run.rerun(f"PythonVersion/{version}", python_version=version, abis=abis)
+
             if version == DEFAULT_PYTHON_VERSION:
                 self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
             else:
@@ -441,9 +447,17 @@ class AbiFilters(GradleTestCase):
 
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
-        self.assertInLong("Variant 'debug': Chaquopy does not support the ABI 'armeabi'. "
-                          "Supported ABIs are [armeabi-v7a, arm64-v8a, x86, x86_64].",
-                          run.stderr)
+        self.assertInLong(
+            "Variant 'debug': Python 3.8 is not available for the ABI 'armeabi'. "
+            "Supported ABIs are [arm64-v8a, armeabi-v7a, x86, x86_64].",
+            run.stderr)
+
+    def test_invalid_32bit(self):
+        run = self.RunGradle("base", "AbiFilters/invalid_32bit", succeed=False)
+        self.assertInLong(
+            "Variant 'debug': Python 3.12 is not available for the ABI 'x86'. "
+            "Supported ABIs are [arm64-v8a, x86_64].",
+            run.stderr)
 
     def test_all(self):  # Also tests making a change.
         run = self.RunGradle("base", abis=["x86"])
@@ -1734,21 +1748,27 @@ class RunGradle(object):
         with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:
             self.check_pyc(bootstrap_zip, "java/__init__.pyc", kwargs)
 
+        python_version_info = tuple(int(x) for x in python_version.split("."))
+        stdlib_bootstrap_expected = {
+            # This is the list from our minimum Python version. For why each of these
+            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
+            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+        }
+        if python_version_info >= (3, 12):
+            stdlib_bootstrap_expected -= {"_sha512.so"}
+            stdlib_bootstrap_expected |= {"_sha2.so"}
+
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
-            self.test.assertCountEqual(
-                # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
-                # in PythonTasks.kt.
-                ["java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-                 "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"],
-                os.listdir(abi_dir))
-            self.check_python_so(join(abi_dir, "_ctypes.so"), python_version, abi)
+            self.test.assertCountEqual(stdlib_bootstrap_expected, os.listdir(abi_dir))
+            self.check_so(join(abi_dir, "_ctypes.so"), python_version, abi)
 
             java_dir = join(abi_dir, "java")
             self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
-            self.check_python_so(join(java_dir, "chaquopy.so"), python_version, abi)
+            self.check_so(join(java_dir, "chaquopy.so"), python_version, abi)
 
         # Python stdlib
         with ZipFile(join(asset_dir, "stdlib-common.imy")) as stdlib_zip:
@@ -1777,7 +1797,6 @@ class RunGradle(object):
             "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
             "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
             "unicodedata.so", "xxlimited.so"}
-        python_version_info = tuple(int(x) for x in python_version.split("."))
         if python_version_info >= (3, 9):
             stdlib_native_expected |= {"_zoneinfo.so"}
         if python_version_info >= (3, 10):
@@ -1785,6 +1804,9 @@ class RunGradle(object):
             stdlib_native_expected |= {"xxlimited_35.so"}
         if python_version_info >= (3, 11):
             stdlib_native_expected |= {"_typing.so"}
+        if python_version_info >= (3, 12):
+            stdlib_native_expected -= {"_sha256.so", "_typing.so"}
+            stdlib_native_expected |= {"_xxinterpchannels.so", "xxsubtype.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1793,7 +1815,7 @@ class RunGradle(object):
             with TemporaryDirectory() as tmp_dir:
                 test_module = "_asyncio.so"
                 stdlib_native_zip.extract(test_module, tmp_dir)
-                self.check_python_so(join(tmp_dir, test_module), python_version, abi)
+                self.check_so(join(tmp_dir, test_module), python_version, abi)
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
@@ -1812,13 +1834,14 @@ class RunGradle(object):
             build_json["assets"])
 
     def check_pyc(self, zip_file, pyc_filename, kwargs):
-        # See importlib._bootstrap_external.MAGIC_NUMBER.
+        # See the list in importlib/_bootstrap_external.py.
         MAGIC = {
             "3.7": 3394,
             "3.8": 3413,
             "3.9": 3425,
             "3.10": 3439,
             "3.11": 3495,
+            "3.12": 3531,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             self.test.assertEqual(
@@ -1836,9 +1859,9 @@ class RunGradle(object):
                  f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
                 os.listdir(abi_dir))
-            self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
+            self.check_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
 
-    def check_python_so(self, so_filename, python_version, abi):
+    def check_so(self, so_filename, python_version, abi):
         libpythons = []
         with open(so_filename, "rb") as so_file:
             ef = ELFFile(so_file)
@@ -1853,7 +1876,11 @@ class RunGradle(object):
                 if tag.entry.d_tag == "DT_NEEDED" and \
                    tag.needed.startswith("libpython"):
                     libpythons.append(tag.needed)
-        self.test.assertEqual([f"libpython{python_version}.so"], libpythons)
+
+        # Python 3.12 doesn't link its stdlib modules against libpython. But we'll make
+        # sure that *if* there's a libpython, it's the correct version.
+        if libpythons:
+            self.test.assertEqual([f"libpython{python_version}.so"], libpythons)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

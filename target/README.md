@@ -43,9 +43,9 @@ Add it to Common.java.
 
 Add it to build-all.sh.
 
-In test_gradle_plugin.py:
-* Update the `PYTHON_VERSIONS` assertion.
-* Update `stdlib_native_expected`.
+In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
+
+Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
 
 Update documentation:
 * "Python version" in android.rst

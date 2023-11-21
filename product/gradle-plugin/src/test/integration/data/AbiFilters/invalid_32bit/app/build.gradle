@@ -1,12 +1,9 @@
-plugins {
-    id 'com.android.application'
-    id 'com.chaquo.python'
-}
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
 
 android {
     namespace "com.chaquo.python.test"
     compileSdk 23
-
     defaultConfig {
         applicationId "com.chaquo.python.test"
         minSdk 21
@@ -14,10 +11,10 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "3.10"
+            version "3.12"
         }
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            abiFilters "x86"
         }
     }
 }

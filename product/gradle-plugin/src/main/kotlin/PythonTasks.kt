@@ -394,13 +394,17 @@ internal class TaskBuilder(
                 // pre-extracted by AndroidPlatform so they can be loaded with the
                 // standard FileFinder. All other native modules are loaded from a .zip using
                 // AssetFinder.
+                //
+                // If this list changes, search for references to this variable name to
+                // find the tests that need to be updated.
                 val BOOTSTRAP_NATIVE_STDLIB = listOf(
                     "_bz2.so",  // zipfile < importer
                     "_ctypes.so",  // java.primitive and importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
                     "_lzma.so",  // zipfile < importer
                     "_random.so",  // random < tempfile < zipimport
-                    "_sha512.so",  // random < tempfile < zipimport
+                    "_sha2.so",  // random < tempfile < zipimport (Python >= 3.12)
+                    "_sha512.so",  // random < tempfile < zipimport (Python <= 3.11)
                     "_struct.so",  // zipfile < importer
                     "binascii.so",  // zipfile < importer
                     "math.so",  // datetime < calendar < importer
