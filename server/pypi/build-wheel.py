@@ -7,7 +7,6 @@ import csv
 from dataclasses import dataclass
 from email import generator, message, parser
 from glob import glob
-import multiprocessing
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from pathlib import Path
@@ -578,7 +577,7 @@ class BuildWheel:
 
             # conda-build variable names defined at
             # https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html
-            "CPU_COUNT": str(multiprocessing.cpu_count()),
+            # CPU_COUNT is now in build-common.sh, so the target scripts can use it.
             "PKG_BUILDNUM": str(self.meta["build"]["number"]),
             "PKG_NAME": self.package,
             "PKG_VERSION": self.version,

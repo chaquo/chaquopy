@@ -1,13 +1,13 @@
 #!/bin/bash
 set -eu
 
-# Positional arguments (order is the same as package-target.sh):
-#  * `prefix` directory to unpack into.
+# Positional arguments:
 #  * Maven directory to unpack from, e.g. /path/to/com/chaquo/python/target/3.10.6-3.
+#  * `prefix` directory to unpack into.
 
 mkdir -p "${1:?}"
-prefix_dir=$(cd ${1:?} && pwd)
-target_dir=$(cd ${2:?} && pwd)
+target_dir=$(cd ${1:?} && pwd)
+prefix_dir=$(cd ${2:?} && pwd)
 
 version=$(basename "$target_dir")
 version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')

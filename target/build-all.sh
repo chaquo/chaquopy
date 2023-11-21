@@ -10,9 +10,9 @@ done
 
 # Build libraries shared by all Python versions.
 ./for-each-abi.sh bzip2/build.sh 1.0.8
-./for-each-abi.sh libffi/build.sh 3.3
+./for-each-abi.sh libffi/build.sh 3.4.4
 ./for-each-abi.sh sqlite/build.sh 2022 3390200
-./for-each-abi.sh xz/build.sh 5.2.4
+./for-each-abi.sh xz/build.sh 5.4.5
 
 # Build all supported versions of Python, and generate `target` artifacts for Maven.
 #
@@ -29,3 +29,4 @@ python/build-and-package.sh 3.8
 python/build-and-package.sh 3.9
 python/build-and-package.sh 3.10
 python/build-and-package.sh 3.11
+python/build-and-package.sh 3.12

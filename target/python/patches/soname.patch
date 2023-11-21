@@ -1,0 +1,17 @@
+--- Python-3.12.0-original/configure	2023-11-20 19:18:30
++++ Python-3.12.0/configure	2023-11-21 08:37:46
+@@ -7492,7 +7492,13 @@
+ 	  LDLIBRARY='libpython$(LDVERSION).so'
+ 	  BLDLIBRARY='-L. -lpython$(LDVERSION)'
+ 	  RUNSHARED=LD_LIBRARY_PATH=`pwd`${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+-	  INSTSONAME="$LDLIBRARY".$SOVERSION
++
++    # Chaquopy: the Android Gradle plugin will only package libraries whose names end
++    # with ".so".
++    if [ $ac_sys_system != "Linux-android" ]; then
++        INSTSONAME="$LDLIBRARY".$SOVERSION
++    fi
++
+ 	  if test "$with_pydebug" != yes
+           then
+ 	      PY3LIBRARY=libpython3.so

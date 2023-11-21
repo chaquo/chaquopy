@@ -29,7 +29,7 @@ jobs:
           for version in $(./list-versions.py --build); do
               target_dir=../maven/com/chaquo/python/target/$version
               ./download-target.sh $target_dir
-              ./unpackage-target.sh prefix $target_dir
+              ./unpackage-target.sh $target_dir prefix
           done
 
       - name: Install Python requirements
@@ -168,7 +168,6 @@ jobs:
           extra-versions: |
             3.6
             3.7
-            3.12
 
       - name: Download Maven repository
         uses: actions/download-artifact@v3.0.2
