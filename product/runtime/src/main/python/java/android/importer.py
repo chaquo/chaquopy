@@ -2,7 +2,6 @@ import _imp
 from calendar import timegm
 from contextlib import contextmanager, nullcontext
 import ctypes
-import imp
 from importlib import _bootstrap, _bootstrap_external, machinery, util
 from inspect import getmodulename
 import io
@@ -36,7 +35,8 @@ def initialize(context, build_json, app_path):
     nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir
     initialize_importlib(context, build_json, app_path)
     initialize_ctypes()
-    initialize_imp()
+    if sys.version_info < (3, 12):
+        initialize_imp()
 
 
 def initialize_importlib(context, build_json, app_path):
@@ -178,6 +178,8 @@ def initialize_ctypes():
 
 
 def initialize_imp():
+    import imp
+
     # The standard implementations of imp.find_module and imp.load_module do not use the PEP
     # 302 import system. They are therefore only capable of loading from directory trees and
     # built-in modules, and will ignore both sys.path_hooks and sys.meta_path. To accommodate
@@ -190,6 +192,8 @@ def initialize_imp():
 
 
 def find_module_override(base_name, path=None):
+    import imp
+
     # When calling find_module_original, we can't just replace None with sys.path, because None
     # will also search built-in modules.
     path_original = path

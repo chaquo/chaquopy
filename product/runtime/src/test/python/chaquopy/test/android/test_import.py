@@ -2,7 +2,6 @@ import calendar
 from contextlib import contextmanager
 import ctypes
 from ctypes.util import find_library
-import imp
 from importlib import import_module, metadata, reload, resources
 import importlib.util
 from importlib.util import cache_from_source, MAGIC_NUMBER
@@ -15,6 +14,7 @@ import re
 from shutil import rmtree
 import sys
 from traceback import format_exc
+from unittest import expectedFailure, skipIf
 import types
 from warnings import catch_warnings, filterwarnings
 
@@ -41,6 +41,10 @@ def asset_path(zip_name, *paths):
 
 class TestAndroidImport(FilterWarningsCase):
 
+    # This will be fixed in Python 3.12.1 (https://github.com/python/cpython/pull/110247)
+    expectedFailure312 = expectedFailure if sys.version_info >= (3, 12) else lambda x: x
+
+    @expectedFailure312
     def test_bootstrap(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
@@ -49,11 +53,18 @@ class TestAndroidImport(FilterWarningsCase):
         bn_dir = f"{chaquopy_dir}/bootstrap-native"
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
+        stdlib_bootstrap_expected = {
+            # This is the list from our minimum Python version. For why each of these
+            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
+            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+        }
+        if sys.version_info >= (3, 12):
+            stdlib_bootstrap_expected -= {"_sha512.so"}
+            stdlib_bootstrap_expected |= {"_sha2.so"}
+
         for subdir, entries in [
-            # For why each of these modules are needed, see BOOTSTRAP_NATIVE_STDLIB
-            # in PythonTasks.kt.
-            (ABI, ["java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-                   "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so"]),
+            (ABI, stdlib_bootstrap_expected),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -425,7 +436,7 @@ class TestAndroidImport(FilterWarningsCase):
                 test_frame +
                 fr'  File "{asset_path(REQS_COMMON_ZIP)}/murmurhash/__init__.py", '
                 fr'line 5, in get_include\n'
-                fr"NameError: name '__file__' is not defined\n$")
+                fr"NameError: name '__file__' is not defined")
         else:
             self.fail()
         finally:
@@ -447,7 +458,10 @@ class TestAndroidImport(FilterWarningsCase):
         else:
             self.fail()
 
+    @skipIf(sys.version_info >= (3, 12), "imp was removed in Python 3.12")
     def test_imp(self):
+        import imp
+
         with catch_warnings():
             filterwarnings("default", category=DeprecationWarning)
 
@@ -522,9 +536,13 @@ class TestAndroidImport(FilterWarningsCase):
                             else:
                                 self.assertEqual(expected_type, actual_type)
 
-    # This trick was used by Electron Cash to load modules under a different name. The Electron
-    # Cash Android app no longer needs it, but there may be other software which does.
+    # This trick was used by Electron Cash to load modules under a different name. The
+    # Electron Cash Android app no longer needs it, but there may be other software
+    # which does.
+    @skipIf(sys.version_info >= (3, 12), "imp was removed in Python 3.12")
     def test_imp_rename(self):
+        import imp
+
         with catch_warnings():
             filterwarnings("default", category=DeprecationWarning)
 
@@ -646,12 +664,17 @@ class TestAndroidImport(FilterWarningsCase):
             self.assertEqual([], mod_infos)
 
     def test_pr_distributions(self):
-        import pkg_resources as pr
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
+            import pkg_resources as pr
+
         self.assertCountEqual(REQUIREMENTS, [dist.project_name for dist in pr.working_set])
         self.assertEqual("0.28.0", pr.get_distribution("murmurhash").version)
 
     def test_pr_resources(self):
-        import pkg_resources as pr
+        with catch_warnings():
+            filterwarnings("default", category=DeprecationWarning)
+            import pkg_resources as pr
 
         # App ZIP
         pkg = "android1"
