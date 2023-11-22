@@ -32,7 +32,7 @@ if [ $version_int -ge 311 ]; then
     patches+=" python_for_build_deps"
 fi
 if [ $version_int -ge 312 ]; then
-    patches+=" grp"
+    patches+=" bldlibrary grp"
 fi
 for name in $patches; do
     patch -p1 -i $recipe_dir/patches/$name.patch

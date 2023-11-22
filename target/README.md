@@ -69,8 +69,8 @@ When building the other packages:
 
 Update all the things listed in the "Adding a Python version" section.
 
-Search source code for `python *[<>=]* *[0-9]` to see if any workarounds can now be
-removed.
+Search source code for `(python|version_info) *[<>=]* *[0-9]` to see if any workarounds
+can now be removed.
 
 Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTasks.kt.
 

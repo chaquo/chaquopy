@@ -1764,11 +1764,11 @@ class RunGradle(object):
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
             self.test.assertCountEqual(stdlib_bootstrap_expected, os.listdir(abi_dir))
-            self.check_so(join(abi_dir, "_ctypes.so"), python_version, abi)
+            self.check_python_so(join(abi_dir, "_ctypes.so"), python_version, abi)
 
             java_dir = join(abi_dir, "java")
             self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
-            self.check_so(join(java_dir, "chaquopy.so"), python_version, abi)
+            self.check_python_so(join(java_dir, "chaquopy.so"), python_version, abi)
 
         # Python stdlib
         with ZipFile(join(asset_dir, "stdlib-common.imy")) as stdlib_zip:
@@ -1815,7 +1815,7 @@ class RunGradle(object):
             with TemporaryDirectory() as tmp_dir:
                 test_module = "_asyncio.so"
                 stdlib_native_zip.extract(test_module, tmp_dir)
-                self.check_so(join(tmp_dir, test_module), python_version, abi)
+                self.check_python_so(join(tmp_dir, test_module), python_version, abi)
 
         # build.json
         with open(join(asset_dir, "build.json")) as build_json_file:
@@ -1859,9 +1859,9 @@ class RunGradle(object):
                  f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
                  "libsqlite3_chaquopy.so"],
                 os.listdir(abi_dir))
-            self.check_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
+            self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
 
-    def check_so(self, so_filename, python_version, abi):
+    def check_python_so(self, so_filename, python_version, abi):
         libpythons = []
         with open(so_filename, "rb") as so_file:
             ef = ELFFile(so_file)
@@ -1876,11 +1876,7 @@ class RunGradle(object):
                 if tag.entry.d_tag == "DT_NEEDED" and \
                    tag.needed.startswith("libpython"):
                     libpythons.append(tag.needed)
-
-        # Python 3.12 doesn't link its stdlib modules against libpython. But we'll make
-        # sure that *if* there's a libpython, it's the correct version.
-        if libpythons:
-            self.test.assertEqual([f"libpython{python_version}.so"], libpythons)
+        self.test.assertEqual([f"libpython{python_version}.so"], libpythons)
 
     def dump_run(self, msg):
         self.test.fail(msg + "\n" +

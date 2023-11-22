@@ -38,7 +38,7 @@ In your *top-level* `build.gradle` file, set the Chaquopy version:
     }
 
 Also check the Android Gradle plugin version (`com.android.application` or
-`com.android.library`): it should be between 7.0.x and 8.1.x. Older versions as far back
+`com.android.library`): it should be between 7.0.x and 8.2.x. Older versions as far back
 as 2.2 are supported by :doc:`older versions of Chaquopy <../versions>`.
 
 Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usually in the
@@ -67,9 +67,10 @@ The Python interpreter is a native component, so you must use the `abiFilters
 <https://developer.android.com/studio/projects/gradle-external-native-builds#specify-abi>`_
 setting to specify which ABIs you want the app to support. The currently available ABIs are:
 
-* `armeabi-v7a`, for older Android devices
-* `arm64-v8a`, for newer Android devices, and the emulator on Apple silicon (M1)
-* `x86` and `x86_64`, for the emulator on other platforms
+* `armeabi-v7a` for older Android devices (Python 3.11 and older only)
+* `arm64-v8a` for current Android devices, and emulators on Apple silicon
+* `x86` for older emulators (Python 3.11 and older only)
+* `x86_64` for current emulators
 
 The following setting will work for most projects:
 
@@ -81,7 +82,7 @@ The following setting will work for most projects:
             defaultConfig {
                 ndk {
                     // On Apple silicon, you can omit x86_64.
-                    abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+                    abiFilters += listOf("arm64-v8a", "x86_64")
                 }
             }
         }
@@ -92,7 +93,7 @@ The following setting will work for most projects:
             defaultConfig {
                 ndk {
                     // On Apple silicon, you can omit x86_64.
-                    abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+                    abiFilters "arm64-v8a", "x86_64"
                 }
             }
         }
@@ -234,8 +235,8 @@ You can set your app's Python version like this::
     }
 
 In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8. The
-other available versions are 3.9, 3.10 and 3.11, but these may have fewer :ref:`packages
-<android-requirements>` available.
+other available versions are 3.9, 3.10, 3.11 and 3.12, but these may have fewer
+:ref:`packages <android-requirements>` available.
 
 .. _android-source:
 

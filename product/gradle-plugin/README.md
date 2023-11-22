@@ -47,6 +47,7 @@ After first release candidate:
   version.
 * Copy the contents from the previous base/X.Y directory, then update them with the
   settings from the "Empty Activity" project.
+* Update android.rst and versions.rst.
 * Run tests on all platforms.
 
 After stable release:
