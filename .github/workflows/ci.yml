@@ -113,10 +113,12 @@ jobs:
           # MIN_BUILD_PYTHON_VERSION from test_gradle_plugin
           python-version: 3.7
 
+      - uses: ./.github/actions/create-local-properties
+
       - name: Test
         run: |
           cd product
-          ./gradlew testPython
+          ./gradlew gradle:testPython
 
 
   demo:
