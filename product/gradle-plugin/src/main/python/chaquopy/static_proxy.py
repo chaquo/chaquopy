@@ -15,6 +15,7 @@ import os
 from os.path import exists, isdir, isfile
 import sys
 import tokenize
+import warnings
 
 import attr
 from attr.validators import instance_of, optional
@@ -40,6 +41,10 @@ def unwrap_if_primitive(name):
 
 
 def main():
+    # TODO: remove once our minimum buildPython version is Python 3.8.
+    for message in [r".*use ast.Constant instead", r".*use value instead"]:
+        warnings.filterwarnings("ignore", message, DeprecationWarning)
+
     args = parse_args()
 
     try:
@@ -357,7 +362,7 @@ class write_java(object):
         self.indent = 0
         with open(join(pkg_dirname, cls.name + ".java"), "w") as self.out_file:
             self.line("// Generated at {} with the command line:",
-                      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+                      datetime.now().astimezone().isoformat(timespec="seconds"))
             self.line("// {}", " ".join(sys.argv[1:]))
             self.line()
             self.line("package {};", cls.package)

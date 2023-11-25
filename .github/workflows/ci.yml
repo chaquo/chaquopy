@@ -102,6 +102,23 @@ jobs:
           if-no-files-found: error
 
 
+  gradlePython:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+      - uses: actions/checkout@v3.5.3
+
+      - uses: actions/setup-python@v4.6.1
+        with:
+          # MIN_BUILD_PYTHON_VERSION from test_gradle_plugin
+          python-version: 3.7
+
+      - name: Test
+        run: |
+          cd product
+          ./gradlew testPython
+
+
   demo:
     needs: [product]
     runs-on: ubuntu-latest

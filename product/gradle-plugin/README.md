@@ -93,17 +93,20 @@ After stable release:
 
 ## Adding support for a buildPython version
 
-* Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which use
-  it.
+* Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
+  use it.
+* Build the demo app with the new version, and check for any warnings other than the
+  expected ones about .pyc compilation.
 
 
 ## Removing support for a buildPython version
 
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
 * Update `testPython` in gradle-plugin/build.gradle, and run the tests.
-* In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSIONS` and
+* In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
   `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
-* In the ci.yml job `test-integration`, update `extra-versions`.
+* Check references to `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in
+  ci.yml.
 * Update android.rst.
 
 
