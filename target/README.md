@@ -29,12 +29,12 @@ If this is a new major.minor version, do the "Adding a Python version" checklist
 
 Run the PythonVersion integration tests.
 
-Use the demo app to run the unit tests on the full set of pre-release devices (see
-release/README.md).
+Use the demo app to run the Python and Java unit tests on the full set of pre-release
+devices (see release/README.md).
 
 To publish the build, follow the "Public release" instructions in release/README.md.
 Once a version has been published on Maven Central, it cannot be changed, so any fixes
-must be released under a different build number (see Common.java).
+must be released under a different build number.
 
 
 ## Adding a Python version
@@ -60,9 +60,9 @@ When building the other packages:
     would take a lot of work which wouldn't be justified by user demand.
   * Review patches and build scripts to see if there are any workarounds which are no
     longer necessary.
-* When finished the list:
+* When finished:
   * Clear out any bad builds before copying them to the public repository.
-* After release, notify any users who requested new versions.
+  * Notify any users who requested new versions.
 
 
 ## Removing a Python version

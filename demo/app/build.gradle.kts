@@ -47,7 +47,9 @@ android {
                       verParsed[2] * 10
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            abiFilters += listOf(
+                "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+            )
         }
 
         // Remove other languages imported from Android support libraries.
@@ -101,8 +103,10 @@ chaquopy {
 
         // Python unit tests
         pip {
-            // In newer versions, importing murmurhash automatically imports and
-            // extracts murmurhash/mrmr.so, which would complicate the tests.
+            // We use an old version of murmurhash (built from the Chaquopy branch
+            // `murmurhash-0`), because in newer versions, importing murmurhash
+            // automatically imports and extracts murmurhash/mrmr.so, which would
+            // complicate the tests.
             install("murmurhash==0.28.0")  // Requires chaquopy-libcxx
 
             // Because we set pyc.src to false, we must test extractPackages via pip.

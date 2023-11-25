@@ -5,9 +5,11 @@ from ctypes.util import find_library
 from importlib import import_module, metadata, reload, resources
 import importlib.util
 from importlib.util import cache_from_source, MAGIC_NUMBER
+import io
 import marshal
 import os
 from os.path import dirname, exists, join, realpath, relpath, splitext
+from pathlib import Path, PosixPath
 import pkgutil
 import platform
 import re
@@ -38,8 +40,17 @@ def asset_path(zip_name, *paths):
     return join(realpath(context.getFilesDir().toString()), "chaquopy/AssetFinder",
                 zip_name.partition("-")[0], *paths)
 
+def resource_path(zip_name, package, filename):
+    return asset_path(zip_name, package.replace(".", "/"), filename)
+
+
+def importable(filename):
+    return splitext(filename)[1] in [".py", ".pyc", ".so"]
+
 
 class TestAndroidImport(FilterWarningsCase):
+
+    maxDiff = None
 
     # This will be fixed in Python 3.12.1 (https://github.com/python/cpython/pull/110247)
     expectedFailure312 = expectedFailure if sys.version_info >= (3, 12) else lambda x: x
@@ -247,7 +258,7 @@ class TestAndroidImport(FilterWarningsCase):
         data = pkgutil.get_data(package, filename)
         self.assertTrue(data.startswith(start))
 
-        if splitext(filename)[1] in [".py", ".pyc", ".so"]:
+        if importable(filename):
             # Importable files are not extracted.
             self.assertNotPredicate(exists, cache_filename)
         else:
@@ -663,7 +674,7 @@ class TestAndroidImport(FilterWarningsCase):
             mod_infos = list(pkgutil.iter_modules([f"{murmurhash.__path__[0]}/{path}"]))
             self.assertEqual([], mod_infos)
 
-    def test_pr_distributions(self):
+    def test_pr_metadata(self):
         with catch_warnings():
             filterwarnings("default", category=DeprecationWarning)
             import pkg_resources as pr
@@ -679,50 +690,89 @@ class TestAndroidImport(FilterWarningsCase):
         # App ZIP
         pkg = "android1"
         names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
-        self.assertCountEqual(names, pr.resource_listdir(pkg, ""))
+        self.check_pr_resource_dir(pkg, "", names)
         for name in names:
             with self.subTest(name=name):
                 self.assertTrue(pr.resource_exists(pkg, name))
                 self.assertEqual(pr.resource_isdir(pkg, name),
                                  name == "subdir")
-        self.assertFalse(pr.resource_exists(pkg, "nonexistent"))
-        self.assertFalse(pr.resource_isdir(pkg, "nonexistent"))
 
-        self.assertCountEqual(["c.txt"], pr.resource_listdir(pkg, "subdir"))
-        self.assertTrue(pr.resource_exists(pkg, "subdir/c.txt"))
-        self.assertFalse(pr.resource_isdir(pkg, "subdir/c.txt"))
-        self.assertFalse(pr.resource_exists(pkg, "subdir/nonexistent.txt"))
+        self.check_pr_resource_dir(pkg, "subdir", ["c.txt"])
 
         self.check_pr_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
         self.check_pr_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
         self.check_pr_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
         self.check_pr_resource(APP_ZIP, pkg, "subdir/c.txt", b"charlie\n")
 
-        # Requirements ZIP
-        self.reset_package("murmurhash")
-        self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
-                               "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
-                              pr.resource_listdir("murmurhash", ""))
-        self.assertCountEqual(["MurmurHash2.h", "MurmurHash3.h"],
-                              pr.resource_listdir("murmurhash", "include/murmurhash"))
+        for filename in ["invalid.py", "subdir/nonexistent.txt"]:
+            with self.subTest(filename=filename):
+                self.assertFalse(pr.resource_exists(pkg, filename))
+                self.assertFalse(pr.resource_isdir(pkg, filename))
 
-        self.check_pr_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
-        self.check_pr_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
-        self.check_pr_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    pr.resource_listdir(pkg, filename)
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    pr.resource_string(pkg, filename)
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    pr.resource_stream(pkg, filename)
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    pr.resource_filename(pkg, filename)
+
+        # Requirements ZIP
+        pkg = "murmurhash"
+        self.reset_package(pkg)
+        self.assertCountEqual(
+            pr.resource_listdir(pkg, ""),
+            ["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+             "mrmr.pxd", "mrmr.pyx", "mrmr.so"])
+        self.check_pr_resource_dir(pkg, "include", ["murmurhash"])
+        self.check_pr_resource_dir(
+            pkg, "include/murmurhash",
+            ["MurmurHash2.h", "MurmurHash3.h"])
+
+        self.check_pr_resource(REQS_COMMON_ZIP, pkg, "__init__.pyc", MAGIC_NUMBER)
+        self.check_pr_resource(REQS_COMMON_ZIP, pkg, "mrmr.pxd", b"from libc.stdint")
+        self.check_pr_resource(
+            REQS_COMMON_ZIP, pkg, "include/murmurhash/MurmurHash2.h",
+            b"//-----------------------------------------------------------------------------\n"
+            b"// MurmurHash2 was written by Austin Appleby")
+        self.check_pr_resource(REQS_ABI_ZIP, pkg, "mrmr.so", b"\x7fELF")
+
+    def check_pr_resource_dir(self, package, filename, children):
+        import pkg_resources as pr
+
+        self.assertTrue(pr.resource_exists(package, filename))
+        self.assertTrue(pr.resource_isdir(package, filename))
+
+        with self.assertRaisesRegex(IsADirectoryError, filename):
+            pr.resource_string(package, filename)
+
+        self.assertCountEqual(pr.resource_listdir(package, filename), children)
 
     def check_pr_resource(self, zip_name, package, filename, start):
         import pkg_resources as pr
+
         with self.subTest(package=package, filename=filename):
+            self.assertTrue(pr.resource_exists(package, filename))
+            self.assertFalse(pr.resource_isdir(package, filename))
+            with self.assertRaisesRegex(NotADirectoryError, filename):
+                pr.resource_listdir(package, filename)
+
             data = pr.resource_string(package, filename)
             self.assertPredicate(data.startswith, start)
 
+            with pr.resource_stream(package, filename) as file:
+                self.assertIsInstance(file, io.BytesIO)
+                self.assertEqual(file.read(), data)
+
             abs_filename = pr.resource_filename(package, filename)
-            self.assertEqual(asset_path(zip_name, package.replace(".", "/"), filename),
-                             abs_filename)
-            if splitext(filename)[1] in [".py", ".pyc", ".so"]:
-                # Importable files are not extracted.
+            self.assertEqual(abs_filename, resource_path(zip_name, package, filename))
+            if importable(filename):
+                # pkg_resources has a mechanism for extracting resources to temporary
+                # files, but we don't currently support it.
                 self.assertNotPredicate(exists, abs_filename)
             else:
+                # Extracted files can be read directly.
                 with open(abs_filename, "rb") as f:
                     self.assertEqual(data, f.read())
 
@@ -760,61 +810,197 @@ class TestAndroidImport(FilterWarningsCase):
     # replacement isn't available until Python 3.9.
     #
     # This API cannot access subdirectories within packages.
-    def test_importlib_resources(self):
+    def test_resources_old(self):
         with catch_warnings():
             filterwarnings("default", category=DeprecationWarning)
 
             # App ZIP
             pkg = "android1"
             names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
-            self.assertCountEqual(names, resources.contents(pkg))
+            self.assertCountEqual(resources.contents(pkg), names)
             for name in names:
                 with self.subTest(name=name):
                     self.assertEqual(resources.is_resource(pkg, name),
                                      name != "subdir")
 
-            self.check_ir_resource(APP_ZIP, pkg, "__init__.py", b"# This package is")
-            self.check_ir_resource(APP_ZIP, pkg, "a.txt", b"alpha\n")
-            self.check_ir_resource(APP_ZIP, pkg, "b.so", b"bravo\n")
+            self.check_resource_old(APP_ZIP, pkg, "__init__.py", "# This package is")
+            self.check_resource_old(APP_ZIP, pkg, "a.txt", "alpha\n")
+            self.check_resource_old(APP_ZIP, pkg, "b.so", "bravo\n")
 
-            self.assertFalse(resources.is_resource(pkg, "invalid.py"))
-            with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
-                resources.read_binary(pkg, "invalid.py")
-            with self.assertRaisesRegex(FileNotFoundError, "invalid.py"):
-                with resources.path(pkg, "invalid.py"):
+            filename = "invalid.py"
+            self.assertFalse(resources.is_resource(pkg, filename))
+            with self.assertRaisesRegex(FileNotFoundError, filename):
+                resources.read_binary(pkg, filename)
+            with self.assertRaisesRegex(FileNotFoundError, filename):
+                resources.open_binary(pkg, filename)
+            with self.assertRaisesRegex(FileNotFoundError, filename):
+                with resources.path(pkg, filename):
                     pass
 
             # Requirements ZIP
-            self.reset_package("murmurhash")
-            self.assertCountEqual(["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
-                                   "mrmr.pxd", "mrmr.pyx", "mrmr.so"],
-                                  resources.contents("murmurhash"))
+            pkg = "murmurhash"
+            self.reset_package(pkg)
+            self.assertCountEqual(
+                resources.contents(pkg),
+                ["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+                 "mrmr.pxd", "mrmr.pyx", "mrmr.so"])
 
-            self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "__init__.pyc", MAGIC_NUMBER)
-            self.check_ir_resource(REQS_COMMON_ZIP, "murmurhash", "mrmr.pxd", b"from libc.stdint")
-            self.check_ir_resource(REQS_ABI_ZIP, "murmurhash", "mrmr.so", b"\x7fELF")
+            self.check_resource_old(REQS_COMMON_ZIP, pkg, "__init__.pyc", MAGIC_NUMBER)
+            self.check_resource_old(REQS_COMMON_ZIP, pkg, "mrmr.pxd", "from libc.stdint")
+            self.check_resource_old(REQS_ABI_ZIP, pkg, "mrmr.so", b"\x7fELF")
 
-    def check_ir_resource(self, zip_name, package, filename, start):
+    def check_resource_old(self, zip_name, package, filename, start):
         with self.subTest(package=package, filename=filename):
-            data = resources.read_binary(package, filename)
+            self.assertTrue(resources.is_resource(package, filename))
+
+            binary = isinstance(start, bytes)
+            data = getattr(
+                resources, "read_binary" if binary else "read_text"
+            )(package, filename)
             self.assertPredicate(data.startswith, start)
 
-            with resources.path(package, filename) as abs_path:
-                if (
-                    # Importable files are not extracted to the AssetFinder directory.
-                    splitext(filename)[1] in [".py", ".pyc", ".so"]
-                    # resources.path() always returns a temporary file on Python >= 3.11.
-                    or sys.version_info >= (3, 11)
-                ):
-                    self.assertEqual(join(str(context.getCacheDir()), "chaquopy/tmp"),
-                                     dirname(abs_path))
-                else:
-                    self.assertEqual(asset_path(zip_name, package.replace(".", "/"), filename),
-                                     str(abs_path))
-                with open(abs_path, "rb") as f:
-                    self.assertEqual(data, f.read())
+            abs_filename = resource_path(zip_name, package, filename)
+            with getattr(
+                resources, "open_binary" if binary else "open_text"
+            )(package, filename) as file:
+                self.check_resource_file(file, abs_filename, data, binary)
 
-    def test_importlib_metadata(self):
+            with resources.path(package, filename) as path:
+                self.check_resource_path(path, abs_filename, data, binary)
+
+    def check_resource_file(self, file, abs_filename, data, binary):
+        if binary:
+            buffer = file
+        else:
+            self.assertIsInstance(file, io.TextIOWrapper)
+            buffer = file.buffer
+
+        if importable(abs_filename):
+            self.assertIsInstance(buffer, io.BytesIO)
+        else:
+            self.assertIsInstance(buffer, io.BufferedReader)
+            self.assertEqual(buffer.name, abs_filename)
+
+        self.assertEqual(file.read(), data)
+
+    def check_resource_path(self, path, abs_filename, data, binary):
+        self.assertIs(type(path), PosixPath)
+        if importable(abs_filename):
+            # Non-extracted files are copied to the temporary directory.
+            self.assertEqual(dirname(path),
+                             join(str(context.getCacheDir()), "chaquopy/tmp"))
+        else:
+            # Extracted files can be read directly.
+            self.assertEqual(str(path), abs_filename)
+
+        with open(path, "rb" if binary else "r") as file:
+            self.assertEqual(file.read(), data)
+
+    @skipIf(sys.version_info < (3, 9), "resources.files was added in Python 3.9")
+    def test_resources_new(self):
+        # App ZIP
+        pkg = "android1"
+        pkg_path = resources.files(pkg)
+        self.assertNotIsInstance(pkg_path, Path)
+
+        names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
+        self.check_resource_dir(pkg_path, names)
+        for name in names:
+            with self.subTest(name=name):
+                path = pkg_path / name
+                self.assertTrue(path.exists())
+                self.assertEqual(path.is_dir(), name == "subdir")
+                self.assertEqual(path.is_file(), name != "subdir")
+
+        self.check_resource_dir(pkg_path / "subdir", ["c.txt"])
+
+        self.check_resource_new(APP_ZIP, pkg, "__init__.py", "# This package is")
+        self.check_resource_new(APP_ZIP, pkg, "a.txt", "alpha\n")
+        self.check_resource_new(APP_ZIP, pkg, "b.so", "bravo\n")
+        self.check_resource_new(APP_ZIP, pkg, "subdir/c.txt", "charlie\n")
+
+        for filename in ["invalid.py", "subdir/nonexistent.txt"]:
+            with self.subTest(filename=filename):
+                path = pkg_path / filename
+                self.assertNotIsInstance(path, Path)
+                self.assertFalse(path.exists())
+                self.assertFalse(path.is_dir())
+                self.assertFalse(path.is_file())
+
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    next(path.iterdir())
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    path.read_bytes()
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    path.open()
+                with self.assertRaisesRegex(FileNotFoundError, filename):
+                    with resources.as_file(path):
+                        pass
+
+        # Requirements ZIP
+        pkg = "murmurhash"
+        self.reset_package(pkg)
+        pkg_path = resources.files(pkg)
+        self.check_resource_dir(
+            pkg_path,
+            ["include", "tests", "__init__.pxd", "__init__.pyc", "about.pyc",
+             "mrmr.pxd", "mrmr.pyx", "mrmr.so"])
+        self.check_resource_dir(pkg_path / "include", ["murmurhash"])
+        self.check_resource_dir(
+            pkg_path / "include/murmurhash", ["MurmurHash2.h", "MurmurHash3.h"])
+
+        self.check_resource_new(REQS_COMMON_ZIP, pkg, "__init__.pyc", MAGIC_NUMBER)
+        self.check_resource_new(REQS_COMMON_ZIP, pkg, "mrmr.pxd", "from libc.stdint")
+        self.check_resource_new(
+            REQS_COMMON_ZIP, pkg, "include/murmurhash/MurmurHash2.h",
+            "//-----------------------------------------------------------------------------\n"
+            "// MurmurHash2 was written by Austin Appleby")
+        self.check_resource_new(REQS_ABI_ZIP, pkg, "mrmr.so", b"\x7fELF")
+
+    def check_resource_dir(self, path, children):
+        self.assertTrue(path.exists())
+        self.assertTrue(path.is_dir())
+        self.assertFalse(path.is_file())
+
+        with self.assertRaisesRegex(IsADirectoryError, path.name):
+            path.read_bytes()
+
+        self.assertCountEqual([child.name for child in path.iterdir()], children)
+
+    def check_resource_new(self, zip_name, package, filename, start):
+        with self.subTest(package=package, filename=filename):
+            path = resources.files(package)
+            for segment in filename.split("/"):
+                path = path / segment
+
+            abs_filename = resource_path(zip_name, package, filename)
+            self.assertEqual(str(path), abs_filename)
+
+            # We should get the same result when passing the whole filename at once.
+            self.assertEqual(resources.files(package) / filename, path)
+
+            if importable(filename):
+                self.assertNotIsInstance(path, Path)
+            else:
+                self.assertIs(type(path), PosixPath)
+
+            self.assertTrue(path.exists())
+            self.assertFalse(path.is_dir())
+            self.assertTrue(path.is_file())
+            with self.assertRaisesRegex(NotADirectoryError, filename):
+                next(path.iterdir())
+
+            binary = isinstance(start, bytes)
+            data = getattr(path, "read_bytes" if binary else "read_text")()
+            self.assertPredicate(data.startswith, start)
+
+            with path.open("rb" if binary else "r") as file:
+                self.check_resource_file(file, abs_filename, data, binary)
+
+            with resources.as_file(path) as path_as_file:
+                self.check_resource_path(path_as_file, abs_filename, data, binary)
+
+    def test_metadata(self):
         dists = list(metadata.distributions())
         self.assertCountEqual(REQUIREMENTS, [d.metadata["Name"] for d in dists])
         for dist in dists:
