@@ -22,7 +22,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         # imported.
         self.assertTrue(datetime.datetime_CAPI)
 
-    # This will be fixed in Python 3.12.1 (https://github.com/python/cpython/pull/110247)
+    # hashlib is currently being imported before the importer is ready, causing some
+    # algorithms to be unavailable. This will be fixed in Python 3.12.1
+    # (https://github.com/python/cpython/pull/110247)
     expectedFailure312 = expectedFailure if sys.version_info >= (3, 12) else lambda x: x
 
     @expectedFailure312
@@ -123,7 +125,9 @@ class TestAndroidStdlib(FilterWarningsCase):
                 self.assertTrue(os.access(name, os.X_OK))
 
         for args in [[], [1]]:
-            with self.assertRaisesRegex(OSError, "Inappropriate ioctl for device"):
+            with self.assertRaisesRegex(
+                OSError, r"Inappropriate ioctl for device|Not a typewriter"
+            ):
                 os.get_terminal_size(*args)
 
     def test_pickle(self):

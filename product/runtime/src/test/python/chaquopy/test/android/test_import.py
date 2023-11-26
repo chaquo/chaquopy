@@ -16,7 +16,7 @@ import re
 from shutil import rmtree
 import sys
 from traceback import format_exc
-from unittest import expectedFailure, skipIf
+from unittest import skipIf
 import types
 from warnings import catch_warnings, filterwarnings
 
@@ -52,10 +52,6 @@ class TestAndroidImport(FilterWarningsCase):
 
     maxDiff = None
 
-    # This will be fixed in Python 3.12.1 (https://github.com/python/cpython/pull/110247)
-    expectedFailure312 = expectedFailure if sys.version_info >= (3, 12) else lambda x: x
-
-    @expectedFailure312
     def test_bootstrap(self):
         chaquopy_dir = join(str(context.getFilesDir()), "chaquopy")
         self.assertCountEqual(["AssetFinder", "bootstrap-native", "bootstrap.imy",
@@ -75,7 +71,7 @@ class TestAndroidImport(FilterWarningsCase):
             stdlib_bootstrap_expected |= {"_sha2.so"}
 
         for subdir, entries in [
-            (ABI, stdlib_bootstrap_expected),
+            (ABI, list(stdlib_bootstrap_expected)),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
