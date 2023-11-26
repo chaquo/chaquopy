@@ -3,8 +3,8 @@ package:
   version: 0.28.0
 
 build:
-  number: 7
+  number: 8
 
 requirements:
   build:
-    - Cython 0.29.32
+    - Cython 0.29.36
