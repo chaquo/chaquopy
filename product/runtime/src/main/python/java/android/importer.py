@@ -84,6 +84,12 @@ def initialize_importlib(context, build_json, app_path):
         # get_importer returns.
         site.addsitedir(finder.extract_root)
 
+    if sys.version_info[:2] == (3, 9):
+        from importlib import _common
+        global fallback_resources_original
+        fallback_resources_original = _common.fallback_resources
+        _common.fallback_resources = fallback_resources_39
+
     global spec_from_file_location_original
     spec_from_file_location_original = util.spec_from_file_location
     util.spec_from_file_location = spec_from_file_location_override
@@ -94,6 +100,14 @@ def initialize_importlib(context, build_json, app_path):
     global extension_create_module_original
     extension_create_module_original = machinery.ExtensionFileLoader.create_module
     machinery.ExtensionFileLoader.create_module = extension_create_module_override
+
+
+# Python 3.9 only supports importlib.resources.files for the standard importers.
+def fallback_resources_39(spec):
+    if isinstance(spec.loader, AssetLoader):
+        return spec.loader.get_resource_reader(spec.name).files()
+    else:
+        return fallback_resources_original(spec)
 
 
 def spec_from_file_location_override(name, location=None, *args, loader=None, **kwargs):

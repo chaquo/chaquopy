@@ -19,6 +19,7 @@ from traceback import format_exc
 from unittest import skipIf
 import types
 from warnings import catch_warnings, filterwarnings
+import zipfile
 
 from java.android import importer
 
@@ -952,6 +953,20 @@ class TestAndroidImport(FilterWarningsCase):
             "//-----------------------------------------------------------------------------\n"
             "// MurmurHash2 was written by Austin Appleby")
         self.check_resource_new(REQS_ABI_ZIP, pkg, "mrmr.so", b"\x7fELF")
+
+        # Stdlib
+        pkg_path = resources.files("email")
+        self.assertIsInstance(pkg_path, zipfile.Path)
+        self.assertTrue(pkg_path.is_dir())
+
+        children = [child.name for child in pkg_path.iterdir()]
+        self.assertIn("mime", children)
+        self.assertTrue((pkg_path / "mime").is_dir())
+
+        self.assertIn("parser.pyc", children)
+        path = pkg_path / "parser.pyc"
+        self.assertFalse(path.is_dir())
+        self.assertPredicate(path.read_bytes().startswith, MAGIC_NUMBER)
 
     def check_resource_dir(self, path, children):
         self.assertTrue(path.exists())
