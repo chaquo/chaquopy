@@ -14,7 +14,7 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -72,7 +72,7 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -103,15 +103,12 @@ jobs:
 
 
   gradlePython:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
 
-      - uses: actions/setup-python@v4.6.1
-        with:
-          # MIN_BUILD_PYTHON_VERSION from test_gradle_plugin
-          python-version: 3.7
+      - uses: ./.github/actions/setup-python
 
       - uses: ./.github/actions/create-local-properties
 
@@ -123,7 +120,7 @@ jobs:
 
   demo:
     needs: [product]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -163,9 +160,8 @@ jobs:
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
-          # We pin specific OS versions to ensure that the Python `extra-versions`
-          # listed below are all available. To avoid clutter in the GitHub UI, OS
-          # versions are not added to the `os` dimension directly.
+          # To avoid clutter in the GitHub UI, OS versions are not added to the `os`
+          # dimension directly.
           - os: linux
             runs-on: ubuntu-20.04
           - os: macos
@@ -180,13 +176,6 @@ jobs:
 
       - uses: ./.github/actions/setup-python
         id: setup-python
-        with:
-          # This should include OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
-          # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin, if they're not already
-          # returned by `list-versions.py --minor`.
-          extra-versions: |
-            3.6
-            3.7
 
       - name: Download Maven repository
         uses: actions/download-artifact@v3.0.2

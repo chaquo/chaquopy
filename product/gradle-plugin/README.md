@@ -95,6 +95,7 @@ After stable release:
 
 * Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
   use it.
+* Update the list of Python versions in .github/actions/setup-python/action.yml.
 * Build the demo app with the new version, and check for any warnings other than the
   expected ones about .pyc compilation.
 
@@ -105,8 +106,7 @@ After stable release:
 * Update `testPython` in gradle-plugin/build.gradle, and run the tests.
 * In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
   `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
-* Check references to `OLD_BUILD_PYTHON_VERSION` and `MIN_BUILD_PYTHON_VERSION` in
-  ci.yml.
+* Update the list of Python versions in .github/actions/setup-python/action.yml.
 * Update android.rst.
 
 

@@ -65,7 +65,7 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
-# When updating these, consider also updating extra-versions in ci.yml.
+# When updating these, consider also updating .github/actions/setup-python/action.yml.
 OLD_BUILD_PYTHON_VERSION = "3.6"
 MIN_BUILD_PYTHON_VERSION = "3.7"
 MAX_BUILD_PYTHON_VERSION = "3.12"
