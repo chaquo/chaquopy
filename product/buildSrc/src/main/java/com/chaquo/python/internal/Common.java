@@ -121,6 +121,10 @@ public class Common {
         // /usr/local/bin instead. This directory may also appear to be on the default
         // PATH, but this is because it's listed in /etc/paths, which only affects
         // shells, but not other apps like Android Studio and its Gradle subprocesses.
+        //
+        // As of Gradle 6.9, this appears to be unnecessary (#821). So once the
+        // `product` project is using a newer version than that, we can remove this
+        // method and let Gradle find executables itself.
         List<String> path = new ArrayList<>();
         String osName = System.getProperty("os.name").toLowerCase();
         if (osName.startsWith("mac")) {
