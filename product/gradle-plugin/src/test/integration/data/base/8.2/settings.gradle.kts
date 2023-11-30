@@ -30,11 +30,10 @@ dependencyResolutionManagement {
 rootProject.name = "My Application"
 
 for (f in rootDir.listFiles()!!) {
-    if (f.isDirectory) {
-        for (buildGradle in listOf("build.gradle", "build.gradle.kts")) {
-            if (File(f, buildGradle).exists()) {
-                include(f.name)
-            }
+    for (ext in listOf("gradle", "gradle.kts")) {
+        if (File(f, "build.$ext").exists()) {
+            include(f.name)
+            break
         }
     }
 }

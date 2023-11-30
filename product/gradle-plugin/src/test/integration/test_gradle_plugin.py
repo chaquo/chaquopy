@@ -99,6 +99,16 @@ class GradleTestCase(TestCase):
     def RunGradle(self, *args, **kwargs):
         return RunGradle(self, *args, **kwargs)
 
+    # The version-numbered "base" layers differ in whether their top-level build.gradle
+    # and settings.gradle files are in Kotlin or Groovy, so tests that provide their own
+    # versions of these files should call this method to remove the base versions.
+    def remove_root_gradle_files(self, run):
+        for name in ["build", "settings"]:
+            for ext in ["gradle", "gradle.kts"]:
+                path = f"{run.project_dir}/{name}.{ext}"
+                if exists(path):
+                    os.remove(path)
+
     @contextmanager
     def setLongMessage(self, value):
         old_value = self.longMessage
@@ -219,8 +229,19 @@ class GradleTestCase(TestCase):
 
 
 class Basic(GradleTestCase):
-    def test_base(self):
-        run = self.RunGradle("base", run=False)
+    def test_groovy(self):
+        run = self.RunGradle("base/groovy", run=False)
+        self.check_before(run)
+        run.rerun()
+        self.check_after(run)
+
+    def test_kotlin(self):
+        run = self.RunGradle("base/kotlin", run=False)
+        self.check_before(run)
+        run.rerun()
+        self.check_after(run)
+
+    def check_before(self, run):
         src_dir = f"{run.project_dir}/app/src"
         self.assertEqual(
             list(os.walk(src_dir)),
@@ -229,9 +250,10 @@ class Basic(GradleTestCase):
                 (join(src_dir, "main"), [], ["AndroidManifest.xml"]),
             ])
 
+    def check_after(self, run):
         # Main source directory should be created automatically, to invite the user to
         # put things in it.
-        run.rerun()
+        src_dir = f"{run.project_dir}/app/src"
         self.assertEqual(
             list(os.walk(src_dir)),
             [
@@ -256,13 +278,8 @@ class ChaquopyPlugin(GradleTestCase):
     # Make sure we still work if the plugin is applied in the app module buildscript rather
     # than the root project.
     def test_apply_buildscript(self):
-        # The version-numbered "base" layers differ in whether their top-level
-        # build.gradle and settings.gradle files are in Kotlin or Groovy. This test
-        # provides its own Groovy files.
         run = self.RunGradle("base", run=False)
-        if agp_version_info >= (8, 2):
-            os.remove(f"{run.project_dir}/build.gradle.kts")
-            os.remove(f"{run.project_dir}/settings.gradle.kts")
+        self.remove_root_gradle_files(run)
         run.rerun("ChaquopyPlugin/apply_buildscript")
 
 
@@ -286,12 +303,13 @@ class AndroidPlugin(GradleTestCase):
     def test_old(self):  # Also tests making a change
         MESSAGE = ("This version of Chaquopy requires Android Gradle plugin version "
                    "7.0.0 or later")
-        # This test doesn't use the version-numbered "base" layers.
-        run = self.RunGradle("base/0", "AndroidPlugin/old", succeed=False)
+        run = self.RunGradle("base", run=False)
+        self.remove_root_gradle_files(run)
+        run.rerun("AndroidPlugin/old", succeed=False)
         self.assertInLong(f"{MESSAGE}. {self.ADVICE}", run.stderr)
 
-        run.apply_layers("base")
-        run.rerun()
+        self.remove_root_gradle_files(run)
+        run.rerun("base")
         self.assertNotInLong(MESSAGE, run.stderr)
 
 
@@ -1546,15 +1564,23 @@ class RunGradle(object):
 
     def apply_layers(self, *layers):
         for layer in layers:
+            # Most tests use Groovy syntax. Since the Groovy DSL is implemented in terms
+            # of the Kotlin DSL, this allows us to test both DSLs at once.
             if layer == "base":
-                self.apply_layers("base/0", f"base/{agp_version}")
-            else:
-                # We use dir_util.copy_tree, because shutil.copytree can't merge into a
-                # destination that already exists.
-                dir_util._path_created.clear()  # https://bugs.python.org/issue10948
-                dir_util.copy_tree(
-                    join(data_dir, layer), self.project_dir,
-                    preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
+                layer = "base/groovy"
+
+            # "groovy" or "kotlin" here refers to the app/build.gradle file. The
+            # language of the root build.gradle and settings.gradle files is determined
+            # by agp_version.
+            if layer in ["base/groovy", "base/kotlin"]:
+                self.apply_layers("base/common", f"base/{agp_version}")
+
+            # We use dir_util.copy_tree, because shutil.copytree can't merge into a
+            # destination that already exists.
+            dir_util._path_created.clear()  # https://bugs.python.org/issue10948
+            dir_util.copy_tree(
+                join(data_dir, layer), self.project_dir,
+                preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
               **kwargs):
