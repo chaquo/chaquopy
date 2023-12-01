@@ -1,0 +1,101 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace "com.chaquo.python.test"
+    compileSdk 23
+
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdk 21
+        targetSdk 23
+        versionCode 1
+        versionName "0.0.1"
+        ndk {
+            abiFilters "x86"
+        }
+    }
+
+    flavorDimensions "variant"
+    productFlavors {
+        property { dimension "variant" }
+        method { dimension "variant" }
+        bpProperty { dimension "variant" }
+        bpMethod { dimension "variant" }
+    }
+}
+
+// defaultConfig properties (all other sub-properties are covered by productFlavors)
+chaquopy.defaultConfig.extractPackages.add "ep_default_property"
+
+// defaultConfig methods
+chaquopy {
+    defaultConfig {
+        extractPackages("ep_default_method")
+    }
+}
+
+// productFlavors properties
+def p = chaquopy.productFlavors.property
+p.version = "3.9"
+p.extractPackages.add "ep_property"
+p.staticProxy.add "sp_property"
+p.pip.install("certifi")
+p.pip.options("-c", "constraints-certifi.txt")
+p.pyc.src = true
+p.pyc.pip = false
+p.pyc.stdlib = false
+
+// productFlavors methods
+chaquopy {
+    productFlavors {
+        method {
+            version "3.10"
+            extractPackages("ep_method")
+            staticProxy("sp_method")
+            pip {
+                install("six")
+                options("-c", "constraints-six.txt")
+            }
+            pyc {
+                src false
+                pip true
+                stdlib false
+            }
+        }
+
+        // The easiest way to test buildPython is by causing a failure.
+        bpProperty {
+            buildPython = ["python-property"]
+            pyc.src = true
+        }
+        bpMethod {
+            buildPython("python-method")
+            pyc.src true
+        }
+
+        try {
+            getByName("nonexistent")
+            throw new GradleException("getByName unexpectedly succeeded")
+        } catch (UnknownDomainObjectException e) {}
+    }
+}
+
+// sourceSets properties
+chaquopy.sourceSets.property.srcDir("src/ss_property")
+
+// sourceSets methods
+chaquopy {
+    sourceSets {
+        method {
+            srcDir("src/ss_method")
+        }
+
+        try {
+            getByName("nonexistent")
+            throw new GradleException("getByName unexpectedly succeeded")
+        } catch (UnknownDomainObjectException e) {}
+    }
+}

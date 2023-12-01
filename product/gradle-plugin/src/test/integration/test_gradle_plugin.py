@@ -270,6 +270,54 @@ class Basic(GradleTestCase):
         self.RunGradle("base", "Basic/variant", variants=["red-debug", "blue-debug"])
 
 
+# Cover as much of the DSL as possible in a single test.
+class Dsl(GradleTestCase):
+    def test_groovy_old(self):
+        self.check_dsl("base/groovy", "Dsl/groovy_old")
+
+    def test_groovy_new(self):
+        self.check_dsl("base/groovy", "Dsl/groovy_new")
+
+    def test_kotlin(self):
+        self.check_dsl("base/kotlin", "Dsl/kotlin")
+
+    def check_dsl(self, *layers):
+        run = self.RunGradle(
+            *layers, "Dsl/common",
+            variants={
+                "property-debug": dict(
+                    python_version="3.9",
+                    extract_packages=[
+                        "ep_default_property", "ep_default_method", "ep_property"],
+                    app=[
+                        "sp_property.py", "sp_method.py", "property.py", "ss_property.py"],
+                    classes={"sp_property": ["PropertyProxy"]},
+                    requirements=[f"certifi/{name}" for name in [
+                        "__init__.py", "__main__.py", "cacert.pem", "core.py", "py.typed"
+                    ]],
+                    dist_versions=[("certifi", "2023.7.22")],
+                    pyc=["src"],
+                ),
+                "method-debug": dict(
+                    python_version="3.10",
+                    extract_packages=[
+                        "ep_default_property", "ep_default_method", "ep_method"],
+                    app=[
+                        "sp_property.py", "sp_method.py", "method.py", "ss_method.py"],
+                    classes={"sp_method": ["MethodProxy"]},
+                    requirements=["six.py"],
+                    dist_versions=[("six", "1.15.0")],
+                    pyc=["pip"],
+                ),
+            })
+
+        run.rerun(variants=["bpProperty-debug"], succeed=False)
+        self.assertInStderr(BuildPython.INVALID.format("python-property"), run)
+
+        run.rerun(variants=["bpMethod-debug"], succeed=False)
+        self.assertInStderr(BuildPython.INVALID.format("python-method"), run)
+
+
 class ChaquopyPlugin(GradleTestCase):
     # Test the old "apply plugin" syntax.
     def test_apply(self):
@@ -1564,8 +1612,8 @@ class RunGradle(object):
 
     def apply_layers(self, *layers):
         for layer in layers:
-            # Most tests use Groovy syntax. Since the Groovy DSL is implemented in terms
-            # of the Kotlin DSL, this allows us to test both DSLs at once.
+            # Most tests use the old Groovy DSL. Since the old DSL is implemented in
+            # terms of the new DSL, this allows us to test both of them at once.
             if layer == "base":
                 layer = "base/groovy"
 
@@ -1635,7 +1683,7 @@ class RunGradle(object):
                 try:
                     self.check_apk(variant, merged_kwargs)
                 except Exception:
-                    self.dump_run("check_apk failed")
+                    self.dump_run(f"check_apk failed for variant '{variant}'")
                 self.test.assertFalse(merged_kwargs.unused_kwargs)
 
             # Run a second time to check all tasks are considered up to date.
