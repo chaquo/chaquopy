@@ -1,0 +1,3 @@
+package:
+  name: argon2-cffi-bindings
+  version: "21.2.0"

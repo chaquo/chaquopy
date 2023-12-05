@@ -37,6 +37,7 @@ PACKAGE_GROUPS.add(defaultGroup)
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
 def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
+    "argon2-cffi-bindings": ["argon2-cffi"],
     "backports-zoneinfo": ["tzdata"],
     "dlib": ["numpy"],
     "grpcio": ["protobuf"],
