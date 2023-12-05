@@ -1,6 +1,6 @@
 package:
   name: Brotli
-  version: "1.0.7"
+  version: "1.1.0"
 
 build:
-  number: 12
+  number: 0

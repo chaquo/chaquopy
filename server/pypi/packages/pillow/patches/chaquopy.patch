@@ -9,18 +9,6 @@
          self.add_imaging_libs = ""
          build_ext.initialize_options(self)
          for x in self.feature:
-@@ -497,8 +497,9 @@
-                 for d in os.environ[k].split(os.path.pathsep):
-                     _add_directory(library_dirs, d)
- 
--        _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
--        _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
-+        # Chaquopy: disabled
-+        # _add_directory(library_dirs, os.path.join(sys.prefix, "lib"))
-+        # _add_directory(include_dirs, os.path.join(sys.prefix, "include"))
- 
-         #
-         # add platform directories
 @@ -636,8 +637,8 @@
  
          if feature.want("zlib"):
