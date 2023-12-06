@@ -137,31 +137,36 @@ diff -ur src-original/numpy/__init__.py src/numpy/__init__.py
  else:
      try:
          from numpy.__config__ import show as show_config
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py       2018-04-15 20:25:55.769497865 +0000
-+++ src/setup.py        2018-04-15 19:32:59.070017179 +0000
-@@ -39,6 +39,10 @@
-     import __builtin__ as builtins
+--- src-original/setup.py       1970-01-01 00:00:00.000000000 +0000
++++ src/setup.py        2023-12-06 09:28:00.475265227 +0000
+@@ -28,6 +28,9 @@
+ # a lot more robust than what was previously being used.
+ builtins.__NUMPY_SETUP__ = True
  
- 
-+# Chaquopy added
++# Chaquopy
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
 +
-+
- CLASSIFIERS = """\
- Development Status :: 5 - Production/Stable
- Intended Audience :: Science/Research
---- src-original/pyproject.toml	2022-09-09 13:36:30.619459000 +0000
-+++ src/pyproject.toml	2023-08-31 11:38:08.304445745 +0000
-@@ -2,7 +2,10 @@
- # Minimum requirements for the build system to execute.
+ # Needed for backwards code compatibility below and in some CI scripts.
+ # The version components are changed from ints to strings, but only VERSION
+ # seems to matter outside of this module and it was already a str.
+@@ -82,7 +85,9 @@
+     except KeyError:
+         os.environ['SETUPTOOLS_USE_DISTUTILS'] = "stdlib"
+     else:
+-        if setuptools_use_distutils != "stdlib":
++        # Chaquopy: SETUPTOOLS_USE_DISTUTILS=stdlib doesn't work on Python 3.12,
++        # but the setuptools version in meta.yaml still works for now.
++        if False and setuptools_use_distutils != "stdlib":
+             raise RuntimeError("setuptools versions >= '60.0.0' require "
+                     "SETUPTOOLS_USE_DISTUTILS=stdlib in the environment")
+ 
+--- src-original/pyproject.toml	1970-01-01 00:00:00.000000000 +0000
++++ src/pyproject.toml	2023-12-06 08:34:11.926771744 +0000
+@@ -1,6 +1,5 @@
+ [build-system]
+-build-backend = "mesonpy"
+-backend-path = ['./vendored-meson/meson-python']
++# Chaquopy: disabled meson, since the setuptools build still works for now
  requires = [
-     "packaging==20.5; platform_machine=='arm64'",  # macos M1
--    "setuptools==59.2.0",
-+
-+    # Chaquopy: was 59.2.0, which failed to detect modf and frexp for some reason.
-+    "setuptools==63.0.0",
-+
-     "wheel==0.37.0",
-     "Cython>=0.29.30,<3.0",
- ]
+     "Cython>=0.29.34,<3.1",
+     # All dependencies of the vendored meson-python (except for meson, because

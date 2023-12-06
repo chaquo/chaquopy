@@ -468,6 +468,7 @@ class BuildWheel:
         return self.package_wheel(prefix_dir, self.src_dir)
 
     def build_with_pep517(self):
+        log("Building with PEP 517")
         try:
             return self.builder.build("wheel", "dist")
         except build.BuildBackendException as e:
@@ -561,6 +562,7 @@ class BuildWheel:
         pypi_env = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{pypi_env}/bin",
+            f"{self.build_env}/bin",
             f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
             os.environ["PATH"]])
 
