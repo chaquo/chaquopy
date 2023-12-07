@@ -145,7 +145,7 @@ examples: usually we base them on the package's own tutorial.
 Open the pkgtest app in Android Studio, and temporarily edit `app/build.gradle` as
 follows:
 
-* Add the package to the `addPackages` line, e.g. `addPackages(delegate, ["package-name"])`.
+* Set `PACKAGES` to the package's name.
 * Set `python { version }` to the Python version you want to test.
 * Set the `--extra-index-url` as described above.
 * Set `abiFilters` to the ABIs you want to test.

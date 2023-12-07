@@ -77,7 +77,13 @@ android {
         def verParsed = versionName.split(/\./).collect { Integer.parseInt(it) }
         versionCode ((verParsed[0] * 1000000) + (verParsed[1] * 1000) + (verParsed[2] * 10))
 
-        addPackages(delegate, [])
+        // To test packages, edit the following line to list their names, separated by
+        // spaces. Each name must be a subdirectory of PACKAGES_DIR.
+        def PACKAGES = ""
+        if (!PACKAGES.isEmpty()) {
+            addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
+        }
+
         python {
             version "3.8"
 

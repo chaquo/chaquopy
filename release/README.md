@@ -60,8 +60,8 @@ The following builds and tests can take a long time, and it's helpful to paralle
 as much as possible. So after each build, copy the APK out of the build directory and
 install it while running the next build. This is why we test the slowest devices first.
 
-Temporarily edit pkgtest/app/build.gradle to replace the empty list in the `addPackages`
-line with `PACKAGE_GROUPS[1]`.
+Temporarily edit pkgtest/app/build.gradle to call
+`addPackages(delegate, PACKAGE_GROUPS[1])`.
 
 Set `abiFilters` to each of the following values (this tests the single-ABI case), and
 test on a corresponding device:
