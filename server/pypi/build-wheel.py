@@ -17,10 +17,11 @@ import subprocess
 import sys
 import tempfile
 from textwrap import dedent
+import traceback
 
 import build
 from elftools.elf.elffile import ELFFile
-import jinja2
+from jinja2 import StrictUndefined, Template, TemplateError
 import jsonschema
 import pypi_simple
 import yaml
@@ -104,6 +105,8 @@ class BuildWheel:
             self.unpack_and_build()
 
         except CommandError as e:
+            if cause := e.__cause__:
+                traceback.print_exception(type(cause), cause, cause.__traceback__)
             log("Error: " + str(e))
             sys.exit(1)
 
@@ -790,12 +793,13 @@ class BuildWheel:
 
         try:
             meta = yaml.safe_load(
-                jinja2.Template(open(meta_filename).read()).render(**meta_vars))
+                Template(open(meta_filename).read(), undefined=StrictUndefined)
+                .render(**meta_vars))
             with_defaults(Validator)(schema).validate(meta)
         except (
-            jinja2.TemplateSyntaxError, jsonschema.ValidationError, yaml.YAMLError
+            TemplateError, jsonschema.ValidationError, yaml.YAMLError
         ) as e:
-            raise CommandError(f"Failed to parse {meta_filename}: {e}")
+            raise CommandError(f"Failed to parse {meta_filename}") from e
         return meta
 
     def find_package(self, name):
