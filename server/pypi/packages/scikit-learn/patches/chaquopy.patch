@@ -24,3 +24,16 @@
          build_ext.build_extensions(self)
 
      def run(self):
+--- src-original/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-10-23 10:11:35.000000000 +0000
++++ src/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-12-07 13:27:03.843087470 +0000
+@@ -20,7 +20,9 @@
+     """
+     #ifdef __SIZEOF_INT128__
+         typedef __int128 LARGEST_INT_t;
+-    #elif (__clang__ || __EMSCRIPTEN__) && !__i386__
++
++    // Chaquopy: added __arm__
++    #elif (__clang__ || __EMSCRIPTEN__) && !(__i386__ || __arm__)
+         typedef _BitInt(128) LARGEST_INT_t;
+     #else
+         typedef long long LARGEST_INT_t;
