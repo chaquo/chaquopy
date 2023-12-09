@@ -73,7 +73,9 @@ for path in "$AR" "$AS" "$CC" "$CXX" "$LD" "$NM" "$RANLIB" "$READELF" "$STRIP"; 
     fi
 done
 
-export CFLAGS="-I${prefix:?}/include"
+# Use -idirafter so that package-specified -I directories take priority. For example,
+# grpcio provides its own BoringSSL headers which must be used rather than our OpenSSL.
+export CFLAGS="-idirafter ${prefix:?}/include"
 export LDFLAGS="-L${prefix:?}/lib \
 -Wl,--exclude-libs,libgcc.a -Wl,--exclude-libs,libgcc_real.a -Wl,--exclude-libs,libunwind.a \
 -Wl,--build-id=sha1 -Wl,--no-rosegment"
