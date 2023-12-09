@@ -78,6 +78,7 @@ class BuildWheel:
             self.meta = self.load_meta()
             self.package = self.meta["package"]["name"]
             self.version = str(self.meta["package"]["version"])  # YAML may parse it as a number.
+            self.build_num = str(self.meta["build"]["number"])
             self.name_version = (normalize_name_wheel(self.package) + "-" +
                                  normalize_version(self.version))
 
@@ -171,7 +172,14 @@ class BuildWheel:
             with self.env_vars():
                 self.create_dummy_libs()
                 wheel_filename = self.build_wheel()
-                self.fix_wheel(wheel_filename)
+                wheel_dir = self.fix_wheel(wheel_filename)
+
+            # Package outside of env_vars to make sure we run `wheel pack` in the same
+            # environment as this script.
+            self.package_wheel(
+                wheel_dir,
+                ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
+
 
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
@@ -589,7 +597,7 @@ class BuildWheel:
             # conda-build variable names defined at
             # https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html
             # CPU_COUNT is now in build-common.sh, so the target scripts can use it.
-            "PKG_BUILDNUM": str(self.meta["build"]["number"]),
+            "PKG_BUILDNUM": self.build_num,
             "PKG_NAME": self.package,
             "PKG_VERSION": self.version,
             "RECIPE_DIR": self.package_dir,
@@ -720,12 +728,9 @@ class BuildWheel:
             if exists(info_metadata_json):
                 run(f"rm {info_metadata_json}")
 
-        # `wheel pack` logs the absolute wheel filename.
-        self.package_wheel(
-            tmp_dir, ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
+        return tmp_dir
 
     def package_wheel(self, in_dir, out_dir):
-        build_num = os.environ["PKG_BUILDNUM"]
         info_dir = ensure_dir(f"{in_dir}/{self.name_version}.dist-info")
         update_message_file(f"{info_dir}/WHEEL",
                             {"Wheel-Version": "1.0",
@@ -733,7 +738,7 @@ class BuildWheel:
                             if_exist="keep")
         update_message_file(f"{info_dir}/WHEEL",
                             {"Generator": PROGRAM_NAME,
-                             "Build": build_num,
+                             "Build": self.build_num,
                              "Tag": self.compat_tag},
                             if_exist="replace")
         update_message_file(f"{info_dir}/METADATA",
@@ -743,8 +748,10 @@ class BuildWheel:
                              "Summary": "",        # Compulsory according to PEP 345,
                              "Download-URL": ""},  #
                             if_exist="keep")
-        run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {build_num}")
-        return join(out_dir, f"{self.name_version}-{build_num}-{self.compat_tag}.whl")
+
+        # `wheel pack` logs the wheel filename, so there's no need to log it ourselves.
+        run(f"wheel pack {in_dir} --dest-dir {out_dir} --build-number {self.build_num}")
+        return f"{out_dir}/{self.name_version}-{self.build_num}-{self.compat_tag}.whl"
 
     def check_requirements(self, filename, available_libs):
         reqs = []
