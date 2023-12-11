@@ -58,7 +58,7 @@ After stable release:
   will be dealt with during the next release (see release/README.md).
   * In Android Studio, run Tools > AGP Upgrade Assistant.
   * Update all items from the "base" directory above.
-  * Update .gitignore file, and git rm any newly-ignored files.
+  * Update .gitignore from the new project wizard, and git rm any newly-ignored files.
   * Test the app.
 * Sync the "product" project in the new Android Studio version in case of any .idea file
   updates, but see the note in product/gradle/wrapper/gradle-wrapper.properties before
