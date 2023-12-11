@@ -2,7 +2,6 @@ import os
 from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
-from unittest import expectedFailure
 from warnings import catch_warnings, filterwarnings
 
 from android.os import Build
@@ -22,12 +21,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         # imported.
         self.assertTrue(datetime.datetime_CAPI)
 
-    # hashlib is currently being imported before the importer is ready, causing some
-    # algorithms to be unavailable. This will be fixed in Python 3.12.1
-    # (https://github.com/python/cpython/pull/110247)
-    expectedFailure312 = expectedFailure if sys.version_info >= (3, 12) else lambda x: x
-
-    @expectedFailure312
     def test_hashlib(self):
         import hashlib
         INPUT = b"The quick brown fox jumps over the lazy dog"

@@ -81,4 +81,7 @@ Update `DEFAULT_PYTHON_VERSION` in Common.java.
 
 Update the pythonX.Y scripts in integration/data/BuildPython.
 
+See the note about the default Python micro version in
+.github/actions/setup-python/action.yml.
+
 (REST OF LIST TBD)
