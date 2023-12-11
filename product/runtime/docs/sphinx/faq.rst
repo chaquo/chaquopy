@@ -151,8 +151,8 @@ To make your own mirror of our Maven repository:
 
 To make your own mirror of our pip repository:
 
-* Download whatever packages your app needs from https://chaquo.com/pypi-7.0, and arrange them
-  in the same directory structure as the server.
+* Download whatever packages your app needs from https://chaquo.com/pypi-13.1/, and
+  arrange them in the same directory structure as the server.
 * Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
   file:
 

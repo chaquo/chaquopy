@@ -888,7 +888,7 @@ class PythonReqs(GradleTestCase):
     def test_download_wheel(self):
         # Our current version of pip shows the full URL for custom indexes, but only
         # the filename for PyPI.
-        CHAQUO_URL = (r"https://chaquo.com/pypi-7.0/murmurhash/"
+        CHAQUO_URL = (r"https://chaquo.com/pypi-13.1/murmurhash/"
                       r"murmurhash-0.28.0-7-cp38-cp38-android_16_x86.whl")
         PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
 

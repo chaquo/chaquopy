@@ -180,7 +180,6 @@ class BuildWheel:
                 wheel_dir,
                 ensure_dir(f"{PYPI_DIR}/dist/{normalize_name_pypi(self.package)}"))
 
-
     def parse_args(self):
         ap = argparse.ArgumentParser(add_help=False)
         ap.add_argument("--help", action="help", help=argparse.SUPPRESS)
@@ -408,7 +407,8 @@ class BuildWheel:
             self.extract_target()
 
         for package, version in self.get_requirements("host"):
-            dist_dir = f"{PYPI_DIR}/dist/{normalize_name_pypi(package)}"
+            dist_subdir = normalize_name_pypi(package)
+            dist_dir = f"{PYPI_DIR}/dist/{dist_subdir}"
             matches = []
             if exists(dist_dir):
                 for filename in os.listdir(dist_dir):
@@ -420,8 +420,10 @@ class BuildWheel:
                     if match and (int(match["api_level"]) <= self.api_level):
                         matches.append(match)
             if not matches:
-                raise CommandError(f"Couldn't find compatible wheel for {package} "
-                                   f"{version} in {dist_dir}")
+                raise CommandError(
+                    f"Couldn't find compatible wheel for {package} {version}. Try "
+                    f"downloading it from https://chaquo.com/pypi-13.1/{dist_subdir}/ "
+                    f"into {dist_dir}.")
             matches.sort(key=lambda match: int(match.group("build_num")))
             wheel_filename = join(dist_dir, matches[-1].group(0))
             run(f"unzip -d {self.host_env} -q {wheel_filename}")
@@ -563,7 +565,7 @@ class BuildWheel:
         # complex.h functions were introduced between API levels 23 and 26. Make Cython
         # use its own implementations instead.
         if self.api_level < 26:
-            env["CFLAGS"] += f" -DCYTHON_CCOMPLEX=0"
+            env["CFLAGS"] += " -DCYTHON_CCOMPLEX=0"
 
         env["LDFLAGS"] += f" -lpython{self.python}"
 

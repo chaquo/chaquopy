@@ -234,7 +234,6 @@ internal class TaskBuilder(
                         args("--")
                         args("--disable-pip-version-check")
                         if (!customIndexUrl) {
-                            args("--extra-index-url", "https://chaquo.com/pypi-7.0")
                             args("--extra-index-url", "https://chaquo.com/pypi-13.1")
                         }
                         args("--implementation", Common.PYTHON_IMPLEMENTATION)

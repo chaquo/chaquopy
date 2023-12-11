@@ -105,8 +105,8 @@ Here are some examples of existing recipes:
   `setup.py` find the library.
 * scikit-learn: lists several requirements in `meta.yaml`:
   * The "build" requirement (Cython) will be installed automatically.
-  * The "host" requirements (NumPy etc.) must be downloaded manually from
-    [the public repository](https://chaquo.com/pypi-7.0/). Save them into a corresponding
+  * The "host" requirements (NumPy etc.) must be downloaded manually from [the public
+    repository](https://chaquo.com/pypi-13.1/). Save them into a corresponding
     subdirectory of `dist` (e.g. `dist/numpy`), before running the build.
 
 Then run build-wheel as shown above.
