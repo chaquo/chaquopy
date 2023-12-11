@@ -60,9 +60,12 @@ After stable release:
   * Update all items from the "base" directory above.
   * Update .gitignore from the new project wizard, and git rm any newly-ignored files.
   * Test the app.
-* Sync the "product" project in the new Android Studio version in case of any .idea file
-  updates, but see the note in product/gradle/wrapper/gradle-wrapper.properties before
-  updating the Gradle version.
+  * Close the project to make sure .idea files are written.
+* Open the "product" project in the new Android Studio version, then:
+  * Consider updating the Gradle version, but first see the note in
+    product/gradle/wrapper/gradle-wrapper.properties.
+  * Sync the project, then run the `publish` task.
+  * Close the project to make sure .idea files are written.
 * Run integration tests on all platforms.
 * If we're not already planning to make a Chaquopy release soon, temporarily edit
   `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new
