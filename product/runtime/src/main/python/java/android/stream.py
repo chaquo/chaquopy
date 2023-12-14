@@ -23,7 +23,7 @@ def initialize():
 
     # Log levels are consistent with those used by Java.
     sys.stdout = TextLogStream(Log.INFO, "python.stdout")
-    sys.stderr = TextLogStream(Log.WARN, "python.stderr")
+    sys.stderr = TextLogStream(Log.ERROR, "python.stderr")
 
 
 class EmptyInputStream(io.TextIOBase):
