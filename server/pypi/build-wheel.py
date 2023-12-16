@@ -90,6 +90,12 @@ class BuildWheel:
                     pass
                 else:
                     self.non_python_build_reqs.add(name)
+                    if name == "cmake":
+                        raise CommandError(
+                            "meta.yaml 'cmake' requirements must now have a version "
+                            "number. If you specify version 3.21 or later, you can "
+                            "probably remove references to CMAKE_TOOLCHAIN_FILE from "
+                            "the recipe.")
 
             self.needs_python = self.needs_target = (self.meta["source"] == "pypi")
             for name in ["openssl", "python", "sqlite"]:
@@ -163,8 +169,8 @@ class BuildWheel:
                 if not src_is_pyproject:
                     pyproject_toml.unlink()
 
-            if not self.no_unpack:
-                self.create_build_env()
+        if not self.no_unpack:
+            self.create_build_env()
 
         if self.no_build:
             log("Skipping build due to --no-build")
@@ -235,37 +241,41 @@ class BuildWheel:
         self.target_zip = zips[0]
 
     def create_build_env(self):
+        python_ver = self.python or ".".join(map(str, sys.version_info[:2]))
+
         # Installing Python's bundled pip and setuptools into a new environment takes
         # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
         # we create one bootstrap environment per Python version, shared between all
         # packages, and use that to install the build environments.
         os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
-        bootstrap_env = self.get_bootstrap_env()
+        bootstrap_env = self.get_bootstrap_env(python_ver)
         ensure_empty(self.build_env)
-        run(f"python{self.python} -m venv --without-pip {self.build_env}")
+        run(f"python{python_ver} -m venv --without-pip {self.build_env}")
 
         # In case meta.yaml and pyproject.toml have requirements for the same package,
         # listing the more specific requirements first will help pip find a solution
         # faster.
-        build_reqs = ([f"{package}=={version}"
-                       for package, version in self.get_requirements("build")]
-                      + list(self.builder.build_system_requires))
+        build_reqs = [f"{package}=={version}"
+                      for package, version in self.get_requirements("build")]
+        if self.needs_python:
+            build_reqs += list(self.builder.build_system_requires)
 
         def pip_install(requirements):
             if not requirements:
                 return
-            run(f"{bootstrap_env}/bin/pip --python {self.builder.python_executable} "
+            run(f"{bootstrap_env}/bin/pip --python {self.build_env}/bin/python "
                 f"install " + " ".join(shlex.quote(req) for req in requirements))
 
         # In the common case where get_requires_for_build only returns things which were
         # already in build_system_requires, we can avoid running pip a second time.
         pip_install(build_reqs)
-        with self.env_vars():
-            requires_for_build = self.builder.get_requires_for_build("wheel")
-        pip_install(requires_for_build - set(build_reqs))
+        if self.needs_python:
+            with self.env_vars():
+                requires_for_build = self.builder.get_requires_for_build("wheel")
+            pip_install(requires_for_build - set(build_reqs))
 
-    def get_bootstrap_env(self):
-        bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{self.python}"
+    def get_bootstrap_env(self, python_ver):
+        bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{python_ver}"
         pip_version = "23.2.1"
 
         def check_bootstrap_env():
@@ -283,7 +293,7 @@ class BuildWheel:
                 log("Invalid bootstrap environment: recreating it")
                 ensure_empty(bootstrap_env)
 
-        run(f"python{self.python} -m venv {bootstrap_env}")
+        run(f"python{python_ver} -m venv {bootstrap_env}")
         run(f"{bootstrap_env}/bin/pip install pip=={pip_version}")
         check_bootstrap_env()
         return bootstrap_env
@@ -548,6 +558,8 @@ class BuildWheel:
     def get_python_env_vars(self, env, pypi_env):
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
         # example to call numpy.get_include().
+        #
+        # build_env is included implicitly, but at a lower priority.
         env["PYTHONPATH"] = os.pathsep.join([f"{pypi_env}/lib/python", self.host_env])
         env["CHAQUOPY_PYTHON"] = self.python
 
@@ -610,8 +622,9 @@ class BuildWheel:
             key, value = var.split("=")
             env[key] = value
 
-        if "cmake" in self.non_python_build_reqs:
-            self.generate_cmake_toolchain(env)
+        # We do this unconditionally, because we don't know whether the package requires
+        # CMake (it may be listed in the pyproject.toml build-system requires).
+        self.generate_cmake_toolchain(env)
 
         if self.verbose:
             log("Environment set as follows:\n" +
@@ -633,12 +646,9 @@ class BuildWheel:
         ndk = abspath(f"{env['AR']}/../../../../../..")
         toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
 
-        # This environment variable requires CMake 3.21 or later, so until we can rely on
-        # that being available, we'll still need to patch packages to pass it on the
-        # command line.
+        # This environment variable requires CMake 3.21 or later.
         env["CMAKE_TOOLCHAIN_FILE"] = toolchain_filename
 
-        log(f"Generating {toolchain_filename}")
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
                 set(ANDROID_ABI {self.abi})

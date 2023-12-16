@@ -63,7 +63,6 @@ properties:
 
       # Requirements which must be installed in the build environment. One of the following:
       #
-      #   * `cmake`: see README.md
       #   * `fortran`: see README.md
       #   * `<package> <version>`: A Python package, which will be installed using pip
       build:

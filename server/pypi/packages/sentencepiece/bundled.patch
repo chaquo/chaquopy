@@ -1,0 +1,36 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index f7e4d50..3aba9f3 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -61,6 +61,12 @@ if (SPM_USE_BUILTIN_PROTOBUF)
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream.cc
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl.cc
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl_lite.cc)
++
++  # Chaquopy
++  if (ANDROID)
++    list(APPEND SPM_LIBS log)  # Used by protobuf
++  endif()
++
+   if (MSVC)
+     add_definitions("/DHAVE_PTHREAD /wd4018 /wd4514")
+   else()
+diff --git a/src/util.h b/src/util.h
+index 18d6e9c..3f94c9a 100644
+--- a/src/util.h
++++ b/src/util.h
+@@ -36,9 +36,13 @@
+ #include <pthread.h>
+ #endif
+ 
+-#if !defined(__APPLE__) && !defined(_WIN32) && BYTE_ORDER == __BIG_ENDIAN
++// Chaquopy: add missing #include
++#if !defined(__APPLE__) && !defined(_WIN32)
++#include <endian.h>
++#if defined(BYTE_ORDER) && defined(__BIG_ENDIAN) && BYTE_ORDER == __BIG_ENDIAN
+ #define IS_BIG_ENDIAN
+ #endif
++#endif
+ 
+ namespace sentencepiece {
+ template <typename T>

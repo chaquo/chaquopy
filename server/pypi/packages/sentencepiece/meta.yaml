@@ -3,11 +3,11 @@ package:
   version: "0.1.95"
 
 build:
-  number: 2
+  number: 3
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
 
 about:
   license_file: bundled/sentencepiece/LICENSE
