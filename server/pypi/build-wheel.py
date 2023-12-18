@@ -573,12 +573,6 @@ class BuildWheel:
         # Use -idirafter so that package-specified -I directories take priority. For
         # example, typed-ast provides its own Python headers.
         env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
-
-        # complex.h functions were introduced between API levels 23 and 26. Make Cython
-        # use its own implementations instead.
-        if self.api_level < 26:
-            env["CFLAGS"] += " -DCYTHON_CCOMPLEX=0"
-
         env["LDFLAGS"] += f" -lpython{self.python}"
 
         # Overrides sysconfig.get_platform and distutils.util.get_platform.

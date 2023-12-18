@@ -1,11 +1,19 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+    {% set scipy_version = "1.4.1" %}
+{% elif PY_VER == "3.9" %}
+    {% set numpy_version = "1.23.3" %}
+    {% set scipy_version = "1.6.3" %}
+{% elif PY_VER == "3.10" %}
+    {% set numpy_version = "1.23.3" %}
+    {% set scipy_version = "1.8.1" %}
+{% endif %}
+
 package:
   name: qutip
-  version: "4.7.1"
+  version: "4.7.3"
 
 requirements:
-  build:
-    - cython 0.29.34
-    - packaging 23.1
   host:
-    - numpy 1.19.5
-    - scipy 1.4.1
+    - numpy {{ numpy_version }}
+    - scipy {{ scipy_version }}
