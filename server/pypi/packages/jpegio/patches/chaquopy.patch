@@ -20,12 +20,3 @@
      cargs.append('-m64')
  
  DIR_LIBJPEG_HEADER = pjoin(DIR_ROOT,"jpegio", "libjpeg", "include")
-@@ -107,7 +111,7 @@
-       license='Apache License 2.0',
-       packages=find_packages(exclude=['tests']),
-       package_data=package_data,
--      setup_requires=requirements,
-+      install_requires=["numpy"],  # Chaquopy: was setup_requires=requirements
-       ext_modules=cythonize(ext_modules,
-                             include_path=incs,
-                             language_level="3"),
