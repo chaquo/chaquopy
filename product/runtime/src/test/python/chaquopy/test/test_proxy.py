@@ -380,7 +380,9 @@ class TestProxy(FilterWarningsCase):
         fnf_frames = [
             ("<python>.chaquopy.test.test_proxy", "fnf", "test_proxy.py", ref_line_no + 3),
             ("com.chaquo.python.PyObject", "callAttrThrows", None, None),
-            ("com.chaquo.python.PyInvocationHandler", "invoke", "PyInvocationHandler.java", None)]
+
+            # In AGP 8.2, ProGuard renames all Java source files to "SourceFile".
+            ("com.chaquo.python.PyInvocationHandler", "invoke", None, None)]
 
         def assertFnfThrows(message, throw_cls, catch_cls=None, check_cause=False):
             if catch_cls is None:

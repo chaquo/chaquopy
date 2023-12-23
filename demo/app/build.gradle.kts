@@ -148,6 +148,5 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:1.1.3")
     implementation("androidx.lifecycle:lifecycle-extensions:2.1.0")
     implementation("androidx.preference:preference:1.1.1")
-    implementation("junit:junit:4.12")
-    implementation("org.hamcrest:hamcrest-library:2.2")
+    implementation("junit:junit:4.13.2")
 }

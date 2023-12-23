@@ -7,8 +7,8 @@ import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
 
+import static com.chaquo.java.MatchesPattern.matchesPattern;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsInstanceOf.any;
