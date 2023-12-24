@@ -1,1 +1,0 @@
-ZIP files using BZ2 or LZMA compression are now supported.

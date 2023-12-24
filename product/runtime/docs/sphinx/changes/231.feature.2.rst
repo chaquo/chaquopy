@@ -1,1 +1,0 @@
-A new Gradle DSL has been added, with a top-level `chaquopy` block. Kotlin build.gradle.kts files must use the new DSL; Groovy build.gradle files may use either the new or the old one.

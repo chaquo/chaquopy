@@ -1,1 +1,0 @@
-Update to pkg_resources from setuptools version 68.2.2.

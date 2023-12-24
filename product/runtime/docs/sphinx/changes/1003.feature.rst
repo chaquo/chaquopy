@@ -1,1 +1,0 @@
-Android Gradle plugin versions 8.1 and 8.2 are now supported.

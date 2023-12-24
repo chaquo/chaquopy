@@ -1,1 +1,0 @@
-The `importlib.resources.files` API is now supported in Python 3.9 and later.

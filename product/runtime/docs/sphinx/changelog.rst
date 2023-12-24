@@ -5,6 +5,64 @@ Change log
 
 .. towncrier release notes start
 
+15.0.1 (2023-12-24)
+===================
+
+Backward incompatible
+---------------------
+
+- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
+  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
+- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
+  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
+  <https://github.com/chaquo/chaquopy/issues/840>`__)
+
+
+Features
+--------
+
+- Kotlin build.gradle.kts files are now supported. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- A new Gradle DSL has been added, with a top-level `chaquopy` block. Kotlin
+  build.gradle.kts files must use the new DSL; Groovy build.gradle files may
+  use either the new or the old one. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- All Android wheels are now downloaded from https://chaquo.com/pypi-13.1/ –
+  the old pypi-7.0 URL is no longer used. (`#808
+  <https://github.com/chaquo/chaquopy/issues/808>`__)
+- `os.get_terminal_size` now returns ENOTTY rather than EPERM, which was
+  causing avc log spam when stdio is redirected. (`#886
+  <https://github.com/chaquo/chaquopy/issues/886>`__)
+- Update CA bundle to certifi 2023.11.17. (`#893
+  <https://github.com/chaquo/chaquopy/issues/893>`__)
+- Android Gradle plugin versions 8.1 and 8.2 are now supported. (`#908
+  <https://github.com/chaquo/chaquopy/issues/908>`__, `#1003
+  <https://github.com/chaquo/chaquopy/issues/1003>`__)
+- Python version 3.12 is now supported. (`#931
+  <https://github.com/chaquo/chaquopy/issues/931>`__, `#967
+  <https://github.com/chaquo/chaquopy/issues/967>`__)
+- Update runtime Python versions to 3.8.18, 3.9.18, 3.10.13, 3.11.6, and
+  3.12.1. (`#932 <https://github.com/chaquo/chaquopy/issues/932>`__)
+- The `importlib.resources.files` API is now supported in Python 3.9 and later.
+  (`#977 <https://github.com/chaquo/chaquopy/issues/977>`__)
+- Update pkg_resources from setuptools version 68.2.2.
+
+
+Bugfixes
+--------
+
+- Fix "AttributeError: "'AssetFinder' object has no attribute
+  'extract_packages'" when AssetFinder subdirectories are on `sys.path`.
+  (`#820 <https://github.com/chaquo/chaquopy/issues/820>`__)
+- Unsupported `socket` functions such as `if_nametoindex` now throw `OSError`
+  as documented, rather than `AttributeError`. (`#870
+  <https://github.com/chaquo/chaquopy/issues/870>`__)
+- Fix FileNotFoundError when `pkgutil.iter_modules` is called with a
+  nonexistent path. (`#917 <https://github.com/chaquo/chaquopy/issues/917>`__)
+- ZIP files using BZ2 or LZMA compression are now supported. (`#953
+  <https://github.com/chaquo/chaquopy/issues/953>`__)
+
+
 14.0.2 (2023-01-29)
 ===================
 
@@ -74,7 +132,7 @@ Bugfixes
   <https://github.com/chaquo/chaquopy/issues/672>`_).
 * Enable all warnings, including :any:`DeprecationWarning`,
   :any:`PendingDeprecationWarning`, :any:`ImportWarning` and :any:`ResourceWarning`.
-* Update to pkg_resources version 56.2.0.
+* Update pkg_resources from setuptools version 56.2.0.
 * Update to SQLite version 3.39.2.
 * Update Python 3.9 and later to OpenSSL version 3.0.5.
 

@@ -1,1 +1,0 @@
-`os.get_terminal_size` now returns ENOTTY rather than EPERM, which was causing avc log spam when stdio is redirected.
