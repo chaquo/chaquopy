@@ -8,16 +8,6 @@ Change log
 15.0.1 (2023-12-24)
 ===================
 
-Backward incompatible
----------------------
-
-- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
-  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
-- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
-  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
-  <https://github.com/chaquo/chaquopy/issues/840>`__)
-
-
 Features
 --------
 
@@ -48,6 +38,16 @@ Features
 - Update pkg_resources from setuptools version 68.2.2.
 
 
+Deprecations and Removals
+-------------------------
+
+- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
+  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
+- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
+  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
+  <https://github.com/chaquo/chaquopy/issues/840>`__)
+
+
 Bugfixes
 --------
 
@@ -65,13 +65,6 @@ Bugfixes
 
 14.0.2 (2023-01-29)
 ===================
-
-Backward incompatible
----------------------
-
-- :ref:`buildPython` must now be at least Python 3.7. (`#713
-  <https://github.com/chaquo/chaquopy/issues/713>`__)
-
 
 Features
 --------
@@ -99,6 +92,13 @@ Features
   `minifyEnabled true` will need a workaround. (`#842
   <https://github.com/chaquo/chaquopy/issues/842>`__)
 - Update to pip version 20.1.
+
+
+Deprecations and Removals
+-------------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
 
 
 Bugfixes

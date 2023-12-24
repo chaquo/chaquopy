@@ -4,10 +4,9 @@ filename = "product/runtime/docs/sphinx/changelog.rst"
 issue_format = "`#{issue} <https://github.com/chaquo/chaquopy/issues/{issue}>`__"
 wrap = true
 
-# Rename "Deprecations and Removals" to match the term used in older versions, and set the
-# section order to match the components of the version number.
+# Roughly in order of importance, but put the good news at the top.
 type = [
-    { directory = "removal", name = "Backward incompatible", showcontent = true },
     { directory = "feature", name = "Features", showcontent = true },
+    { directory = "removal", name = "Deprecations and Removals", showcontent = true },
     { directory = "bugfix", name = "Bugfixes", showcontent = true },
 ]
