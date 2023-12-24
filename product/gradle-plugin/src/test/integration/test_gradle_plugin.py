@@ -1150,13 +1150,16 @@ class PythonReqs(GradleTestCase):
 
                 url = r"file:.*app/sdist_native"
                 if name in ["sdist_native_compiler", "sdist_native_cc"]:
-                    # These tests fail at the egg_info stage, so the name and version are
-                    # unavailable.
+                    # These tests fail at the egg_info stage, so the name and version
+                    # are unavailable.
                     req_str = url
                 else:
                     # These tests fail at the bdist_wheel stage, so the name and version
-                    # have been obtained from egg_info.
-                    req_str = f"{name.replace('_', '-')}==1.0 from {url}"
+                    # have been obtained from egg_info. But how the name is formatted
+                    # depends on whether we're using our bundled version of setuptools,
+                    # or the current one from PyPI.
+                    name_str = name if pep517 else name.replace('_', '-')
+                    req_str = f"{name_str}==1.0 from {url}"
                 self.assertInLong(fr"Failed to install {req_str}." +
                                   self.tracker_advice() + r"$", run.stderr, re=True)
 
