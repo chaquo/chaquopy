@@ -3,44 +3,20 @@ plugins {
     id 'com.chaquo.python'
 }
 
-def PACKAGE_GROUPS = [
-    // Group 0 is not included in regular pre-release testing.
-    [
-        // Not in the public package repository.
-        "cmake-example", "cython-example", "python-example", "rpi-gpio",
-
-        // Conflicts with opencv-python and opencv-contrib-python.
-        "opencv-contrib-python-headless", "opencv-python-headless",
-    ],
-    [
-        // Conflicts with more popular packages
-        "opencv-contrib-python",  // opencv-python
-        "pycrypto",  // pycryptodome
-
-        // Test tensorflow and related packages separately to avoid suspected address space
-        // fragmentation problems on some 32-bit devices (#5719).
-        "grpcio", "h5py", "tensorflow", "tflite-runtime",
-    ],
-]
-
-def defaultGroup = []  // Contains every package which isn't listed above.
 ext.PACKAGES_DIR = "../../packages"
-for (f in file(ext.PACKAGES_DIR).listFiles()) {
-    if (f.isDirectory() &&
-        ! f.name.startsWith("chaquopy-") &&
-        ! PACKAGE_GROUPS.any { f.name in it }) {
-        defaultGroup.add(f.name)
-    }
-}
-PACKAGE_GROUPS.add(defaultGroup)
+
+def SPACY_MODEL = "en_core_web_sm-2.2.5"
+
+// Tensorflow 2.1.0 is incompatible with protobuf 4.25
+// (https://stackoverflow.com/q/77569103)
+def PROTOBUF_REQ = "protobuf<4.25"
 
 // Extra dependencies required to run the tests. Each entry is a pip requirement specifier.
-def SPACY_MODEL = "en_core_web_sm-2.2.5"
 ext.TEST_PACKAGES = [
     "argon2-cffi-bindings": ["argon2-cffi"],
     "backports-zoneinfo": ["tzdata"],
     "dlib": ["numpy"],
-    "grpcio": ["protobuf"],
+    "grpcio": [PROTOBUF_REQ],
     "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
@@ -49,6 +25,7 @@ ext.TEST_PACKAGES = [
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
     "soundfile": ["numpy"],
+    "tensorflow": [PROTOBUF_REQ]
 ]
 
 

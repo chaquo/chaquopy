@@ -1,6 +1,9 @@
 import unittest
 
 
+# The pyzmq recipe has a test for duplicate module basenames which depends on h5py. Add
+# the word "Android" here so it'll show up during the pre-release package tests (see
+# release/README.md).
 class TestH5py(unittest.TestCase):
 
     def test_basic(self):

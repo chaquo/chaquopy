@@ -54,7 +54,8 @@ GROUP BY file.project
 ORDER BY downloads DESC
 LIMIT 10000
 ```
-Use a 7-day window to avoid any bias from weekday/weekend differences.
+Use a 7-day window to avoid any bias from weekday/weekend differences, and make it end
+at least 2 days in the past in case there's any delay.
 
 ### Run the tests
 
