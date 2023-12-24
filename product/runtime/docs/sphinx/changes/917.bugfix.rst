@@ -1,0 +1,1 @@
+Fix FileNotFoundError when `pkgutil.iter_modules` is called with a nonexistent path.

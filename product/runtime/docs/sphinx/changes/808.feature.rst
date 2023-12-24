@@ -1,0 +1,1 @@
+All Android wheels are now downloaded from https://chaquo.com/pypi-13.1/ – the old pypi-7.0 URL is no longer used.

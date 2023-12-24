@@ -1,0 +1,1 @@
+Fix "AttributeError: "'AssetFinder' object has no attribute 'extract_packages'" when adding AssetFinder subdirectories to `sys.path`.

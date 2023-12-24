@@ -1,0 +1,1 @@
+Unsupported `socket` functions such as `if_nametoindex` now throw `OSError` as documented, rather than `AttributeError`.

@@ -1,0 +1,1 @@
+The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python 3.12 and later.
