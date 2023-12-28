@@ -340,7 +340,7 @@ class BuildWheel:
             run(f"{clone_cmd} {source['git_url']} {temp_dir}")
             if is_hash:
                 run(f"git -C {temp_dir} checkout {git_rev}")
-                run(f"git -C {temp_dir} submodule update --init")
+                run(f"git -C {temp_dir} submodule update --init --recursive")
 
             run(f"tar -c -C {temp_dir} . -z -f {tgz_filename}")
             run(f"rm -rf {temp_dir}")
@@ -648,6 +648,8 @@ class BuildWheel:
                 set(ANDROID_ABI {self.abi})
                 set(ANDROID_PLATFORM {self.api_level})
                 set(ANDROID_STL c++_shared)
+                set(ANDROID_ALLOW_UNDEFINED_SYMBOLS ON) # Removes the forced no-undefined flag
+                set(ANDROID_USE_LEGACY_TOOLCHAIN_FILE OFF) # Legacy does NOT play well with certain forwarded LDFLAGS (cmake_example error)
                 include({ndk}/build/cmake/android.toolchain.cmake)
 
                 list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)

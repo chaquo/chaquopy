@@ -1,0 +1,19 @@
+package:
+  name: depthai
+  version: "2.24.0.0" # If a release build package is selected (script_env CI=1 is set)
+  # version: "2.24.0.0.dev0+7b57b28305368582d004d5c6ec2cffb66562f2e0" - otherwise commit hash has to be appended as well
+
+source:
+  git_url: https://github.com/luxonis/depthai-python.git
+  git_rev: 7b57b28305368582d004d5c6ec2cffb66562f2e0
+  # path: [path/to/depthai-python] - to build from local sources (developement)
+
+requirements:
+  build:
+    - cmake 3.25
+  host:
+    - python
+
+build:
+  script_env:
+   - CI=1 # Set to build a release package

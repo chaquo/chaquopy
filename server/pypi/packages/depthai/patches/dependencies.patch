@@ -1,0 +1,11 @@
+diff --git a/depthai-core/cmake/Hunter/config.cmake b/depthai-core/cmake/Hunter/config.cmake
+index 8b1ec798..1e4c58d8 100644
+--- a/depthai-core/cmake/Hunter/config.cmake
++++ b/depthai-core/cmake/Hunter/config.cmake
+@@ -124,5 +124,5 @@ hunter_config(
+     CMAKE_ARGS
+         WITH_UDEV=OFF
+         # Build shared libs by default to not cause licensing issues
+-        BUILD_SHARED_LIBS=ON
++        BUILD_SHARED_LIBS=OFF
+ )
