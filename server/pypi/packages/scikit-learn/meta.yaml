@@ -1,8 +1,9 @@
 # This recipe requires Chaquopy 8.0.1 or later, because those versions contain a
-# workaround for multiprocessing and joblib which used to be in this recipe's patch. To
-# make sure this recipe's output isn't used on an older Chaquopy version, we require
-# Python 3.9 or later.
-{% if PY_VER == "3.9" %}
+# workaround for multiprocessing and joblib which used to be in this recipe's patch.
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+    {% set scipy_version = "1.4.1" %}
+{% elif PY_VER == "3.9" %}
     {% set numpy_version = "1.23.3" %}
     {% set scipy_version = "1.6.3" %}
 {% elif PY_VER == "3.10" %}
