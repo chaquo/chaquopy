@@ -10,7 +10,7 @@
 +builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +builtins.__SCIPY_SETUP__ = True  #
 +
- # This is a bit (!) hackish: we are setting a global variable so that the main
+ # This is a bit (!) hackish: we are setting a global variable so that the
  # sklearn __init__ can detect if it is being loaded by the setup routine, to
  # avoid attempting to load components that aren't built yet.
 @@ -139,6 +146,10 @@
@@ -21,19 +21,6 @@
 +            for e in self.extensions:
 +                e.libraries += ["atomic"]
 +
-         build_ext.build_extensions(self)
-
+             build_ext.build_extensions(self)
+ 
      def run(self):
---- src-original/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-10-23 10:11:35.000000000 +0000
-+++ src/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-12-07 13:27:03.843087470 +0000
-@@ -20,7 +20,9 @@
-     """
-     #ifdef __SIZEOF_INT128__
-         typedef __int128 LARGEST_INT_t;
--    #elif (__clang__ || __EMSCRIPTEN__) && !__i386__
-+
-+    // Chaquopy: added __arm__
-+    #elif (__clang__ || __EMSCRIPTEN__) && !(__i386__ || __arm__)
-         typedef _BitInt(128) LARGEST_INT_t;
-     #else
-         typedef long long LARGEST_INT_t;
