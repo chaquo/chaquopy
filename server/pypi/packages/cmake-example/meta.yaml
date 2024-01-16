@@ -1,6 +1,15 @@
+# This recipe contains three patches to add libpython to the link. Each package will
+# probably only need one of those patches, but we keep them all for two reasons:
+#
+# * To serve as an example for other packages.
+# * As the basis for a future PR to merge this into upstream pybind11.
+
 package:
   name: cmake_example
   version: "0.0.1"
+
+build:
+  number: 1
 
 source:
   git_url: https://github.com/pybind/cmake_example.git
@@ -8,6 +17,6 @@ source:
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
   host:
     - python

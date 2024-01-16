@@ -95,8 +95,7 @@ Here are some examples of existing recipes:
 * multidict: a minimal example, downloaded from PyPI.
 * cython-example: a minimal example, built from a local directory.
 * python-example: a pybind11-based package, downloaded from a Git repository.
-* cmake-example: similar to python-example, but uses CMake. A patch is used to help CMake
-  find the Android toolchain file.
+* cmake-example: similar to python-example, but uses CMake.
 * chaquopy-libzmq: a non-Python library, downloaded from a URL.
 * pyzmq: a Python package which depends on chaquopy-libzmq. A patch is used to help
   `setup.py` find the library.

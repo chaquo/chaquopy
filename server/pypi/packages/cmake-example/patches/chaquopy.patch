@@ -1,13 +1,41 @@
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2018-08-26 13:00:28.012674587 +0000
-+++ src/setup.py	2018-08-26 13:52:26.893666837 +0000
-@@ -36,6 +36,9 @@
-         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
-                       '-DPYTHON_EXECUTABLE=' + sys.executable]
+diff --git a/pybind11/CMakeLists.txt b/pybind11/CMakeLists.txt
+index 2a3e1ed7..dcd8f98a 100644
+--- a/pybind11/CMakeLists.txt
++++ b/pybind11/CMakeLists.txt
+@@ -105,7 +105,7 @@ if(NOT (CMAKE_VERSION VERSION_LESS 3.0))  # CMake >= 3.0
+     target_compile_options(module INTERFACE -fvisibility=hidden)
+   endif()
+   target_link_libraries(module INTERFACE pybind11::pybind11)
+-  if(WIN32 OR CYGWIN)
++  if(WIN32 OR CYGWIN OR ANDROID)  # Chaquopy: added ANDROID
+     target_link_libraries(module INTERFACE $<BUILD_INTERFACE:${PYTHON_LIBRARIES}>)
+   elseif(APPLE)
+     target_link_libraries(module INTERFACE "-undefined dynamic_lookup")
+diff --git a/pybind11/tools/pybind11Config.cmake.in b/pybind11/tools/pybind11Config.cmake.in
+index 3dd1b2c1..3e96af80 100644
+--- a/pybind11/tools/pybind11Config.cmake.in
++++ b/pybind11/tools/pybind11Config.cmake.in
+@@ -86,7 +86,7 @@ if(NOT TARGET ${PN}::pybind11)
+     find_package(PythonLibsNew ${PYBIND11_PYTHON_VERSION} MODULE REQUIRED)
+     set_property(TARGET ${PN}::pybind11 APPEND PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${PYTHON_INCLUDE_DIRS})
+     set_property(TARGET ${PN}::embed APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${PYTHON_LIBRARIES})
+-    if(WIN32 OR CYGWIN)
++    if(WIN32 OR CYGWIN OR ANDROID)  # Chaquopy: added ANDROID
+       set_property(TARGET ${PN}::module APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${PYTHON_LIBRARIES})
+     endif()
  
-+        # Chaquopy added
-+        cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake")]
-+
-         cfg = 'Debug' if self.debug else 'Release'
-         build_args = ['--config', cfg]
+diff --git a/pybind11/tools/pybind11Tools.cmake b/pybind11/tools/pybind11Tools.cmake
+index a7c471a0..dbb84c3f 100644
+--- a/pybind11/tools/pybind11Tools.cmake
++++ b/pybind11/tools/pybind11Tools.cmake
+@@ -146,8 +146,8 @@ function(pybind11_add_module target_name)
+   # potential warnings or issues from having mixed hidden/non-hidden types.
+   set_target_properties(${target_name} PROPERTIES CXX_VISIBILITY_PRESET "hidden")
  
+-  if(WIN32 OR CYGWIN)
+-    # Link against the Python shared library on Windows
++  if(WIN32 OR CYGWIN OR ANDROID)  # Chaquopy: added ANDROID
++    # Link against the Python shared library on these platforms
+     target_link_libraries(${target_name} PRIVATE ${PYTHON_LIBRARIES})
+   elseif(APPLE)
+     # It's quite common to have multiple copies of the same Python version
