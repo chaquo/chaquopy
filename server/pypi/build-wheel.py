@@ -340,7 +340,7 @@ class BuildWheel:
             run(f"{clone_cmd} {source['git_url']} {temp_dir}")
             if is_hash:
                 run(f"git -C {temp_dir} checkout {git_rev}")
-                run(f"git -C {temp_dir} submodule update --init")
+                run(f"git -C {temp_dir} submodule update --init --recursive")
 
             run(f"tar -c -C {temp_dir} . -z -f {tgz_filename}")
             run(f"rm -rf {temp_dir}")

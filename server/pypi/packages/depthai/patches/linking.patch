@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cddfd09b..3d9e4eea 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -255,6 +255,8 @@ target_link_libraries(${TARGET_NAME}
+         depthai::core # Use non-opencv target as we use opencv-python in bindings
+         hedley
+         pybind11_json
++        # Chaquopy: added
++        ${PYTHON_LIBRARY}
+ )
+ 
+ # Find Git
