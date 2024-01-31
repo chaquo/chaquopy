@@ -3,10 +3,8 @@ set -eu
 
 cd $(dirname $(realpath $0))
 
-for abi in armeabi-v7a arm64-v8a x86 x86_64; do
-    # OpenSSL build fails if lib doesn't already exist.
-    mkdir -p prefix/$abi/{bin,include,lib,share}
-done
+echo "This script needs to be updated to use https://github.com/beeware/cpython-android-source-deps"
+exit 1
 
 # Build libraries shared by all Python versions.
 ./for-each-abi.sh bzip2/build.sh 1.0.8
