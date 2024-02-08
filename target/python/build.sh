@@ -29,7 +29,10 @@ if [ $version_int -le 311 ]; then
     patches+=" sysroot_paths"
 fi
 if [ $version_int -ge 311 ]; then
-    patches+=" python_for_build_deps"
+    # Although this patch applies cleanly to 3.12, it no longer has the intended effect,
+    # because the stdlib extension modules are now built using autoconf rather than
+    # distutils. Replace it with the fix we upstreamed to 3.13.
+    patches+=" python_for_build_deps_REMOVED"
 fi
 if [ $version_int -ge 312 ]; then
     patches+=" bldlibrary grp"
