@@ -47,7 +47,6 @@ After first release candidate:
   version.
 * Copy the contents from the previous base/X.Y directory, then update them with the
   settings from the "Empty Activity" project.
-* Update android.rst and versions.rst.
 * Run tests on all platforms.
 
 After stable release:
@@ -66,14 +65,13 @@ After stable release:
     product/gradle/wrapper/gradle-wrapper.properties.
   * Sync the project, then run the `publish` task.
   * Close the project to make sure .idea files are written.
-* Run integration tests on all platforms.
-* If we're not already planning to make a Chaquopy release soon, temporarily edit
-  `test_gradle_plugin.RunGradle.rerun` to test the released Chaquopy version with the new
-  AGP version, on all platforms.
-  * If it passes, update android.rst and versions.rst for the existing version, add a note
-    in changelog.rst, and publish them to the website.
-  * If it fails, perform a Chaquopy release as soon as possible, because Android Studio's
-    auto-updater will cause many users to move to the new AGP version.
+* Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the current stable
+  Chaquopy version with the new AGP version, on all platforms.
+  * If it passes, update android.rst and versions.rst for the existing version, add a
+    note in changelog.rst, and publish them to the website.
+  * If it fails, fix the problems, update android.rst and versions.rst for the new
+    version, and perform a Chaquopy release as soon as possible, because Android
+    Studio's auto-updater will cause many users to move to the new AGP version.
 
 
 ## Removing support for an Android Gradle plugin version
