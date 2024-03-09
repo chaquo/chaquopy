@@ -5,6 +5,7 @@ pluginManagement {
     val agpVersion: String by settings
 
     repositories {
+        maven { url = uri(chaquopyRepository) }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -14,7 +15,6 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
-        maven { url = uri(chaquopyRepository) }
     }
 
     plugins {
