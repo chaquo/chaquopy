@@ -275,7 +275,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             // This must be one of the NDK versions which are pre-installed on the
             // GitHub Actions runner. Ideally it would also match the version in
             // target/build-common.sh, but the latter is more difficult to change.
-            def ndkDir = sdkPath("ndk/26.1.10909125")
+            def ndkDir = sdkPath("ndk/26.2.11394342")
 
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
