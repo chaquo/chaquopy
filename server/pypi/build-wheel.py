@@ -10,7 +10,6 @@ from glob import glob
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from pathlib import Path
-import pkg_resources
 import re
 import shlex
 import subprocess
@@ -18,6 +17,7 @@ import sys
 import tempfile
 from textwrap import dedent
 import traceback
+import warnings
 
 import build
 from elftools.elf.elffile import ELFFile
@@ -25,6 +25,10 @@ from jinja2 import StrictUndefined, Template, TemplateError
 import jsonschema
 import pypi_simple
 import yaml
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import pkg_resources
 
 
 PROGRAM_NAME = splitext(basename(__file__))[0]
@@ -201,8 +205,8 @@ class BuildWheel:
                         help="Android ABI: choices=[%(choices)s]")
         ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
                         help="Android API level: default=%(default)s")
-        ap.add_argument("--python", metavar="X.Y", help="Python version (required for "
-                        "Python packages)"),
+        ap.add_argument("--python", metavar="X.Y", help="Python major.minor version "
+                        "(required for Python packages)"),
         ap.add_argument("package", help=f"Name of a package in {RECIPES_DIR}, or if it "
                         f"contains a slash, path to a recipe directory")
         ap.parse_args(namespace=self)

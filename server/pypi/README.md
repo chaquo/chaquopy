@@ -69,8 +69,9 @@ Run build-wheel from this directory as follows:
 
 Where:
 
-* `X.Y` is the Python version you set up above.
-* `ABI` is an [Android ABI](https://developer.android.com/ndk/guides/abis).
+* `X.Y` is the Python version you set up above, e.g. `3.8`.
+* `ABI` is an [Android
+  ABI](https://chaquo.com/chaquopy/doc/current/android.html#android-abis).
 * `PACKAGE` is a subdirectory of `packages` in this directory, or the path to another
   directory laid out in the same way (see "adding a package" below).
 
