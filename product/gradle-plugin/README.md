@@ -67,8 +67,8 @@ After stable release:
   * Close the project to make sure .idea files are written.
 * Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the current stable
   Chaquopy version with the new AGP version, on all platforms.
-  * If it passes, update android.rst and versions.rst for the existing version, add a
-    note in changelog.rst, and publish them to the website.
+  * If it passes, update android.rst, versions.rst and changelog.rst for the existing
+    version, and publish them to the website.
   * If it fails, fix the problems, update android.rst and versions.rst for the new
     version, and perform a Chaquopy release as soon as possible, because Android
     Studio's auto-updater will cause many users to move to the new AGP version.
