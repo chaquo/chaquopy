@@ -14,7 +14,7 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -72,7 +72,7 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -103,7 +103,7 @@ jobs:
 
 
   gradlePython:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -120,7 +120,7 @@ jobs:
 
   demo:
     needs: [product]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1
       - uses: actions/checkout@v3.5.3
@@ -163,9 +163,9 @@ jobs:
           # To avoid clutter in the GitHub UI, OS versions are not added to the `os`
           # dimension directly.
           - os: linux
-            runs-on: ubuntu-22.04
+            runs-on: ubuntu-20.04  # 22.04 has a minimum Python version of 3.7 (see setup-python)
           - os: macos
-            runs-on: macos-14
+            runs-on: macos-12  # 14 has a minimum Python version of 3.8 (see setup-python)
           - os: windows
             runs-on: windows-2022
 
