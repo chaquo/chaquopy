@@ -619,8 +619,15 @@ class PythonSrc(GradleTestCase):
         run.rerun("PythonSrc/conflict_include", **kwargs)
 
     def conflict_error(self, variant, filename):
-        return (fr"(?s)failed for task ':app:merge{variant}PythonSources'.*"
-                fr'Encountered duplicate path "{filename}"')
+        return (
+            fr"(?s)failed for task ':app:merge{variant}PythonSources'.*" + (
+                fr'Encountered duplicate path "{filename}"'
+                if agp_version_info < (8, 5)
+
+                # No leading quote, because the message includes the full path.
+                else fr"{filename}' has already been copied there"
+            )
+        )
 
     def test_set_dirs(self):
         self.RunGradle("base", "PythonSrc/set_dirs", app=["two.py"])
