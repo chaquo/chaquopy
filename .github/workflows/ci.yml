@@ -16,8 +16,8 @@ jobs:
   product:
     runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -45,7 +45,7 @@ jobs:
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: maven
           # There's a fairly large per-file overhead, so exclude the hash files.
@@ -74,8 +74,8 @@ jobs:
   docs:
     runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -93,7 +93,7 @@ jobs:
           cd product
           ./gradlew docs
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: docs
           path: |
@@ -105,8 +105,8 @@ jobs:
   gradlePython:
     runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
 
@@ -122,13 +122,13 @@ jobs:
     needs: [product]
     runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven
@@ -145,7 +145,7 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew assembleRelease
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: demo
           path: demo/app/build/outputs/apk/release
@@ -171,14 +171,14 @@ jobs:
 
     runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven

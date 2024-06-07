@@ -4,7 +4,7 @@ description:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-python@v4.6.1
+    - uses: actions/setup-python@v5.1.0
       with:
         # This should include all major.minor versions supported by the runtime, plus
         # OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
