@@ -1,0 +1,15 @@
+{% set version = "1.16.1" %}
+
+package:
+  name: chaquopy-liblsl
+  version: {{ version }}
+
+build:
+  number: 0
+
+source:
+  url: https://github.com/sccn/liblsl/archive/refs/tags/v{{ version }}.tar.gz
+
+requirements:
+  build:
+    - cmake
