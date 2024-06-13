@@ -1,0 +1,11 @@
+--- src-original/pyproject.toml	2022-11-06 17:55:12.000000000 +0000
++++ src/pyproject.toml	2023-09-13 18:28:30.129161882 +0000
+@@ -2,7 +2,7 @@
+ requires = [
+     "setuptools>=42",
+     "wheel",
+-    "cmake>=3.18",
++    # "cmake>=3.18",
+     "scikit-build==0.12.0",
+ ]
+ build-backend = "setuptools.build_meta"
