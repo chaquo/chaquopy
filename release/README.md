@@ -46,8 +46,9 @@ same devices.
 Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
 file to use the local Chaquopy version.
 
-Record sizes and startup times (#5683), and investigate if significantly worse than the
-previous version. Remember that the tests and the packages themselves may have changed.
+Record performance data in performance.md, and investigate if significantly worse than
+the previous version. Remember that the tests and the packages themselves may have
+changed.
 
 
 ## Package tests
