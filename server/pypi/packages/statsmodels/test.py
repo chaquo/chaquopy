@@ -9,9 +9,9 @@ class TestStatsmodels(unittest.TestCase):
         import statsmodels.api as sm
         import statsmodels.formula.api as smf
 
-        # See #5601 and https://issuetracker.google.com/issues/150758736. Although the dataset
-        # itself is small, it also needs to download a 300K dataset index file. Sometimes this
-        # takes over 100 retries on the API 28 emulator.
+        # See https://issuetracker.google.com/issues/150758736. Although the dataset
+        # itself is small, it also needs to download a 300K dataset index file, which
+        # sometimes takes over 100 retries on the API 28 emulator.
         retries = 0
         while True:
             try:

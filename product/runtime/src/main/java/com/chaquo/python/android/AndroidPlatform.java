@@ -189,7 +189,6 @@ public class AndroidPlatform extends Python.Platform {
         spe.apply();
     }
 
-    // TODO #5677: multi-process race conditions.
     private void extractAsset(JSONObject assetsJson, SharedPreferences.Editor spe,
                               String path) throws IOException, JSONException {
         String fullPath = Common.ASSET_DIR  + "/" + path;
@@ -271,10 +270,11 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs() throws JSONException {
-        // Libraries must be loaded in dependency order before API level 18 (#5323). However,
-        // even if our minimum API level increases to 18 or higher in the future, we should
-        // still keep pre-loading the OpenSSL and SQLite libraries, because we can't guarantee
-        // that our lib directory will always be on the LD_LIBRARY_PATH (#5563).
+        // Libraries must be loaded in dependency order before API level 18. However,
+        // even if our minimum API level increases to 18 or higher in the future, we
+        // should still keep pre-loading the OpenSSL and SQLite libraries, because we
+        // can't guarantee that our lib directory will always be on the LD_LIBRARY_PATH
+        // (#1198).
         System.loadLibrary("crypto_chaquopy");
         System.loadLibrary("ssl_chaquopy");
         System.loadLibrary("sqlite3_chaquopy");

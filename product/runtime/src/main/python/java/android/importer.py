@@ -44,12 +44,15 @@ def initialize(context, build_json, app_path):
 def initialize_importlib(context, build_json, app_path):
     sys.meta_path[sys.meta_path.index(machinery.PathFinder)] = ChaquopyPathFinder
 
-    # ZIP file extraction uses copyfileobj, whose default buffer size is quite small (#5596).
+    # ZIP file extraction uses copyfileobj, whose default buffer size is 16 KB. This
+    # significantly slows down ZipFile.extract with large files, because each call to
+    # AssetFile.read has a relatively large overhead.
     assert len(copyfileobj.__defaults__) == 1
     copyfileobj.__defaults__ = (1024 * 1024,)
 
-    # Use realpath to resolve any symlinks in getFilesDir(), otherwise there may be confusion
-    # if user code calls realpath itself and then passes the result back to us (#5717).
+    # Use realpath to resolve any symlinks in getFilesDir(), otherwise there may be
+    # confusion if user code derives a path from __file__, calls realpath on the result,
+    # and then passes it back to us.
     global ASSET_PREFIX
     ASSET_PREFIX = join(realpath(context.getFilesDir().toString()),
                         Common.ASSET_DIR, "AssetFinder")
@@ -467,7 +470,6 @@ class AssetFinder:
                     continue
 
                 # See also similar code in AndroidPlatform.java.
-                # TODO #5677: multi-process race conditions.
                 sp_key = "asset." + asset_name
                 new_hash = assets_json[asset_name]
                 if sp.getString(sp_key, "") != new_hash:
@@ -801,12 +803,12 @@ def extract_so(path):
     # have been on LD_LIBRARY_PATH when they were loaded). Also, the field that stores the
     # library name is 128 characters, which isn't long enough for many absolute paths.
     #
-    # Since we're already working around the basename clash problem, we'll simulate the 32-bit
-    # behavior by putting the library's dirname into LD_LIBRARY_PATH using an undocumented
-    # libdl function, and then loading it through its basename.
+    # Since we're already working around the basename clash problem, we'll simulate the
+    # 32-bit behavior by putting the library's dirname into LD_LIBRARY_PATH using an
+    # undocumented libdl function (see #1198), and then loading it through its basename.
     if (Build.VERSION.SDK_INT < 23) and ("64" in AndroidPlatform.ABI):
         # We need to include the app's lib directory, because our libraries there were
-        # loaded via System.loadLibrary, which passes absolute paths to dlopen (#5563).
+        # loaded via System.loadLibrary, which passes absolute paths to dlopen.
         llp = ":".join([dirname(path), nativeLibraryDir])
         with extract_so_lock:
             ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
@@ -827,10 +829,14 @@ def load_needed(finder, path):
                 except FileNotFoundError:
                     needed_loaded[soname] = None
                 else:
-                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and RTLD_LOCAL was
-                    # ignored. From API 23, RTLD_LOCAL is available and used by default, just like
-                    # in Linux (#5323). We use RTLD_GLOBAL, so that the library's symbols are
-                    # available to subsequently-loaded libraries.
+                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and
+                    # RTLD_LOCAL was ignored. From API 23, RTLD_LOCAL is available and
+                    # used by default, just like in Linux
+                    # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md).
+                    #
+                    # We use RTLD_GLOBAL to make the library's symbols available to
+                    # subsequently-loaded libraries, but this may not actually work -
+                    # see #728.
                     #
                     # It doesn't look like the library is closed when the CDLL object is garbage
                     # collected, but this isn't documented, so keep a reference for safety.

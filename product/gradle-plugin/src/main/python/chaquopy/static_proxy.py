@@ -230,8 +230,6 @@ class Module(object):
             self.bindings[key] = get_binding(value)
 
     def process_class(self, node):
-        # TODO allow static proxy classes as bases (#5283) and return, argument and throws
-        # types (#5284).
         self.bindings[node.name] = node
         if node.bases:
             first_base = node.bases[0]

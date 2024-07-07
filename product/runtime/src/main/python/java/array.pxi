@@ -314,8 +314,8 @@ cdef array_get(self, jint index):
 cdef array_set(self, jint index, value):
     env = CQPEnv()
     cdef JNIRef this = self._chaquopy_this
-    # We need to type-check against the actual array type, because old versions of Android
-    # won't do it for us (#5209).
+    # Android's JVM doesn't type-check SetObjectArrayElement calls before API level 16,
+    # so we need to check against the actual array type.
     element_sig = object_sig(env, this)[1:]
     value_p2j = p2j(env.j_env, element_sig, value)
     r = element_sig[0]

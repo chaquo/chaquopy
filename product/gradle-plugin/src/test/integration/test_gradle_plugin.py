@@ -806,7 +806,8 @@ class BuildPython(GradleTestCase):
         self.assertNotInLong("Major version was used", run.stdout)
         self.assertInStdout("Versionless executable was used", run)
 
-    # Test a buildPython which returns success without doing anything (#5631).
+    # Test a buildPython which returns success without doing anything (possibly the
+    # cause of #250).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
         lib_path = "python/env/debug/lib"
@@ -1185,7 +1186,7 @@ class PythonReqs(GradleTestCase):
                 self.RunGradle(*layers, requirements=[f"{name}.py"])
 
     # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
-    # install. For example, see acoustics==0.2.4 (#5630).
+    # install (e.g. https://github.com/python-acoustics/python-acoustics/issues/243).
     def test_bdist_wheel_fail(self):
         run = self.RunGradle(
             "base", "PythonReqs/bdist_wheel_fail", include_dist_info=True,
@@ -1197,7 +1198,7 @@ class PythonReqs(GradleTestCase):
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     # If bdist_wheel returns success but didn't generate a wheel, we should fall back on
-    # setup.py install. For example, see kiteconnect==3.8.2 (#5630).
+    # setup.py install (e.g. #338).
     def test_bdist_wheel_fail_silently(self):
         run = self.RunGradle(
             "base", "PythonReqs/bdist_wheel_fail_silently", include_dist_info=True,

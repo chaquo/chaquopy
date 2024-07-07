@@ -110,10 +110,9 @@ String sdkPath(String path) {
     return absPath
 }
 
-// Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
-// some of the Python unit tests don't work on Java 11 yet (#5727).
-//
-// This does not affect the Java unit tests, which will use the same Java as Gradle itself.
+// On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
+// variable does not affect the Java unit tests, which always use the same Java as
+// Gradle itself.
 def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
 
 def docs = tasks.register("docs") {
@@ -372,7 +371,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
                 // load native modules like ctypes. Loading libpython with
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
-                // the proper solution, but let's do it the easy way for now. See #5695.
+                // the proper solution, but let's do it the easy way for now. See #1201.
                 environment(
                     "LD_PRELOAD",
                     "/usr/lib/x86_64-linux-gnu/libpython${Common.DEFAULT_PYTHON_VERSION}.so"

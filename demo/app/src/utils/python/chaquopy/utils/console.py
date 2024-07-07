@@ -86,8 +86,9 @@ class ConsoleOutputStream(TextIOBase):
             return super().__getattribute__(name)
 
     def write(self, s):
-        # Pass the write to the underlying stream first, so that if it throws an exception, the
-        # app crashes in the same way whether it's using ConsoleOutputStream or not (#5712).
+        # Pass the write to the underlying stream first, so that if it throws an
+        # exception, the app crashes in the same way whether it's using
+        # ConsoleOutputStream or not.
         result = self.stream.write(s)
         self.method(s)
         return result

@@ -35,8 +35,8 @@ class TestPhotutils(unittest.TestCase):
             [53, 13])  # See image at the bottom of the above link.
 
 
-# Downloading a URL with "Connection: close", as urllib does, causes an intermittent network
-# problem on the emulator (see #5601 and https://issuetracker.google.com/issues/150758736). For
+# Downloading a URL with "Connection: close", as urllib does, causes an intermittent
+# network problem on the emulator (https://issuetracker.google.com/issues/150758736). For
 # small files we could just retry until it succeeds, but for large files a failure is much more
 # likely, and we might have to keep retrying for several minutes. So use the stdlib's low-level
 # HTTP API to make a request with no Connection header.

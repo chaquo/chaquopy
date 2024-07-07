@@ -216,7 +216,8 @@ def parse_requirement(req):
                             break
                         ver_remaining = ver_remaining[1:].lstrip()
 
-                        # Chaquopy: allow trailing comma (#5664).
+                        # Chaquopy: allow trailing comma (seen in openpyxl 3.0.4 and
+                        # webcolors 1.11.1).
                         if not ver_remaining:
                             break
 

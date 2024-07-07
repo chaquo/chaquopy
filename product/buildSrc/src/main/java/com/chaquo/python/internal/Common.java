@@ -64,11 +64,11 @@ public class Common {
     }
 
     public static String assetZip(String type, String abi) {
-        // We need to prevent our ZIP files from being compressed within the APK. This wouldn't
-        // save much space (because the files within the ZIP are already compressed), but it
-        // would seriously harm performance of AssetFinder, because it would have to read and
-        // decompress all the intermediate data every time it seeks within the ZIP (see
-        // measurements in #5658).
+        // We need to prevent our ZIP files from being compressed within the APK. This
+        // wouldn't save much space (because the files within the ZIP are already
+        // compressed), but it would seriously harm performance of AssetFinder, because
+        // it would have to read and decompress all the intermediate data every time it
+        // seeks within the ZIP.
         //
         // Unfortunately .zip is not one of the default noCompress extensions
         // (frameworks/base/tools/aapt2/cmd/Link.cpp). We used to monkey-patch the noCompress

@@ -207,9 +207,6 @@ cdef p2j(JNIEnv *j_env, definition, obj, bint autobox=True):
                 if boxed: return boxed
         elif isinstance(obj, (int, primitive.IntPrimitive)):
             if autobox:
-                # TODO #5174 support BigInteger, and make that a final fallback if clsname is
-                # Number or Object, and Long isn't big enough.
-                #
                 # Automatic primitive conversion cannot be combined with autoboxing (JLS 5.3).
                 box_cls_names = ([NUMERIC_TYPES[obj.sig]] if isinstance(obj, IntPrimitive)
                                  else chain(INT_TYPES.values(), FLOAT_TYPES.values()))
@@ -283,10 +280,11 @@ cdef JNIRef p2j_array(element_type, obj):
     return java_array._chaquopy_this
 
 
-# https://github.com/cython/cython/issues/1709
-#
-# TODO #5182 we should also test against FLT_MIN, which is the most infintesimal float32, to
-# avoid accidental conversion to zero.
+# Unlike with integers, Cython doesn't do any checks for overflow (to infinity) or
+# underflow (to zero) when converting a 64-bit Python float to a 32-bit C float. We
+# currently check for overflow and not underflow, but since this behavior of float types
+# is well-known, maybe we shouldn't be checking for either
+# (https://github.com/cython/cython/issues/1709).
 #
 # cpdef because it's called from primitive.py.
 cpdef check_range_float32(value):

@@ -246,8 +246,9 @@ internal class TaskBuilder(
                     compilePyc(python.pyc.pip, outputDir)
                 }
 
-                // Requirements subdirectories must exist, or their ZIPs won't be created,
-                // and the app will crash (#5631).
+                // In #250 it looks like someone used a buildPython which returned
+                // success without doing anything. This led to a runtime crash because
+                // the requirements ZIPs were missing from the app.
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
                     val subdir = File(outputDir, subdirName)
                     if (!subdir.exists()) {
@@ -534,7 +535,7 @@ internal class TaskBuilder(
                 execBuildPython {
                     args("-m", "chaquopy.pyc")
                     args("--python", python.version)
-                    args("--quiet") // TODO #5411: option to display syntax errors
+                    args("--quiet")
                     if (setting != true) {
                         args("--warning")
                     }

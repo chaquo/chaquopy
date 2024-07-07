@@ -268,7 +268,8 @@ class TestReflect(FilterWarningsCase):
         pw.print_(" world")
         self.assertEqual("Hello world", sw.toString())
 
-    # TODO #5183
+    # Java allows methods and fields to have the same name, because they're accessed
+    # with different syntax. In this case, we always return the method.
     def test_name_clash(self):
         NameClash = self.nested_cls("NameClash")
         self.assertEqual("method", NameClash.member())
@@ -452,7 +453,7 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("instance 5", Call.unboundInstanceRef(Call("5")))
         self.assertEqual("instance 6", Call.constructorRef("6").s)
 
-    @skipIf(not API_LEVEL, "Android only")  # TODO #5682
+    @skipIf(not API_LEVEL, "Android only")  # TODO #1199
     def test_call_kotlin(self):
         from com.chaquo.python import TestReflectKt as TRK
         Call = TRK.Call
@@ -516,7 +517,10 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("AB.a", ab())
         self.assertEqual("AB.a", cast(CI.IAB, ab)())
 
-    @skipIf(API_LEVEL, "on Android, default methods require minSdkVersion >= 24")  # TODO #5262
+    @skipIf(
+        API_LEVEL,
+        "on Android, default methods require minSdkVersion >= 24",  # TODO #1204
+    )
     def test_call_interface_default(self):
         CI = TR.CallInterface
         CID = TR.CallInterfaceDefault
@@ -553,7 +557,7 @@ class TestReflect(FilterWarningsCase):
 
 # On Android, getDeclaredMethods and getDeclaredFields fail when the member's type refers
 # to a class that cannot be loaded. Test the partial workaround in Reflector.
-@skipIf(not API_LEVEL, "Android only")  # TODO #5682
+@skipIf(not API_LEVEL, "Android only")
 class TestAndroidReflect(FilterWarningsCase):
 
     MEMBERS = ["tcFieldPublic", "tcFieldProtected", "tcMethodPublic", "tcMethodProtected",
