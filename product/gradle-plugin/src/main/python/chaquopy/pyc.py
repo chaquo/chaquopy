@@ -38,7 +38,7 @@ def main():
             print("Warning:", message)
             sys.exit(0)
         else:
-            print(message)
+            print(message, file=sys.stderr)
             sys.exit(1)
 
     if args.quiet:

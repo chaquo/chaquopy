@@ -735,7 +735,7 @@ class Pyc(GradleTestCase):
         run = self.RunGradle("base", "Pyc/magic_error",
                              env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
                              succeed=False)
-        self.assertInStdout(self.FAILED + self.INCOMPATIBLE + self.SEE, run, re=True)
+        self.assertInStderr(self.FAILED + self.INCOMPATIBLE + self.SEE, run, re=True)
         self.assertInStderr(BuildPython.FAILED, run, re=True)
 
 
