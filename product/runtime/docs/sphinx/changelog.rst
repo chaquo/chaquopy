@@ -25,11 +25,12 @@ Features
   <https://github.com/chaquo/chaquopy/issues/886>`__)
 - Update CA bundle to certifi 2023.11.17. (`#893
   <https://github.com/chaquo/chaquopy/issues/893>`__)
-- Android Gradle plugin versions 8.1 to 8.4 are now supported. (`#908
+- Android Gradle plugin versions 8.1 to 8.5 are now supported. (`#908
   <https://github.com/chaquo/chaquopy/issues/908>`__, `#1003
   <https://github.com/chaquo/chaquopy/issues/1003>`__, `#1091
   <https://github.com/chaquo/chaquopy/issues/1091>`__, `#1140
-  <https://github.com/chaquo/chaquopy/issues/1140>`__)
+  <https://github.com/chaquo/chaquopy/issues/1140>`__, `#1172
+  <https://github.com/chaquo/chaquopy/issues/1172>`__)
 - Python version 3.12 is now supported. (`#931
   <https://github.com/chaquo/chaquopy/issues/931>`__, `#967
   <https://github.com/chaquo/chaquopy/issues/967>`__)
