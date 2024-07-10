@@ -8,5 +8,5 @@ build:
   script_env:
     # paralelize compilation
     - MAKEFLAGS=-j${CPU_COUNT}
-    # - IGRAPH_CMAKE_EXTRA_ARGS='-DF2C_EXTERNAL_ARITH_HEADER=/home/cbernal/Downloads/android64_x86_64_arm64.h -DIEEE754_DOUBLE_ENDIANNESS_MATCHES=ON'
+    - IGRAPH_CMAKE_EXTRA_ARGS=-DF2C_EXTERNAL_ARITH_HEADER=../../../../../../../android64_x86_64_arm64.h -DIEEE754_DOUBLE_ENDIANNESS_MATCHES=ON
 
