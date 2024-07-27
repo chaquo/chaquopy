@@ -161,7 +161,9 @@ Create release page on GitHub with a link to the change log section.
 
 Post blog entry to website.
 
-Post links to Facebook and Twitter.
+Post link to X, and enable "only accounts you mention can reply", because it doesn't
+reliably send email notifications of replies. Enabling replies and apparently ignoring
+them would make us look worse than not enabling replies at all.
 
 Update any affected GitHub issues, StackOverflow questions, email threads, etc.
 
