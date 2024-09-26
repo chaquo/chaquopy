@@ -3,6 +3,7 @@ pluginManagement {
     val chaquopyRepository: String by settings
     val chaquopyVersion: String by settings
     val agpVersion: String by settings
+    val kotlinVersion: String by settings
 
     repositories {
         maven { url = uri(chaquopyRepository) }
@@ -21,7 +22,7 @@ pluginManagement {
         id("com.android.application") version agpVersion
         id("com.android.library") version agpVersion
         id("com.android.dynamic-feature") version agpVersion
-        id("org.jetbrains.kotlin.android") version "1.9.0"
+        id("org.jetbrains.kotlin.android") version kotlinVersion
         id("com.chaquo.python") version chaquopyVersion
     }
 }
