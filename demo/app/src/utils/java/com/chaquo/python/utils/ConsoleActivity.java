@@ -78,8 +78,9 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    (event != null && event.getAction() == KeyEvent.ACTION_UP)) {
+                if ((actionId == EditorInfo.IME_ACTION_DONE && event == null) || // Soft keyboard
+                    (event != null && event.getAction() == KeyEvent.ACTION_UP)  // Hard keyboard
+                ) {
                     String text = etInput.getText().toString() + "\n";
                     etInput.setText("");
                     output(span(text, new StyleSpan(Typeface.BOLD)));
