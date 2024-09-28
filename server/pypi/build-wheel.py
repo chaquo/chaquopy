@@ -617,7 +617,8 @@ class BuildWheel:
         })
 
         for var in self.meta["build"]["script_env"]:
-            key, value = var.split("=")
+            key, value = var.split("=",1)
+            print("DEBUG ENVS",key,value)
             env[key] = value
 
         # We do this unconditionally, because we don't know whether the package requires
