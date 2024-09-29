@@ -203,7 +203,7 @@ class BuildWheel:
 
         ap.add_argument("--abi", metavar="ABI", required=True, choices=ABIS,
                         help="Android ABI: choices=[%(choices)s]")
-        ap.add_argument("--api-level", metavar="LEVEL", type=int, default=21,
+        ap.add_argument("--api-level", metavar="LEVEL", type=int, default=24,
                         help="Android API level: default=%(default)s")
         ap.add_argument("--python", metavar="X.Y", help="Python major.minor version "
                         "(required for Python packages)"),

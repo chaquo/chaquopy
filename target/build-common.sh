@@ -4,7 +4,7 @@
 #
 # You may also override the following:
 : ${abi:=$(basename $prefix)}
-: ${api_level:=21}  # Should match MIN_SDK_VERSION in Common.java.
+: ${api_level:=24}  # Should match MIN_SDK_VERSION in Common.java.
 
 # Print all messages on stderr so they're visible when running within build-wheel.
 log() {

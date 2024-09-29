@@ -24,7 +24,7 @@ cd $build_dir
 tar -xf $version_dir/$src_filename
 cd $(basename $src_filename .tgz)
 
-patches="dynload_shlib lfs soname"
+patches="soname"
 if [ $version_int -le 311 ]; then
     patches+=" sysroot_paths"
 fi
