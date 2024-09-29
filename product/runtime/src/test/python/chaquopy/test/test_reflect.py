@@ -435,12 +435,12 @@ class TestReflect(FilterWarningsCase):
     def test_access(self):
         a = TR.Access()
         self.assertFalse(hasattr(a, "priv"))
-        # self.assertFalse(hasattr(a, "pack"))      # Appears public on Android API 23
+        self.assertFalse(hasattr(a, "pack"))
         self.assertEqual("protected", a.prot)
         self.assertEqual("public", a.publ)
 
         self.assertFalse(hasattr(a, "getPriv"))
-        # self.assertFalse(hasattr(a, "getPack"))   # Appears public on Android API 23
+        self.assertFalse(hasattr(a, "getPack"))
         self.assertEqual("protected", a.getProt())
         self.assertEqual("public", a.getPubl())
 
@@ -517,10 +517,6 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("AB.a", ab())
         self.assertEqual("AB.a", cast(CI.IAB, ab)())
 
-    @skipIf(
-        API_LEVEL,
-        "on Android, default methods require minSdkVersion >= 24",  # TODO #1204
-    )
     def test_call_interface_default(self):
         CI = TR.CallInterface
         CID = TR.CallInterfaceDefault
