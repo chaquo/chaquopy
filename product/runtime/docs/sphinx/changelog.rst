@@ -393,7 +393,7 @@ Bugfixes
 
 * Fix pip issues involving packages with optional native components (e.g. `websockets
   <https://pypi.org/project/websockets/>`_).
-* Work around inability of Android dynamic linker on API 22 and older to load multiple modules
+* Work around inability of Android dynamic linker on API level 22 and older to load multiple modules
   with the same basename (`details here <https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md#correct-sonamepath-handling-available-in-api-level--23>`_).
 * Fix `ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
   :any:`sysconfig.get_config_vars`.

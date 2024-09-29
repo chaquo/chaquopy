@@ -11,7 +11,7 @@ class TestStatsmodels(unittest.TestCase):
 
         # See https://issuetracker.google.com/issues/150758736. Although the dataset
         # itself is small, it also needs to download a 300K dataset index file, which
-        # sometimes takes over 100 retries on the API 28 emulator.
+        # sometimes takes over 100 retries on the API level 28 emulator.
         retries = 0
         while True:
             try:

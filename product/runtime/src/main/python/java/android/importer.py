@@ -735,9 +735,9 @@ def load_needed(finder, path):
         for soname in get_needed(path):
             if soname not in needed_loaded:
                 try:
-                    # Before API 23, the only dlopen mode was RTLD_GLOBAL, and
-                    # RTLD_LOCAL was ignored. From API 23, RTLD_LOCAL is available and
-                    # used by default, just like in Linux
+                    # Before API level 23, the only dlopen mode was RTLD_GLOBAL, and
+                    # RTLD_LOCAL was ignored. From API level 23, RTLD_LOCAL is available
+                    # and used by default, just like in Linux
                     # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md).
                     #
                     # We use RTLD_GLOBAL to make the library's symbols available to

@@ -161,8 +161,8 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void extractAssets(List<String> assets) throws IOException, JSONException {
-        // AssetManager.list() is surprisingly slow (20 ms per call on the API 23 emulator), so
-        // we'll avoid using it.
+        // AssetManager.list() is surprisingly slow (20 ms per call on the API level 23
+        // emulator), so we'll avoid using it.
         JSONObject assetsJson = buildJson.getJSONObject("assets");
         Set<String> unextracted = new HashSet<>(assets);
         Set<String> directories = new HashSet<>();

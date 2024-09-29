@@ -15,8 +15,8 @@ class TestPsutil(unittest.TestCase):
     def test_disk(self):
         import psutil
         parts = psutil.disk_partitions(all=True)
-        # See __ANDROID_API__ in patch. The native API was added on API 21, but doesn't work
-        # until API 23.
+        # See __ANDROID_API__ in patch. The native API was added in API level 21, so we
+        # only support it on 64-bit, and doesn't work at runtime until API level 23.
         if API_LEVEL and (API_LEVEL < 23 or platform.architecture()[0] == "32bit"):
             self.assertFalse(parts)
         else:
