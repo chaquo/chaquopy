@@ -11,7 +11,6 @@ import os
 from os.path import dirname, exists, join, realpath, relpath, splitext
 from pathlib import Path, PosixPath
 import pkgutil
-import platform
 import re
 from shutil import rmtree
 import sys
@@ -23,7 +22,7 @@ import zipfile
 
 from java.android import importer
 
-from ..test_utils import API_LEVEL, FilterWarningsCase
+from ..test_utils import FilterWarningsCase
 from . import ABI, context
 
 
@@ -162,7 +161,7 @@ class TestAndroidImport(FilterWarningsCase):
             with self.assertRaises(AttributeError):
                 getattr(dll, name)
 
-        # Library extraction caused by CDLL.
+        # Library extraction from calling CDLL with a path outside of chaquopy/lib.
         from murmurhash import mrmr
         os.remove(mrmr.__file__)
         ctypes.CDLL(mrmr.__file__)
@@ -171,25 +170,25 @@ class TestAndroidImport(FilterWarningsCase):
         # Library extraction caused by find_library.
         LIBCXX_FILENAME = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
         os.remove(LIBCXX_FILENAME)
-        find_library_result = find_library("c++_shared")
-        self.assertIsInstance(find_library_result, str)
-
-        # This test covers non-Python libraries: for Python modules, see pyzmq/test.py.
-        if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-            self.assertNotIn("/", find_library_result)
-        else:
-            self.assertEqual(LIBCXX_FILENAME, find_library_result)
-
-        # Whether find_library returned an absolute filename or not, the file should have been
-        # extracted and the return value should be accepted by CDLL.
+        self.assertEqual(find_library("c++_shared"), LIBCXX_FILENAME)
         self.assertPredicate(exists, LIBCXX_FILENAME)
-        libcxx = ctypes.CDLL(find_library_result)
+        libcxx = ctypes.CDLL(LIBCXX_FILENAME)
         assertHasSymbol(libcxx, "_ZSt9terminatev")  # std::terminate()
         assertNotHasSymbol(libcxx, "nonexistent")
 
+        # Calling CDLL with a basename in chaquopy/lib can also cause an extraction.
+        os.remove(LIBCXX_FILENAME)
+        ctypes.CDLL("libc++_shared.so")
+        self.assertPredicate(exists, LIBCXX_FILENAME)
+
+        # CDLL with nonexistent filenames, both relative and absolute.
+        for name in ["invalid.so", f"{dirname(mrmr.__file__)}/invalid.so"]:
+            with self.assertRaisesRegex(OSError, "invalid.so"):
+                ctypes.CDLL(name)
+
         # System libraries.
-        self.assertIsNotNone(find_library("c"))
-        self.assertIsNotNone(find_library("log"))
+        self.assertEqual(find_library("c"), "libc.so")
+        self.assertEqual(find_library("log"), "liblog.so")
         self.assertIsNone(find_library("nonexistent"))
 
         libc = ctypes.CDLL(find_library("c"))
@@ -204,6 +203,7 @@ class TestAndroidImport(FilterWarningsCase):
         assertHasSymbol(main, "__android_log_write")
         assertNotHasSymbol(main, "nonexistent")
 
+        # pythonapi
         assertHasSymbol(ctypes.pythonapi, "PyObject_Str")
 
     def test_non_package_data(self):
@@ -355,7 +355,11 @@ class TestAndroidImport(FilterWarningsCase):
         spec = mod.__spec__
         self.assertEqual(mod_name, spec.name)
         self.assertEqual(loader, spec.loader)
-        # spec.origin and the extract_so symlink workaround are covered by pyzmq/test.py.
+
+        expected_origin = filename
+        if filename.startswith(asset_path(REQS_COMMON_ZIP)) and filename.endswith(".py"):
+            expected_origin += "c"
+        self.assertEqual(spec.origin, expected_origin)
 
         # Loader methods (get_data is tested elsewhere)
         self.assertEqual(is_package, loader.is_package(mod_name))
@@ -368,8 +372,7 @@ class TestAndroidImport(FilterWarningsCase):
         else:
             self.assertIsNone(source)
 
-        self.assertEqual(re.sub(r"\.pyc$", ".py", loader.get_filename(mod_name)),
-                         mod.__file__)
+        self.assertEqual(loader.get_filename(mod_name), expected_origin)
 
         return mod
 

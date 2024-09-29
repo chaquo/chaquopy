@@ -27,7 +27,7 @@ android {
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 34
 
         val plugins = buildscript.configurations.getByName("classpath")

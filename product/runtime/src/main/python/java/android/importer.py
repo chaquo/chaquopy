@@ -1,6 +1,5 @@
 import _imp
 from calendar import timegm
-from contextlib import contextmanager, nullcontext
 import ctypes
 from importlib import _bootstrap, _bootstrap_external, machinery, util
 from inspect import getmodulename
@@ -15,7 +14,7 @@ import re
 from shutil import copyfileobj, rmtree
 import site
 import sys
-from tempfile import mktemp, NamedTemporaryFile
+from tempfile import NamedTemporaryFile
 import time
 from threading import RLock
 from zipfile import ZipFile, ZipInfo
@@ -24,7 +23,6 @@ from zipimport import zipimporter
 import java.chaquopy
 from java._vendor.elftools.elf.elffile import ELFFile
 
-from android.os import Build
 from com.chaquo.python.android import AndroidPlatform
 from com.chaquo.python.internal import Common
 
@@ -97,13 +95,6 @@ def initialize_importlib(context, build_json, app_path):
     spec_from_file_location_original = util.spec_from_file_location
     util.spec_from_file_location = spec_from_file_location_override
 
-    # Depending on the Python version, some of the stdlib modules in bootstrap-native may
-    # not have been imported yet. So make sure that the pre-API-level-23 dynamic linker
-    # workarounds also apply to the base ExtensionFileLoader class.
-    global extension_create_module_original
-    extension_create_module_original = machinery.ExtensionFileLoader.create_module
-    machinery.ExtensionFileLoader.create_module = extension_create_module_override
-
 
 # Python 3.9 only supports importlib.resources.files for the standard importers.
 def fallback_resources_39(spec):
@@ -145,19 +136,14 @@ def initialize_ctypes():
     def find_library_override(name):
         filename = "lib{}.so".format(name)
 
-        # First look in the requirements.
+        # First look in the requirements. The return value will probably be passed to
+        # CDLL_init_override below, but the caller may load the library using another
+        # API (e.g. soundfile uses ffi.dlopen), so make sure its dependencies are
+        # extracted and pre-loaded.
         try:
-            filename = reqs_finder.extract_lib(filename)
+            return reqs_finder.extract_lib(filename)
         except FileNotFoundError:
             pass
-        else:
-            # The return value will probably be passed to CDLL_init_override below. If the
-            # caller loads the library using any other API (e.g. soundfile uses ffi.dlopen),
-            # then on 64-bit devices before API level 23 there's a possible race condition
-            # between updating LD_LIBRARY_PATH and loading the library, but there's nothing we
-            # can do about that.
-            with extract_so(filename) as dlopen_name:
-                return dlopen_name
 
         # For system libraries I can't see any easy way of finding the absolute library
         # filename, but we can at least support the case where the user passes the return value
@@ -171,22 +157,20 @@ def initialize_ctypes():
     ctypes.util.find_library = find_library_override
 
     def CDLL_init_override(self, name, *args, **kwargs):
-        context = nullcontext(name)
         if name:  # CDLL(None) is equivalent to dlopen(NULL).
-            try:
-                # find_library_override may have returned a basename (see extract_so).
-                name = reqs_finder.extract_lib(name)
-            except FileNotFoundError:
-                pass
+            if "/" not in name:
+                try:
+                    name = reqs_finder.extract_lib(name)
+                except FileNotFoundError:
+                    pass
+            else:
+                # Some packages (e.g. llvmlite) use CDLL to load libraries from their own
+                # directories.
+                finder = get_importer(dirname(name))
+                if isinstance(finder, AssetFinder):
+                    name = finder.extract_so(name)
 
-            # Some packages (e.g. llvmlite) use CDLL to load libraries from their own
-            # directories.
-            finder = get_importer(dirname(name))
-            if isinstance(finder, AssetFinder):
-                context = extract_so(name)
-
-        with context as dlopen_name:
-            CDLL_init_original(self, dlopen_name, *args, **kwargs)
+        CDLL_init_original(self, name, *args, **kwargs)
 
     CDLL_init_original = ctypes.CDLL.__init__
     ctypes.CDLL.__init__ = CDLL_init_override
@@ -546,7 +530,12 @@ class AssetFinder:
     # libraries loaded by AndroidPlatform.loadNativeLibs. If the library is truly missing,
     # we'll get an exception when we load the file that needs it.
     def extract_lib(self, filename):
-        return self.extract_if_changed(f"chaquopy/lib/{filename}")
+        return self.extract_so(f"chaquopy/lib/{filename}")
+
+    def extract_so(self, path):
+        path = self.extract_if_changed(self.zip_path(path))
+        load_needed(self, path)
+        return path
 
     def extract_dir(self, zip_dir, recursive=True):
         dotted_dir = zip_dir.replace("/", ".")
@@ -715,7 +704,8 @@ class SourceAssetLoader(AssetLoader, machinery.SourceFileLoader):
                 "size": self.zip_info.file_size}
 
 
-# In case user code depends on the original source filename, we make sure it's used everywhere.
+# In case user code depends on the original source filename, we make sure it's used in
+# __file__ and in tracebacks.
 class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
     def exec_module(self, mod):
         assert self.path.endswith(".pyc"), self.path
@@ -729,106 +719,22 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
-    pass
-
-def extension_create_module_override(self, spec):
-    with extract_so(self.path) as spec.origin:
-        mod = extension_create_module_original(self, spec)
-    mod.__file__ = self.path  # In case user code depends on the original filename.
-    return mod
+    def create_module(self, spec):
+        self.finder.extract_so(self.path)
+        return super().create_module(spec)
 
 
-# On 32-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
-# libraries using their basename. So when asked to load a library with the same basename as one
-# already loaded, it will return the existing library
-# (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md#correct-soname_path-handling-available-in-api-level-23)
-#
-# We can work around this by loading through a uniquely-named symlink. However, we only do
-# that when we actually encounter a duplicate name, because there's at least one package
-# (tensorflow) where one Python module has a DT_NEEDED entry for another one, which on API
-# level 22 and older will only work if the other module has already been loaded from its
-# original filename.
-#
-# On 64-bit ABIs we use the same workaround for a different reason: see extract_so.
-so_basenames_loaded = {}
-
-# Detect basename clashes with bootstrap modules. For example, both the standard
-# library and scikit-learn have an extension module called _random.
-if Build.VERSION.SDK_INT < 23:
-    for mod in sys.modules.values():
-        filename = getattr(mod, "__file__", None)
-        if isinstance(filename, str) and filename.endswith(".so"):
-            existing = so_basenames_loaded.setdefault(basename(filename), filename)
-            assert existing == filename, f"basename clash between {existing} and {filename}"
-
-def symlink_if_needed(path):
-    if Build.VERSION.SDK_INT < 23:
-        # We used to generate load_name from the zip_path, but that would cause a clash if the
-        # first library (loaded directly) is in a directory, and the second one (loaded through
-        # a symlink) is in the ZIP file root. So now we just add a numeric suffix.
-        load_name = original_name = basename(path)
-        i = 0
-        with extract_so_lock:
-            while (load_name in so_basenames_loaded and
-                   so_basenames_loaded[load_name] != path):  # In case of reloads.
-                i += 1
-                load_name = f"{original_name}.{i}"
-            so_basenames_loaded[load_name] = path
-
-        if load_name != original_name:
-            path = join(dirname(path), load_name)
-            atomic_symlink(original_name, path)
-
-    return path
-
-
-extract_so_lock = RLock()
+needed_lock = RLock()
 needed_loaded = {}
-
-@contextmanager
-def extract_so(path):
-    finder = get_importer(dirname(path))
-    if isinstance(finder, AssetFinder):
-        path = finder.extract_if_changed(finder.zip_path(path))
-        load_needed(finder, path)
-
-    path = symlink_if_needed(path)
-
-    # On 64-bit ABIs before API level 23, the dynamic linker ignores DT_SONAME and identifies
-    # libraries using the full path passed to dlopen
-    # (https://github.com/aosp-mirror/platform_bionic/commit/489e498434f53269c44e3c13039eb630e86e1fd9).
-    # This allows it to load multiple libraries with the same basename. Unfortunately, it also
-    # means that DT_NEEDED entries can only be resolved using libraries which are either
-    # currently on LD_LIBRARY_PATH, or were loaded via their basenames (which means they must
-    # have been on LD_LIBRARY_PATH when they were loaded). Also, the field that stores the
-    # library name is 128 characters, which isn't long enough for many absolute paths.
-    #
-    # Since we're already working around the basename clash problem, we'll simulate the
-    # 32-bit behavior by putting the library's dirname into LD_LIBRARY_PATH using an
-    # undocumented libdl function (see #1198), and then loading it through its basename.
-    if (Build.VERSION.SDK_INT < 23) and ("64" in AndroidPlatform.ABI):
-        # We need to include the app's lib directory, because our libraries there were
-        # loaded via System.loadLibrary, which passes absolute paths to dlopen.
-        llp = ":".join([dirname(path), nativeLibraryDir])
-        with extract_so_lock:
-            ctypes.CDLL("libdl.so").android_update_LD_LIBRARY_PATH(llp.encode())
-            yield basename(path)
-    else:
-        yield path
-
 
 # CDLL will cause a recursive call back to extract_so, so there's no need for any additional
 # recursion here. If we return to executables in the future, we can implement a separate
 # recursive extraction on top of get_needed.
 def load_needed(finder, path):
-    with extract_so_lock:
+    with needed_lock:
         for soname in get_needed(path):
             if soname not in needed_loaded:
                 try:
-                    needed_filename = finder.extract_lib(soname)
-                except FileNotFoundError:
-                    needed_loaded[soname] = None
-                else:
                     # Before API 23, the only dlopen mode was RTLD_GLOBAL, and
                     # RTLD_LOCAL was ignored. From API 23, RTLD_LOCAL is available and
                     # used by default, just like in Linux
@@ -840,7 +746,9 @@ def load_needed(finder, path):
                     #
                     # It doesn't look like the library is closed when the CDLL object is garbage
                     # collected, but this isn't documented, so keep a reference for safety.
-                    needed_loaded[soname] = ctypes.CDLL(needed_filename, ctypes.RTLD_GLOBAL)
+                    needed_loaded[soname] = ctypes.CDLL(soname, ctypes.RTLD_GLOBAL)
+                except FileNotFoundError:
+                    needed_loaded[soname] = None
 
 
 def get_needed(path):
@@ -852,20 +760,6 @@ def get_needed(path):
                     if tag.entry.d_tag == "DT_NEEDED"]
         else:
             return []
-
-
-# This may be added to the standard library in a future version of Python
-# (https://bugs.python.org/issue36656).
-def atomic_symlink(target, link):
-    while True:
-        tmp_link = mktemp(dir=dirname(link), prefix=basename(link) + ".")
-        try:
-            os.symlink(target, tmp_link)
-            break
-        except FileExistsError:
-            pass
-
-    os.replace(tmp_link, link)
 
 
 # If a module has both a .py and a .pyc file, the .pyc file should be used because

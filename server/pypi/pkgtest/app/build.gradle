@@ -35,7 +35,7 @@ android {
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 34
 
         String pluginVersion = null
