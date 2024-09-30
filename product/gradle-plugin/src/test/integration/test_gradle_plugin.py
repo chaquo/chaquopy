@@ -425,7 +425,7 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ERROR = ("This version of Chaquopy requires minSdk version 21 or higher. "
+    ERROR = ("This version of Chaquopy requires minSdk version 24 or higher. "
              "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
@@ -1271,12 +1271,12 @@ class PythonReqs(GradleTestCase):
                 [f"{package}-{version}.dist-info"],
                 [name for name in os.listdir(tmp_dir) if name.endswith(".dist-info")])
 
-    # This package has wheels tagged as API levels 22 and 24, with corresponding
-    # version numbers. Which one is selected should depend on the app's minSdkVersion.
+    # This package has wheels tagged as API levels 28 and 30, with corresponding
+    # version numbers. Which one is selected should depend on the app's minSdk.
     def test_api_level(self):
         run = self.RunGradle("base", run=False)
         for min_api_level, expected_version in [
-            (21, None), (22, 22), (23, 22), (24, 24), (25, 24)
+            (27, None), (28, 28), (29, 28), (30, 30), (31, 30)
         ]:
             if expected_version:
                 kwargs = dict(dist_versions=[("api_level", f"1.{expected_version}")],
