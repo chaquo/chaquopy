@@ -72,19 +72,7 @@ public class AndroidPlatform extends Python.Platform {
             throw new RuntimeException(e);
         }
 
-        // TODO: this complexity is unnecessary if the only ABI we can actually use is
-        // Build.CPU_ABI, which is the ABI of the current process
-        // (https://stackoverflow.com/a/53158339). Verify this is true across all API
-        // levels, and then replace all references to AndroidPlatform.ABI with
-        // Build.CPU_ABI.
-        List<String> supportedAbis = new ArrayList<>();  // In order of preference.
-        if (Build.VERSION.SDK_INT >= 21) {
-            Collections.addAll(supportedAbis, Build.SUPPORTED_ABIS);
-        } else {
-            Collections.addAll(supportedAbis, Build.CPU_ABI, Build.CPU_ABI2);
-        }
-
-        for (String abi : supportedAbis) {
+        for (String abi : Build.SUPPORTED_ABIS) {
             try {
                 am.open(Common.ASSET_DIR + "/" + Common.assetZip(Common.ASSET_STDLIB, abi));
                 ABI = abi;
@@ -92,8 +80,9 @@ public class AndroidPlatform extends Python.Platform {
             } catch (IOException ignored) {}
         }
         if (ABI == null) {
-            throw new RuntimeException("None of this device's ABIs " + supportedAbis +
-                                       " are supported by this app.");
+            throw new RuntimeException(
+                "None of this device's ABIs " + Arrays.toString(Build.SUPPORTED_ABIS) +
+                " are supported by this app.");
         }
     }
 
@@ -270,9 +259,8 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs() throws JSONException {
-        // Libraries must be loaded in dependency order before API level 18. However,
-        // even if our minimum API level increases to 18 or higher in the future, we
-        // should still keep pre-loading the OpenSSL and SQLite libraries, because we
+        // From API level 18 we no longer need to load libraries in dependency order. But
+        // we should still keep pre-loading the OpenSSL and SQLite libraries, because we
         // can't guarantee that our lib directory will always be on the LD_LIBRARY_PATH
         // (#1198).
         System.loadLibrary("crypto_chaquopy");

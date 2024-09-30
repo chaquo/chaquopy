@@ -38,8 +38,9 @@ In your *top-level* `build.gradle` file, set the Chaquopy version:
     }
 
 Also check the Android Gradle plugin version (`com.android.application` or
-`com.android.library`): it should be between 7.0.x and 8.6.x. Older versions as far back
-as 2.2 are supported by :doc:`older versions of Chaquopy <../versions>`.
+`com.android.library`): it should be between 7.0.x and 8.6.x. Older versions are
+supported by :doc:`older versions of Chaquopy <../versions>`. Newer versions may work,
+but have not been tested.
 
 Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usually in the
 `app` directory)::
@@ -55,8 +56,8 @@ Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usuall
 
 Your project's `minSdk
 <https://developer.android.com/reference/tools/gradle-api/8.1/com/android/build/api/dsl/BaseFlavor#minSdk()>`_
-must be at least 21. Older versions as far back as 15 are supported by :doc:`older
-versions of Chaquopy <../versions>`.
+must be at least 24. Older versions are supported by :doc:`older versions of Chaquopy
+<../versions>`.
 
 .. _android-abis:
 

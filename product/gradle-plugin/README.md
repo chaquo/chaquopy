@@ -103,6 +103,7 @@ After stable release:
 
 ## Removing support for a buildPython version
 
+* Increment Chaquopy major version if not already done.
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
 * Update `testPython` in gradle-plugin/build.gradle, and run the tests.
 * In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
@@ -113,20 +114,21 @@ After stable release:
 
 ## Increasing minimum API level (minSdk)
 
+* Increment Chaquopy major version if not already done.
 * Update `MIN_SDK_VERSION` in Common.java.
 * Update `api_level` in target/build-common.sh.
 * Update default API level in server/pypi/build-wheel.py.
-* Search `product` directory to see if there are any workarounds which can now be
-  removed:
-  * `git ls-files | xargs -d '\n' grep -EnHi 'api.?level|android.?(ver|[0-9])|min.?sdk|SDK_INT'`
+* Search repository for other things that should be updated, including workarounds which
+  are now unnecessary:
+  * Useful regex: `api.?level|android.?ver|android \d|min.?sdk|SDK_INT`
+  * Leave the public apps alone for now: they will be dealt with during the next release
+    (see release/README.md).
 * Integration tests:
   * Update all test data.
   * Update expected message in `ApiLevel` tests.
   * Run all tests.
-* Update documentation including versions table.
 * Update demo and pkgtest apps, and test all features.
-* Leave the public apps alone for now: they will be dealt with during the next release
-  (see release/README.md).
+* Update documentation including versions.rst.
 
 
 ## Increasing target API level (targetSdk)

@@ -104,8 +104,7 @@ class TestAndroidOutput(FilterWarningsCase):
                     write("\u4e2d\u6587")  # Chinese
 
                     # Non-BMP emoji
-                    write("\U0001f600", [r"\xed\xa0\xbd\xed\xb8\x80" if API_LEVEL < 23
-                                         else "\U0001f600"])
+                    write("\U0001f600")
 
                     # Null characters are logged using "modified UTF-8".
                     write("\u0000", [r"\xc0\x80"])
@@ -206,8 +205,7 @@ class TestAndroidOutput(FilterWarningsCase):
                 write(b"\xe4\xb8\xad\xe6\x96\x87")  # Chinese
 
                 # Non-BMP emoji
-                write(b"\xf0\x9f\x98\x80", [r"\xed\xa0\xbd\xed\xb8\x80" if API_LEVEL < 23
-                                            else "\U0001f600"])
+                write(b"\xf0\x9f\x98\x80")
 
                 # Null characters are logged using "modified UTF-8".
                 write(b"\x00", [r"\xc0\x80"])
