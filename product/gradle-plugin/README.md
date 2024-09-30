@@ -96,6 +96,7 @@ After stable release:
 
 * Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
   use it.
+* Run `gradle:testPython`.
 * Update the list of Python versions in .github/actions/setup-python/action.yml.
 * Build the demo app with the new version, and check for any warnings other than the
   expected ones about .pyc compilation.
