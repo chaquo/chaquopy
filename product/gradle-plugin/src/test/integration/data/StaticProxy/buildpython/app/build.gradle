@@ -15,6 +15,9 @@ android {
             buildPython (System.getProperty("os.name").startsWith("Windows") ?
                          "py -$version" : "python$version")
             staticProxy "chaquopy_test.a"
+            pyc {
+                src false
+            }
         }
         ndk {
             abiFilters "x86"

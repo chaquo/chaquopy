@@ -66,8 +66,8 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
 # When updating these, consider also updating .github/actions/setup-python/action.yml.
-OLD_BUILD_PYTHON_VERSION = "3.6"
-MIN_BUILD_PYTHON_VERSION = "3.7"
+OLD_BUILD_PYTHON_VERSION = "3.7"
+MIN_BUILD_PYTHON_VERSION = "3.8"
 MAX_BUILD_PYTHON_VERSION = "3.12"
 
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"

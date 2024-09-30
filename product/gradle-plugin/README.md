@@ -105,10 +105,12 @@ After stable release:
 
 * Increment Chaquopy major version if not already done.
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
-* Update `testPython` in gradle-plugin/build.gradle, and run the tests.
 * In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
   `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
+* Run `gradle:testPython`.
 * Update the list of Python versions in .github/actions/setup-python/action.yml.
+* See the comment in ci.yml about integration test runner versions, and consider
+  updating them.
 * Update android.rst.
 
 

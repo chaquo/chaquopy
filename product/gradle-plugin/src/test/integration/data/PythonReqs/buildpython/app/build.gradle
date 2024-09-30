@@ -20,6 +20,9 @@ android {
                 install "no_binary==1.0"  // sdist
                 install "six==1.16.0"  // PyPI download
             }
+            pyc {
+                pip false
+            }
         }
         ndk {
             abiFilters "x86"

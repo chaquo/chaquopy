@@ -14,7 +14,7 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -72,7 +72,7 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -103,7 +103,7 @@ jobs:
 
 
   gradlePython:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -120,7 +120,7 @@ jobs:
 
   demo:
     needs: [product]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -160,12 +160,12 @@ jobs:
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
-          # To avoid clutter in the GitHub UI, OS versions are not added to the `os`
-          # dimension directly.
+          # Runners must support all the Python versions in setup-python/action.yml: see
+          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
           - os: linux
-            runs-on: ubuntu-20.04  # 22.04 has a minimum Python version of 3.7 (see setup-python)
+            runs-on: ubuntu-22.04
           - os: macos
-            runs-on: macos-12  # 14 has a minimum Python version of 3.8 (see setup-python)
+            runs-on: macos-12
           - os: windows
             runs-on: windows-2022
 

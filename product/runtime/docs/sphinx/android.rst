@@ -167,8 +167,8 @@ example, here's how to create flavors for different :ref:`Python versions
 buildPython
 -----------
 
-Some features require Python 3.7 or later to be available on the build machine. These features
-are indicated by a note in their documentation sections.
+Some features require Python 3.8 or later to be available on the build machine. These
+features are indicated by a note in their documentation sections.
 
 By default, Chaquopy will try to find Python on the PATH with the standard command for your
 operating system, first with a matching minor version, and then with a matching major version.

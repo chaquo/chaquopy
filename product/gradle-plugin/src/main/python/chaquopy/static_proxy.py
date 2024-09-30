@@ -15,7 +15,6 @@ import os
 from os.path import exists, isdir, isfile
 import sys
 import tokenize
-import warnings
 
 import attr
 from attr.validators import instance_of, optional
@@ -41,10 +40,6 @@ def unwrap_if_primitive(name):
 
 
 def main():
-    # TODO: remove once our minimum buildPython version is Python 3.8.
-    for message in [r".*use ast.Constant instead", r".*use value instead"]:
-        warnings.filterwarnings("ignore", message, DeprecationWarning)
-
     args = parse_args()
 
     try:
@@ -296,11 +291,7 @@ class Module(object):
             return any(kw.arg is None for kw in call.keywords)
 
     def evaluate(self, expr):
-        if isinstance(expr, ast.Num):
-            return expr.n
-        elif isinstance(expr, ast.Str):
-            return expr.s
-        elif isinstance(expr, ast.NameConstant):  # True, False, None
+        if isinstance(expr, ast.Constant):
             return expr.value
         elif isinstance(expr, ast.Name):
             return self.resolve(expr)
