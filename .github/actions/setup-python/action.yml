@@ -20,7 +20,7 @@ runs:
         # runner versions.
         python-version: |
           3.7
-          3.8.10
+          3.8.15
           3.9
           3.10
           3.11
