@@ -546,7 +546,7 @@ ssl
 ---
 
 The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://pypi.org/project/certifi/>`_ version 2023.11.17. The system CA store is
+<https://pypi.org/project/certifi/>`_ version 2024.8.30. The system CA store is
 not used.
 
 sys
