@@ -71,6 +71,9 @@ class TestAndroidOutput(FilterWarningsCase):
         for stream_name, level in [("stdout", "I"), ("stderr", "W")]:
             with self.subTest(stream=stream_name):
                 stream = getattr(sys, stream_name)
+                original_stream = getattr(sys, f"__{stream_name}__")
+                self.assertIsNot(stream, original_stream)
+
                 # We use assertIn rather than assertEqual, because the demo app wraps the
                 # TextLogStream with a ConsoleOutputStream.
                 tag = f"python.{stream_name}"
@@ -303,9 +306,19 @@ class TestAndroidOutput(FilterWarningsCase):
 class TestAndroidInput(FilterWarningsCase):
 
     def test_str(self):
+        self.assertIs(sys.stdin, sys.__stdin__)
         self.assertTrue(sys.stdin.readable())
         self.assertFalse(sys.stdin.writable())
         self.assertEqual("", sys.stdin.read())
         self.assertEqual("", sys.stdin.read(42))
         self.assertEqual("", sys.stdin.readline())
         self.assertEqual("", sys.stdin.readline(42))
+
+    def test_bytes(self):
+        buffer = sys.stdin.buffer
+        self.assertTrue(buffer.readable())
+        self.assertFalse(buffer.writable())
+        self.assertEqual(b"", buffer.read())
+        self.assertEqual(b"", buffer.read(42))
+        self.assertEqual(b"", buffer.readline())
+        self.assertEqual(b"", buffer.readline(42))

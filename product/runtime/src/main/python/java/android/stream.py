@@ -19,22 +19,9 @@ MAX_LINE_LEN_CHARS = MAX_LINE_LEN_BYTES // 4
 
 
 def initialize():
-    sys.stdin = EmptyInputStream()
-
     # Log levels are consistent with those used by Java.
     sys.stdout = TextLogStream(Log.INFO, "python.stdout")
     sys.stderr = TextLogStream(Log.WARN, "python.stderr")
-
-
-class EmptyInputStream(io.TextIOBase):
-    def readable(self):
-        return True
-
-    def read(self, size=None):
-        return ""
-
-    def readline(self, size=None):
-        return ""
 
 
 class TextLogStream(io.TextIOWrapper):

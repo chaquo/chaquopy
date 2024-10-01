@@ -563,7 +563,7 @@ by non-Python libraries. If you want to redirect them as well, see
 `AndroidPlatform.redirectStdioToLogcat
 <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat()>`_.
 
-By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
+:any:`sys.stdin` always returns EOF. If you want to run some code which takes
 interactive text input, have a look at the `console app template
 <https://github.com/chaquo/chaquopy-console>`_.
 
