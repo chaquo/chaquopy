@@ -98,8 +98,11 @@ After stable release:
   use it.
 * Run `gradle:testPython`.
 * Update the list of Python versions in .github/actions/setup-python/action.yml.
-* Build the demo app with the new version, and check for any warnings other than the
-  expected ones about .pyc compilation.
+* Temporarily change the `buildPython` of the demo app, comment out `pyc.pip`, and check
+  it builds without any warnings other than the expected ones about .pyc compilation.
+  There's no point in running it now, as the failed compilation will break many of the
+  tests. We'll do this when we add runtime support for the same version (see
+  target/README.md).
 
 
 ## Removing support for a buildPython version

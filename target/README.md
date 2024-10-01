@@ -39,19 +39,14 @@ must be released under a different build number.
 
 ## Adding a Python version
 
-Add it to Common.java.
-
-Add it to build-all.sh.
-
-In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
-
-Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
-
-Update documentation:
-* "Python version" in android.rst
-* "Python versions" in versions.rst
-
-To allow running the unit tests, build any packages used by the demo app.
+* First add buildPython support for the same version (see gradle-plugin/README.md).
+* Add the version to Common.java.
+* Add the version to build-all.sh.
+* In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
+* Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
+* Update android.rst and versions.rst.
+* Build any packages used by the demo app.
+* Temporarily change the Python version of the demo app, and run all tests.
 
 When building the other packages:
 
