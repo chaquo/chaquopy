@@ -71,9 +71,11 @@ mkdir "$tmp_dir"
 cd "$tmp_dir"
 
 for prefix in $prefixes; do
-    unset abi api_level
-    . "$this_dir/build-common.sh"
+    abi=$(basename $prefix)
     echo "$abi"
+    . "$this_dir/abi-to-host.sh"
+    . "$this_dir/android-env.sh"  # For STRIP
+
     mkdir "$abi"
     cd "$abi"
 
