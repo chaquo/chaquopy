@@ -13,6 +13,7 @@ cd $recipe_dir
 . ../abi-to-host.sh
 . ../android-env.sh
 
+# Download and unpack Python source code.
 version_dir=$recipe_dir/build/$version
 mkdir -p $version_dir
 cd $version_dir
@@ -26,26 +27,31 @@ cd $build_dir
 tar -xf $version_dir/$src_filename
 cd $(basename $src_filename .tgz)
 
+# Apply patches.
 patches="soname"
 if [ $version_int -le 311 ]; then
     patches+=" sysroot_paths"
 fi
-if [ $version_int -ge 311 ]; then
-    # Although this patch applies cleanly to 3.12, it no longer has the intended effect,
-    # because the stdlib extension modules are now built using autoconf rather than
-    # distutils. Replace it with the fix we upstreamed to 3.13.
-    patches+=" python_for_build_deps_REMOVED"
+if [ $version_int -eq 311 ]; then
+    patches+=" python_for_build_deps"
 fi
 if [ $version_int -ge 312 ]; then
     patches+=" bldlibrary grp"
 fi
 for name in $patches; do
-    patch -p1 -i $recipe_dir/patches/$name.patch
+    patch_file="$recipe_dir/patches/$name.patch"
+    echo "$patch_file"
+    patch -p1 -i "$patch_file"
 done
 
-# For a given Python version, we can't change the OpenSSL major version after we've
-# made the first release, because that would break binary compatibility with our
-# existing builds of the `cryptography` package.
+# Remove any existing installation in the prefix.
+rm -rf $PREFIX/{include,lib}/python$version_short
+rm -rf $PREFIX/lib/libpython$version_short*
+
+# Download and unpack libraries needed to compile Python. For a given Python version, we
+# can't change the OpenSSL major version after we've made the first release, because
+# that would break binary compatibility with our existing builds of the `cryptography`
+# package.
 libs="bzip2-1.0.8-2 libffi-3.4.4-3 sqlite-3.45.3-0 xz-5.4.6-1"
 if [ $version_int -le 38 ]; then
     libs+=" openssl-1.1.1w-0"
@@ -84,6 +90,14 @@ configure_args="--host=$HOST --build=$(./config.guess) \
 
 # This prevents the "getaddrinfo bug" test, which can't be run when cross-compiling.
 configure_args+=" --enable-ipv6"
+
+# Some of the patches involve missing Makefile dependencies, which allowed extension
+# modules to be built before libpython3.x.so in parallel builds. In case this happens
+# again, make sure there's no libpython3.x.a, otherwise the modules may end up silently
+# linking with that instead.
+if [ $version_int -ge 310 ]; then
+    configure_args+=" --without-static-libpython"
+fi
 
 if [ $version_int -ge 311 ]; then
     configure_args+=" --with-build-python=yes"
