@@ -291,7 +291,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
                  "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                  "-DCHAQUOPY_PYTHON_VERSIONS=${pyVersions.join(';')}",
                  "-DCHAQUOPY_INCLUDE_PYTHON=$prefixDir/include",
-                 "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib",
+                 "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
         }
         args "-DCHAQUOPY_PY_SUFFIX=$pyLibSuffix",
              projectDir
