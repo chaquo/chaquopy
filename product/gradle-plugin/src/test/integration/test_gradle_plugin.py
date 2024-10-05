@@ -55,7 +55,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12"]
+assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 NON_DEFAULT_PYTHON_VERSION = "3.10"
@@ -480,7 +480,9 @@ class PythonVersion(GradleTestCase):
             abis = ["arm64-v8a", "x86_64"]
             if version in ["3.8", "3.9", "3.10", "3.11"]:
                 abis += ["armeabi-v7a", "x86"]
-            run.rerun(f"PythonVersion/{version}", python_version=version, abis=abis)
+            run.rerun(
+                f"PythonVersion/{version}", python_version=version, abis=abis,
+                requirements=["six.py"])
 
             if version == DEFAULT_PYTHON_VERSION:
                 self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
@@ -1863,11 +1865,13 @@ class RunGradle(object):
             if "stdlib" in pyc:
                 self.check_pyc(stdlib_zip, "argparse.pyc", kwargs)
 
-        # Data files packaged with stdlib: see target/package_target.sh.
-        for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
-                                   grammar_stem, PYTHON_VERSIONS[python_version]),
-                               stdlib_files)
+        # Data files packaged with lib2to3: see target/package_target.sh.
+        # This module was removed in Python 3.13.
+        if python_version_info < (3, 13):
+            for grammar_stem in ["Grammar", "PatternGrammar"]:
+                self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
+                                       grammar_stem, PYTHON_VERSIONS[python_version]),
+                                   stdlib_files)
 
         stdlib_native_expected = {
             # This is the list from the minimum supported Python version.
@@ -1892,6 +1896,12 @@ class RunGradle(object):
         if python_version_info >= (3, 12):
             stdlib_native_expected -= {"_sha256.so", "_typing.so"}
             stdlib_native_expected |= {"_xxinterpchannels.so", "xxsubtype.so"}
+        if python_version_info >= (3, 13):
+            stdlib_native_expected -= {
+                "audioop.so", "_xxinterpchannels.so", "_multiprocessing.so",
+                "_xxsubinterpreters.so", "ossaudiodev.so"}
+            stdlib_native_expected |= {
+                "_interpreters.so", "_interpchannels.so", "_interpqueues.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1919,14 +1929,15 @@ class RunGradle(object):
             build_json["assets"])
 
     def check_pyc(self, zip_file, pyc_filename, kwargs):
-        # See the list in importlib/_bootstrap_external.py.
+        # See the CPython source code at Include/internal/pycore_magic_number.h or
+        # Lib/importlib/_bootstrap_external.py.
         MAGIC = {
-            "3.7": 3394,
             "3.8": 3413,
             "3.9": 3425,
             "3.10": 3439,
             "3.11": 3495,
             "3.12": 3531,
+            "3.13": 3571,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             self.test.assertEqual(
@@ -1939,10 +1950,17 @@ class RunGradle(object):
         self.test.assertCountEqual(abis, os.listdir(lib_dir))
         for abi in abis:
             abi_dir = join(lib_dir, abi)
+            suffix = (
+                "chaquopy" if python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"]
+                else "python")
             self.test.assertCountEqual(
-                ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
-                 "libsqlite3_chaquopy.so"],
+                [
+                    "libchaquopy_java.so",
+                    f"libcrypto_{suffix}.so",
+                    f"libpython{python_version}.so",
+                    f"libssl_{suffix}.so",
+                    f"libsqlite3_{suffix}.so",
+                ],
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
 

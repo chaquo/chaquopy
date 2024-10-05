@@ -224,6 +224,9 @@ internal class TaskBuilder(
                     val customIndexUrl = listOf("--index-url", "-i").any {
                         it in python.pip.options
                     }
+                    val versionFull = pythonVersionInfo(python).key
+                    val versionFullNoPre =
+                        """\d+\.\d+\.\d+""".toRegex().find(versionFull)!!.value
 
                     execBuildPython {
                         args("-m", "chaquopy.pip_install")
@@ -237,7 +240,7 @@ internal class TaskBuilder(
                             args("--extra-index-url", "https://chaquo.com/pypi-13.1")
                         }
                         args("--implementation", Common.PYTHON_IMPLEMENTATION)
-                        args("--python-version", pythonVersionInfo(python).key)
+                        args("--python-version", versionFullNoPre)
                         args("--abi", (Common.PYTHON_IMPLEMENTATION +
                                        python.version!!.replace(".", "")))
                         args("--no-compile")
