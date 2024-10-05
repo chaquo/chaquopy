@@ -12,6 +12,7 @@ case ${abi:?} in
         HOST=x86_64-linux-android
         ;;
     *)
-        fail "Unknown ABI: '$abi'"
+        echo "Unknown ABI: '$abi'"
+        exit 1
         ;;
 esac

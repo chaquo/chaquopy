@@ -25,9 +25,14 @@ mkdir "$target_dir"  # Fail if it already exists: we don't want to overwrite thi
 target_dir=$(realpath $target_dir)
 
 full_ver=$(basename $target_dir)
-short_ver=$(echo $full_ver | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
-target_prefix="$target_dir/target-$full_ver"
+version=$(echo $full_ver | sed 's/-.*//')
+read version_major version_minor version_micro < <(
+    echo $version | sed -E 's/^([0-9]+)\.([0-9]+)\.([0-9]+).*/\1 \2 \3/'
+)
+version_short=$version_major.$version_minor
+version_int=$(($version_major * 100 + $version_minor))
 
+target_prefix="$target_dir/target-$full_ver"
 cat > "$target_prefix.pom" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -80,19 +85,25 @@ for prefix in $prefixes; do
     cd "$abi"
 
     mkdir include
-    cp -a "$prefix/include/"{python$short_ver,openssl,sqlite*} include
+    cp -a "$prefix/include/"{python$version_short,openssl,sqlite*} include
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp $prefix/lib/libpython$short_ver.so "$jniLibs_dir"
+    cp $prefix/lib/libpython$version_short.so "$jniLibs_dir"
+
+    if [ $version_int -le 312 ]; then
+        lib_suffix="chaquopy"
+    else
+        lib_suffix="python"
+    fi
     for name in crypto ssl sqlite3; do
-        cp "$prefix/lib/lib${name}_chaquopy.so" "$jniLibs_dir"
+        cp "$prefix/lib/lib${name}_$lib_suffix.so" "$jniLibs_dir"
     done
 
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
     mkdir -p $dynload_dir
-    for module in $prefix/lib/python$short_ver/lib-dynload/*; do
+    for module in $prefix/lib/python$version_short/lib-dynload/*; do
         cp $module $dynload_dir/$(basename $module | sed 's/.cpython-.*.so/.so/')
     done
     rm $dynload_dir/*_test*.so
@@ -107,7 +118,7 @@ for prefix in $prefixes; do
 done
 
 echo "stdlib"
-cp -a $prefix/lib/python$short_ver stdlib
+cp -a $prefix/lib/python$version_short stdlib
 cd stdlib
 rm -r lib-dynload site-packages
 
@@ -121,14 +132,15 @@ find . -name test -or -name tests | xargs rm -r
 # The build generates these files with the version number of the build Python, not the target
 # Python. The source .txt files can't be used instead, because lib2to3 can only load them from
 # real files, not via zipimport.
-full_ver_no_build=$(echo $full_ver | sed 's/-.*//')
-for src_filename in lib2to3/*.pickle; do
-    tgt_filename=$(echo $src_filename |
-                   sed -E "s/$short_ver.*\$/$full_ver_no_build.final.0.pickle/")
-    if [[ $src_filename != $tgt_filename ]]; then
-        mv $src_filename $tgt_filename
-    fi
-done
+if [ $version_int -le 312 ]; then
+    for src_filename in lib2to3/*.pickle; do
+        tgt_filename=$(echo $src_filename |
+                       sed -E "s/$version_short.*\$/$version.final.0.pickle/")
+        if [[ $src_filename != $tgt_filename ]]; then
+            mv $src_filename $tgt_filename
+        fi
+    done
+fi
 
 stdlib_zip="$target_prefix-stdlib.zip"
 rm -f $stdlib_zip
@@ -141,7 +153,7 @@ find . -name __pycache__ | xargs rm -r
 # Run compileall from the parent directory: that way the "stdlib/" prefix gets encoded into the
 # .pyc files and will appear in traceback messages.
 cd ..
-"python$short_ver" -m compileall -qb stdlib
+"python$version_short" -m compileall -qb stdlib
 
 stdlib_pyc_zip="$target_prefix-stdlib-pyc.zip"
 rm -f "$stdlib_pyc_zip"
