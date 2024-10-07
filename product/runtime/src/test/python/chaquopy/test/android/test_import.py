@@ -426,7 +426,6 @@ class TestAndroidImport(FilterWarningsCase):
                 fr'line 1, in <module>\n'
                 fr'    from . import other_error  # noqa: F401\n' +
                 col_marker +
-                import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
                 fr'    int\("hello"\)\n'
