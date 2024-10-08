@@ -107,7 +107,7 @@ class TestConversion(FilterWarningsCase):
 
         self.verify_value(obj, name, float("nan"),  # NaN is unequal to everything including itself.
                           wrapper=wrapper,
-                          verify=lambda expected, actual: self.assertTrue(isnan(actual)))
+                          verify=lambda _, actual: self.assertTrue(isnan(actual)))
 
         # Wrapper type and bounds checks are tested in test_signatures.
         self.verify_value(obj, name, True, context=self.conv_error_unless(allow_bool))
@@ -166,16 +166,23 @@ class TestConversion(FilterWarningsCase):
                     "\U00012345"]:     # Non-BMP character
             self.verify_value(obj, name, val)
 
+        # Invalid surrogates should be replaced by a question mark.
+        self.verify_value(
+            obj, name, "a\ud800b",
+            verify=lambda _, actual: self.assertEqual("a?b", actual)
+        )
+
         # Byte strings cannot be implicitly converted to Java Strings. However, if the target
         # type is Object, we will fall back on the default conversion of a Python iterable to
         # Object[].
-        context = verify = None
         if name == "Object":
+            context = None
             def verify(expected, actual):
                 self.assertEqual(expected, actual)
                 self.assertIsInstance(actual, jarray("Ljava/lang/Object;"))
         else:
             context = self.conv_error
+            verify = None
         for val in [b"", b"h", b"hello"]:
             self.verify_value(obj, name, val, context=context, verify=verify)
 

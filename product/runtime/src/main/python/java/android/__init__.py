@@ -4,7 +4,7 @@ import sys
 import traceback
 from types import ModuleType
 import warnings
-from . import stream, importer
+from . import importer
 
 from org.json import JSONArray, JSONObject
 
@@ -13,7 +13,15 @@ def initialize(context_local, build_json_object, app_path):
     global context
     context = context_local
 
-    stream.initialize()
+    # Redirect stdout and stderr to logcat - this was upstreamed in Python 3.13.
+    if sys.version_info < (3, 13):
+        from ctypes import CDLL, c_char_p, c_int
+        from . import stream
+
+        android_log_write = getattr(CDLL("liblog.so"), "__android_log_write")
+        android_log_write.argtypes = (c_int, c_char_p, c_char_p)
+        stream.init_streams(android_log_write, stdout_prio=4, stderr_prio=5)
+
     importer.initialize(context, convert_json_object(build_json_object), app_path)
 
     # These are ordered roughly from low to high level.
