@@ -75,14 +75,18 @@ rm -rf "$tmp_dir"
 mkdir "$tmp_dir"
 cd "$tmp_dir"
 
+stdlib_dir="$tmp_dir/stdlib"
+mkdir "$stdlib_dir"
+
 for prefix in $prefixes; do
     abi=$(basename $prefix)
     echo "$abi"
     . "$this_dir/abi-to-host.sh"
     . "$this_dir/android-env.sh"  # For STRIP
 
-    mkdir "$abi"
-    cd "$abi"
+    abi_dir="$tmp_dir/$abi"
+    mkdir "$abi_dir"
+    cd "$abi_dir"
 
     mkdir include
     cp -a "$prefix/include/"{python$version_short,openssl,sqlite*} include
@@ -114,12 +118,13 @@ for prefix in $prefixes; do
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"
     zip -q -r "$abi_zip" .
-    cd ..
+
+    # Merge all copies of the stdlib, including ABI-specific files like sysconfigdata.
+    cp -a $prefix/lib/python$version_short/* "$stdlib_dir"
 done
 
 echo "stdlib"
-cp -a $prefix/lib/python$version_short stdlib
-cd stdlib
+cd "$stdlib_dir"
 rm -r lib-dynload site-packages
 
 # Remove things which depend on missing native modules.

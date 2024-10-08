@@ -37,8 +37,9 @@ cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved) noexcept:
 # === com.chaquo.python.Python ================================================
 
 # This runs before Py_Initialize, so it must compile to pure C.
-cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path) noexcept:
+cdef public void Java_com_chaquo_python_Python_startNative(
+    JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path
+) noexcept:
     if getenv("CHAQUOPY_PROCESS_TYPE") == NULL:  # See jvm.pxi
         startNativeJava(env, j_platform, j_python_path)
     else:
@@ -46,7 +47,9 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
 
 # We're running in a Java process, so start the Python VM.
-cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path):
+cdef void startNativeJava(
+    JNIEnv *env, jobject j_platform, jobject j_python_path
+) noexcept:
     cdef const char *python_path
     if j_python_path != NULL:
         python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
@@ -91,7 +94,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
 
 # WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
 # more than once.
-cdef bint init_module(JNIEnv *env) with gil:
+cdef bint init_module(JNIEnv *env) noexcept with gil:
     try:
         # See CYTHON_PEP489_MULTI_PHASE_INIT in chaquopy_java_extra.h.
         PyInit_chaquopy_java()
@@ -103,7 +106,7 @@ cdef bint init_module(JNIEnv *env) with gil:
 
 # The POSIX setenv function is not available on MSYS2.
 # This runs before Py_Initialize, so it must compile to pure C.
-cdef bint set_env(JNIEnv *env, const char *name, const char *value):
+cdef bint set_env(JNIEnv *env, const char *name, const char *value) noexcept:
     cdef int putenvArgLen = strlen(name) + 1 + strlen(value) + 1
     cdef char *putenvArg = <char*>malloc(putenvArgLen)
     if snprintf(putenvArg, putenvArgLen, "%s=%s", name, value) != (putenvArgLen - 1):

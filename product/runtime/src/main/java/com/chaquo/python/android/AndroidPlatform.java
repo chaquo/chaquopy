@@ -259,14 +259,19 @@ public class AndroidPlatform extends Python.Platform {
     }
 
     private void loadNativeLibs() throws JSONException {
+        String pythonVersion = buildJson.getString("python_version");
+        String suffix =
+            Arrays.asList("3.8", "3.9", "3.10", "3.11", "3.12").contains(pythonVersion)
+            ? "chaquopy" : "python";
+
         // From API level 18 we no longer need to load libraries in dependency order. But
         // we should still keep pre-loading the OpenSSL and SQLite libraries, because we
         // can't guarantee that our lib directory will always be on the LD_LIBRARY_PATH
         // (#1198).
-        System.loadLibrary("crypto_chaquopy");
-        System.loadLibrary("ssl_chaquopy");
-        System.loadLibrary("sqlite3_chaquopy");
-        System.loadLibrary("python" + buildJson.getString("python_version"));
+        System.loadLibrary("crypto_" + suffix);
+        System.loadLibrary("ssl_" + suffix);
+        System.loadLibrary("sqlite3_" + suffix);
+        System.loadLibrary("python" + pythonVersion);
         System.loadLibrary("chaquopy_java");
     }
 

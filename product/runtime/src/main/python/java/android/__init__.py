@@ -18,7 +18,7 @@ def initialize(context_local, build_json_object, app_path):
 
     # These are ordered roughly from low to high level.
     for name in [
-        "warnings", "sys", "os", "tempfile", "socket", "ssl", "multiprocessing"
+        "warnings", "sys", "os", "tempfile", "ssl", "multiprocessing"
     ]:
         importer.add_import_trigger(name, globals()[f"initialize_{name}"])
 
@@ -89,22 +89,6 @@ def initialize_tempfile():
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
     os.makedirs(tmpdir, exist_ok=True)
     os.environ["TMPDIR"] = tmpdir
-
-
-def initialize_socket():
-    import socket
-
-    # Some functions aren't available until API level 24, so Python omits them from the
-    # module. Instead, make them throw OSError as documented.
-    def unavailable(*args, **kwargs):
-        raise OSError("this function is not available in this build of Python")
-
-    for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
-        if hasattr(socket, name):
-            raise Exception(
-                f"socket.{name} now exists: check if its workaround can be removed"
-            )
-        setattr(socket, name, unavailable)
 
 
 def initialize_ssl():

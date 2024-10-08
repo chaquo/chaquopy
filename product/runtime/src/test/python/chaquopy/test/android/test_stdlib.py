@@ -2,6 +2,7 @@ import os
 from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
 from android.os import Build
@@ -61,6 +62,7 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertTrue(encoder.c_make_encoder)
         self.assertTrue(scanner.c_make_scanner)
 
+    @skipIf(sys.version_info >= (3, 13), "lib2to3 was removed in Python 3.13")
     def test_lib2to3(self):
         with catch_warnings():
             for category in [DeprecationWarning, PendingDeprecationWarning]:
@@ -165,15 +167,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertIsInstance(vs[0], signal.Signals)
         self.assertIsInstance(vs[0], enum.IntEnum)
         self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
-
-    def test_socket(self):
-        import socket
-        for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
-            for args in [[], ["whatever"]]:
-                with self.assertRaisesRegex(
-                    OSError, "this function is not available in this build of Python"
-                ):
-                    getattr(socket, name)(*args)
 
     def test_sqlite(self):
         import sqlite3

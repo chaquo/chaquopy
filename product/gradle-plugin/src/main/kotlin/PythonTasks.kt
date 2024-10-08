@@ -405,6 +405,10 @@ internal class TaskBuilder(
                     "_ctypes.so",  // java.primitive and importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
                     "_lzma.so",  // zipfile < importer
+                    "_opcode.so",  // opcode < dis < inspect < importer. The importer
+                                   // dependency could be removed, but inspect is also
+                                   // imported via dataclasses < pprint < elftools in
+                                   // Python <= 3.13.
                     "_random.so",  // random < tempfile < zipimport
                     "_sha2.so",  // random < tempfile < zipimport (Python >= 3.12)
                     "_sha512.so",  // random < tempfile < zipimport (Python <= 3.11)

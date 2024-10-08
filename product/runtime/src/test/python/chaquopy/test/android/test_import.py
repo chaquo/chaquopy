@@ -63,8 +63,9 @@ class TestAndroidImport(FilterWarningsCase):
         stdlib_bootstrap_expected = {
             # This is the list from our minimum Python version. For why each of these
             # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_opcode.so",
+            "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
+            "mmap.so", "zlib.so",
         }
         if sys.version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
