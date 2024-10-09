@@ -583,7 +583,7 @@ class BuildWheel:
 
         # Overrides sysconfig.get_platform and distutils.util.get_platform.
         # TODO: consider replacing this with crossenv.
-        env["_PYTHON_HOST_PLATFORM"] = f"linux_{ABIS[self.abi].uname_machine}"
+        env["_PYTHON_HOST_PLATFORM"] = f"linux-{ABIS[self.abi].uname_machine}"
 
     @contextmanager
     def env_vars(self):
