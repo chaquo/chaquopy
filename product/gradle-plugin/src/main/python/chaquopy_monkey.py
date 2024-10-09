@@ -41,7 +41,9 @@ def disable_native():
 
 def disable_native_distutils():
     # Recent versions of setuptools redirect distutils to their own bundled copy, so try
-    # to import that first.
+    # to import that first. Even more recent versions of setuptools provide a .pth file
+    # which makes this import unnecessary, but the package we're installing might have
+    # pinned an older version in its pyproject.toml file.
     try:
         import setuptools  # noqa: F401
     except ImportError:

@@ -10,19 +10,20 @@ public class Common {
     // Minimum Android Gradle plugin version
     public static final String MIN_AGP_VERSION = "7.0.0";
 
-    // This should match api_level in target/build-common.sh.
-    public static final int MIN_SDK_VERSION = 21;
+    // This should match api_level in target/android-env.sh.
+    public static final int MIN_SDK_VERSION = 24;
 
     public static final int COMPILE_SDK_VERSION = 34;
 
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.8.16", "0");
-        PYTHON_VERSIONS.put("3.9.13", "1");
-        PYTHON_VERSIONS.put("3.10.6", "1");
-        PYTHON_VERSIONS.put("3.11.0", "2");
-        PYTHON_VERSIONS.put("3.12.0", "0");
+        PYTHON_VERSIONS.put("3.8.20", "0");
+        PYTHON_VERSIONS.put("3.9.20", "0");
+        PYTHON_VERSIONS.put("3.10.15", "0");
+        PYTHON_VERSIONS.put("3.11.10", "0");
+        PYTHON_VERSIONS.put("3.12.7", "0");
+        PYTHON_VERSIONS.put("3.13.0rc3", "0");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();
@@ -64,11 +65,11 @@ public class Common {
     }
 
     public static String assetZip(String type, String abi) {
-        // We need to prevent our ZIP files from being compressed within the APK. This wouldn't
-        // save much space (because the files within the ZIP are already compressed), but it
-        // would seriously harm performance of AssetFinder, because it would have to read and
-        // decompress all the intermediate data every time it seeks within the ZIP (see
-        // measurements in #5658).
+        // We need to prevent our ZIP files from being compressed within the APK. This
+        // wouldn't save much space (because the files within the ZIP are already
+        // compressed), but it would seriously harm performance of AssetFinder, because
+        // it would have to read and decompress all the intermediate data every time it
+        // seeks within the ZIP.
         //
         // Unfortunately .zip is not one of the default noCompress extensions
         // (frameworks/base/tools/aapt2/cmd/Link.cpp). We used to monkey-patch the noCompress
@@ -121,6 +122,10 @@ public class Common {
         // /usr/local/bin instead. This directory may also appear to be on the default
         // PATH, but this is because it's listed in /etc/paths, which only affects
         // shells, but not other apps like Android Studio and its Gradle subprocesses.
+        //
+        // As of Gradle 6.9, this appears to be unnecessary (#821). So once the
+        // `product` project is using a newer version than that, we can remove this
+        // method and let Gradle find executables itself.
         List<String> path = new ArrayList<>();
         String osName = System.getProperty("os.name").toLowerCase();
         if (osName.startsWith("mac")) {

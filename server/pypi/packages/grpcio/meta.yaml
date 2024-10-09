@@ -1,3 +1,13 @@
+# See also pycares, which shares some of the same patches to c-ares.
 package:
   name: grpcio
-  version: "1.39.0"
+  version: "1.59.3"
+
+build:
+  script_env:
+    # Disabled asm to avoid having to fix platform detection, This is unlikely to be
+    # performance-critical.
+    - GRPC_BUILD_WITH_BORING_SSL_ASM=0
+
+    # Disable glibc compatibility code which isn't compatible with Android.
+    - GRPC_PYTHON_DISABLE_LIBC_COMPATIBILITY=1

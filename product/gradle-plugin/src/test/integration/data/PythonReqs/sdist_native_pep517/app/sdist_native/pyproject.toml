@@ -1,3 +1,4 @@
 [build-system]
+# Leave the requirements unpinned, so we always test against the current versions.
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"

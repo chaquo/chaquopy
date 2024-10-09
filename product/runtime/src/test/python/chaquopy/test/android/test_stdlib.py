@@ -2,6 +2,7 @@ import os
 from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
 from android.os import Build
@@ -61,6 +62,7 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertTrue(encoder.c_make_encoder)
         self.assertTrue(scanner.c_make_scanner)
 
+    @skipIf(sys.version_info >= (3, 13), "lib2to3 was removed in Python 3.13")
     def test_lib2to3(self):
         with catch_warnings():
             for category in [DeprecationWarning, PendingDeprecationWarning]:
@@ -118,7 +120,9 @@ class TestAndroidStdlib(FilterWarningsCase):
                 self.assertTrue(os.access(name, os.X_OK))
 
         for args in [[], [1]]:
-            with self.assertRaisesRegex(OSError, "Inappropriate ioctl for device"):
+            with self.assertRaisesRegex(
+                OSError, r"Inappropriate ioctl for device|Not a typewriter"
+            ):
                 os.get_terminal_size(*args)
 
     def test_pickle(self):
@@ -163,15 +167,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertIsInstance(vs[0], signal.Signals)
         self.assertIsInstance(vs[0], enum.IntEnum)
         self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
-
-    def test_socket(self):
-        import socket
-        for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
-            for args in [[], ["whatever"]]:
-                with self.assertRaisesRegex(
-                    OSError, "this function is not available in this build of Python"
-                ):
-                    getattr(socket, name)(*args)
 
     def test_sqlite(self):
         import sqlite3
@@ -224,10 +219,11 @@ class TestAndroidStdlib(FilterWarningsCase):
         ldlibrary = "libpython{}.{}.so".format(*sys.version_info[:2])
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
 
-        with catch_warnings():
-            filterwarnings("default", category=DeprecationWarning)
-            import distutils.sysconfig
-        self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
+        if sys.version_info < (3, 12):
+            with catch_warnings():
+                filterwarnings("default", category=DeprecationWarning)
+                import distutils.sysconfig
+            self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
     def test_tempfile(self):
         import tempfile

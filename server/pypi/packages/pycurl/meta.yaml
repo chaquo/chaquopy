@@ -6,10 +6,10 @@
 
 package:
   name: pycurl
-  version: "7.43.0.6"
+  version: "7.45.2"
 
 build:
-  number: 2
+  number: 0
 
 requirements:
   host:

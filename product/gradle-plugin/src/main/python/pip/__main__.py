@@ -3,6 +3,12 @@ from __future__ import absolute_import
 import os
 import sys
 
+# Chaquopy: get_command_obj in locations.py triggers this warning with recent versions
+# of setuptools, even when no setup.py script is being run. Disable it globally within
+# the pip process.
+import warnings
+warnings.filterwarnings('ignore', 'setup.py install is deprecated')
+
 # Remove '' and current working directory from the first entry
 # of sys.path, if present to avoid using current directory
 # in pip commands check, freeze, install, list and show,

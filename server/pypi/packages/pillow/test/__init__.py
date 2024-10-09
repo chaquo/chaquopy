@@ -29,5 +29,5 @@ class TestPillow(unittest.TestCase):
     def test_font(self):
         from PIL import ImageFont
         font = ImageFont.truetype(join(dirname(__file__), "Vera.ttf"), size=20)
-        self.assertEqual((51, 19), font.getsize("Hello"))
-        self.assertEqual((112, 19), font.getsize("Hello world"))
+        self.assertEqual((0, 4, 51, 19), font.getbbox("Hello"))
+        self.assertEqual((0, 4, 112, 19), font.getbbox("Hello world"))

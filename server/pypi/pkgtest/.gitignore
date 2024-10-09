@@ -3,8 +3,11 @@
 /local.properties
 /.idea/caches
 /.idea/deploymentTargetDropdown.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/deviceManager.xml
 /.idea/libraries
 /.idea/modules.xml
+/.idea/other.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
@@ -13,3 +16,4 @@
 /captures
 .externalNativeBuild
 .cxx
+local.properties

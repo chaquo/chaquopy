@@ -1,10 +1,6 @@
 package:
   name: contourpy
-  version: "1.0.5"
+  version: "1.0.7"
 
 build:
   number: 0
-
-requirements:
-  build:
-    - pybind11 2.10.0

@@ -1,0 +1,24 @@
+apply plugin: 'com.android.application'
+apply plugin: 'com.chaquo.python'
+
+android {
+    namespace "com.chaquo.python.test"
+    compileSdk 32
+    defaultConfig {
+        applicationId "com.chaquo.python.test"
+        minSdk 31
+        targetSdk 32
+        versionCode 1
+        versionName "0.0.1"
+        python {
+            pip {
+                options "--no-index"
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "api_level"
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+}

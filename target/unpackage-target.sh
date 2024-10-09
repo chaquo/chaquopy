@@ -19,7 +19,7 @@ for zip_path in $target_dir/*.zip; do
     zip_basename=$(basename $zip_path)
     abi_regex="^target-$version-(.+).zip$"
     if ! echo "$zip_basename" | grep -qE "$abi_regex"; then
-        echo "$zip_basename does not match $abi_regex"
+        echo "$zip_path does not match $abi_regex"
         exit 1
     fi
     abi=$(echo "$zip_basename" | sed -E "s/$abi_regex/\1/")

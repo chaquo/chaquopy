@@ -1,30 +1,32 @@
 name: Setup Python
 description:
 
-inputs:
-  extra-versions:
-    description: |
-      Additional versions to install, on top of the supported runtime versions. One
-      version per line, in the same syntax as the standard setup-python action.
-
 runs:
   using: composite
   steps:
-    - name: List runtime versions
-      id: runtime-versions
-      shell: bash
-      run: |
-        (
-            echo "versions<<EOF"
-            target/list-versions.py --minor
-            echo EOF
-        ) >> $GITHUB_OUTPUT
-
-    - uses: actions/setup-python@v4.6.1
+    - uses: actions/setup-python@v5.1.0
       with:
+        # This should include all major.minor versions supported by the runtime, plus
+        # OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
+        # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin.
+        #
+        # For the default Python version, the micro version should be different to the
+        # one used by the runtime, because that's required by the integration tests
+        # `requires_python` and `marker_python_version`. For all other versions, we let
+        # the GitHub runner pick a micro version, which will be faster because it's
+        # locally cached.
+        #
+        # When updating this list, see the comment in ci.yml about integration test
+        # runner versions.
         python-version: |
-          ${{ steps.runtime-versions.outputs.versions }}
-          ${{ inputs.extra-versions }}
+          3.7
+          3.8.10
+          3.9
+          3.10
+          3.11
+          3.12
+          3.13
+        allow-prereleases: true
 
     - name: Set default Python command
       id: python-default

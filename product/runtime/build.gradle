@@ -110,10 +110,9 @@ String sdkPath(String path) {
     return absPath
 }
 
-// Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
-// some of the Python unit tests don't work on Java 11 yet (#5727).
-//
-// This does not affect the Java unit tests, which will use the same Java as Gradle itself.
+// On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
+// variable does not affect the Java unit tests, which always use the same Java as
+// Gradle itself.
 def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
 
 def docs = tasks.register("docs") {
@@ -272,15 +271,24 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
-            // This must be one of the NDK versions which are pre-installed on the
-            // GitHub Actions runner. Ideally it would also match the version in
-            // target/build-common.sh, but the latter is more difficult to change.
-            def ndkDir = sdkPath("ndk/26.1.10909125")
+            String ndkDir = null
+            def androidEnvFile = file("../../target/android-env.sh").absoluteFile
+            for (line in androidEnvFile.readLines()) {
+                def match = line =~ /ndk_version=(\S+)/
+                if (match) {
+                    ndkDir = sdkPath("ndk/${match.group(1)}")
+                    break
+                }
+            }
+            if (ndkDir == null) {
+                throw new GradleException("Failed to find NDK version in $androidEnvFile")
+            }
 
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
-                 "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
+                 "-DANDROID_ABI=$abi",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",
+                 "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                  "-DCHAQUOPY_PYTHON_VERSIONS=${pyVersions.join(';')}",
                  "-DCHAQUOPY_INCLUDE_PYTHON=$prefixDir/include",
                  "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
@@ -372,7 +380,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
                 // load native modules like ctypes. Loading libpython with
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
-                // the proper solution, but let's do it the easy way for now. See #5695.
+                // the proper solution, but let's do it the easy way for now. See #1201.
                 environment(
                     "LD_PRELOAD",
                     "/usr/lib/x86_64-linux-gnu/libpython${Common.DEFAULT_PYTHON_VERSION}.so"

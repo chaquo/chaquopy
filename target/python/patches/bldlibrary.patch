@@ -1,0 +1,60 @@
+diff --git a/configure b/configure
+index 1c75810d9e8..d883a00d548 100755
+--- a/configure
++++ b/configure
+@@ -841,6 +841,7 @@ PY_ENABLE_SHARED
+ PLATLIBDIR
+ BINLIBDEST
+ LIBPYTHON
++MODULE_DEPS_SHARED
+ EXT_SUFFIX
+ ALT_SOABI
+ SOABI
+@@ -24402,12 +24403,17 @@ LDVERSION='$(VERSION)$(ABIFLAGS)'
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $LDVERSION" >&5
+ printf "%s\n" "$LDVERSION" >&6; }
+ 
+-# On Android and Cygwin the shared libraries must be linked with libpython.
++# Configure the flags and dependencies used when compiling shared modules.
++# Do not rename LIBPYTHON - it's accessed via sysconfig by package build
++# systems (e.g. Meson) to decide whether to link extension modules against
++# libpython.
++MODULE_DEPS_SHARED='$(MODULE_DEPS_STATIC) $(EXPORTSYMS)'
++LIBPYTHON=''
+ 
++# On Android and Cygwin the shared libraries must be linked with libpython.
+ if test "$PY_ENABLE_SHARED" = "1" && ( test -n "$ANDROID_API_LEVEL" || test "$MACHDEP" = "cygwin"); then
+-  LIBPYTHON="-lpython${VERSION}${ABIFLAGS}"
+-else
+-  LIBPYTHON=''
++  MODULE_DEPS_SHARED="$MODULE_DEPS_SHARED \$(LDLIBRARY)"
++  LIBPYTHON="\$(BLDLIBRARY)"
+ fi
+ 
+ 
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 0e64ccc5c21..c4217424508 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -2797,7 +2797,7 @@ Python/thread.o: @THREADHEADERS@ $(srcdir)/Python/condvar.h
+ 
+ # force rebuild when header file or module build flavor (static/shared) is changed
+ MODULE_DEPS_STATIC=Modules/config.c
+-MODULE_DEPS_SHARED=$(MODULE_DEPS_STATIC) $(EXPORTSYMS)
++MODULE_DEPS_SHARED=@MODULE_DEPS_SHARED@
+ 
+ MODULE_CMATH_DEPS=$(srcdir)/Modules/_math.h
+ MODULE_MATH_DEPS=$(srcdir)/Modules/_math.h
+diff --git a/Modules/makesetup b/Modules/makesetup
+index f000c9cd673..3231044230e 100755
+--- a/Modules/makesetup
++++ b/Modules/makesetup
+@@ -286,7 +286,7 @@ sed -e 's/[ 	]*#.*//' -e '/^[ 	]*$/d' |
+ 				;;
+ 			esac
+ 			rule="$file: $objs"
+-			rule="$rule; \$(BLDSHARED) $objs $libs $ExtraLibs -o $file"
++			rule="$rule; \$(BLDSHARED) $objs $libs \$(LIBPYTHON) -o $file"
+ 			echo "$rule" >>$rulesf
+ 		done
+ 	done

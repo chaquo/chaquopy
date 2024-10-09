@@ -20,14 +20,3 @@
      import numpy as np
      ext.include_dirs.append(np.get_include())
      ext.define_macros.extend([
---- src-original/setup.py	2022-09-15 23:26:26.000000000 +0000
-+++ src/setup.py	2022-10-04 21:05:37.058026731 +0000
-@@ -302,7 +302,7 @@
-     python_requires='>={}'.format('.'.join(str(n) for n in py_min_version)),
-     setup_requires=[
-         "certifi>=2020.06.20",
--        "numpy>=1.19",
-+        # Chaquopy: removed "numpy>=1.19",
-         "setuptools_scm>=7",
-     ],
-     install_requires=[

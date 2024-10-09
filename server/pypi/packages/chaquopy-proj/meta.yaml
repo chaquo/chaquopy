@@ -11,14 +11,14 @@ package:
   version: {{ version }}
 
 build:
-  number: 1
+  number: 2
 
 source:
   url: https://download.osgeo.org/proj/proj-{{ version }}.tar.gz
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
   host:
     - chaquopy-libtiff 4.5.0
     - chaquopy-curl{{ openssl_suffix }} 7.76.1

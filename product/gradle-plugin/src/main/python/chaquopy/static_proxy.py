@@ -225,8 +225,6 @@ class Module(object):
             self.bindings[key] = get_binding(value)
 
     def process_class(self, node):
-        # TODO allow static proxy classes as bases (#5283) and return, argument and throws
-        # types (#5284).
         self.bindings[node.name] = node
         if node.bases:
             first_base = node.bases[0]
@@ -293,11 +291,7 @@ class Module(object):
             return any(kw.arg is None for kw in call.keywords)
 
     def evaluate(self, expr):
-        if isinstance(expr, ast.Num):
-            return expr.n
-        elif isinstance(expr, ast.Str):
-            return expr.s
-        elif isinstance(expr, ast.NameConstant):  # True, False, None
+        if isinstance(expr, ast.Constant):
             return expr.value
         elif isinstance(expr, ast.Name):
             return self.resolve(expr)
@@ -357,7 +351,7 @@ class write_java(object):
         self.indent = 0
         with open(join(pkg_dirname, cls.name + ".java"), "w") as self.out_file:
             self.line("// Generated at {} with the command line:",
-                      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+                      datetime.now().astimezone().isoformat(timespec="seconds"))
             self.line("// {}", " ".join(sys.argv[1:]))
             self.line()
             self.line("package {};", cls.package)

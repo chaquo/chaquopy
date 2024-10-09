@@ -28,8 +28,7 @@
 
 ## Select, copy and paste
 * Start Python console and enter a line. It should appear in bold.
-* Select some of the line and rotate the screen. The selection should still be present. (Related
-  issue: #5379)
+* Select some of the line and rotate the screen. The selection should still be present.
 * Copy the line and paste it into the input box. It should not appear in bold.
 
 ## Python console (REPL)

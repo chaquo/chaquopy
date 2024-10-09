@@ -30,23 +30,14 @@ case $CHAQUOPY_ABI in
     armeabi-v7a)
         # OpenBLAS ARMv7 build requires VFPv3-D32
         # (https://github.com/xianyi/OpenBLAS/issues/388 and
-        # https://github.com/xianyi/OpenBLAS/issues/662), which in practice always seems to
-        # come with NEON (aka "Advanced SIMD"), which requires it
-        # (https://developer.android.com/ndk/guides/cpu-arm-neon.html). But the Android
-        # armeabi-v7a ABI only guarantees VFPv3-D16
-        # (https://developer.android.com/ndk/guides/abis.html). The Google compatibility
-        # definition does require NEON from API level 23 (Android 6.0,
-        # https://source.android.com/compatibility/cdd), but by the time it's safe to set that
-        # as our minimum level, most people will probably be on ARMv8 anyway.
+        # https://github.com/xianyi/OpenBLAS/issues/662), which in practice always seems
+        # to come with NEON (aka "Advanced SIMD"), which requires it. The Android
+        # armeabi-v7a ABI only guarantees NEON on API level 21 and higher, so we
+        # currently target ARMv6:
         #
-        # There do exist devices with API level 15 or higher which are limited to VFPv3-D16,
-        # but they are rare and probably from 2013 or older. One example is the Asus
-        # Transformer TF101 (NOT the TF201 which I have), which has an Nvidia Tegra 2
-        # processor. The NDK developers believe that that the Tegra 2 was the *only*
-        # armeabi-v7a processor which didn't support NEON, and its number of active devices is
-        # now so low that they've enabled NEON by default in NDK r21 and later
-        # (https://github.com/android/ndk/issues/859). But we'll target ARMv6 for now anyway,
-        # just to be safe.
+        # * https://developer.android.com/ndk/guides/abis.html
+        # * https://developer.android.com/ndk/guides/cpu-arm-neon.html
+        # * https://source.android.com/compatibility/cdd)
         export TARGET="ARMV6"
         export ARM_SOFTFP_ABI="1"
 

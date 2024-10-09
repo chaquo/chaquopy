@@ -7,10 +7,13 @@ package:
   name: chaquopy-crc32c
   version: {{ version }}
 
+build:
+  number: 1
+
 source:
   git_url: https://github.com/google/crc32c
   git_rev: {{ version }}
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1

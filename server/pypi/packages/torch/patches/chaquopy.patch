@@ -316,7 +316,7 @@
  
  def resolve_library_path(path):
 -    return os.path.realpath(path)
-+    return os.path.abspath(path)  # Chaquopy: was realpath (#5717).
++    return os.path.abspath(path)  # Chaquopy: was realpath. This patch is no longer necessary on newer versions of Chaquopy, which call realpath early in the importer.
  
  
  def get_source_lines_and_file(obj, error_msg=None):

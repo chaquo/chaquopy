@@ -1,15 +1,11 @@
-from glob import glob
 import importlib
-import os
-from os.path import basename, dirname, isfile, islink, join
-import platform
+from os.path import basename, isfile
 import unittest
 
 try:
     from android.os import Build
-    API_LEVEL = Build.VERSION.SDK_INT
 except ImportError:
-    API_LEVEL = None
+    Build = None
 
 ADDRESS = "tcp://127.0.0.1"
 TIMEOUT = 500
@@ -35,11 +31,9 @@ class TestPyzmq(unittest.TestCase):
             server.close()
             client.close()
 
-    # Several packages have modules with the filename utils.so. Before API level 23, if you
-    # loaded two of them from their original filenames, their __file__ attributes would appear
-    # different, but the second one would actually have been loaded from the first one's file.
-    # This tests the workaround from extract_so in importer.py.
-    @unittest.skipUnless(API_LEVEL, "Android only")
+    # Several packages have modules with the filename utils.so. Make sure the importer
+    # handles that correctly.
+    @unittest.skipUnless(Build, "Android only")
     def test_importer(self):
         import zmq
         zmq_mod = zmq.backend.cython.utils
@@ -54,32 +48,12 @@ class TestPyzmq(unittest.TestCase):
         else:
             self.skipTest(f"requires at least one of {OTHER_MODULES}")
 
-        def check_islink(mod, expected):
-            file = mod.__file__
-            self.assertEqual("utils.so", basename(file))
-            self.assertTrue(isfile(file))
-            self.assertFalse(islink(file))
+        self.assertNotEqual(zmq_mod, other_mod)
+        self.assertNotEqual(zmq_mod.__file__, other_mod.__file__)
+        self.assertNotEqual(dir(zmq_mod), dir(other_mod))
 
-            origin = mod.__spec__.origin
-            if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-                # This test covers Python modules: for non-Python libraries, see
-                # TestAndroidImport. test_ctypes.
-                self.assertNotIn("/", origin)
-                origin = join(dirname(file), origin)
-            else:
-                self.assertRegex(origin, r"^/")
-
-            link_paths = glob(file + ".*")
-            if expected:
-                self.assertEqual(1, len(link_paths))
-                self.assertEqual(link_paths[0], origin)
-                self.assertTrue(islink(origin))
-                self.assertEqual(basename(file), os.readlink(origin))
-            else:
-                self.assertEqual(0, len(link_paths))
-                self.assertEqual(file, origin)
-
-        # The tests run in alphabetical order, so on devices which require symlinks, it should
-        # be the zmq module which uses one.
-        check_islink(other_mod, False)
-        check_islink(zmq_mod, API_LEVEL < 23)
+        for mod in [zmq_mod, other_mod]:
+            with self.subTest(mod):
+                file = mod.__file__
+                self.assertEqual("utils.so", basename(file))
+                self.assertTrue(isfile(file))

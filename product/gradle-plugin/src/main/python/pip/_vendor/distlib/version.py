@@ -111,7 +111,8 @@ class Matcher(object):
             # import pdb; pdb.set_trace()
             for op, s in r.constraints:
                 if s.endswith('.*'):
-                    # Chaquopy: pip can handle this, so pip_install must also (#5543).
+                    # Chaquopy: pip can handle wildcards in >= constraints, so
+                    # pip_install must also (seen in mozrunner 7.2.0 and astroid 2.2.5).
                     if False and op not in ('==', '!='):
                         raise ValueError('\'.*\' not allowed for '
                                          '%r constraints' % op)

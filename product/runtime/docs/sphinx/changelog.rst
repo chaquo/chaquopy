@@ -5,15 +5,69 @@ Change log
 
 .. towncrier release notes start
 
-14.0.2 (2023-01-29)
+15.0.1 (2023-12-24)
 ===================
 
-Backward incompatible
----------------------
+Features
+--------
 
-- :ref:`buildPython` must now be at least Python 3.7. (`#713
-  <https://github.com/chaquo/chaquopy/issues/713>`__)
+- Kotlin build.gradle.kts files are now supported. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- A new Gradle DSL has been added, with a top-level `chaquopy` block. Kotlin
+  build.gradle.kts files must use the new DSL; Groovy build.gradle files may
+  use either the new or the old one. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- All Android wheels are now downloaded from https://chaquo.com/pypi-13.1/ –
+  the old pypi-7.0 URL is no longer used. (`#808
+  <https://github.com/chaquo/chaquopy/issues/808>`__)
+- `os.get_terminal_size` now returns ENOTTY rather than EPERM, which was
+  causing avc log spam when stdio is redirected. (`#886
+  <https://github.com/chaquo/chaquopy/issues/886>`__)
+- Update CA bundle to certifi 2023.11.17. (`#893
+  <https://github.com/chaquo/chaquopy/issues/893>`__)
+- Android Gradle plugin versions 8.1 to 8.5 are now supported. (`#908
+  <https://github.com/chaquo/chaquopy/issues/908>`__, `#1003
+  <https://github.com/chaquo/chaquopy/issues/1003>`__, `#1091
+  <https://github.com/chaquo/chaquopy/issues/1091>`__, `#1140
+  <https://github.com/chaquo/chaquopy/issues/1140>`__, `#1172
+  <https://github.com/chaquo/chaquopy/issues/1172>`__)
+- Python version 3.12 is now supported. (`#931
+  <https://github.com/chaquo/chaquopy/issues/931>`__, `#967
+  <https://github.com/chaquo/chaquopy/issues/967>`__)
+- Update runtime Python versions to 3.8.18, 3.9.18, 3.10.13, 3.11.6, and
+  3.12.1. (`#932 <https://github.com/chaquo/chaquopy/issues/932>`__)
+- The `importlib.resources.files` API is now supported in Python 3.9 and later.
+  (`#977 <https://github.com/chaquo/chaquopy/issues/977>`__)
+- Update pkg_resources from setuptools version 68.2.2.
 
+
+Deprecations and Removals
+-------------------------
+
+- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
+  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
+- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
+  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
+  <https://github.com/chaquo/chaquopy/issues/840>`__)
+
+
+Bugfixes
+--------
+
+- Fix "AttributeError: "'AssetFinder' object has no attribute
+  'extract_packages'" when AssetFinder subdirectories are on `sys.path`.
+  (`#820 <https://github.com/chaquo/chaquopy/issues/820>`__)
+- Unsupported `socket` functions such as `if_nametoindex` now throw `OSError`
+  as documented, rather than `AttributeError`. (`#870
+  <https://github.com/chaquo/chaquopy/issues/870>`__)
+- Fix FileNotFoundError when `pkgutil.iter_modules` is called with a
+  nonexistent path. (`#917 <https://github.com/chaquo/chaquopy/issues/917>`__)
+- ZIP files using BZ2 or LZMA compression are now supported. (`#953
+  <https://github.com/chaquo/chaquopy/issues/953>`__)
+
+
+14.0.2 (2023-01-29)
+===================
 
 Features
 --------
@@ -41,6 +95,13 @@ Features
   `minifyEnabled true` will need a workaround. (`#842
   <https://github.com/chaquo/chaquopy/issues/842>`__)
 - Update to pip version 20.1.
+
+
+Deprecations and Removals
+-------------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
 
 
 Bugfixes
@@ -74,7 +135,7 @@ Bugfixes
   <https://github.com/chaquo/chaquopy/issues/672>`_).
 * Enable all warnings, including :any:`DeprecationWarning`,
   :any:`PendingDeprecationWarning`, :any:`ImportWarning` and :any:`ResourceWarning`.
-* Update to pkg_resources version 56.2.0.
+* Update pkg_resources from setuptools version 56.2.0.
 * Update to SQLite version 3.39.2.
 * Update Python 3.9 and later to OpenSSL version 3.0.5.
 
@@ -332,7 +393,7 @@ Bugfixes
 
 * Fix pip issues involving packages with optional native components (e.g. `websockets
   <https://pypi.org/project/websockets/>`_).
-* Work around inability of Android dynamic linker on API 22 and older to load multiple modules
+* Work around inability of Android dynamic linker on API level 22 and older to load multiple modules
   with the same basename (`details here <https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md#correct-sonamepath-handling-available-in-api-level--23>`_).
 * Fix `ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
   :any:`sysconfig.get_config_vars`.

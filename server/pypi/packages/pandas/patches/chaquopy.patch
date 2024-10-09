@@ -1,14 +1,51 @@
 --- src-original/setup.py	2022-08-23 17:16:48.000000000 +0000
 +++ src/setup.py	2023-09-05 08:36:00.870847761 +0000
-@@ -15,6 +15,11 @@
+@@ -15,6 +15,10 @@
  import sys
  from sysconfig import get_config_vars
  
-+# Chaquopy
-+if "egg_info" not in sys.argv:
-+    import builtins
-+    builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++# Chaquopy: prevent the compiled parts of NumPy from being imported.
++import builtins
++builtins.__NUMPY_SETUP__ = True
 +
  import numpy
  from pkg_resources import parse_version
  from setuptools import (
+--- src-original/pyproject.toml	2023-12-06 12:10:08.000000000 +0000
++++ src/pyproject.toml	2023-12-06 12:33:14.841679887 +0000
+@@ -2,8 +2,9 @@
+ # Minimum requirements for the build system to execute.
+ # See https://github.com/scipy/scipy/pull/12940 for the AIX issue.
+ requires = [
+-    "meson-python==0.13.1",
+-    "meson==1.2.1",
++    # Chaquopy: disabled meson, since the setuptools build still works for now
++    "setuptools==69.0.2",
++
+     "wheel",
+     "Cython>=0.29.33,<3",  # Note: sync with setup.py, environment.yml and asv.conf.json
+     # Note: numpy 1.25 has a backwards compatible C API by default
+@@ -14,7 +15,8 @@
+     "versioneer[toml]"
+ ]
+ 
+-build-backend = "mesonpy"
++# Chaquopy
++# build-backend = "mesonpy"
+ 
+ [project]
+ name = 'pandas'
+@@ -137,7 +139,12 @@
+ # resulting files.
+ [tool.versioneer]
+ VCS = "git"
+-style = "pep440"
++
++# Chaquopy: `-pre` prevents versioneer from returning a "dirty" version when we're
++# building from a git checkout. This can be reverted once we go back to building from an
++# sdist.
++style = "pep440-pre"
++
+ versionfile_source = "pandas/_version.py"
+ versionfile_build = "pandas/_version.py"
+ tag_prefix = "v"

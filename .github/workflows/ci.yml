@@ -14,10 +14,10 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -45,7 +45,7 @@ jobs:
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: maven
           # There's a fairly large per-file overhead, so exclude the hash files.
@@ -72,10 +72,10 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -93,7 +93,7 @@ jobs:
           cd product
           ./gradlew docs
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: docs
           path: |
@@ -102,17 +102,33 @@ jobs:
           if-no-files-found: error
 
 
+  gradlePython:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
+
+      - uses: ./.github/actions/setup-python
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Test
+        run: |
+          cd product
+          ./gradlew gradle:testPython
+
+
   demo:
     needs: [product]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven
@@ -129,7 +145,7 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew assembleRelease
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: demo
           path: demo/app/build/outputs/apk/release
@@ -144,9 +160,8 @@ jobs:
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
-          # We pin specific OS versions to ensure that the Python `extra-versions`
-          # listed below are all available. To avoid clutter in the GitHub UI, OS
-          # versions are not added to the `os` dimension directly.
+          # Runners must support all the Python versions in setup-python/action.yml: see
+          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
           - os: linux
             runs-on: ubuntu-20.04
           - os: macos
@@ -156,21 +171,14 @@ jobs:
 
     runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
-        with:
-          # This should include OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
-          # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin, if they're not already
-          # returned by `list-versions.py --minor`.
-          extra-versions: |
-            3.6
-            3.7
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven

@@ -224,6 +224,9 @@ internal class TaskBuilder(
                     val customIndexUrl = listOf("--index-url", "-i").any {
                         it in python.pip.options
                     }
+                    val versionFull = pythonVersionInfo(python).key
+                    val versionFullNoPre =
+                        """\d+\.\d+\.\d+""".toRegex().find(versionFull)!!.value
 
                     execBuildPython {
                         args("-m", "chaquopy.pip_install")
@@ -234,11 +237,10 @@ internal class TaskBuilder(
                         args("--")
                         args("--disable-pip-version-check")
                         if (!customIndexUrl) {
-                            args("--extra-index-url", "https://chaquo.com/pypi-7.0")
                             args("--extra-index-url", "https://chaquo.com/pypi-13.1")
                         }
                         args("--implementation", Common.PYTHON_IMPLEMENTATION)
-                        args("--python-version", pythonVersionInfo(python).key)
+                        args("--python-version", versionFullNoPre)
                         args("--abi", (Common.PYTHON_IMPLEMENTATION +
                                        python.version!!.replace(".", "")))
                         args("--no-compile")
@@ -247,8 +249,9 @@ internal class TaskBuilder(
                     compilePyc(python.pyc.pip, outputDir)
                 }
 
-                // Requirements subdirectories must exist, or their ZIPs won't be created,
-                // and the app will crash (#5631).
+                // In #250 it looks like someone used a buildPython which returned
+                // success without doing anything. This led to a runtime crash because
+                // the requirements ZIPs were missing from the app.
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
                     val subdir = File(outputDir, subdirName)
                     if (!subdir.exists()) {
@@ -402,6 +405,10 @@ internal class TaskBuilder(
                     "_ctypes.so",  // java.primitive and importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
                     "_lzma.so",  // zipfile < importer
+                    "_opcode.so",  // opcode < dis < inspect < importer. The importer
+                                   // dependency could be removed, but inspect is also
+                                   // imported via dataclasses < pprint < elftools in
+                                   // Python <= 3.13.
                     "_random.so",  // random < tempfile < zipimport
                     "_sha2.so",  // random < tempfile < zipimport (Python >= 3.12)
                     "_sha512.so",  // random < tempfile < zipimport (Python <= 3.11)
@@ -535,7 +542,7 @@ internal class TaskBuilder(
                 execBuildPython {
                     args("-m", "chaquopy.pyc")
                     args("--python", python.version)
-                    args("--quiet") // TODO #5411: option to display syntax errors
+                    args("--quiet")
                     if (setting != true) {
                         args("--warning")
                     }

@@ -11,12 +11,8 @@
 
  setup(
 --- src-original/build_bundled.sh	2021-01-09 15:24:24.000000000 +0000
-+++ src/build_bundled.sh	2021-01-12 13:35:07.595453948 +0000
-@@ -1,18 +1,20 @@
- #!/bin/sh
- 
- VERSION="$1"
-+export LDFLAGS="$LDFLAGS -llog"  # Chaquopy
++++ src/build_bundled.sh	2023-12-16 22:18:22.971159515 +0000
+@@ -4,12 +4,12 @@
  
  mkdir bundled
  cd bundled
@@ -28,33 +24,7 @@
 +  -b v"${VERSION}" --depth 1
  
  cd sentencepiece
-+patch -p1 -i $SRC_DIR/util.patch  # Chaquopy: fix missing #include.
++patch -p1 -i $RECIPE_DIR/bundled.patch  # Chaquopy
  mkdir build
  cd build
--cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=../..
-+cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=../.. \
-+      -DCMAKE_TOOLCHAIN_FILE=$SRC_DIR/../chaquopy.toolchain.cmake  # Chaquopy
- make -j $(nproc)
- make install
- cd ../..
---- src-original/util.patch	1970-01-01 00:00:00.000000000 +0000
-+++ src/util.patch	2021-01-12 13:30:53.587344655 +0000
-@@ -0,0 +1,18 @@
-+diff --git a/src/util.h b/src/util.h
-+index 18d6e9c..08c2e00 100644
-+--- a/src/util.h
-++++ b/src/util.h
-+@@ -36,9 +36,12 @@
-+ #include <pthread.h>
-+ #endif
-+ 
-+-#if !defined(__APPLE__) && !defined(_WIN32) && BYTE_ORDER == __BIG_ENDIAN
-++#if !defined(__APPLE__) && !defined(_WIN32)
-++#include <endian.h>
-++#if defined(BYTE_ORDER) && defined(__BIG_ENDIAN) && BYTE_ORDER == __BIG_ENDIAN
-+ #define IS_BIG_ENDIAN
-+ #endif
-++#endif
-+ 
-+ namespace sentencepiece {
-+ template <typename T>
+ cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=../..

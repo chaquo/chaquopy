@@ -1,11 +1,6 @@
 --- src-original/setup.py	2019-10-19 08:15:34.000000000 +0000
 +++ src/setup.py	2022-10-04 21:19:55.423152993 +0000
-@@ -175,10 +175,14 @@
- # C files must be built once only for coverage to work
- c_lib = ('c_wt', {'sources': sources,
-                   'depends': source_templates + header_templates + headers,
--                  'include_dirs': [make_ext_path("c"), get_python_inc()],
-+                  'include_dirs': [make_ext_path("c")],  # Chaquopy: removed get_python_inc()
+@@ -179,6 +179,10 @@
                    'macros': c_macros, })
  
  def get_ext_modules(use_cython):
@@ -16,12 +11,17 @@
      from numpy import get_include as get_numpy_include
      cython_modules, cython_sources = get_cython_sources(use_cython)
      ext_modules = [
-@@ -439,7 +443,7 @@
-         tests_require=['pytest'],
+--- src-original/pyproject.toml	2022-09-16 14:25:42.000000000 +0000
++++ src/pyproject.toml	2023-12-06 10:36:40.960979478 +0000
+@@ -7,7 +7,10 @@
+ [build-system]
+ requires = [
+     "wheel",
+-    "setuptools<65",
++
++    # Chaquopy: updated for Python 3.12
++    "setuptools==69.0.2",
++
+     "Cython>=0.29.24,<3.0",
  
-         install_requires=["numpy>=1.13.3"],
--        setup_requires=["numpy>=1.13.3"],
-+        # Chaquopy: removed setup_requires=["numpy>=1.13.3"],
-         python_requires=">=3.5",
-     )
- 
+     # NumPy dependencies - to update these, sync from

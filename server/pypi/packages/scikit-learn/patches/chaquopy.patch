@@ -1,44 +1,39 @@
 --- src-original/setup.py       2021-01-19 11:18:11.824012300 +0000
 +++ src/setup.py        2021-02-27 13:51:59.462611504 +0000
-@@ -23,6 +23,13 @@
-     # Python 2 compat: just to be able to declare that Python >=3.6 is needed.
+@@ -23,6 +23,12 @@
+     # Python 2 compat: just to be able to declare that Python >=3.8 is needed.
      import __builtin__ as builtins
-
+ 
 +# Chaquopy
 +os.environ["PYTHON_CROSSENV"] = "x"  # Used in sklearn/_build_utils.
 +os.environ["OPENBLAS"] = os.path.abspath("../requirements/chaquopy/lib")
-+sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
 +builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +builtins.__SCIPY_SETUP__ = True  #
 +
- # This is a bit (!) hackish: we are setting a global variable so that the
- # main sklearn __init__ can detect if it is being loaded by the setup
- # routine, to avoid attempting to load components that aren't built yet:
+ # This is a bit (!) hackish: we are setting a global variable so that the main
+ # sklearn __init__ can detect if it is being loaded by the setup routine, to
+ # avoid attempting to load components that aren't built yet.
 @@ -139,6 +146,10 @@
-                     e.extra_compile_args += openmp_flag
-                     e.extra_link_args += openmp_flag
-
+                 e.extra_compile_args += openmp_flag
+                 e.extra_link_args += openmp_flag
+ 
 +            # Chaquopy
 +            for e in self.extensions:
 +                e.libraries += ["atomic"]
 +
-             build_ext.build_extensions(self)
+         build_ext.build_extensions(self)
 
-     cmdclass['build_ext'] = build_ext_subclass
---- src-original/sklearn/__init__.py	2020-08-04 12:12:58.924675700 +0000
-+++ src/sklearn/__init__.py	2020-11-22 01:56:25.744400741 +0000
-@@ -21,6 +21,14 @@
- logger = logging.getLogger(__name__)
- 
- 
-+# Chaquopy: workaround for https://github.com/joblib/joblib/issues/825. As of Chaquopy 8.0.1
-+# there's a better workaround in Chaquopy itself, but we still need to maintain compatibility
-+# with older versions which share the same native package repository.
-+import _multiprocessing
-+if not hasattr(_multiprocessing, "sem_unlink"):
-+    _multiprocessing.sem_unlink = None
+     def run(self):
+--- src-original/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-10-23 10:11:35.000000000 +0000
++++ src/sklearn/preprocessing/_csr_polynomial_expansion.pyx	2023-12-07 13:27:03.843087470 +0000
+@@ -20,7 +20,9 @@
+     """
+     #ifdef __SIZEOF_INT128__
+         typedef __int128 LARGEST_INT_t;
+-    #elif (__clang__ || __EMSCRIPTEN__) && !__i386__
 +
-+
- # PEP0440 compatible formatted version, see:
- # https://www.python.org/dev/peps/pep-0440/
- #
++    // Chaquopy: added __arm__
++    #elif (__clang__ || __EMSCRIPTEN__) && !(__i386__ || __arm__)
+         typedef _BitInt(128) LARGEST_INT_t;
+     #else
+         typedef long long LARGEST_INT_t;
