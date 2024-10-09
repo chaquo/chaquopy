@@ -123,7 +123,9 @@ After stable release:
 * Increment Chaquopy major version if not already done.
 * Update `MIN_SDK_VERSION` in Common.java.
 * Update `api_level` in target/android-env.sh.
-* Update default API level in server/pypi/build-wheel.py.
+* In server/pypi/build-wheel.py:
+  * Update default API level.
+  * Update `STANDARD_LIBS` with any libraries added in the new level.
 * Search repository for other things that should be updated, including workarounds which
   are now unnecessary:
   * Useful regex: `api.?level|android.?ver|android \d|min.?sdk|SDK_INT`
