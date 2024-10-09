@@ -616,6 +616,9 @@ class BuildWheel:
             "PKG_VERSION": self.version,
             "RECIPE_DIR": self.package_dir,
             "SRC_DIR": self.src_dir,
+
+            # allows packages to locate openssl, openssl must be in the meta.yml requirements.host
+            "OPENSSL_DIR": f"{self.host_env}/chaquopy",
         })
 
         if self.needs_rust:
