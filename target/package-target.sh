@@ -82,7 +82,7 @@ for prefix in $prefixes; do
     abi=$(basename $prefix)
     echo "$abi"
     . "$this_dir/abi-to-host.sh"
-    . "$this_dir/android-env.sh"  # For STRIP
+    . "$this_dir/android-env.sh"  # For CC and STRIP
 
     abi_dir="$tmp_dir/$abi"
     mkdir "$abi_dir"
@@ -95,13 +95,14 @@ for prefix in $prefixes; do
     mkdir -p "$jniLibs_dir"
     cp $prefix/lib/libpython$version_short.so "$jniLibs_dir"
 
-    if [ $version_int -le 312 ]; then
-        lib_suffix="chaquopy"
-    else
-        lib_suffix="python"
-    fi
     for name in crypto ssl sqlite3; do
-        cp "$prefix/lib/lib${name}_$lib_suffix.so" "$jniLibs_dir"
+        # Add _chaquopy suffixed libraries for compatibility with existing wheels. We
+        # need this even on Python 3.13, for non-Python wheels like chaquopy-curl.
+        chaquopy_name=lib${name}_chaquopy.so
+        "$CC" -shared "-L$prefix/lib" "-l${name}_python" \
+            "-Wl,-soname=$chaquopy_name" \
+            -o "$prefix/lib/$chaquopy_name"
+        cp "$prefix/lib/lib${name}_"{chaquopy,python}.so "$jniLibs_dir"
     done
 
     mkdir lib-dynload

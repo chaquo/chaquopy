@@ -1955,16 +1955,16 @@ class RunGradle(object):
         self.test.assertCountEqual(abis, os.listdir(lib_dir))
         for abi in abis:
             abi_dir = join(lib_dir, abi)
-            suffix = (
-                "chaquopy" if python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"]
-                else "python")
             self.test.assertCountEqual(
                 [
                     "libchaquopy_java.so",
-                    f"libcrypto_{suffix}.so",
+                    "libcrypto_chaquopy.so",
+                    "libcrypto_python.so",
                     f"libpython{python_version}.so",
-                    f"libssl_{suffix}.so",
-                    f"libsqlite3_{suffix}.so",
+                    "libssl_chaquopy.so",
+                    "libssl_python.so",
+                    "libsqlite3_chaquopy.so",
+                    "libsqlite3_python.so",
                 ],
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)

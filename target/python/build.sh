@@ -63,11 +63,11 @@ rm -rf $PREFIX/lib/libpython$version_short*
 if [ $version_int -le 312 ]; then
     # Download and unpack libraries needed to compile Python. For a given Python
     # version, we must maintain binary compatibility with existing wheels.
-    libs="bzip2-1.0.8-2 libffi-3.4.4-3 sqlite-3.45.3-1 xz-5.4.6-1"
+    libs="bzip2-1.0.8-2 libffi-3.4.4-3 sqlite-3.45.3-2 xz-5.4.6-1"
     if [ $version_int -le 308 ]; then
-        libs+=" openssl-1.1.1w-1"
+        libs+=" openssl-1.1.1w-2"
     else
-        libs+=" openssl-3.0.15-2"
+        libs+=" openssl-3.0.15-3"
     fi
 
     url_prefix="https://github.com/beeware/cpython-android-source-deps/releases/download"
@@ -75,24 +75,6 @@ if [ $version_int -le 312 ]; then
         url="$url_prefix/$name_ver/$name_ver-$HOST.tar.gz"
         echo "$url"
         curl -Lf "$url" | tar -x -C $PREFIX
-    done
-
-    # Rename libraries for binary compatibility with existing wheels.
-    cd $PREFIX/lib
-    for name in crypto ssl sqlite3; do
-        old_name="lib${name}_python.so"
-        new_name="lib${name}_chaquopy.so"
-        if [ "$name" = "crypto" ]; then
-            crypto_old_name=$old_name
-            crypto_new_name=$new_name
-        fi
-
-        mv "$old_name" "$new_name"
-        ln -s "$new_name" "$old_name"
-        patchelf --set-soname "$new_name" "$new_name"
-        if [ "$name" = "ssl" ]; then
-            patchelf --replace-needed "$crypto_old_name" "$crypto_new_name" "$new_name"
-        fi
     done
 
     # Add sysroot paths, otherwise Python 3.8's setup.py will think libz is unavailable.

@@ -734,6 +734,8 @@ class BuildWheel:
             if fixed_path != original_path:
                 run(f"mv {original_path} {fixed_path}")
 
+            # Strip before patching, otherwise the libraries may be corrupted:
+            # https://github.com/NixOS/patchelf/issues?q=is%3Aissue+strip+in%3Atitle
             run(f"chmod +w {fixed_path}")
             run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
