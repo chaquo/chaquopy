@@ -21,6 +21,11 @@ def initialize(context_local, build_json_object, app_path):
         android_log_write = getattr(CDLL("liblog.so"), "__android_log_write")
         android_log_write.argtypes = (c_int, c_char_p, c_char_p)
         stream.init_streams(android_log_write, stdout_prio=4, stderr_prio=5)
+    elif sys.stdout.errors == "backslashreplace":
+        # This fix should be upstreamed in Python 3.13.1.
+        raise Exception("see if sys.stdout.errors workaround can be removed")
+    else:
+        sys.stdout.reconfigure(errors="backslashreplace")
 
     importer.initialize(context, convert_json_object(build_json_object), app_path)
 
