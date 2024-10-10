@@ -61,14 +61,18 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         stdlib_bootstrap_expected = {
-            # This is the list from our minimum Python version. For why each of these
-            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+            # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
+            # PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
+            "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
+            "mmap.so", "zlib.so",
         }
         if sys.version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
             stdlib_bootstrap_expected |= {"_sha2.so"}
+        if sys.version_info >= (3, 13):
+            stdlib_bootstrap_expected -= {"_sha2.so"}
+            stdlib_bootstrap_expected |= {"_opcode.so"}
 
         for subdir, entries in [
             (ABI, list(stdlib_bootstrap_expected)),
@@ -379,7 +383,7 @@ class TestAndroidImport(FilterWarningsCase):
     # Verify that the traceback builder can get source code from the loader in all contexts.
     # (The "package1" test files are also used in TestImport.)
     def test_exception(self):
-        col_marker = r'( +\^+\n)?'  # Column marker (Python >= 3.11)
+        col_marker = r'( +[~^]+\n)?'  # Column marker (Python >= 3.11)
         test_frame = (
             fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/android/test_import.py", '
             fr'line \d+, in test_exception\n'
@@ -426,11 +430,11 @@ class TestAndroidImport(FilterWarningsCase):
                 fr'line 1, in <module>\n'
                 fr'    from . import other_error  # noqa: F401\n' +
                 col_marker +
-                import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
-                fr'    int\("hello"\)\n'
-                fr"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
+                fr'    int\("hello"\)\n' +
+                col_marker +
+                r"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
         else:
             self.fail()
 

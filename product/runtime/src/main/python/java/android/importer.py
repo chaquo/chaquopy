@@ -407,11 +407,12 @@ class AssetPath:
     def __truediv__(self, child):
         return self.joinpath(child)
 
-    def open(self, mode="r", buffering="ignored", **kwargs):
+    # `buffering` has no effect because the whole file is read immediately.
+    def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
         if "r" in mode:
             bio = io.BytesIO(self.finder.get_data(self.zip_path))
             if mode == "r":
-                return io.TextIOWrapper(bio, **kwargs)
+                return io.TextIOWrapper(bio, encoding, errors, newline)
             elif sorted(mode) == ["b", "r"]:
                 return bio
         raise ValueError(f"unsupported mode: {mode!r}")
@@ -420,8 +421,8 @@ class AssetPath:
         with self.open('rb') as strm:
             return strm.read()
 
-    def read_text(self, encoding=None):
-        with self.open(encoding=encoding) as strm:
+    def read_text(self, encoding=None, errors=None, newline=None):
+        with self.open("r", -1, encoding, errors, newline) as strm:
             return strm.read()
 
 

@@ -1,0 +1,16 @@
+--- a/Makefile.pre.in	2022-10-24 17:35:39.000000000 +0000
++++ b/Makefile.pre.in	2022-11-01 18:20:18.472102145 +0000
+@@ -292,7 +292,12 @@
+ PYTHON_FOR_BUILD=@PYTHON_FOR_BUILD@
+ # Single-platform builds depend on $(BUILDPYTHON). Cross builds use an
+ # external "build Python" and have an empty PYTHON_FOR_BUILD_DEPS.
+-PYTHON_FOR_BUILD_DEPS=@PYTHON_FOR_BUILD_DEPS@
++#
++# Chaquopy: Was PYTHON_FOR_BUILD_DEPS from the configure script, which is empty when
++# cross-compiling (https://github.com/python/cpython/pull/93977). But this means that in
++# parallel builds, the sharedmods target can start running before libpython is available
++# (https://github.com/beeware/briefcase-android-gradle-template/pull/55).
++PYTHON_FOR_BUILD_DEPS=$(LDLIBRARY)
+ 
+ # Single-platform builds use Programs/_freeze_module.c for bootstrapping and
+ # ./_bootstrap_python Programs/_freeze_module.py for remaining modules

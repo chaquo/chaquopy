@@ -21,7 +21,8 @@ requirements:
     # loads on startup.
     #
     # Instead, we link against OpenSSL 1.1 statically, as follows:
-    #  * Run the OpenSSL 1.1 build command from target/build-all.sh.
+    #  * Download an OpenSSL 1.1 build from
+    #    https://github.com/beeware/cpython-android-source-deps/releases.
     #  * For each combination of Python version and ABI, run build-with-static-openssl.sh
     #    in this directory.
     #

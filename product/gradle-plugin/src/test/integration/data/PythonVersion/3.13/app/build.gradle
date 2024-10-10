@@ -14,12 +14,12 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "3.8"
+            version "3.13"
             pip { install "six" }
             pyc { pip true }
         }
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            abiFilters "arm64-v8a", "x86_64"
         }
     }
 }

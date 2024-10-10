@@ -1,44 +1,55 @@
---- Python-3.12.0-original/configure	2023-11-22 09:33:49
-+++ Python-3.12.0/configure	2023-11-22 10:13:05
-@@ -7476,6 +7476,7 @@
-   case $ac_sys_system in
-     CYGWIN*)
-           LDLIBRARY='libpython$(LDVERSION).dll.a'
-+          BLDLIBRARY='-L. -lpython$(LDVERSION)'
-           DLLLIBRARY='libpython$(LDVERSION).dll'
-           ;;
-     SunOS*)
-@@ -24374,7 +24375,7 @@
- # On Android and Cygwin the shared libraries must be linked with libpython.
+diff --git a/configure b/configure
+index 1c75810d9e8..d883a00d548 100755
+--- a/configure
++++ b/configure
+@@ -841,6 +841,7 @@ PY_ENABLE_SHARED
+ PLATLIBDIR
+ BINLIBDEST
+ LIBPYTHON
++MODULE_DEPS_SHARED
+ EXT_SUFFIX
+ ALT_SOABI
+ SOABI
+@@ -24402,12 +24403,17 @@ LDVERSION='$(VERSION)$(ABIFLAGS)'
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $LDVERSION" >&5
+ printf "%s\n" "$LDVERSION" >&6; }
  
+-# On Android and Cygwin the shared libraries must be linked with libpython.
++# Configure the flags and dependencies used when compiling shared modules.
++# Do not rename LIBPYTHON - it's accessed via sysconfig by package build
++# systems (e.g. Meson) to decide whether to link extension modules against
++# libpython.
++MODULE_DEPS_SHARED='$(MODULE_DEPS_STATIC) $(EXPORTSYMS)'
++LIBPYTHON=''
+ 
++# On Android and Cygwin the shared libraries must be linked with libpython.
  if test "$PY_ENABLE_SHARED" = "1" && ( test -n "$ANDROID_API_LEVEL" || test "$MACHDEP" = "cygwin"); then
 -  LIBPYTHON="-lpython${VERSION}${ABIFLAGS}"
-+  LIBPYTHON="$BLDLIBRARY"
- else
-   LIBPYTHON=''
+-else
+-  LIBPYTHON=''
++  MODULE_DEPS_SHARED="$MODULE_DEPS_SHARED \$(LDLIBRARY)"
++  LIBPYTHON="\$(BLDLIBRARY)"
  fi
---- Python-3.12.0-original/Modules/makesetup	2023-10-02 12:48:14
-+++ Python-3.12.0/Modules/makesetup	2023-11-22 10:11:40
-@@ -86,18 +86,6 @@
- # Newline for sed i and a commands
- NL='\
- '
--
--# Setup to link with extra libraries when making shared extensions.
--# Currently, only Cygwin needs this baggage.
--case `uname -s` in
--CYGWIN*) if test $libdir = .
--	 then
--	 	ExtraLibDir=.
--	 else
--	 	ExtraLibDir='$(LIBPL)'
--	 fi
--	 ExtraLibs="-L$ExtraLibDir -lpython\$(LDVERSION)";;
--esac
  
- # Main loop
- for i in ${*-Setup}
-@@ -286,7 +274,7 @@
+ 
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 0e64ccc5c21..c4217424508 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -2797,7 +2797,7 @@ Python/thread.o: @THREADHEADERS@ $(srcdir)/Python/condvar.h
+ 
+ # force rebuild when header file or module build flavor (static/shared) is changed
+ MODULE_DEPS_STATIC=Modules/config.c
+-MODULE_DEPS_SHARED=$(MODULE_DEPS_STATIC) $(EXPORTSYMS)
++MODULE_DEPS_SHARED=@MODULE_DEPS_SHARED@
+ 
+ MODULE_CMATH_DEPS=$(srcdir)/Modules/_math.h
+ MODULE_MATH_DEPS=$(srcdir)/Modules/_math.h
+diff --git a/Modules/makesetup b/Modules/makesetup
+index f000c9cd673..3231044230e 100755
+--- a/Modules/makesetup
++++ b/Modules/makesetup
+@@ -286,7 +286,7 @@ sed -e 's/[ 	]*#.*//' -e '/^[ 	]*$/d' |
  				;;
  			esac
  			rule="$file: $objs"

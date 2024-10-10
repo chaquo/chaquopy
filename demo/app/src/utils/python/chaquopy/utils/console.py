@@ -77,7 +77,7 @@ class ConsoleOutputStream(TextIOBase):
     def __getattribute__(self, name):
         # Forward all attributes that have useful implementations.
         if name in [
-            "close", "closed", "flush", "writable",  # IOBase
+            "close", "closed", "fileno", "flush", "writable",  # IOBase
             "encoding", "errors", "newlines", "buffer", "detach",  # TextIOBase
             "line_buffering", "write_through", "reconfigure",  # TextIOWrapper
         ]:
@@ -90,5 +90,9 @@ class ConsoleOutputStream(TextIOBase):
         # exception, the app crashes in the same way whether it's using
         # ConsoleOutputStream or not.
         result = self.stream.write(s)
+
+        # In case `s` is a str subclass that writes itself to stdout or stderr
+        # when we call its methods, convert it to an actual str.
+        s = str.__str__(s)
         self.method(s)
         return result
