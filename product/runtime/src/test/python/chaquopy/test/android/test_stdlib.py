@@ -104,7 +104,14 @@ class TestAndroidStdlib(FilterWarningsCase):
         for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
                      "Semaphore"]:
             cls = getattr(synchronize, name)
-            with self.assertRaisesRegex(OSError, "This platform lacks a functioning sem_open"):
+            with self.assertRaisesRegex(
+                OSError,
+                (
+                    "This platform lacks a functioning sem_open"
+                    if sys.version_info < (3, 13)
+                    else "No module named '_multiprocessing'"
+                )
+            ):
                 if name == "Barrier":
                     cls(1, ctx=ctx)
                 else:
@@ -137,9 +144,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         python_bits = platform.architecture()[0]
         self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
 
-        # Requires sys.executable to exist.
-        p = platform.platform()
-        self.assertRegex(p, r"^Linux")
+        self.assertRegex(
+            platform.platform(),
+            r"^Linux" if sys.version_info < (3, 13) else r"^Android")
 
     def test_select(self):
         import select
@@ -211,7 +218,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         for p in sys.path:
             self.assertTrue(exists(p), p)
 
-        self.assertRegex(sys.platform, r"^linux")
+        self.assertEqual(
+            sys.platform,
+            "linux" if sys.version_info < (3, 13) else "android")
         self.assertNotIn("dirty", sys.version)
 
     def test_sysconfig(self):

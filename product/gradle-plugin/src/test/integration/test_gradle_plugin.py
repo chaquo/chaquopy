@@ -1837,15 +1837,18 @@ class RunGradle(object):
 
         python_version_info = tuple(int(x) for x in python_version.split("."))
         stdlib_bootstrap_expected = {
-            # This is the list from our minimum Python version. For why each of these
-            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_opcode.so",
+            # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
+            # PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
             "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
             "mmap.so", "zlib.so",
         }
         if python_version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
             stdlib_bootstrap_expected |= {"_sha2.so"}
+        if python_version_info >= (3, 13):
+            stdlib_bootstrap_expected -= {"_sha2.so"}
+            stdlib_bootstrap_expected |= {"_opcode.so"}
 
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
@@ -1880,7 +1883,7 @@ class RunGradle(object):
             "_codecs_hk.so", "_codecs_iso2022.so", "_codecs_jp.so", "_codecs_kr.so",
             "_codecs_tw.so", "_contextvars.so", "_csv.so", "_decimal.so", "_elementtree.so",
             "_hashlib.so", "_heapq.so", "_json.so", "_lsprof.so", "_md5.so",
-            "_multibytecodec.so", "_multiprocessing.so", "_pickle.so",
+            "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
             "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
             "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
             "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
@@ -1900,9 +1903,10 @@ class RunGradle(object):
         if python_version_info >= (3, 13):
             stdlib_native_expected -= {
                 "audioop.so", "_xxinterpchannels.so", "_multiprocessing.so",
-                "_xxsubinterpreters.so", "ossaudiodev.so"}
+                "_opcode.so", "_xxsubinterpreters.so", "ossaudiodev.so"}
             stdlib_native_expected |= {
-                "_interpreters.so", "_interpchannels.so", "_interpqueues.so"}
+                "_interpreters.so", "_interpchannels.so", "_interpqueues.so",
+                "_sha2.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))

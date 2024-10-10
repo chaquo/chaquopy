@@ -400,24 +400,35 @@ internal class TaskBuilder(
                 //
                 // If this list changes, search for references to this variable name to
                 // find the tests that need to be updated.
-                val BOOTSTRAP_NATIVE_STDLIB = listOf(
+                val BOOTSTRAP_NATIVE_STDLIB = mutableListOf(
                     "_bz2.so",  // zipfile < importer
                     "_ctypes.so",  // java.primitive and importer
                     "_datetime.so",  // calendar < importer (see test_datetime)
                     "_lzma.so",  // zipfile < importer
-                    "_opcode.so",  // opcode < dis < inspect < importer. The importer
-                                   // dependency could be removed, but inspect is also
-                                   // imported via dataclasses < pprint < elftools in
-                                   // Python <= 3.13.
                     "_random.so",  // random < tempfile < zipimport
-                    "_sha2.so",  // random < tempfile < zipimport (Python >= 3.12)
-                    "_sha512.so",  // random < tempfile < zipimport (Python <= 3.11)
+                    "_sha512.so",  // random < tempfile < zipimport
                     "_struct.so",  // zipfile < importer
                     "binascii.so",  // zipfile < importer
                     "math.so",  // datetime < calendar < importer
                     "mmap.so",  // elftools < importer
                     "zlib.so"  // zipimport
                 )
+
+                val versionParts = python.version!!.split(".")
+                val versionInt =
+                    (versionParts[0].toInt() * 100) + versionParts[1].toInt()
+                if (versionInt >= 312) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.so"))
+                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                        "_sha2.so"  // random < tempfile < zipimport
+                    ))
+                }
+                if (versionInt >= 313) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.so"))
+                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                        "_opcode.so"  // opcode < dis < inspect < importer
+                    ))
+                }
 
                 for (abi in abis) {
                     project.copy {

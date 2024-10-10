@@ -13,7 +13,11 @@ from threading import Thread
 from time import time
 from unittest.mock import patch
 
-from java.android.stream import TextLogStream
+from importlib import import_module
+stream_mod_name = (
+    "java.android.stream" if sys.version_info < (3, 13) else "_android_support")
+TextLogStream = import_module(stream_mod_name).TextLogStream
+
 from ..test_utils import API_LEVEL as api_level, FilterWarningsCase
 
 
@@ -458,10 +462,10 @@ class TestAndroidRateLimit(unittest.TestCase):
         # ensure a quick and reliable test that doesn't flood the log too much.
         MAX_KB_PER_SECOND = 100
         BUCKET_KB = 10
-        with patch("java.android.stream.MAX_BYTES_PER_SECOND", MAX_KB_PER_SECOND * 1024), \
-             patch("java.android.stream.BUCKET_SIZE", BUCKET_KB * 1024), \
-             patch("java.android.stream.sleep", mock_sleep), \
-             patch("java.android.stream.time", mock_time):
+        with patch(f"{stream_mod_name}.MAX_BYTES_PER_SECOND", MAX_KB_PER_SECOND * 1024), \
+             patch(f"{stream_mod_name}.BUCKET_SIZE", BUCKET_KB * 1024), \
+             patch(f"{stream_mod_name}.sleep", mock_sleep), \
+             patch(f"{stream_mod_name}.time", mock_time):
             # Make sure the token bucket is full.
             stream.write("Initial message to reset _prev_write_time")
             mock_sleep(BUCKET_KB / MAX_KB_PER_SECOND)

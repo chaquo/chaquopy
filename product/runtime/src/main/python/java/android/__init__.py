@@ -59,10 +59,8 @@ def initialize_warnings():
 
 
 def initialize_sys():
-    # argv defaults to not existing, which may crash some programs.
-    sys.argv = [""]
-
-    # executable defaults to the empty string, but this causes platform.platform() to crash.
+    # executable defaults to the empty string, but this causes platform.platform() to
+    # crash, and would probably confuse a lot of other code as well.
     try:
         sys.executable = os.readlink("/proc/{}/exe".format(os.getpid()))
     except Exception:
@@ -119,7 +117,6 @@ def initialize_ssl():
 
 
 def initialize_multiprocessing():
-    import _multiprocessing
     from multiprocessing import context, heap, pool
     import threading
 
@@ -161,7 +158,9 @@ def initialize_multiprocessing():
                         "workaround can be removed")
 
     class SemLock:
-        SEM_VALUE_MAX = _multiprocessing.SemLock.SEM_VALUE_MAX
+        # multiprocessing.synchronize reads this attribute during import.
+        SEM_VALUE_MAX = 99
+
         def __init__(self, *args, **kwargs):
             raise OSError(error_message)
 
