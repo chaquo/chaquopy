@@ -97,7 +97,7 @@ chaquopy {
     defaultConfig {
         // Android UI demo
         pip {
-            install("Pygments==2.2.0")  // Also used in Java API demo
+            install("Pygments==2.13.0")  // Also used in Java API demo
         }
         staticProxy("chaquopy.demo.ui_demo")
 
