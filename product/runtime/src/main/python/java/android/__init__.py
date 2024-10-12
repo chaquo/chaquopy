@@ -109,6 +109,9 @@ def initialize_ssl():
     # Unfortunately we can't do this with SSL_CERT_FILE, because OpenSSL ignores
     # environment variables when getauxval(AT_SECURE) is enabled, which is always the case
     # on Android (https://android.googlesource.com/platform/bionic/+/6bb01b6%5E%21/).
+    #
+    # TODO: to pass the CPython test suite, we have now patched our OpenSSL build to
+    # ignore AT_SECURE, so we can probably use the environment variable now.
     import ssl
     cacert = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
     def set_default_verify_paths(self):

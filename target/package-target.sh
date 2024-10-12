@@ -113,12 +113,8 @@ for prefix in $prefixes; do
     done
     rm $dynload_dir/*_test*.so
 
-    # The OpenSSL and SQLite libraries were already stripped before being patched to add
-    # the _python suffix. Stripping them after the patch may corrupt them:
-    # https://github.com/NixOS/patchelf/issues/507
     chmod u+w $(find . -name *.so)
-    find . -name "*.so" -type f | grep -vE 'lib(crypto|ssl|sqlite3)_python' \
-        | xargs "$STRIP"
+    $STRIP $(find . -name *.so)
 
     abi_zip="$target_prefix-$abi.zip"
     rm -f "$abi_zip"
