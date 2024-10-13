@@ -3,8 +3,12 @@ package:
   version: 0.28.0
 
 build:
-  number: 8
+  number: 9
 
 requirements:
   build:
-    - Cython 0.29.36
+    - Cython 3.0.11
+
+    # Newer versions removed msvccompiler, and ignore CFLAGS environment variable for
+    # some reason.
+    - setuptools 69.0.2
