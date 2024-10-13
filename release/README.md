@@ -25,15 +25,13 @@ representative device under the following conditions:
 
 Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
 
-Install the APK and run the Java and Python unit tests on the following devices, with at
-least one device being a clean install, and at least one being an upgrade from the
-previous public release with the tests already run.
+Install the APK and run the Java and Python unit tests on all ABIs, with at least one
+device being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-* x86_64 emulator with targetSdkVersion
-* Any armeabi-v7a device
-* Any arm64-v8a device
+* minSdk
+* targetSdk
+* A clean install
+* An upgrade from the previous public release, with the tests already run
 
 Test all the UI elements of the app on both minSdkVersion and targetSdkVersion.
 
@@ -76,12 +74,12 @@ test on a corresponding device:
 * armeabi-v7a (use a 32-bit device)
 * arm64-v8a
 
-Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on the
-following devices, with at least one being a clean install:
+Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
+ABIs, with at least one device being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion (TensorFlow is expected to fail because of #669)
-* x86_64 emulator with targetSdkVersion
+* minSdk
+* targetSdk
+* A clean install
 
 
 ## Public release
