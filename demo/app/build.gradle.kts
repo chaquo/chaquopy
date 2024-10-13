@@ -23,12 +23,12 @@ afterEvaluate {
 
 android {
     namespace = "com.chaquo.python.demo"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
 
         val plugins = buildscript.configurations.getByName("classpath")
              .resolvedConfiguration.resolvedArtifacts.map {
@@ -97,7 +97,7 @@ chaquopy {
     defaultConfig {
         // Android UI demo
         pip {
-            install("Pygments==2.2.0")  // Also used in Java API demo
+            install("Pygments==2.13.0")  // Also used in Java API demo
         }
         staticProxy("chaquopy.demo.ui_demo")
 

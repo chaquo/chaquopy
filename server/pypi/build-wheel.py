@@ -38,10 +38,11 @@ RECIPES_DIR = f"{PYPI_DIR}/packages"
 # Libraries are grouped by minimum API level and listed under their SONAMEs.
 STANDARD_LIBS = [
     # Android native APIs (https://developer.android.com/ndk/guides/stable_apis)
-    (16, ["libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so",
-          "libjnigraphics.so", "liblog.so", "libm.so", "libOpenMAXAL.so", "libOpenSLES.so",
-          "libz.so"]),
+    (16, ["libandroid.so", "libc.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so",
+          "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so",
+          "libOpenMAXAL.so", "libOpenSLES.so", "libz.so"]),
     (21, ["libmediandk.so"]),
+    (24, ["libcamera2ndk.so", "libvulkan.so"]),
 
     # Chaquopy-provided libraries
     (0, ["libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so"]),
@@ -233,10 +234,25 @@ class BuildWheel:
                 raise ERROR
 
         target_dir = abspath(f"{PYPI_DIR}/../../maven/com/chaquo/python/target")
-        versions = [ver for ver in os.listdir(target_dir) if ver.startswith(self.python)]
+        versions = [
+            ver for ver in os.listdir(target_dir)
+            if ver.startswith(f"{self.python}.")]
         if not versions:
             raise CommandError(f"Can't find Python {self.python} in {target_dir}")
-        max_ver = max(versions, key=lambda ver: [int(x) for x in re.split(r"[.-]", ver)])
+
+        def version_key(ver):
+            # Use the same "releaselevel" notation as sys.version_info so it sorts in
+            # the correct order.
+            groups = list(
+                re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:([a-z]+)(\d+))?-(\d+)", ver).groups())
+            groups[3] = {
+                "a": "alpha", "b": "beta", "rc": "candidate", None: "final"
+            }[groups[3]]
+            if groups[4] is None:
+                groups[4] = 0
+            return groups
+
+        max_ver = max(versions, key=version_key)
         target_version_dir = f"{target_dir}/{max_ver}"
 
         zips = glob(f"{target_version_dir}/target-*-{self.abi}.zip")
@@ -459,9 +475,11 @@ class BuildWheel:
         # doesn't support it, and the links wouldn't survive on Windows anyway. So our library
         # wheels include external shared libraries only under their SONAMEs, and we need to
         # create links from the other names so the compiler can find them.
-        SONAME_PATTERNS = [(r"^(lib.*)\.so\..*$", r"\1.so"),
-                           (r"^(lib.*?)\d+\.so$", r"\1.so"),  # e.g. libpng
-                           (r"^(lib.*)_chaquopy\.so$", r"\1.so")]  # e.g. libjpeg
+        SONAME_PATTERNS = [
+            (r"^(lib.*)\.so\..*$", r"\1.so"),
+            (r"^(lib.*?)[\d.]+\.so$", r"\1.so"),  # e.g. libpng
+            (r"^(lib.*)_(chaquopy|python)\.so$", r"\1.so"),  # e.g. libssl, libjpeg
+        ]
         reqs_lib_dir = f"{self.host_env}/chaquopy/lib"
         for filename in os.listdir(reqs_lib_dir):
             for pattern, repl in SONAME_PATTERNS:
@@ -502,9 +520,15 @@ class BuildWheel:
             raise CommandError(e)
 
     def get_common_env_vars(self, env):
+        # HOST is set by conda-forge's compiler activation scripts, e.g.
+        # https://github.com/conda-forge/clang-compiler-activation-feedstock/blob/main/recipe/activate-clang.sh
+        tool_prefix = ABIS[self.abi].tool_prefix
         build_common_output = run(
-            f"abi={self.abi}; api_level={self.api_level}; prefix={self.host_env}/chaquopy; "
-            f". {PYPI_DIR}/../../target/build-common.sh; export",
+            f"export HOST={tool_prefix}; "
+            f"api_level={self.api_level}; "
+            f"PREFIX={self.host_env}/chaquopy; "
+            f". {PYPI_DIR}/../../target/android-env.sh; "
+            f"export",
             shell=True, executable="bash", text=True, stdout=subprocess.PIPE
         ).stdout
         for line in build_common_output.splitlines():
@@ -517,13 +541,8 @@ class BuildWheel:
                 if os.environ.get(key) != value:
                     env[key] = value
         if not env:
-            raise CommandError("Found no variables in build-common.sh output:\n"
+            raise CommandError("Found no variables in android-env.sh output:\n"
                                + build_common_output)
-
-        # This flag often catches errors in .so files which would otherwise be delayed
-        # until runtime. (Some of the more complex build.sh scripts need to remove this, or
-        # use it more selectively.)
-        env["LDFLAGS"] += " -Wl,--no-undefined"
 
         # Set all other variables used by distutils to prevent the host Python values (if
         # any) from taking effect.
@@ -533,7 +552,6 @@ class BuildWheel:
 
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
-            tool_prefix = ABIS[self.abi].tool_prefix
             toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
             gfortran = f"{PYPI_DIR}/fortran/{toolchain}-4.9/bin/{tool_prefix}-gfortran"
             if not exists(gfortran):
@@ -602,13 +620,9 @@ class BuildWheel:
             # TODO: make everything use HOST instead, and remove this.
             "CHAQUOPY_ABI": self.abi,
 
-            # Set by conda-forge's compiler activation scripts, e.g.
-            # https://github.com/conda-forge/clang-compiler-activation-feedstock/blob/main/recipe/activate-clang.sh
-            "HOST": ABIS[self.abi].tool_prefix,
-
             # conda-build variable names defined at
             # https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html
-            # CPU_COUNT is now in build-common.sh, so the target scripts can use it.
+            # CPU_COUNT is now in android-env.sh, so the target scripts can use it.
             "PKG_BUILDNUM": self.build_num,
             "PKG_NAME": self.package,
             "PKG_VERSION": self.version,
@@ -627,7 +641,7 @@ class BuildWheel:
         if self.verbose:
             log("Environment set as follows:\n" +
                 "\n".join(f"export {key}={shlex.quote(value)}"
-                          for key, value in env.items()))
+                          for key, value in sorted(env.items())))
 
         original_env = {key: os.environ.get(key) for key in env}
         os.environ.update(env)
@@ -720,6 +734,8 @@ class BuildWheel:
             if fixed_path != original_path:
                 run(f"mv {original_path} {fixed_path}")
 
+            # Strip before patching, otherwise the libraries may be corrupted:
+            # https://github.com/NixOS/patchelf/issues?q=is%3Aissue+strip+in%3Atitle
             run(f"chmod +w {fixed_path}")
             run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
