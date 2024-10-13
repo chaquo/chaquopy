@@ -302,7 +302,11 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
         group = "build"
         dependsOn cmake
         executable "$sdkCmakeDir/bin/cmake"
-        args "--build", cmakeBuildSubdir
+
+        // Ninja's parallel build defaults to the number of processors plus 2, which
+        // overloads the GitHub Actions runner.
+        args "--build", cmakeBuildSubdir,
+             "--parallel", Runtime.getRuntime().availableProcessors()
     }
     if (abi != "host") {
         for (name in ["chaquopy", "libchaquopy_java"]) {
