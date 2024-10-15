@@ -25,7 +25,8 @@ directory. Then run build-wheel for all other ABIs.
 Restore `abiFilters` to include all ABIs, and test them all, with at least one device
 being each of the following:
 
-* minSdk
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
 * targetSdk
 * A clean install
 

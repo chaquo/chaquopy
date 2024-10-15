@@ -3,7 +3,8 @@
 Use the pkgtest app as follows (process for older versions varied as noted in the
 table):
 
-* Chaquopy release build
+* Chaquopy release build – temporarily edit the top-level build.gradle file to set the
+  version.
 * App debug build
 * scipy and matplotlib
 * abiFilters set to arm64-v8a and x86_64
@@ -17,8 +18,8 @@ Times are in seconds, best of 3:
 * "Test" is the time reported by the tests themselves.
 
 Sizes are as reported in Settings:
-* "App MB" includes not only the APK, but also extracted native libraries, and probably
-  AOT-compiled Java code.
+* "App MB" includes not only the APK, but also native libraries if they're extracted
+  from the APK, and probably AOT-compiled Java code.
 * "Data MB" is difficult to pin down on the Pixel 7, maybe for reasons connected to the
   WebView mentioned below:
   * It's usually a few MB larger than the size of the /data/data subdirectory, except
@@ -64,4 +65,10 @@ Nexus 4
 Pixel 7
   14.0.2                      0.64  1.51        0.62  0.89       78.7       67.7
   15.0.1                      0.61  1.54        0.55  0.93       78.7       68.0
+
+* Re-testing 15.0.1 now shows an App size of 84.4 MB, and even the APK is bigger than 80,
+  so most of the increase here is probably caused by new versions of the AGP or the
+  app's Java dependencies.
+
+  16.0.0                      0.63  1.50        0.60  0.91       84.9       68.3
 ```

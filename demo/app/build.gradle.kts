@@ -95,6 +95,8 @@ android {
 
 chaquopy {
     defaultConfig {
+        version = "3.8"
+
         // Android UI demo
         pip {
             install("Pygments==2.13.0")  // Also used in Java API demo

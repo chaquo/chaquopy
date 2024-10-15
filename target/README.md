@@ -64,6 +64,8 @@ Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTask
 
 Update `DEFAULT_PYTHON_VERSION` in Common.java.
 
+Update the Python version in all apps in the repository.
+
 Update the pythonX.Y scripts in integration/data/BuildPython.
 
 See the note about the default Python micro version in
