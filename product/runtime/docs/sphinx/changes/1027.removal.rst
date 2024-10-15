@@ -1,1 +1,0 @@
-- :ref:`buildPython` must now be at least Python 3.8.

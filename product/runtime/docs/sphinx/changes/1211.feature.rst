@@ -1,1 +1,0 @@
-Update runtime Python versions to 3.8.20, 3.9.20, 3.10.15, 3.11.10, 3.12.7 and 3.13.0.

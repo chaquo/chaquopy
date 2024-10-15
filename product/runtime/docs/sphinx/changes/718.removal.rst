@@ -1,3 +1,0 @@
-`minSdk` must now be at least API level 24. This
-  still covers `97% of active devices
-  <https://dl.google.com/android/studio/metadata/distributions.json>`__.

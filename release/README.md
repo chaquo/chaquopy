@@ -116,7 +116,8 @@ and update all the public repositories as necessary.
   * Kotlin plugin
 * If .gitignore has changed, git rm any newly-ignored files.
 
-Open each public app in Android Studio and test it on any device, with a clean install.
+Open each public app in Android Studio and test it on minSdk and targetSdk, with a clean
+install.
 
 Close the projects to make sure .idea files are written.
 
@@ -140,7 +141,7 @@ Update:
 Run `gradlew runtime:doc`, and upload to server.
 
 If major.minor version number has changed:
-* Update "current" symlink.
+* Update "current" symlink (`ln -sfT`).
 * Add link on WordPress documentation page.
 
 
@@ -150,9 +151,9 @@ Commit and push all example app repositories.
 
 Tag the commit the GitHub Actions artifacts were built from, and push the tag.
 
-Commit and push this repository.
-
 Increment VERSION.txt for next version number.
+
+Commit and push this repository.
 
 
 ## User communication
