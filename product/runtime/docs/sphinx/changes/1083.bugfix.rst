@@ -1,0 +1,1 @@
+`sys.stdin` is no longer overridden, so it has all the standard attributes including `buffer`.
