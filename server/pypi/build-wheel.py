@@ -579,11 +579,6 @@ class BuildWheel:
             raise CommandError("Found no variables in android-env.sh output:\n"
                                + build_common_output)
 
-        # Set all other variables used by distutils to prevent the host Python values (if
-        # any) from taking effect.
-        env["CPPFLAGS"] = ""
-        env["LDSHARED"] = f"{env['CC']} -shared"
-
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
             toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
@@ -610,6 +605,11 @@ class BuildWheel:
                     """), file=wrapper_file)
             os.chmod(wrapper_path, 0o755)
             env[var] = wrapper_path
+
+        # Set all other variables used by distutils to prevent the host Python values (if
+        # any) from taking effect.
+        env["CPPFLAGS"] = ""
+        env["LDSHARED"] = f"{env['CC']} -shared"
 
     def get_python_env_vars(self, env, pypi_env):
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
