@@ -1,0 +1,11 @@
+--- a/mecab/configure.in
++++ b/mecab/configure.in
+@@ -50,7 +50,7 @@ AC_TYPE_SIZE_T
+ AC_TYPE_UNSIGNED_LONG_LONG_INT
+
+ AC_FUNC_MMAP
+-AC_CHECK_LIB(stdc++, main, MECAB_LIBS="-lstdc++")
++# AC_CHECK_LIB(stdc++, main, MECAB_LIBS="-lstdc++")
+ AC_CHECK_LIB(pthread,pthread_create)
+ AC_CHECK_LIB(pthread,pthread_join)
+ AC_CHECK_FUNCS(getenv)
