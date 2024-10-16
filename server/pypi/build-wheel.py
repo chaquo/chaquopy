@@ -582,7 +582,6 @@ class BuildWheel:
         # Set all other variables used by distutils to prevent the host Python values (if
         # any) from taking effect.
         env["CPPFLAGS"] = ""
-        env["CXXFLAGS"] = ""
         env["LDSHARED"] = f"{env['CC']} -shared"
 
         compiler_vars = ["CC", "CXX", "LD"]
@@ -627,7 +626,9 @@ class BuildWheel:
 
         # Use -idirafter so that package-specified -I directories take priority. For
         # example, typed-ast provides its own Python headers.
-        env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
+        for name in ["CFLAGS", "CXXFLAGS", "FARCH"]:
+            if name in env:
+                env[name] += f" -idirafter {self.python_include_dir}"
         env["LDFLAGS"] += f" -lpython{self.python}"
 
         # Overrides sysconfig.get_platform and distutils.util.get_platform.

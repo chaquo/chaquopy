@@ -85,6 +85,10 @@ if [ -n "${PREFIX:-}" ]; then
     export PKG_CONFIG_LIBDIR="$abs_prefix/lib/pkgconfig"
 fi
 
+# When compiling C++, some build systems will combine CFLAGS and CXXFLAGS, and some will
+# use CXXFLAGS alone.
+export CXXFLAGS=$CFLAGS
+
 # Use the same variable name as conda-build
 if [ $(uname) = "Darwin" ]; then
     export CPU_COUNT=$(sysctl -n hw.ncpu)
