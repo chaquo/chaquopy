@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from email import generator, message, parser
 from glob import glob
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join, splitext
+from os.path import abspath, basename, dirname, exists, isdir, islink, join, splitext
 from pathlib import Path
 import re
 import shlex
@@ -43,9 +43,6 @@ STANDARD_LIBS = [
           "libOpenMAXAL.so", "libOpenSLES.so", "libz.so"]),
     (21, ["libmediandk.so"]),
     (24, ["libcamera2ndk.so", "libvulkan.so"]),
-
-    # Chaquopy-provided libraries
-    (0, ["libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so"]),
 ]
 
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
@@ -105,14 +102,10 @@ class BuildWheel:
             self.needs_python = self.needs_target = (self.meta["source"] == "pypi")
             for name in ["openssl", "python", "sqlite"]:
                 if name in self.meta["requirements"]["host"]:
-                    self.meta["requirements"]["host"].remove(name)
                     self.needs_target = True
                     if name == "python":
+                        self.meta["requirements"]["host"].remove(name)
                         self.needs_python = True
-                    else:
-                        # OpenSSL and SQLite currently work without any build flags, but it's
-                        # worth keeping them in existing meta.yaml files in case that changes.
-                        pass
 
             self.unpack_and_build()
 
@@ -496,10 +489,52 @@ class BuildWheel:
             run(f"{os.environ['AR']} rc {self.host_env}/chaquopy/lib/lib{name}.a")
 
     def extract_target(self):
-        run(f"unzip -q -d {self.host_env}/chaquopy {self.target_zip} include/* jniLibs/*")
-        run(f"mv {self.host_env}/chaquopy/jniLibs/{self.abi}/* {self.host_env}/chaquopy/lib",
-            shell=True)
-        run(f"rm -r {self.host_env}/chaquopy/jniLibs")
+        chaquopy_dir = f"{self.host_env}/chaquopy"
+        run(f"unzip -q -d {chaquopy_dir} {self.target_zip} include/* jniLibs/*")
+
+        # Only include OpenSSL and SQLite in the environment if the recipe requests
+        # them. This affects grpcio, which provides its own copy of BoringSSL, and gets
+        # confused if OpenSSL is also on the include path.
+        for name, includes, libs in [
+            ("openssl", "openssl", "lib{crypto,ssl}*"),
+            ("sqlite", "sqlite*", "libsqlite*"),
+        ]:
+            try:
+                self.meta["requirements"]["host"].remove(name)
+            except ValueError:
+                for pattern in [f"include/{includes}", f"jniLibs/{self.abi}/{libs}"]:
+                    run(f"rm -r {chaquopy_dir}/{pattern}", shell=True)
+
+        # When building packages that could be loaded by older versions of Chaquopy,
+        # i.e non-Python packages, and Python packages for 3.12 and older:
+        #
+        # * We must produce DT_NEEDED entries with the _chaquopy suffix, because that's
+        #   the only name older versions of Chaquopy provide.
+        # * The library with that SONAME must actually contain the needed symbols,
+        #   because of -Wl,--no-undefined.
+        #
+        # So if we're using a `target` package that's new enough to have the _python
+        # names, we must remove the the stub _chaquopy libraries added by
+        # package-target.sh, and rename the _python libraries to _chaquopy.
+        #
+        # When building only for Python 3.13 and newer, we should use the _python suffix
+        # so our wheels are compatible with any other Python on Android distributions.
+        lib_dir = f"{chaquopy_dir}/jniLibs/{self.abi}"
+        for name in ["crypto", "ssl", "sqlite3"]:
+            python_name = f"lib{name}_python.so"
+            chaquopy_name = f"lib{name}_chaquopy.so"
+            if exists(f"{lib_dir}/{python_name}"):
+                run(f"rm {lib_dir}/{chaquopy_name}")
+                if (
+                    not self.needs_python
+                    or self.python in ["3.8", "3.9", "3.10", "3.11", "3.12"]
+                ):
+                    run(f"mv {lib_dir}/{python_name} {lib_dir}/{chaquopy_name}")
+                    run(f"patchelf --set-soname {chaquopy_name} "
+                        f"{lib_dir}/{chaquopy_name}")
+
+        run(f"mv {chaquopy_dir}/jniLibs/{self.abi}/* {chaquopy_dir}/lib", shell=True)
+        run(f"rm -r {chaquopy_dir}/jniLibs")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -529,7 +564,7 @@ class BuildWheel:
             f"PREFIX={self.host_env}/chaquopy; "
             f". {PYPI_DIR}/../../target/android-env.sh; "
             f"export",
-            shell=True, executable="bash", text=True, stdout=subprocess.PIPE
+            shell=True, stdout=subprocess.PIPE
         ).stdout
         for line in build_common_output.splitlines():
             # We don't require every line to match, e.g. there may be some output from
@@ -587,10 +622,8 @@ class BuildWheel:
 
         self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
         assert_exists(self.python_include_dir)
-        libpython = f"libpython{self.python}.so"
-        self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
+        self.python_lib = f"{self.host_env}/chaquopy/lib/libpython{self.python}.so"
         assert_exists(self.python_lib)
-        self.standard_libs.append(libpython)
 
         # Use -idirafter so that package-specified -I directories take priority. For
         # example, typed-ast provides its own Python headers.
@@ -712,9 +745,13 @@ class BuildWheel:
         available_libs = set(self.standard_libs)
         for dir_name in [f"{self.host_env}/chaquopy/lib", tmp_dir]:
             if exists(dir_name):
-                for _, _, filenames in os.walk(dir_name):
-                    available_libs.update(name for name in filenames
-                                          if re.search(SO_PATTERN, name))
+                for dirpath, _, filenames in os.walk(dir_name):
+                    for name in filenames:
+                        if (
+                            re.search(SO_PATTERN, name)
+                            and not islink(f"{dirpath}/{name}")
+                        ):
+                            available_libs.add(name)
 
         reqs = set()
         log("Processing native binaries")
@@ -920,8 +957,12 @@ def normalize_version(version):
 def run(command, **kwargs):
     log(command)
     kwargs.setdefault("check", True)
-    kwargs.setdefault("shell", False)
     kwargs.setdefault("text", True)
+
+    kwargs.setdefault("shell", False)
+    if kwargs["shell"]:
+        # Allow bash-specific syntax like `lib{crypto,ssl}`.
+        kwargs.setdefault("executable", "bash")
 
     if isinstance(command, str) and not kwargs["shell"]:
         command = shlex.split(command)
