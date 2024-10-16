@@ -165,7 +165,7 @@ jobs:
           - os: linux
             runs-on: ubuntu-20.04
           - os: macos
-            runs-on: macos-12
+            runs-on: macos-13
           - os: windows
             runs-on: windows-2022
 
