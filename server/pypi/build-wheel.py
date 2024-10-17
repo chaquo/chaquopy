@@ -85,7 +85,7 @@ class BuildWheel:
                                  normalize_version(self.version))
 
             self.non_python_build_reqs = set()
-            for name in ["cmake", "fortran"]:
+            for name in ["cmake", "fortran", "rust"]:
                 try:
                     self.meta["requirements"]["build"].remove(name)
                 except ValueError:
@@ -106,10 +106,6 @@ class BuildWheel:
                     if name == "python":
                         self.meta["requirements"]["host"].remove(name)
                         self.needs_python = True
-
-            self.needs_rust = any(
-                x.startswith("setuptools-rust ")
-                for x in self.meta["requirements"]["build"])
 
             self.unpack_and_build()
 
@@ -676,7 +672,7 @@ class BuildWheel:
 
         if self.needs_python:
             self.get_python_env_vars(env, pypi_env)
-        if self.needs_rust:
+        if "rust" in self.non_python_build_reqs:
             self.get_rust_env_vars(env)
 
         env.update({

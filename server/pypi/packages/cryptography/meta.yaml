@@ -4,7 +4,6 @@ package:
 
 requirements:
   build:
-    - cffi 1.15.1
-    - setuptools-rust 1.7.0
+    - rust
   host:
     - openssl
