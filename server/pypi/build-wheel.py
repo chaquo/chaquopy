@@ -85,7 +85,7 @@ class BuildWheel:
                                  normalize_version(self.version))
 
             self.non_python_build_reqs = set()
-            for name in ["cmake", "fortran"]:
+            for name in ["cmake", "fortran", "rust"]:
                 try:
                     self.meta["requirements"]["build"].remove(name)
                 except ValueError:
@@ -611,6 +611,10 @@ class BuildWheel:
         env["CPPFLAGS"] = ""
         env["LDSHARED"] = f"{env['CC']} -shared"
 
+        if exists(f"{self.host_env}/chaquopy/lib/libssl.so"):
+            # `cryptography` requires this variable.
+            env["OPENSSL_DIR"] = f"{self.host_env}/chaquopy"
+
     def get_python_env_vars(self, env, pypi_env):
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
         # example to call numpy.get_include().
@@ -633,7 +637,26 @@ class BuildWheel:
 
         # Overrides sysconfig.get_platform and distutils.util.get_platform.
         # TODO: consider replacing this with crossenv.
-        env["_PYTHON_HOST_PLATFORM"] = f"linux_{ABIS[self.abi].uname_machine}"
+        env["_PYTHON_HOST_PLATFORM"] = f"linux-{ABIS[self.abi].uname_machine}"
+
+    def get_rust_env_vars(self, env):
+        tool_prefix = ABIS[self.abi].tool_prefix
+        run(f"rustup target add {tool_prefix}")
+        env.update({
+            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
+            "CARGO_BUILD_TARGET": tool_prefix,
+
+            # Normally PyO3 requires sysconfig modules, which are not currently
+            # available in the `target` packages for Python 3.12 and older. However,
+            # since PyO3 0.16.4, it's possible to compile abi3 modules without sysconfig
+            # modules. This only requires packages to specify the minimum python
+            # compatibility version via one of the "abi3-py*" features (e.g.
+            # abi3-py310). Doing this requires the "-L native" flag in RUSTFLAGS above.
+            # https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter
+            "PYO3_NO_PYTHON": "1",
+            "PYO3_CROSS": "1",
+            "PYO3_CROSS_PYTHON_VERSION": self.python,
+        })
 
     @contextmanager
     def env_vars(self):
@@ -649,6 +672,8 @@ class BuildWheel:
 
         if self.needs_python:
             self.get_python_env_vars(env, pypi_env)
+        if "rust" in self.non_python_build_reqs:
+            self.get_rust_env_vars(env)
 
         env.update({
             # TODO: make everything use HOST instead, and remove this.

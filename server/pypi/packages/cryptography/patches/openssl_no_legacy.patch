@@ -1,0 +1,16 @@
+--- src-original/src/rust/src/lib.rs
++++ src/src/rust/src/lib.rs
+@@ -45,9 +45,10 @@
+     // serialization), RC4, Blowfish, IDEA, SEED, etc. These things
+     // are ugly legacy, but we aren't going to get rid of them
+     // any time soon.
+-    let load_legacy = env::var("CRYPTOGRAPHY_OPENSSL_NO_LEGACY")
+-        .map(|v| v.is_empty() || v == "0")
+-        .unwrap_or(true);
++
++    // Chaquopy: the legacy provider is not available.
++    let load_legacy = false;
++
+     let legacy = if load_legacy {
+         let legacy_result = provider::Provider::load(None, "legacy");
+         _legacy_provider_error(legacy_result.is_ok())?;
