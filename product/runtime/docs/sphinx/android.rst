@@ -502,9 +502,11 @@ include:
 multiprocessing
 ---------------
 
-Because Android doesn't support POSIX semaphores, most of the :any:`multiprocessing` APIs will
-fail with the error "This platform lacks a functioning sem_open implementation". The simplest
-solution is to use :any:`multiprocessing.dummy` instead.
+Because Android doesn't support the System V IPC API, most of the :any:`multiprocessing`
+APIs will fail with the error "This platform lacks a functioning sem_open
+implementation" or "No module named '_multiprocessing'".
+
+The simplest solution is to use :any:`multiprocessing.dummy` instead.
 
 .. _android-os:
 
@@ -531,16 +533,6 @@ If your app is `debuggable <https://developer.android.com/studio/debug#enable-de
 read and write this directory from Android Studio using the `Device File Explorer
 <https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
 like `/data/data/your.application.id/files`.
-
-socket
-------
-
-The following functions are unavailable because they're not supported by our minimum
-Android version:
-
-* :any:`socket.if_nameindex`
-* :any:`socket.if_nametoindex`
-* :any:`socket.if_indextoname`
 
 ssl
 ---
