@@ -107,7 +107,9 @@ class BuildWheel:
                         self.meta["requirements"]["host"].remove(name)
                         self.needs_python = True
 
-            self.needs_rust = next((True for x in self.meta["requirements"]["build"] if x.startswith("setuptools-rust ")), False)
+            self.needs_rust = any(
+                x.startswith("setuptools-rust ")
+                for x in self.meta["requirements"]["build"])
 
             self.unpack_and_build()
 
@@ -670,21 +672,22 @@ class BuildWheel:
         })
 
         if self.needs_rust:
-          # env variables for rust/PyO3 cross compilation
-          env.update({
-            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
-            "CARGO_BUILD_TARGET": ABIS[self.abi].tool_prefix,
+            env.update({
+                "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
+                "CARGO_BUILD_TARGET": ABIS[self.abi].tool_prefix,
 
-            # normally PyO3 requires sysconfig modules, which are not currently available in chaquopy
-            # and would require rebuilding. However, since PyO3 0.16.4, it's possible to compile abi3
-            # modules without sysconfig modules. This only requires packages to specify the minumim
-            # python compatibility version via one of the "abi3-py*" features (e.g. abi3-py310).
-            # Doing this requires the "-L native" flag in RUSTFLAGS above.
-            # https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter
-            "PYO3_NO_PYTHON": "1",
-            "PYO3_CROSS": "1",
-            "PYO3_CROSS_PYTHON_VERSION": self.python,
-          })
+                # Normally PyO3 requires sysconfig modules, which are not currently
+                # available in the `target` packages for Python 3.12 and older. However,
+                # since PyO3 0.16.4, it's possible to compile abi3 modules without
+                # sysconfig modules. This only requires packages to specify the minimum
+                # python compatibility version via one of the "abi3-py*" features (e.g.
+                # abi3-py310). Doing this requires the "-L native" flag in RUSTFLAGS
+                # above.
+                # https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter
+                "PYO3_NO_PYTHON": "1",
+                "PYO3_CROSS": "1",
+                "PYO3_CROSS_PYTHON_VERSION": self.python,
+            })
 
         for var in self.meta["build"]["script_env"]:
             key, value = var.split("=")
