@@ -49,6 +49,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        App.setPySubtitle(this);
+
         consoleModel = ViewModelProviders.of(this).get(ConsoleModel.class);
         task = ViewModelProviders.of(this).get(getTaskClass());
         setContentView(resId("layout", "activity_console"));
