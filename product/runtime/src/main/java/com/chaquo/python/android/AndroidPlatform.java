@@ -263,9 +263,15 @@ public class AndroidPlatform extends Python.Platform {
         // we should still keep pre-loading the OpenSSL and SQLite libraries, because we
         // can't guarantee that our lib directory will always be on the LD_LIBRARY_PATH
         // (#1198).
-        System.loadLibrary("crypto_chaquopy");
-        System.loadLibrary("ssl_chaquopy");
-        System.loadLibrary("sqlite3_chaquopy");
+        //
+        // The "python" suffix is the actual library; "chaquopy" is a stub for
+        // compatibility with existing wheels. See target/package-target.sh.
+        for (String suffix : Arrays.asList("chaquopy", "python")) {
+            System.loadLibrary("crypto_" + suffix);
+            System.loadLibrary("ssl_" + suffix);
+            System.loadLibrary("sqlite3_" + suffix);
+        }
+
         System.loadLibrary("python" + buildJson.getString("python_version"));
         System.loadLibrary("chaquopy_java");
     }

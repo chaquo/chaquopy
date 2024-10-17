@@ -25,15 +25,14 @@ representative device under the following conditions:
 
 Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
 
-Install the APK and run the Java and Python unit tests on the following devices, with at
-least one device being a clean install, and at least one being an upgrade from the
-previous public release with the tests already run.
+Install the APK and run the Java and Python unit tests on all ABIs, with at least one
+device being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-* x86_64 emulator with targetSdkVersion
-* Any armeabi-v7a device
-* Any arm64-v8a device
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
+* targetSdk
+* A clean install
+* An upgrade from the previous public release, with the tests already run
 
 Test all the UI elements of the app on both minSdkVersion and targetSdkVersion.
 
@@ -57,31 +56,32 @@ Open the pkgtest app in Android Studio, and temporarily edit the top-level build
 file to use the local Chaquopy version.
 
 Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes,
-ordered by number of PyPI downloads:
+ordered by number of PyPI downloads, excluding TensorFlow (#1209):
 
 * Get the PyPI statistics as described in server/pypi/README-internal.md.
 * `cd server/pypi/packages`
-* `cat pypi-downloads.csv | cut -d, -f1 | while read name; do if [ -e $name ]; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* `cat pypi-downloads.csv | cut -d, -f1 | while read name; do if [ -e $name ] && [ $name != tensorflow ]; then echo $name; fi; done | head -n40 | tr '\n' ' '`
 
 As of 2023-12, this is:
 
-    numpy cryptography cffi pandas aiohttp yarl greenlet frozenlist grpcio lxml psutil multidict pillow scipy bcrypt matplotlib pynacl scikit-learn kiwisolver regex ruamel-yaml-clib google-crc32c pycryptodomex contourpy pyzmq pycryptodome zope-interface tensorflow h5py tokenizers torch shapely numba llvmlite xgboost scikit-image statsmodels sentencepiece opencv-python torchvision
+    numpy cryptography cffi pandas aiohttp yarl greenlet frozenlist grpcio lxml psutil multidict pillow scipy bcrypt matplotlib pynacl scikit-learn kiwisolver regex ruamel-yaml-clib google-crc32c pycryptodomex contourpy pyzmq pycryptodome zope-interface h5py tokenizers torch shapely numba llvmlite xgboost scikit-image statsmodels sentencepiece opencv-python torchvision brotli
 
 Search the package test scripts for the word "Android", and consider adding any packages
-which test Chaquopy in a way that isn't covered by the unit tests.
+which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
+Chaquopy's own unit tests.
 
-Set `abiFilters` to each of the following values (this tests the single-ABI case), and
-test on a corresponding device:
+Set `abiFilters` to each of `armeabi-v7a` and `arm64-v8a` (this tests the single-ABI
+case), and test on those ABIs, with at least one device being each of the following:
 
-* armeabi-v7a (use a 32-bit device)
-* arm64-v8a
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
+* targetSdk
+* A clean install
 
-Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on the
-following devices, with at least one being a clean install:
+Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
+ABIs, with at least one device being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion (TensorFlow is expected to fail because of #669)
-* x86_64 emulator with targetSdkVersion
+* minSdk (on all ABIs if possible)
 
 
 ## Public release
@@ -116,7 +116,8 @@ and update all the public repositories as necessary.
   * Kotlin plugin
 * If .gitignore has changed, git rm any newly-ignored files.
 
-Open each public app in Android Studio and test it on any device, with a clean install.
+Open each public app in Android Studio and test it on minSdk and targetSdk, with a clean
+install.
 
 Close the projects to make sure .idea files are written.
 
@@ -140,7 +141,7 @@ Update:
 Run `gradlew runtime:doc`, and upload to server.
 
 If major.minor version number has changed:
-* Update "current" symlink.
+* Update "current" symlink (`ln -sfT`).
 * Add link on WordPress documentation page.
 
 
@@ -150,9 +151,9 @@ Commit and push all example app repositories.
 
 Tag the commit the GitHub Actions artifacts were built from, and push the tag.
 
-Commit and push this repository.
-
 Increment VERSION.txt for next version number.
+
+Commit and push this repository.
 
 
 ## User communication

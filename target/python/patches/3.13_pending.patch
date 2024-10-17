@@ -1,0 +1,39 @@
+diff --git a/Android/android-env.sh b/Android/android-env.sh
+index 93372e3fe1c..94712602a23 100644
+--- a/Android/android-env.sh
++++ b/Android/android-env.sh
+@@ -24,7 +24,7 @@ fail() {
+ # * https://android.googlesource.com/platform/ndk/+/ndk-rXX-release/docs/BuildSystemMaintainers.md
+ #   where XX is the NDK version. Do a diff against the version you're upgrading from, e.g.:
+ #   https://android.googlesource.com/platform/ndk/+/ndk-r25-release..ndk-r26-release/docs/BuildSystemMaintainers.md
+-ndk_version=26.2.11394342
++ndk_version=27.1.12297006
+ 
+ ndk=$ANDROID_HOME/ndk/$ndk_version
+ if ! [ -e $ndk ]; then
+@@ -58,8 +58,8 @@ for path in "$AR" "$AS" "$CC" "$CXX" "$LD" "$NM" "$RANLIB" "$READELF" "$STRIP";
+     fi
+ done
+ 
+-export CFLAGS=""
+-export LDFLAGS="-Wl,--build-id=sha1 -Wl,--no-rosegment"
++export CFLAGS="-D__BIONIC_NO_PAGE_SIZE_MACRO"
++export LDFLAGS="-Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,-z,max-page-size=16384"
+ 
+ # Unlike Linux, Android does not implicitly use a dlopened library to resolve
+ # relocations in subsequently-loaded libraries, even if RTLD_GLOBAL is used
+diff --git a/Android/android.py b/Android/android.py
+index 8696d9eaeca..b3ee449ba43 100755
+--- a/Android/android.py
++++ b/Android/android.py
+@@ -138,8 +138,8 @@ def make_build_python(context):
+ 
+ def unpack_deps(host):
+     deps_url = "https://github.com/beeware/cpython-android-source-deps/releases/download"
+-    for name_ver in ["bzip2-1.0.8-1", "libffi-3.4.4-2", "openssl-3.0.15-0",
+-                     "sqlite-3.45.1-0", "xz-5.4.6-0"]:
++    for name_ver in ["bzip2-1.0.8-2", "libffi-3.4.4-3", "openssl-3.0.15-4",
++                     "sqlite-3.45.3-3", "xz-5.4.6-1"]:
+         filename = f"{name_ver}-{host}.tar.gz"
+         download(f"{deps_url}/{name_ver}/{filename}")
+         run(["tar", "-xf", filename])

@@ -2,6 +2,7 @@ import os
 from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
 from android.os import Build
@@ -61,6 +62,7 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertTrue(encoder.c_make_encoder)
         self.assertTrue(scanner.c_make_scanner)
 
+    @skipIf(sys.version_info >= (3, 13), "lib2to3 was removed in Python 3.13")
     def test_lib2to3(self):
         with catch_warnings():
             for category in [DeprecationWarning, PendingDeprecationWarning]:
@@ -102,7 +104,14 @@ class TestAndroidStdlib(FilterWarningsCase):
         for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
                      "Semaphore"]:
             cls = getattr(synchronize, name)
-            with self.assertRaisesRegex(OSError, "This platform lacks a functioning sem_open"):
+            with self.assertRaisesRegex(
+                OSError,
+                (
+                    "This platform lacks a functioning sem_open"
+                    if sys.version_info < (3, 13)
+                    else "No module named '_multiprocessing'"
+                )
+            ):
                 if name == "Barrier":
                     cls(1, ctx=ctx)
                 else:
@@ -135,9 +144,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         python_bits = platform.architecture()[0]
         self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
 
-        # Requires sys.executable to exist.
-        p = platform.platform()
-        self.assertRegex(p, r"^Linux")
+        self.assertRegex(
+            platform.platform(),
+            r"^Linux" if sys.version_info < (3, 13) else r"^Android")
 
     def test_select(self):
         import select
@@ -165,15 +174,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         self.assertIsInstance(vs[0], signal.Signals)
         self.assertIsInstance(vs[0], enum.IntEnum)
         self.assertEqual("<Signals.SIGHUP: 1>", repr(vs[0]))
-
-    def test_socket(self):
-        import socket
-        for name in ["if_nameindex", "if_nametoindex", "if_indextoname"]:
-            for args in [[], ["whatever"]]:
-                with self.assertRaisesRegex(
-                    OSError, "this function is not available in this build of Python"
-                ):
-                    getattr(socket, name)(*args)
 
     def test_sqlite(self):
         import sqlite3
@@ -218,7 +218,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         for p in sys.path:
             self.assertTrue(exists(p), p)
 
-        self.assertRegex(sys.platform, r"^linux")
+        self.assertEqual(
+            sys.platform,
+            "linux" if sys.version_info < (3, 13) else "android")
         self.assertNotIn("dirty", sys.version)
 
     def test_sysconfig(self):

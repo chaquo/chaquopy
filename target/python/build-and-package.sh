@@ -6,8 +6,13 @@ version_short=${1:?}
 
 cd $recipe_dir/..
 
-version_micro=$(./list-versions.py --micro | grep "^$version_short\.")
-version_build=$(./list-versions.py --build | grep "^$version_short\.")
+version_micro=$(./list-versions.py --micro | grep "^$version_short\." || true)
+version_build=$(./list-versions.py --build | grep "^$version_short\." || true)
+
+if [ -z "$version_micro" ] || [ -z "$version_build" ]; then
+    echo "Invalid version '$version_short'" >&2
+    exit 1
+fi
 
 case $version_short in
     3.8|3.9|3.10|3.11)

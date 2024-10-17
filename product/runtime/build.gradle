@@ -271,15 +271,24 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
                   "$javaHome/include/$javaIncludeSubdir")
         } else {
-            // This must be one of the NDK versions which are pre-installed on the
-            // GitHub Actions runner. Ideally it would also match the version in
-            // target/build-common.sh, but the latter is more difficult to change.
-            def ndkDir = sdkPath("ndk/26.3.11579264")
+            String ndkDir = null
+            def androidEnvFile = file("../../target/android-env.sh").absoluteFile
+            for (line in androidEnvFile.readLines()) {
+                def match = line =~ /ndk_version=(\S+)/
+                if (match) {
+                    ndkDir = sdkPath("ndk/${match.group(1)}")
+                    break
+                }
+            }
+            if (ndkDir == null) {
+                throw new GradleException("Failed to find NDK version in $androidEnvFile")
+            }
 
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
-                 "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
+                 "-DANDROID_ABI=$abi",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",
+                 "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                  "-DCHAQUOPY_PYTHON_VERSIONS=${pyVersions.join(';')}",
                  "-DCHAQUOPY_INCLUDE_PYTHON=$prefixDir/include",
                  "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
@@ -293,7 +302,11 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
         group = "build"
         dependsOn cmake
         executable "$sdkCmakeDir/bin/cmake"
-        args "--build", cmakeBuildSubdir
+
+        // Ninja's parallel build defaults to the number of processors plus 2, which
+        // overloads the GitHub Actions runner.
+        args "--build", cmakeBuildSubdir,
+             "--parallel", Runtime.getRuntime().availableProcessors()
     }
     if (abi != "host") {
         for (name in ["chaquopy", "libchaquopy_java"]) {
