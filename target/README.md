@@ -40,11 +40,15 @@ must be released under a different build number.
 
 When building wheels for other packages:
 
+* Try to build all the packages we currently have in the repository for the previous
+  Python version.
 * For each package, in dependency order:
-  * Update to the current stable version, unless it's been updated recently, or updating
-    would take a lot of work which wouldn't be justified by user demand.
+  * Check whether there are any existing notes in issues or PRs.
+  * Update to the current stable version, unless this would take a lot of work which
+    isn't justified by user demand.
   * Review patches and build scripts to see if there are any workarounds which are no
     longer necessary.
+  * In the commit message, close any issues which are now resolved.
 * When finished:
   * Clear out any bad builds before copying them to the public repository.
   * Notify any users who requested new versions.
