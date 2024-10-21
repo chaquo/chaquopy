@@ -331,12 +331,15 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
         }
     }
 
-In our most recent tests, Chaquopy could install over 90% of the top 1000 packages on `PyPI
-<https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
-selection of packages with native components. To see which native packages are currently
+Chaquopy can install almost all pure-Python packages, plus a large selection
+of packages with native components. To see which native packages are currently
 available, you can `browse the repository here <https://chaquo.com/pypi-13.1/>`_. To
-request a package to be added or updated, or for any other problem with installing
-requirements, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
+add or update a package:
+
+* Try to build it yourself by following `these instructions
+  <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`__.
+* Search our `issue tracker <https://github.com/chaquo/chaquopy/issues>`__ for advice
+  on the package, and create a new issue if necessary.
 
 To pass options to `pip install`, give them as a comma-separated list to the `options`
 method. For example::
