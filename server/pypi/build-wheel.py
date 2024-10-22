@@ -367,7 +367,8 @@ class BuildWheel:
 
         # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
         # downloaded sdist, which may fail or take a long time
-        # (https://github.com/pypa/pip/issues/1884). So we download the sdist manually.
+        # (https://github.com/pypa/pip/issues/1884). So we download the sdist with a
+        # different library.
         log("Searching PyPI")
         pypi = pypi_simple.PyPISimple()
         try:
@@ -376,8 +377,12 @@ class BuildWheel:
             raise CommandError(e)
 
         for package in project.packages:
+            # sdist filenames used to use the original package name, but current
+            # standards encourage normalization
+            # (https://packaging.python.org/en/latest/specifications/source-distribution-format/).
             if (
-                (package.project, package.version) == (self.package, self.version)
+                normalize_name_pypi(package.project) == normalize_name_pypi(self.package)
+                and package.version == self.version
                 and any(package.filename.endswith("." + ext) for ext in EXTENSIONS)
             ):
                 log(f"Downloading {package.url}")
@@ -385,7 +390,19 @@ class BuildWheel:
                     package, package.filename,
                     progress=pypi_simple.tqdm_progress_factory(
                         unit="B", unit_scale=True, unit_divisor=1024))
-                return package.filename
+
+                # Cache it under the unnormalized name so the code above can find it.
+                for ext in EXTENSIONS:
+                    if package.filename.endswith("." + ext):
+                        cache_filename = f"{self.package}-{self.version}.{ext}"
+                        if cache_filename != package.filename:
+                            os.rename(package.filename, cache_filename)
+                        break
+                else:
+                    raise CommandError(
+                        f"Can't determine cache filename for {package.filename!r}")
+
+                return cache_filename
         else:
             raise CommandError(
                 f"Can't find sdist for {self.package!r} version {self.version!r} at "
