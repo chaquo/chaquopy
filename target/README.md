@@ -43,7 +43,7 @@ When building wheels for other packages:
 * Try to build all the packages we currently have in the repository for the previous
   Python version.
 * For each package, in dependency order:
-  * Check whether there are any existing notes in issues or PRs.
+  * Check for notes in the meta.yaml file, in issues or in PRs.
   * Update to the current stable version, unless this would take a lot of work which
     isn't justified by user demand.
   * Review patches and build scripts to see if there are any workarounds which are no

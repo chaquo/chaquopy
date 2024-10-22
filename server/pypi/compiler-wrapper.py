@@ -50,7 +50,10 @@ def main():
         i += 1
 
     if args_removed:
-        print("Chaquopy: removed arguments: " + shlex.join(args_removed))
+        print(
+            "Chaquopy: removed arguments: " + shlex.join(args_removed),
+            file=sys.stderr)  # Some build systems hide the compiler's stdout.
+
     os.execv(args_out[0], args_out)
 
 
