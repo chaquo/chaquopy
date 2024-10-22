@@ -22,14 +22,13 @@ which may be less stable. Include these packages in all the remaining tests.
 Once everything's working on this ABI, save any edits in the package's `patches`
 directory. Then run build-wheel for all other ABIs.
 
-Restore `abiFilters` to include all ABIs. Then test the app on the following devices, with
-at least one device being a clean install:
+Restore `abiFilters` to include all ABIs, and test them all, with at least one device
+being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-* x86_64 emulator with targetSdkVersion
-* Any armeabi-v7a device
-* Any arm64-v8a device
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
+* targetSdk
+* A clean install
 
 Repeat the build and test on all other Python versions.
 

@@ -11,21 +11,34 @@
  import numpy
  from pkg_resources import parse_version
  from setuptools import (
---- src-original/pyproject.toml	2023-12-06 12:10:08.000000000 +0000
-+++ src/pyproject.toml	2023-12-06 12:33:14.841679887 +0000
-@@ -2,8 +2,9 @@
+--- aaa/pyproject.toml	2024-10-21 14:07:02.000000000 +0000
++++ src/pyproject.toml	2024-10-22 10:54:36.432787684 +0000
+@@ -2,19 +2,28 @@
  # Minimum requirements for the build system to execute.
  # See https://github.com/scipy/scipy/pull/12940 for the AIX issue.
  requires = [
 -    "meson-python==0.13.1",
 -    "meson==1.2.1",
-+    # Chaquopy: disabled meson, since the setuptools build still works for now
++    # Chaquopy: replaced meson with setuptools, which still works for now.
++    # "meson-python==0.13.1",
++    # "meson==1.2.1",
 +    "setuptools==69.0.2",
 +
      "wheel",
-     "Cython>=0.29.33,<3",  # Note: sync with setup.py, environment.yml and asv.conf.json
+-    "Cython>=0.29.33,<3",  # Note: sync with setup.py, environment.yml and asv.conf.json
++
++    # Chaquopy: increased Cython upper limit from 3 to 3.1, for Python 3.13 support.
++    "Cython>=0.29.33,<3.1",  # Note: sync with setup.py, environment.yml and asv.conf.json
++
      # Note: numpy 1.25 has a backwards compatible C API by default
-@@ -14,7 +15,8 @@
+     # we don't want to force users to compile with 1.25 though
+     # (Ideally, in the future, though, oldest-supported-numpy can be dropped when our min numpy is 1.25.x)
+-    "oldest-supported-numpy>=2022.8.16; python_version<'3.12'",
+-    "numpy>=1.26.0,<2; python_version>='3.12'",
++    # Chaquopy: disabled numpy, since it's already listed in meta.yaml.
++    # "oldest-supported-numpy>=2022.8.16; python_version<'3.12'",
++    # "numpy>=1.26.0,<2; python_version>='3.12'",
++
      "versioneer[toml]"
  ]
  
@@ -35,7 +48,7 @@
  
  [project]
  name = 'pandas'
-@@ -137,7 +139,12 @@
+@@ -137,7 +146,12 @@
  # resulting files.
  [tool.versioneer]
  VCS = "git"

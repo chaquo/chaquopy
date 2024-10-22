@@ -10,7 +10,7 @@ public class Common {
     // Minimum Android Gradle plugin version
     public static final String MIN_AGP_VERSION = "7.0.0";
 
-    // This should match api_level in target/build-common.sh.
+    // This should match api_level in target/android-env.sh.
     public static final int MIN_SDK_VERSION = 24;
 
     public static final int COMPILE_SDK_VERSION = 34;
@@ -18,11 +18,12 @@ public class Common {
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.8.18", "0");
-        PYTHON_VERSIONS.put("3.9.18", "0");
-        PYTHON_VERSIONS.put("3.10.13", "0");
-        PYTHON_VERSIONS.put("3.11.6", "0");
-        PYTHON_VERSIONS.put("3.12.1", "0");
+        PYTHON_VERSIONS.put("3.8.20", "0");
+        PYTHON_VERSIONS.put("3.9.20", "0");
+        PYTHON_VERSIONS.put("3.10.15", "0");
+        PYTHON_VERSIONS.put("3.11.10", "0");
+        PYTHON_VERSIONS.put("3.12.7", "0");
+        PYTHON_VERSIONS.put("3.13.0", "0");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();

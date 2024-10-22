@@ -15,14 +15,15 @@ import sys
 import warnings
 
 
-# See the list in importlib/_bootstrap_external.py.
+# See the CPython source code in Include/internal/pycore_magic_number.h or
+# Lib/importlib/_bootstrap_external.py.
 MAGIC = {
-    "3.7": 3394,
     "3.8": 3413,
     "3.9": 3425,
     "3.10": 3439,
     "3.11": 3495,
     "3.12": 3531,
+    "3.13": 3571,
 }
 
 

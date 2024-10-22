@@ -1,22 +1,24 @@
---- src-original/setup.py	2022-07-01 13:14:51.000000000 +0000
-+++ src/setup.py	2022-10-04 22:09:03.025799341 +0000
-@@ -333,7 +333,7 @@
-     )
+--- aaa/setup.py	2024-10-15 05:58:32.000000000 +0000
++++ src/setup.py	2024-10-16 22:01:04.906473396 +0000
+@@ -355,7 +355,8 @@
+         return True if value in configuration.get(option, []) else None
  
-     def initialize_options(self):
--        self.disable_platform_guessing = None
-+        self.disable_platform_guessing = True  # Chaquopy: changed from None to True
+     def initialize_options(self) -> None:
+-        self.disable_platform_guessing = self.check_configuration(
++        # Chaquopy: always disable platform guessing.
++        self.disable_platform_guessing = True or self.check_configuration(
+             "platform-guessing", "disable"
+         )
          self.add_imaging_libs = ""
-         build_ext.initialize_options(self)
-         for x in self.feature:
-@@ -636,8 +637,8 @@
+@@ -685,8 +686,9 @@
  
          if feature.want("zlib"):
              _dbg("Looking for zlib")
 -            if _find_include_file(self, "zlib.h"):
 -                if _find_library_file(self, "z"):
-+            if True or _find_include_file(self, "zlib.h"):  # Chaquopy: libz is always
-+                if True or _find_library_file(self, "z"):   # available.
-                     feature.zlib = "z"
++            # Chaquopy: zlib is always available.
++            if True or _find_include_file(self, "zlib.h"):
++                if True or _find_library_file(self, "z"):
+                     feature.set("zlib", "z")
                  elif sys.platform == "win32" and _find_library_file(self, "zlib"):
-                     feature.zlib = "zlib"  # alternative name
+                     feature.set("zlib", "zlib")  # alternative name

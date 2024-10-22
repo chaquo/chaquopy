@@ -303,7 +303,11 @@ cpdef check_range_char(value):
 
 
 cdef JNIRef p2j_string(JNIEnv *j_env, unicode s):
-    utf16 = s.encode(JCHAR_ENCODING)
+    # Python strings can contain invalid surrogates, but Java strings cannot.
+    # "backslashreplace" would retain some information about the invalid character, but
+    # we don't know what context this string will be used in, so changing its length
+    # could cause much worse confusion.
+    utf16 = s.encode(JCHAR_ENCODING, errors="replace")
     return LocalRef.adopt(j_env, j_env[0].NewString(
         j_env, <jchar*><char*>utf16, len(utf16)//2))  # 2 bytes/char for UTF-16.
 

@@ -1,37 +1,9 @@
 package:
   name: cryptography
-  version: "3.4.8"
-
-build:
-  number: 2
-  script_env:
-    - CRYPTOGRAPHY_DONT_BUILD_RUST=1
+  version: "42.0.8"
 
 requirements:
   build:
-    - cffi 1.15.1
-    - setuptools-rust 0.11.6
+    - rust
   host:
-    # This version of cryptography isn't compatible with OpenSSL 3. So to build it for
-    # Python 3.9 and 3.10, we link it against OpenSSL 1.1.
-    #
-    # We don't do this by supplying an OpenSSL 1.1 wheel with a shared library, because
-    # the Chaquopy runtime (perhaps unnecessarily) loads non-Python libraries using
-    # RTLD_GLOBAL, which could cause conflicts with the OpenSSL 3 library which Chaquopy
-    # loads on startup.
-    #
-    # Instead, we link against OpenSSL 1.1 statically, as follows:
-    #  * Run the OpenSSL 1.1 build command from target/build-all.sh.
-    #  * For each combination of Python version and ABI, run build-with-static-openssl.sh
-    #    in this directory.
-    #
-    # Although this may cause some of OpenSSL's symbols to be exported by crytography's
-    # Python modules, that's safe because Python modules are loaded using RTLD_LOCAL. And
-    # although the GLOBAL/LOCAL distinction is only respected from API level 23, older
-    # versions wouldn't include earlier libraries in the symbol search order for later
-    # libraries anyway, unless they were listed in DT_NEEDED.
-    #
-    # More information:
-    #   * https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md
-    #   * https://github.com/android/ndk/issues/1244
     - openssl
