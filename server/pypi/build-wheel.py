@@ -48,12 +48,9 @@ STANDARD_LIBS = [
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
 # meta.yaml. That way its location will always be passed to the linker with an -L flag, and we
 # won't need to worry about the multilib subdirectory structure of the armeabi-v7a toolchain.
-#
-# TODO: break out the build script fragments which get the actual version numbers from the
-# toolchain, and call them here.
 COMPILER_LIBS = {
-    "libc++_shared.so": ("chaquopy-libcxx", "11000"),
-    "libomp.so": ("chaquopy-libomp", "9.0.9"),
+    "libc++_shared.so": "chaquopy-libcxx",
+    "libomp.so": "chaquopy-libomp",
 }
 
 
@@ -852,7 +849,10 @@ class BuildWheel:
             if tag.entry.d_tag == "DT_NEEDED":
                 req = COMPILER_LIBS.get(tag.needed)
                 if req:
-                    reqs.append(req)
+                    version = run(
+                        f"{RECIPES_DIR}/{req}/version.sh", capture_output=True
+                    ).stdout.strip()
+                    reqs.append((req, version))
                 elif tag.needed in available_libs:
                     pass
                 else:
