@@ -1,8 +1,7 @@
-# This recipe contains three patches to add libpython to the link. Each package will
-# probably only need one of those patches, but we keep them all for two reasons:
+# This recipe contains a patch to add libpython to the link. It should be possible to
+# apply this to any other package by copying the patch file and adjusting the paths.
 #
-# * To serve as an example for other packages.
-# * As the basis for a future PR to merge this into upstream pybind11.
+# TODO: make this into a PR and submit it to upstream pybind11.
 
 package:
   name: cmake_example
