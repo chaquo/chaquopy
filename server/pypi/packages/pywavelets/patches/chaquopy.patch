@@ -11,17 +11,20 @@
      from numpy import get_include as get_numpy_include
      cython_modules, cython_sources = get_cython_sources(use_cython)
      ext_modules = [
---- src-original/pyproject.toml	2022-09-16 14:25:42.000000000 +0000
-+++ src/pyproject.toml	2023-12-06 10:36:40.960979478 +0000
-@@ -7,7 +7,10 @@
+--- aaa/pyproject.toml	2022-09-16 14:25:42.000000000 +0000
++++ src/pyproject.toml	2024-10-23 16:30:29.098506427 +0000
+@@ -7,8 +7,12 @@
  [build-system]
  requires = [
      "wheel",
 -    "setuptools<65",
+-    "Cython>=0.29.24,<3.0",
 +
 +    # Chaquopy: updated for Python 3.12
 +    "setuptools==69.0.2",
 +
-     "Cython>=0.29.24,<3.0",
++    # Chaquopy: increased Cython upper limit from 3 to 3.1 for Python 3.13.
++    "Cython>=0.29.24,<3.1",
  
      # NumPy dependencies - to update these, sync from
+     # https://github.com/scipy/oldest-supported-numpy/, and then
