@@ -1,7 +1,7 @@
 # See also pycares, which shares some of the same patches to c-ares.
 package:
   name: grpcio
-  version: "1.59.3"
+  version: "1.67.0"
 
 build:
   script_env:

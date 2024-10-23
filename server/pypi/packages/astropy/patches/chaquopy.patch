@@ -1,6 +1,6 @@
---- src-original/setup.py	2022-05-24 19:43:02.000000000 +0000
-+++ src/setup.py	2023-07-24 14:54:26.328796259 +0000
-@@ -4,6 +4,10 @@
+--- aaa/setup.py	2024-09-26 23:30:11.000000000 +0000
++++ src/setup.py	2024-10-23 12:14:38.516825749 +0000
+@@ -4,6 +4,22 @@
  # NOTE: The configuration for the package, including the name, version, and
  # other information are set in the pyproject.toml file.
  
@@ -8,6 +8,30 @@
 +import builtins
 +builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
 +
++# Chaquopy: complex.h functions were introduced between API levels 23 and 26, so make
++# Cython use its own implementations instead.
++#
++# This isn't a problem with Cython's C++ mode, e.g. in qutip, presumably because libcxx
++# contains its own implementations of complex number functions in order to be compatible
++# with the minimum API level supported by the NDK. In fact, setting CYTHON_CCOMPLEX=0
++# for such a module causes Cython to generate code that passes Cython's own complex type
++# to C++ standard library functions, which obviously fails to compile. So that's why we
++# can't add this to the default CFLAGS.
++import os
++os.environ["CFLAGS"] += " -DCYTHON_CCOMPLEX=0"
++
  import sys
  
  # First provide helpful messages if contributors try and run legacy commands
+--- aaa/astropy/utils/xml/src/iterparse.map	2024-09-26 23:30:11.000000000 +0000
++++ src/astropy/utils/xml/src/iterparse.map	2024-10-23 12:06:04.257576909 +0000
+@@ -1,6 +1,8 @@
+ VERS_1.0 {
+    global:
+-      init_iterparser;
++      /* Chaquopy: this Python 2 symbol doesn't exist anymore, and ld.lld gives a
++       * "symbol not defined" error.
++       * init_iterparser; */
+       PyInit__iterparser;
+    local:
+       *;

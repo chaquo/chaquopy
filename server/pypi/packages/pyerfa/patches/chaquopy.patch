@@ -1,6 +1,6 @@
---- src-original/setup.py	2021-11-02 19:17:42.000000000 +0000
-+++ src/setup.py	2023-06-03 11:19:23.806406705 +0000
-@@ -26,6 +26,10 @@
+--- aaa/setup.py	2023-10-19 18:22:05.000000000 +0000
++++ src/setup.py	2024-10-23 15:52:22.725808497 +0000
+@@ -39,6 +39,10 @@
  
      @property
      def include_dirs(self):
@@ -10,4 +10,16 @@
 +
          from numpy import get_include
          return self._include_dirs + [get_include()]
+ 
+@@ -119,7 +123,10 @@
+                 if not os.path.exists(configure):
+                     subprocess.run(
+                         ['./bootstrap.sh'], check=True, cwd=LIBERFADIR)
+-                subprocess.run(['./configure'], check=True, cwd=LIBERFADIR)
++
++                # Chaquopy: added --host (https://github.com/liberfa/pyerfa/issues/141)
++                subprocess.run(['./configure', f'--host={os.environ["HOST"]}'], check=True, cwd=LIBERFADIR)
++
+             except (subprocess.SubprocessError, OSError) as exc:
+                 warn(f'unable to configure liberfa: {exc}')
  

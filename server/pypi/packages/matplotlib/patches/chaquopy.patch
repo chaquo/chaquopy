@@ -1,3 +1,16 @@
+--- aaa/setup.py	2024-04-03 22:39:51.000000000 +0000
++++ src/setup.py	2024-10-23 14:42:19.219926523 +0000
+@@ -156,6 +156,10 @@
+         if ranlib and has_flag(self.compiler, '-flto'):
+             for ext in self.extensions:
+                 ext.extra_compile_args.append('-flto')
++
++                # Chaquopy: https://github.com/android/ndk/issues/2069#issuecomment-2347153515
++                ext.extra_link_args.append('-flto')
++
+             cppflags.append('-flto')
+             ldflags.append('-flto')
+             # Needed so FreeType static library doesn't lose its LTO objects.
 --- src-original/setupext.py	2022-09-15 23:26:26.000000000 +0000
 +++ src/setupext.py	2022-10-04 20:30:48.569071439 +0000
 @@ -199,7 +199,7 @@
