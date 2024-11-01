@@ -1,0 +1,26 @@
+package:
+  name: igraph
+  version: "0.11.8"
+
+build:
+  number: 1
+  script_env:
+    - MAKEFLAGS=-j${CPU_COUNT}
+
+    # For the F2C and IEEE settings, see arith-android64.h.
+    #
+    # LTO is disabled because it doesn't pass the necessary argument to the linker
+    # (https://github.com/android/ndk/issues/2069#issuecomment-2347153515).
+    #
+    # OpenMP is disabled so we can avoid testing and releasing a new version of
+    # chaquopy-libomp.
+    - >-
+        IGRAPH_CMAKE_EXTRA_ARGS=
+        -DF2C_EXTERNAL_ARITH_HEADER=../../../../../../../arith-android64.h
+        -DIEEE754_DOUBLE_ENDIANNESS_MATCHES=ON
+        -DIGRAPH_ENABLE_LTO=OFF
+        -DIGRAPH_OPENMP_SUPPORT=OFF
+
+requirements:
+  build:
+    - cmake 3.28.1
