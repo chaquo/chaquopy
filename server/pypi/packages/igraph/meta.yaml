@@ -7,7 +7,7 @@ build:
   script_env:
     - MAKEFLAGS=-j${CPU_COUNT}
 
-    # For F2C and IEEE setings, see arith.h.
+    # For the F2C and IEEE settings, see arith-android64.h.
     #
     # LTO is disabled because it doesn't pass the necessary argument to the linker
     # (https://github.com/android/ndk/issues/2069#issuecomment-2347153515).
