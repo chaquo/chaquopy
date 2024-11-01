@@ -53,17 +53,17 @@ After stable release:
 
 * As above, update the integration/data/base/X.Y directory with the settings from the
   new project wizard.
+* Open the "product" project in the new Android Studio version, then:
+  * Consider updating the Gradle version, but first see the note in
+    product/gradle/wrapper/gradle-wrapper.properties.
+  * Sync the project, then run the `publish` task.
+  * Close the project to make sure .idea files are written.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
   * In Android Studio, run Tools > AGP Upgrade Assistant.
   * Update all items from the "base" directory above.
   * Update .gitignore from the new project wizard, and git rm any newly-ignored files.
   * Test the app.
-  * Close the project to make sure .idea files are written.
-* Open the "product" project in the new Android Studio version, then:
-  * Consider updating the Gradle version, but first see the note in
-    product/gradle/wrapper/gradle-wrapper.properties.
-  * Sync the project, then run the `publish` task.
   * Close the project to make sure .idea files are written.
 * Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the current stable
   Chaquopy version with the new AGP version, on all platforms.
@@ -96,37 +96,47 @@ After stable release:
 
 * Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
   use it.
+* Run `gradle:testPython`.
 * Update the list of Python versions in .github/actions/setup-python/action.yml.
-* Build the demo app with the new version, and check for any warnings other than the
-  expected ones about .pyc compilation.
+* Temporarily change the `buildPython` of the demo app, comment out `pyc.pip`, and check
+  it builds without any warnings other than the expected ones about .pyc compilation.
+  There's no point in running it now, as the failed compilation will break many of the
+  tests. We'll do this when we add runtime support for the same version (see
+  target/README.md).
 
 
 ## Removing support for a buildPython version
 
+* Increment Chaquopy major version if not already done.
 * Update gradle-plugin/src/main/python/chaquopy/util.py.
-* Update `testPython` in gradle-plugin/build.gradle, and run the tests.
 * In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
   `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
+* Run `gradle:testPython`.
 * Update the list of Python versions in .github/actions/setup-python/action.yml.
+* See the comment in ci.yml about integration test runner versions, and consider
+  updating them.
 * Update android.rst.
 
 
 ## Increasing minimum API level (minSdk)
 
+* Increment Chaquopy major version if not already done.
 * Update `MIN_SDK_VERSION` in Common.java.
-* Update `api_level` in target/build-common.sh.
-* Update default API level in server/pypi/build-wheel.py.
-* Search `product` directory to see if there are any workarounds which can now be
-  removed:
-  * `git ls-files | xargs -d '\n' grep -EnHi 'api.?level|android.?(ver|[0-9])|min.?sdk|SDK_INT'`
+* Update `api_level` in target/android-env.sh.
+* In server/pypi/build-wheel.py:
+  * Update default API level.
+  * Update `STANDARD_LIBS` with any libraries added in the new level.
+* Search repository for other things that should be updated, including workarounds which
+  are now unnecessary:
+  * Useful regex: `api.?level|android.?ver|android \d|min.?sdk|SDK_INT`
+  * Leave the public apps alone for now: they will be dealt with during the next release
+    (see release/README.md).
 * Integration tests:
   * Update all test data.
   * Update expected message in `ApiLevel` tests.
   * Run all tests.
-* Update documentation including versions table.
 * Update demo and pkgtest apps, and test all features.
-* Leave the public apps alone for now: they will be dealt with during the next release
-  (see release/README.md).
+* Update documentation including versions.rst.
 
 
 ## Increasing target API level (targetSdk)

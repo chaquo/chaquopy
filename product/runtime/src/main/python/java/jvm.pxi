@@ -101,7 +101,7 @@ cdef jvm_lib_path():
                    "bin"]      # Java 11
         filename = "jvm.dll"
     else:  # Assume Linux
-        # TODO #5695: untested
+        # TODO #1201: untested
         import platform
         machine2cpu = {
             "amd64": "amd64",

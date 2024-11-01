@@ -11,7 +11,6 @@ import os
 from os.path import dirname, exists, join, realpath, relpath, splitext
 from pathlib import Path, PosixPath
 import pkgutil
-import platform
 import re
 from shutil import rmtree
 import sys
@@ -23,7 +22,7 @@ import zipfile
 
 from java.android import importer
 
-from ..test_utils import API_LEVEL, FilterWarningsCase
+from ..test_utils import FilterWarningsCase
 from . import ABI, context
 
 
@@ -62,14 +61,18 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         stdlib_bootstrap_expected = {
-            # This is the list from our minimum Python version. For why each of these
-            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+            # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
+            # PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
+            "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
+            "mmap.so", "zlib.so",
         }
         if sys.version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
             stdlib_bootstrap_expected |= {"_sha2.so"}
+        if sys.version_info >= (3, 13):
+            stdlib_bootstrap_expected -= {"_sha2.so"}
+            stdlib_bootstrap_expected |= {"_opcode.so"}
 
         for subdir, entries in [
             (ABI, list(stdlib_bootstrap_expected)),
@@ -162,7 +165,7 @@ class TestAndroidImport(FilterWarningsCase):
             with self.assertRaises(AttributeError):
                 getattr(dll, name)
 
-        # Library extraction caused by CDLL.
+        # Library extraction from calling CDLL with a path outside of chaquopy/lib.
         from murmurhash import mrmr
         os.remove(mrmr.__file__)
         ctypes.CDLL(mrmr.__file__)
@@ -171,25 +174,25 @@ class TestAndroidImport(FilterWarningsCase):
         # Library extraction caused by find_library.
         LIBCXX_FILENAME = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
         os.remove(LIBCXX_FILENAME)
-        find_library_result = find_library("c++_shared")
-        self.assertIsInstance(find_library_result, str)
-
-        # This test covers non-Python libraries: for Python modules, see pyzmq/test.py.
-        if (platform.architecture()[0] == "64bit") and (API_LEVEL < 23):
-            self.assertNotIn("/", find_library_result)
-        else:
-            self.assertEqual(LIBCXX_FILENAME, find_library_result)
-
-        # Whether find_library returned an absolute filename or not, the file should have been
-        # extracted and the return value should be accepted by CDLL.
+        self.assertEqual(find_library("c++_shared"), LIBCXX_FILENAME)
         self.assertPredicate(exists, LIBCXX_FILENAME)
-        libcxx = ctypes.CDLL(find_library_result)
+        libcxx = ctypes.CDLL(LIBCXX_FILENAME)
         assertHasSymbol(libcxx, "_ZSt9terminatev")  # std::terminate()
         assertNotHasSymbol(libcxx, "nonexistent")
 
+        # Calling CDLL with a basename in chaquopy/lib can also cause an extraction.
+        os.remove(LIBCXX_FILENAME)
+        ctypes.CDLL("libc++_shared.so")
+        self.assertPredicate(exists, LIBCXX_FILENAME)
+
+        # CDLL with nonexistent filenames, both relative and absolute.
+        for name in ["invalid.so", f"{dirname(mrmr.__file__)}/invalid.so"]:
+            with self.assertRaisesRegex(OSError, "invalid.so"):
+                ctypes.CDLL(name)
+
         # System libraries.
-        self.assertIsNotNone(find_library("c"))
-        self.assertIsNotNone(find_library("log"))
+        self.assertEqual(find_library("c"), "libc.so")
+        self.assertEqual(find_library("log"), "liblog.so")
         self.assertIsNone(find_library("nonexistent"))
 
         libc = ctypes.CDLL(find_library("c"))
@@ -204,6 +207,7 @@ class TestAndroidImport(FilterWarningsCase):
         assertHasSymbol(main, "__android_log_write")
         assertNotHasSymbol(main, "nonexistent")
 
+        # pythonapi
         assertHasSymbol(ctypes.pythonapi, "PyObject_Str")
 
     def test_non_package_data(self):
@@ -355,7 +359,11 @@ class TestAndroidImport(FilterWarningsCase):
         spec = mod.__spec__
         self.assertEqual(mod_name, spec.name)
         self.assertEqual(loader, spec.loader)
-        # spec.origin and the extract_so symlink workaround are covered by pyzmq/test.py.
+
+        expected_origin = filename
+        if filename.startswith(asset_path(REQS_COMMON_ZIP)) and filename.endswith(".py"):
+            expected_origin += "c"
+        self.assertEqual(spec.origin, expected_origin)
 
         # Loader methods (get_data is tested elsewhere)
         self.assertEqual(is_package, loader.is_package(mod_name))
@@ -368,15 +376,14 @@ class TestAndroidImport(FilterWarningsCase):
         else:
             self.assertIsNone(source)
 
-        self.assertEqual(re.sub(r"\.pyc$", ".py", loader.get_filename(mod_name)),
-                         mod.__file__)
+        self.assertEqual(loader.get_filename(mod_name), expected_origin)
 
         return mod
 
     # Verify that the traceback builder can get source code from the loader in all contexts.
     # (The "package1" test files are also used in TestImport.)
     def test_exception(self):
-        col_marker = r'( +\^+\n)?'  # Column marker (Python >= 3.11)
+        col_marker = r'( +[~^]+\n)?'  # Column marker (Python >= 3.11)
         test_frame = (
             fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/android/test_import.py", '
             fr'line \d+, in test_exception\n'
@@ -423,11 +430,11 @@ class TestAndroidImport(FilterWarningsCase):
                 fr'line 1, in <module>\n'
                 fr'    from . import other_error  # noqa: F401\n' +
                 col_marker +
-                import_frame +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
-                fr'    int\("hello"\)\n'
-                fr"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
+                fr'    int\("hello"\)\n' +
+                col_marker +
+                r"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
         else:
             self.fail()
 

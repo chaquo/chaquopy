@@ -15,14 +15,18 @@ runs:
         # `requires_python` and `marker_python_version`. For all other versions, we let
         # the GitHub runner pick a micro version, which will be faster because it's
         # locally cached.
+        #
+        # When updating this list, see the comment in ci.yml about integration test
+        # runner versions.
         python-version: |
-          3.6
           3.7
           3.8.10
           3.9
           3.10
           3.11
           3.12
+          3.13
+        allow-prereleases: true
 
     - name: Set default Python command
       id: python-default

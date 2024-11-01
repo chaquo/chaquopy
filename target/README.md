@@ -1,36 +1,28 @@
 # Chaquopy target
 
-This directory contains scripts to build Python for Android.
+This directory contains scripts to build Python for Android. They can be run on Linux or
+macOS.
 
 
-## Supporting libraries
-
-Before building Python, the correct versions of the supporting libraries must already be
-present in the `prefix` subdirectory:
-
-* Bzip2, libffi and xz use static libraries, so you must build them yourself, using the
-  commands from build-all.sh.
-* SQLite and OpenSSL use dynamic libraries, so you may either build them yourself in the
-  same way, or get pre-built copies using the download-target.sh and unpackage-target.sh
-  scripts, as shown in ci.yml.
-
-
-## Python
+## Building and testing
 
 Update Common.java with the version you want to build, and the build number you want to
 give it.
 
-Run build-and-package.sh, as shown in build-all.sh. This will create a release in the
-`maven` directory in the root of this repository. If the packaging phase fails, e.g.
-because the version already exists, then rather than doing the whole build again, you
-can re-run package-target.sh directly.
+Make sure the build machine has `pythonX.Y` on the PATH, where `X.Y` is the Python
+major.minor version you want to build (e.g. `3.13`).
+
+Run `python/build-and-package.sh X.Y`. This will create a release in the `maven`
+directory in the root of this repository. If the packaging phase fails, e.g. because the
+version already exists, then rather than doing the whole build again, you can re-run
+package-target.sh directly.
 
 If this is a new major.minor version, do the "Adding a Python version" checklist below.
 
-Run the PythonVersion integration tests.
+Run the integration tests, starting with PythonVersion.
 
-Use the demo app to run the Python and Java unit tests on the full set of pre-release
-devices (see release/README.md).
+Temporarily change the Python version of the demo app, and run the Python and Java unit
+tests on the full set of pre-release devices (see release/README.md).
 
 To publish the build, follow the "Public release" instructions in release/README.md.
 Once a version has been published on Maven Central, it cannot be changed, so any fixes
@@ -39,27 +31,24 @@ must be released under a different build number.
 
 ## Adding a Python version
 
-Add it to Common.java.
+* Add buildPython support for the same version (see gradle-plugin/README.md).
+* In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
+* Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
+* Add a directory under integration/data/PythonVersion.
+* Update android.rst and versions.rst.
+* Build any packages used by the demo app.
 
-Add it to build-all.sh.
+When building wheels for other packages:
 
-In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
-
-Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
-
-Update documentation:
-* "Python version" in android.rst
-* "Python versions" in versions.rst
-
-To allow running the unit tests, build any packages used by the demo app.
-
-When building the other packages:
-
+* Try to build all the packages we currently have in the repository for the previous
+  Python version.
 * For each package, in dependency order:
-  * Update to the current stable version, unless it's been updated recently, or updating
-    would take a lot of work which wouldn't be justified by user demand.
+  * Check for notes in the meta.yaml file, in issues or in PRs.
+  * Update to the current stable version, unless this would take a lot of work which
+    isn't justified by user demand.
   * Review patches and build scripts to see if there are any workarounds which are no
     longer necessary.
+  * In the commit message, close any issues which are now resolved.
 * When finished:
   * Clear out any bad builds before copying them to the public repository.
   * Notify any users who requested new versions.
@@ -78,6 +67,8 @@ Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTask
 ## Changing the default Python version
 
 Update `DEFAULT_PYTHON_VERSION` in Common.java.
+
+Update the Python version in all apps in the repository.
 
 Update the pythonX.Y scripts in integration/data/BuildPython.
 

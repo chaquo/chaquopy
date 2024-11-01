@@ -1,6 +1,9 @@
 """Download files with progress indicators.
 """
-import cgi
+
+# Chaquopy: cgi was removed in Python 3.13 - replaced with EmailMessage.
+from email.message import EmailMessage
+
 import logging
 import mimetypes
 import os
@@ -96,7 +99,11 @@ def parse_content_disposition(content_disposition, default_filename):
     Parse the "filename" value from a Content-Disposition header, and
     return the default filename if the result is empty.
     """
-    _type, params = cgi.parse_header(content_disposition)
+    # Chaquopy: cgi was removed in Python 3.13 - replaced with EmailMessage.
+    msg = EmailMessage()
+    msg["Content-Disposition"] = content_disposition
+    params = msg["Content-Disposition"].params
+
     filename = params.get('filename')
     if filename:
         # We need to sanitize the filename to prevent directory traversal

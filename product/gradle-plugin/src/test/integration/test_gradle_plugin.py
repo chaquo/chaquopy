@@ -55,7 +55,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12"]
+assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 NON_DEFAULT_PYTHON_VERSION = "3.10"
@@ -66,9 +66,9 @@ BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Pyt
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
 # When updating these, consider also updating .github/actions/setup-python/action.yml.
-OLD_BUILD_PYTHON_VERSION = "3.6"
-MIN_BUILD_PYTHON_VERSION = "3.7"
-MAX_BUILD_PYTHON_VERSION = "3.12"
+OLD_BUILD_PYTHON_VERSION = "3.7"
+MIN_BUILD_PYTHON_VERSION = "3.8"
+MAX_BUILD_PYTHON_VERSION = "3.13"
 
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
@@ -425,7 +425,7 @@ class Aar(GradleTestCase):
 
 
 class ApiLevel(GradleTestCase):
-    ERROR = ("This version of Chaquopy requires minSdk version 21 or higher. "
+    ERROR = ("This version of Chaquopy requires minSdk version 24 or higher. "
              "See https://chaquo.com/chaquopy/doc/current/versions.html.")
 
     def test_minimum(self):  # Also tests making a change
@@ -480,7 +480,9 @@ class PythonVersion(GradleTestCase):
             abis = ["arm64-v8a", "x86_64"]
             if version in ["3.8", "3.9", "3.10", "3.11"]:
                 abis += ["armeabi-v7a", "x86"]
-            run.rerun(f"PythonVersion/{version}", python_version=version, abis=abis)
+            run.rerun(
+                f"PythonVersion/{version}", python_version=version, abis=abis,
+                requirements=["six.py"])
 
             if version == DEFAULT_PYTHON_VERSION:
                 self.assertNotInLong(self.WARNING.format(".*"), run.stdout, re=True)
@@ -735,7 +737,7 @@ class Pyc(GradleTestCase):
         run = self.RunGradle("base", "Pyc/magic_error",
                              env={"buildpython_version": NON_DEFAULT_PYTHON_VERSION},
                              succeed=False)
-        self.assertInStdout(self.FAILED + self.INCOMPATIBLE + self.SEE, run, re=True)
+        self.assertInStderr(self.FAILED + self.INCOMPATIBLE + self.SEE, run, re=True)
         self.assertInStderr(BuildPython.FAILED, run, re=True)
 
 
@@ -806,7 +808,8 @@ class BuildPython(GradleTestCase):
         self.assertNotInLong("Major version was used", run.stdout)
         self.assertInStdout("Versionless executable was used", run)
 
-    # Test a buildPython which returns success without doing anything (#5631).
+    # Test a buildPython which returns success without doing anything (possibly the
+    # cause of #250).
     def test_silent_failure(self):
         run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
         lib_path = "python/env/debug/lib"
@@ -903,7 +906,7 @@ class PythonReqs(GradleTestCase):
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                          "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
                          "tests/__init__.py", "tests/test_import.py"]] +
-                       ["chaquopy_libcxx-11000.dist-info/" + name for name in
+                       ["chaquopy_libcxx-180000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
                        ["murmurhash-0.28.0.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
@@ -1185,7 +1188,7 @@ class PythonReqs(GradleTestCase):
                 self.RunGradle(*layers, requirements=[f"{name}.py"])
 
     # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
-    # install. For example, see acoustics==0.2.4 (#5630).
+    # install (e.g. https://github.com/python-acoustics/python-acoustics/issues/243).
     def test_bdist_wheel_fail(self):
         run = self.RunGradle(
             "base", "PythonReqs/bdist_wheel_fail", include_dist_info=True,
@@ -1197,7 +1200,7 @@ class PythonReqs(GradleTestCase):
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
     # If bdist_wheel returns success but didn't generate a wheel, we should fall back on
-    # setup.py install. For example, see kiteconnect==3.8.2 (#5630).
+    # setup.py install (e.g. #338).
     def test_bdist_wheel_fail_silently(self):
         run = self.RunGradle(
             "base", "PythonReqs/bdist_wheel_fail_silently", include_dist_info=True,
@@ -1270,12 +1273,12 @@ class PythonReqs(GradleTestCase):
                 [f"{package}-{version}.dist-info"],
                 [name for name in os.listdir(tmp_dir) if name.endswith(".dist-info")])
 
-    # This package has wheels tagged as API levels 22 and 24, with corresponding
-    # version numbers. Which one is selected should depend on the app's minSdkVersion.
+    # This package has wheels tagged as API levels 28 and 30, with corresponding
+    # version numbers. Which one is selected should depend on the app's minSdk.
     def test_api_level(self):
         run = self.RunGradle("base", run=False)
         for min_api_level, expected_version in [
-            (21, None), (22, 22), (23, 22), (24, 24), (25, 24)
+            (27, None), (28, 28), (29, 28), (30, 30), (31, 30)
         ]:
             if expected_version:
                 kwargs = dict(dist_versions=[("api_level", f"1.{expected_version}")],
@@ -1834,14 +1837,18 @@ class RunGradle(object):
 
         python_version_info = tuple(int(x) for x in python_version.split("."))
         stdlib_bootstrap_expected = {
-            # This is the list from our minimum Python version. For why each of these
-            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_random.so",
-            "_sha512.so", "_struct.so", "binascii.so", "math.so", "mmap.so", "zlib.so",
+            # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
+            # PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
+            "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
+            "mmap.so", "zlib.so",
         }
         if python_version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
             stdlib_bootstrap_expected |= {"_sha2.so"}
+        if python_version_info >= (3, 13):
+            stdlib_bootstrap_expected -= {"_sha2.so"}
+            stdlib_bootstrap_expected |= {"_opcode.so"}
 
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
@@ -1862,11 +1869,13 @@ class RunGradle(object):
             if "stdlib" in pyc:
                 self.check_pyc(stdlib_zip, "argparse.pyc", kwargs)
 
-        # Data files packaged with stdlib: see target/package_target.sh.
-        for grammar_stem in ["Grammar", "PatternGrammar"]:
-            self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
-                                   grammar_stem, PYTHON_VERSIONS[python_version]),
-                               stdlib_files)
+        # Data files packaged with lib2to3: see target/package_target.sh.
+        # This module was removed in Python 3.13.
+        if python_version_info < (3, 13):
+            for grammar_stem in ["Grammar", "PatternGrammar"]:
+                self.test.assertIn("lib2to3/{}{}.final.0.pickle".format(
+                                       grammar_stem, PYTHON_VERSIONS[python_version]),
+                                   stdlib_files)
 
         stdlib_native_expected = {
             # This is the list from the minimum supported Python version.
@@ -1891,6 +1900,13 @@ class RunGradle(object):
         if python_version_info >= (3, 12):
             stdlib_native_expected -= {"_sha256.so", "_typing.so"}
             stdlib_native_expected |= {"_xxinterpchannels.so", "xxsubtype.so"}
+        if python_version_info >= (3, 13):
+            stdlib_native_expected -= {
+                "audioop.so", "_xxinterpchannels.so", "_multiprocessing.so",
+                "_opcode.so", "_xxsubinterpreters.so", "ossaudiodev.so"}
+            stdlib_native_expected |= {
+                "_interpreters.so", "_interpchannels.so", "_interpqueues.so",
+                "_sha2.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1918,14 +1934,15 @@ class RunGradle(object):
             build_json["assets"])
 
     def check_pyc(self, zip_file, pyc_filename, kwargs):
-        # See the list in importlib/_bootstrap_external.py.
+        # See the CPython source code at Include/internal/pycore_magic_number.h or
+        # Lib/importlib/_bootstrap_external.py.
         MAGIC = {
-            "3.7": 3394,
             "3.8": 3413,
             "3.9": 3425,
             "3.10": 3439,
             "3.11": 3495,
             "3.12": 3531,
+            "3.13": 3571,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             self.test.assertEqual(
@@ -1939,9 +1956,16 @@ class RunGradle(object):
         for abi in abis:
             abi_dir = join(lib_dir, abi)
             self.test.assertCountEqual(
-                ["libchaquopy_java.so", "libcrypto_chaquopy.so",
-                 f"libpython{kwargs['python_version']}.so", "libssl_chaquopy.so",
-                 "libsqlite3_chaquopy.so"],
+                [
+                    "libchaquopy_java.so",
+                    "libcrypto_chaquopy.so",
+                    "libcrypto_python.so",
+                    f"libpython{python_version}.so",
+                    "libssl_chaquopy.so",
+                    "libssl_python.so",
+                    "libsqlite3_chaquopy.so",
+                    "libsqlite3_python.so",
+                ],
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
 

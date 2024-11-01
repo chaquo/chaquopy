@@ -180,8 +180,8 @@ cdef get_bases(klass):
         bases.append(free[0])
         interfaces.remove(free[0])
 
-    # Superclass must be positioned for correct method resolution order (see reflect_member and
-    # #5262).
+    # Superclass must be positioned for correct method resolution order (see
+    # reflect_member and #1205).
     if superclass:
         bases.insert(len(bases) if superclass is JavaObject else 0,
                      superclass)
@@ -424,8 +424,8 @@ cdef reflect_member(cls, str name, bint inherit=True):
             if issubclass(base, JavaObject):
                 inherited = reflect_member(base, name)
                 if isinstance(inherited, JavaMember):
-                    # TODO #5262: do interface default methods require us to handle multiple
-                    # inheritance?
+                    # TODO #1205: do interface default methods require us to handle
+                    # multiple inheritance?
                     break
 
     # To avoid infinite recursion, we need unimplemented methods in proxy classes (including
@@ -904,14 +904,15 @@ cdef class JavaMethod(JavaSimpleMember):
         else:
             raise Exception(f"Invalid definition for {self.fqn()}: '{self.return_sig}'")
 
-    # Android API levels 23 and higher have at least two bugs causing native crashes when
-    # calling proxy methods through JNI. This affects all the methods of the interfaces passed
-    # to Proxy.getProxyClass, and all the non-final methods of Object. Full details are in
-    # #5274 and https://issuetracker.google.com/issues/64871880, but the outcome is:
-    #   * We cannot use CallNonvirtual...Method on a proxy method.
-    #   * We cannot use Call...Method if it will resolve to a proxy method.
-    #
-    # Luckily, calls through Method.invoke appear to be unaffected.
+    # Android API levels 23 and higher sometimes experience native crashes when calling
+    # proxy methods through JNI. This affects all the methods of the interfaces passed
+    # to Proxy.getProxyClass, and all the non-final methods of Object. Full details are
+    # in https://issuetracker.google.com/issues/64871880, but the outcome is:
+    #   * We cannot use the CallNonvirtual... functions on a proxy method.
+    #   * We cannot use the virtual Call... functions on a method which resolves to a
+    #     proxy method (fixed in API level 25, at least when the method is obtained from
+    #     one of the proxy class's interfaces as opposed to the class itself).
+    #   * So instead, we make the call through Method.invoke.
     cdef call_proxy_method(self, CQPEnv env, obj, p2j_args):
         for i, (arg_sig, p2j_arg) in enumerate(zip(self.args_sig, p2j_args)):
             box_cls_name = PRIMITIVE_TYPES.get(arg_sig)
@@ -1014,8 +1015,8 @@ cdef class JavaMultipleMethod(JavaMember):
         cdef JavaMethod jm
         for jm in self.methods:
             if obj is None and not (jm.is_static or jm.is_constructor):  # Unbound method
-                # TODO #5265 ambiguity still possible if isinstance() returns True but args[0]
-                # was intended as the first parameter of a static overload.
+                # TODO #1208 ambiguity still possible if isinstance() returns True but
+                # args[0] was intended as the first parameter of a static overload.
                 if not (args and isinstance(args[0], self.cls)):
                     continue
                 args_except_this = args[1:]

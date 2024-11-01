@@ -133,17 +133,41 @@ abstract class TestPythonTask : DefaultTask() {
     }
 }
 
-tasks.register<TestPythonTask>("testPython") {
-    pythonVersion = "3.7"  // Minimum supported buildPython version
-    workingDir = "$projectDir/src/test/python"
+
+tasks.register("testPython") {
+    group = "verification"
+}.let {
+    tasks.named("check") { dependsOn(it) }
 }
+
+var minPythonMinor: Int? = null
+var maxPythonMinor: Int? = null
+file("src/test/integration/test_gradle_plugin.py").useLines {
+    for (line in it) {
+        """MIN_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
+            minPythonMinor = it.groupValues[1].toInt()
+        }
+        """MAX_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
+            maxPythonMinor = it.groupValues[1].toInt()
+        }
+    }
+}
+
+for (pythonMinor in minPythonMinor!! .. maxPythonMinor!!) {
+    val pythonVer = "3.$pythonMinor"
+    tasks.register<TestPythonTask>("testPython-$pythonVer") {
+        pythonVersion = pythonVer
+        workingDir = "$projectDir/src/test/python"
+    }.let {
+        tasks.named("testPython") { dependsOn(it) }
+    }
+}
+
 
 tasks.register("testIntegration") {
     group = "verification"
-}
-
-tasks.check {
-    dependsOn("testPython", "testIntegration")
+}.let {
+    tasks.named("check") { dependsOn(it) }
 }
 
 // This should match the version discovery logic in ci.yml.
@@ -151,7 +175,7 @@ val INTEGRATION_DIR = "$projectDir/src/test/integration"
 for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
     val version = f.name
     if (version.contains(".")) {
-        val task = tasks.register<TestPythonTask>("testIntegration-$version") {
+        tasks.register<TestPythonTask>("testIntegration-$version") {
             pythonVersion = Common.DEFAULT_PYTHON_VERSION
             if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI
                 dependsOn(tasks.publish, ":runtime:publish")
@@ -159,7 +183,8 @@ for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
             workingDir = INTEGRATION_DIR
             environment["CHAQUOPY_AGP_VERSION"] = version
             environment["ANDROID_HOME"] = BuildCommon.androidHome(project)
+        }.let {
+            tasks.named("testIntegration") { dependsOn(it) }
         }
-        tasks.named("testIntegration") { dependsOn(task) }
     }
 }

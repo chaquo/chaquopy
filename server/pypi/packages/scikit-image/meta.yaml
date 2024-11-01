@@ -2,7 +2,7 @@
     {% set numpy_version = "1.17.4" %}
 {% elif PY_VER in ["3.9", "3.10", "3.11"] %}
     {% set numpy_version = "1.23.3" %}
-{% elif PY_VER == "3.12" %}
+{% elif PY_VER in ["3.12", "3.13"] %}
     {% set numpy_version = "1.26.2" %}
 {% endif %}
 

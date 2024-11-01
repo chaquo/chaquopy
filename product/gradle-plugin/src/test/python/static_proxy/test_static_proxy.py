@@ -43,9 +43,10 @@ class TestStaticProxy(FilterWarningsCase):
         for name in ["empty", "no_proxies", "conditional"]:
             self.run_json("errors", name, False, name + ".py: no static_proxy classes found")
 
-        self.run_json("errors", "syntax", False, "syntax.py:3:7: invalid syntax")
+        self.run_json("errors", "syntax", False, "syntax.py:3:5: invalid syntax")
         self.run_json("errors", "syntax_py2", False,
-                      "syntax_py2.py:1:13: Missing parentheses in call to 'print'")
+                      f"syntax_py2.py:1:{7 if sys.version_info < (3, 10) else 1}"
+                      f": Missing parentheses in call to 'print'")
 
         for name in ["starargs", "kwargs"]:
             self.run_json("errors", name, False,
@@ -129,6 +130,9 @@ class TestStaticProxy(FilterWarningsCase):
         if status == 0:
             if not succeed:
                 self.dump_run("run unexpectedly succeeded", stdout, stderr)
+            if stderr:
+                # Probably a DeprecationWarning or similar.
+                self.dump_run("succeeded but wrote to stderr", stdout, stderr)
             try:
                 actual = json.loads(stdout)
             except ValueError:
@@ -150,7 +154,7 @@ class TestStaticProxy(FilterWarningsCase):
     def assertInLong(self, a, b, re=False):
         try:
             if re:
-                self.assertRegexpMatches(b, a)
+                self.assertRegex(b, a)
             else:
                 self.assertIn(a, b)
         except AssertionError:

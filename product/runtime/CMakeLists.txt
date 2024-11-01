@@ -35,8 +35,8 @@ foreach(VERSION ${CHAQUOPY_PYTHON_VERSIONS})
         set(CHAQUOPY_JAVA chaquopy_java-${VERSION})
     endif()
 
-    # Use SHARED rather than MODULE because MODULEs aren't given SONAMEs, which causes warnings on
-    # Android (#5582).
+    # Use SHARED rather than MODULE because MODULEs aren't given SONAMEs, which causes
+    # runtime warnings on Android.
     add_library(${CHAQUOPY_MOD} SHARED ${CHAQUOPY_SRC_DIR}/chaquopy.c)
     target_include_directories(${CHAQUOPY_MOD} PRIVATE ${INCLUDE_PYTHON})
     target_link_libraries(${CHAQUOPY_MOD} ${LIBPYTHON} dl)

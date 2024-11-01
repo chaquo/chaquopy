@@ -42,6 +42,7 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
@@ -91,6 +92,7 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew docs
 
       - uses: actions/upload-artifact@v4.3.3
@@ -115,6 +117,7 @@ jobs:
       - name: Test
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew gradle:testPython
 
 
@@ -160,12 +163,12 @@ jobs:
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
-          # To avoid clutter in the GitHub UI, OS versions are not added to the `os`
-          # dimension directly.
+          # Runners must support all the Python versions in setup-python/action.yml: see
+          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
           - os: linux
-            runs-on: ubuntu-20.04  # 22.04 has a minimum Python version of 3.7 (see setup-python)
+            runs-on: ubuntu-20.04
           - os: macos
-            runs-on: macos-12  # 14 has a minimum Python version of 3.8 (see setup-python)
+            runs-on: macos-13
           - os: windows
             runs-on: windows-2022
 
@@ -193,4 +196,5 @@ jobs:
       - name: Test
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

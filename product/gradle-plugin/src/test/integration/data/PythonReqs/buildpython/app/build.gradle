@@ -3,11 +3,11 @@ apply plugin: 'com.chaquo.python'
 
 android {
     namespace "com.chaquo.python.test"
-    compileSdk 23
+    compileSdk 31
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdk 21
-        targetSdk 23
+        minSdk 24
+        targetSdk 31
         versionCode 1
         versionName "0.0.1"
         python {
@@ -19,6 +19,9 @@ android {
                 install "apple==0.0.1"  // wheel
                 install "no_binary==1.0"  // sdist
                 install "six==1.16.0"  // PyPI download
+            }
+            pyc {
+                pip false
             }
         }
         ndk {

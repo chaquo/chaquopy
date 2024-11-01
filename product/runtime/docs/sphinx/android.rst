@@ -38,8 +38,9 @@ In your *top-level* `build.gradle` file, set the Chaquopy version:
     }
 
 Also check the Android Gradle plugin version (`com.android.application` or
-`com.android.library`): it should be between 7.0.x and 8.4.x. Older versions as far back
-as 2.2 are supported by :doc:`older versions of Chaquopy <../versions>`.
+`com.android.library`): it should be between 7.0.x and 8.7.x. Older versions are
+supported by :doc:`older versions of Chaquopy <../versions>`. Newer versions may work,
+but have not been tested.
 
 Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usually in the
 `app` directory)::
@@ -55,8 +56,8 @@ Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usuall
 
 Your project's `minSdk
 <https://developer.android.com/reference/tools/gradle-api/8.1/com/android/build/api/dsl/BaseFlavor#minSdk()>`_
-must be at least 21. Older versions as far back as 15 are supported by :doc:`older
-versions of Chaquopy <../versions>`.
+must be at least 24. Older versions are supported by :doc:`older versions of Chaquopy
+<../versions>`.
 
 .. _android-abis:
 
@@ -166,8 +167,8 @@ example, here's how to create flavors for different :ref:`Python versions
 buildPython
 -----------
 
-Some features require Python 3.7 or later to be available on the build machine. These features
-are indicated by a note in their documentation sections.
+Some features require Python 3.8 or later to be available on the build machine. These
+features are indicated by a note in their documentation sections.
 
 By default, Chaquopy will try to find Python on the PATH with the standard command for your
 operating system, first with a matching minor version, and then with a matching major version.
@@ -235,7 +236,7 @@ You can set your app's Python version like this::
     }
 
 In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8. The
-other available versions are 3.9, 3.10, 3.11 and 3.12, but these may have fewer
+other available versions are 3.9, 3.10, 3.11, 3.12 and 3.13, but these may have fewer
 :ref:`packages <android-requirements>` available.
 
 .. _android-source:
@@ -330,12 +331,15 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
         }
     }
 
-In our most recent tests, Chaquopy could install over 90% of the top 1000 packages on `PyPI
-<https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
-selection of packages with native components. To see which native packages are currently
+Chaquopy can install almost all pure-Python packages, plus a large selection
+of packages with native components. To see which native packages are currently
 available, you can `browse the repository here <https://chaquo.com/pypi-13.1/>`_. To
-request a package to be added or updated, or for any other problem with installing
-requirements, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
+add or update a package:
+
+* Try to build it yourself by following `these instructions
+  <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`__.
+* Search our `issue tracker <https://github.com/chaquo/chaquopy/issues>`__ for advice
+  on the package, and create a new issue if necessary.
 
 To pass options to `pip install`, give them as a comma-separated list to the `options`
 method. For example::
@@ -501,9 +505,11 @@ include:
 multiprocessing
 ---------------
 
-Because Android doesn't support POSIX semaphores, most of the :any:`multiprocessing` APIs will
-fail with the error "This platform lacks a functioning sem_open implementation". The simplest
-solution is to use :any:`multiprocessing.dummy` instead.
+Because Android doesn't support the System V IPC API, most of the :any:`multiprocessing`
+APIs will fail with the error "This platform lacks a functioning sem_open
+implementation" or "No module named '_multiprocessing'".
+
+The simplest solution is to use :any:`multiprocessing.dummy` instead.
 
 .. _android-os:
 
@@ -531,21 +537,11 @@ read and write this directory from Android Studio using the `Device File Explore
 <https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
 like `/data/data/your.application.id/files`.
 
-socket
-------
-
-The following functions are unavailable because they're not supported by our minimum
-Android version:
-
-* :any:`socket.if_nameindex`
-* :any:`socket.if_nametoindex`
-* :any:`socket.if_indextoname`
-
 ssl
 ---
 
 The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://pypi.org/project/certifi/>`_ version 2023.11.17. The system CA store is
+<https://pypi.org/project/certifi/>`_ version 2024.8.30. The system CA store is
 not used.
 
 sys
@@ -562,7 +558,7 @@ by non-Python libraries. If you want to redirect them as well, see
 `AndroidPlatform.redirectStdioToLogcat
 <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat()>`_.
 
-By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
+:any:`sys.stdin` always returns EOF. If you want to run some code which takes
 interactive text input, have a look at the `console app template
 <https://github.com/chaquo/chaquopy-console>`_.
 

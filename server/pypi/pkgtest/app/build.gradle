@@ -31,12 +31,12 @@ ext.TEST_PACKAGES = [
 
 android {
     namespace "com.chaquo.python.pkgtest3"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
-        minSdk = 21
-        targetSdk = 34
+        minSdk = 24
+        targetSdk = 35
 
         String pluginVersion = null
         for (art in rootProject.buildscript.configurations.getByName("classpath")
@@ -57,9 +57,7 @@ android {
         // To test packages, edit the following line to list their names, separated by
         // spaces. Each name must be a subdirectory of PACKAGES_DIR.
         def PACKAGES = ""
-        if (!PACKAGES.isEmpty()) {
-            addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
-        }
+        addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
 
         python {
             version "3.8"
@@ -108,6 +106,10 @@ def addPackages(flavor, List<String> packages) {
     mkdir(outputDir)
     String suiteSrc = ""
     for (req in packages) {
+        // Splitting an empty string returns a list containing one empty string.
+        if (req.isEmpty()) {
+            continue
+        }
         def pkgName = req.split("==")[0]
         def pkgDir = file("${ext.PACKAGES_DIR}/$pkgName")
         def testPaths = ["test.py", "test"]

@@ -59,6 +59,7 @@ these can be installed using your distribution. Some of them have special entrie
   [here](https://github.com/mzakharo/android-gfortran/releases/tag/r21e). Create a
   `fortran` subdirectory in the same directory as this README, and unpack the .bz2 files
   into it.
+* `rust`: `rustup` must be on the PATH.
 
 
 ## Building a package

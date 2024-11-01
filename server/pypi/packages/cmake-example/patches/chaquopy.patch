@@ -1,5 +1,3 @@
-diff --git a/pybind11/CMakeLists.txt b/pybind11/CMakeLists.txt
-index 2a3e1ed7..dcd8f98a 100644
 --- a/pybind11/CMakeLists.txt
 +++ b/pybind11/CMakeLists.txt
 @@ -105,7 +105,7 @@ if(NOT (CMAKE_VERSION VERSION_LESS 3.0))  # CMake >= 3.0
@@ -11,8 +9,6 @@ index 2a3e1ed7..dcd8f98a 100644
      target_link_libraries(module INTERFACE $<BUILD_INTERFACE:${PYTHON_LIBRARIES}>)
    elseif(APPLE)
      target_link_libraries(module INTERFACE "-undefined dynamic_lookup")
-diff --git a/pybind11/tools/pybind11Config.cmake.in b/pybind11/tools/pybind11Config.cmake.in
-index 3dd1b2c1..3e96af80 100644
 --- a/pybind11/tools/pybind11Config.cmake.in
 +++ b/pybind11/tools/pybind11Config.cmake.in
 @@ -86,7 +86,7 @@ if(NOT TARGET ${PN}::pybind11)
@@ -24,8 +20,6 @@ index 3dd1b2c1..3e96af80 100644
        set_property(TARGET ${PN}::module APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${PYTHON_LIBRARIES})
      endif()
  
-diff --git a/pybind11/tools/pybind11Tools.cmake b/pybind11/tools/pybind11Tools.cmake
-index a7c471a0..dbb84c3f 100644
 --- a/pybind11/tools/pybind11Tools.cmake
 +++ b/pybind11/tools/pybind11Tools.cmake
 @@ -146,8 +146,8 @@ function(pybind11_add_module target_name)

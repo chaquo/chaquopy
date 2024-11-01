@@ -49,6 +49,8 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        App.setPySubtitle(this);
+
         consoleModel = ViewModelProviders.of(this).get(ConsoleModel.class);
         task = ViewModelProviders.of(this).get(getTaskClass());
         setContentView(resId("layout", "activity_console"));
@@ -78,8 +80,9 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         etInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE ||
-                    (event != null && event.getAction() == KeyEvent.ACTION_UP)) {
+                if ((actionId == EditorInfo.IME_ACTION_DONE && event == null) || // Soft keyboard
+                    (event != null && event.getAction() == KeyEvent.ACTION_UP)  // Hard keyboard
+                ) {
                     String text = etInput.getText().toString() + "\n";
                     etInput.setText("");
                     output(span(text, new StyleSpan(Typeface.BOLD)));
@@ -120,10 +123,10 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
         svOutput.getViewTreeObserver().addOnGlobalLayoutListener(this);
 
         tvOutput = findViewById(resId("id", "tvOutput"));
-        if (Build.VERSION.SDK_INT >= 23) {
-            // noinspection WrongConstant
-            tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
-        }
+
+        // noinspection WrongConstant
+        tvOutput.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+
         // Don't start observing task.output yet: we need to restore the scroll position first so
         // we maintain the scrolled-to-bottom state.
     }

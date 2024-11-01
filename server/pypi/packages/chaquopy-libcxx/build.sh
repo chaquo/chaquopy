@@ -1,13 +1,13 @@
 #!/bin/bash
-set -eu
+set -eu -o pipefail
 
-toolchain=$(realpath $(dirname $CC)/..)
+toolchain=$(realpath $(dirname $AR)/..)
 
-header_version=$(cat $toolchain/sysroot/usr/include/c++/v1/__libcpp_version)
-if [[ $header_version != $PKG_VERSION ]]; then
-    echo "Header version '$header_version' doesn't match meta.yaml version '$PKG_VERSION'"
+ndk_version=$("$RECIPE_DIR/version.sh")
+if [ "$ndk_version" != "$PKG_VERSION" ]; then
+    echo "Version '$ndk_version' from NDK doesn't match version '$PKG_VERSION' from meta.yaml"
     exit 1
 fi
 
 mkdir -p $PREFIX/lib
-cp $toolchain/sysroot/usr/lib/$CHAQUOPY_TRIPLET/libc++_shared.so $PREFIX/lib
+cp $toolchain/sysroot/usr/lib/$HOST/libc++_shared.so $PREFIX/lib

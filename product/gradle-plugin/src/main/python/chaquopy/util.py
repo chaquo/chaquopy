@@ -2,7 +2,7 @@ import sys
 
 
 def check_build_python():
-    MIN_VERSION = (3, 7)
+    MIN_VERSION = (3, 8)
     if sys.version_info < MIN_VERSION:
         print("buildPython must be version {}.{} or later: this is version {}.{}.{}. See "
               "https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
