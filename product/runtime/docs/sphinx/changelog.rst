@@ -18,7 +18,7 @@ Features
   <https://github.com/chaquo/chaquopy/issues/1212>`__)
 - Update runtime Python versions to 3.8.20, 3.9.20, 3.10.15, 3.11.10, 3.12.7
   and 3.13.0. (`#1211 <https://github.com/chaquo/chaquopy/issues/1211>`__)
-- Android Gradle plugin versions 8.6 to 8.7 are now supported. (`#1224
+- Android Gradle plugin versions 8.6 to 8.8 are now supported. (`#1224
   <https://github.com/chaquo/chaquopy/issues/1224>`__, `#1245
   <https://github.com/chaquo/chaquopy/issues/1245>`__)
 
