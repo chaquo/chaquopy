@@ -110,6 +110,13 @@ String sdkPath(String path) {
     return absPath
 }
 
+// Do this lazily to avoid depending on a specific version of CMake in CI when
+// CHAQUOPY_NO_BUILD is set
+// (https://github.com/actions/runner-images/issues/11111#issuecomment-2585484643).
+String cmakeExecutable(String name) {
+    return "${sdkPath("cmake/3.22.1")}/bin/$name"
+}
+
 // On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
 // variable does not affect the Java unit tests, which always use the same Java as
 // Gradle itself.
@@ -190,7 +197,6 @@ cythonTask("cythonJava") {
     }
 }
 
-def sdkCmakeDir = sdkPath("cmake/3.22.1")
 def androidJar = "${sdkPath("platforms/android-" + Common.COMPILE_SDK_VERSION)}/android.jar"
 
 dependencies {
@@ -250,8 +256,8 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             mkdir cmakeBuildSubdir
         }
         workingDir cmakeBuildSubdir
-        executable "$sdkCmakeDir/bin/cmake"
-        args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
+        executable cmakeExecutable("cmake")
+        args "-GNinja", "-DCMAKE_MAKE_PROGRAM=${cmakeExecutable("ninja")}",
              "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
              "-DCHAQUOPY_SRC_DIR=build/cython"
 
@@ -301,7 +307,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
         // No inputs or outputs: the command itself determines whether it's up to date.
         group = "build"
         dependsOn cmake
-        executable "$sdkCmakeDir/bin/cmake"
+        executable cmakeExecutable("cmake")
 
         // Ninja's parallel build defaults to the number of processors plus 2, which
         // overloads the GitHub Actions runner.
