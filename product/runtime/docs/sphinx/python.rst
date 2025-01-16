@@ -80,8 +80,8 @@ parameter. For example, a `jint` will only be applicable to a Java `int` or larg
 Classes
 -------
 
-.. note:: Rather than calling `jclass` directly, it's usually more convenient to use the
-          `import hook`_.
+The most convenient way to access Java classes is to use the `import hook`_. However,
+you may also use the following function:
 
 .. autofunction:: java.jclass(cls_name)
 
@@ -236,17 +236,22 @@ Casting
 Import hook
 ===========
 
-The import hook allows you to write code like `from java.lang import String`, which is
-equivalent to `String = jclass("java.lang.String")`.
+The import hook allows you to import Java classes using normal Python syntax. For
+example::
 
-* **Only the** `from ... import` **form is supported**, e.g. `import java.lang.String` will not
+    from java.lang import System, Thread
+
+Be aware of the following limitations:
+
+* Only the `from ... import` form is supported, e.g. `import java.lang.String` will not
   work.
 * Wildcard import is not supported, e.g. `from java.lang import *` will not work.
-* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang`
-  and `from java import lang` will not work. Similarly, Java packages are never added to
-  :any:`sys.modules`.
-* Nested and inner classes cannot be imported directly. Instead, import the outer class,
-  and access the nested class as an attribute, e.g. `Outer.Nested`.
+* Importing entire packages is not supported, e.g. `import java.lang` and `from java
+  import lang` will not work.
+* Nested and inner classes cannot be imported directly. Instead, import the outer class
+  (e.g. `from java.util import Map`), then access the nested class as an attribute (e.g.
+  `Map.Entry`).
+* The Java package will not be added to :any:`sys.modules`.
 
 To avoid confusion, it's recommended to avoid having a Java package and a Python module with
 the same name. However, this is still possible, subject to the following points:
