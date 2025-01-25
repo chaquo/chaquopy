@@ -1,0 +1,31 @@
+--- src-original/crates/jiter/src/py_string_cache.rs
++++ src/crates/jiter/src/py_string_cache.rs
+@@ -200,27 +200,8 @@
+ 
+ pub fn pystring_fast_new<'py>(py: Python<'py>, s: &str, ascii_only: bool) -> Bound<'py, PyString> {
+     if ascii_only {
+-        unsafe { pystring_ascii_new(py, s) }
++        PyString::new(py, s)
+     } else {
+         PyString::new(py, s)
+     }
+ }
+-
+-/// Faster creation of PyString from an ASCII string, inspired by
+-/// https://github.com/ijl/orjson/blob/3.10.0/src/str/create.rs#L41
+-#[cfg(all(not(PyPy), not(GraalPy)))]
+-unsafe fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, PyString> {
+-    let ptr = pyo3::ffi::PyUnicode_New(s.len() as isize, 127);
+-    // see https://github.com/pydantic/jiter/pull/72#discussion_r1545485907
+-    debug_assert_eq!(pyo3::ffi::PyUnicode_KIND(ptr), pyo3::ffi::PyUnicode_1BYTE_KIND);
+-    let data_ptr = pyo3::ffi::PyUnicode_DATA(ptr).cast();
+-    core::ptr::copy_nonoverlapping(s.as_ptr(), data_ptr, s.len());
+-    core::ptr::write(data_ptr.add(s.len()), 0);
+-    Bound::from_owned_ptr(py, ptr).downcast_into_unchecked()
+-}
+-
+-// ffi::PyUnicode_DATA seems to be broken for pypy, hence this, marked as unsafe to avoid warnings
+-#[cfg(any(PyPy, GraalPy))]
+-unsafe fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, PyString> {
+-    PyString::new_bound(py, s)
+-}
