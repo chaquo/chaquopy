@@ -929,9 +929,15 @@ class BuildWheel:
         assert_isdir(package_dir)
         return package_dir
 
+def recursive_listdir(path):
+    result = []
+    for current_dir, subdirs, files in os.walk( path ):
+        for filename in files:
+            result.append((current_dir,filename))
+    return result
 
 def find_license_files(path):
-    return [f"{path}/{name}" for name in os.listdir(path)
+    return [f"{dir}/{name}" for (dir,name) in recursive_listdir(path)
             if re.search(r"^(LICEN[CS]E|COPYING|COPYRIGHT)", name.upper())]
 
 
