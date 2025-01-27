@@ -1,0 +1,9 @@
+package:
+  name: pydantic-core
+  version: "2.27.2"
+
+requirements:
+  build:
+    - rust
+  host:
+    - jiter 0.8.0
