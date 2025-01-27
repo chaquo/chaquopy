@@ -12,28 +12,28 @@ class TestJitter(unittest.TestCase):
         from typing import Any
 
         import jiter
-        # import pytest
+        import pytest
         from math import inf
         # from dirty_equals import IsFloatNan
 
-        # JITER_BENCH_DIR = Path(__file__).parent.parent.parent / 'jiter' / 'benches'
+        JITER_BENCH_DIR = Path(__file__).parent / 'benches'
 
-        # JITER_BENCH_DATAS = [
-        #     (JITER_BENCH_DIR / 'bigints_array.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'floats_array.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'massive_ints_array.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'medium_response.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'pass1.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'pass2.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'sentence.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'short_numbers.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'string_array_unique.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'string_array.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'true_array.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'true_object.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'unicode.json').read_bytes(),
-        #     (JITER_BENCH_DIR / 'x100.json').read_bytes(),
-        # ]
+        JITER_BENCH_DATAS = [
+            (JITER_BENCH_DIR / 'bigints_array.json').read_bytes(),
+            (JITER_BENCH_DIR / 'floats_array.json').read_bytes(),
+            (JITER_BENCH_DIR / 'massive_ints_array.json').read_bytes(),
+            (JITER_BENCH_DIR / 'medium_response.json').read_bytes(),
+            (JITER_BENCH_DIR / 'pass1.json').read_bytes(),
+            (JITER_BENCH_DIR / 'pass2.json').read_bytes(),
+            (JITER_BENCH_DIR / 'sentence.json').read_bytes(),
+            (JITER_BENCH_DIR / 'short_numbers.json').read_bytes(),
+            (JITER_BENCH_DIR / 'string_array_unique.json').read_bytes(),
+            (JITER_BENCH_DIR / 'string_array.json').read_bytes(),
+            (JITER_BENCH_DIR / 'true_array.json').read_bytes(),
+            (JITER_BENCH_DIR / 'true_object.json').read_bytes(),
+            (JITER_BENCH_DIR / 'unicode.json').read_bytes(),
+            (JITER_BENCH_DIR / 'x100.json').read_bytes(),
+        ]
 
 
         def test_python_parse_numeric():
@@ -354,9 +354,9 @@ class TestJitter(unittest.TestCase):
                 jiter.from_json(b'{"foo": 1, "bar": 2, "foo": 2}', catch_duplicate_keys=True)
 
 
-        # def test_against_json():
-        #     for data in JITER_BENCH_DATAS:
-        #         assert jiter.from_json(data) == json.loads(data)
+        def test_against_json():
+            for data in JITER_BENCH_DATAS:
+                assert jiter.from_json(data) == json.loads(data)
 
 
         # def test_multithreaded_parsing():
@@ -377,3 +377,32 @@ class TestJitter(unittest.TestCase):
         
         #execute tests
         test_python_parse_numeric()
+        test_python_parse_other_no_cache()
+        test_python_disallow_nan()
+        test_error()
+        test_recursion_limit()
+        test_recursion_limit_incr()
+        test_extracted_value_error()
+        test_partial_array()
+        test_partial_array_trailing_strings()
+        test_partial_array_first()
+        test_partial_object()
+        test_partial_object_string()
+        test_partial_object_string_trailing_strings()
+        test_partial_nested()
+        test_partial_error()
+        test_python_cache_usage_all()
+        test_python_cache_usage_keys()
+        test_python_cache_usage_none()
+        test_use_tape()
+        test_unicode()
+        test_unicode_cache()
+        test_json_float()
+        test_json_float_scientific()
+        test_json_float_invalid()
+        test_lossless_floats()
+        test_decimal_floats()
+        test_unicode_roundtrip()
+        test_unicode_roundtrip_ensure_ascii()
+        test_catch_duplicate_keys()
+        test_against_json()
