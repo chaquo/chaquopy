@@ -1,39 +1,39 @@
-name: CI
-on:
-  push:
-    branches: [master]
+名称:CI
+打开:
+推:
+分支:[Master]
 
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
+并发:
+集团:${{Github.ref}}
+取消-进行中:真的
 
-defaults:
-  run:
-    shell: bash
+默认值:
+运行:
+壳牌:巴什
 
-jobs:
+工作岗位:
 
-  product:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+产品:
+Runs-on:Ubuntu-20.04
+步骤:
+-用途:斯莫里莫托/tune-github-hosted-runner-network@v1.0.0
+-用途:操作/checkout@v4.1.6
 
-      - uses: ./.github/actions/setup-python
-        id: setup-python
+-用途:./.github/actions/setup-python
+ID:设置-Python
 
-      # This step is referenced from product/README.md.
-      - name: Download Android Python builds
-        run: |
-          cd target
-          for version in $(./list-versions.py --build); do
-              target_dir=../maven/com/chaquo/python/target/$version
-              ./download-target.sh $target_dir
-              ./unpackage-target.sh $target_dir prefix
-          done
+      #此步骤引用自product/readme.md。
+-名称:下载Android Python版本
+运行:|
+CD目标
+对于$(./list-versitions.py--build)中的版本；执行
+Target_dir=../maven/com/chaquo/python/target/$version
+./download-target.sh$target_dir
+./unpackage-target.sh$TARGET_DIR前缀
+完成
 
-      - name: Install Python requirements
-        run: |
+-名称:安装Python要求
+运行:|
           ${{ steps.setup-python.outputs.python-default }} -m \
               pip install -r product/runtime/requirements-build.txt
 
