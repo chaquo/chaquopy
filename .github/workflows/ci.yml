@@ -1,4 +1,5 @@
 name: CI
+
 on:
   workflow_dispatch
 
@@ -11,7 +12,6 @@ defaults:
     shell: bash
 
 jobs:
-
   product:
     runs-on: ubuntu-20.04
     steps:
@@ -21,7 +21,6 @@ jobs:
       - uses: ./.github/actions/setup-python
         id: setup-python
 
-      # This step is referenced from product/README.md.
       - name: Download Android Python builds
         run: |
           cd target
@@ -48,7 +47,6 @@ jobs:
         uses: actions/upload-artifact@v4.3.3
         with:
           name: maven
-          # There's a fairly large per-file overhead, so exclude the hash files.
           path: |
             maven
             !**/*.md5
@@ -57,7 +55,6 @@ jobs:
             !**/*.sha512
           if-no-files-found: error
 
-      # This should match the version discovery logic in gradle-plugin/build.gradle.kts.
       - name: List Android Gradle plugin versions
         id: agp-versions
         run: |
@@ -69,7 +66,6 @@ jobs:
 
     outputs:
       agp-versions: ${{ steps.agp-versions.outputs.versions }}
-
 
   docs:
     runs-on: ubuntu-20.04
@@ -102,7 +98,6 @@ jobs:
             !**/.doctrees
           if-no-files-found: error
 
-
   gradlePython:
     runs-on: ubuntu-20.04
     steps:
@@ -118,7 +113,6 @@ jobs:
           cd product
           export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew gradle:testPython
-
 
   demo:
     needs: [product]
@@ -140,6 +134,11 @@ jobs:
           CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |
           echo "$CHAQUO_JKS" | base64 -d > demo/chaquo.jks
+          # Verify the keystore file
+          if [ ! -f demo/chaquo.jks ]; then
+            echo "Error: Keystore file not found!"
+            exit 1
+          fi
 
       - name: Build
         run: |
@@ -153,7 +152,6 @@ jobs:
           path: demo/app/build/outputs/apk/release
           if-no-files-found: error
 
-
   integration:
     needs: [product]
     strategy:
@@ -162,8 +160,6 @@ jobs:
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         os: [linux, macos, windows]
         include:
-          # Runners must support all the Python versions in setup-python/action.yml: see
-          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
           - os: linux
             runs-on: ubuntu-20.04
           - os: macos
