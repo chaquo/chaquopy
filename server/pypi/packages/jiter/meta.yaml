@@ -1,0 +1,10 @@
+package:
+  name: jiter
+  version: "0.8.0"
+
+about:
+  license_file: crates/jiter/LICENSE
+
+requirements:
+  build:
+    - rust
