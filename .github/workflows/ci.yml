@@ -14,7 +14,7 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -73,7 +73,7 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -105,7 +105,7 @@ jobs:
 
 
   gradlePython:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -123,7 +123,7 @@ jobs:
 
   demo:
     needs: [product]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -166,7 +166,7 @@ jobs:
           # Runners must support all the Python versions in setup-python/action.yml: see
           # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
           - os: linux
-            runs-on: ubuntu-20.04
+            runs-on: ubuntu-22.04
           - os: macos
             runs-on: macos-13
           - os: windows

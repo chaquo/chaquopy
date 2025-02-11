@@ -72,7 +72,6 @@ Update the Python version in all apps in the repository.
 
 Update the pythonX.Y scripts in integration/data/BuildPython.
 
-See the note about the default Python micro version in
-.github/actions/setup-python/action.yml.
+Update .github/actions/setup-python/action.yml.
 
 (REST OF LIST TBD)

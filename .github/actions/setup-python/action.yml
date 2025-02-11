@@ -1,43 +1,43 @@
 name: Setup Python
 description:
 
+# When updating this file, see the comment in ci.yml about integration test
+# runner versions.
 runs:
   using: composite
   steps:
+    # For the default Python version, the micro version should be different to the
+    # one used by the runtime, because that's required by the integration tests
+    # `requires_python` and `marker_python_version`. For all other versions, we let
+    # the GitHub runner pick a micro version, which will be faster because it's
+    # locally cached.
+    - name: Get default Python version
+      id: python-default
+      shell: bash
+      run: |
+        version=3.8
+        if [ $RUNNER_OS = Windows ]; then
+            echo "command=py -$version"
+            echo "version=3.8.10"
+        else
+            echo "command=python$version"
+            echo "version=3.8.12"
+        fi >> $GITHUB_OUTPUT
+
     - uses: actions/setup-python@v5.1.0
       with:
         # This should include all major.minor versions supported by the runtime, plus
         # OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
         # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin.
-        #
-        # For the default Python version, the micro version should be different to the
-        # one used by the runtime, because that's required by the integration tests
-        # `requires_python` and `marker_python_version`. For all other versions, we let
-        # the GitHub runner pick a micro version, which will be faster because it's
-        # locally cached.
-        #
-        # When updating this list, see the comment in ci.yml about integration test
-        # runner versions.
         python-version: |
           3.7
-          3.8.10
+          ${{ steps.python-default.outputs.version }}
           3.9
           3.10
           3.11
           3.12
           3.13
         allow-prereleases: true
-
-    - name: Set default Python command
-      id: python-default
-      shell: bash
-      run: |
-        version=$(target/list-versions.py --default)
-        if [ $RUNNER_OS = Windows ]; then
-            echo "command=py -$version"
-        else
-            echo "command=python$version"
-        fi >> $GITHUB_OUTPUT
 
 outputs:
   python-default:
