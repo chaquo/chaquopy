@@ -103,7 +103,6 @@ class BuildWheel:
                     if name == "python":
                         self.meta["requirements"]["host"].remove(name)
                         self.needs_python = True
-
             self.unpack_and_build()
 
         except CommandError as e:

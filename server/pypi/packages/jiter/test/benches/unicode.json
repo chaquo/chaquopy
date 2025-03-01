@@ -1,0 +1,1 @@
+"Fast iterable JSON parser.\n\nDocumentation is available at £ [docs.rs/jiter](https://docs.rs/jiter).\n\njiter has three interfaces:\n* [`JsonValue`] an enum representing JSON data\n* [`Jiter`] an iterator over JSON data\n* [`python_parse`] which parses a JSON string into a Python object\n\n## JsonValue Example\n\nSee [the `JsonValue` docs][JsonValue] for more details.\n💩"

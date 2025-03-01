@@ -1,0 +1,11 @@
+--- src-original/crates/jiter-python/Cargo.toml
++++ src/crates/jiter-python/Cargo.toml
+@@ -10,7 +10,7 @@
+ repository = {workspace = true}
+ 
+ [dependencies]
+-pyo3 = { workspace = true, features = ["num-bigint"] }
++pyo3 = { workspace = true, features = ["num-bigint","abi3-py311"] }
+ jiter = { path = "../jiter", features = ["python", "num-bigint"] }
+ 
+ [features]

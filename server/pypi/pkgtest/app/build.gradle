@@ -56,15 +56,15 @@ android {
 
         // To test packages, edit the following line to list their names, separated by
         // spaces. Each name must be a subdirectory of PACKAGES_DIR.
-        def PACKAGES = ""
+        def PACKAGES = "jiter"
         addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
 
         python {
-            version "3.8"
+            version "3.11"
 
             pip {
                 // After a package is tested, remember to move it to the public repository!
-                options "--extra-index-url", "https://chaquo.com/pypi-test/"
+                options "--extra-index-url", "file:///Work/Inno/sandbox/pr/chaquopy/server/pypi/dist/"
             }
             pyc {
                 src false  // Include test source code in stack traces.
@@ -73,7 +73,7 @@ android {
         }
 
         ndk {
-            abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+            abiFilters "x86_64"
          }
     }
 
