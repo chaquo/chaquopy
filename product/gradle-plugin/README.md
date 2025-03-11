@@ -38,8 +38,6 @@ also be given here.
 
 ## Adding support for an Android Gradle plugin version
 
-After first release candidate:
-
 * Check the bundled JDK version, and update product/local.properties to point at it.
 * Use the new project wizard to create an "Empty Activity" project, with "Minimum SDK"
   set to Chaquopy's current minimum.
@@ -47,31 +45,29 @@ After first release candidate:
   version.
 * Copy the contents from the previous base/X.Y directory, then update them with the
   settings from the "Empty Activity" project.
-* Run tests on all platforms.
+* In test_gradle_plugin.py, temporarily change `chaquopyVersion` to the current stable
+  Chaquopy version, and make sure that version isn't in the local Maven repository so it
+  will be downloaded from Maven Central.
+* Run all integration tests against the new AGP version.
+  * If it passes, update android.rst, versions.rst and changelog.rst for the existing
+    version, and publish them to the website.
+  * If it fails, plan to perform a Chaquopy release as soon as possible, because Android
+    Studio's auto-updater will cause many users to move to the new AGP version.
+* Revert the changes to test_gradle_plugin.py, then run all integration tests against
+  the Chaquopy development version and the new AGP version.
 
-After stable release:
-
-* As above, update the integration/data/base/X.Y directory with the settings from the
-  new project wizard.
 * Open the "product" project in the new Android Studio version, then:
   * Consider updating the Gradle version, but first see the note in
     product/gradle/wrapper/gradle-wrapper.properties.
-  * Sync the project, then run the `publish` task.
-  * Close the project to make sure .idea files are written.
+  * Sync the project.
+  * Test it by running the `publish` task.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
   * In Android Studio, run Tools > AGP Upgrade Assistant.
-  * Update all items from the "base" directory above.
-  * Update .gitignore from the new project wizard, and git rm any newly-ignored files.
+  * Apply any other updates from the "base" directory above.
   * Test the app.
-  * Close the project to make sure .idea files are written.
-* Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the current stable
-  Chaquopy version with the new AGP version, on all platforms.
-  * If it passes, update android.rst, versions.rst and changelog.rst for the existing
-    version, and publish them to the website.
-  * If it fails, fix the problems, update android.rst and versions.rst for the new
-    version, and perform a Chaquopy release as soon as possible, because Android
-    Studio's auto-updater will cause many users to move to the new AGP version.
+* Close all projects to make sure .idea files are written.
+* Add .gitignore entries if necessary.
 
 
 ## Removing support for an Android Gradle plugin version
