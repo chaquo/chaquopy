@@ -15,8 +15,8 @@ chose it to reflect our goal of opening up new frontiers in how Python can be us
 
 .. _faq-react:
 
-Does Chaquopy support React Native?
------------------------------------
+Can Chaquopy be used with React Native or Flutter?
+--------------------------------------------------
 
 Yes, it can be used with any framework which lets you do the following:
 
