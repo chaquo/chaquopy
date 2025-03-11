@@ -20,8 +20,9 @@ class PythonPlugin : Plugin<Project> {
 
     // Load dependencies from the same buildscript context as the Chaquopy plugin
     // itself, so they'll come from the same repository.
-    val pluginInfo by lazy { findPlugin("com.chaquo.python", "gradle") }
-    val buildscript by lazy { pluginInfo.buildscript }
+    val androidPluginInfo by lazy { findPlugin("com.android.tools.build", "gradle") }
+    val chaquopyPluginInfo by lazy { findPlugin("com.chaquo.python", "gradle") }
+    val buildscript by lazy { chaquopyPluginInfo.buildscript }
 
     lateinit var project: Project
     lateinit var extension: ChaquopyExtension
@@ -90,10 +91,8 @@ class PythonPlugin : Plugin<Project> {
     // still need to be able to give a useful error message when running with older
     // versions.
     fun checkAgpVersion() {
-        val version = VersionNumber.parse(
-            findPlugin("com.android.tools.build", "gradle").version)
         val minVersion = VersionNumber.parse(Common.MIN_AGP_VERSION)
-        if (version < minVersion) {
+        if (androidPluginInfo.version < minVersion) {
             throw GradleException(
                 "This version of Chaquopy requires Android Gradle plugin version " +
                 "$minVersion or later. Please edit the version of " +
@@ -104,7 +103,7 @@ class PythonPlugin : Plugin<Project> {
     }
 
     data class PluginInfo(
-        val buildscript: ScriptHandler, val version: String)
+        val buildscript: ScriptHandler, val version: VersionNumber)
 
     fun findPlugin(group: String, name: String): PluginInfo {
         var p: Project? = project
@@ -113,7 +112,7 @@ class PythonPlugin : Plugin<Project> {
                  .resolvedConfiguration.resolvedArtifacts) {
                 val dep = art.moduleVersion.id
                 if (dep.group == group  &&  dep.name == name) {
-                    return PluginInfo(p.buildscript, dep.version)
+                    return PluginInfo(p.buildscript, VersionNumber.parse(dep.version))
                 }
             }
             p = p.parent
@@ -174,7 +173,7 @@ class PythonPlugin : Plugin<Project> {
                 val dotPos = filename.lastIndexOf(".")
                 put("group", "com.chaquo.python.runtime")
                 put("name", filename.substring(0, dotPos))
-                put("version", pluginInfo.version)
+                put("version", chaquopyPluginInfo.version.toString())
                 put("ext", filename.substring(dotPos + 1))
                 if (python != null) {
                     put("classifier", runtimeClassifier(python, abi))

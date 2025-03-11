@@ -13,6 +13,7 @@ import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.*
 import org.gradle.process.*
 import org.gradle.process.internal.*
+import org.gradle.util.*
 import org.json.*
 import java.io.*
 import java.security.*
@@ -479,8 +480,11 @@ internal class TaskBuilder(
             configure()
         }
 
-        extendMergeTask(if (plugin.isLibrary) "package" else "merge",
-                        "assets", task)
+        val verb = if (
+            plugin.isLibrary &&
+            plugin.androidPluginInfo.version < VersionNumber.parse("8.9")
+        ) "package" else "merge"
+        extendMergeTask(verb, "assets", task)
         return task
     }
 
