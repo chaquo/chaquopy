@@ -16,5 +16,5 @@ requirements:
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3
     - chaquopy-openblas 0.2.20
-    - numpy 1.26.2
+    - numpy 1.23.3
     - python
