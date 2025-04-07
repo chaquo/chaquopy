@@ -1,4 +1,18 @@
-{% set version = "3.8.1" %}
+# Current versions can be found here: https://libgeos.org/usage/download/
+
+{% if PY_VER == "3.8" %}
+    {% set version = "3.8.4" %}
+{% elif PY_VER == "3.9" %}
+    {% set version = "3.9.6" %}
+{% elif PY_VER == "3.10" %}
+    {% set version = "3.10.7" %}
+{% elif PY_VER == "3.11" %}
+    {% set version = "3.11.5" %}
+{% elif PY_VER == "3.12" %}
+    {% set version = "3.12.3" %}
+{% elif PY_VER == "3.13" %}
+    {% set version = "3.13.1" %}
+{% endif %}
 
 package:
   name: chaquopy-geos
