@@ -1,10 +1,27 @@
-diff -aur src-orig/scipy/__init__.py src/scipy/__init__.py
---- src-orig/scipy/__init__.py	2023-09-20 11:08:01.936923429 +0200
-+++ src/scipy/__init__.py	2023-09-21 13:13:09.267906353 +0200
-@@ -64,50 +64,54 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 6dc1d4070..7797510a2 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -8,9 +8,8 @@
+ #     "pybind11>=2.4.3,<2.5.0",
  
- __all__ = __dir__()
+ [build-system]
+-build-backend = 'mesonpy'
+ requires = [
+-    "meson-python>=0.9.0",  # we need more fixes in meson-python, so no upper bound now
++    "setuptools<60.0.0", # Chaquopy: Use setuptools instead of meson
+     "Cython>=0.29.32,<3.0",
+     "pybind11>=2.4.3,<2.11.0",
+     "pythran>=0.9.12,<0.13.0",
+diff --git a/scipy/__init__.py b/scipy/__init__.py
+index 0e132c394..ee125c418 100644
+--- a/scipy/__init__.py
++++ b/scipy/__init__.py
+@@ -69,53 +69,54 @@ if sys.version_info >= (3, 12):
+     raise RuntimeError(_msg)
+ del sys
  
+-
 -from numpy import show_config as show_numpy_config
 -if show_numpy_config is None:
 -    raise ImportError(
@@ -13,42 +30,44 @@ diff -aur src-orig/scipy/__init__.py src/scipy/__init__.py
 -
 -# Import numpy symbols to scipy name space (DEPRECATED)
 -from ._lib.deprecation import _deprecated
--import numpy as _num
--linalg = None
+-import numpy as np
 -_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
 -        'use numpy.{0} instead')
--# deprecate callable objects, skipping classes
--for _key in _num.__all__:
--    _fun = getattr(_num, _key)
+-
+-# deprecate callable objects from numpy, skipping classes and modules
+-import types as _types  # noqa: E402
+-for _key in np.__all__:
+-    if _key.startswith('_'):
+-        continue
+-    _fun = getattr(np, _key)
+-    if isinstance(_fun, _types.ModuleType):
+-        continue
 -    if callable(_fun) and not isinstance(_fun, type):
 -        _fun = _deprecated(_msg.format(_key))(_fun)
 -    globals()[_key] = _fun
+-del np, _types
+-
 -from numpy.random import rand, randn
 -_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
 -        'use numpy.random.{0} instead')
 -rand = _deprecated(_msg.format('rand'))(rand)
 -randn = _deprecated(_msg.format('randn'))(randn)
+-
 -# fft is especially problematic, so was removed in SciPy 1.6.0
 -from numpy.fft import ifft
 -ifft = _deprecated('scipy.ifft is deprecated and will be removed in SciPy '
 -                   '2.0.0, use scipy.fft.ifft instead')(ifft)
--import numpy.lib.scimath as _sci
+-
+-from numpy.lib import scimath  # noqa: E402
 -_msg = ('scipy.{0} is deprecated and will be removed in SciPy 2.0.0, '
 -        'use numpy.lib.scimath.{0} instead')
--for _key in _sci.__all__:
--    _fun = getattr(_sci, _key)
+-for _key in scimath.__all__:
+-    _fun = getattr(scimath, _key)
 -    if callable(_fun):
 -        _fun = _deprecated(_msg.format(_key))(_fun)
 -    globals()[_key] = _fun
--
--__all__ += _num.__all__
--__all__ += ['randn', 'rand', 'ifft']
--
--del _num
--# Remove the linalg imported from NumPy so that the scipy.linalg package can be
--# imported.
--del linalg
--__all__.remove('linalg')
+-del scimath
+-del _msg, _fun, _key, _deprecated
 +# Chaquopy: don't import numpy during build.
 +try:
 +    __SCIPY_SETUP__
@@ -100,10 +119,10 @@ diff -aur src-orig/scipy/__init__.py src/scipy/__init__.py
  
  # We first need to detect if we're being called as part of the SciPy
  # setup procedure itself in a reliable manner.
-@@ -121,6 +125,10 @@
-     import sys as _sys
-     _sys.stderr.write('Running from SciPy source directory.\n')
-     del _sys
+@@ -129,6 +130,10 @@ if __SCIPY_SETUP__:
+     import sys
+     sys.stderr.write('Running from SciPy source directory.\n')
+     del sys
 +
 +    # Chaquopy: the module namespace was originally empty in this mode, but the following
 +    # things are neded by the scikit-learn build.
@@ -111,10 +130,31 @@ diff -aur src-orig/scipy/__init__.py src/scipy/__init__.py
  else:
      try:
          from scipy.__config__ import show as show_config
-diff -aur src-orig/scipy/_lib/_testutils.py src/scipy/_lib/_testutils.py
---- src-orig/scipy/_lib/_testutils.py	2023-09-20 11:08:01.940923505 +0200
-+++ src/scipy/_lib/_testutils.py	2023-09-21 13:13:08.763896205 +0200
-@@ -86,9 +86,10 @@
+diff --git a/scipy/_lib/_c99compat.h b/scipy/_lib/_c99compat.h
+index 7d285137d..f0ce4f63f 100644
+--- a/scipy/_lib/_c99compat.h
++++ b/scipy/_lib/_c99compat.h
+@@ -120,9 +120,12 @@
+         /* Hopefully fail in fewer cases */
+ 
+         /* For compilers which aren't MSVC and haven't defined isnan */
+-        #ifndef isnan
+-            #define isnan(x) ((x) != (x))
+-        #endif
++	/* Chaquopy: Prevent C/C++ macro collision */
++	#ifndef __cplusplus
++	    #ifndef isnan
++	        #define isnan(x) ((x) != (x))
++	    #endif
++	#endif
+ 
+         #ifndef isfinite
+             #ifdef _MSC_VER
+diff --git a/scipy/_lib/_testutils.py b/scipy/_lib/_testutils.py
+index def797954..f94ff6a39 100644
+--- a/scipy/_lib/_testutils.py
++++ b/scipy/_lib/_testutils.py
+@@ -86,9 +86,10 @@ class _TestPythranFunc:
      `self.partialfunc`: A function used to freeze some non-array argument
                          that of no interests in the original function
      '''
@@ -128,10 +168,23 @@ diff -aur src-orig/scipy/_lib/_testutils.py src/scipy/_lib/_testutils.py
  
      def setup_method(self):
          self.arguments = {}
-diff -aur src-orig/scipy/sparse/linalg/_propack/setup.py src/scipy/sparse/linalg/_propack/setup.py
---- src-orig/scipy/sparse/linalg/_propack/setup.py	2023-09-20 11:08:03.624955562 +0200
-+++ src/scipy/sparse/linalg/_propack/setup.py	2023-09-21 13:13:09.407909172 +0200
-@@ -1,12 +1,14 @@
+diff --git a/scipy/integrate/setup.py b/scipy/integrate/setup.py
+index 1ba82d18c..e18391dd3 100644
+--- a/scipy/integrate/setup.py
++++ b/scipy/integrate/setup.py
+@@ -3,7 +3,6 @@ from os.path import join
+ 
+ from scipy._build_utils import numpy_nodepr_api
+ 
+-
+ def configuration(parent_package='',top_path=None):
+     from numpy.distutils.misc_util import Configuration
+     from scipy._build_utils.system_info import get_info
+diff --git a/scipy/sparse/linalg/_propack/setup.py b/scipy/sparse/linalg/_propack/setup.py
+index 5c8f252ac..def2dde17 100644
+--- a/scipy/sparse/linalg/_propack/setup.py
++++ b/scipy/sparse/linalg/_propack/setup.py
+@@ -1,11 +1,14 @@
  from os.path import join
 +from os import getenv
  import pathlib
@@ -142,43 +195,53 @@ diff -aur src-orig/scipy/sparse/linalg/_propack/setup.py src/scipy/sparse/linalg
  
  def _is_32bit():
 -    return np.intp(0).itemsize < 8
--
 +    # Chaquopy: check 32/64 bit based on ABI instead of numpy
-+    # np.intp(0).itemsize < 8  
-+    return getenv('HOST') in ["arm-linux-androideabi", "i686-linux-android"]    
++    # return np.intp(0).itemsize < 8
++    return getenv('HOST') in ["arm-linux-androideabi", "i686-linux-android"]
+ 
  
  def check_propack_submodule():
-     if not (pathlib.Path(__file__).parent / 'PROPACK/README').exists():
-diff -aur src-orig/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh src/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh
---- src-orig/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh	2023-09-20 11:08:03.696956933 +0200
-+++ src/scipy/special/ellint_carlson_cpp_lite/ellint_arith_aux.hh	2023-09-21 13:13:09.439909816 +0200
-@@ -5,6 +5,8 @@
- #include <cstddef>
- #include "ellint_typing.hh"
-
-+// Chaquopy: added <algorithm>
-+#include <algorithm>
+diff --git a/scipy/spatial/_qhull.pyx b/scipy/spatial/_qhull.pyx
+index 8c9135adc..c8b7c8f47 100644
+--- a/scipy/spatial/_qhull.pyx
++++ b/scipy/spatial/_qhull.pyx
+@@ -17,6 +17,7 @@ cimport cython
+ from . cimport _qhull
+ from . cimport setlist
+ from libc cimport stdlib
++from libc.stdio cimport FILE # Chaquopy
+ from scipy._lib.messagestream cimport MessageStream
  
- /* Auxiliary floating-point manipulation utilities.
-  * Ref:
-diff -aur src-orig/scipy/special/_generate_pyx.py src/scipy/special/_generate_pyx.py
---- src-orig/scipy/special/_generate_pyx.py	2023-09-20 11:08:03.676956552 +0200
-+++ src/scipy/special/_generate_pyx.py	2023-09-21 13:13:09.443909897 +0200
-@@ -230,7 +230,7 @@
+ import os
+@@ -992,7 +993,8 @@ cdef class _Qhull:
+         return extremes_arr
+ 
+ 
+-cdef void _visit_voronoi(qhT *_qh, void *ptr, vertexT *vertex, vertexT *vertexA,
++# Chaquopy: Changed void to FILE to ensure type safety
++cdef void _visit_voronoi(qhT *_qh, FILE *ptr, vertexT *vertex, vertexT *vertexA,
+                          setT *centers, boolT unbounded):
+     cdef _Qhull qh = <_Qhull>ptr
+     cdef int point_1, point_2, ix
+diff --git a/scipy/special/_generate_pyx.py b/scipy/special/_generate_pyx.py
+index 21b401629..0e5ad94ba 100644
+--- a/scipy/special/_generate_pyx.py
++++ b/scipy/special/_generate_pyx.py
+@@ -232,8 +232,7 @@ import re
  import textwrap
  from typing import List
  
 -import numpy
+-
 +# Chaquopy: skip "import numpy"
  
- 
  BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-@@ -923,7 +923,13 @@
+ 
+@@ -925,7 +924,12 @@ class FusedFunc(Func):
          all_codes = tuple([codes for _unused, codes in fused_types])
  
          codelens = [len(x) for x in all_codes]
 -        last = numpy.prod(codelens) - 1
-+
 +        # Chaquopy: replace numpy.prod(codelens) - 1
 +        last = 1
 +        for x in codelens:
@@ -188,10 +251,11 @@ diff -aur src-orig/scipy/special/_generate_pyx.py src/scipy/special/_generate_py
          for m, codes in enumerate(itertools.product(*all_codes)):
              fused_codes, decs = [], []
              for n, fused_type in enumerate(fused_types):
-diff -aur src-orig/scipy/special/utils/makenpz.py src/scipy/special/utils/makenpz.py
---- src-orig/scipy/special/utils/makenpz.py	2023-09-20 11:08:03.708957161 +0200
-+++ src/scipy/special/utils/makenpz.py	2023-09-21 13:13:09.447909977 +0200
-@@ -6,7 +6,8 @@
+diff --git a/scipy/special/utils/makenpz.py b/scipy/special/utils/makenpz.py
+index f7dd6622a..dc670fe49 100644
+--- a/scipy/special/utils/makenpz.py
++++ b/scipy/special/utils/makenpz.py
+@@ -6,7 +6,8 @@ Build a npz containing all data files in the directory.
  """
  
  import os
@@ -199,12 +263,22 @@ diff -aur src-orig/scipy/special/utils/makenpz.py src/scipy/special/utils/makenp
 +# Chaquopy: removed `import numpy`: we will "Skip rebuilding if no sources" below, so it's not
 +# needed.
  import argparse
+ from stat import ST_MTIME
  
- from distutils.util import newer  # type: ignore
-diff -aur src-orig/scipy/stats/_generate_pyx.py src/scipy/stats/_generate_pyx.py
---- src-orig/scipy/stats/_generate_pyx.py	2023-09-20 11:08:03.708957161 +0200
-+++ src/scipy/stats/_generate_pyx.py	2023-09-21 13:13:09.463910299 +0200
-@@ -8,6 +8,10 @@
+@@ -47,6 +48,8 @@ def main():
+         outdir_abs = os.path.join(os.getcwd(), args.outdir)
+         outp = os.path.join(outdir_abs, args.dirname + ".npz")
+ 
++    # Chaquopy: Force return
++    return
+     # Skip rebuilding if no sources
+     if os.path.isfile(outp) and not os.path.isdir(inp):
+         return
+diff --git a/scipy/stats/_generate_pyx.py b/scipy/stats/_generate_pyx.py
+index 07861467f..4bba6e623 100644
+--- a/scipy/stats/_generate_pyx.py
++++ b/scipy/stats/_generate_pyx.py
+@@ -10,6 +10,10 @@ def isNPY_OLD():
      A new random C API was added in 1.18 and became stable in 1.19.
      Prefer the new random C API when building with recent numpy.
      '''
@@ -215,14 +289,25 @@ diff -aur src-orig/scipy/stats/_generate_pyx.py src/scipy/stats/_generate_pyx.py
      import numpy as np
      ver = tuple(int(num) for num in np.__version__.split('.')[:2])
      return ver < (1, 19)
-diff -aur src-orig/setup.py src/setup.py
---- src-orig/setup.py	2023-09-20 11:08:03.732957618 +0200
-+++ src/setup.py	2023-09-21 13:13:08.707895078 +0200
-@@ -32,6 +32,15 @@
+diff --git a/setup.py b/setup.py
+index de1c702af..85f76a66e 100755
+--- a/setup.py
++++ b/setup.py
+@@ -28,12 +28,25 @@ from tools.version_utils import write_version_py, get_version_info
+ from tools.version_utils import IS_RELEASE_BRANCH
+ import importlib
+ 
++# Chaquopy: Force use of cross-compilers for Fortran
++os.environ["FC"] = os.path.join(os.path.expanduser("~"), "Downloads/gcc-arm64-linux-x86_64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gfortran")
++os.environ["F77"] = os.path.join(os.path.expanduser("~"), "Downloads/gcc-arm64-linux-x86_64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gfortran")
++os.environ["F90"] = os.path.join(os.path.expanduser("~"), "Downloads/gcc-arm64-linux-x86_64/aarch64-linux-android-4.9/bin/aarch64-linux-android-gfortran")
+ 
+ if sys.version_info[:2] < (3, 8):
+     raise RuntimeError("Python version >= 3.8 required.")
  
  import builtins
  
-+# Chaquopy
++# Chaquopy: Use OpenBLAS from Chaquopy package index
 +with open(os.path.join(os.path.dirname(__file__), "site.cfg"), "w") as site_file:
 +    site_file.write("[openblas]\n"
 +                    "library_dirs = {reqs_dir}/lib\n"
@@ -234,4 +319,3 @@ diff -aur src-orig/setup.py src/setup.py
  
  CLASSIFIERS = """\
  Development Status :: 5 - Production/Stable
-
