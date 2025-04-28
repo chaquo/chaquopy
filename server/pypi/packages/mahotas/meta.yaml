@@ -1,0 +1,13 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% else %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
+package:
+  name: mahotas
+  version: "1.4.13"
+
+requirements:
+  host:
+    - numpy {{ numpy_version }}
