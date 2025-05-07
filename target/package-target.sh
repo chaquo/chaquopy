@@ -99,7 +99,7 @@ for prefix in $prefixes; do
         # Add _chaquopy suffixed libraries for compatibility with existing wheels. We
         # need this even on Python 3.13, for non-Python wheels like chaquopy-curl.
         chaquopy_name=lib${name}_chaquopy.so
-        "$CC" -shared "-L$prefix/lib" "-l${name}_python" \
+        "$CC" $LDFLAGS -shared "-L$prefix/lib" "-l${name}_python" \
             "-Wl,-soname=$chaquopy_name" \
             -o "$prefix/lib/$chaquopy_name"
         cp "$prefix/lib/lib${name}_"{chaquopy,python}.so "$jniLibs_dir"
