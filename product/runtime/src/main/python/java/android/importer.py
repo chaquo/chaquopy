@@ -248,7 +248,9 @@ def load_module_override(load_name, file, pathname, description):
         finder = get_importer(dirname(pathname))
         if hasattr(finder, "prefix"):  # AssetFinder or zipimporter
             entry, base_name = split(pathname)
-            real_name = join(finder.prefix, splitext(base_name)[0]).replace("/", ".")
+            real_name = join(finder.prefix, re.sub(r"\..*", "", base_name)).replace(
+                "/", "."
+            )
             if isinstance(finder, AssetFinder):
                 spec = finder.find_spec(real_name)
                 spec.name = load_name
