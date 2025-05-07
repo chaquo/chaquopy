@@ -1,0 +1,1 @@
+The "may have fewer packages available" warning has been removed, since the default Python version no longer has a clear advantage in its package selection.
