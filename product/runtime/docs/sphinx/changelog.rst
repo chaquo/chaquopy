@@ -26,7 +26,7 @@ Bugfixes
 - The Gradle requirements task is now rerun when the app's Python version
   changes, even if this did not result in a change in the `buildPython`.
   (`#1266 <https://github.com/chaquo/chaquopy/issues/1266>`__)
-- .pth files are now processed in the correct dependency order. (`#1338
+- .pth files are now processed after `sys.path` is fully initialized. (`#1338
   <https://github.com/chaquo/chaquopy/issues/1338>`__)
 - The importer now recognizes libraries with an SOABI suffix such as
   `.cpython-313-aarch64-linux-android.so`. (`#1370

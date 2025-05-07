@@ -61,11 +61,13 @@ def initialize_importlib(context, build_json, app_path):
     sys.path_hooks[sys.path_hooks.index(zipimporter)] = ChaquopyZipImporter
     sys.path_importer_cache.clear()
 
+    finders = []
     sys.path = [p for p in sys.path if exists(p)]  # Remove nonexistent default paths
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
         sys.path.insert(i, entry)
         finder = get_importer(entry)
+        finders.append(finder)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
 
@@ -80,9 +82,9 @@ def initialize_importlib(context, build_json, app_path):
                not any(finder.exists(f"{name}/__init__{suffix}") for suffix in LOADERS):
                 finder.extract_dir(name)
 
-        # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
-        # require the finder to be fully available to the system, which isn't the case until
-        # get_importer returns.
+    # We do this in a separate loop because code in the .pth files may require sys.path
+    # to be fully initialized. Use reverse order to initialize lower-level things first.
+    for finder in reversed(finders):
         site.addsitedir(finder.extract_root)
 
     if sys.version_info[:2] == (3, 9):
