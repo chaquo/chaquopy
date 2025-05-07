@@ -1,1 +1,0 @@
-.pth files are now processed in the correct dependency order.

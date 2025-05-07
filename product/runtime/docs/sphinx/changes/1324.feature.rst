@@ -1,1 +1,0 @@
-The `_chaquopy` stub libraries for OpenSSL and SQLite are now linked in 16 KB mode.

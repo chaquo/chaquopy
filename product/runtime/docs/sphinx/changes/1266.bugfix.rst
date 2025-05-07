@@ -1,1 +1,0 @@
-The Gradle requirements task is now rerun when the app's Python version changes, even if this did not result in a change in the `buildPython`.

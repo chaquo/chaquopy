@@ -5,6 +5,34 @@ Change log
 
 .. towncrier release notes start
 
+16.1.0 (2025-05-07)
+===================
+
+Features
+--------
+
+- The "may have fewer packages available" warning has been removed, since the
+  default Python version no longer has a clear advantage in its package
+  selection. (`#1272 <https://github.com/chaquo/chaquopy/issues/1272>`__)
+- The `_chaquopy` stub libraries for OpenSSL and SQLite are now linked in 16 KB
+  mode. (`#1324 <https://github.com/chaquo/chaquopy/issues/1324>`__)
+- Android Gradle plugin version 8.9 is now supported. (`#1340
+  <https://github.com/chaquo/chaquopy/issues/1340>`__)
+
+
+Bugfixes
+--------
+
+- The Gradle requirements task is now rerun when the app's Python version
+  changes, even if this did not result in a change in the `buildPython`.
+  (`#1266 <https://github.com/chaquo/chaquopy/issues/1266>`__)
+- .pth files are now processed in the correct dependency order. (`#1338
+  <https://github.com/chaquo/chaquopy/issues/1338>`__)
+- The importer now recognizes libraries with an SOABI suffix such as
+  `.cpython-313-aarch64-linux-android.so`. (`#1370
+  <https://github.com/chaquo/chaquopy/issues/1370>`__)
+
+
 16.0.0 (2024-10-15)
 ===================
 
