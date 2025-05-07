@@ -1854,8 +1854,15 @@ class RunGradle(object):
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
         for abi in abis:
             abi_dir = join(bootstrap_native_dir, abi)
-            self.test.assertCountEqual(stdlib_bootstrap_expected, os.listdir(abi_dir))
-            self.check_python_so(join(abi_dir, "_ctypes.so"), python_version, abi)
+            self.test.assertCountEqual(
+                [
+                    add_soabi(python_version_info, abi, filename)
+                    for filename in stdlib_bootstrap_expected
+                ],
+                os.listdir(abi_dir),
+            )
+            test_module = add_soabi(python_version_info, abi, "_ctypes.so")
+            self.check_python_so(join(abi_dir, test_module), python_version, abi)
 
             java_dir = join(abi_dir, "java")
             self.test.assertCountEqual(["chaquopy.so"], os.listdir(java_dir))
@@ -1910,10 +1917,15 @@ class RunGradle(object):
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
-            self.test.assertEqual(stdlib_native_expected,
-                                  set(stdlib_native_zip.namelist()))
+            self.test.assertCountEqual(
+                [
+                    add_soabi(python_version_info, abi, filename)
+                    for filename in stdlib_native_expected
+                ],
+                stdlib_native_zip.namelist(),
+            )
             with TemporaryDirectory() as tmp_dir:
-                test_module = "_asyncio.so"
+                test_module = add_soabi(python_version_info, abi, "_asyncio.so")
                 stdlib_native_zip.extract(test_module, tmp_dir)
                 self.check_python_so(join(tmp_dir, test_module), python_version, abi)
 
@@ -2010,6 +2022,16 @@ class KwargsWrapper(object):
     def __getitem__(self, key):
         self.unused_kwargs.discard(key)
         return self.kwargs[key]
+
+
+def add_soabi(version_info, abi, filename):
+    soabi = f"cpython-{version_info[0]}{version_info[1]}"
+    if version_info >= (3, 13):
+        soabi += "-" + {
+            "arm64-v8a": "aarch64",
+            "x86_64": "x86_64",
+        }[abi] + "-linux-android"
+    return filename.replace(".so", f".{soabi}.so")
 
 
 def dex_classes(apk_dir):

@@ -18,12 +18,12 @@ public class Common {
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.8.20", "0");
-        PYTHON_VERSIONS.put("3.9.20", "0");
-        PYTHON_VERSIONS.put("3.10.15", "0");
-        PYTHON_VERSIONS.put("3.11.10", "0");
-        PYTHON_VERSIONS.put("3.12.7", "0");
-        PYTHON_VERSIONS.put("3.13.0", "0");
+        PYTHON_VERSIONS.put("3.8.20", "1");
+        PYTHON_VERSIONS.put("3.9.20", "1");
+        PYTHON_VERSIONS.put("3.10.15", "1");
+        PYTHON_VERSIONS.put("3.11.10", "1");
+        PYTHON_VERSIONS.put("3.12.7", "1");
+        PYTHON_VERSIONS.put("3.13.0", "1");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();

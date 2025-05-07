@@ -108,9 +108,7 @@ for prefix in $prefixes; do
     mkdir lib-dynload
     dynload_dir="lib-dynload/$abi"
     mkdir -p $dynload_dir
-    for module in $prefix/lib/python$version_short/lib-dynload/*; do
-        cp $module $dynload_dir/$(basename $module | sed 's/.cpython-.*.so/.so/')
-    done
+    cp $prefix/lib/python$version_short/lib-dynload/* $dynload_dir
     rm $dynload_dir/*_test*.so
 
     chmod u+w $(find . -name *.so)

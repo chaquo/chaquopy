@@ -48,6 +48,16 @@ def importable(filename):
     return splitext(filename)[1] in [".py", ".pyc", ".so"]
 
 
+def add_soabi(version_info, abi, filename):
+    soabi = f"cpython-{version_info[0]}{version_info[1]}"
+    if version_info >= (3, 13):
+        soabi += "-" + {
+            "arm64-v8a": "aarch64",
+            "x86_64": "x86_64",
+        }[abi] + "-linux-android"
+    return filename.replace(".so", f".{soabi}.so")
+
+
 class TestAndroidImport(FilterWarningsCase):
 
     maxDiff = None
@@ -75,7 +85,13 @@ class TestAndroidImport(FilterWarningsCase):
             stdlib_bootstrap_expected |= {"_opcode.so"}
 
         for subdir, entries in [
-            (ABI, list(stdlib_bootstrap_expected)),
+            (
+                ABI,
+                [
+                    add_soabi(sys.version_info, ABI, filename)
+                    for filename in stdlib_bootstrap_expected
+                ],
+            ),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -90,7 +106,7 @@ class TestAndroidImport(FilterWarningsCase):
                 if subdir == ABI:
                     for filename in entries:
                         with self.subTest(filename=filename):
-                            self.assertIn(filename.replace(".so", ""), sys.modules)
+                            self.assertIn(re.sub(r"\..*", "", filename), sys.modules)
 
     def test_init(self):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",

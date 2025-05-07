@@ -763,13 +763,14 @@ def get_needed(path):
             return []
 
 
-# If a module has both a .py and a .pyc file, the .pyc file should be used because
-# it'll load faster.
+# Suffixes are in order of preference.
 LOADERS = {
+    # .pyc should be preferred over .py, because it'll load faster.
     ".pyc": SourcelessAssetLoader,
     ".py": SourceAssetLoader,
-    ".so": ExtensionAssetLoader,
 }
+for suffix in _imp.extension_suffixes():
+    LOADERS[suffix] = ExtensionAssetLoader
 
 
 class AssetZipFile(ZipFile):

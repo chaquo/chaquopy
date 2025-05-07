@@ -402,32 +402,32 @@ internal class TaskBuilder(
                 // If this list changes, search for references to this variable name to
                 // find the tests that need to be updated.
                 val BOOTSTRAP_NATIVE_STDLIB = mutableListOf(
-                    "_bz2.so",  // zipfile < importer
-                    "_ctypes.so",  // java.primitive and importer
-                    "_datetime.so",  // calendar < importer (see test_datetime)
-                    "_lzma.so",  // zipfile < importer
-                    "_random.so",  // random < tempfile < zipimport
-                    "_sha512.so",  // random < tempfile < zipimport
-                    "_struct.so",  // zipfile < importer
-                    "binascii.so",  // zipfile < importer
-                    "math.so",  // datetime < calendar < importer
-                    "mmap.so",  // elftools < importer
-                    "zlib.so"  // zipimport
+                    "_bz2.*",  // zipfile < importer
+                    "_ctypes.*",  // java.primitive and importer
+                    "_datetime.*",  // calendar < importer (see test_datetime)
+                    "_lzma.*",  // zipfile < importer
+                    "_random.*",  // random < tempfile < zipimport
+                    "_sha512.*",  // random < tempfile < zipimport
+                    "_struct.*",  // zipfile < importer
+                    "binascii.*",  // zipfile < importer
+                    "math.*",  // datetime < calendar < importer
+                    "mmap.*",  // elftools < importer
+                    "zlib.*"  // zipimport
                 )
 
                 val versionParts = python.version!!.split(".")
                 val versionInt =
                     (versionParts[0].toInt() * 100) + versionParts[1].toInt()
                 if (versionInt >= 312) {
-                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.so"))
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.*"))
                     BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
-                        "_sha2.so"  // random < tempfile < zipimport
+                        "_sha2.*"  // random < tempfile < zipimport
                     ))
                 }
                 if (versionInt >= 313) {
-                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.so"))
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.*"))
                     BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
-                        "_opcode.so"  // opcode < dis < inspect < importer
+                        "_opcode.*"  // opcode < dis < inspect < importer
                     ))
                 }
 
