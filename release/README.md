@@ -11,8 +11,8 @@ directory on all machines that will be used by the subsequent tests.
 
 ## Unit tests
 
-Open the demo app in Android Studio, and run the Java and Python unit tests on a
-representative device under the following conditions:
+Open the demo app in Android Studio, and run the Java and Python unit tests on any
+device under the following conditions:
 
 * Set build variant to "debug".
 * Clean install, then run tests twice in the same process.
@@ -151,7 +151,7 @@ Commit and push all example app repositories.
 
 Tag the commit the GitHub Actions artifacts were built from, and push the tag.
 
-Increment VERSION.txt for next version number.
+Increment the micro version number in VERSION.txt.
 
 Commit and push this repository.
 
