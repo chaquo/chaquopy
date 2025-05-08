@@ -160,8 +160,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # We'd like to run macOS jobs first, because of their lower concurrency. But
+        # this doesn't reliably work (https://github.com/actions/runner/issues/703).
+        os: [macos, windows, linux]
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
-        os: [linux, macos, windows]
         include:
           # Runners must support all the Python versions in setup-python/action.yml: see
           # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
