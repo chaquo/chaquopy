@@ -1,6 +1,12 @@
+{% if PY_VER == "3.8" %}
+    {% set numpy_version = "1.19.5" %}
+{% elif PY_VER in ["3.9", "3.10", "3.11"] %}
+    {% set numpy_version = "1.23.3" %}
+{% endif %}
+
 package:
   name: scipy
-  version: "1.8.1"
+  version: "1.9.3"
 
 build:
   number: 1
@@ -13,4 +19,4 @@ requirements:
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-openblas 0.2.20
-    - numpy 1.23.3
+    - numpy {{ numpy_version }}
