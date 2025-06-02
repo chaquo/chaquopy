@@ -86,8 +86,8 @@ ABIs, with at least one device being each of the following:
 
 ## Public release
 
-Use release/bundle.sh to create bundle JARs for the following things, and [release them to
-Maven Central](https://central.sonatype.org/publish/publish-manual/#bundle-creation):
+Use release/bundle.sh to create bundles for the following things, and [release them to
+Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
 
 * `com.chaquo.python.gradle.plugin`
 * `gradle`
