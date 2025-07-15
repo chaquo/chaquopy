@@ -1,0 +1,39 @@
+import speech_recognition as sr
+import pyttsx3
+import requests
+
+openai_api_key = "YOUR_OPENAI_KEY"
+
+def speak(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
+
+def listen():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening...")
+        audio = recognizer.listen(source)
+        return recognizer.recognize_google(audio)
+
+def ask_openai(prompt):
+    headers = {
+        "Authorization": f"Bearer {openai_api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "gpt-3.5-turbo",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data)
+    return response.json()["choices"][0]["message"]["content"]
+
+while True:
+    try:
+        question = listen()
+        print("You said:", question)
+        answer = ask_openai(question)
+        print("AI says:", answer)
+        speak(answer)
+    except Exception as e:
+        print("Error:", e)
