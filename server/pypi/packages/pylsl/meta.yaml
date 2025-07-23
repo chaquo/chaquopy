@@ -1,0 +1,18 @@
+{% set version = "1.16.1" %}
+
+package:
+    name : pylsl
+    version : {{ version }}
+
+build:
+  number: 1
+
+source:
+  url: https://github.com/labstreaminglayer/pylsl/archive/refs/tags/v{{ version }}.tar.gz
+
+requirements:
+  build:
+    - packaging 22.0
+  host:
+    - python
+    - chaquopy-liblsl {{ version }}
