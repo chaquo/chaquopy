@@ -147,6 +147,10 @@ encouraging developers to test against it.
   Android version.
 * Leave the public apps alone for now: they will be dealt with during the next release
   (see release/README.md).
+* Consider also updating the targetSdk in:
+  * The CPython Android testbed.
+  * The Briefcase Android template, including running Toga's automated tests, and doing
+    a basic manual test of a Toga app.
 
 
 ## Updating certifi cacert.pem
