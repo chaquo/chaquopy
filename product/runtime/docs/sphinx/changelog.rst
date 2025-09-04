@@ -16,7 +16,7 @@ Features
   selection. (`#1272 <https://github.com/chaquo/chaquopy/issues/1272>`__)
 - The `_chaquopy` stub libraries for OpenSSL and SQLite are now linked in 16 KB
   mode. (`#1324 <https://github.com/chaquo/chaquopy/issues/1324>`__)
-- Android Gradle plugin versions 8.9 to 8.12 are now supported. (`#1340
+- Android Gradle plugin versions 8.9 to 8.13 are now supported. (`#1340
   <https://github.com/chaquo/chaquopy/issues/1340>`__)
 
 
