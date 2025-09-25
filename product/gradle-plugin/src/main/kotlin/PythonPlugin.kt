@@ -24,6 +24,10 @@ class PythonPlugin : Plugin<Project> {
     val chaquopyPluginInfo by lazy { findPlugin("com.chaquo.python", "gradle") }
     val buildscript by lazy { chaquopyPluginInfo.buildscript }
 
+    // Since Gradle 9, we can no longer create custom configurations in the buildscript
+    // context, so we need to track them ourselves.
+    val configs = mutableMapOf<String, Configuration>()
+
     lateinit var project: Project
     lateinit var extension: ChaquopyExtension
     var isLibrary by notNull<Boolean>()
@@ -158,12 +162,12 @@ class PythonPlugin : Plugin<Project> {
         project.dependencies.add("api", project.files(runtimeJava))
     }
 
-    fun addDependency(fullConfig: String, dep: Map<String, String>): Configuration {
-        buildscript.apply {
-            val config = configurations.maybeCreate(fullConfig)
-            dependencies.add(config.name, dep)
-            return config
+    fun addDependency(configName: String, dep: Map<String, String>): Configuration {
+        val config = configs.getOrPut(configName) {
+            buildscript.configurations.detachedConfiguration()
         }
+        config.dependencies.add(buildscript.dependencies.create(dep))
+        return config
     }
 
     fun addRuntimeDependency(
@@ -200,7 +204,7 @@ class PythonPlugin : Plugin<Project> {
         )
 
     fun getConfig(name: String, variant: Variant) =
-        buildscript.configurations.getByName(configName(name, variant))
+        configs.get(configName(name, variant))!!
 
     // This matches the format of the AGP's own configuration names.
     fun configName(name: String, variant: Variant? = null) =
