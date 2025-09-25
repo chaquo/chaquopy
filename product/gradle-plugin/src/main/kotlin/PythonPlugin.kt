@@ -8,8 +8,8 @@ import org.gradle.api.artifacts.*
 import org.gradle.api.initialization.dsl.*
 import org.gradle.api.plugins.*
 import org.gradle.kotlin.dsl.*
-import org.gradle.util.*
 import java.io.*
+import java.lang.module.ModuleDescriptor.Version
 import java.nio.file.*
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.*
@@ -73,7 +73,7 @@ class PythonPlugin : Plugin<Project> {
                 try {
                     (components as ApplicationAndroidComponentsExtension).onVariants(
                         selector, ::onVariant)
-                } catch (e: ClassCastException) {
+                } catch (_: ClassCastException) {
                     (components as LibraryAndroidComponentsExtension).onVariants(
                         selector, ::onVariant)
                 }
@@ -91,7 +91,7 @@ class PythonPlugin : Plugin<Project> {
     // still need to be able to give a useful error message when running with older
     // versions.
     fun checkAgpVersion() {
-        val minVersion = VersionNumber.parse(Common.MIN_AGP_VERSION)
+        val minVersion = Version.parse(Common.MIN_AGP_VERSION)
         if (androidPluginInfo.version < minVersion) {
             throw GradleException(
                 "This version of Chaquopy requires Android Gradle plugin version " +
@@ -102,8 +102,11 @@ class PythonPlugin : Plugin<Project> {
         }
     }
 
+    // The ModuleDescriptor.Version class doesn't exactly follow the ordering rules
+    // specified at https://docs.gradle.org/current/userguide/dependency_versions.html,
+    // but it's close enough for our purposes.
     data class PluginInfo(
-        val buildscript: ScriptHandler, val version: VersionNumber)
+        val buildscript: ScriptHandler, val version: Version)
 
     fun findPlugin(group: String, name: String): PluginInfo {
         var p: Project? = project
@@ -112,7 +115,7 @@ class PythonPlugin : Plugin<Project> {
                  .resolvedConfiguration.resolvedArtifacts) {
                 val dep = art.moduleVersion.id
                 if (dep.group == group  &&  dep.name == name) {
-                    return PluginInfo(p.buildscript, VersionNumber.parse(dep.version))
+                    return PluginInfo(p.buildscript, Version.parse(dep.version))
                 }
             }
             p = p.parent
