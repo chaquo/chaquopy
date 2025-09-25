@@ -1,19 +1,14 @@
 import com.chaquo.python.internal.BuildCommon;
 import com.chaquo.python.internal.Common;
-import static com.chaquo.python.internal.Common.findExecutable;
 import static com.chaquo.python.internal.Common.osName;
 
 group = "com.chaquo.python.runtime"
 
 
-String hostPythonExe() {
-    return findExecutable("python$Common.DEFAULT_PYTHON_VERSION")
-}
-
 String hostPythonHome() {
     return new ByteArrayOutputStream().withStream { output ->
         exec {
-            executable hostPythonExe()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args "-c", "import sys; print(sys.base_prefix)"
             standardOutput = output
         }
@@ -74,9 +69,9 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
             exec {
                 workingDir destinationDir
                 if (osName() == "windows") {
-                    commandLine findExecutable("py"), "-$pyVersion"
+                    commandLine "py", "-$pyVersion"
                 } else {
-                    commandLine findExecutable("python$pyVersion")
+                    commandLine "python$pyVersion"
                 }
                 args "-m", "compileall"
                 args "-q", "-b", "."
@@ -153,7 +148,7 @@ TaskProvider cythonTask(String name, Closure closure) {
         outputs.file outFile
 
         workingDir inFile.parent  // Reduce clutter in exception traces
-        executable findExecutable("cython")
+        executable "cython"
         args "-Wextra", "-Werror", inFile.name, "-I", outDir, "-o", outFile
 
         doLast {
@@ -215,7 +210,7 @@ def proxyTask = tasks.register("generateStaticProxy", Exec) {
     outputs.upToDateWhen { false }
     doFirst { delete outputDir }
     environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-    executable hostPythonExe()
+    executable "python$Common.DEFAULT_PYTHON_VERSION"
     args "-m", "chaquopy.static_proxy"
     args "--path", "$projectDir/src/test/python"
     args "--java", outputDir
@@ -362,7 +357,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             configure(hostConfig)
             workingDir "$projectDir/src/test/python"
             environment "JAVA_HOME", javaHome
-            executable hostPythonExe()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
                 args project.testPythonArgs.split(" ")
@@ -420,7 +415,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
                     writer.println "export $key='${env.get(key)}'"
                 }
                 writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                writer.println "winpty ${hostPythonExe()} " + '"$@"'
+                writer.println "winpty python$Common.DEFAULT_PYTHON_VERSION " + '"$@"'
                 writer.close()
             }
         }
@@ -432,7 +427,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
 
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
-            executable hostPythonExe()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args("-m", "sphinx", "-v", "-W", "--keep-going", "-b", "html",
                  "docs/sphinx", docsDir)
             environment "JAVA_HOME", javaHome

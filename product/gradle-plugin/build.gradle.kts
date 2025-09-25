@@ -1,6 +1,5 @@
 import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
-import com.chaquo.python.internal.Common.findExecutable
 import com.chaquo.python.internal.Common.osName
 
 plugins {
@@ -85,9 +84,9 @@ abstract class TestPythonTask : DefaultTask() {
         pb.environment().putAll(environment)
 
         command += if (osName() == "windows") {
-            listOf(findExecutable("py"), "-$pythonVersion")
+            listOf("py", "-$pythonVersion")
         } else {
-            listOf(findExecutable("python$pythonVersion"))
+            listOf("python$pythonVersion")
         }
         command += listOf("-m", "unittest")
         val args = project.findProperty("testPythonArgs")
