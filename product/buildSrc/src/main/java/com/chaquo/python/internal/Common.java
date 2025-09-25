@@ -8,7 +8,7 @@ import java.util.*;
  * respective build scripts. */
 public class Common {
     // Minimum Android Gradle plugin version
-    public static final String MIN_AGP_VERSION = "7.0.0";
+    public static final String MIN_AGP_VERSION = "7.3.0";
 
     // This should match api_level in target/android-env.sh.
     public static final int MIN_SDK_VERSION = 24;
@@ -34,7 +34,6 @@ public class Common {
         }
     }
 
-    // This is the version with the best set of native packages in the repository.
     public static final String DEFAULT_PYTHON_VERSION = "3.8";
 
     // Wheel tags (PEP 425).

@@ -13,7 +13,6 @@ import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.*
 import org.gradle.process.*
 import org.gradle.process.internal.*
-import org.gradle.util.*
 import org.json.*
 import java.io.*
 import java.security.*
@@ -68,15 +67,13 @@ internal class TaskBuilder(
             inputs.property("buildPython", bp).optional(true)
 
             // Keep the path short to avoid the the Windows 260-character limit.
-            outputFiles = project.fileTree(plugin.buildSubdir("env", variant)) {
-                exclude("**/__pycache__")
-            }
+            outputDir.set(plugin.buildSubdir("env", variant))
 
             if (bp != null) {
                 doLast {
                     project.exec {
                         commandLine(bp)
-                        args("-m", "venv", "--without-pip", outputDir)
+                        args("-m", "venv", "--without-pip", project.file(outputDir))
                     }
 
                     val zipPath = plugin.extractResource(
@@ -86,11 +83,19 @@ internal class TaskBuilder(
                         into(sitePackages)
                     }
                     project.delete(zipPath)
+
+                    // Pre-generate the __pycache__ directories to avoid the outputDir
+                    // contents changing and breaking the up to date checks.
+                    project.exec {
+                        commandLine(bp)
+                        args("-Wignore", "-m", "compileall", "-qq",
+                             project.file(outputDir))
+                    }
                 }
             }
         }
 
-    open class BuildPackagesTask : OutputDirTask() {
+    abstract class BuildPackagesTask : OutputDirTask() {
         @get:Internal
         lateinit var exception: Exception
 
@@ -98,19 +103,19 @@ internal class TaskBuilder(
         val pythonExecutable by lazy {
             if (::exception.isInitialized) {
                 throw exception
-            } else if (osName() == "windows") {
-                outputDir.resolve("Scripts/python.exe")
             } else {
-                outputDir.resolve("bin/python")
+                project.file(outputDir).resolve(
+                    if (osName() == "windows") "Scripts/python.exe" else "bin/python"
+                )
             }
         }
 
         @get:Internal
         val sitePackages by lazy {
             val libPythonDir = if (osName() == "windows") {
-                assertExists(outputDir.resolve("Lib"))
+                assertExists(project.file(outputDir).resolve("Lib"))
             } else {
-                val libDir = assertExists(outputDir.resolve("lib"))
+                val libDir = assertExists(project.file(outputDir).resolve("lib"))
                 val pythonDirs = libDir.listFiles()!!.filter {
                     it.name.startsWith("python")
                 }
@@ -138,7 +143,7 @@ internal class TaskBuilder(
                 }
             }
 
-            outputDir = plugin.buildSubdir("sources", variant)
+            outputDir.set(plugin.buildSubdir("sources", variant))
             doLast {
                 project.copy {
                     for (dirSet in dirSets) {
@@ -158,14 +163,14 @@ internal class TaskBuilder(
                     // Allow duplicates for empty files (e.g. __init__.py)
                     eachFile {
                         if (file.length() == 0L) {
-                            val destFile = File(outputDir, path)
+                            val destFile = project.file(outputDir).resolve(path)
                             if (destFile.exists() && destFile.length() == 0L) {
                                 duplicatesStrategy = DuplicatesStrategy.INCLUDE
                             }
                         }
                     }
                 }
-                compilePyc(python.pyc.src, outputDir)
+                compilePyc(python.pyc.src, project.file(outputDir))
             }
         }
 
@@ -197,7 +202,7 @@ internal class TaskBuilder(
             inputs.property("pyc", python.pyc.pip).optional(true)
 
             // Keep the path short to avoid the the Windows 260-character limit.
-            outputDir = plugin.buildSubdir("pip", variant)
+            outputDir.set(plugin.buildSubdir("pip", variant))
 
             val reqsArgs = ArrayList<String>()
             for (req in python.pip.reqs) {
@@ -231,7 +236,7 @@ internal class TaskBuilder(
 
                     execBuildPython {
                         args("-m", "chaquopy.pip_install")
-                        args("--target", outputDir)
+                        args("--target", project.file(outputDir))
                         args("--android-abis", *abis.toTypedArray())
                         args("--min-api-level", variant.minSdkVersion.apiLevel)
                         args(reqsArgs)
@@ -247,14 +252,14 @@ internal class TaskBuilder(
                         args("--no-compile")
                         args(python.pip.options)
                     }
-                    compilePyc(python.pyc.pip, outputDir)
+                    compilePyc(python.pyc.pip, project.file(outputDir))
                 }
 
                 // In #250 it looks like someone used a buildPython which returned
                 // success without doing anything. This led to a runtime crash because
                 // the requirements ZIPs were missing from the app.
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
-                    val subdir = File(outputDir, subdirName)
+                    val subdir = project.file(outputDir).resolve(subdirName)
                     if (!subdir.exists()) {
                         if (reqsArgs.isEmpty()) {
                             project.mkdir(subdir)
@@ -284,7 +289,7 @@ internal class TaskBuilder(
             if (! file.exists()) {
                 file = null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // In case any of the above code throws on an invalid filename.
             file = null
         }
@@ -304,45 +309,29 @@ internal class TaskBuilder(
     }
 
     fun createProxyTask() {
-        val outputDir = plugin.buildSubdir("proxies", variant)
         val task = registerTask("generate", "proxies") {
             inputs.files(buildPackagesTask, reqsTask, srcTask)
             inputs.property("staticProxy", python.staticProxy)
 
-            this.outputDir = outputDir
+            outputDir.set(plugin.buildSubdir("proxies", variant))
             doLast {
                 if (!python.staticProxy.isEmpty()) {
                     execBuildPython {
                         args("-m", "chaquopy.static_proxy")
                         args("--path",
                              listOf(
-                                srcTask.get().outputDir,
-                                "${reqsTask.get().outputDir}/common"
+                                project.file(srcTask.get().outputDir),
+                                project.file(reqsTask.get().outputDir).resolve("common")
                              ).joinToString(File.pathSeparator))
-                        args("--java", outputDir)
+                        args("--java", project.file(outputDir))
                         args(python.staticProxy)
                     }
                 }
             }
         }
-
-        // The supported API to add Java source files is variant.sources, which isn't
-        // available in our current minimum AGP version (see extendMergeTask). So we use
-        // the deprecated API instead.
-        val android = project.extensions.getByName("android")
-        val oldVariants = android.javaClass.getMethod(
-            if (plugin.isLibrary) "getLibraryVariants" else "getApplicationVariants"
-        ).invoke(android) as DomainObjectSet<*>
-
-        oldVariants.forEach {
-            val cls = it.javaClass
-            if (cls.getMethod("getName").invoke(it) as String == variant.name) {
-                cls.getMethod(
-                    "registerJavaGeneratingTask",
-                    TaskProvider::class.java, Collection::class.java
-                ).invoke(it, task, listOf(outputDir))
-            }
-        }
+        variant.sources.java!!.addGeneratedSourceDirectory(
+            task, OutputDirTask::outputDir
+        )
     }
 
     fun createAssetsTasks() {
@@ -370,7 +359,7 @@ internal class TaskBuilder(
             inputs.files(reqsTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
-                for (subdir in reqsTask.get().outputDir.listFiles()!!) {
+                for (subdir in project.file(reqsTask.get().outputDir).listFiles()!!) {
                     makeZip(
                         project.fileTree(subdir).matching { exclude(excludePy) },
                         File(assetDir, assetZip(Common.ASSET_REQUIREMENTS, subdir.name)))
@@ -476,38 +465,13 @@ internal class TaskBuilder(
         name: String, configure: AssetDirTask.() -> Unit
     ): Provider<AssetDirTask> {
         val task = registerTask("generate", "${name}Assets", AssetDirTask::class) {
-            outputDir = plugin.buildSubdir("assets/$name", variant)
+            outputDir.set(plugin.buildSubdir("assets/$name", variant))
             configure()
         }
-
-        val verb = if (
-            plugin.isLibrary &&
-            plugin.androidPluginInfo.version < VersionNumber.parse("8.9")
-        ) "package" else "merge"
-        extendMergeTask(verb, "assets", task)
+        variant.sources.assets!!.addGeneratedSourceDirectory(
+            task, OutputDirTask::outputDir
+        )
         return task
-    }
-
-    // There are a couple of supported APIs for adding content to the APK, but they
-    // aren't available in our current minimum AGP version:
-    //   * variant.sources supports Java files from AGP 7.2, and assets and native libs
-    //     from 7.3.
-    //   * variant.artifacts supports Java files and assets from AGP 7.1 (though you
-    //     have to compile the Java files yourself), and native libs from 8.1.
-    fun <T: OutputDirTask> extendMergeTask(
-        verb: String, noun: String, inputTask: Provider<T>
-    ) {
-        project.tasks.named("$verb${variant.name.capitalize()}${noun.capitalize()}") {
-            inputs.files(inputTask)
-            val mergeTask = this
-            val getOutputDir = mergeTask.javaClass.getMethod("getOutputDir")
-            doLast {
-                project.copy {
-                    from(inputTask.get().outputDir)
-                    into(getOutputDir.invoke(mergeTask) as DirectoryProperty)
-                }
-            }
-        }
     }
 
     fun createJniLibsTasks() {
@@ -516,7 +480,7 @@ internal class TaskBuilder(
             val targetNative = plugin.getConfig("targetNative", variant)
             inputs.files(runtimeJni, targetNative)
 
-            outputDir = plugin.buildSubdir("jniLibs", variant)
+            outputDir.set(plugin.buildSubdir("jniLibs", variant))
             doLast {
                 val artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
@@ -541,12 +505,14 @@ internal class TaskBuilder(
                 for (abi in abis) {
                     project.copy {
                         fromRuntimeArtifact(runtimeJni, abi)
-                        into("$outputDir/$abi")
+                        into(project.file(outputDir).resolve(abi))
                     }
                 }
             }
         }
-        extendMergeTask("merge", "jniLibFolders", task)
+        variant.sources.jniLibs!!.addGeneratedSourceDirectory(
+            task, OutputDirTask::outputDir
+        )
     }
 
     // We can't remove the .py files here because the static proxy generator needs them.
@@ -586,7 +552,7 @@ internal class TaskBuilder(
 
     fun <T: OutputDirTask> registerTask(
         verb: String, noun: String, cls: KClass<T>, configure: T.() -> Unit
-    ): Provider<T> {
+    ): TaskProvider<T> {
         // This matches the format of the AGP's own task names.
         return project.tasks.register(
             "$verb${variant.name.capitalize()}Python${noun.capitalize()}",
@@ -686,14 +652,9 @@ class BuildPythonException(val shortMessage: String, suffix: String) :
     GradleException("$shortMessage $suffix")
 
 
-open class OutputDirTask : DefaultTask() {
-    @get:OutputFiles
-    lateinit var outputFiles: ConfigurableFileTree
-
-    @get:Internal
-    var outputDir: File
-        get() = outputFiles.dir
-        set(value) { outputFiles = project.fileTree(value) }
+abstract class OutputDirTask : DefaultTask() {
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
 
     @TaskAction
     open fun run() {
@@ -702,10 +663,10 @@ open class OutputDirTask : DefaultTask() {
     }
 }
 
-open class AssetDirTask : OutputDirTask() {
+abstract class AssetDirTask : OutputDirTask() {
     @get:Internal
     val assetDir
-        get() = File(outputDir, Common.ASSET_DIR)
+        get() = project.file(outputDir).resolve(Common.ASSET_DIR)
 
     @TaskAction
     override fun run() {

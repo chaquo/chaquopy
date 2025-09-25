@@ -67,11 +67,11 @@ tasks.processResources {
 // example, if you pass Exec the command `cmd /c start notepad.exe`, then cmd will exit
 // immediately, but the Exec task won't complete until you close Notepad.
 abstract class TestPythonTask : DefaultTask() {
-    lateinit var pythonVersion: String
+    @get:Internal lateinit var pythonVersion: String
 
     // Emulate the necessary Exec properties.
-    lateinit var workingDir: String
-    val environment: MutableMap<String, String> = HashMap()
+    @get:Internal lateinit var workingDir: String
+    @get:Internal val environment: MutableMap<String, String> = HashMap()
 
     init {
         group = "verification"

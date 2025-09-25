@@ -77,11 +77,8 @@ also be given here.
 * Check if there's any version-dependent code in the plugin or the tests which can now
   be removed.
 * Integration tests:
-  * Remove AndroidPlugin/old, then move the old base/X.Y directory to replace it.
   * Update test_old expected message, then run the test.
 * Update android.rst and versions.rst.
-* Consider increasing the Gradle version of the "product" project (see
-  product/gradle/wrapper/gradle-wrapper.properties).
 * (Optional) Uninstall the corresponding Android Studio version to free up space, but
   first make sure it's not referenced from product/local.properties.
   * Also remove the [configuration
