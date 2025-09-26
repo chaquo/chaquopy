@@ -11,7 +11,6 @@ import org.gradle.api.file.*
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.*
-import org.gradle.process.*
 import org.gradle.process.internal.*
 import org.json.*
 import java.io.*
@@ -196,9 +195,6 @@ internal class TaskBuilder(
     fun createReqsTask() =
         registerTask("generate", "requirements") {
             inputs.files(buildPackagesTask)
-            inputs.property("abis", abis)
-            inputs.property("minApiLevel", variant.minSdkVersion.apiLevel)
-            inputs.property("pip", python.pip)
             inputs.property("pyc", python.pyc.pip).optional(true)
 
             // Keep the path short to avoid the the Windows 260-character limit.
@@ -223,35 +219,39 @@ internal class TaskBuilder(
                 } catch (_: FileNotFoundException) {}
             }
 
+            val args = ArrayList<String>().apply {
+                args("-m", "chaquopy.pip_install")
+                args("--target", project.file(outputDir))
+                args("--android-abis", *abis.toTypedArray())
+                args("--min-api-level", variant.minSdkVersion.apiLevel)
+                args(reqsArgs)
+                args("--")
+                args("--disable-pip-version-check")
+
+                // If the user passes  a custom index url, disable our repository as
+                // well as the default one.
+                if (!listOf("--index-url", "-i").any {
+                        it in python.pip.options
+                    }) {
+                    args("--extra-index-url", "https://chaquo.com/pypi-13.1")
+                }
+
+                // Pass the full Python version, but without any pre-release segment.
+                args("--implementation", Common.PYTHON_IMPLEMENTATION)
+                args("--python-version",
+                     """\d+\.\d+\.\d+""".toRegex()
+                         .find(pythonVersionInfo(python).key)!!.value)
+                args("--abi",
+                     Common.PYTHON_IMPLEMENTATION + python.version!!.replace(".", ""))
+
+                args("--no-compile")
+                args(python.pip.options)
+            }
+            inputs.property("args", args)
+
             doLast {
                 if (!reqsArgs.isEmpty()) {
-                    // If the user passes  a custom index url, disable our repository as
-                    // well as the default one.
-                    val customIndexUrl = listOf("--index-url", "-i").any {
-                        it in python.pip.options
-                    }
-                    val versionFull = pythonVersionInfo(python).key
-                    val versionFullNoPre =
-                        """\d+\.\d+\.\d+""".toRegex().find(versionFull)!!.value
-
-                    execBuildPython {
-                        args("-m", "chaquopy.pip_install")
-                        args("--target", project.file(outputDir))
-                        args("--android-abis", *abis.toTypedArray())
-                        args("--min-api-level", variant.minSdkVersion.apiLevel)
-                        args(reqsArgs)
-                        args("--")
-                        args("--disable-pip-version-check")
-                        if (!customIndexUrl) {
-                            args("--extra-index-url", "https://chaquo.com/pypi-13.1")
-                        }
-                        args("--implementation", Common.PYTHON_IMPLEMENTATION)
-                        args("--python-version", versionFullNoPre)
-                        args("--abi", (Common.PYTHON_IMPLEMENTATION +
-                                       python.version!!.replace(".", "")))
-                        args("--no-compile")
-                        args(python.pip.options)
-                    }
+                    execBuildPython(args)
                     compilePyc(python.pyc.pip, project.file(outputDir))
                 }
 
@@ -311,21 +311,23 @@ internal class TaskBuilder(
     fun createProxyTask() {
         val task = registerTask("generate", "proxies") {
             inputs.files(buildPackagesTask, reqsTask, srcTask)
-            inputs.property("staticProxy", python.staticProxy)
-
             outputDir.set(plugin.buildSubdir("proxies", variant))
+
+            val args = ArrayList<String>().apply {
+                args("-m", "chaquopy.static_proxy")
+                args("--path",
+                     listOf(
+                         project.file(srcTask.get().outputDir),
+                         project.file(reqsTask.get().outputDir).resolve("common")
+                     ).joinToString(File.pathSeparator))
+                args("--java", project.file(outputDir))
+                args(python.staticProxy)
+            }
+            inputs.property("args", args)
+
             doLast {
                 if (!python.staticProxy.isEmpty()) {
-                    execBuildPython {
-                        args("-m", "chaquopy.static_proxy")
-                        args("--path",
-                             listOf(
-                                project.file(srcTask.get().outputDir),
-                                project.file(reqsTask.get().outputDir).resolve("common")
-                             ).joinToString(File.pathSeparator))
-                        args("--java", project.file(outputDir))
-                        args(python.staticProxy)
-                    }
+                    execBuildPython(args)
                 }
             }
         }
@@ -520,15 +522,15 @@ internal class TaskBuilder(
     fun compilePyc(setting: Boolean?, dir: File) {
         if (setting != false) {
             try {
-                execBuildPython {
+                execBuildPython(ArrayList<String>().apply {
                     args("-m", "chaquopy.pyc")
-                    args("--python", python.version)
+                    args("--python", python.version!!)
                     args("--quiet")
                     if (setting != true) {
                         args("--warning")
                     }
                     args(dir)
-                }
+                })
             } catch (e: BuildPythonException) {
                 if (setting == true) {
                     throw e
@@ -574,11 +576,11 @@ internal class TaskBuilder(
         }
     }
 
-    fun execBuildPython(configure: ExecSpec.() -> Unit) {
+    fun execBuildPython(args: List<String>) {
         try {
             plugin.execOps.exec {
                 executable(buildPackagesTask.get().pythonExecutable)
-                configure()
+                this.args(args)
             }
         } catch (e: ExecException) {
             // Message will be something like "Process 'command 'py'' finished with
@@ -758,4 +760,15 @@ fun assertExists(f: File) : File {
         throw GradleException("$f does not exist")
     }
     return f
+}
+
+
+// Helpers for building argument lists with a similar syntax to ExecSpec.
+fun MutableList<String>.args(vararg args: Any) =
+    this.args(args.asList())
+
+fun MutableList<String>.args(args: Iterable<Any>) {
+    for (arg in args) {
+        add(arg.toString())
+    }
 }
