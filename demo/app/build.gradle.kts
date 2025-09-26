@@ -51,9 +51,10 @@ android {
                 "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
             )
         }
+    }
 
-        // Remove other languages imported from Android support libraries.
-        resourceConfigurations += "en"
+    androidResources {
+        localeFilters += "en"
     }
 
     // Chaquopy generates extra internal-use constructors on static proxy classes.
