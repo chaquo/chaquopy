@@ -71,7 +71,7 @@ internal class TaskBuilder(
 
             if (bp != null) {
                 doLast {
-                    project.exec {
+                    plugin.execOps.exec {
                         commandLine(bp)
                         args("-m", "venv", "--without-pip", project.file(outputDir))
                     }
@@ -86,7 +86,7 @@ internal class TaskBuilder(
 
                     // Pre-generate the __pycache__ directories to avoid the outputDir
                     // contents changing and breaking the up to date checks.
-                    project.exec {
+                    plugin.execOps.exec {
                         commandLine(bp)
                         args("-Wignore", "-m", "compileall", "-qq",
                              project.file(outputDir))
@@ -576,7 +576,7 @@ internal class TaskBuilder(
 
     fun execBuildPython(configure: ExecSpec.() -> Unit) {
         try {
-            project.exec {
+            plugin.execOps.exec {
                 executable(buildPackagesTask.get().pythonExecutable)
                 configure()
             }
@@ -625,7 +625,7 @@ internal class TaskBuilder(
 
         for (bp in bps) {
             try {
-                project.exec {
+                plugin.execOps.exec {
                     commandLine(bp)
                     args("--version")
                     standardOutput = ByteArrayOutputStream()

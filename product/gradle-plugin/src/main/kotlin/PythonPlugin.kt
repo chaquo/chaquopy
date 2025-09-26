@@ -8,15 +8,19 @@ import org.gradle.api.artifacts.*
 import org.gradle.api.initialization.dsl.*
 import org.gradle.api.plugins.*
 import org.gradle.kotlin.dsl.*
+import org.gradle.process.*
 import java.io.*
 import java.lang.module.ModuleDescriptor.Version
 import java.nio.file.*
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.*
+import javax.inject.*
 import kotlin.properties.Delegates.notNull
 
 
-class PythonPlugin : Plugin<Project> {
+class PythonPlugin @Inject constructor(
+    val execOps: ExecOperations
+) : Plugin<Project> {
 
     // Load dependencies from the same buildscript context as the Chaquopy plugin
     // itself, so they'll come from the same repository.
