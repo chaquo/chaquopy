@@ -193,7 +193,7 @@ internal class TaskBuilder(
     }
 
     fun createReqsTask() =
-        registerTask("generate", "requirements") {
+        registerTask("install", "requirements") {
             inputs.files(buildPackagesTask)
             inputs.property("pyc", python.pyc.pip).optional(true)
 
@@ -309,7 +309,7 @@ internal class TaskBuilder(
     }
 
     fun createProxyTask() {
-        val task = registerTask("generate", "proxies") {
+        registerGenerateTask(variant.sources.java!!, "proxies") {
             inputs.files(buildPackagesTask, reqsTask, srcTask)
             outputDir.set(plugin.buildSubdir("proxies", variant))
 
@@ -331,9 +331,6 @@ internal class TaskBuilder(
                 }
             }
         }
-        variant.sources.java!!.addGeneratedSourceDirectory(
-            task, OutputDirTask::outputDir
-        )
     }
 
     fun createAssetsTasks() {
@@ -347,7 +344,7 @@ internal class TaskBuilder(
             } else false
         }
 
-        val srcAssetsTask = assetTask("source") {
+        val srcAssetsTask = registerAssetTask("source") {
             inputs.files(srcTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
@@ -357,7 +354,7 @@ internal class TaskBuilder(
             }
         }
 
-        val reqsAssetsTask = assetTask("requirements") {
+        val reqsAssetsTask = registerAssetTask("requirements") {
             inputs.files(reqsTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
@@ -369,7 +366,7 @@ internal class TaskBuilder(
             }
         }
 
-        val miscAssetsTask = assetTask("misc") {
+        val miscAssetsTask = registerAssetTask("misc") {
             val runtimeBootstrap = plugin.getConfig("runtimeBootstrap", variant)
             val runtimeModules = plugin.getConfig("runtimeModules", variant)
             val targetStdlib = plugin.getConfig("targetStdlib", variant)
@@ -449,7 +446,7 @@ internal class TaskBuilder(
             }
         }
 
-        assetTask("build") {
+        registerAssetTask("build") {
             val tasks = arrayOf(srcAssetsTask, reqsAssetsTask, miscAssetsTask)
             inputs.files(*tasks)
             doLast {
@@ -463,21 +460,17 @@ internal class TaskBuilder(
 
     }
 
-    fun assetTask(
+    fun registerAssetTask(
         name: String, configure: AssetDirTask.() -> Unit
-    ): Provider<AssetDirTask> {
-        val task = registerTask("generate", "${name}Assets", AssetDirTask::class) {
-            outputDir.set(plugin.buildSubdir("assets/$name", variant))
-            configure()
-        }
-        variant.sources.assets!!.addGeneratedSourceDirectory(
-            task, OutputDirTask::outputDir
-        )
-        return task
+    ) = registerGenerateTask(
+        variant.sources.assets!!, "${name}Assets", AssetDirTask::class
+    ) {
+        outputDir.set(plugin.buildSubdir("assets/$name", variant))
+        configure()
     }
 
     fun createJniLibsTasks() {
-        val task = registerTask("generate", "jniLibs") {
+        registerGenerateTask(variant.sources.jniLibs!!, "jniLibs") {
             val runtimeJni = plugin.getConfig("runtimeJni", variant)
             val targetNative = plugin.getConfig("targetNative", variant)
             inputs.files(runtimeJni, targetNative)
@@ -512,9 +505,26 @@ internal class TaskBuilder(
                 }
             }
         }
-        variant.sources.jniLibs!!.addGeneratedSourceDirectory(
-            task, OutputDirTask::outputDir
-        )
+    }
+
+    fun registerGenerateTask(
+        sourceDirs: SourceDirectories, noun: String, configure: OutputDirTask.() -> Unit
+    ) = registerGenerateTask(sourceDirs, noun, OutputDirTask::class, configure)
+
+    fun <T: OutputDirTask> registerGenerateTask(
+        sourceDirs: SourceDirectories,
+        noun: String,
+        cls: KClass<T>,
+        configure: T.() -> Unit
+    ): TaskProvider<T> {
+        // addGeneratedSourceDirectory sets outputDir to a subdirectory of
+        // build/generated. Run our own configure action afterwards so we can override
+        // that to a shorter path inside build/python, and reduce the risk of hitting
+        // the Windows 260 character limit.
+        val task = registerTask("generate", noun, cls) {}
+        sourceDirs.addGeneratedSourceDirectory(task, OutputDirTask::outputDir)
+        task.configure(configure)
+        return task
     }
 
     // We can't remove the .py files here because the static proxy generator needs them.

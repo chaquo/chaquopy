@@ -173,7 +173,7 @@ tasks.register("testIntegration") {
 val INTEGRATION_DIR = "$projectDir/src/test/integration"
 for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
     val version = f.name
-    if (version.contains(".")) {
+    if (version[0].isDigit()) {
         tasks.register<TestPythonTask>("testIntegration-$version") {
             pythonVersion = Common.DEFAULT_PYTHON_VERSION
             if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI
