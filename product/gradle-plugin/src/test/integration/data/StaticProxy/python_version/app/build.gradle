@@ -12,10 +12,13 @@ android {
         versionName "0.0.1"
         python {
             version System.getenv("python_version")
-            buildPython System.getenv("buildpython")
+            staticProxy "chaquopy_test.a"
+            pyc {
+                src false
+            }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 }

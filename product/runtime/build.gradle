@@ -115,7 +115,9 @@ String cmakeExecutable(String name) {
 // On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
 // variable does not affect the Java unit tests, which always use the same Java as
 // Gradle itself.
-def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
+String javaHome() {
+    return BuildCommon.localProperty(project, 'chaquopy.java.home.8')
+}
 
 def docs = tasks.register("docs") {
     group = "documentation"
@@ -269,8 +271,8 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
             args "-DCHAQUOPY_LIB_DIRS=${hostPythonHome()}/lib"
             args "-DCHAQUOPY_INCLUDE_PYTHON=${hostPythonHome()}/include"
-            args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
-                  "$javaHome/include/$javaIncludeSubdir")
+            args ("-DCHAQUOPY_INCLUDE_JAVA=${javaHome()}/include;" +
+                  "${javaHome()}/include/$javaIncludeSubdir")
         } else {
             String ndkDir = null
             def androidEnvFile = file("../../target/android-env.sh").absoluteFile
@@ -356,7 +358,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             group = "verification"
             configure(hostConfig)
             workingDir "$projectDir/src/test/python"
-            environment "JAVA_HOME", javaHome
+            environment "JAVA_HOME", javaHome()
             executable "python$Common.DEFAULT_PYTHON_VERSION"
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
@@ -430,7 +432,7 @@ if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
             executable "python$Common.DEFAULT_PYTHON_VERSION"
             args("-m", "sphinx", "-v", "-W", "--keep-going", "-b", "html",
                  "docs/sphinx", docsDir)
-            environment "JAVA_HOME", javaHome
+            environment "JAVA_HOME", javaHome()
         }
         docs.configure {
             dependsOn("sphinx")

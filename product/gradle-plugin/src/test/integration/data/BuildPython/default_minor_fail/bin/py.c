@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 {
     if (strcmp(argv[2], "-m") != 0) {
         printf("python%s was probed\n", argv[1] + 1);
-        return 0;
+        return strcmp(argv[1], "-3") ? 1 : 0;
     } else {
         printf("python%s was used\n", argv[1] + 1);
         return 1;

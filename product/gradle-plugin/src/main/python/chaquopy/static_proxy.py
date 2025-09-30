@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# Do this as early as possible to minimize the chance of something else going wrong and causing
-# a less comprehensible error message.
-from .util import check_build_python
-check_build_python()
-
 import argparse
 import ast
 from contextlib import contextmanager

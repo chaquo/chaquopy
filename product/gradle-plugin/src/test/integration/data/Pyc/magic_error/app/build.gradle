@@ -11,13 +11,9 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            def version = System.getenv("buildpython_version")
-            buildPython (System.getProperty("os.name").startsWith("Windows") ?
-                         "py -$version" : "python$version")
-            pyc { pip true }
-            pip {
-                install "six"
-            }
+            version System.getenv("python_version")
+            buildPython System.getenv("buildpython")
+            pyc { src true }
         }
         ndk {
             abiFilters "x86"

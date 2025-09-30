@@ -12,10 +12,18 @@ android {
         versionName "0.0.1"
         python {
             version System.getenv("python_version")
-            buildPython System.getenv("buildpython")
+            pip {
+                options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
+                install "apple==0.0.1"  // wheel
+                install "no_binary==1.0"  // sdist
+                install "six==1.16.0"  // PyPI download
+            }
+            pyc {
+                pip false
+            }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 }

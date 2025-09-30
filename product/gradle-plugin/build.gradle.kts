@@ -139,21 +139,7 @@ tasks.register("testPython") {
     tasks.named("check") { dependsOn(it) }
 }
 
-var minPythonMinor: Int? = null
-var maxPythonMinor: Int? = null
-file("src/test/integration/test_gradle_plugin.py").useLines {
-    for (line in it) {
-        """MIN_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
-            minPythonMinor = it.groupValues[1].toInt()
-        }
-        """MAX_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
-            maxPythonMinor = it.groupValues[1].toInt()
-        }
-    }
-}
-
-for (pythonMinor in minPythonMinor!! .. maxPythonMinor!!) {
-    val pythonVer = "3.$pythonMinor"
+for (pythonVer in Common.PYTHON_VERSIONS_SHORT) {
     tasks.register<TestPythonTask>("testPython-$pythonVer") {
         pythonVersion = pythonVer
         workingDir = "$projectDir/src/test/python"

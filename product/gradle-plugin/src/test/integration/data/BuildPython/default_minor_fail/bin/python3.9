@@ -2,6 +2,7 @@
 
 if [[ "$1" != "-m" ]]; then
     echo "$(basename "$0") was probed"
+    exit 1
 else
     echo "$(basename "$0") was used"
     exit 1

@@ -167,15 +167,17 @@ example, here's how to create flavors for different :ref:`Python versions
 buildPython
 -----------
 
-Some features require Python 3.8 or later to be available on the build machine. These
-features are indicated by a note in their documentation sections.
+Some features require Python to be available on the build machine. The Python major and
+minor versions must match your app, e.g. if  :ref:`your app's Python version
+<python-version>` is 3.13, then you must build with Python 3.13. The micro version
+doesn't matter.
 
-By default, Chaquopy will try to find Python on the PATH with the standard command for your
-operating system, first with a matching minor version, and then with a matching major version.
-For example, if :ref:`your app's Python version <python-version>` is 3.8, then:
+By default, Chaquopy will try to find Python on the PATH with the standard commands for
+your operating system. For example, if :ref:`your app's Python version <python-version>`
+is 3.13, then:
 
-* On Linux and Mac it will try `python3.8`, then `python3`.
-* On Windows, it will try `py -3.8`, then `py -3`.
+* On Linux and Mac it will try `python3.13`, then `python3`.
+* On Windows, it will try `py -3.13`, then `py -3`.
 * On all platforms, it will finally try `python`.
 
 If this doesn't work for you, set your Python command using the `buildPython` setting.
@@ -184,7 +186,7 @@ For example, on Windows you might use one of the following::
     chaquopy {
         defaultConfig {
             buildPython("C:/path/to/python.exe")
-            buildPython("C:/path/to/py.exe", "-3.8")
+            buildPython("C:/path/to/py.exe", "-3.13")
         }
     }
 
@@ -446,11 +448,11 @@ unless they're covered by the :ref:`extractPackages <extractPackages>` setting. 
 this prevents source code text from appearing in stack traces, so during development you
 may wish to disable it. There are individual settings for:
 
-* `src`: :ref:`local source code <android-source>`
+* `src`: :ref:`source code <android-source>`
 * `pip`: :ref:`requirements <android-requirements>`
 * `stdlib`: the Python standard library
 
-For example, to disable compilation of your local source code::
+For example, to disable compilation of your source code::
 
     chaquopy {
         defaultConfig {
@@ -459,11 +461,6 @@ For example, to disable compilation of your local source code::
             }
         }
     }
-
-In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
-bytecode format as Chaquopy itself. Usually this means it must have the same minor version,
-e.g. if :ref:`your app's Python version <python-version>` is 3.8, then `buildPython` can be
-any version of Python 3.8.
 
 If bytecode compilation fails, the build will continue with a warning, unless you've
 explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will

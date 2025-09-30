@@ -56,22 +56,22 @@ internal class TaskBuilder(
 
     fun createBuildPackagesTask() =
         registerTask("extract", "buildPackages", BuildPackagesTask::class) {
-            var bp: List<String>?
+            var bpInfo: BuildPythonInfo?
             try {
-                bp = findBuildPython()
+                bpInfo = findBuildPython()
+                inputs.property("info", bpInfo.info)
             } catch (e: BuildPythonException) {
-                bp = null
+                bpInfo = null
                 exception = e
             }
-            inputs.property("buildPython", bp).optional(true)
 
             // Keep the path short to avoid the the Windows 260-character limit.
             outputDir.set(plugin.buildSubdir("env", variant))
 
-            if (bp != null) {
+            if (bpInfo != null) {
                 doLast {
                     plugin.execOps.exec {
-                        commandLine(bp)
+                        commandLine(bpInfo.commandLine)
                         args("-m", "venv", "--without-pip", project.file(outputDir))
                     }
 
@@ -86,7 +86,7 @@ internal class TaskBuilder(
                     // Pre-generate the __pycache__ directories to avoid the outputDir
                     // contents changing and breaking the up to date checks.
                     plugin.execOps.exec {
-                        commandLine(bp)
+                        commandLine(bpInfo.commandLine)
                         args("-Wignore", "-m", "compileall", "-qq",
                              project.file(outputDir))
                     }
@@ -334,6 +334,8 @@ internal class TaskBuilder(
     }
 
     fun createAssetsTasks() {
+        // Exclude .py files which have a corresponding .pyc, unless unless they’re
+        // included in extractPackages.
         val excludePy = { fte: FileTreeElement ->
             if (fte.name.endsWith(".py") &&
                 File(fte.file.parent, fte.name + "c").exists()
@@ -604,54 +606,69 @@ internal class TaskBuilder(
         }
     }
 
-    fun findBuildPython(): List<String> {
+    data class BuildPythonInfo(val commandLine: List<String>, val info: String)
+
+    fun findBuildPython(): BuildPythonInfo {
+        val version = python.version!!
         val bpSetting = python.buildPython
+
         val bps = sequence {
             if (bpSetting != null) {
                 yield(bpSetting)
 
-                // Backward compatibility for when buildPython only took a single string
-                if (bpSetting.size == 1) {
+                // For convenience, buildPython may also be set to a single
+                // space-separated string. If the user needs spaces within arguments,
+                // then they'll have to use the multi-string form.
+                if (bpSetting.size == 1 && bpSetting[0].contains(' ')) {
                     yield(bpSetting[0].split(Regex("""\s+""")))
                 }
             } else {
-                val version = python.version!!
+                // Trying the `python3` and `py -3` commands is usually unnecessary, but
+                // might be useful in some situations.
                 for (suffix in listOf(version, version.split(".")[0])) {
                     if (osName() == "windows") {
-                        // See PEP 397. After running the official Windows installer
-                        // with default settings, this will be the only Python thing on
-                        // the PATH.
                         yield(listOf("py", "-$suffix"))
                     } else {
-                        // See PEP 394.
                         yield(listOf("python$suffix"))
                     }
                 }
-
-                // On Windows, both venv and conda environments contain only a `python`
-                // executable, not `pythonX`, `pythonX.Y`, or `py`. It's also reasonable
-                // to use this as a final fallback on Unix (#752).
                 yield(listOf("python"))
             }
         }
 
+        val checkScript = plugin.extractResource(
+            "check_build_python.py", plugin.buildSubdir())
+        var error: String? = null
+        var gotStderr = false
         for (bp in bps) {
+            val stdout = ByteArrayOutputStream()
+            val stderr = ByteArrayOutputStream()
             try {
                 plugin.execOps.exec {
                     commandLine(bp)
-                    args("--version")
-                    standardOutput = ByteArrayOutputStream()
-                    errorOutput = ByteArrayOutputStream()
+                    args(checkScript, version)
+                    standardOutput = stdout
+                    errorOutput = stderr
                 }
-                return bp
-            } catch (_: ExecException) {}
+                return BuildPythonInfo(bp, stdout.toString())
+            } catch (e: ExecException) {
+                if (stderr.size() > 0 && !gotStderr) {
+                    // Prefer stderr over an exception message.
+                    error = stderr.toString().trim()
+                    gotStderr = true
+                } else if (error == null) {
+                    // Prefer the error for the original command over the split form.
+                    error = e.message ?: e.javaClass.name
+                }
+            }
         }
         if (bpSetting != null) {
             throw BuildPythonException(
-                "$bpSetting does not appear to be a valid Python command.",
+                "$bpSetting is not a valid Python $version command: $error.",
                 BUILD_PYTHON_ADVICE)
         } else {
-            throw BuildPythonException("Couldn't find Python.", BUILD_PYTHON_ADVICE)
+            throw BuildPythonException(
+                "Couldn't find Python $version.", BUILD_PYTHON_ADVICE)
         }
     }
 }

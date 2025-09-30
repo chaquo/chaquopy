@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [[ "$1" = "--version" ]]; then
-    exit 0
+if [[ "$1" != "-m" ]]; then
+    echo "$(basename "$0") was probed"
 else
-    echo "3.9 was used"
+    echo "$(basename "$0") was used"
     exit 1
 fi
