@@ -12,7 +12,7 @@ import shutil
 import subprocess
 from subprocess import run
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, gettempdir
 from unittest import skipIf, skipUnless, TestCase
 from zipfile import ZipFile, ZIP_STORED
 
@@ -89,7 +89,10 @@ class GradleTestCase(TestCase):
 
     def setUp(self):
         module, cls, func = re.search(r"^(\w+)\.(\w+)\.test_(\w+)$", self.id()).groups()
-        self.run_dir = join(plugin_dir, "build/test/integration", agp_version, cls, func)
+
+        # We used to use {plugin_dir}/build/test, but that's significantly slower when
+        # running inside Parallels or Docker.
+        self.run_dir = join(gettempdir(), "test_gradle_plugin", agp_version, cls, func)
 
     def tearDown(self):
         # Remove build directory if test passed.
