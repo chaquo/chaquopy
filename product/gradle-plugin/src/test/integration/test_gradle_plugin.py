@@ -1145,8 +1145,11 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
-    # Check that pip builds source directories in place, not in a temporary directory.
-    # For example, this is required by setuptools-scm.
+    # Install an sdist whose setup.py asserts that it's being built in place, not in a
+    # temporary directory. For example, this is required by setuptools-scm.
+    #
+    # This behavior was added in pip 20.1, reverted in 20.1.1, added again as an option
+    # in 21.1, and made the default in 21.3.
     def test_sdist_in_place(self):
         self.RunGradle("base", "PythonReqs/sdist_in_place",
                        dist_versions=[("sdist_in_place", "1.2.3")])
