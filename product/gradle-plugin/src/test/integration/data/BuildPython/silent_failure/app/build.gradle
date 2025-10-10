@@ -11,7 +11,10 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython "true"
+            buildPython(
+                System.getProperty("os.name").startsWith("Windows") ? "py" : "python3",
+                "-c", "exit()"
+            )
             pip {
                 install "six"
             }

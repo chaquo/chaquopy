@@ -315,10 +315,14 @@ class Dsl(GradleTestCase):
             })
 
         run.rerun(variants=["bpProperty-debug"], succeed=False)
-        self.assertInStderr(BuildPython.problem_error("python-property"), run, re=True)
+        self.assertInStderr(
+            BuildPython.invalid_error("python-property", BuildPython.PROBLEM),
+            run, re=True)
 
         run.rerun(variants=["bpMethod-debug"], succeed=False)
-        self.assertInStderr(BuildPython.problem_error("python-method"), run, re=True)
+        self.assertInStderr(
+            BuildPython.invalid_error("python-method", BuildPython.PROBLEM),
+            run, re=True)
 
 
 class ChaquopyPlugin(GradleTestCase):
@@ -682,7 +686,8 @@ class Pyc(GradleTestCase):
         self.RunGradle("base", "Pyc/syntax_error", app=["bad.py", "good.pyc"], pyc=["stdlib"])
 
     def test_buildpython(self):
-        message = BuildPython.problem_error("pythoninvalid", advice="")
+        message = BuildPython.invalid_error(
+            "pythoninvalid", BuildPython.PROBLEM, advice="")
         kwargs = dict(app=["hello.py"], pyc=["stdlib"])
 
         run = self.RunGradle("base", "Pyc/buildpython_warning", **kwargs)
@@ -738,14 +743,14 @@ class BuildPython(GradleTestCase):
     def invalid_error(
         cls, command, error, *, version=DEFAULT_PYTHON_VERSION, advice=SEE
     ):
-        return (
-            fr"\[{re.escape(command)}\] is not a valid Python {version} command: "
-            fr"{error}\. {advice}"
-        )
+        command_split = re.split(r"\s+", command)
+        if error in [cls.PROBLEM, cls.NON_ZERO]:
+            error = error.format(command_split[0])
 
-    @classmethod
-    def problem_error(cls, command, **kwargs):
-        return cls.invalid_error(command, cls.PROBLEM.format(command), **kwargs)
+        return (
+            fr"\[{re.escape(', '.join(command_split))}\] "
+            fr"is not a valid Python {version} command: {error}\. {advice}"
+        )
 
     def test_default(self):
         run = self.RunGradle(
@@ -785,8 +790,10 @@ class BuildPython(GradleTestCase):
 
     def test_invalid(self):
         run = self.RunGradle("base", "BuildPython/override", run=False)
-        self.run_override(run, "python-bad", error=self.PROBLEM.format("python-bad"))
-        self.run_override(run, "false", error=self.NON_ZERO.format("false"))
+        self.run_override(run, "python-bad", error=self.PROBLEM)
+        self.run_override(
+            run, ("py" if os.name == "nt" else "python3") + " -c exit(1)",
+            error=self.NON_ZERO)
 
         for version in [OLD_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
             with self.subTest(version):
@@ -835,14 +842,14 @@ class BuildPython(GradleTestCase):
 
     def test_args(self):  # Also tests making a change.
         run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
-        self.assertInStdout("echo_args1", run)
+        self.assertInStdout(r"^echo_args1$", run, re=True)
         run.apply_layers("BuildPython/args_2")
         run.rerun(succeed=False)
-        self.assertInStdout("echo_args2", run)
+        self.assertInStdout(r"^echo_args2$", run, re=True)
 
     def test_space(self):
         run = self.RunGradle("base", "BuildPython/space", succeed=False)
-        self.assertInStdout("Hello Chaquopy", run)
+        self.assertInStdout(r"^Hello Chaquopy$", run, re=True)
 
     # Test a buildPython which returns success without doing anything (possibly the
     # cause of #250).
@@ -856,16 +863,16 @@ class BuildPython(GradleTestCase):
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
                              succeed=False)
-        self.assertInStderr(self.problem_error("python-red"), run, re=True)
+        self.assertInStderr(self.invalid_error("python-red", self.PROBLEM), run, re=True)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInStderr(self.problem_error("python-blue"), run, re=True)
+        self.assertInStderr(self.invalid_error("python-blue", self.PROBLEM), run, re=True)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInStderr(self.problem_error("python-red"), run, re=True)
+        self.assertInStderr(self.invalid_error("python-red", self.PROBLEM), run, re=True)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInStderr(self.problem_error("python-blue"), run, re=True)
+        self.assertInStderr(self.invalid_error("python-blue", self.PROBLEM), run, re=True)
 
 
 class PythonReqs(GradleTestCase):

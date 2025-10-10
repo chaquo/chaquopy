@@ -11,7 +11,9 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython "echo echo_args1"
+            def py = System.getProperty("os.name").startsWith("Windows") ? "py" : "python3"
+            // Single string, split on whitespace.
+            buildPython "$py -c print('echo_args1')"
             pip {
                 install "six"
             }
