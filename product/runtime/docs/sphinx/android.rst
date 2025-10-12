@@ -186,6 +186,8 @@ For example, on Windows you might use one of the following::
     chaquopy {
         defaultConfig {
             buildPython("C:/path/to/python.exe")
+
+            // Commands with multiple arguments must be passed as multiple strings.
             buildPython("C:/path/to/py.exe", "-3.13")
         }
     }

@@ -11,6 +11,7 @@ import org.gradle.api.file.*
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.gradle.kotlin.dsl.*
+import org.gradle.process.*
 import org.gradle.process.internal.*
 import org.json.*
 import java.io.*
@@ -70,7 +71,7 @@ internal class TaskBuilder(
 
             if (bpInfo != null) {
                 doLast {
-                    plugin.execOps.exec {
+                    exec {
                         commandLine(bpInfo.commandLine)
                         args("-m", "venv", "--without-pip", project.file(outputDir))
                     }
@@ -85,7 +86,7 @@ internal class TaskBuilder(
 
                     // Pre-generate the __pycache__ directories to avoid the outputDir
                     // contents changing and breaking the up to date checks.
-                    plugin.execOps.exec {
+                    exec {
                         commandLine(bpInfo.commandLine)
                         args("-Wignore", "-m", "compileall", "-qq",
                              project.file(outputDir))
@@ -590,7 +591,7 @@ internal class TaskBuilder(
 
     fun execBuildPython(args: List<String>) {
         try {
-            plugin.execOps.exec {
+            exec {
                 executable(buildPackagesTask.get().pythonExecutable)
                 this.args(args)
             }
@@ -615,13 +616,6 @@ internal class TaskBuilder(
         val bps = sequence {
             if (bpSetting != null) {
                 yield(bpSetting)
-
-                // For convenience, buildPython may also be set to a single
-                // space-separated string. If the user needs spaces within arguments,
-                // then they'll have to use the multi-string form.
-                if (bpSetting.size == 1 && bpSetting[0].contains(' ')) {
-                    yield(bpSetting[0].split(Regex("""\s+""")))
-                }
             } else {
                 // Trying the `python3` and `py -3` commands is usually unnecessary, but
                 // might be useful in some situations.
@@ -644,7 +638,7 @@ internal class TaskBuilder(
             val stdout = ByteArrayOutputStream()
             val stderr = ByteArrayOutputStream()
             try {
-                plugin.execOps.exec {
+                exec {
                     commandLine(bp)
                     args(checkScript, version)
                     standardOutput = stdout
@@ -652,12 +646,13 @@ internal class TaskBuilder(
                 }
                 return BuildPythonInfo(bp, stdout.toString())
             } catch (e: ExecException) {
+                // Prefer stderr over an exception message.
                 if (stderr.size() > 0 && !gotStderr) {
-                    // Prefer stderr over an exception message.
                     error = stderr.toString().trim()
                     gotStderr = true
+
+                // Prefer an earlier error over a later one.
                 } else if (error == null) {
-                    // Prefer the error for the original command over the split form.
                     error = e.message ?: e.javaClass.name
                 }
             }
@@ -669,6 +664,47 @@ internal class TaskBuilder(
         } else {
             throw BuildPythonException(
                 "Couldn't find Python $version.", BUILD_PYTHON_ADVICE)
+        }
+    }
+
+    // To reduce differences between platforms, and make testing easier, we resolve
+    // executables to absolute paths manually (#1411).
+    fun exec(configure: ExecSpec.() -> Unit) {
+        plugin.execOps.exec {
+            configure()
+            var execFile = File(executable)
+            if (!execFile.isAbsolute) {
+                execFile = File(project.projectDir, executable)
+            }
+
+            if (execFile.exists()) {
+                setExecutable(execFile)
+            } else {
+                // If the executable contains no slashes, search the PATH.
+                if (File.separator in executable || "/" in executable) {
+                    throw ExecException("'$execFile' does not exist")
+                }
+
+                // For consistency between machines, we don't use the PATHEXT variable.
+                val exts =
+                    if (osName() == "windows") listOf(".exe", ".bat") else listOf("")
+
+                outer@ for (dir in System.getenv("PATH").split(File.pathSeparator)) {
+                    for (ext in exts) {
+                        execFile = File(dir, executable + ext)
+                        if (execFile.exists()) {
+                            break@outer
+                        }
+                    }
+                }
+                if (execFile.exists()) {
+                    setExecutable(execFile)
+                } else {
+                    throw ExecException(
+                        "Couldn't find '$executable' on the PATH " +
+                        "or in the project directory")
+                }
+            }
         }
     }
 }

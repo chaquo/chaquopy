@@ -6,7 +6,7 @@ from fnmatch import fnmatch
 import hashlib
 import json
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join, relpath
+from os.path import abspath, basename, dirname, exists, isdir, join, realpath, relpath
 import re
 import shutil
 import subprocess
@@ -92,7 +92,8 @@ class GradleTestCase(TestCase):
 
         # We used to use {plugin_dir}/build/test, but that's significantly slower when
         # running inside Parallels or Docker.
-        self.run_dir = join(gettempdir(), "test_gradle_plugin", agp_version, cls, func)
+        self.run_dir = join(
+            realpath(gettempdir()), "test_gradle_plugin", agp_version, cls, func)
 
     def tearDown(self):
         # Remove build directory if test passed.
@@ -316,13 +317,11 @@ class Dsl(GradleTestCase):
 
         run.rerun(variants=["bpProperty-debug"], succeed=False)
         self.assertInStderr(
-            BuildPython.invalid_error("python-property", BuildPython.PROBLEM),
-            run, re=True)
+            BuildPython.invalid_error("python-property", BuildPython.COULDNT_FIND), run)
 
         run.rerun(variants=["bpMethod-debug"], succeed=False)
         self.assertInStderr(
-            BuildPython.invalid_error("python-method", BuildPython.PROBLEM),
-            run, re=True)
+            BuildPython.invalid_error("python-method", BuildPython.COULDNT_FIND), run)
 
 
 class ChaquopyPlugin(GradleTestCase):
@@ -687,17 +686,18 @@ class Pyc(GradleTestCase):
 
     def test_buildpython(self):
         message = BuildPython.invalid_error(
-            "pythoninvalid", BuildPython.PROBLEM, advice="")
+            "pythoninvalid", BuildPython.COULDNT_FIND, advice="")
         kwargs = dict(app=["hello.py"], pyc=["stdlib"])
 
         run = self.RunGradle("base", "Pyc/buildpython_warning", **kwargs)
-        self.assertInStdout(WARNING + self.FAILED + message + self.SEE, run, re=True)
+        self.assertInStdout(
+            WARNING + re.escape(self.FAILED + message + self.SEE), run, re=True)
 
         run.rerun("Pyc/buildpython_warning_suppress", **kwargs)
         self.assertNotInLong(self.FAILED, run.stdout)
 
         run.rerun("Pyc/buildpython_error", succeed=False, **kwargs)
-        self.assertInStderr("> " + message + BuildPython.SEE, run, re=True)
+        self.assertInStderr("> " + message + BuildPython.SEE, run)
 
     # Magic number changes almost never happen after a Python minor version goes stable,
     # so we need to mock it using a sitecustomize file on PYTHONPATH.
@@ -716,20 +716,22 @@ class Pyc(GradleTestCase):
             python_version=py_version, app=["hello.py"], pyc=["stdlib"],
         )
         run.rerun(**kwargs)
-        self.assertInStdout(WARNING + self.FAILED + message + self.SEE,
-                            run, re=True)
+        self.assertInStdout(
+            WARNING + re.escape(self.FAILED + message + self.SEE), run, re=True)
 
         run.rerun("Pyc/magic_error", succeed=False, **kwargs)
-        self.assertInStderr("^" + self.FAILED + message + self.SEE, run, re=True)
+        self.assertInStderr(self.FAILED + message + self.SEE, run)
 
 
 # This class tests buildPython via the pip_install script. The other two scripts that
 # use buildPython (pyc and static_proxy) have separate tests in their own classes.
 class BuildPython(GradleTestCase):
     SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
-    PROBLEM = r"A problem occurred starting process 'command '{}''"
-    NON_ZERO = r"Process 'command '{}'' finished with non-zero exit value 1"
-    VERSION = r"it is version {}.\d+"
+    NOT_EXIST = "'{}' does not exist"
+    COULDNT_FIND = "Couldn't find '{}' on the PATH or in the project directory"
+    PROBLEM = "A problem occurred starting process 'command '{}''"
+    NON_ZERO = "Process 'command '{}'' finished with non-zero exit value 1"
+    VERSION = "it is version {}"
     FAILED = (NON_ZERO.format(r".+") + " \n\n" +
               r"To view full details in Android Studio:\n"
               r"\* Click the 'Build: failed' caption to the left of this message.\n"
@@ -741,77 +743,122 @@ class BuildPython(GradleTestCase):
 
     @classmethod
     def invalid_error(
-        cls, command, error, *, version=DEFAULT_PYTHON_VERSION, advice=SEE
+        cls, command, error, *,
+        executable=None, version=DEFAULT_PYTHON_VERSION, advice=SEE
     ):
-        command_split = re.split(r"\s+", command)
-        if error in [cls.PROBLEM, cls.NON_ZERO]:
-            error = error.format(command_split[0])
+        if isinstance(command, str):
+            command = [command]
+        if error in [cls.NOT_EXIST, cls.PROBLEM, cls.COULDNT_FIND, cls.NON_ZERO]:
+            error = error.format(executable or command[0])
 
         return (
-            fr"\[{re.escape(', '.join(command_split))}\] "
-            fr"is not a valid Python {version} command: {error}\. {advice}"
+            f"[{', '.join(command)}] is not a valid Python {version} command: "
+            f"{error}. {advice}"
         )
 
     def test_default(self):
-        run = self.RunGradle(
-            "base", "BuildPython/default", add_path=["bin"], succeed=False)
-        self.assert_probed(run, ["3.8"])
+        run = self.RunGradle("base", run=False)
+        self.assert_probed(run, "BuildPython/default", ["3.8"])
+        self.assert_probed(run, "BuildPython/default_change", ["3.9"])
 
-        run.rerun("BuildPython/default_change", add_path=["bin"], succeed=False)
-        self.assert_probed(run, ["3.9"])
+        # Progressively disable each of the commands to make it try the next one.
+        self.assert_probed(run, "BuildPython/default_minor_fail", ["3.9", "3"])
+        self.assert_probed(run, "BuildPython/default_major_fail", ["3.9", "3", ""])
+        self.assert_probed(
+            run, "BuildPython/default_unversioned_fail", ["3.9", "3", ""], found=False)
 
-        run.rerun("BuildPython/default_minor_fail", add_path=["bin"], succeed=False)
-        self.assert_probed(run, ["3.9", "3"])
+    def assert_probed(self, run, layer, probed, *, found=True):
+        bin_dir = "bin"
+        run.rerun(layer, add_path=bin_dir, succeed=False)
 
-        run.rerun("BuildPython/default_major_fail", add_path=["bin"], succeed=False)
-        self.assert_probed(run, ["3.9", "3", ""])
-
-        run.rerun(
-            "BuildPython/default_unversioned_fail", add_path=["bin"], succeed=False)
-        self.assert_probed(run, ["3.9", "3", ""], found=False)
-
-    def assert_probed(self, run, probed, *, found=True):
         # The "was probed" output is captured by Gradle, so it should never appear.
         used_ver = probed[-1]
         expected = [f"python{used_ver} was used"] if found else []
         self.assertEqual(
             expected,
             [line for line in run.stdout.splitlines()
-             if re.match(r"python.* was (probed|used)", line)])
+             if re.match(r"python.* was (probed|used)", line)],
+            msg=run.stdout,
+        )
 
         if found:
-            command = (
-                f"python{used_ver}" if os.name == "posix" or used_ver == ""
-                else "py")
-            error = self.NON_ZERO.format(command)
+            error = self.NON_ZERO.format(
+                join(
+                    run.project_dir, bin_dir,
+                    "python" if used_ver == ""
+                    else "py" if os.name == "nt"
+                    else f"python{used_ver}"
+                ) + (".exe" if os.name == "nt" else "")
+            )
         else:
             error = self.missing_error(probed[0])
         self.assertInStderr(error, run)
 
-    def test_invalid(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
-        self.run_override(run, "python-bad", error=self.PROBLEM)
-        self.run_override(
-            run, ("py" if os.name == "nt" else "python3") + " -c exit(1)",
-            error=self.NON_ZERO)
-
-        for version in [OLD_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
-            with self.subTest(version):
-                self.run_override(
-                    run, f"py -{version}" if os.name == "nt" else f"python{version}",
-                    error=self.VERSION.format(version)
-                )
-
+    def test_unused(self):
         # An invalid buildPython is not an error unless buildPython is actually used.
-        run.rerun("BuildPython/invalid_unused")
+        self.RunGradle("base", "BuildPython/unused")
 
-    def run_override(self, run, command, *, error=None, **kwargs):
+    def run_override(self, run, command, *, error=None, executable=None, **kwargs):
+        if isinstance(command, str):
+            command = [command]
         kwargs.setdefault("python_version", DEFAULT_PYTHON_VERSION)
-        run.rerun(env={"buildpython": command}, succeed=not error, **kwargs)
+        kwargs.setdefault("succeed", not error)
+
+        run.rerun(properties={"buildpython": "----".join(command)}, **kwargs)
         if error:
             self.assertInStderr(
-                self.invalid_error(command, error, version=kwargs["python_version"]),
-                run, re=True)
+                self.invalid_error(
+                    command, error, executable=executable,
+                    version=kwargs["python_version"]
+                ),
+                run,
+            )
+
+    def run_override_rel_abs(self, run, command, **kwargs):
+        if isinstance(command, str):
+            command = [command]
+        command_abs = [join(run.project_dir, "app", command[0])] + command[1:]
+
+        self.run_override(run, command, **kwargs)
+        self.run_override(run, command_abs, **kwargs)
+
+    def test_not_exist(self):
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        commands = [
+            sep.join(["subdir", "python-bad"]) for sep in [os.sep, os.altsep] if sep
+        ]
+        for command in commands:
+            with self.subTest(command):
+                self.run_override_rel_abs(
+                    run, command,
+                    error=self.NOT_EXIST,
+                    executable=join(run.project_dir, "app", commands[0]))
+
+    def test_couldnt_find(self):
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        self.run_override(run, "python-bad", error=self.COULDNT_FIND)
+
+    def test_problem(self):
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        non_executable = join(".", "build.gradle")
+        self.run_override(
+            run, non_executable,
+            error=self.PROBLEM, executable=join(run.project_dir, "app", non_executable))
+
+    def test_non_zero(self):
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        self.run_override(
+            run, py() + ["-c", "exit(1)"],
+            error=self.NON_ZERO, executable=shutil.which(py()[0]))
+
+        error = "Error!"
+        self.run_override(run, py() + ["-c", f"exit('{error}')"], error=error)
+
+    def test_version(self):
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        for version in [OLD_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
+            with self.subTest(version):
+                self.run_override(run, py(version), error=self.VERSION.format(version))
 
     # Detect a different executable being found due to a change in PATH.
     def test_path(self):
@@ -840,39 +887,39 @@ class BuildPython(GradleTestCase):
             run, command, error=self.VERSION.format(NON_DEFAULT_PYTHON_VERSION)
         )
 
-    def test_args(self):  # Also tests making a change.
-        run = self.RunGradle("base", "BuildPython/args_1", succeed=False)
-        self.assertInStdout(r"^echo_args1$", run, re=True)
-        run.apply_layers("BuildPython/args_2")
-        run.rerun(succeed=False)
-        self.assertInStdout(r"^echo_args2$", run, re=True)
-
     def test_space(self):
-        run = self.RunGradle("base", "BuildPython/space", succeed=False)
-        self.assertInStdout(r"^Hello Chaquopy$", run, re=True)
+        run = self.RunGradle(
+            "base", "BuildPython/override", "BuildPython/space", run=False)
+        commands = [
+            sep.join(["space dir", "hello." + ("bat" if os.name == "nt" else "sh")])
+            for sep in [os.sep, os.altsep] if sep
+        ]
+        for command in commands:
+            with self.subTest(command):
+                self.run_override_rel_abs(run, command, error="Here's the stderr")
 
     # Test a buildPython which returns success without doing anything (possibly the
     # cause of #250).
     def test_silent_failure(self):
-        run = self.RunGradle("base", "BuildPython/silent_failure", succeed=False)
-        lib_path = "python/env/debug/lib"
-        if os.name == "nt":
-            lib_path = lib_path.replace("/", "\\").replace("lib", "Lib")
+        run = self.RunGradle("base", "BuildPython/override", run=False)
+        self.run_override(run, py() + ["-c", "pass"], succeed=False)
+
+        lib_path = join("python", "env", "debug", "Lib" if os.name == "nt" else "lib")
         self.assertInStderr(f"{lib_path} does not exist", run)
 
     def test_variant(self):
         run = self.RunGradle("base", "BuildPython/variant", variants=["red-debug"],
                              succeed=False)
-        self.assertInStderr(self.invalid_error("python-red", self.PROBLEM), run, re=True)
+        self.assertInStderr(self.invalid_error("python-red", self.COULDNT_FIND), run)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInStderr(self.invalid_error("python-blue", self.PROBLEM), run, re=True)
+        self.assertInStderr(self.invalid_error("python-blue", self.COULDNT_FIND), run)
 
     def test_variant_merge(self):
         run = self.RunGradle("base", "BuildPython/variant_merge", variants=["red-debug"],
                              succeed=False)
-        self.assertInStderr(self.invalid_error("python-red", self.PROBLEM), run, re=True)
+        self.assertInStderr(self.invalid_error("python-red", self.COULDNT_FIND), run)
         run.rerun(variants=["blue-debug"], succeed=False)
-        self.assertInStderr(self.invalid_error("python-blue", self.PROBLEM), run, re=True)
+        self.assertInStderr(self.invalid_error("python-blue", self.COULDNT_FIND), run)
 
 
 class PythonReqs(GradleTestCase):
@@ -1672,7 +1719,7 @@ class RunGradle(object):
                 preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
-              **kwargs):
+              properties=None, **kwargs):
         if RunGradle.runs_per_daemon >= RunGradle.MAX_RUNS_PER_DAEMON:
             run([self.gradlew_path, "--stop"], cwd=self.project_dir, check=True)
             RunGradle.runs_per_daemon = 0
@@ -1689,6 +1736,9 @@ class RunGradle(object):
         gradle_props = f"{self.project_dir}/gradle.properties"
         set_property(gradle_props, "chaquopyRepository", f"{repo_root}/maven")
         set_property(gradle_props, "chaquopyVersion", chaquopy_version)
+        if properties:
+            for key, value in properties.items():
+                set_property(gradle_props, key, value)
         java_version = get_property(gradle_props, "chaquopy.java.version")
 
         env = {} if env is None else env.copy()
@@ -1697,20 +1747,6 @@ class RunGradle(object):
         if add_path:
             add_path = [join(self.project_dir, path) for path in add_path]
             env["PATH"] = os.pathsep.join(add_path + [os.environ["PATH"]])
-
-            if os.name == "nt":
-                # Gradle runs subprocesses using Java's ProcessBuilder, which on Windows uses
-                # CreateProcessW. This uses a search algorithm which has some differences from
-                # the one used by the cmd shell:
-                #   * The only extension it tries is .exe, so we can't use a .bat file here.
-                #   * It searches the Windows directory (where the real py.exe is installed)
-                #     before trying the PATH, so to override py.exe we need to copy it
-                #     to the working directory, which has even higher priority.
-                for path in add_path:
-                    py_exe = f"{path}/py.exe"
-                    if exists(py_exe):
-                        shutil.copy(py_exe, self.project_dir)
-                        break
 
         status, self.stdout, self.stderr = self.run_gradle(variants, env, java_version)
         if status == 0:
@@ -1763,8 +1799,8 @@ class RunGradle(object):
             # platforms, this only affects specific variables such as PATH and TZ
             # (https://github.com/gradle/gradle/issues/10483).
             #
-            # TODO: avoid this by changing as many tests as possible to use
-            # gradle.properties instead.
+            # TODO: avoid this by using `properties` instead wherever possible. This
+            # will also make it easier to rerun failed tests manually.
             gradlew_flags.append("--no-daemon")
 
         # The following environment variables aren't affected by the above issue, either
@@ -1778,8 +1814,8 @@ class RunGradle(object):
 
         process = run([self.gradlew_path] + gradlew_flags +
                       [task_name("assemble", v) for v in variants],
-                      cwd=self.project_dir,  # See Windows notes for add_path above.
-                      capture_output=True, text=True, env=merged_env, timeout=600)
+                      cwd=self.project_dir, capture_output=True, text=True,
+                      env=merged_env, timeout=600)
         return process.returncode, process.stdout, process.stderr
 
     @property
@@ -2038,12 +2074,15 @@ class RunGradle(object):
 def make_venv(location, version=DEFAULT_PYTHON_VERSION):
     if exists(location):
         rmtree(location)
-    run(
-        (["py", f"-{version}"] if os.name == "nt" else [f"python{version}"])
-        + ["-m", "venv", "--without-pip", location],
-        check=True,
-    )
+    run(py(version) + ["-m", "venv", "--without-pip", location], check=True)
     return join(location, "Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def py(version=None):
+    if version:
+        return ["py.exe", f"-{version}"] if os.name == "nt" else [f"python{version}"]
+    else:
+        return ["py.exe"] if os.name == "nt" else ["python3"]
 
 
 def file_sha1(filename):
