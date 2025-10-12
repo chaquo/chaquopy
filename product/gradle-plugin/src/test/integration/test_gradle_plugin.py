@@ -768,7 +768,7 @@ class BuildPython(GradleTestCase):
             run, "BuildPython/default_unversioned_fail", ["3.9", "3", ""], found=False)
 
     def assert_probed(self, run, layer, probed, *, found=True):
-        bin_dir = "bin"
+        bin_dir = os.name
         run.rerun(layer, add_path=bin_dir, succeed=False)
 
         # The "was probed" output is captured by Gradle, so it should never appear.

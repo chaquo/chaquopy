@@ -686,8 +686,10 @@ internal class TaskBuilder(
                 }
 
                 // For consistency between machines, we don't use the PATHEXT variable.
-                val exts =
-                    if (osName() == "windows") listOf(".exe", ".bat") else listOf("")
+                val exts = mutableListOf("")
+                if (osName() == "windows") {
+                    exts += listOf(".exe", ".bat")
+                }
 
                 outer@ for (dir in System.getenv("PATH").split(File.pathSeparator)) {
                     for (ext in exts) {
