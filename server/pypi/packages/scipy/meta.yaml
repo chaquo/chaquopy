@@ -1,6 +1,6 @@
 package:
   name: scipy
-  version: "1.8.1"
+  version: "1.9.3"
 
 build:
   number: 1
