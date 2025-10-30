@@ -135,6 +135,7 @@ class BuildWheel:
         self.src_dir = f"{self.build_dir}/src"
         self.build_env = f"{self.build_dir}/env"
         self.host_env = f"{self.build_dir}/requirements"
+        self.chaquopy_dir = f"{self.host_env}/chaquopy"
 
         if self.no_unpack:
             log("Reusing existing build directory due to --no-unpack")
@@ -249,6 +250,10 @@ class BuildWheel:
         if len(zips) != 1:
             raise CommandError(f"Found {len(zips)} {self.abi} ZIPs in {target_version_dir}")
         self.target_zip = zips[0]
+        zips = glob(f"{target_version_dir}/target-*-stdlib.zip")
+        if len(zips) != 1:
+            raise CommandError(f"Found {len(zips)} stdlib ZIPs in {target_version_dir}")
+        self.std_lib_zip = zips[0]
 
     def create_build_env(self):
         python_ver = self.python or ".".join(map(str, sys.version_info[:2]))
@@ -502,9 +507,11 @@ class BuildWheel:
         for name in ["pthread", "rt"]:
             run(f"{os.environ['AR']} rc {self.host_env}/chaquopy/lib/lib{name}.a")
 
+    def extract_stdlib(self):
+        run(f"unzip -q -d {self.chaquopy_dir}/lib {self.std_lib_zip}")
+
     def extract_target(self):
-        chaquopy_dir = f"{self.host_env}/chaquopy"
-        run(f"unzip -q -d {chaquopy_dir} {self.target_zip} include/* jniLibs/*")
+        run(f"unzip -q -d {self.chaquopy_dir} {self.target_zip} include/* jniLibs/*")
 
         # Only include OpenSSL and SQLite in the environment if the recipe requests
         # them. This affects grpcio, which provides its own copy of BoringSSL, and gets
@@ -517,7 +524,7 @@ class BuildWheel:
                 self.meta["requirements"]["host"].remove(name)
             except ValueError:
                 for pattern in [f"include/{includes}", f"jniLibs/{self.abi}/{libs}"]:
-                    run(f"rm -r {chaquopy_dir}/{pattern}", shell=True)
+                    run(f"rm -r {self.chaquopy_dir}/{pattern}", shell=True)
 
         # When building packages that could be loaded by older versions of Chaquopy,
         # i.e non-Python packages, and Python packages for 3.12 and older:
@@ -533,7 +540,7 @@ class BuildWheel:
         #
         # When building only for Python 3.13 and newer, we should use the _python suffix
         # so our wheels are compatible with any other Python on Android distributions.
-        lib_dir = f"{chaquopy_dir}/jniLibs/{self.abi}"
+        lib_dir = f"{self.chaquopy_dir}/jniLibs/{self.abi}"
         for name in ["crypto", "ssl", "sqlite3"]:
             python_name = f"lib{name}_python.so"
             chaquopy_name = f"lib{name}_chaquopy.so"
@@ -547,8 +554,10 @@ class BuildWheel:
                     run(f"patchelf --set-soname {chaquopy_name} "
                         f"{lib_dir}/{chaquopy_name}")
 
-        run(f"mv {chaquopy_dir}/jniLibs/{self.abi}/* {chaquopy_dir}/lib", shell=True)
-        run(f"rm -r {chaquopy_dir}/jniLibs")
+        run(f"mv {self.chaquopy_dir}/jniLibs/{self.abi}/* {self.chaquopy_dir}/lib", shell=True)
+        run(f"rm -r {self.chaquopy_dir}/jniLibs")
+
+        self.extract_stdlib()
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -667,7 +676,8 @@ class BuildWheel:
             # compatibility version via one of the "abi3-py*" features (e.g.
             # abi3-py310). Doing this requires the "-L native" flag in RUSTFLAGS above.
             # https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter
-            "PYO3_NO_PYTHON": "1",
+            # "PYO3_NO_PYTHON": "1",
+            "PYO3_CROSS_LIB_DIR": self.chaquopy_dir,
             "PYO3_CROSS": "1",
             "PYO3_CROSS_PYTHON_VERSION": self.python,
         })
