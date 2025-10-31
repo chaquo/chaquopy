@@ -1,23 +1,10 @@
 pluginManagement {
-    // These are defined in gradle.properties.
-    val chaquopyRepository: String by settings
-    val chaquopyVersion: String by settings
-    val agpVersion: String by settings
-
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven { url = uri(chaquopyRepository) }
-    }
-    plugins {
-        id("com.android.application") version agpVersion
-        id("com.android.library") version agpVersion
-        id("com.android.dynamic-feature") version agpVersion
-        id("org.jetbrains.kotlin.android") version "1.9.0"
-        id("com.chaquo.python") version chaquopyVersion
-    }
-}
+        maven { url = uri("""{{ chaquopyRepository }}""") }
+    }}
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)

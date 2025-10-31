@@ -1,12 +1,12 @@
 # This file requires the packages listed in requirements.txt.
 
 from contextlib import contextmanager
-from distutils import dir_util
 from fnmatch import fnmatch
 import hashlib
 import json
 import os
 from os.path import abspath, basename, dirname, exists, isdir, join, realpath, relpath
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -19,6 +19,7 @@ from zipfile import ZipFile, ZIP_STORED
 import appdirs
 from elftools.elf.elffile import ELFFile
 from javaproperties import PropertiesFile
+from jinja2 import StrictUndefined, Template
 from retrying import retry
 
 
@@ -1707,48 +1708,61 @@ class RunGradle(object):
         if run:
             self.rerun(**kwargs)
 
-    def apply_layers(self, *layers):
+    def apply_layers(self, *layers, **kwargs):
         for layer in layers:
-            # Most tests use the old Groovy DSL. Since the old DSL is implemented in
-            # terms of the new DSL, this allows us to test both of them at once.
-            if layer == "base":
-                layer = "base/groovy"
+            self.apply_layer(layer, **kwargs)
 
-            # "groovy" or "kotlin" here refers to the app/build.gradle file. The
-            # language of the root build.gradle and settings.gradle files is determined
-            # by agp_version.
-            if layer in ["base/groovy", "base/kotlin"]:
-                self.apply_layers("base/common", f"base/{agp_version}")
+    def apply_layer(self, layer, *, context=None):
+        # Most tests use the old Groovy DSL. Since the old DSL is implemented in
+        # terms of the new DSL, this allows us to test both of them at once.
+        if layer == "base":
+            layer = "base/groovy"
 
-            # We use dir_util.copy_tree, because shutil.copytree can't merge into a
-            # destination that already exists.
-            dir_util._path_created.clear()  # https://bugs.python.org/issue10948
-            dir_util.copy_tree(
-                join(data_dir, layer), self.project_dir,
-                preserve_times=False)  # https://github.com/gradle/gradle/issues/2301
+        # "groovy" or "kotlin" here refers to the app/build.gradle file. The
+        # language of the root build.gradle and settings.gradle files is determined
+        # by agp_version.
+        if layer in ["base/groovy", "base/kotlin"]:
+            self.apply_layers(f"base/{agp_version}", "base/common", context=context)
+
+        layer_dir = Path(data_dir, layer)
+        shutil.copytree(
+            layer_dir, self.project_dir, dirs_exist_ok=True,
+            copy_function=shutil.copy  # https://github.com/gradle/gradle/issues/2301
+        )
+
+        # Expand Jinja template syntax in Gradle scripts.
+        context = {} if context is None else context.copy()
+        context.update(
+            chaquopyRepository=f"{repo_root}/maven",
+            chaquopyVersion=chaquopy_version,
+        )
+        for key, value in self.gradle_properties().items():
+            prefix = "chaquopy."
+            if key.startswith(prefix):
+                context[key[len(prefix):]] = value
+
+        for dirpath, dirnames, filenames in os.walk(layer_dir):
+            for filename in filenames:
+                if filename.endswith((".gradle", ".gradle.kts")):
+                    rel_path = Path(dirpath, filename).relative_to(layer_dir)
+                    dst_path = Path(self.project_dir, rel_path)
+                    template = Template(dst_path.read_text(), undefined=StrictUndefined)
+                    dst_path.write_text(template.render(**context))
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
-              properties=None, **kwargs):
+              properties=None, context=None, **kwargs):
         if RunGradle.runs_per_daemon >= RunGradle.MAX_RUNS_PER_DAEMON:
             run([self.gradlew_path, "--stop"], cwd=self.project_dir, check=True)
             RunGradle.runs_per_daemon = 0
         RunGradle.runs_per_daemon += 1
 
-        self.apply_layers(*layers)
+        self.apply_layers(*layers, context=context)
+        java_version = self.gradle_properties()["chaquopy.javaVersion"]
 
-        # In Android Studio Bumblebee and later, the new project wizard sets all plugin
-        # versions using the `plugins` block of the top-level build.gradle file. This has a
-        # strict syntax, and gradle.properties is the only way to pass variables into it.
-        #
-        # We also pass the repository location in the same way, in order to make it easy to
-        # test a released version of Chaquopy by editing the following lines.
         gradle_props = f"{self.project_dir}/gradle.properties"
-        set_property(gradle_props, "chaquopyRepository", f"{repo_root}/maven")
-        set_property(gradle_props, "chaquopyVersion", chaquopy_version)
         if properties:
             for key, value in properties.items():
                 set_property(gradle_props, key, value)
-        java_version = get_property(gradle_props, "chaquopy.java.version")
 
         env = {} if env is None else env.copy()
         if isinstance(add_path, str):
@@ -1797,6 +1811,11 @@ class RunGradle(object):
         else:
             if succeed:
                 self.dump_run("exit status {}".format(status))
+
+    def gradle_properties(self):
+        return PropertiesFile.loads(
+            Path(self.project_dir, "gradle.properties").read_text()
+        )
 
     def run_gradle(self, variants, env, java_version):
         # `--info` explains why tasks were not considered up to date.
