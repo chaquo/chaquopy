@@ -814,7 +814,11 @@ class BuildPython(GradleTestCase):
         kwargs.setdefault("python_version", DEFAULT_PYTHON_VERSION)
         kwargs.setdefault("succeed", not error)
 
-        run.rerun(properties={"buildpython": "----".join(command)}, **kwargs)
+        run.rerun(
+            "BuildPython/override",
+            context={"buildpython": "----".join(command)},
+            **kwargs,
+        )
         if error:
             self.assertInStderr(
                 self.invalid_error(
@@ -833,7 +837,7 @@ class BuildPython(GradleTestCase):
         self.run_override(run, command_abs, **kwargs)
 
     def test_not_exist(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         commands = [
             sep.join(["subdir", "python-bad"]) for sep in [os.sep, os.altsep] if sep
         ]
@@ -845,18 +849,18 @@ class BuildPython(GradleTestCase):
                     executable=join(run.project_dir, "app", commands[0]))
 
     def test_couldnt_find(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         self.run_override(run, "python-bad", error=self.COULDNT_FIND)
 
     def test_problem(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         non_executable = join(".", "build.gradle")
         self.run_override(
             run, non_executable,
             error=self.PROBLEM, executable=join(run.project_dir, "app", non_executable))
 
     def test_non_zero(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         self.run_override(
             run, py() + ["-c", "exit(1)"],
             error=self.NON_ZERO, executable=shutil.which(py()[0]))
@@ -865,14 +869,14 @@ class BuildPython(GradleTestCase):
         self.run_override(run, py() + ["-c", f"exit('{error}')"], error=error)
 
     def test_version(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         for version in [OLD_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
             with self.subTest(version):
                 self.run_override(run, py(version), error=self.VERSION.format(version))
 
     # Detect a different executable being found due to a change in PATH.
     def test_path(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         venv = f"{run.project_dir}/app/venv"
         command_good = make_venv(f"{venv}-good")
         command_bad = make_venv(f"{venv}-bad", NON_DEFAULT_PYTHON_VERSION)
@@ -887,7 +891,7 @@ class BuildPython(GradleTestCase):
 
     # Detect a venv being rebuilt with a different version of Python.
     def test_venv(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         venv = f"{run.project_dir}/app/venv"
         command = make_venv(venv)
         self.run_override(run, command, requirements=["six.py"])
@@ -898,8 +902,7 @@ class BuildPython(GradleTestCase):
         )
 
     def test_space(self):
-        run = self.RunGradle(
-            "base", "BuildPython/override", "BuildPython/space", run=False)
+        run = self.RunGradle("base", "BuildPython/space", run=False)
         commands = [
             sep.join(["space dir", "hello." + ("bat" if os.name == "nt" else "sh")])
             for sep in [os.sep, os.altsep] if sep
@@ -911,7 +914,7 @@ class BuildPython(GradleTestCase):
     # Test a buildPython which returns success without doing anything (possibly the
     # cause of #250).
     def test_silent_failure(self):
-        run = self.RunGradle("base", "BuildPython/override", run=False)
+        run = self.RunGradle("base", run=False)
         self.run_override(run, py() + ["-c", "pass"], succeed=False)
 
         lib_path = join("python", "env", "debug", "Lib" if os.name == "nt" else "lib")
@@ -1750,7 +1753,7 @@ class RunGradle(object):
                     dst_path.write_text(template.render(**context))
 
     def rerun(self, *layers, succeed=True, variants=["debug"], env=None, add_path=None,
-              properties=None, context=None, **kwargs):
+              context=None, **kwargs):
         if RunGradle.runs_per_daemon >= RunGradle.MAX_RUNS_PER_DAEMON:
             run([self.gradlew_path, "--stop"], cwd=self.project_dir, check=True)
             RunGradle.runs_per_daemon = 0
@@ -1758,11 +1761,6 @@ class RunGradle(object):
 
         self.apply_layers(*layers, context=context)
         java_version = self.gradle_properties()["chaquopy.javaVersion"]
-
-        gradle_props = f"{self.project_dir}/gradle.properties"
-        if properties:
-            for key, value in properties.items():
-                set_property(gradle_props, key, value)
 
         env = {} if env is None else env.copy()
         if isinstance(add_path, str):
@@ -2207,29 +2205,6 @@ def task_name(prefix, variant, suffix=""):
 # Differs from str.capitalize() because it only affects the first character
 def cap_first(s):
     return s if (s == "") else (s[0].upper() + s[1:])
-
-
-NO_DEFAULT = object()
-
-def get_property(filename, key, default=NO_DEFAULT):
-    with open(filename) as props_file:
-        props = PropertiesFile.load(props_file)
-        return props[key] if (default is NO_DEFAULT) else props.get(key, default)
-
-
-def set_property(filename, key, value):
-    try:
-        with open(filename) as props_file:
-            props = PropertiesFile.load(props_file)
-    except FileNotFoundError:
-        props = PropertiesFile()
-
-    if value is None:
-        props.pop(key, None)
-    else:
-        props[key] = value
-    with open(filename, "w") as props_file:
-        props.dump(props_file)
 
 
 # On Windows, rmtree often gets blocked by the virus scanner. See comment in our copy of
