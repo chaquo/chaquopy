@@ -715,17 +715,14 @@ class Pyc(GradleTestCase):
         py_version = "3.11"
         message = self.MAGIC.format(1234, 3495)
 
-        run = self.RunGradle("base", "Pyc/magic_warning", run=False)
+        run = self.RunGradle("base", run=False)
         command = make_venv(f"{run.project_dir}/app/venv", py_version)
         kwargs = dict(
-            env={
-                "python_version": py_version,
-                "buildpython": command,
-                "PYTHONPATH": "pythonpath",
-            },
+            context={"pythonVersion": py_version, "buildPython": command},
+            env={"PYTHONPATH": "pythonpath"},
             python_version=py_version, app=["hello.py"], pyc=["stdlib"],
         )
-        run.rerun(**kwargs)
+        run.rerun("Pyc/magic_warning", **kwargs)
         self.assertInStdout(
             WARNING + re.escape(self.FAILED + message + self.SEE), run, re=True)
 
@@ -816,7 +813,7 @@ class BuildPython(GradleTestCase):
 
         run.rerun(
             "BuildPython/override",
-            context={"buildpython": "----".join(command)},
+            context={"buildPython": "----".join(command)},
             **kwargs,
         )
         if error:
@@ -981,7 +978,7 @@ class PythonReqs(GradleTestCase):
         for version in [MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]:
             with self.subTest(version=version):
                 self.RunGradle("base", "PythonReqs/python_version",
-                               env={"python_version": version},
+                               context={"pythonVersion": version},
                                python_version=version,
                                requirements=["apple/__init__.py",
                                              "no_binary_sdist/__init__.py",
@@ -1044,17 +1041,24 @@ class PythonReqs(GradleTestCase):
     # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
     @skipUnless(os.name == "nt", "Windows only")
     def test_conda(self):
-        # Remove PATH entries which contain any copy of libssl. If it's installed in
-        # C:\Windows\System32 or some other critical directory, then this test will probably
-        # fail.
+        kwargs = dict(
+            context={
+                "buildPython": join(product_props["chaquopy.conda.env"], "python.exe")
+            },
+            requirements=["six.py"], pyc=["stdlib"],
+        )
+
+        # Remove PATH entries which contain any copy of libssl. If this removes
+        # C:\Windows\System32 or some other critical directory, then this test will
+        # probably fail.
         path = os.pathsep.join(
             entry for entry in os.environ["PATH"].split(os.pathsep)
             if isdir(entry) and not any(fnmatch(filename, "libssl*.dll")
                                         for filename in os.listdir(entry)))
-        self.RunGradle("base", "PythonReqs/conda",
-                       env={"chaquopy_conda_env": product_props["chaquopy.conda.env"],
-                            "PATH": path},
-                       requirements=["six.py"], pyc=["stdlib"])
+        if path != os.environ["PATH"]:
+            kwargs["env"] = {"PATH": path}
+
+        self.RunGradle("base", "PythonReqs/conda", **kwargs)
 
     ISOLATED_KWARGS = dict(
         dist_versions=[("six", "1.14.0"), ("build_requires_six", "1.14.0")],
@@ -1314,8 +1318,7 @@ class PythonReqs(GradleTestCase):
         PKG_NAME = "javaproperties"
         run_build_python(["-c", f"import {PKG_NAME}"])
 
-        run = self.RunGradle("base", "PythonReqs/sdist_site",
-                             env={"CHAQUOPY_PKG_NAME": PKG_NAME}, succeed=False)
+        run = self.RunGradle("base", "PythonReqs/sdist_site", succeed=False)
         self.assertInLong(f"No module named '{PKG_NAME}'", run.stderr)
 
     def test_editable(self):
@@ -1647,7 +1650,7 @@ class StaticProxy(GradleTestCase):
         for version in [MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]:
             with self.subTest(version=version):
                 self.RunGradle("base", "StaticProxy/python_version",
-                               env={"python_version": version},
+                               context={"pythonVersion": version},
                                python_version=version,
                                app=["chaquopy_test/__init__.py", "chaquopy_test/a.py"],
                                classes={"chaquopy_test.a": ["SrcA1"]},
@@ -1693,7 +1696,7 @@ class RunGradle(object):
     MAX_RUNS_PER_DAEMON = 100
     runs_per_daemon = 0
 
-    def __init__(self, test, *layers, run=True, **kwargs):
+    def __init__(self, test, *layers, context=None, run=True, **kwargs):
         self.test = test
         if os.path.exists(test.run_dir):
             rmtree(test.run_dir)
@@ -1707,7 +1710,7 @@ class RunGradle(object):
 
         self.project_dir = join(test.run_dir, "project")
         os.makedirs(self.project_dir)
-        self.apply_layers(*layers)
+        self.apply_layers(*layers, context=context)
         if run:
             self.rerun(**kwargs)
 
@@ -1824,9 +1827,6 @@ class RunGradle(object):
             # daemon (https://github.com/gradle/gradle/issues/12905). On the other
             # platforms, this only affects specific variables such as PATH and TZ
             # (https://github.com/gradle/gradle/issues/10483).
-            #
-            # TODO: avoid this by using `properties` instead wherever possible. This
-            # will also make it easier to rerun failed tests manually.
             gradlew_flags.append("--no-daemon")
 
         # The following environment variables aren't affected by the above issue, either

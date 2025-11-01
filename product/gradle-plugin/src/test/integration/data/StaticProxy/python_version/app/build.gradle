@@ -11,7 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("python_version")
+            version "{{ pythonVersion }}"
             staticProxy "chaquopy_test.a"
             pyc {
                 src false

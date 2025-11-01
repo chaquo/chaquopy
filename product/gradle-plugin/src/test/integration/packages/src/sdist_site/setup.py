@@ -1,10 +1,9 @@
-from importlib import import_module
-import os
+
 from setuptools import setup
 import sys
 
 if "sdist" not in sys.argv:
-    import_module(os.environ["CHAQUOPY_PKG_NAME"])
+    import javaproperties  # noqa: F401
 
 setup(
     name="sdist_site",

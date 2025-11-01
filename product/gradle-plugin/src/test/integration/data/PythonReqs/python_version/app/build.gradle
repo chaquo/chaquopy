@@ -11,7 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version System.getenv("python_version")
+            version "{{ pythonVersion }}"
             pip {
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
                 install "apple==0.0.1"  // wheel
