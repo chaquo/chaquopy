@@ -2,19 +2,19 @@
 # others.
 package:
   name: opencv-python
-  version: "4.5.1.48"
+  version: "4.11.0.86"
 
 build:
   number: 2
 
 requirements:
   build:
-    - cmake
-    - scikit-build 0.10.0
+    - cmake 3.22
+    - scikit-build 0.14.0
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3
     - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
+    - numpy 1.23.3
     - python
