@@ -14,12 +14,14 @@ runs:
       shell: bash
       run: |
         version="3.10"
-        echo "full_version=${version}.11"
-        if [ $RUNNER_OS = Windows ]; then
-            echo "command=py -$version"
-        else
-            echo "command=python$version"
-        fi >> $GITHUB_OUTPUT
+        (
+            echo "full-version=${version}.11"
+            if [ $RUNNER_OS = Windows ]; then
+                echo "command=py -$version"
+            else
+                echo "command=python$version"
+            fi
+        ) >> $GITHUB_OUTPUT
 
     - uses: actions/setup-python@v5.1.0
       with:
@@ -31,7 +33,7 @@ runs:
           3.7
           3.8
           3.9
-          ${{ steps.python-default.outputs.full_version }}
+          ${{ steps.python-default.outputs.full-version }}
           3.11
           3.12
           3.13

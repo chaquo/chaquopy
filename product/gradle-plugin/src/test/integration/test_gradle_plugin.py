@@ -527,7 +527,7 @@ class AbiFilters(GradleTestCase):
     def test_invalid(self):
         run = self.RunGradle("base", "AbiFilters/invalid", succeed=False)
         self.assertInLong(
-            "Variant 'debug': Python 3.8 is not available for the ABI 'armeabi'. "
+            "Variant 'debug': Python 3.10 is not available for the ABI 'armeabi'. "
             "Supported ABIs are [arm64-v8a, armeabi-v7a, x86, x86_64].",
             run.stderr)
 
