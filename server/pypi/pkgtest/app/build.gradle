@@ -60,7 +60,7 @@ android {
         addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
 
         python {
-            version "3.8"
+            version "3.10"
 
             pip {
                 // After a package is tested, remember to move it to the public repository!

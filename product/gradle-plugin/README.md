@@ -85,30 +85,46 @@ also be given here.
     directory](https://developer.android.com/studio/intro/studio-config#file_location).
 
 
-## Adding support for a buildPython version
+## Adding a Python version
 
-* Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
-  use it.
+Target:
+
+* Update Common.java.
+* Build the target packages as described in target/README.md.
+
+Product:
+
+* In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
+* Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
+* Update .github/actions/setup-python/action.yml.
+* Build any packages used by the demo app.
+* Update android.rst and versions.rst.
+
+Tests (this list is referenced from target/README.md):
+
 * Run `gradle:testPython`.
-* Update the list of Python versions in .github/actions/setup-python/action.yml.
-* Temporarily change the `buildPython` of the demo app, comment out `pyc.pip`, and check
-  it builds without any warnings other than the expected ones about .pyc compilation.
-  There's no point in running it now, as the failed compilation will break many of the
-  tests. We'll do this when we add runtime support for the same version (see
-  target/README.md).
+* Run integration tests.
+* Temporarily change the Python version of the demo app, and run the Python and Java
+  unit tests on the full set of pre-release devices (see release/README.md).
 
 
-## Removing support for a buildPython version
+## Removing a Python version
 
 * Increment Chaquopy major version if not already done.
-* Update gradle-plugin/src/main/python/chaquopy/util.py.
-* In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
-  `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
-* Run `gradle:testPython`.
-* Update the list of Python versions in .github/actions/setup-python/action.yml.
-* See the comment in ci.yml about integration test runner versions, and consider
-  updating them.
-* Update android.rst.
+* Update any references in the integration tests, including the names of the pythonX.Y
+  scripts in data/BuildPython.
+* Search source code for `(python( version)?|version_info) *[<>=]* *[0-9]` to see if any
+  workarounds can now be removed.
+* Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTasks.kt.
+* Update and test all the things listed in the "Adding a Python version" section.
+
+
+## Changing the default Python version
+
+* Update `DEFAULT_PYTHON_VERSION` in Common.java and test_gradle_plugin.py.
+* Update and test all the things listed in the "Adding / Removing a Python version"
+  sections.
+* Update the Python version in all apps in the repository, and test them.
 
 
 ## Increasing minimum API level (minSdk)
@@ -179,12 +195,11 @@ do the following:
 * Open tools/base as a project in IDEA.
 
 
-## Updating pip, setuptools or wheel
+## Updating pip
 
 Check out the upstream-pip branch.
 
-Delete the package from src/main/python, including the .dist-info directory. Note that
-setuptools includes some files outside of its main directory.
+Delete pip from src/main/python, including the .dist-info directory.
 
 Download the wheel of the new version, and unpack it into src/main/python.
 

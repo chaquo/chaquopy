@@ -235,12 +235,12 @@ You can set your app's Python version like this::
 
     chaquopy {
         defaultConfig {
-            version = "3.8"
+            version = "3.13"
         }
     }
 
-In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8, and
-the other available versions are 3.9, 3.10, 3.11, 3.12 and 3.13.
+In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.10,
+and the other available versions are 3.11, 3.12, 3.13 and 3.14.
 
 .. _android-source:
 

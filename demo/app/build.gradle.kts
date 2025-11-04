@@ -96,7 +96,7 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.8"
+        version = "3.10"
 
         // Android UI demo
         pip {

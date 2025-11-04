@@ -14,10 +14,12 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "invalid"
+            version "{{ pythonVersion }}"
+            pip { install "six" }
+            pyc { pip true }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters {{ abiFilters }}
         }
     }
 }

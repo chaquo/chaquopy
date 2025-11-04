@@ -34,7 +34,7 @@ public class Common {
         }
     }
 
-    public static final String DEFAULT_PYTHON_VERSION = "3.8";
+    public static final String DEFAULT_PYTHON_VERSION = "3.10";
 
     // Wheel tags (PEP 425).
     public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython

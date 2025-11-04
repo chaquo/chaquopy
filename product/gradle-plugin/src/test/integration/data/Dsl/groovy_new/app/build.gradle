@@ -14,7 +14,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 
@@ -39,7 +39,7 @@ chaquopy {
 
 // productFlavors properties
 def p = chaquopy.productFlavors.property
-p.version = "3.9"
+p.version = "{{ secondPythonVersion }}"
 p.extractPackages.add "ep_property"
 p.staticProxy.add "sp_property"
 p.pip.install("certifi")
@@ -52,7 +52,7 @@ p.pyc.stdlib = false
 chaquopy {
     productFlavors {
         method {
-            version "3.10"
+            version "{{ thirdPythonVersion }}"
             extractPackages("ep_method")
             staticProxy("sp_method")
             pip {

@@ -1,0 +1,1 @@
+The default Python version is now 3.10, and Python 3.8 and 3.9 are no longer supported. Some packages are not available yet for Python 3.10 or later. If you need any of those packages, please remain on the previous version of Chaquopy until they publish Android wheels on PyPI.

@@ -35,7 +35,11 @@ chaquopy_version = open(f"{repo_root}/VERSION.txt").read().strip()
 with open(f"{product_dir}/local.properties") as props_file:
     product_props = PropertiesFile.load(props_file)
 
-DEFAULT_PYTHON_VERSION = "3.8"
+DEFAULT_PYTHON_VERSION = "3.10"
+
+# This should be as old as possible while still being available on all the CI runners
+# (see .github/actions/setup-python/action.yml).
+OLD_PYTHON_VERSION = "3.7"
 
 def run_build_python(args, **kwargs):
     # The Gradle plugin's build script finds Python in the same way as the plugin
@@ -60,16 +64,15 @@ assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 MIN_PYTHON_VERSION, *_, MAX_PYTHON_VERSION = list(PYTHON_VERSIONS)
-NON_DEFAULT_PYTHON_VERSION = next(
+
+# Non-default Python versions.
+SECOND_PYTHON_VERSION, *_, THIRD_PYTHON_VERSION = [
     ver for ver in PYTHON_VERSIONS if ver != DEFAULT_PYTHON_VERSION
-)
+]
 
 BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
                              .split()[1])
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
-
-# When updating this, consider also updating .github/actions/setup-python/action.yml.
-OLD_PYTHON_VERSION = "3.7"
 
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
@@ -289,9 +292,10 @@ class Dsl(GradleTestCase):
     def check_dsl(self, *layers):
         run = self.RunGradle(
             *layers, "Dsl/common",
+            abis=["x86_64"],
             variants={
                 "property-debug": dict(
-                    python_version="3.9",
+                    python_version=SECOND_PYTHON_VERSION,
                     extract_packages=[
                         "ep_default_property", "ep_default_method", "ep_property"],
                     app=[
@@ -304,7 +308,7 @@ class Dsl(GradleTestCase):
                     pyc=["src"],
                 ),
                 "method-debug": dict(
-                    python_version="3.10",
+                    python_version=THIRD_PYTHON_VERSION,
                     extract_packages=[
                         "ep_default_property", "ep_default_method", "ep_method"],
                     app=[
@@ -467,42 +471,51 @@ class PythonVersion(GradleTestCase):
     # To allow a quick check of the setting, this test only covers two versions.
     def test_change(self):
         run = self.RunGradle("base", run=False)
-        for version in [DEFAULT_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
+        for version in [DEFAULT_PYTHON_VERSION, SECOND_PYTHON_VERSION]:
             self.check_version(run, version)
 
     # Test all versions not covered by test_change.
     def test_others(self):
         run = self.RunGradle("base", run=False)
         for version in PYTHON_VERSIONS:
-            if version not in [DEFAULT_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
+            if version not in [DEFAULT_PYTHON_VERSION, SECOND_PYTHON_VERSION]:
                 self.check_version(run, version)
 
-    def check_version(self, run, version):
+    def check_version(self, run, version, **kwargs):
         with self.subTest(version=version):
             # Make sure every ABI has the full set of native stdlib module files.
             abis = ["arm64-v8a", "x86_64"]
             if version in ["3.8", "3.9", "3.10", "3.11"]:
                 abis += ["armeabi-v7a", "x86"]
             run.rerun(
-                f"PythonVersion/{version}", python_version=version, abis=abis,
-                requirements=["six.py"])
+                "PythonVersion/override",
+                context={
+                    "pythonVersion": version,
+                    "abiFilters": ", ".join(f'"{abi}"' for abi in abis),
+                },
+                python_version=version, abis=abis, requirements=["six.py"],
+                **kwargs,
+            )
 
     def test_variant(self):
-        self.RunGradle("base", "PythonVersion/variant",
-                       variants={"alpha-one-debug": dict(python_version="3.8"),
-                                 "alpha-two-debug": dict(python_version="3.10"),
-                                 "bravo-one-debug": dict(python_version="3.9"),
-                                 "bravo-two-debug": dict(python_version="3.9")})
+        self.RunGradle(
+            "base", "PythonVersion/variant",
+            abis=["x86_64"],
+            variants={
+                "alpha-one-debug": dict(python_version=DEFAULT_PYTHON_VERSION),
+                "alpha-two-debug": dict(python_version=THIRD_PYTHON_VERSION),
+                "bravo-one-debug": dict(python_version=SECOND_PYTHON_VERSION),
+                "bravo-two-debug": dict(python_version=SECOND_PYTHON_VERSION),
+            },
+        )
 
     def test_invalid(self):
         ERROR = ("Invalid Python version '{}'. Available versions are [" +
                  ", ".join(PYTHON_VERSIONS) + "].")
-        run = self.RunGradle("base", "PythonVersion/invalid", succeed=False)
-        self.assertInLong(ERROR.format("invalid"), run.stderr)
-
-        run.apply_layers("PythonVersion/invalid_micro")
-        run.rerun(succeed=False)
-        self.assertInLong(ERROR.format("3.8.13"), run.stderr)
+        run = self.RunGradle("base", run=False)
+        for version in ["invalid", DEFAULT_PYTHON_VERSION_FULL]:
+            self.check_version(run, version, succeed=False)
+            self.assertInLong(ERROR.format(version), run.stderr)
 
 
 class AbiFilters(GradleTestCase):
@@ -765,14 +778,23 @@ class BuildPython(GradleTestCase):
 
     def test_default(self):
         run = self.RunGradle("base", run=False)
-        self.assert_probed(run, "BuildPython/default", ["3.8"])
-        self.assert_probed(run, "BuildPython/default_change", ["3.9"])
+        self.assert_probed(run, "BuildPython/default", [DEFAULT_PYTHON_VERSION])
+        self.assert_probed(
+            run, "BuildPython/default_change", [SECOND_PYTHON_VERSION]
+        )
 
         # Progressively disable each of the commands to make it try the next one.
-        self.assert_probed(run, "BuildPython/default_minor_fail", ["3.9", "3"])
-        self.assert_probed(run, "BuildPython/default_major_fail", ["3.9", "3", ""])
         self.assert_probed(
-            run, "BuildPython/default_unversioned_fail", ["3.9", "3", ""], found=False)
+            run, "BuildPython/default_minor_fail", [SECOND_PYTHON_VERSION, "3"]
+        )
+        self.assert_probed(
+            run, "BuildPython/default_major_fail", [SECOND_PYTHON_VERSION, "3", ""]
+        )
+        self.assert_probed(
+            run, "BuildPython/default_unversioned_fail",
+            [SECOND_PYTHON_VERSION, "3", ""],
+            found=False,
+        )
 
     def assert_probed(self, run, layer, probed, *, found=True):
         bin_dir = os.name
@@ -867,7 +889,7 @@ class BuildPython(GradleTestCase):
 
     def test_version(self):
         run = self.RunGradle("base", run=False)
-        for version in [OLD_PYTHON_VERSION, NON_DEFAULT_PYTHON_VERSION]:
+        for version in [OLD_PYTHON_VERSION, SECOND_PYTHON_VERSION]:
             with self.subTest(version):
                 self.run_override(run, py(version), error=self.VERSION.format(version))
 
@@ -876,14 +898,14 @@ class BuildPython(GradleTestCase):
         run = self.RunGradle("base", run=False)
         venv = f"{run.project_dir}/app/venv"
         command_good = make_venv(f"{venv}-good")
-        command_bad = make_venv(f"{venv}-bad", NON_DEFAULT_PYTHON_VERSION)
+        command_bad = make_venv(f"{venv}-bad", SECOND_PYTHON_VERSION)
 
         self.run_override(
             run, "python", add_path=dirname(command_good), requirements=["six.py"]
         )
         self.run_override(
             run, "python", add_path=dirname(command_bad),
-            error=self.VERSION.format(NON_DEFAULT_PYTHON_VERSION),
+            error=self.VERSION.format(SECOND_PYTHON_VERSION),
         )
 
     # Detect a venv being rebuilt with a different version of Python.
@@ -893,9 +915,9 @@ class BuildPython(GradleTestCase):
         command = make_venv(venv)
         self.run_override(run, command, requirements=["six.py"])
 
-        make_venv(venv, NON_DEFAULT_PYTHON_VERSION)
+        make_venv(venv, SECOND_PYTHON_VERSION)
         self.run_override(
-            run, command, error=self.VERSION.format(NON_DEFAULT_PYTHON_VERSION)
+            run, command, error=self.VERSION.format(SECOND_PYTHON_VERSION)
         )
 
     def test_space(self):
@@ -1741,6 +1763,9 @@ class RunGradle(object):
         context.update(
             chaquopyRepository=f"{repo_root}/maven",
             chaquopyVersion=chaquopy_version,
+            defaultPythonVersion=DEFAULT_PYTHON_VERSION,
+            secondPythonVersion=SECOND_PYTHON_VERSION,
+            thirdPythonVersion=THIRD_PYTHON_VERSION,
         )
         for key, value in self.gradle_properties().items():
             prefix = "chaquopy."
