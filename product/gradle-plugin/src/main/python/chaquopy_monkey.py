@@ -1,6 +1,7 @@
 import os
 import sys
 import types
+from importlib import import_module
 
 
 # We want to cause a quick and comprehensible failure when a package attempts to build
@@ -59,7 +60,16 @@ def disable_native_distutils():
     from distutils import ccompiler
     from distutils.unixccompiler import UnixCCompiler
 
-    ccompiler.get_default_compiler = lambda *args, **kwargs: "disabled"
+    # In newer versions of Setuptools, ccompiler imports all of its symbols from
+    # elsewhere.
+    compiler_mods = [ccompiler]
+    original_mod_name = ccompiler.get_default_compiler.__module__
+    if original_mod_name != ccompiler.__name__:
+        compiler_mods.append(import_module(original_mod_name))
+
+    for mod in compiler_mods:
+        mod.get_default_compiler = lambda *args, **kwargs: "disabled"
+
     ccompiler.compiler_class["disabled"] = (
         "disabledcompiler", "DisabledCompiler",
         "Compiler disabled ({})".format(CHAQUOPY_NATIVE_ERROR))
