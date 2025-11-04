@@ -68,9 +68,10 @@ The Python interpreter is a native component, so you must use the `abiFilters
 <https://developer.android.com/studio/projects/gradle-external-native-builds#specify-abi>`_
 setting to specify which ABIs you want the app to support. The currently available ABIs are:
 
-* `armeabi-v7a` for older Android devices (Python 3.11 and older only)
+* `armeabi-v7a` for older Android devices (:ref:`Python 3.11 <python-version>` and older
+  only)
 * `arm64-v8a` for current Android devices, and emulators on Apple silicon
-* `x86` for older emulators (Python 3.11 and older only)
+* `x86` for older emulators (:ref:`Python 3.11 <python-version>` and older only)
 * `x86_64` for current emulators
 
 The following setting will work for most projects:
@@ -241,6 +242,9 @@ You can set your app's Python version like this::
 
 In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.10,
 and the other available versions are 3.11, 3.12, 3.13 and 3.14.
+
+Python 3.11 and older supports both :ref:`32-bit and 64-bit ABIs <android-abis>`. Python
+3.12 and newer supports only 64-bit.
 
 .. _android-source:
 
