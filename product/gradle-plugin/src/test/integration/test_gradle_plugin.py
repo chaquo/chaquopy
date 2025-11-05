@@ -1275,7 +1275,7 @@ class PythonReqs(GradleTestCase):
                 run = self.RunGradle(*layers, succeed=False)
 
                 setup_error = (
-                    "No such file or directory: 'Chaquopy_cannot_compile_native_code'"
+                    "Failed to run Chaquopy_cannot_compile_native_code"
                     if name == "sdist_native_cc"
                     else "Chaquopy cannot compile native code"
                 )
