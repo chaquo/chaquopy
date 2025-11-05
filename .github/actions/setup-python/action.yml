@@ -1,6 +1,8 @@
 name: Setup Python
 description:
 
+# The available Python versions on each runner are listed at
+# https://github.com/actions/python-versions/blob/main/versions-manifest.json.
 runs:
   using: composite
   steps:
@@ -26,13 +28,9 @@ runs:
     - uses: actions/setup-python@v5.1.0
       with:
         # This should include all major.minor versions supported by the runtime, plus
-        # OLD_PYTHON_VERSION from test_gradle_plugin. The available versions on each
-        # runner are listed at
-        # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
+        # OLD_PYTHON_VERSION from test_gradle_plugin.
         python-version: |
           3.7
-          3.8
-          3.9
           ${{ steps.python-default.outputs.full-version }}
           3.11
           3.12

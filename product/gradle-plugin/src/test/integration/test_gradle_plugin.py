@@ -1,4 +1,6 @@
-# This file requires the packages listed in requirements.txt.
+# This file will be run with Chaquopy's default Python version. It doesn't currently use
+# a virtual environment, so the packages listed in requirements.txt must be installed in
+# the global site-packages of that Python version.
 
 from contextlib import contextmanager
 from fnmatch import fnmatch
@@ -60,7 +62,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+assert list(PYTHON_VERSIONS) == ["3.10", "3.11", "3.12", "3.13"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 MIN_PYTHON_VERSION, *_, MAX_PYTHON_VERSION = list(PYTHON_VERSIONS)
@@ -70,8 +72,9 @@ SECOND_PYTHON_VERSION, *_, THIRD_PYTHON_VERSION = [
     ver for ver in PYTHON_VERSIONS if ver != DEFAULT_PYTHON_VERSION
 ]
 
-BUILD_PYTHON_VERSION_FULL = (run_build_python(["--version"]).stdout  # e.g. "Python 3.7.1"
-                             .split()[1])
+BUILD_PYTHON_VERSION_FULL = run_build_python(
+    ["-c", "import platform; print(platform.python_version())"]
+).stdout.strip()
 BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
 
 EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
@@ -485,7 +488,7 @@ class PythonVersion(GradleTestCase):
         with self.subTest(version=version):
             # Make sure every ABI has the full set of native stdlib module files.
             abis = ["arm64-v8a", "x86_64"]
-            if version in ["3.8", "3.9", "3.10", "3.11"]:
+            if version in ["3.10", "3.11"]:
                 abis += ["armeabi-v7a", "x86"]
             run.rerun(
                 "PythonVersion/override",
@@ -1271,10 +1274,11 @@ class PythonReqs(GradleTestCase):
                     layers.append("PythonReqs/sdist_native_pep517")
                 run = self.RunGradle(*layers, succeed=False)
 
-                if name == "sdist_native_cc":
-                    setup_error = "Failed to run Chaquopy_cannot_compile_native_code"
-                else:
-                    setup_error = "Chaquopy cannot compile native code"
+                setup_error = (
+                    "No such file or directory: 'Chaquopy_cannot_compile_native_code'"
+                    if name == "sdist_native_cc"
+                    else "Chaquopy cannot compile native code"
+                )
                 self.assertInLong(setup_error, run.stderr)
 
                 # If bdist_wheel fails with a "native code" message, we should not fall back on
@@ -2011,15 +2015,10 @@ class RunGradle(object):
             "_multibytecodec.so", "_multiprocessing.so", "_opcode.so", "_pickle.so",
             "_posixsubprocess.so", "_queue.so", "_sha1.so", "_sha256.so",
             "_sha3.so", "_socket.so", "_sqlite3.so", "_ssl.so",
-            "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "array.so",
-            "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so", "parser.so",
+            "_statistics.so", "_xxsubinterpreters.so", "_xxtestfuzz.so", "_zoneinfo.so",
+            "array.so", "audioop.so", "cmath.so", "fcntl.so", "ossaudiodev.so",
             "pyexpat.so", "resource.so", "select.so", "syslog.so", "termios.so",
-            "unicodedata.so", "xxlimited.so"}
-        if python_version_info >= (3, 9):
-            stdlib_native_expected |= {"_zoneinfo.so"}
-        if python_version_info >= (3, 10):
-            stdlib_native_expected -= {"parser.so"}
-            stdlib_native_expected |= {"xxlimited_35.so"}
+            "unicodedata.so", "xxlimited.so", "xxlimited_35.so"}
         if python_version_info >= (3, 11):
             stdlib_native_expected |= {"_typing.so"}
         if python_version_info >= (3, 12):
@@ -2067,8 +2066,6 @@ class RunGradle(object):
         # See the CPython source code at Include/internal/pycore_magic_number.h or
         # Lib/importlib/_bootstrap_external.py.
         MAGIC = {
-            "3.8": 3413,
-            "3.9": 3425,
             "3.10": 3439,
             "3.11": 3495,
             "3.12": 3531,

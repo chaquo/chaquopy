@@ -1,7 +1,8 @@
 import os
-from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from contextlib import closing
+from os.path import dirname, exists, join, realpath
 from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
@@ -177,11 +178,11 @@ class TestAndroidStdlib(FilterWarningsCase):
 
     def test_sqlite(self):
         import sqlite3
-        conn = sqlite3.connect(":memory:")
-        conn.execute("create table test (a text, b text)")
-        conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
-        cur = conn.execute("select b from test where a = 'bravo'")
-        self.assertEqual([("two",)], cur.fetchall())
+        with closing(sqlite3.connect(":memory:")) as conn:
+            conn.execute("create table test (a text, b text)")
+            conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
+            cur = conn.execute("select b from test where a = 'bravo'")
+            self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
         from urllib.request import urlopen

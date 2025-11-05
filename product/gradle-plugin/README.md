@@ -113,8 +113,8 @@ Tests (this list is referenced from target/README.md):
 * Increment Chaquopy major version if not already done.
 * Update any references in the integration tests, including the names of the pythonX.Y
   scripts in data/BuildPython.
-* Search source code for `(python( version)?|version_info) *[<>=]* *[0-9]` to see if any
-  workarounds can now be removed.
+* Search repository to see if any code can now be simplified. Useful regex:
+  * `(python( version)?|version_info) *[<>=]* *\(?\d[,.] *\d`
 * Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTasks.kt.
 * Update and test all the things listed in the "Adding a Python version" section.
 

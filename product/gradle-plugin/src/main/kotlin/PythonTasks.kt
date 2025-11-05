@@ -397,8 +397,8 @@ internal class TaskBuilder(
                     "_ctypes.*",  // java.primitive and importer
                     "_datetime.*",  // calendar < importer (see test_datetime)
                     "_lzma.*",  // zipfile < importer
-                    "_random.*",  // random < tempfile < zipimport
-                    "_sha512.*",  // random < tempfile < zipimport
+                    "_random.*",  // random < tempfile < importer
+                    "_sha512.*",  // random < tempfile < importer
                     "_struct.*",  // zipfile < importer
                     "binascii.*",  // zipfile < importer
                     "math.*",  // datetime < calendar < importer

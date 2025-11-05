@@ -7,12 +7,7 @@ if "sdist" not in sys.argv:
     import os
     import subprocess
     compiler = os.environ.get("CC", "gcc")
-    try:
-        subprocess.check_call([compiler])
-    except OSError:
-        # Exception string doesn't contain the filename on Python 2.7.
-        print("Failed to run " + compiler)
-        raise
+    subprocess.check_call([compiler])
 
 setup(
     name="sdist_native_cc",
