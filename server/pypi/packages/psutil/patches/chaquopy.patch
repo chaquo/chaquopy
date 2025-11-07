@@ -1,127 +1,13 @@
-diff -urN src-original/psutil/_pslinux.py src/psutil/_pslinux.py
---- src-original/psutil/_pslinux.py	2019-03-03 21:28:07.000000000 +0000
-+++ src/psutil/_pslinux.py	2019-04-01 15:44:21.151325334 +0000
-@@ -318,7 +318,11 @@
-     set_scputimes_ntuple("/proc")
- except Exception:
-     # Don't want to crash at import time.
--    traceback.print_exc()
-+
-+    # Chaquopy: /proc/stat is blocked by SELinux on API level 28, so don't bother logging the
-+    # exception.
-+    # traceback.print_exc()
-+
-     scputimes = namedtuple('scputimes', 'user system idle')(0.0, 0.0, 0.0)
- 
- 
-@@ -1147,16 +1151,9 @@
+--- src-original/psutil/_pslinux.py	2025-10-23 21:01:06.000000000 +0000
++++ src/psutil/_pslinux.py	2025-11-05 18:37:13.930999156 +0000
+@@ -1248,6 +1248,10 @@
      """Return mounted disk partitions as a list of namedtuples."""
      fstypes = set()
      procfs_path = get_procfs_path()
--    with open_text("%s/filesystems" % procfs_path) as f:
--        for line in f:
--            line = line.strip()
--            if not line.startswith("nodev"):
--                fstypes.add(line.strip())
--            else:
--                # ignore all lines starting with "nodev" except "nodev zfs"
--                fstype = line.split("\t")[1]
--                if fstype == "zfs":
--                    fstypes.add("zfs")
 +
 +    # Chaquopy: /proc/filesystems is blocked by SELinux on API level 28.
 +    all = True
- 
-     # See: https://github.com/giampaolo/psutil/issues/1307
-     if procfs_path == "/proc" and os.path.isfile('/etc/mtab'):
-diff -urN src-original/psutil/_psutil_linux.c src/psutil/_psutil_linux.c
---- src-original/psutil/_psutil_linux.c	2019-03-02 20:46:28.000000000 +0000
-+++ src/psutil/_psutil_linux.c	2019-04-01 15:55:25.380762375 +0000
-@@ -207,6 +220,9 @@
-     if (!PyArg_ParseTuple(args, "s", &mtab_path))
-         return NULL;
- 
-+    // Chaquopy: setmntent and endmntent aren't available until API level 21, so we currently
-+    // only support this function on 64-bit ABIs.
-+#if __ANDROID_API__ >= 21
-     Py_BEGIN_ALLOW_THREADS
-     file = setmntent(mtab_path, "r");
-     Py_END_ALLOW_THREADS
-@@ -241,11 +257,15 @@
-         Py_DECREF(py_tuple);
-     }
-     endmntent(file);
-+#endif  // Chaquopy: __ANDROID_API__ >= 21
 +
-     return py_retlist;
- 
- error:
-+#if __ANDROID_API__ >= 21
-     if (file != NULL)
-         endmntent(file);
-+#endif
-     Py_XDECREF(py_dev);
-     Py_XDECREF(py_mountp);
-     Py_XDECREF(py_tuple);
-@@ -524,8 +544,14 @@
-     char *nic_name;
-     int sock = 0;
-     int ret;
--    int duplex;
--    int speed;
-+
-+    // Chaquopy: ethtool ioctl is blocked on API level 25.
-+    int duplex = DUPLEX_UNKNOWN;
-+    int speed = 0;
-+    return Py_BuildValue("[ii]", duplex, speed);
-+
-+    /* Chaquopy: BEGIN disabled code
-+     *
-     struct ifreq ifr;
-     struct ethtool_cmd ethcmd;
-     PyObject *py_retlist = NULL;
-@@ -573,6 +599,8 @@
-     if (sock != -1)
-         close(sock);
-     return NULL;
-+    *
-+    * Chaquopy: END disabled code */
- }
- 
- 
-diff -urN src-original/psutil/_psutil_posix.c src/psutil/_psutil_posix.c
---- src-original/psutil/_psutil_posix.c	2019-03-02 20:46:28.000000000 +0000
-+++ src/psutil/_psutil_posix.c	2019-04-01 15:49:14.107962072 +0000
-@@ -21,7 +21,9 @@
- #elif PSUTIL_AIX
-     #include "arch/aix/ifaddrs.h"
- #else
--    #include <ifaddrs.h>
-+    // Chaquopy: getifaddrs isn't available until API level 24.
-+    // #include <ifaddrs.h>
-+   #include <netinet/in.h>
- #endif
- 
- #if defined(PSUTIL_LINUX)
-@@ -259,6 +261,12 @@
-  */
- static PyObject*
- psutil_net_if_addrs(PyObject* self, PyObject* args) {
-+    // Chaquopy: see comment above about getifaddrs.
-+    PyObject *py_retlist = PyList_New(0);
-+    return py_retlist;
-+
-+    /* Chaquopy: BEGIN disabled code
-+     *
-     struct ifaddrs *ifaddr, *ifa;
-     int family;
- 
-@@ -344,6 +352,8 @@
-     Py_XDECREF(py_broadcast);
-     Py_XDECREF(py_ptp);
-     return NULL;
-+    *
-+    * Chaquopy: END disabled code */
- }
- 
- 
+     if not all:
+         with open_text(f"{procfs_path}/filesystems") as f:
+             for line in f:

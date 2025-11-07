@@ -1,7 +1,4 @@
 # See also grpcio, which shares some of the same patches to c-ares.
 package:
   name: pycares
-  version: "3.1.1"
-
-build:
-  number: 2
+  version: "4.11.0"
