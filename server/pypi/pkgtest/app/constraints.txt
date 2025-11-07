@@ -1,0 +1,1 @@
+pydantic<2  # TODO: remove once we can run pydantic version 2.

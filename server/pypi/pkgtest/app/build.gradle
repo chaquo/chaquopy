@@ -5,7 +5,7 @@ plugins {
 
 ext.PACKAGES_DIR = "../../packages"
 
-def SPACY_MODEL = "en_core_web_sm-2.2.5"
+def SPACY_MODEL = "en_core_web_sm-3.8.0"
 
 // Tensorflow 2.1.0 is incompatible with protobuf 4.25
 // (https://stackoverflow.com/q/77569103)
@@ -20,10 +20,11 @@ ext.TEST_PACKAGES = [
     "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
+    "pyzmq": ["cytoolz"],
     "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
-    "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
+    "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}-py3-none-any.whl"],
     "soundfile": ["numpy"],
     "tensorflow": [PROTOBUF_REQ]
 ]
@@ -65,6 +66,7 @@ android {
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
+                options "-c", "constraints.txt"
             }
             pyc {
                 src false  // Include test source code in stack traces.
