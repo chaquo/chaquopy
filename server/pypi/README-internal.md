@@ -28,6 +28,7 @@ being each of the following:
 * A physical device (on all ABIs if possible)
 * minSdk (on all ABIs if possible)
 * targetSdk
+* 16 KB pages
 * A clean install
 
 Repeat the build and test on all other Python versions.

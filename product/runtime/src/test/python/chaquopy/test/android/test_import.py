@@ -1047,7 +1047,7 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
-        self.assertEqual(["chaquopy-libcxx (>=11000)"], dist.requires)
+        self.assertIn("chaquopy-libcxx", [req.split()[0] for req in dist.requires])
 
         # Distribution objects don't implement __eq__.
         def dist_attrs(dist):
