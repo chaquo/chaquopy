@@ -229,6 +229,9 @@ internal class TaskBuilder(
                 args("--")
                 args("--disable-pip-version-check")
 
+                // TODO: remove after updating to pip 25.3.
+                args("--use-pep517")
+
                 // If the user passes  a custom index url, disable our repository as
                 // well as the default one.
                 if (!listOf("--index-url", "-i").any {

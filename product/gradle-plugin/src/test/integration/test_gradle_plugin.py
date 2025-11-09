@@ -73,9 +73,6 @@ SECOND_PYTHON_VERSION, *_, THIRD_PYTHON_VERSION = [
     ver for ver in PYTHON_VERSIONS if ver != DEFAULT_PYTHON_VERSION
 ]
 
-EGG_INFO_SUFFIX = "py" + DEFAULT_PYTHON_VERSION + ".egg-info"
-EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
-
 
 # Android Gradle Plugin version (passed from Gradle task).
 agp_version = os.environ["CHAQUOPY_AGP_VERSION"]
@@ -1225,18 +1222,6 @@ class PythonReqs(GradleTestCase):
             dist_versions=[("pep517_hatch", "5.1.7")],
             requirements=["hatch1.py"])
 
-    # Make sure we're not affected by a setup.cfg file containing a `prefix` line.
-    def test_cfg_wheel(self):
-        self.RunGradle("base", "PythonReqs/cfg_wheel", requirements=["apple/__init__.py"])
-
-    # We need to fall back on setup.py install to test this, because bdist_wheel doesn't use
-    # --prefix or --home.
-    def test_cfg_sdist(self):
-        run = self.RunGradle("base", "PythonReqs/cfg_sdist",
-                             requirements=["bdist_wheel_fail/__init__.py"])
-        self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
-        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
-
     # Install an sdist whose setup.py asserts that it's being built in place, not in a
     # temporary directory. For example, this is required by setuptools-scm.
     #
@@ -1245,10 +1230,6 @@ class PythonReqs(GradleTestCase):
     def test_sdist_in_place(self):
         self.RunGradle("base", "PythonReqs/sdist_in_place",
                        dist_versions=[("sdist_in_place", "1.2.3")])
-
-    # By checking that this string is output in tests which fall back on setup.py install, we
-    # can use the absence of the string in other tests to prove that no fallback occurred.
-    RUNNING_INSTALL = "Running setup.py install"
 
     def test_sdist_native_ext(self):
         self.sdist_native("sdist_native_ext")
@@ -1263,38 +1244,27 @@ class PythonReqs(GradleTestCase):
         self.sdist_native("sdist_native_cc")
 
     def sdist_native(self, name):
-        for pep517 in [True, False]:
-            with self.subTest(pep517=pep517):
-                layers = ["base", f"PythonReqs/{name}"]
-                if pep517:
-                    layers.append("PythonReqs/sdist_native_pep517")
-                run = self.RunGradle(*layers, succeed=False)
+        run = self.RunGradle("base", f"PythonReqs/{name}", succeed=False)
+        setup_error = (
+            "Failed to run Chaquopy_cannot_compile_native_code"
+            if name == "sdist_native_cc"
+            else "Chaquopy cannot compile native code"
+        )
+        self.assertInLong(setup_error, run.stderr)
 
-                setup_error = (
-                    "Failed to run Chaquopy_cannot_compile_native_code"
-                    if name == "sdist_native_cc"
-                    else "Chaquopy cannot compile native code"
-                )
-                self.assertInLong(setup_error, run.stderr)
-
-                # If bdist_wheel fails with a "native code" message, we should not fall back on
-                # setup.py install.
-                self.assertNotInLong(self.RUNNING_INSTALL, run.stdout)
-
-                url = r"file:.*app/sdist_native"
-                if name in ["sdist_native_compiler", "sdist_native_cc"]:
-                    # These tests fail at the egg_info stage, so the name and version
-                    # are unavailable.
-                    req_str = url
-                else:
-                    # These tests fail at the bdist_wheel stage, so the name and version
-                    # have been obtained from egg_info. But how the name is formatted
-                    # depends on whether we're using our bundled version of setuptools,
-                    # or the current one from PyPI.
-                    name_str = name if pep517 else name.replace('_', '-')
-                    req_str = f"{name_str}==1.0 from {url}"
-                self.assertInLong(fr"Failed to install {req_str}." +
-                                  self.tracker_advice() + r"$", run.stderr, re=True)
+        url = r"file:.*app/sdist_native"
+        if name in ["sdist_native_compiler", "sdist_native_cc"]:
+            # These tests fail at the egg_info stage, so the name and version
+            # are unavailable.
+            req_str = url
+        else:
+            # These tests fail at the bdist_wheel stage, so the name and version
+            # have been obtained from egg_info.
+            req_str = f"{name}==1.0 from {url}"
+        self.assertInLong(
+            rf"Failed to install {req_str}." + self.tracker_advice() + r"$",
+            run.stderr, re=True,
+        )
 
     def test_sdist_native_optional_ext(self):
         self.sdist_native_optional("sdist_native_optional_ext")
@@ -1303,35 +1273,7 @@ class PythonReqs(GradleTestCase):
         self.sdist_native_optional("sdist_native_optional_compiler")
 
     def sdist_native_optional(self, name):
-        for pep517 in [True, False]:
-            with self.subTest(pep517=pep517):
-                layers = ["base", f"PythonReqs/{name}"]
-                if pep517:
-                    layers.append("PythonReqs/sdist_native_pep517")
-                self.RunGradle(*layers, requirements=[f"{name}.py"])
-
-    # If bdist_wheel fails without a "native code" message, we should fall back on setup.py
-    # install (e.g. https://github.com/python-acoustics/python-acoustics/issues/243).
-    def test_bdist_wheel_fail(self):
-        run = self.RunGradle(
-            "base", "PythonReqs/bdist_wheel_fail", include_dist_info=True,
-            requirements=([f"bdist_wheel_fail-1.0-{EGG_INFO_SUFFIX}/{name}"
-                           for name in EGG_INFO_FILES] +
-                          ["bdist_wheel_fail/__init__.py"]))
-        self.assertInLong("bdist_wheel throwing exception", run.stderr)
-        self.assertInLong("Failed to build bdist-wheel-fail", run.stdout)
-        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
-
-    # If bdist_wheel returns success but didn't generate a wheel, we should fall back on
-    # setup.py install (e.g. #338).
-    def test_bdist_wheel_fail_silently(self):
-        run = self.RunGradle(
-            "base", "PythonReqs/bdist_wheel_fail_silently", include_dist_info=True,
-            requirements=([f"bdist_wheel_fail_silently-1.0-{EGG_INFO_SUFFIX}/{name}"
-                           for name in EGG_INFO_FILES] +
-                          ["bdist_wheel_fail_silently/__init__.py"]))
-        self.assertInLong("Failed to build bdist-wheel-fail-silently", run.stdout)
-        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
+        self.RunGradle("base", f"PythonReqs/{name}", requirements=[f"{name}.py"])
 
     # site-packages should not be visible to setup.py scripts.
     def test_sdist_site(self):
@@ -1456,10 +1398,11 @@ class PythonReqs(GradleTestCase):
                           run.stderr, re=True)
 
     def test_no_binary_succeed(self):
-        run = self.RunGradle("base", "PythonReqs/no_binary_succeed",
-                             requirements=["no_binary_sdist/__init__.py"])
-        self.assertInLong("Skipping wheel build", run.stdout)
-        self.assertInLong(self.RUNNING_INSTALL, run.stdout)
+        self.RunGradle(
+            "base", "PythonReqs/no_binary_succeed",
+            requirements=["no_binary_sdist/__init__.py"],
+            dist_versions=[("no_binary", "1.0")],
+        )
 
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
