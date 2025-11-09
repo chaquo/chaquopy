@@ -7,7 +7,7 @@ cls="android.view.View"
 method="getWidth"
 field="FOCUS_DOWN"
 nested="OnClickListener"
-python2.7.exe -m timeit -n1 \
+python -m timeit -n1 \
     "import java" \
     "cls = java.jclass('$cls')" \
     "print cls.$method" \

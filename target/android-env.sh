@@ -24,7 +24,7 @@ fail() {
 # * https://android.googlesource.com/platform/ndk/+/ndk-rXX-release/docs/BuildSystemMaintainers.md
 #   where XX is the NDK version. Do a diff against the version you're upgrading from, e.g.:
 #   https://android.googlesource.com/platform/ndk/+/ndk-r25-release..ndk-r26-release/docs/BuildSystemMaintainers.md
-ndk_version=27.1.12297006
+ndk_version=27.3.13750724
 
 ndk=$ANDROID_HOME/ndk/$ndk_version
 if ! [ -e $ndk ]; then
@@ -84,6 +84,10 @@ if [ -n "${PREFIX:-}" ]; then
     export PKG_CONFIG="pkg-config --define-prefix"
     export PKG_CONFIG_LIBDIR="$abs_prefix/lib/pkgconfig"
 fi
+
+# When compiling C++, some build systems will combine CFLAGS and CXXFLAGS, and some will
+# use CXXFLAGS alone.
+export CXXFLAGS=$CFLAGS
 
 # Use the same variable name as conda-build
 if [ $(uname) = "Darwin" ]; then

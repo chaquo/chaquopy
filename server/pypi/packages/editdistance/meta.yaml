@@ -1,17 +1,6 @@
 package:
   name: editdistance
-  version: "0.6.2"
+  version: "0.8.1"
 
 build:
   number: 0
-
-# The sdist on PyPI is broken (https://github.com/roy-ht/editdistance/issues/105)
-source:
-  url: https://github.com/roy-ht/editdistance/archive/refs/tags/v0.6.2.tar.gz
-
-requirements:
-  host:
-    - python
-
-about:
-  license_file: README.rst

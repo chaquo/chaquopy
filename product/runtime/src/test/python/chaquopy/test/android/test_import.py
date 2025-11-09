@@ -48,6 +48,16 @@ def importable(filename):
     return splitext(filename)[1] in [".py", ".pyc", ".so"]
 
 
+def add_soabi(version_info, abi, filename):
+    soabi = f"cpython-{version_info[0]}{version_info[1]}"
+    if version_info >= (3, 13):
+        soabi += "-" + {
+            "arm64-v8a": "aarch64",
+            "x86_64": "x86_64",
+        }[abi] + "-linux-android"
+    return filename.replace(".so", f".{soabi}.so")
+
+
 class TestAndroidImport(FilterWarningsCase):
 
     maxDiff = None
@@ -61,18 +71,27 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertCountEqual([ABI], os.listdir(bn_dir))
 
         stdlib_bootstrap_expected = {
-            # This is the list from our minimum Python version. For why each of these
-            # modules is needed, see BOOTSTRAP_NATIVE_STDLIB in PythonTasks.kt.
-            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so", "_opcode.so",
+            # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
+            # PythonTasks.kt.
+            "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
             "_random.so", "_sha512.so", "_struct.so", "binascii.so", "math.so",
             "mmap.so", "zlib.so",
         }
         if sys.version_info >= (3, 12):
             stdlib_bootstrap_expected -= {"_sha512.so"}
             stdlib_bootstrap_expected |= {"_sha2.so"}
+        if sys.version_info >= (3, 13):
+            stdlib_bootstrap_expected -= {"_sha2.so"}
+            stdlib_bootstrap_expected |= {"_opcode.so"}
 
         for subdir, entries in [
-            (ABI, list(stdlib_bootstrap_expected)),
+            (
+                ABI,
+                [
+                    add_soabi(sys.version_info, ABI, filename)
+                    for filename in stdlib_bootstrap_expected
+                ],
+            ),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -87,7 +106,7 @@ class TestAndroidImport(FilterWarningsCase):
                 if subdir == ABI:
                     for filename in entries:
                         with self.subTest(filename=filename):
-                            self.assertIn(filename.replace(".so", ""), sys.modules)
+                            self.assertIn(re.sub(r"\..*", "", filename), sys.modules)
 
     def test_init(self):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
@@ -380,7 +399,7 @@ class TestAndroidImport(FilterWarningsCase):
     # Verify that the traceback builder can get source code from the loader in all contexts.
     # (The "package1" test files are also used in TestImport.)
     def test_exception(self):
-        col_marker = r'( +\^+\n)?'  # Column marker (Python >= 3.11)
+        col_marker = r'( +[~^]+\n)?'  # Column marker (Python >= 3.11)
         test_frame = (
             fr'  File "{asset_path(APP_ZIP)}/chaquopy/test/android/test_import.py", '
             fr'line \d+, in test_exception\n'
@@ -429,8 +448,9 @@ class TestAndroidImport(FilterWarningsCase):
                 col_marker +
                 fr'  File "{asset_path(APP_ZIP)}/package1/other_error.py", '
                 fr'line 1, in <module>\n'
-                fr'    int\("hello"\)\n'
-                fr"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
+                fr'    int\("hello"\)\n' +
+                col_marker +
+                r"ValueError: invalid literal for int\(\) with base 10: 'hello'\n$")
         else:
             self.fail()
 
@@ -806,9 +826,7 @@ class TestAndroidImport(FilterWarningsCase):
         with self.assertRaisesRegex(FileNotFoundError, bad_path):
             import_from_filename("nonexistent", bad_path)
 
-    # The original importlib.resources API was deprecated in Python 3.11, but its
-    # replacement isn't available until Python 3.9.
-    #
+    # The original importlib.resources API was deprecated in Python 3.11.
     # This API cannot access subdirectories within packages.
     def test_resources_old(self):
         with catch_warnings():
@@ -896,7 +914,6 @@ class TestAndroidImport(FilterWarningsCase):
         with open(path, "rb" if binary else "r") as file:
             self.assertEqual(file.read(), data)
 
-    @skipIf(sys.version_info < (3, 9), "resources.files was added in Python 3.9")
     def test_resources_new(self):
         # App ZIP
         pkg = "android1"

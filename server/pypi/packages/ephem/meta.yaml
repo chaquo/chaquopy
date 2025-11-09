@@ -1,6 +1,6 @@
 package:
   name: ephem
-  version: "4.1.5"
+  version: "4.1.6"
 
 build:
   number: 0

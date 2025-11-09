@@ -14,7 +14,7 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -42,6 +42,7 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
@@ -72,7 +73,7 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -91,6 +92,7 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew docs
 
       - uses: actions/upload-artifact@v4.3.3
@@ -103,7 +105,7 @@ jobs:
 
 
   gradlePython:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -115,12 +117,13 @@ jobs:
       - name: Test
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew gradle:testPython
 
 
   demo:
     needs: [product]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
       - uses: actions/checkout@v4.1.6
@@ -157,15 +160,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # We'd like to run macOS jobs first, because of their lower concurrency. But
+        # this doesn't reliably work (https://github.com/actions/runner/issues/703).
+        os: [macos, windows, linux]
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
-        os: [linux, macos, windows]
         include:
-          # Runners must support all the Python versions in setup-python/action.yml: see
-          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
+          # Runners must support all the Python versions in setup-python/action.yml.
           - os: linux
-            runs-on: ubuntu-20.04
+            runs-on: ubuntu-22.04
           - os: macos
-            runs-on: macos-12
+            runs-on: macos-15-intel
           - os: windows
             runs-on: windows-2022
 
@@ -193,4 +197,5 @@ jobs:
       - name: Test
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

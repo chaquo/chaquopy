@@ -9,12 +9,22 @@ build:
 
 requirements:
   build:
-    - cmake
-    - scikit-build 0.10.0
+    - cmake 3.28.1
+
+    # Version 0.18.1 gave the following error:
+    #   File "/home/smith/git/chaquo/chaquopy/server/pypi/packages/opencv-python/build/4.5.1.48/cp310-cp310-android_24_arm64_v8a/env/lib/python3.10/site-packages/setuptools/build_meta.py", line 317, in run_setup
+    #     exec(code, locals())
+    #   File "<string>", line 504, in <module>
+    #   File "<string>", line 264, in main
+    #   File "/home/smith/git/chaquo/chaquopy/server/pypi/packages/opencv-python/build/4.5.1.48/cp310-cp310-android_24_arm64_v8a/env/lib/python3.10/site-packages/skbuild/setuptools_wrap.py", line 700, in setup
+    #     _classify_installed_files(
+    #   File "<string>", line 444, in _classify_installed_files_override
+    # TypeError: _classify_installed_files() got an unexpected keyword argument 'cmake_install_dir'
+    - scikit-build 0.13.1
+
   host:
     - chaquopy-libgfortran 4.9
     - chaquopy-libpng 1.6.34
     - chaquopy-libjpeg 1.5.3
     - chaquopy-openblas 0.2.20
-    - numpy 1.17.4
-    - python
+    - numpy 1.23.3

@@ -14,4 +14,8 @@ runs:
     - if: runner.os == 'Windows'
       shell: bash
       run: |
-        echo chaquopy.conda.env=$CONDA | sed 's|\\|\\\\|g' >> product/local.properties
+        py_version=$(py target/list-versions.py --default)
+        $CONDA/condabin/conda.bat create -n integration python=$py_version
+        echo "chaquopy.conda.env=$CONDA/envs/integration" \
+            | sed 's|\\|\\\\|g' \
+            >> product/local.properties

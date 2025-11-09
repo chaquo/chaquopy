@@ -5,7 +5,7 @@ import sys
 class TestZopeInterface(unittest.TestCase):
 
     def test_coptimizations(self):
-        import zope.interface
+        import zope.interface  # noqa: F401
         self.assertIn("zope.interface._zope_interface_coptimizations", sys.modules)
 
     def test_inside_function_call(self):
@@ -13,7 +13,7 @@ class TestZopeInterface(unittest.TestCase):
 
         kind, module, f_locals, f_globals = getFrameInfo(sys._getframe())
         self.assertEqual(kind, "function call")
-        self.assertTrue(f_locals is locals())
+        # `f_locals is locals()` is no longer true in Python 3.13.
         for d in module.__dict__, f_globals:
             self.assertTrue(d is globals())
 

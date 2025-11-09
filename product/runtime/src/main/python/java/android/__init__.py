@@ -21,6 +21,11 @@ def initialize(context_local, build_json_object, app_path):
         android_log_write = getattr(CDLL("liblog.so"), "__android_log_write")
         android_log_write.argtypes = (c_int, c_char_p, c_char_p)
         stream.init_streams(android_log_write, stdout_prio=4, stderr_prio=5)
+    elif sys.stdout.errors == "backslashreplace":
+        # This fix should be upstreamed in Python 3.13.1.
+        raise Exception("see if sys.stdout.errors workaround can be removed")
+    else:
+        sys.stdout.reconfigure(errors="backslashreplace")
 
     importer.initialize(context, convert_json_object(build_json_object), app_path)
 
@@ -54,10 +59,8 @@ def initialize_warnings():
 
 
 def initialize_sys():
-    # argv defaults to not existing, which may crash some programs.
-    sys.argv = [""]
-
-    # executable defaults to the empty string, but this causes platform.platform() to crash.
+    # executable defaults to the empty string, but this causes platform.platform() to
+    # crash, and would probably confuse a lot of other code as well.
     try:
         sys.executable = os.readlink("/proc/{}/exe".format(os.getpid()))
     except Exception:
@@ -106,6 +109,9 @@ def initialize_ssl():
     # Unfortunately we can't do this with SSL_CERT_FILE, because OpenSSL ignores
     # environment variables when getauxval(AT_SECURE) is enabled, which is always the case
     # on Android (https://android.googlesource.com/platform/bionic/+/6bb01b6%5E%21/).
+    #
+    # TODO: to pass the CPython test suite, we have now patched our OpenSSL build to
+    # ignore AT_SECURE, so we can probably use the environment variable now.
     import ssl
     cacert = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
     def set_default_verify_paths(self):
@@ -114,7 +120,6 @@ def initialize_ssl():
 
 
 def initialize_multiprocessing():
-    import _multiprocessing
     from multiprocessing import context, heap, pool
     import threading
 
@@ -156,7 +161,9 @@ def initialize_multiprocessing():
                         "workaround can be removed")
 
     class SemLock:
-        SEM_VALUE_MAX = _multiprocessing.SemLock.SEM_VALUE_MAX
+        # multiprocessing.synchronize reads this attribute during import.
+        SEM_VALUE_MAX = 99
+
         def __init__(self, *args, **kwargs):
             raise OSError(error_message)
 

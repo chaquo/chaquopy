@@ -5,6 +5,71 @@ Change log
 
 .. towncrier release notes start
 
+16.1.0 (2025-05-07)
+===================
+
+Features
+--------
+
+- The "may have fewer packages available" warning has been removed, since the
+  default Python version no longer has a clear advantage in its package
+  selection. (`#1272 <https://github.com/chaquo/chaquopy/issues/1272>`__)
+- The `_chaquopy` stub libraries for OpenSSL and SQLite are now linked in 16 KB
+  mode. (`#1324 <https://github.com/chaquo/chaquopy/issues/1324>`__)
+- Android Gradle plugin versions 8.9 to 8.13 are now supported. (`#1340
+  <https://github.com/chaquo/chaquopy/issues/1340>`__)
+
+
+Bugfixes
+--------
+
+- .pth files are now processed after `sys.path` is fully initialized. (`#1338
+  <https://github.com/chaquo/chaquopy/issues/1338>`__)
+- The importer now recognizes libraries with an SOABI suffix such as
+  `.cpython-313-aarch64-linux-android.so`. (`#1370
+  <https://github.com/chaquo/chaquopy/issues/1370>`__)
+
+
+16.0.0 (2024-10-15)
+===================
+
+Features
+--------
+
+- Update CA bundle to certifi 2024.8.30. (`#1169
+  <https://github.com/chaquo/chaquopy/issues/1169>`__)
+- Python version 3.13 is now supported. (`#1210
+  <https://github.com/chaquo/chaquopy/issues/1210>`__, `#1212
+  <https://github.com/chaquo/chaquopy/issues/1212>`__)
+- Update runtime Python versions to 3.8.20, 3.9.20, 3.10.15, 3.11.10, 3.12.7
+  and 3.13.0. (`#1211 <https://github.com/chaquo/chaquopy/issues/1211>`__)
+- Android Gradle plugin versions 8.6 to 8.8 are now supported. (`#1224
+  <https://github.com/chaquo/chaquopy/issues/1224>`__, `#1245
+  <https://github.com/chaquo/chaquopy/issues/1245>`__)
+
+
+Deprecations and Removals
+-------------------------
+
+- `minSdk` must now be at least API level 24. This
+  still covers `97% of active devices
+  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
+  (`#718 <https://github.com/chaquo/chaquopy/issues/718>`__)
+- :ref:`buildPython` must now be at least Python 3.8. (`#1027
+  <https://github.com/chaquo/chaquopy/issues/1027>`__)
+
+
+Bugfixes
+--------
+
+- When exceptions are thrown during an import, the traceback now contains only
+  a single copy of `import_override`, rather than one for every import level.
+  (`#889 <https://github.com/chaquo/chaquopy/issues/889>`__)
+- `sys.stdin` is no longer overridden, so it has all the standard attributes
+  including `buffer`. (`#1083
+  <https://github.com/chaquo/chaquopy/issues/1083>`__)
+
+
 15.0.1 (2023-12-24)
 ===================
 
@@ -125,7 +190,7 @@ Bugfixes
   <https://github.com/chaquo/chaquopy/issues/663>`_).
 * [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 21. This
   still covers `98% of active devices
-  <https://dl.google.com/android/studio/metadata/distributions.json>`_.
+  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
 * Python versions 3.9, 3.10 and 3.11 are now supported (`#661
   <https://github.com/chaquo/chaquopy/issues/661>`_).
 * Detect changes to files or directories listed in requirements files (`#660

@@ -5,7 +5,7 @@ plugins {
 
 ext.PACKAGES_DIR = "../../packages"
 
-def SPACY_MODEL = "en_core_web_sm-2.2.5"
+def SPACY_MODEL = "en_core_web_sm-3.8.0"
 
 // Tensorflow 2.1.0 is incompatible with protobuf 4.25
 // (https://stackoverflow.com/q/77569103)
@@ -20,10 +20,11 @@ ext.TEST_PACKAGES = [
     "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
+    "pyzmq": ["cytoolz"],
     "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
-    "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}.tar.gz"],
+    "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}-py3-none-any.whl"],
     "soundfile": ["numpy"],
     "tensorflow": [PROTOBUF_REQ]
 ]
@@ -31,12 +32,12 @@ ext.TEST_PACKAGES = [
 
 android {
     namespace "com.chaquo.python.pkgtest3"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
 
         String pluginVersion = null
         for (art in rootProject.buildscript.configurations.getByName("classpath")
@@ -57,16 +58,15 @@ android {
         // To test packages, edit the following line to list their names, separated by
         // spaces. Each name must be a subdirectory of PACKAGES_DIR.
         def PACKAGES = ""
-        if (!PACKAGES.isEmpty()) {
-            addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
-        }
+        addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
 
         python {
-            version "3.8"
+            version "3.10"
 
             pip {
                 // After a package is tested, remember to move it to the public repository!
                 options "--extra-index-url", "https://chaquo.com/pypi-test/"
+                options "-c", "constraints.txt"
             }
             pyc {
                 src false  // Include test source code in stack traces.
@@ -108,6 +108,10 @@ def addPackages(flavor, List<String> packages) {
     mkdir(outputDir)
     String suiteSrc = ""
     for (req in packages) {
+        // Splitting an empty string returns a list containing one empty string.
+        if (req.isEmpty()) {
+            continue
+        }
         def pkgName = req.split("==")[0]
         def pkgDir = file("${ext.PACKAGES_DIR}/$pkgName")
         def testPaths = ["test.py", "test"]

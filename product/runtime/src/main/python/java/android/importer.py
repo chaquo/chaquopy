@@ -26,6 +26,11 @@ from java._vendor.elftools.elf.elffile import ELFFile
 from com.chaquo.python.android import AndroidPlatform
 from com.chaquo.python.internal import Common
 
+if sys.version_info < (3, 11):
+    from importlib.abc import Traversable
+else:
+    from importlib.resources.abc import Traversable
+
 
 import_triggers = {}
 
@@ -61,11 +66,13 @@ def initialize_importlib(context, build_json, app_path):
     sys.path_hooks[sys.path_hooks.index(zipimporter)] = ChaquopyZipImporter
     sys.path_importer_cache.clear()
 
+    finders = []
     sys.path = [p for p in sys.path if exists(p)]  # Remove nonexistent default paths
     for i, asset_name in enumerate(app_path):
         entry = join(ASSET_PREFIX, asset_name)
         sys.path.insert(i, entry)
         finder = get_importer(entry)
+        finders.append(finder)
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
 
@@ -80,28 +87,14 @@ def initialize_importlib(context, build_json, app_path):
                not any(finder.exists(f"{name}/__init__{suffix}") for suffix in LOADERS):
                 finder.extract_dir(name)
 
-        # We do this here instead of in AssetFinder.__init__ because code in the .pth files may
-        # require the finder to be fully available to the system, which isn't the case until
-        # get_importer returns.
+    # We do this in a separate loop because code in the .pth files may require sys.path
+    # to be fully initialized. Use reverse order to initialize lower-level things first.
+    for finder in reversed(finders):
         site.addsitedir(finder.extract_root)
-
-    if sys.version_info[:2] == (3, 9):
-        from importlib import _common
-        global fallback_resources_original
-        fallback_resources_original = _common.fallback_resources
-        _common.fallback_resources = fallback_resources_39
 
     global spec_from_file_location_original
     spec_from_file_location_original = util.spec_from_file_location
     util.spec_from_file_location = spec_from_file_location_override
-
-
-# Python 3.9 only supports importlib.resources.files for the standard importers.
-def fallback_resources_39(spec):
-    if isinstance(spec.loader, AssetLoader):
-        return spec.loader.get_resource_reader(spec.name).files()
-    else:
-        return fallback_resources_original(spec)
 
 
 def spec_from_file_location_override(name, location=None, *args, loader=None, **kwargs):
@@ -246,7 +239,9 @@ def load_module_override(load_name, file, pathname, description):
         finder = get_importer(dirname(pathname))
         if hasattr(finder, "prefix"):  # AssetFinder or zipimporter
             entry, base_name = split(pathname)
-            real_name = join(finder.prefix, splitext(base_name)[0]).replace("/", ".")
+            real_name = join(finder.prefix, re.sub(r"\..*", "", base_name)).replace(
+                "/", "."
+            )
             if isinstance(finder, AssetFinder):
                 spec = finder.find_spec(real_name)
                 spec.name = load_name
@@ -356,10 +351,8 @@ class ChaquopyPathFinder(machinery.PathFinder):
 
 # This does not inherit from PosixPath, because that would cause
 # importlib.resources.as_file to return it unchanged, rather than creating a temporary
-# file as it should. However, once our minimum version is Python 3.9, we can inherit
-# from importlib.resources.abc.Traversable, and remove our implementations of read_text,
-# read_bytes, and __truediv__.
-class AssetPath:
+# file as it should.
+class AssetPath(Traversable):
     def __init__(self, path):
         root_dir = path
         while dirname(root_dir) != ASSET_PREFIX:
@@ -404,24 +397,20 @@ class AssetPath:
         else:
             return type(self)(child_path)
 
-    def __truediv__(self, child):
-        return self.joinpath(child)
-
-    def open(self, mode="r", buffering="ignored", **kwargs):
+    # `buffering` has no effect because the whole file is read immediately.
+    def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
         if "r" in mode:
             bio = io.BytesIO(self.finder.get_data(self.zip_path))
             if mode == "r":
-                return io.TextIOWrapper(bio, **kwargs)
+                return io.TextIOWrapper(bio, encoding, errors, newline)
             elif sorted(mode) == ["b", "r"]:
                 return bio
         raise ValueError(f"unsupported mode: {mode!r}")
 
-    def read_bytes(self):
-        with self.open('rb') as strm:
-            return strm.read()
-
-    def read_text(self, encoding=None):
-        with self.open(encoding=encoding) as strm:
+    # Traversable.read_text doesn't accept `errors`, which breaks the old importlib API
+    # (https://github.com/python/cpython/issues/127012).
+    def read_text(self, encoding=None, errors=None, newline=None):
+        with self.open("r", -1, encoding, errors, newline) as strm:
             return strm.read()
 
 
@@ -762,13 +751,14 @@ def get_needed(path):
             return []
 
 
-# If a module has both a .py and a .pyc file, the .pyc file should be used because
-# it'll load faster.
+# Suffixes are in order of preference.
 LOADERS = {
+    # .pyc should be preferred over .py, because it'll load faster.
     ".pyc": SourcelessAssetLoader,
     ".py": SourceAssetLoader,
-    ".so": ExtensionAssetLoader,
 }
+for suffix in _imp.extension_suffixes():
+    LOADERS[suffix] = ExtensionAssetLoader
 
 
 class AssetZipFile(ZipFile):

@@ -1,5 +1,17 @@
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "My Application"
+
 for (f in rootDir.listFiles()) {
-    if (new File(f, "build.gradle").exists()) {
-        include f.name
+    for (ext in ["gradle", "gradle.kts"]) {
+        if (new File(f, "build.$ext").exists()) {
+            include f.name
+            break
+        }
     }
 }

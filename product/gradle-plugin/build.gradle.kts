@@ -1,6 +1,5 @@
 import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
-import com.chaquo.python.internal.Common.findExecutable
 import com.chaquo.python.internal.Common.osName
 
 plugins {
@@ -40,7 +39,7 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_11
 }
 
 sourceSets.main {
@@ -67,11 +66,11 @@ tasks.processResources {
 // example, if you pass Exec the command `cmd /c start notepad.exe`, then cmd will exit
 // immediately, but the Exec task won't complete until you close Notepad.
 abstract class TestPythonTask : DefaultTask() {
-    lateinit var pythonVersion: String
+    @get:Internal lateinit var pythonVersion: String
 
     // Emulate the necessary Exec properties.
-    lateinit var workingDir: String
-    val environment: MutableMap<String, String> = HashMap()
+    @get:Internal lateinit var workingDir: String
+    @get:Internal val environment: MutableMap<String, String> = HashMap()
 
     init {
         group = "verification"
@@ -85,9 +84,9 @@ abstract class TestPythonTask : DefaultTask() {
         pb.environment().putAll(environment)
 
         command += if (osName() == "windows") {
-            listOf(findExecutable("py"), "-$pythonVersion")
+            listOf("py", "-$pythonVersion")
         } else {
-            listOf(findExecutable("python$pythonVersion"))
+            listOf("python$pythonVersion")
         }
         command += listOf("-m", "unittest")
         val args = project.findProperty("testPythonArgs")
@@ -140,21 +139,7 @@ tasks.register("testPython") {
     tasks.named("check") { dependsOn(it) }
 }
 
-var minPythonMinor: Int? = null
-var maxPythonMinor: Int? = null
-file("src/test/integration/test_gradle_plugin.py").useLines {
-    for (line in it) {
-        """MIN_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
-            minPythonMinor = it.groupValues[1].toInt()
-        }
-        """MAX_BUILD_PYTHON_VERSION = "3.(\d+)""".toRegex().find(line)?.let {
-            maxPythonMinor = it.groupValues[1].toInt()
-        }
-    }
-}
-
-for (pythonMinor in minPythonMinor!! .. maxPythonMinor!!) {
-    val pythonVer = "3.$pythonMinor"
+for (pythonVer in Common.PYTHON_VERSIONS_SHORT) {
     tasks.register<TestPythonTask>("testPython-$pythonVer") {
         pythonVersion = pythonVer
         workingDir = "$projectDir/src/test/python"
@@ -174,7 +159,7 @@ tasks.register("testIntegration") {
 val INTEGRATION_DIR = "$projectDir/src/test/integration"
 for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
     val version = f.name
-    if (version.contains(".")) {
+    if (version[0].isDigit()) {
         tasks.register<TestPythonTask>("testIntegration-$version") {
             pythonVersion = Common.DEFAULT_PYTHON_VERSION
             if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI

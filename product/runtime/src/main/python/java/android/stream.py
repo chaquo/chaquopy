@@ -33,16 +33,19 @@ def init_streams(android_log_write, stdout_prio, stderr_prio):
     logcat = Logcat(android_log_write)
 
     sys.stdout = TextLogStream(
-        stdout_prio, "python.stdout", sys.stdout.fileno(),
-        errors="backslashreplace")
+        stdout_prio, "python.stdout", sys.stdout.fileno())
     sys.stderr = TextLogStream(
-        stderr_prio, "python.stderr", sys.stderr.fileno(),
-        errors="backslashreplace")
+        stderr_prio, "python.stderr", sys.stderr.fileno())
 
 
 class TextLogStream(io.TextIOWrapper):
     def __init__(self, prio, tag, fileno=None, **kwargs):
+        # The default is surrogateescape for stdout and backslashreplace for
+        # stderr, but in the context of an Android log, readability is more
+        # important than reversibility.
         kwargs.setdefault("encoding", "UTF-8")
+        kwargs.setdefault("errors", "backslashreplace")
+
         super().__init__(BinaryLogStream(prio, tag, fileno), **kwargs)
         self._lock = RLock()
         self._pending_bytes = []

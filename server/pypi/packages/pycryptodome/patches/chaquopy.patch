@@ -1,10 +1,9 @@
-diff -ur src-original/lib/Crypto/Util/_raw_api.py src/lib/Crypto/Util/_raw_api.py
---- src-original/lib/Crypto/Util/_raw_api.py    2018-08-04 22:21:17.000000000 +0000
-+++ src/lib/Crypto/Util/_raw_api.py     2019-08-24 18:50:56.520037232 +0000
-@@ -255,4 +255,16 @@
-                             cdecl)
+--- aaa/lib/Crypto/Util/_raw_api.py	2024-09-30 18:09:41.000000000 +0000
++++ src/lib/Crypto/Util/_raw_api.py	2024-10-23 16:10:01.744278766 +0000
+@@ -312,6 +312,18 @@
+             return load_lib(full_name, cdecl)
          except OSError as exp:
-             attempts.append("Trying '%s': %s" % (filename, str(exp)))
+             attempts.append("Cannot load '%s': %s" % (filename, str(exp)))
 +
 +    # This technique will work both before and after the importer redesign in Chaquopy 6.3.
 +    import pkgutil
@@ -18,58 +17,5 @@ diff -ur src-original/lib/Crypto/Util/_raw_api.py src/lib/Crypto/Util/_raw_api.p
 +            attempts.append("Trying importer for '%s'" % entry)
 +
      raise OSError("Cannot load native module '%s': %s" % (name, ", ".join(attempts)))
-
- def expect_byte_string(data):
---- src-original/setup.py	2019-08-31 21:16:53.000000000 +0000
-+++ src/setup.py	2019-12-20 17:29:04.468809747 +0000
-@@ -249,16 +249,7 @@
-     "Crypto.Signature",
-     "Crypto.Util",
-     "Crypto.Math",
--    "Crypto.SelfTest",
--    "Crypto.SelfTest.Cipher",
--    "Crypto.SelfTest.Hash",
--    "Crypto.SelfTest.IO",
--    "Crypto.SelfTest.Protocol",
--    "Crypto.SelfTest.PublicKey",
--    "Crypto.SelfTest.Random",
--    "Crypto.SelfTest.Signature",
--    "Crypto.SelfTest.Util",
--    "Crypto.SelfTest.Math",
-+    # Chaquopy: removed large package Crypto.SelfTest
- ]
- package_data = {
-     "Crypto" : [ "py.typed", "*.pyi" ],
-@@ -271,31 +262,7 @@
-     "Crypto.Signature" : [ "*.pyi" ],
-     "Crypto.IO" : [ "*.pyi" ],
-     "Crypto.Util" : [ "*.pyi" ],
--    "Crypto.SelfTest.Cipher" : [
--        "test_vectors/AES/*.*",
--        "test_vectors/TDES/*.*",
--        "test_vectors/wycheproof/*.*",
--    ],
--    "Crypto.SelfTest.Hash" : [
--        "test_vectors/SHA1/*.*",
--        "test_vectors/SHA2/*.*",
--        "test_vectors/SHA3/*.*",
--        "test_vectors/keccak/*.*",
--        "test_vectors/BLAKE2s/*.*",
--        "test_vectors/BLAKE2b/*.*",
--        "test_vectors/wycheproof/*.*",
--    ],
--    "Crypto.SelfTest.Signature" : [
--        "test_vectors/DSA/*.*",
--        "test_vectors/ECDSA/*.*",
--        "test_vectors/PKCS1-v1.5/*.*",
--        "test_vectors/PKCS1-PSS/*.*",
--        "test_vectors/wycheproof/*.*",
--    ],
--    "Crypto.SelfTest.PublicKey" : [
--        "test_vectors/ECC/*.*",
--        "test_vectors/RSA/*.*",
--    ],
-+    # Chaquopy: removed large package Crypto.SelfTest
- }
  
- ext_modules = [
+ 

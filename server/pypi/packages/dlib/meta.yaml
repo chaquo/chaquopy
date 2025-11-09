@@ -3,11 +3,11 @@ package:
   version: "19.19.0"
 
 build:
-  number: 4
+  number: 5
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
   host:
     - chaquopy-openblas 0.2.20
 

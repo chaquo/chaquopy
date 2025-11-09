@@ -38,8 +38,6 @@ also be given here.
 
 ## Adding support for an Android Gradle plugin version
 
-After first release candidate:
-
 * Check the bundled JDK version, and update product/local.properties to point at it.
 * Use the new project wizard to create an "Empty Activity" project, with "Minimum SDK"
   set to Chaquopy's current minimum.
@@ -47,31 +45,29 @@ After first release candidate:
   version.
 * Copy the contents from the previous base/X.Y directory, then update them with the
   settings from the "Empty Activity" project.
-* Run tests on all platforms.
+* In test_gradle_plugin.py, temporarily change `chaquopyVersion` to the current stable
+  Chaquopy version, and make sure that version isn't in the local Maven repository so it
+  will be downloaded from Maven Central.
+* Run all integration tests against the new AGP version.
+  * If it passes, update android.rst, versions.rst and changelog.rst for the existing
+    version, and publish them to the website.
+  * If it fails, plan to perform a Chaquopy release as soon as possible, because Android
+    Studio's auto-updater will cause many users to move to the new AGP version.
+* Revert the changes to test_gradle_plugin.py, then run all integration tests against
+  the Chaquopy development version and the new AGP version.
 
-After stable release:
-
-* As above, update the integration/data/base/X.Y directory with the settings from the
-  new project wizard.
 * Open the "product" project in the new Android Studio version, then:
   * Consider updating the Gradle version, but first see the note in
     product/gradle/wrapper/gradle-wrapper.properties.
-  * Sync the project, then run the `publish` task.
-  * Close the project to make sure .idea files are written.
+  * Sync the project.
+  * Test it by running the `publish` task.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
   * In Android Studio, run Tools > AGP Upgrade Assistant.
-  * Update all items from the "base" directory above.
-  * Update .gitignore from the new project wizard, and git rm any newly-ignored files.
+  * Apply any other updates from the "base" directory above.
   * Test the app.
-  * Close the project to make sure .idea files are written.
-* Temporarily edit `test_gradle_plugin.RunGradle.rerun` to test the current stable
-  Chaquopy version with the new AGP version, on all platforms.
-  * If it passes, update android.rst, versions.rst and changelog.rst for the existing
-    version, and publish them to the website.
-  * If it fails, fix the problems, update android.rst and versions.rst for the new
-    version, and perform a Chaquopy release as soon as possible, because Android
-    Studio's auto-updater will cause many users to move to the new AGP version.
+* Close all projects to make sure .idea files are written.
+* Add .gitignore entries if necessary.
 
 
 ## Removing support for an Android Gradle plugin version
@@ -81,41 +77,54 @@ After stable release:
 * Check if there's any version-dependent code in the plugin or the tests which can now
   be removed.
 * Integration tests:
-  * Remove AndroidPlugin/old, then move the old base/X.Y directory to replace it.
   * Update test_old expected message, then run the test.
 * Update android.rst and versions.rst.
-* Consider increasing the Gradle version of the "product" project (see
-  product/gradle/wrapper/gradle-wrapper.properties).
 * (Optional) Uninstall the corresponding Android Studio version to free up space, but
   first make sure it's not referenced from product/local.properties.
   * Also remove the [configuration
     directory](https://developer.android.com/studio/intro/studio-config#file_location).
 
 
-## Adding support for a buildPython version
+## Adding a Python version
 
-* Update `MAX_BUILD_PYTHON_VERSION` in test_gradle_plugin.py, and run the tests which
-  use it.
+Target:
+
+* Update Common.java.
+* Build the target packages as described in target/README.md.
+
+Product:
+
+* In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
+* Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
+* Update .github/actions/setup-python/action.yml.
+* Build any packages used by the demo app.
+* Update android.rst and versions.rst.
+
+Tests (this list is referenced from target/README.md):
+
 * Run `gradle:testPython`.
-* Update the list of Python versions in .github/actions/setup-python/action.yml.
-* Temporarily change the `buildPython` of the demo app, comment out `pyc.pip`, and check
-  it builds without any warnings other than the expected ones about .pyc compilation.
-  There's no point in running it now, as the failed compilation will break many of the
-  tests. We'll do this when we add runtime support for the same version (see
-  target/README.md).
+* Run integration tests.
+* Temporarily change the Python version of the demo app, and run the Python and Java
+  unit tests on the full set of pre-release devices (see release/README.md).
 
 
-## Removing support for a buildPython version
+## Removing a Python version
 
 * Increment Chaquopy major version if not already done.
-* Update gradle-plugin/src/main/python/chaquopy/util.py.
-* In test_gradle_plugin, update `OLD_BUILD_PYTHON_VERSION` and
-  `MIN_BUILD_PYTHON_VERSION`, and run the tests which use them.
-* Run `gradle:testPython`.
-* Update the list of Python versions in .github/actions/setup-python/action.yml.
-* See the comment in ci.yml about integration test runner versions, and consider
-  updating them.
-* Update android.rst.
+* Update any references in the integration tests, including the names of the pythonX.Y
+  scripts in data/BuildPython.
+* Search repository to see if any code can now be simplified. Useful regex:
+  * `(python( version)?|version_info) *[<>=]* *\(?\d[,.] *\d`
+* Check if any modules can be removed from `BOOTSTRAP_NATIVE_STDLIB` in PythonTasks.kt.
+* Update and test all the things listed in the "Adding a Python version" section.
+
+
+## Changing the default Python version
+
+* Update `DEFAULT_PYTHON_VERSION` in Common.java and test_gradle_plugin.py.
+* Update and test all the things listed in the "Adding / Removing a Python version"
+  sections.
+* Update the Python version in all apps in the repository, and test them.
 
 
 ## Increasing minimum API level (minSdk)
@@ -151,6 +160,10 @@ encouraging developers to test against it.
   Android version.
 * Leave the public apps alone for now: they will be dealt with during the next release
   (see release/README.md).
+* Consider also updating the targetSdk in:
+  * The CPython Android testbed.
+  * The Briefcase Android template, including running Toga's automated tests, and doing
+    a basic manual test of a Toga app.
 
 
 ## Updating certifi cacert.pem
@@ -182,12 +195,11 @@ do the following:
 * Open tools/base as a project in IDEA.
 
 
-## Updating pip, setuptools or wheel
+## Updating pip
 
 Check out the upstream-pip branch.
 
-Delete the package from src/main/python, including the .dist-info directory. Note that
-setuptools includes some files outside of its main directory.
+Delete pip from src/main/python, including the .dist-info directory.
 
 Download the wheel of the new version, and unpack it into src/main/python.
 

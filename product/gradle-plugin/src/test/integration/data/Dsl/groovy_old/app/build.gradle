@@ -14,7 +14,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 
@@ -41,7 +41,7 @@ android {
 
 // productFlavors properties
 def p = android.productFlavors.property.python
-p.version = "3.9"
+p.version = "{{ secondPythonVersion }}"
 p.extractPackages.add "ep_property"
 p.staticProxy.add "sp_property"
 p.pip.install("certifi")
@@ -55,7 +55,7 @@ android {
     productFlavors {
         method {
             python {
-                version "3.10"
+                version "{{ thirdPythonVersion }}"
                 extractPackages("ep_method")
                 staticProxy("sp_method")
                 pip {

@@ -1,5 +1,9 @@
+# Updates to this package should be backward-compatible, but it doesn't always work that
+# way, so make sure to test new versions with existing packages
+# (https://github.com/chaquo/chaquopy/issues/1171#issuecomment-2402757412).
+
 package:
   name: chaquopy-libcxx
-  version: "11000"  # See PKG_VERSION in build.sh, and COMPILER_LIBS in build-wheel.py.
+  version: "180000"  # See version.sh.
 
 source: null

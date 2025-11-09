@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# Do this as early as possible to minimize the chance of something else going wrong and causing
-# a less comprehensible error message.
-from .util import check_build_python
-check_build_python()
-
 import argparse
 import importlib.util
 import os
@@ -18,8 +13,6 @@ import warnings
 # See the CPython source code in Include/internal/pycore_magic_number.h or
 # Lib/importlib/_bootstrap_external.py.
 MAGIC = {
-    "3.8": 3413,
-    "3.9": 3425,
     "3.10": 3439,
     "3.11": 3495,
     "3.12": 3531,
@@ -29,18 +22,7 @@ MAGIC = {
 
 def main():
     args = parse_args()
-    if importlib.util.MAGIC_NUMBER != MAGIC[args.python].to_bytes(2, "little") + b"\r\n":
-        # Messages should be formatted the same as those from the Gradle plugin.
-        message = (
-            "Failed to compile to .pyc format: buildPython version {}.{}.{} is incompatible. "
-            "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
-            .format(*sys.version_info[:3]))
-        if args.warning:
-            print("Warning:", message)
-            sys.exit(0)
-        else:
-            print(message, file=sys.stderr)
-            sys.exit(1)
+    check_magic(args)
 
     if args.quiet:
         warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -93,6 +75,31 @@ def parse_args():
     if args.out_dir is None:
         args.out_dir = args.in_dir
     return args
+
+
+# Since the Python version has already been checked by the Gradle plugin, this should
+# never fail unless the magic number changes after a Python minor version goes stable.
+def check_magic(args):
+    magic_bytes = importlib.util.MAGIC_NUMBER
+    if len(magic_bytes) != 4 or magic_bytes[-2:] != b"\r\n":
+        error(args, f"magic number {magic_bytes} is in an unknown format")
+
+    magic_int = int.from_bytes(magic_bytes[:2], "little")
+    if magic_int != MAGIC[args.python]:
+        error(args, f"magic number is {magic_int}; expected {MAGIC[args.python]}")
+
+
+def error(args, message):
+    # Messages should be formatted the same as those from the Gradle plugin.
+    message = (
+        f"Failed to compile to .pyc format: {message}. "
+        f"See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode")
+    if args.warning:
+        print("Warning:", message)
+        sys.exit(0)
+    else:
+        print(message, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

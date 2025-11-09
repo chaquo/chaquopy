@@ -23,12 +23,12 @@ afterEvaluate {
 
 android {
     namespace = "com.chaquo.python.demo"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
 
         val plugins = buildscript.configurations.getByName("classpath")
              .resolvedConfiguration.resolvedArtifacts.map {
@@ -51,9 +51,10 @@ android {
                 "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
             )
         }
+    }
 
-        // Remove other languages imported from Android support libraries.
-        resourceConfigurations += "en"
+    androidResources {
+        localeFilters += "en"
     }
 
     // Chaquopy generates extra internal-use constructors on static proxy classes.
@@ -95,9 +96,11 @@ android {
 
 chaquopy {
     defaultConfig {
+        version = "3.10"
+
         // Android UI demo
         pip {
-            install("Pygments==2.2.0")  // Also used in Java API demo
+            install("Pygments==2.13.0")  // Also used in Java API demo
         }
         staticProxy("chaquopy.demo.ui_demo")
 

@@ -1,7 +1,8 @@
 import os
-from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from contextlib import closing
+from os.path import dirname, exists, join, realpath
 from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
@@ -104,7 +105,14 @@ class TestAndroidStdlib(FilterWarningsCase):
         for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
                      "Semaphore"]:
             cls = getattr(synchronize, name)
-            with self.assertRaisesRegex(OSError, "This platform lacks a functioning sem_open"):
+            with self.assertRaisesRegex(
+                OSError,
+                (
+                    "This platform lacks a functioning sem_open"
+                    if sys.version_info < (3, 13)
+                    else "No module named '_multiprocessing'"
+                )
+            ):
                 if name == "Barrier":
                     cls(1, ctx=ctx)
                 else:
@@ -137,9 +145,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         python_bits = platform.architecture()[0]
         self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
 
-        # Requires sys.executable to exist.
-        p = platform.platform()
-        self.assertRegex(p, r"^Linux")
+        self.assertRegex(
+            platform.platform(),
+            r"^Linux" if sys.version_info < (3, 13) else r"^Android")
 
     def test_select(self):
         import select
@@ -170,11 +178,11 @@ class TestAndroidStdlib(FilterWarningsCase):
 
     def test_sqlite(self):
         import sqlite3
-        conn = sqlite3.connect(":memory:")
-        conn.execute("create table test (a text, b text)")
-        conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
-        cur = conn.execute("select b from test where a = 'bravo'")
-        self.assertEqual([("two",)], cur.fetchall())
+        with closing(sqlite3.connect(":memory:")) as conn:
+            conn.execute("create table test (a text, b text)")
+            conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
+            cur = conn.execute("select b from test where a = 'bravo'")
+            self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
         from urllib.request import urlopen
@@ -211,7 +219,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         for p in sys.path:
             self.assertTrue(exists(p), p)
 
-        self.assertRegex(sys.platform, r"^linux")
+        self.assertEqual(
+            sys.platform,
+            "linux" if sys.version_info < (3, 13) else "android")
         self.assertNotIn("dirty", sys.version)
 
     def test_sysconfig(self):

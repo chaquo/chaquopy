@@ -182,3 +182,36 @@ index 27874283e..ee76ea661 100644
          python_requires=">=3.6",
          classifiers=[
              "Development Status :: 5 - Production/Stable",
+--- src-original/pyproject.toml	2021-01-02 12:13:50.000000000 +0000
++++ src/pyproject.toml	2025-11-05 20:02:16.854071290 +0000
+@@ -1,9 +1,10 @@
+ [build-system]
+ requires = [
+   "setuptools", "wheel", "scikit-build", "cmake", "pip",
+-  "numpy==1.13.3; python_version=='3.6' and platform_machine != 'aarch64'",
+-  "numpy==1.19.3; python_version>='3.6' and sys_platform == 'linux' and platform_machine == 'aarch64'",
+-  "numpy==1.14.5; python_version=='3.7' and platform_machine != 'aarch64'",
+-  "numpy==1.17.3; python_version=='3.8' and platform_machine != 'aarch64'",
+-  "numpy==1.19.3; python_version>='3.9' and platform_machine != 'aarch64'"
++  # Chaquopy: disabled numpy
++  # "numpy==1.13.3; python_version=='3.6' and platform_machine != 'aarch64'",
++  # "numpy==1.19.3; python_version>='3.6' and sys_platform == 'linux' and platform_machine == 'aarch64'",
++  # "numpy==1.14.5; python_version=='3.7' and platform_machine != 'aarch64'",
++  # "numpy==1.17.3; python_version=='3.8' and platform_machine != 'aarch64'",
++  # "numpy==1.19.3; python_version>='3.9' and platform_machine != 'aarch64'"
+ ]
+--- src-original/opencv/modules/python/common.cmake	2021-01-02 12:14:25.000000000 +0000
++++ src/opencv/modules/python/common.cmake	2025-11-05 20:54:50.191484016 +0000
+@@ -14,7 +14,11 @@
+ 
+ # try to use dynamic symbols linking with libpython.so
+ set(OPENCV_FORCE_PYTHON_LIBS OFF CACHE BOOL "")
+-string(REPLACE "-Wl,--no-undefined" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
++
++# Chaquopy: this messes up --no-undefined-version, which is added by the NDK toolchain
++# file.
++# string(REPLACE "-Wl,--no-undefined" "" CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS}")
++
+ if(NOT WIN32 AND NOT APPLE AND NOT OPENCV_PYTHON_SKIP_LINKER_EXCLUDE_LIBS)
+   set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--exclude-libs=ALL")
+ endif()

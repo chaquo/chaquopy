@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from email import generator, message, parser
 from glob import glob
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join, splitext
+from os.path import abspath, basename, dirname, exists, isdir, islink, join, splitext
 from pathlib import Path
 import re
 import shlex
@@ -43,20 +43,14 @@ STANDARD_LIBS = [
           "libOpenMAXAL.so", "libOpenSLES.so", "libz.so"]),
     (21, ["libmediandk.so"]),
     (24, ["libcamera2ndk.so", "libvulkan.so"]),
-
-    # Chaquopy-provided libraries
-    (0, ["libcrypto_chaquopy.so", "libsqlite3_chaquopy.so", "libssl_chaquopy.so"]),
 ]
 
 # Not including chaquopy-libgfortran: the few packages which require it must specify it in
 # meta.yaml. That way its location will always be passed to the linker with an -L flag, and we
 # won't need to worry about the multilib subdirectory structure of the armeabi-v7a toolchain.
-#
-# TODO: break out the build script fragments which get the actual version numbers from the
-# toolchain, and call them here.
 COMPILER_LIBS = {
-    "libc++_shared.so": ("chaquopy-libcxx", "11000"),
-    "libomp.so": ("chaquopy-libomp", "9.0.9"),
+    "libc++_shared.so": "chaquopy-libcxx",
+    "libomp.so": "chaquopy-libomp",
 }
 
 
@@ -88,7 +82,7 @@ class BuildWheel:
                                  normalize_version(self.version))
 
             self.non_python_build_reqs = set()
-            for name in ["cmake", "fortran"]:
+            for name in ["cmake", "fortran", "rust"]:
                 try:
                     self.meta["requirements"]["build"].remove(name)
                 except ValueError:
@@ -105,14 +99,10 @@ class BuildWheel:
             self.needs_python = self.needs_target = (self.meta["source"] == "pypi")
             for name in ["openssl", "python", "sqlite"]:
                 if name in self.meta["requirements"]["host"]:
-                    self.meta["requirements"]["host"].remove(name)
                     self.needs_target = True
                     if name == "python":
+                        self.meta["requirements"]["host"].remove(name)
                         self.needs_python = True
-                    else:
-                        # OpenSSL and SQLite currently work without any build flags, but it's
-                        # worth keeping them in existing meta.yaml files in case that changes.
-                        pass
 
             self.unpack_and_build()
 
@@ -264,9 +254,9 @@ class BuildWheel:
         python_ver = self.python or ".".join(map(str, sys.version_info[:2]))
 
         # Installing Python's bundled pip and setuptools into a new environment takes
-        # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
-        # we create one bootstrap environment per Python version, shared between all
-        # packages, and use that to install the build environments.
+        # about 6 seconds on Python 3.11. To avoid this, we create one bootstrap
+        # environment per Python version, shared between all packages, and use that to
+        # install the build environments.
         os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         bootstrap_env = self.get_bootstrap_env(python_ver)
         ensure_empty(self.build_env)
@@ -377,7 +367,8 @@ class BuildWheel:
 
         # Even with --no-deps, `pip download` still pointlessly runs egg_info on the
         # downloaded sdist, which may fail or take a long time
-        # (https://github.com/pypa/pip/issues/1884). So we download the sdist manually.
+        # (https://github.com/pypa/pip/issues/1884). So we download the sdist with a
+        # different library.
         log("Searching PyPI")
         pypi = pypi_simple.PyPISimple()
         try:
@@ -386,8 +377,12 @@ class BuildWheel:
             raise CommandError(e)
 
         for package in project.packages:
+            # sdist filenames used to use the original package name, but current
+            # standards encourage normalization
+            # (https://packaging.python.org/en/latest/specifications/source-distribution-format/).
             if (
-                (package.project, package.version) == (self.package, self.version)
+                normalize_name_pypi(package.project) == normalize_name_pypi(self.package)
+                and package.version == self.version
                 and any(package.filename.endswith("." + ext) for ext in EXTENSIONS)
             ):
                 log(f"Downloading {package.url}")
@@ -395,7 +390,19 @@ class BuildWheel:
                     package, package.filename,
                     progress=pypi_simple.tqdm_progress_factory(
                         unit="B", unit_scale=True, unit_divisor=1024))
-                return package.filename
+
+                # Cache it under the unnormalized name so the code above can find it.
+                for ext in EXTENSIONS:
+                    if package.filename.endswith("." + ext):
+                        cache_filename = f"{self.package}-{self.version}.{ext}"
+                        if cache_filename != package.filename:
+                            os.rename(package.filename, cache_filename)
+                        break
+                else:
+                    raise CommandError(
+                        f"Can't determine cache filename for {package.filename!r}")
+
+                return cache_filename
         else:
             raise CommandError(
                 f"Can't find sdist for {self.package!r} version {self.version!r} at "
@@ -496,10 +503,52 @@ class BuildWheel:
             run(f"{os.environ['AR']} rc {self.host_env}/chaquopy/lib/lib{name}.a")
 
     def extract_target(self):
-        run(f"unzip -q -d {self.host_env}/chaquopy {self.target_zip} include/* jniLibs/*")
-        run(f"mv {self.host_env}/chaquopy/jniLibs/{self.abi}/* {self.host_env}/chaquopy/lib",
-            shell=True)
-        run(f"rm -r {self.host_env}/chaquopy/jniLibs")
+        chaquopy_dir = f"{self.host_env}/chaquopy"
+        run(f"unzip -q -d {chaquopy_dir} {self.target_zip} include/* jniLibs/*")
+
+        # Only include OpenSSL and SQLite in the environment if the recipe requests
+        # them. This affects grpcio, which provides its own copy of BoringSSL, and gets
+        # confused if OpenSSL is also on the include path.
+        for name, includes, libs in [
+            ("openssl", "openssl", "lib{crypto,ssl}*"),
+            ("sqlite", "sqlite*", "libsqlite*"),
+        ]:
+            try:
+                self.meta["requirements"]["host"].remove(name)
+            except ValueError:
+                for pattern in [f"include/{includes}", f"jniLibs/{self.abi}/{libs}"]:
+                    run(f"rm -r {chaquopy_dir}/{pattern}", shell=True)
+
+        # When building packages that could be loaded by older versions of Chaquopy,
+        # i.e non-Python packages, and Python packages for 3.12 and older:
+        #
+        # * We must produce DT_NEEDED entries with the _chaquopy suffix, because that's
+        #   the only name older versions of Chaquopy provide.
+        # * The library with that SONAME must actually contain the needed symbols,
+        #   because of -Wl,--no-undefined.
+        #
+        # So if we're using a `target` package that's new enough to have the _python
+        # names, we must remove the the stub _chaquopy libraries added by
+        # package-target.sh, and rename the _python libraries to _chaquopy.
+        #
+        # When building only for Python 3.13 and newer, we should use the _python suffix
+        # so our wheels are compatible with any other Python on Android distributions.
+        lib_dir = f"{chaquopy_dir}/jniLibs/{self.abi}"
+        for name in ["crypto", "ssl", "sqlite3"]:
+            python_name = f"lib{name}_python.so"
+            chaquopy_name = f"lib{name}_chaquopy.so"
+            if exists(f"{lib_dir}/{python_name}"):
+                run(f"rm {lib_dir}/{chaquopy_name}")
+                if (
+                    not self.needs_python
+                    or self.python in ["3.8", "3.9", "3.10", "3.11", "3.12"]
+                ):
+                    run(f"mv {lib_dir}/{python_name} {lib_dir}/{chaquopy_name}")
+                    run(f"patchelf --set-soname {chaquopy_name} "
+                        f"{lib_dir}/{chaquopy_name}")
+
+        run(f"mv {chaquopy_dir}/jniLibs/{self.abi}/* {chaquopy_dir}/lib", shell=True)
+        run(f"rm -r {chaquopy_dir}/jniLibs")
 
     def build_with_script(self, build_script):
         prefix_dir = f"{self.build_dir}/prefix"
@@ -529,7 +578,7 @@ class BuildWheel:
             f"PREFIX={self.host_env}/chaquopy; "
             f". {PYPI_DIR}/../../target/android-env.sh; "
             f"export",
-            shell=True, executable="bash", text=True, stdout=subprocess.PIPE
+            shell=True, stdout=subprocess.PIPE
         ).stdout
         for line in build_common_output.splitlines():
             # We don't require every line to match, e.g. there may be some output from
@@ -543,12 +592,6 @@ class BuildWheel:
         if not env:
             raise CommandError("Found no variables in android-env.sh output:\n"
                                + build_common_output)
-
-        # Set all other variables used by distutils to prevent the host Python values (if
-        # any) from taking effect.
-        env["CPPFLAGS"] = ""
-        env["CXXFLAGS"] = ""
-        env["LDSHARED"] = f"{env['CC']} -shared"
 
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
@@ -577,6 +620,15 @@ class BuildWheel:
             os.chmod(wrapper_path, 0o755)
             env[var] = wrapper_path
 
+        # Set all other variables used by distutils to prevent the host Python values (if
+        # any) from taking effect.
+        env["CPPFLAGS"] = ""
+        env["LDSHARED"] = f"{env['CC']} -shared"
+
+        if exists(f"{self.host_env}/chaquopy/lib/libssl.so"):
+            # `cryptography` requires this variable.
+            env["OPENSSL_DIR"] = f"{self.host_env}/chaquopy"
+
     def get_python_env_vars(self, env, pypi_env):
         # Adding host_env to PYTHONPATH allows setup.py to import requirements, for
         # example to call numpy.get_include().
@@ -587,19 +639,38 @@ class BuildWheel:
 
         self.python_include_dir = f"{self.host_env}/chaquopy/include/python{self.python}"
         assert_exists(self.python_include_dir)
-        libpython = f"libpython{self.python}.so"
-        self.python_lib = f"{self.host_env}/chaquopy/lib/{libpython}"
+        self.python_lib = f"{self.host_env}/chaquopy/lib/libpython{self.python}.so"
         assert_exists(self.python_lib)
-        self.standard_libs.append(libpython)
 
         # Use -idirafter so that package-specified -I directories take priority. For
         # example, typed-ast provides its own Python headers.
-        env["CFLAGS"] += f" -idirafter {self.python_include_dir}"
+        for name in ["CFLAGS", "CXXFLAGS", "FARCH"]:
+            if name in env:
+                env[name] += f" -idirafter {self.python_include_dir}"
         env["LDFLAGS"] += f" -lpython{self.python}"
 
         # Overrides sysconfig.get_platform and distutils.util.get_platform.
         # TODO: consider replacing this with crossenv.
-        env["_PYTHON_HOST_PLATFORM"] = f"linux_{ABIS[self.abi].uname_machine}"
+        env["_PYTHON_HOST_PLATFORM"] = f"linux-{ABIS[self.abi].uname_machine}"
+
+    def get_rust_env_vars(self, env):
+        tool_prefix = ABIS[self.abi].tool_prefix
+        run(f"rustup target add {tool_prefix}")
+        env.update({
+            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
+            "CARGO_BUILD_TARGET": tool_prefix,
+
+            # Normally PyO3 requires sysconfig modules, which are not currently
+            # available in the `target` packages for Python 3.12 and older. However,
+            # since PyO3 0.16.4, it's possible to compile abi3 modules without sysconfig
+            # modules. This only requires packages to specify the minimum python
+            # compatibility version via one of the "abi3-py*" features (e.g.
+            # abi3-py310). Doing this requires the "-L native" flag in RUSTFLAGS above.
+            # https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter
+            "PYO3_NO_PYTHON": "1",
+            "PYO3_CROSS": "1",
+            "PYO3_CROSS_PYTHON_VERSION": self.python,
+        })
 
     @contextmanager
     def env_vars(self):
@@ -615,6 +686,8 @@ class BuildWheel:
 
         if self.needs_python:
             self.get_python_env_vars(env, pypi_env)
+        if "rust" in self.non_python_build_reqs:
+            self.get_rust_env_vars(env)
 
         env.update({
             # TODO: make everything use HOST instead, and remove this.
@@ -631,7 +704,7 @@ class BuildWheel:
         })
 
         for var in self.meta["build"]["script_env"]:
-            key, value = var.split("=")
+            key, value = var.split("=", 1)
             env[key] = value
 
         # We do this unconditionally, because we don't know whether the package requires
@@ -712,9 +785,13 @@ class BuildWheel:
         available_libs = set(self.standard_libs)
         for dir_name in [f"{self.host_env}/chaquopy/lib", tmp_dir]:
             if exists(dir_name):
-                for _, _, filenames in os.walk(dir_name):
-                    available_libs.update(name for name in filenames
-                                          if re.search(SO_PATTERN, name))
+                for dirpath, _, filenames in os.walk(dir_name):
+                    for name in filenames:
+                        if (
+                            re.search(SO_PATTERN, name)
+                            and not islink(f"{dirpath}/{name}")
+                        ):
+                            available_libs.add(name)
 
         reqs = set()
         log("Processing native binaries")
@@ -734,6 +811,8 @@ class BuildWheel:
             if fixed_path != original_path:
                 run(f"mv {original_path} {fixed_path}")
 
+            # Strip before patching, otherwise the libraries may be corrupted:
+            # https://github.com/NixOS/patchelf/issues?q=is%3Aissue+strip+in%3Atitle
             run(f"chmod +w {fixed_path}")
             run(f"{os.environ['STRIP']} --strip-unneeded {fixed_path}")
 
@@ -787,7 +866,10 @@ class BuildWheel:
             if tag.entry.d_tag == "DT_NEEDED":
                 req = COMPILER_LIBS.get(tag.needed)
                 if req:
-                    reqs.append(req)
+                    version = run(
+                        f"{RECIPES_DIR}/{req}/version.sh", capture_output=True
+                    ).stdout.strip()
+                    reqs.append((req, version))
                 elif tag.needed in available_libs:
                     pass
                 else:
@@ -918,8 +1000,12 @@ def normalize_version(version):
 def run(command, **kwargs):
     log(command)
     kwargs.setdefault("check", True)
-    kwargs.setdefault("shell", False)
     kwargs.setdefault("text", True)
+
+    kwargs.setdefault("shell", False)
+    if kwargs["shell"]:
+        # Allow bash-specific syntax like `lib{crypto,ssl}`.
+        kwargs.setdefault("executable", "bash")
 
     if isinstance(command, str) and not kwargs["shell"]:
         command = shlex.split(command)
