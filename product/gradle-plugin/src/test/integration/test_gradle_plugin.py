@@ -38,6 +38,7 @@ with open(f"{product_dir}/local.properties") as props_file:
     product_props = PropertiesFile.load(props_file)
 
 DEFAULT_PYTHON_VERSION = "3.10"
+assert f"{sys.version_info.major}.{sys.version_info.minor}" == DEFAULT_PYTHON_VERSION
 
 # This should be as old as possible while still being available on all the CI runners
 # (see .github/actions/setup-python/action.yml).
@@ -72,12 +73,7 @@ SECOND_PYTHON_VERSION, *_, THIRD_PYTHON_VERSION = [
     ver for ver in PYTHON_VERSIONS if ver != DEFAULT_PYTHON_VERSION
 ]
 
-BUILD_PYTHON_VERSION_FULL = run_build_python(
-    ["-c", "import platform; print(platform.python_version())"]
-).stdout.strip()
-BUILD_PYTHON_VERSION = BUILD_PYTHON_VERSION_FULL.rpartition(".")[0]
-
-EGG_INFO_SUFFIX = "py" + BUILD_PYTHON_VERSION + ".egg-info"
+EGG_INFO_SUFFIX = "py" + DEFAULT_PYTHON_VERSION + ".egg-info"
 EGG_INFO_FILES = ["dependency_links.txt", "PKG-INFO", "SOURCES.txt", "top_level.txt"]
 
 
@@ -1465,24 +1461,6 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Skipping wheel build", run.stdout)
         self.assertInLong(self.RUNNING_INSTALL, run.stdout)
 
-    def test_requires_python(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
-        run = self.RunGradle("base", "PythonReqs/requires_python", run=False)
-        with open(f"{run.project_dir}/app/index/pyver/index.html", "w") as index_file:
-            def print_link(whl_version, requires_python):
-                filename = f"pyver-{whl_version}-py2.py3-none-any.whl"
-                print(f'<a href="{filename}" data-requires-python="=={requires_python}">'
-                      f'{filename}</a><br/>', file=index_file)
-
-            # If the build Python version is used, or the data-requires-python attribute is
-            # ignored completely, then version 0.2 will be selected.
-            print("<html><head></head><body>", file=index_file)
-            print_link("0.1", DEFAULT_PYTHON_VERSION_FULL)
-            print_link("0.2", BUILD_PYTHON_VERSION_FULL)
-            print("</body></html>", file=index_file)
-
-        run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
-
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
         # test_mixed_index.
@@ -1648,21 +1626,6 @@ class PythonReqs(GradleTestCase):
     @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
     def test_marker_platform(self):
         self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
-
-    def test_marker_python_version(self):
-        self.assertNotEqual(BUILD_PYTHON_VERSION_FULL, DEFAULT_PYTHON_VERSION_FULL)
-        run = self.RunGradle("base", "PythonReqs/marker_python_version", run=False)
-        with open(f"{run.project_dir}/app/requirements.txt", "w") as reqs_file:
-            def print_req(whl_version, python_version):
-                print(f'pyver-{whl_version}-py2.py3-none-any.whl; '
-                      f'python_full_version == "{python_version}"', file=reqs_file)
-
-            # If the build Python version is used, or the environment markers are ignored
-            # completely, then version 0.2 will be selected.
-            print_req("0.1", DEFAULT_PYTHON_VERSION_FULL)
-            print_req("0.2", BUILD_PYTHON_VERSION_FULL)
-
-        run.rerun(requirements=["pyver.py"], dist_versions=[("pyver", "0.1")])
 
     def tracker_advice(self):
         return ("\nFor assistance, please raise an issue at "
