@@ -137,6 +137,7 @@ jobs:
           path: maven
 
       - name: Get keystore
+        if: github.event_name != 'pull_request'
         env:
           CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |
