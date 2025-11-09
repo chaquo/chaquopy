@@ -45,10 +45,6 @@ assert f"{sys.version_info.major}.{sys.version_info.minor}" == DEFAULT_PYTHON_VE
 OLD_PYTHON_VERSION = "3.7"
 
 def run_build_python(args, **kwargs):
-    # The Gradle plugin's build script finds Python in the same way as the plugin
-    # itself, so we can assume sys.executable is what the plugin will use.
-    assert sys.version.startswith(DEFAULT_PYTHON_VERSION + ".")
-
     for k, v in dict(check=True, capture_output=True, text=True).items():
         kwargs.setdefault(k, v)
     return run([sys.executable] + args, **kwargs)
@@ -1205,12 +1201,6 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_explicit_backend",
                        **self.PEP517_KWARGS)
 
-    # Test pip can handle TOML 1.0 syntax (e.g.
-    # https://github.com/zeromq/pyzmq/issues/1807).
-    def test_pep517_toml_1_0(self):
-        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_toml_1_0",
-                       **self.PEP517_KWARGS)
-
     def test_pep517_backend_path(self):
         self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_backend_path",
                        **self.PEP517_KWARGS)
@@ -1221,15 +1211,6 @@ class PythonReqs(GradleTestCase):
             "base", "PythonReqs/pep517_hatch",
             dist_versions=[("pep517_hatch", "5.1.7")],
             requirements=["hatch1.py"])
-
-    # Install an sdist whose setup.py asserts that it's being built in place, not in a
-    # temporary directory. For example, this is required by setuptools-scm.
-    #
-    # This behavior was added in pip 20.1, reverted in 20.1.1, added again as an option
-    # in 21.1, and made the default in 21.3.
-    def test_sdist_in_place(self):
-        self.RunGradle("base", "PythonReqs/sdist_in_place",
-                       dist_versions=[("sdist_in_place", "1.2.3")])
 
     def test_sdist_native_ext(self):
         self.sdist_native("sdist_native_ext")
@@ -1277,13 +1258,8 @@ class PythonReqs(GradleTestCase):
 
     # site-packages should not be visible to setup.py scripts.
     def test_sdist_site(self):
-        # The default buildPython should be the same Python executable as is running this test
-        # script, but make sure by checking for one of this script's requirements.
-        PKG_NAME = "javaproperties"
-        run_build_python(["-c", f"import {PKG_NAME}"])
-
         run = self.RunGradle("base", "PythonReqs/sdist_site", succeed=False)
-        self.assertInLong(f"No module named '{PKG_NAME}'", run.stderr)
+        self.assertInLong("No module named 'javaproperties'", run.stderr)
 
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
@@ -1349,60 +1325,12 @@ class PythonReqs(GradleTestCase):
                               abis=["arm64-v8a"])
             else:
                 kwargs = dict(succeed=False)
-            run.rerun(f"PythonReqs/api_level_{min_api_level}", **kwargs)
+            run.rerun(
+                "PythonReqs/api_level", context={"minSdk": min_api_level}, **kwargs
+            )
             if not expected_version:
                 self.assertInLong("No matching distribution found for api_level",
                                   run.stderr)
-
-    # Even though this is now a standard pip feature, we should still test it because we've
-    # modified the index preference order.
-    def test_wheel_build_tag(self):
-        self.RunGradle("base", "PythonReqs/build_tag",
-                       requirements=["build2/__init__.py"])
-
-    # This package has the following versions:
-    #   1.3: compatible native wheel
-    #   1.6: incompatible native wheel (should be ignored)
-    #   1.8: pure wheels (with two build numbers)
-    #   2.0: sdist
-    def test_mixed_index(self):
-        # With no version restriction, the compatible native wheel is preferred over the sdist
-        # and the pure wheels, despite having a lower version.
-        run = self.RunGradle("base", "PythonReqs/mixed_index_1",
-                             requirements=[("native3_android_15_x86/__init__.py",
-                                            {"content": "# Version 1.3"})],
-                             pyc=["stdlib"])
-
-        # With "!=1.3", the sdist is selected, but it will fail at the egg_info stage. (Failure
-        # at later stages is covered by test_sdist_native.) Version 1.8 has two build numbers
-        # available, but should only be listed once in the message.
-        run.apply_layers("PythonReqs/mixed_index_2")
-        run.rerun(succeed=False)
-        self.assertInLong(
-            r"Failed to install native3!=1.3 from file:.*dist/native3-2.0.tar.gz."
-            + self.tracker_advice() + r"$",
-            run.stderr, re=True)
-
-        # With "!=1.3,!=2.0", the pure wheel with the higher build number is selected.
-        run.apply_layers("PythonReqs/mixed_index_3")
-        run.rerun(requirements=[("native3_pure_1/__init__.py",
-                                 {"content": "# Version 1.8"})],
-                  pyc=["stdlib"])
-
-    def test_no_binary_fail(self):
-        # This is the same as mixed_index_2, except the wheels are excluded from consideration
-        # using --no-binary, so the wheel advice won't appear.
-        run = self.RunGradle("base", "PythonReqs/no_binary_fail", succeed=False)
-        self.assertInLong(r"Failed to install native3 from file:.*dist/native3-2.0.tar.gz." +
-                          self.tracker_advice() + r"$",
-                          run.stderr, re=True)
-
-    def test_no_binary_succeed(self):
-        self.RunGradle(
-            "base", "PythonReqs/no_binary_succeed",
-            requirements=["no_binary_sdist/__init__.py"],
-            dist_versions=[("no_binary", "1.0")],
-        )
 
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in

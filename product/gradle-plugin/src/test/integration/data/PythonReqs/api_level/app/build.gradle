@@ -6,8 +6,8 @@ android {
     compileSdk 32
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdk 31
-        targetSdk 32
+        minSdk {{ minSdk }}
+        targetSdk 35
         versionCode 1
         versionName "0.0.1"
         python {
