@@ -22,7 +22,7 @@ runs:
       id: python-default
       shell: bash
       run: |
-        version=$(target/list_versions.py --default)
+        version=$(target/list-versions.py --default)
         (
             if [ $RUNNER_OS = Windows ]; then
                 echo "command=py -$version"
