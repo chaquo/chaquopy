@@ -1,0 +1,17 @@
+--- src-original/setup.py	2024-01-01 00:00:00.000000000 +0000
++++ src/setup.py	2024-01-01 00:00:00.000000000 +0000
+@@ -1,6 +1,12 @@
+ import os
+ import pathlib
+ import sys
+ 
++# Chaquopy: Cython-generated code needs -fPIC for shared libraries on Android.
++# Without this, we get linker errors like "relocation R_AARCH64_ADR_PREL_PG_HI21
++# cannot be used against symbol; recompile with -fPIC"
++if "CFLAGS" in os.environ and "-fPIC" not in os.environ["CFLAGS"]:
++    os.environ["CFLAGS"] += " -fPIC"
++
+ from setuptools import Extension, setup
+ 
+ if sys.version_info < (3, 9):
+
