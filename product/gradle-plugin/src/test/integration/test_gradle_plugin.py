@@ -1022,6 +1022,7 @@ class PythonReqs(GradleTestCase):
             include_dist_info=True)
         run = self.RunGradle("base", "PythonReqs/download_wheel_1", **kwargs)
         self.assertInLong("Downloading " + CHAQUO_URL, run.stdout, re=True)
+
         run.apply_layers("PythonReqs/download_wheel_2")
         common_reqs += (["six.py"] +
                         ["six-1.14.0.dist-info/" + name
@@ -1188,22 +1189,14 @@ class PythonReqs(GradleTestCase):
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
-    # These tests install a package with a native build requirement in its pyproject.toml,
+    # This test installs a package with a native build requirement in its pyproject.toml,
     # which is used to generate the package's version number. This verifies that the build
     # environment is installed for the build platform, not the target platform.
-    PEP517_KWARGS = dict(dist_versions=[("pep517", "2324772522")])
-
-    def test_pep517_default_backend(self):
-        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_default_backend",
-                       **self.PEP517_KWARGS)
-
-    def test_pep517_explicit_backend(self):
-        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_explicit_backend",
-                       **self.PEP517_KWARGS)
-
-    def test_pep517_backend_path(self):
-        self.RunGradle("base", "PythonReqs/pep517", "PythonReqs/pep517_backend_path",
-                       **self.PEP517_KWARGS)
+    def test_native_build_requires(self):
+        self.RunGradle(
+            "base", "PythonReqs/native_build_requires",
+            dist_versions=[("pep517", "2324772522")]
+        )
 
     # An alternative backend, with setuptools not installed in the build environment.
     def test_pep517_hatch(self):
