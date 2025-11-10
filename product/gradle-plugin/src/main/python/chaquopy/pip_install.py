@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from base64 import urlsafe_b64encode
 from collections import namedtuple
 import email.parser
 from fnmatch import fnmatch
@@ -15,7 +16,6 @@ import sys
 from pip._internal.utils.misc import rmtree
 from pip._vendor.distlib.database import DistributionPath
 from pip._vendor.retrying import retry
-from wheel.util import urlsafe_b64encode  # Not the same as the version in base64.
 
 from .util import CommandError
 
@@ -272,8 +272,11 @@ def file_matches_record(filename, hash_str, size):
         return False
     hash_algo, hash_expected = hash_str.split("=")
     with open(filename, "rb") as f:
-        hash_actual = (urlsafe_b64encode(hashlib.new(hash_algo, f.read()).digest())
-                       .decode("ASCII"))
+        hash_actual = (
+            urlsafe_b64encode(hashlib.new(hash_algo, f.read()).digest())
+            .decode("ASCII")
+            .rstrip("=")
+        )
     return hash_actual == hash_expected
 
 
