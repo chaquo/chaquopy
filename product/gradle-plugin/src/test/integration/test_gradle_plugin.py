@@ -1031,26 +1031,44 @@ class PythonReqs(GradleTestCase):
         self.assertInLong("Using cached " + CHAQUO_URL, run.stdout, re=True)
         self.assertInLong("Downloading " + PYPI_URL, run.stdout, re=True)
 
-    # Some sdists with optional native components generate a wheel tagged with the build
-    # platform even when the native components are omitted. This test checks that the wheel is
-    # cached and reused on subsequent runs of pip, even if the ABI is different.
+    # Pure-Python wheels built from sdists should be cached and reused on subsequent
+    # runs of pip, even if the ABI is different.
     def test_download_sdist(self):
-        FILENAME = "PyYAML-3.12.tar.gz"
-        BUILD = "Successfully built PyYAML"
-        REQS = ["yaml/" + name + ".py" for name in
-                ["__init__", "composer", "constructor", "cyaml", "dumper", "emitter", "error",
-                 "events", "loader", "nodes", "parser", "reader", "representer", "resolver",
-                 "scanner", "serializer", "tokens"]]
-        run = self.RunGradle("base", "PythonReqs/download_sdist_1", requirements=REQS)
-        self.assertInLong("Downloading " + FILENAME, run.stdout, re=True)
-        self.assertInLong(BUILD, run.stdout)
+        for package, version, files in [
+            ("six", "1.17.0", ["six.py"]),
 
-        run.apply_layers("PythonReqs/download_sdist_2")
-        run.rerun(requirements=REQS, abis=["armeabi-v7a"])
-        # pip prints lots of detail when it puts a wheel into the cache, but says absolutely
-        # nothing when it takes one out.
-        self.assertNotInLong(FILENAME, run.stdout, re=True)
-        self.assertNotInLong(BUILD, run.stdout)
+            # This package has optional native components, and generates a wheel tagged
+            # with the build platform even when the native components are omitted.
+            ("PyYAML", "3.12",
+             ["yaml/" + name + ".py" for name in [
+                "__init__", "composer", "constructor", "cyaml", "dumper", "emitter",
+                "error", "events", "loader", "nodes", "parser", "reader", "representer",
+                "resolver", "scanner", "serializer", "tokens"
+             ]]),
+        ]:
+            with self.subTest(package):
+                install = f"{package}=={version}"
+                filename = f"{package}-{version}.tar.gz"
+                success = f"Successfully built {package}"
+
+                run = self.RunGradle(
+                    "base", "PythonReqs/download_sdist",
+                    context={"install": install, "abi": "arm64-v8a"},
+                    requirements=files, abis=["arm64-v8a"]
+                )
+                self.assertInStdout(f"Downloading {filename}", run, re=True)
+                self.assertInStdout(success, run)
+
+                run.rerun(
+                    "PythonReqs/download_sdist",
+                    context={"install": install, "abi": "x86_64"},
+                    requirements=files, abis=["x86_64"]
+                )
+
+                # pip prints lots of detail when it puts a wheel into the cache, but
+                # says absolutely nothing when it takes one out.
+                self.assertNotInLong(filename, run.stdout, re=True)
+                self.assertNotInLong(success, run.stdout)
 
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
     # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.

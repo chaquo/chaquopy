@@ -12,11 +12,12 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "PyYAML==3.12"
+                install "{{ install }}"
+                options "--no-binary", ":all:"
             }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "{{ abi }}"
         }
     }
 }
