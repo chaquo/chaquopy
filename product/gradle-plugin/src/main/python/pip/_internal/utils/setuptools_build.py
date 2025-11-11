@@ -44,7 +44,7 @@ def make_setuptools_shim_args(
     from pip._vendor.packaging import markers
     chaquopy_monkey = (
         "import chaquopy_monkey; chaquopy_monkey.disable_native()"
-        if markers.python_version_info  # We're not a recursive PEP517 pip instance.
+        if sys.platform == "android"  # We're not a recursive PEP517 pip instance.
         else "pass"
     )
     args.extend(['-c', _SETUPTOOLS_SHIM.format(setup_py_path,

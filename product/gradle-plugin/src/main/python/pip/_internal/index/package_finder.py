@@ -531,23 +531,6 @@ class CandidateEvaluator(object):
                 )
             if self._prefer_binary:
                 binary_preference = 1
-
-            # Chaquopy: prefer older native wheels over sdists. We can't simply use
-            # --prefer-binary, because there are some pure-Python packages on PyPI which have
-            # wheels for old versions (sometimes years old) but only sdists for newer ones.
-            #
-            # Older native wheels must also be preferred over newer pure-Python wheels. For
-            # example, soundfile is a pure-Python package, but we've released it as a native
-            # wheel in order to add a requirement on libsndfile.
-            #
-            # Even if we didn't have any packages like this, consider a stuation with native
-            # 1.5, pure 1.6 and sdist 1.7. If pure 1.6 is preferred over native 1.5, and native
-            # 1.5 is preferred over sdist 1.7, then for the ordering to be consistent, pure 1.6
-            # must be preferred over sdist 1.7, which was exactly the situation we wanted to
-            # avoid.
-            if wheel.plats != ["any"]:
-                binary_preference = 2  # Override --prefer-binary if the user specified it.
-
             pri = -(wheel.support_index_min(valid_tags))
             if wheel.build_tag is not None:
                 match = re.match(r'^(\d+)(.*)$', wheel.build_tag)

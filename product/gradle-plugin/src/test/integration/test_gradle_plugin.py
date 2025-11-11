@@ -1487,9 +1487,10 @@ class PythonReqs(GradleTestCase):
                                 "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"],
                   pyc=["stdlib"])
 
-    @skipIf("linux" in sys.platform, "Non-Linux build platforms only")
     def test_marker_platform(self):
-        self.RunGradle("base", "PythonReqs/marker_platform", requirements=["linux.py"])
+        self.RunGradle(
+            "base", "PythonReqs/marker_platform", requirements=["android.py"]
+        )
 
     def tracker_advice(self):
         return ("\nFor assistance, please raise an issue at "

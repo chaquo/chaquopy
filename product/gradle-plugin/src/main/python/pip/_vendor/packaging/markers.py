@@ -272,9 +272,6 @@ def format_full_version(info):
         version += kind[0] + str(info.serial)
     return version
 
-# Chaquopy: when installing for the target platform, this variable is set in
-# cli/cmdoptions.py.
-python_version_info = None
 
 def default_environment():
     # type: () -> Dict[str, str]
@@ -287,23 +284,6 @@ def default_environment():
     else:
         iver = "0"
         implementation_name = ""
-
-    # Chaquopy: in the top-level pip instance (as opposed to a recursive PEP517 instance),
-    # we should use markers of the target platform.
-    if python_version_info:
-        return {
-            "implementation_name": "cpython",
-            "implementation_version": ".".join(str(x) for x in python_version_info),
-            "os_name": "posix",
-            "platform_machine": "",  # Not needed yet.
-            "platform_release": "",
-            "platform_system": "Linux",
-            "platform_version": "",
-            "python_full_version": ".".join(str(x) for x in python_version_info),
-            "platform_python_implementation": "CPython",
-            "python_version": ".".join(str(x) for x in python_version_info[:2]),
-            "sys_platform": "linux",
-        }
 
     return {
         "implementation_name": implementation_name,

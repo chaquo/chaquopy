@@ -117,7 +117,8 @@ class BuildEnvironment(object):
             shutil.copy(join(dirname(pip_location), "../chaquopy_monkey.py"),
                         self._site_dir)
             from pip._vendor.packaging import markers
-            if markers.python_version_info:
+            if sys.platform == "android":
+                # We're a top-level pip process, not a recursive PEP517 pip instance.
                 fp.write(textwrap.dedent(
                     '''
                     import chaquopy_monkey
