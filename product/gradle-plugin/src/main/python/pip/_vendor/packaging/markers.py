@@ -272,6 +272,9 @@ def format_full_version(info):
         version += kind[0] + str(info.serial)
     return version
 
+# Chaquopy: when installing for the target platform, this variable is set in
+# cli/cmdoptions.py.
+android_platform = None
 
 def default_environment():
     # type: () -> Dict[str, str]
@@ -284,6 +287,34 @@ def default_environment():
     else:
         iver = "0"
         implementation_name = ""
+
+    # Chaquopy: in the top-level pip instance (as opposed to a recursive PEP517 instance),
+    # we should use markers of the target platform.
+    if android_platform:
+        import re
+        api_level, abi = re.fullmatch(r"android_(\d+)_(.+)", android_platform).groups()
+        machine = {
+            "x86_64": "x86_64",
+            "x86": "i686",
+            "arm64_v8a": "aarch64",
+            "armeabi_v7a": "armv7l",
+        }[abi]
+
+        # The Android Python major.minor version is guaranteed to be the same as the
+        # copy of Python running pip, and the micro version is unlikely to matter.
+        return {
+            "implementation_name": "cpython",
+            "implementation_version": platform.python_version(),
+            "os_name": "posix",
+            "platform_machine": machine,
+            "platform_release": "",  # Non-trivial to determine from the API level.
+            "platform_system": "Linux" if sys.version_info < (3, 13) else "Android",
+            "platform_version": "",  # Non-trivial to determine from the API level.
+            "python_full_version": platform.python_version(),
+            "platform_python_implementation": "CPython",
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
+            "sys_platform": "linux" if sys.version_info < (3, 13) else "android",
+        }
 
     return {
         "implementation_name": implementation_name,

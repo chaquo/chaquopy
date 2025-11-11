@@ -19,13 +19,6 @@ from pip._vendor.retrying import retry
 
 from .util import CommandError
 
-ABIS = {
-    "armeabi-v7a": "arm-linux-androideabi",
-    "arm64-v8a": "aarch64-linux-android",
-    "x86": "i686-linux-android",
-    "x86_64": "x86_64-linux-android",
-}
-
 
 # Files which aren't needed at runtime should be omitted from the APK.
 EXCLUDE_PATTERNS = [
@@ -107,6 +100,9 @@ class PipInstall(object):
             return [], {}
 
         try:
+            # Disable all config files (https://github.com/pypa/pip/issues/3828).
+            os.environ["PIP_CONFIG_FILE"] = os.devnull
+
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = [
@@ -116,6 +112,7 @@ class PipInstall(object):
                 "--no-compile",  # Compilation is handled in PythonTasks.kt.
                 "--isolated",  # Disable environment variables.
                 "--target", abi_dir,
+                "--platform", self.platform_tag(abi)
             ] + (
                 # If the user passes a custom index url, disable our repository as well
                 # as the default one.
@@ -126,15 +123,8 @@ class PipInstall(object):
                 self.pip_options + reqs
             )
 
-            extra_env = {
-                "ANDROID_API_LEVEL": str(self.min_api_level),
-                "CIBW_HOST_TRIPLET": ABIS[abi],
-                "PIP_CONFIG_FILE": os.devnull  # https://github.com/pypa/pip/issues/3828
-            }
-
-            logger.debug(f"Running {cmdline} with {extra_env}")
-            subprocess.check_call(cmdline, env={**os.environ, **extra_env})
-
+            logger.debug("Running {}".format(cmdline))
+            subprocess.check_call(cmdline)
         except subprocess.CalledProcessError as e:
             raise CommandError("Exit status {}".format(e.returncode))
 
@@ -218,6 +208,9 @@ class PipInstall(object):
         else:
             renames(abi_filename, common_filename)
 
+    def platform_tag(self, abi):
+        return "android_{}_{}".format(self.min_api_level, re.sub(r"[-.]", "_", abi))
+
     def parse_args(self):
         class ReqFileAppend(argparse.Action):
             def __call__(self, parser, namespace, value, option_string=None):
@@ -227,10 +220,7 @@ class PipInstall(object):
         # We use realpath to match distlib: see https://github.com/chaquo/chaquopy/issues/468
         # and https://bitbucket.org/pypa/distlib/src/0.2.7/distlib/resources.py#lines-135
         ap.add_argument("--target", metavar="DIR", type=realpath, required=True)
-        ap.add_argument(
-            "--android-abis", metavar="ABI", nargs="+", choices=list(ABIS),
-            required=True
-        )
+        ap.add_argument("--android-abis", metavar="ABI", nargs="+", required=True)
         ap.add_argument("--min-api-level", metavar="LEVEL", type=int, required=True)
 
         # Passing the requirements this way ensures their order is maintained on the pip install

@@ -779,44 +779,6 @@ def _manylinux_tags(linux, arch):
                     yield linux.replace("linux", legacy_tag)
 
 
-# Chaquopy: backported from https://github.com/pypa/packaging/pull/880
-def android_platforms(
-    api_level: int | None = None, abi: str | None = None
-):
-    """
-    Yields the :attr:`~Tag.platform` tags for Android. If this function is invoked on
-    non-Android platforms, the ``api_level`` and ``abi`` arguments are required.
-
-    :param int api_level: The maximum `API level
-        <https://developer.android.com/tools/releases/platforms>`__ to return. Defaults
-        to the current system's version, as returned by ``platform.android_ver``.
-    :param str abi: The `Android ABI <https://developer.android.com/ndk/guides/abis>`__,
-        e.g. ``arm64_v8a``. Defaults to the current system's ABI , as returned by
-        ``sysconfig.get_platform``. Hyphens and periods will be replaced with
-        underscores.
-    """
-    if platform.system() != "Android" and (api_level is None or abi is None):
-        raise TypeError(
-            "on non-Android platforms, the api_level and abi arguments are required"
-        )
-
-    if api_level is None:
-        # Python 3.13 was the first version to return platform.system() == "Android",
-        # and also the first version to define platform.android_ver().
-        api_level = platform.android_ver().api_level  # type: ignore[attr-defined]
-
-    if abi is None:
-        abi = sysconfig.get_platform().split("-")[-1]
-    abi = _normalize_string(abi)
-
-    # 16 is the minimum API level known to have enough features to support CPython
-    # without major patching. Yield every API level from the maximum down to the
-    # minimum, inclusive.
-    min_api_level = 16
-    for ver in range(api_level, min_api_level - 1, -1):
-        yield f"android_{ver}_{abi}"
-
-
 def _linux_platforms(is_32bit=_32_BIT_INTERPRETER):
     # type: (bool) -> Iterator[str]
     linux = _normalize_string(distutils.util.get_platform())
@@ -844,9 +806,6 @@ def _platform_tags():
     """
     if platform.system() == "Darwin":
         return mac_platforms()
-    # Chaquopy: backported from https://github.com/pypa/packaging/pull/880
-    elif platform.system() == "Android":
-        return android_platforms()
     elif platform.system() == "Linux":
         return _linux_platforms()
     else:

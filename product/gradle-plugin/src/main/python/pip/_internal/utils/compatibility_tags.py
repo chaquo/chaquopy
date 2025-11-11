@@ -82,6 +82,12 @@ def _get_custom_platforms(arch):
     arch_prefix, arch_sep, arch_suffix = arch.partition('_')
     if arch.startswith('macosx'):
         arches = _mac_platforms(arch)
+    elif arch_prefix == "android":  # Chaquopy
+        # The minimum API level of the app is the maximum API level tag we accept.
+        min_api_level, _, android_abi = arch_suffix.partition("_")
+        arches = []
+        for api_level in reversed(range(int(min_api_level) + 1)):
+            arches.append("_".join([arch_prefix, str(api_level), android_abi]))
     elif arch_prefix in ['manylinux2014', 'manylinux2010']:
         arches = _custom_manylinux_platforms(arch)
     else:
