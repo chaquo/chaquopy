@@ -193,3 +193,18 @@ do the following:
    * Any other repositories referenced from tools/base/.idea/modules.xml.
 * Copy files from tools/buildSrc as indicated in the manifest.
 * Open tools/base as a project in IDEA.
+
+
+## Updating pip
+
+Check out the upstream-pip branch.
+
+Delete pip from src/main/python, including the .dist-info directory.
+
+Download the wheel of the new version, and unpack it into src/main/python.
+
+Commit to upstream-pip, then merge to master.
+
+Run all integration tests.
+
+When finished, don't forget to push the upstream-pip branch.
