@@ -300,6 +300,10 @@ def default_environment():
             "armeabi_v7a": "armv7l",
         }[abi]
 
+        # For consistency with pip running on Termux, match the value returned when
+        # actually running on Android.
+        sys_platform = "linux" if sys.version_info < (3, 13) else "android"
+
         # The Android Python major.minor version is guaranteed to be the same as the
         # copy of Python running pip, and the micro version is unlikely to matter.
         return {
@@ -308,12 +312,12 @@ def default_environment():
             "os_name": "posix",
             "platform_machine": machine,
             "platform_release": "",  # Non-trivial to determine from the API level.
-            "platform_system": "Linux" if sys.version_info < (3, 13) else "Android",
+            "platform_system": sys_platform.capitalize(),
             "platform_version": "",  # Non-trivial to determine from the API level.
             "python_full_version": platform.python_version(),
             "platform_python_implementation": "CPython",
             "python_version": ".".join(platform.python_version_tuple()[:2]),
-            "sys_platform": "linux" if sys.version_info < (3, 13) else "android",
+            "sys_platform": sys_platform,
         }
 
     return {

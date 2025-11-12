@@ -13,7 +13,6 @@ android {
         python {
             pip {
                 install "{{ install }}"
-                options "--no-binary", ":all:"
             }
         }
         ndk {

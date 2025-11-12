@@ -1000,11 +1000,13 @@ class PythonReqs(GradleTestCase):
                                abis=["x86_64"],
                                pyc=["stdlib"])
 
+    CHAQUO_REQUIREMENT = "murmurhash==0.28.0"
+
     def test_download_wheel(self):
         # Our current version of pip shows the full URL for custom indexes, but only
         # the filename for PyPI.
-        CHAQUO_URL = (r"https://chaquo.com/pypi-13.1/murmurhash/"
-                      r"murmurhash-0.28.0-7-cp310-cp310-android_16_x86.whl")
+        CHAQUO_URL = ("https://chaquo.com/pypi-13.1/murmurhash/"
+                      "murmurhash-0.28.0-7-cp310-cp310-android_16_x86.whl")
         PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
 
         common_reqs = (["murmurhash/" + name for name in
@@ -1017,25 +1019,27 @@ class PythonReqs(GradleTestCase):
                         ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
         abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
         kwargs = dict(
+            context={"install": self.CHAQUO_REQUIREMENT},
             abis=["armeabi-v7a", "x86"],
             requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs},
             include_dist_info=True)
         run = self.RunGradle("base", "PythonReqs/download_wheel_1", **kwargs)
-        self.assertInLong("Downloading " + CHAQUO_URL, run.stdout, re=True)
+        self.assertInLong("Downloading " + CHAQUO_URL, run.stdout)
 
-        run.apply_layers("PythonReqs/download_wheel_2")
         common_reqs += (["six.py"] +
                         ["six-1.14.0.dist-info/" + name
                          for name in ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
-        run.rerun(**kwargs)
-        self.assertInLong("Using cached " + CHAQUO_URL, run.stdout, re=True)
-        self.assertInLong("Downloading " + PYPI_URL, run.stdout, re=True)
+        run.rerun("PythonReqs/download_wheel_2", **kwargs)
+        self.assertInLong("Using cached " + CHAQUO_URL, run.stdout)
+        self.assertInLong("Downloading " + PYPI_URL, run.stdout)
 
     # Pure-Python wheels built from sdists should be cached and reused on subsequent
     # runs of pip, even if the ABI is different.
     def test_download_sdist(self):
         for package, version, files in [
-            ("six", "1.17.0", ["six.py"]),
+            # Use the last version of six which doesn't have a wheel on PyPI. We can't
+            # simply use --no-binary, because that disables the wheel cache completely.
+            ("six", "1.4.1", ["six.py"]),
 
             # This package has optional native components, and generates a wheel tagged
             # with the build platform even when the native components are omitted.
@@ -1067,7 +1071,7 @@ class PythonReqs(GradleTestCase):
 
                 # pip prints lots of detail when it puts a wheel into the cache, but
                 # says absolutely nothing when it takes one out.
-                self.assertNotInLong(filename, run.stdout, re=True)
+                self.assertNotInLong(filename, run.stdout)
                 self.assertNotInLong(success, run.stdout)
 
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
@@ -1281,7 +1285,8 @@ class PythonReqs(GradleTestCase):
     def test_index_url(self):
         kwargs = dict(requirements=["six.py"])
 
-        # With a file: URL, pip looks for an index.html file, and ignores all other files.
+        # With a file: URL, pip looks for an index.html file, and uses only the links
+        # it finds there.
         run = self.RunGradle("base", "PythonReqs/index_url_file",
                              dist_versions=[("six", "1.12.0")], **kwargs)
 
@@ -1291,8 +1296,22 @@ class PythonReqs(GradleTestCase):
                   dist_versions=[("six", "1.14.0")], **kwargs)
 
         # For completeness, check an HTTP index URL as well.
-        run.rerun("PythonReqs/index_url_http",
-                  dist_versions=[("six", "1.16.0")], **kwargs)
+        run.rerun(
+            "PythonReqs/index_url_http",
+            context={"install": "six<=1.16.0"},
+            dist_versions=[("six", "1.16.0")],
+            abis=["armeabi-v7a", "x86"],
+            **kwargs,
+        )
+
+        # If the user passes a custom index URL, disable our repository as well
+        # as the default one.
+        run.rerun(
+            "PythonReqs/index_url_http",
+            context={"install": self.CHAQUO_REQUIREMENT},
+            succeed=False,
+        )
+        self.assertInStderr(f"Failed to install {self.CHAQUO_REQUIREMENT}", run)
 
     def test_wheel_index(self):
         # This test has build platform wheels for version 0.2, and an Android wheel for version
@@ -1506,9 +1525,32 @@ class PythonReqs(GradleTestCase):
                   pyc=["stdlib"])
 
     def test_marker_platform(self):
-        self.RunGradle(
-            "base", "PythonReqs/marker_platform", requirements=["android.py"]
-        )
+        run = self.RunGradle("base", run=False)
+        for python_version, platform in [("3.12", "linux"), ("3.13", "android")]:
+            with self.subTest(python_version):
+                run.rerun(
+                    "PythonReqs/marker_platform",
+                    context={"pythonVersion": python_version},
+                    python_version=python_version,
+                    abis=["x86_64"],
+                    requirements=[
+                        f"{platform}_ps.py",
+                        f"{platform}_sp.py",
+                        "posix.py",
+                        f"py{python_version.replace('.', '')}.py",
+                    ],
+                )
+
+    def test_marker_machine(self):
+        run = self.RunGradle("base", run=False)
+        for abi, machine in [("arm64-v8a", "aarch64"), ("x86_64", "x86_64")]:
+            with self.subTest(abi):
+                run.rerun(
+                    "PythonReqs/marker_machine",
+                    context={"abi": abi},
+                    abis=[abi],
+                    requirements=[f"{machine}.py"],
+                )
 
     def tracker_advice(self):
         return ("\nFor assistance, please raise an issue at "
@@ -1918,9 +1960,11 @@ class RunGradle(object):
             "3.13": 3571,
         }
         with zip_file.open(pyc_filename) as pyc_file:
+            magic_actual = pyc_file.read(2)
             self.test.assertEqual(
-                MAGIC[kwargs["python_version"]].to_bytes(2, "little") + b"\r\n",
-                pyc_file.read(4))
+                int.from_bytes(magic_actual, "little"),
+                MAGIC[kwargs["python_version"]],
+            )
 
     def check_lib(self, lib_dir, kwargs):
         python_version = kwargs["python_version"]
