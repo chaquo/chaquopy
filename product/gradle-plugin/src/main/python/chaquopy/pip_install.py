@@ -3,18 +3,19 @@
 import argparse
 from base64 import urlsafe_b64encode
 from collections import namedtuple
+import csv
 import email.parser
 from fnmatch import fnmatch
 import hashlib
 import logging.config
 import os
-from os.path import abspath, basename, dirname, exists, isdir, join, realpath, relpath
+from os.path import abspath, dirname, exists, isdir, join, realpath, relpath
+from pathlib import Path
 import re
 import subprocess
 import sys
 
 from pip._internal.utils.misc import rmtree
-from pip._vendor.distlib.database import DistributionPath
 from pip._vendor.retrying import retry
 
 from .util import CommandError
@@ -56,21 +57,27 @@ class PipInstall(object):
             # Move .dist-info directories to common as well, but remove any files which may
             # be ABI-specific.
             for ri in req_infos:
-                common_path = join(self.target, "common", basename(ri.dist.path))
-                renames(ri.dist.path, common_path)
+                common_path = join(self.target, "common", ri.dist_info.name)
+                renames(ri.dist_info, common_path)
                 for name in ["installed-files.txt", "RECORD", "WHEEL"]:
                     abs_name = join(common_path, name)
                     if exists(abs_name):
                         os.remove(abs_name)
 
             # Install native requirements for the other ABIs.
-            native_reqs = ["{}=={}".format(ri.dist.name, ri.dist.version)
-                           for ri in req_infos if not ri.is_pure]
+            native_reqs = []
+            for ri in req_infos:
+                if not ri.is_pure:
+                    name, version = re.fullmatch(
+                        r"(.+)-(.+)\.dist-info", ri.dist_info.name
+                    ).groups()
+                    native_reqs.append(f"{name.replace('_', '-')}=={version}")
+
             self.pip_options.append("--no-deps")
             for abi in self.android_abis[1:]:
                 req_infos, abi_trees[abi] = self.pip_install(abi, native_reqs)
                 for ri in req_infos:
-                    rmtree(ri.dist.path)
+                    rmtree(ri.dist_info)
 
             self.merge_common(abi_trees)
             logger.debug("Finished")
@@ -131,18 +138,21 @@ class PipInstall(object):
         logger.debug("Scanning distributions")
         req_infos = []
         abi_tree = {}
-        for dist in DistributionPath([abi_dir], include_egg=True).get_distributions():
+
+        # We used to use distlib to parse the dist-info, but it's too strict about
+        # validating the METADATA file, even though we don't use that file.
+        for dist_info in Path(abi_dir).glob("*.dist-info"):
             try:
-                wheel_filename = join(dist.path, "WHEEL")
-                if exists(wheel_filename):
-                    wheel_info = email.parser.Parser().parse(open(wheel_filename))
-                    is_pure = (wheel_info.get("Root-Is-Purelib", "false") == "true")
-                else:
-                    is_pure = True  # Anything installed from an sdist must be pure.
+                wheel_info = email.parser.Parser().parse((dist_info / "WHEEL").open())
+                is_pure = wheel_info.get("Root-Is-Purelib", "false") == "true"
 
                 req_tree = {}
-                for path, hash_str, size_str in dist.list_installed_files():
-                    # path is relative to abi_dir with dist-info, or absolute with egg-info.
+                for row in csv.reader((dist_info / "RECORD").open()):
+                    row += [None] * (len(row) - 3)
+                    path, hash_str, size_str = row
+
+                    # The path may be either absolute, or relative to the directory
+                    # containing the .dist-info directory.
                     path_abs = abspath(join(abi_dir, path))
                     if not path_abs.startswith(abi_dir):
                         # pip's gone and installed something outside of the target directory.
@@ -151,7 +161,7 @@ class PipInstall(object):
 
                     if any(fnmatch(path, pattern) for pattern in EXCLUDE_PATTERNS):
                         remove(path_abs, remove_empty_dirs=True)
-                    elif path_abs.startswith(dist.path):
+                    elif Path(path_abs).is_relative_to(dist_info):
                         pass
                     else:
                         value = (hash_str, int(size_str))
@@ -167,10 +177,10 @@ class PipInstall(object):
                                 continue
                         tree_add_path(req_tree, path, value)
 
-                req_infos.append(ReqInfo(dist, req_tree, is_pure))
+                req_infos.append(ReqInfo(dist_info, req_tree, is_pure))
 
             except Exception:
-                logger.error("Failed to process " + dist.path)
+                logger.error("Failed to process " + dist_info)
                 raise
 
         return req_infos, abi_tree
@@ -234,7 +244,7 @@ class PipInstall(object):
         ap.parse_args(namespace=self)
 
 
-ReqInfo = namedtuple("ReqInfo", ["dist", "tree", "is_pure"])
+ReqInfo = namedtuple("ReqInfo", ["dist_info", "tree", "is_pure"])
 
 
 def tree_add_path(tree, path, value, force=False):

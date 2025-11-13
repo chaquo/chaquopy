@@ -177,10 +177,10 @@ class GradleTestCase(TestCase):
             for info in zip_file.infolist():
                 with self.subTest(filename=info.filename):
                     self.assertEqual((1980, 2, 1, 0, 0, 0), info.date_time)
-                    di_match = re.match(r"(.+)-(.+)\.(dist|egg)-info$",
-                                        info.filename.split("/")[0])
-                    if di_match:
-                        actual_dist_versions.add(di_match.groups()[:2])
+                    if di_match := re.fullmatch(
+                        r"(.+)-(.+)\.dist-info", info.filename.split("/")[0]
+                    ):
+                        actual_dist_versions.add(di_match.groups())
                         if not include_dist_info:
                             continue
                     if not info.filename.endswith("/"):
