@@ -1,6 +1,6 @@
 package:
   name: cryptography
-  version: "46.0.3"
+  version: "46.0.0"
 
 build:
   script_env:
