@@ -110,12 +110,17 @@ def check_dist_restriction(options, check_target=False):
         not options.ignore_dependencies
     )
 
+    # Chaquopy: make environment markers simulate Android.
+    if options.platform:
+        from pip._vendor.packaging import markers
+        markers.android_platform = options.platform
+
     # Installations or downloads using dist restrictions must not combine
     # source distributions and dist-specific wheels, as they are not
     # guaranteed to be locally compatible.
     #
-    # Chaquopy: added False to disable this restriction. It's safe for us to run source
-    # distributions, because chaquopy_monkey ensures they fail immediately if they
+    # Chaquopy: added False to disable this restriction. It's safe for us to run
+    # source distributions, as long as we ensure they fail immediately if they
     # try to build anything native.
     if False and dist_restriction_set and sdist_dependencies_allowed:
         raise CommandError(
@@ -553,10 +558,6 @@ def _handle_python_version(option, opt_str, value, parser):
         raise_option_error(parser, option=option, msg=msg)
 
     parser.values.python_version = version_info
-
-    # Chaquopy: make environment markers use the correct Python version.
-    from pip._vendor.packaging import markers
-    markers.python_version_info = version_info
 
 
 python_version = partial(

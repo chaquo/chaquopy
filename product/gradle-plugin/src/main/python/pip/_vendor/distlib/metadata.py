@@ -288,11 +288,7 @@ class LegacyMetadata(object):
             self.set_metadata_version()
 
     def set_metadata_version(self):
-        # Chaquopy: disable the over-strict validation in _best_version when reading an
-        # existing metadata file (https://github.com/dateutil/dateutil/issues/720). If pip can
-        # install it, then we should be able to process it.
-        if 'Metadata-Version' not in self._fields:
-            self._fields['Metadata-Version'] = _best_version(self._fields)
+        self._fields['Metadata-Version'] = _best_version(self._fields)
 
     def _write_field(self, fileobj, name, value):
         fileobj.write('%s: %s\n' % (name, value))
@@ -538,11 +534,9 @@ class LegacyMetadata(object):
             msg = 'missing required metadata: %s' % ', '.join(missing)
             raise MetadataMissingError(msg)
 
-        # Chaquopy disabled: no point logging a warning for things which aren't required.
-        if False:
-            for attr in ('Home-page', 'Author'):
-                if attr not in self:
-                    missing.append(attr)
+        for attr in ('Home-page', 'Author'):
+            if attr not in self:
+                missing.append(attr)
 
         # checking metadata 1.2 (XXX needs to check 1.1, 1.0)
         if self['Metadata-Version'] != '1.2':

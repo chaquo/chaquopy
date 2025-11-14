@@ -1,5 +1,6 @@
 name: CI
 on:
+  pull_request:
   push:
     branches: [master]
 
@@ -12,7 +13,6 @@ defaults:
     shell: bash
 
 jobs:
-
   product:
     runs-on: ubuntu-22.04
     steps:
@@ -137,6 +137,7 @@ jobs:
           path: maven
 
       - name: Get keystore
+        if: github.event_name != 'pull_request'
         env:
           CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |

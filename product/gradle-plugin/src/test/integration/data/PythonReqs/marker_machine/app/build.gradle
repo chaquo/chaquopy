@@ -12,12 +12,12 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "{{ install }}"  // From chaquo.com
-                install "six==1.14.0"  // From PyPI
+                install "aarch64-1.0-py2.py3-none-any.whl; platform_machine == 'aarch64'"
+                install "x86_64-1.0-py2.py3-none-any.whl; platform_machine == 'x86_64'"
             }
         }
         ndk {
-            abiFilters "armeabi-v7a", "x86"
+            abiFilters "{{ abi }}"
         }
     }
 }

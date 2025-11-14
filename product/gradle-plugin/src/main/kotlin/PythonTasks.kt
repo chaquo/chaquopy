@@ -227,25 +227,6 @@ internal class TaskBuilder(
                 args("--min-api-level", variant.minSdkVersion.apiLevel)
                 args(reqsArgs)
                 args("--")
-                args("--disable-pip-version-check")
-
-                // If the user passes  a custom index url, disable our repository as
-                // well as the default one.
-                if (!listOf("--index-url", "-i").any {
-                        it in python.pip.options
-                    }) {
-                    args("--extra-index-url", "https://chaquo.com/pypi-13.1")
-                }
-
-                // Pass the full Python version, but without any pre-release segment.
-                args("--implementation", Common.PYTHON_IMPLEMENTATION)
-                args("--python-version",
-                     """\d+\.\d+\.\d+""".toRegex()
-                         .find(pythonVersionInfo(python).key)!!.value)
-                args("--abi",
-                     Common.PYTHON_IMPLEMENTATION + python.version!!.replace(".", ""))
-
-                args("--no-compile")
                 args(python.pip.options)
             }
             inputs.property("args", args)

@@ -1,0 +1,1 @@
+When running pip, older Android wheels are no longer preferred over newer pure-Python wheels. All wheels are still preferred over sdists.

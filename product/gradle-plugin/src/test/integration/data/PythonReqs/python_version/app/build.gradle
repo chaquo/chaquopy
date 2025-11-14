@@ -15,7 +15,7 @@ android {
             pip {
                 options "--find-links", "${System.getenv('integration_dir')}/packages/dist"
                 install "apple==0.0.1"  // wheel
-                install "no_binary==1.0"  // sdist
+                install "no_binary==1.0"  // sdist (wheel of later version is ignored)
                 install "six==1.16.0"  // PyPI download
             }
             pyc {

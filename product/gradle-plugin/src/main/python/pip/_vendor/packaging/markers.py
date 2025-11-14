@@ -274,7 +274,7 @@ def format_full_version(info):
 
 # Chaquopy: when installing for the target platform, this variable is set in
 # cli/cmdoptions.py.
-python_version_info = None
+android_platform = None
 
 def default_environment():
     # type: () -> Dict[str, str]
@@ -290,19 +290,34 @@ def default_environment():
 
     # Chaquopy: in the top-level pip instance (as opposed to a recursive PEP517 instance),
     # we should use markers of the target platform.
-    if python_version_info:
+    if android_platform:
+        import re
+        api_level, abi = re.fullmatch(r"android_(\d+)_(.+)", android_platform).groups()
+        machine = {
+            "x86_64": "x86_64",
+            "x86": "i686",
+            "arm64_v8a": "aarch64",
+            "armeabi_v7a": "armv7l",
+        }[abi]
+
+        # For consistency with pip running on Termux, match the value returned when
+        # actually running on Android.
+        sys_platform = "linux" if sys.version_info < (3, 13) else "android"
+
+        # The Android Python major.minor version is guaranteed to be the same as the
+        # copy of Python running pip, and the micro version is unlikely to matter.
         return {
             "implementation_name": "cpython",
-            "implementation_version": ".".join(str(x) for x in python_version_info),
+            "implementation_version": platform.python_version(),
             "os_name": "posix",
-            "platform_machine": "",  # Not needed yet.
-            "platform_release": "",
-            "platform_system": "Linux",
-            "platform_version": "",
-            "python_full_version": ".".join(str(x) for x in python_version_info),
+            "platform_machine": machine,
+            "platform_release": "",  # Non-trivial to determine from the API level.
+            "platform_system": sys_platform.capitalize(),
+            "platform_version": "",  # Non-trivial to determine from the API level.
+            "python_full_version": platform.python_version(),
             "platform_python_implementation": "CPython",
-            "python_version": ".".join(str(x) for x in python_version_info[:2]),
-            "sys_platform": "linux",
+            "python_version": ".".join(platform.python_version_tuple()[:2]),
+            "sys_platform": sys_platform,
         }
 
     return {
