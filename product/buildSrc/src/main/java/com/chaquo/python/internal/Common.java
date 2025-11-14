@@ -13,7 +13,7 @@ public class Common {
     // This should match api_level in target/android-env.sh.
     public static final int MIN_SDK_VERSION = 24;
 
-    public static final int COMPILE_SDK_VERSION = 34;
+    public static final int COMPILE_SDK_VERSION = 36;
 
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
