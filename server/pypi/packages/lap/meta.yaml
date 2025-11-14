@@ -1,0 +1,7 @@
+package:
+  name: lap
+  version: "0.5.12"
+
+requirements:
+  build:
+    - numpy 1.26.2
