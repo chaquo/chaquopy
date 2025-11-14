@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# Do this as early as possible to minimize the chance of something else going wrong and causing
-# a less comprehensible error message.
-from .util import check_build_python
-check_build_python()
-
 import argparse
 from collections import namedtuple
 import email.parser
@@ -111,9 +106,6 @@ class PipInstall(object):
             # Warning: `pip install --target` is very simple-minded: see
             # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = ([sys.executable,
-                       "-S",  # Avoid interference from site-packages. This is not inherited
-                              # by subprocesses, so it's used again in pip (see wheel.py and
-                              # req_install.py).
                         "-m", "pip", "install",
                         "--isolated",  # Disables environment variables.
                         "--target", abi_dir,
@@ -295,8 +287,8 @@ def remove(path, remove_empty_dirs=False):
             pass  # Directory is not empty.
 
 
-# Saw intermittent "Access is denied" errors on Windows (#5425), so use the same strategy as
-# pip does for rmtree.
+# Saw intermittent "Access is denied" errors on Windows, probably caused by interference
+# from a virus scanner, so use the same retry mechanism as pip does for rmtree.
 @retry(wait_fixed=50, stop_max_delay=3000)
 def renames(src, dst):
     os.renames(src, dst)

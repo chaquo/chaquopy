@@ -1,33 +1,27 @@
-diff -ur src-original/deps/c-ares/src/ares_init.c src/deps/c-ares/src/ares_init.c
---- src-original/deps/c-ares/src/ares_init.c	2017-07-20 20:58:08.000000000 +0000
-+++ src/deps/c-ares/src/ares_init.c	2018-11-02 19:21:56.958390429 +0000
-@@ -1812,14 +1821,14 @@
-     channel->ednspsz = EDNSPACKETSZ;
- 
-   if (channel->nservers == -1) {
--    /* If nobody specified servers, try a local named. */
-+    /* Chaquopy: default to the Google public DNS server. */
-     channel->servers = ares_malloc(sizeof(struct server_state));
-     if (!channel->servers) {
-       rc = ARES_ENOMEM;
-       goto error;
+--- src-original/deps/c-ares/src/lib/ares_init.c	2025-09-09 11:44:31.000000000 +0000
++++ src/deps/c-ares/src/lib/ares_init.c	2025-11-06 12:30:24.226925534 +0000
+@@ -155,7 +155,11 @@
      }
-     channel->servers[0].addr.family = AF_INET;
--    channel->servers[0].addr.addrV4.s_addr = htonl(INADDR_LOOPBACK);
-+    channel->servers[0].addr.addrV4.s_addr = htonl(0x08080808);  /* Chaquopy: 8.8.8.8 */
-     channel->servers[0].addr.udp_port = 0;
-     channel->servers[0].addr.tcp_port = 0;
-     channel->nservers = 1;
-diff -ur src-original/deps/c-ares/src/config_linux/ares_config.h src/deps/c-ares/src/config_linux/ares_config.h
---- src-original/deps/c-ares/src/config_linux/ares_config.h	2014-03-25 22:40:32.000000000 +0000
-+++ src/deps/c-ares/src/config_linux/ares_config.h	2018-09-28 14:10:40.255767897 +0000
-@@ -116,7 +117,8 @@
- #define HAVE_GETNAMEINFO 1
  
- /* Define to 1 if you have the getservbyport_r function. */
--#define HAVE_GETSERVBYPORT_R 1
-+/* Chaquopy: removed */
-+/* #define HAVE_GETSERVBYPORT_R 1 */
+     addr.family            = AF_INET;
+-    addr.addr.addr4.s_addr = htonl(INADDR_LOOPBACK);
++
++    // Chaquopy: changed INADDR_LOOPBACK to the Google public DNS server 8.8.8.8.
++    // ares_android.c has support for detecting DNS servers on Android, but it requires
++    // manual initialization with the Java ConnectivityManager.
++    addr.addr.addr4.s_addr = htonl(0x08080808);
  
- /* Define to 1 if you have the `gettimeofday' function. */
- #define HAVE_GETTIMEOFDAY 1
+     rc = ares_sconfig_append(channel, &sconfig, &addr, 0, 0, NULL);
+     if (rc != ARES_SUCCESS) {
+--- src-original/setup_cares.py	2025-09-09 11:44:30.000000000 +0000
++++ src/setup_cares.py	2025-11-06 12:36:06.987403774 +0000
+@@ -123,7 +123,8 @@
+             self.compiler.define_macro('_FILE_OFFSET_BITS', 64)
+         if sys.platform.startswith('linux'):
+             # Check if it's actually Android
+-            if os.environ.get('ANDROID_ROOT') and os.environ.get('ANDROID_DATA'):
++            # Chaquopy: added True
++            if True or os.environ.get('ANDROID_ROOT') and os.environ.get('ANDROID_DATA'):
+                 self.add_include_dir(os.path.join(self.build_config_dir, 'config_android'))
+             else:
+                 self.add_include_dir(os.path.join(self.build_config_dir, 'config_linux'))

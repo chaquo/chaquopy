@@ -1,13 +1,13 @@
 #!/bin/bash
 set -eu
 
-# Positional arguments (order is the same as package-target.sh):
-#  * `prefix` directory to unpack into.
+# Positional arguments:
 #  * Maven directory to unpack from, e.g. /path/to/com/chaquo/python/target/3.10.6-3.
+#  * `prefix` directory to unpack into.
 
 mkdir -p "${1:?}"
-prefix_dir=$(cd ${1:?} && pwd)
-target_dir=$(cd ${2:?} && pwd)
+target_dir=$(cd ${1:?} && pwd)
+prefix_dir=$(cd ${2:?} && pwd)
 
 version=$(basename "$target_dir")
 version_short=$(echo $version | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
@@ -19,7 +19,7 @@ for zip_path in $target_dir/*.zip; do
     zip_basename=$(basename $zip_path)
     abi_regex="^target-$version-(.+).zip$"
     if ! echo "$zip_basename" | grep -qE "$abi_regex"; then
-        echo "$zip_basename does not match $abi_regex"
+        echo "$zip_path does not match $abi_regex"
         exit 1
     fi
     abi=$(echo "$zip_basename" | sed -E "s/$abi_regex/\1/")

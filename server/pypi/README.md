@@ -16,16 +16,16 @@ First, clone this repository.
 
 Then, go to [this Maven Central
 page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
-Python version you want to build for. Within a given Python minor version (e.g. 3.8),
+Python version you want to build for. Within a given Python minor version (e.g. 3.13),
 you should usually use the newest version available. Then use `download-target.sh` to
 download it into `maven` in the root of this repository. For example, to download
-version 3.8.16-0, run:
+version 3.13.0-1, run:
 
-    target/download-target.sh maven/com/chaquo/python/target/3.8.16-0
+    target/download-target.sh maven/com/chaquo/python/target/3.13.0-1
 
 You'll also need a matching version of Python installed on your build machine. For
-example, if you're building for Python 3.8, then `python3.8` must be on the PATH. You may
-be able to get this from your distribution, or from an unofficial package repository.
+example, if you're building for Python 3.13, then `python3.13` must be on the PATH. You
+may be able to get this from your distribution, or from an unofficial package repository.
 Otherwise, here's how to install it with Miniconda:
 
 * Download the installer from <https://docs.conda.io/en/latest/miniconda.html>.
@@ -55,13 +55,11 @@ Depending on which package you're building, you may also need additional tools. 
 these can be installed using your distribution. Some of them have special entries in the
 `build` requirements section of meta.yaml:
 
-* `cmake`: A `chaquopy.toolchain.cmake` file will be generated in the build directory
-  for use with `-DCMAKE_TOOLCHAIN_FILE`.
-
 * `fortran`: You must install the Fortran compiler from
   [here](https://github.com/mzakharo/android-gfortran/releases/tag/r21e). Create a
   `fortran` subdirectory in the same directory as this README, and unpack the .bz2 files
   into it.
+* `rust`: `rustup` must be on the PATH.
 
 
 ## Building a package
@@ -72,8 +70,9 @@ Run build-wheel from this directory as follows:
 
 Where:
 
-* `X.Y` is the Python version you set up above.
-* `ABI` is an [Android ABI](https://developer.android.com/ndk/guides/abis).
+* `X.Y` is the Python version you set up above, e.g. `3.13`.
+* `ABI` is an [Android
+  ABI](https://chaquo.com/chaquopy/doc/current/android.html#android-abis).
 * `PACKAGE` is a subdirectory of `packages` in this directory, or the path to another
   directory laid out in the same way (see "adding a package" below).
 
@@ -98,15 +97,14 @@ Here are some examples of existing recipes:
 * multidict: a minimal example, downloaded from PyPI.
 * cython-example: a minimal example, built from a local directory.
 * python-example: a pybind11-based package, downloaded from a Git repository.
-* cmake-example: similar to python-example, but uses CMake. A patch is used to help CMake
-  find the Android toolchain file.
+* cmake-example: similar to python-example, but uses CMake.
 * chaquopy-libzmq: a non-Python library, downloaded from a URL.
 * pyzmq: a Python package which depends on chaquopy-libzmq. A patch is used to help
   `setup.py` find the library.
 * scikit-learn: lists several requirements in `meta.yaml`:
   * The "build" requirement (Cython) will be installed automatically.
-  * The "host" requirements (NumPy etc.) must be downloaded manually from
-    [the public repository](https://chaquo.com/pypi-7.0/). Save them into a corresponding
+  * The "host" requirements (NumPy etc.) must be downloaded manually from [the public
+    repository](https://chaquo.com/pypi-13.1/). Save them into a corresponding
     subdirectory of `dist` (e.g. `dist/numpy`), before running the build.
 
 Then run build-wheel as shown above.
@@ -145,7 +143,7 @@ examples: usually we base them on the package's own tutorial.
 Open the pkgtest app in Android Studio, and temporarily edit `app/build.gradle` as
 follows:
 
-* Add the package to the `addPackages` line, e.g. `addPackages(delegate, ["package-name"])`.
+* Set `PACKAGES` to the package's name.
 * Set `python { version }` to the Python version you want to test.
 * Set the `--extra-index-url` as described above.
 * Set `abiFilters` to the ABIs you want to test.

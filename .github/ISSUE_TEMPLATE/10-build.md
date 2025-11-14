@@ -17,7 +17,7 @@ Before creating a new issue, please check if your question has already been answ
 <!-- The version of com.chaquo.python:gradle in your app's top-level build.gradle file. -->
 
 #### Relevant parts of your build.gradle file
-<!-- Please at least include the "python" and "ndk" sections. -->
+<!-- Please include at least the "chaquopy", "python" and "ndk" sections. -->
 
 #### Describe your issue
 <!-- If reporting a build failure, please include the complete build log:

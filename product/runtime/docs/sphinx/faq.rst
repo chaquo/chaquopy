@@ -15,8 +15,8 @@ chose it to reflect our goal of opening up new frontiers in how Python can be us
 
 .. _faq-react:
 
-Does Chaquopy support React Native?
------------------------------------
+Can Chaquopy be used with React Native or Flutter?
+--------------------------------------------------
 
 Yes, it can be used with any framework which lets you do the following:
 
@@ -56,29 +56,23 @@ the way Chaquopy packages its native components, the `APK splits
 <https://developer.android.com/studio/build/configure-apk-splits.html>`_ and `app bundle
 <https://developer.android.com/guide/app-bundle/>`_ features won't help much. Instead, use a
 `product flavor dimension
-<https://developer.android.com/studio/build/build-variants.html#product-flavors>`_ to build
-separate APKs or app bundles for each ABI. If you plan to release your app on Google Play, each
-flavor must also have a `different version code
-<https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_. For
-example:
+<https://developer.android.com/studio/build/build-variants.html#product-flavors>`_, like
+this:
 
 .. tabs::
 
     .. code-tab:: kotlin
 
         android {
-            val versionBase = 123
             flavorDimensions += "abi"
             productFlavors {
-                create("arm32") {
+                create("development") {
                     dimension = "abi"
-                    ndk { abiFilters += listOf("armeabi-v7a") }
-                    versionCode = 1000000 + versionBase
+                    ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
                 }
-                create("arm64") {
+                create("production") {
                     dimension = "abi"
                     ndk { abiFilters += listOf("arm64-v8a") }
-                    versionCode = 2000000 + versionBase
                 }
             }
         }
@@ -86,21 +80,22 @@ example:
     .. code-tab:: groovy
 
         android {
-            def versionBase = 123
             flavorDimensions "abi"
             productFlavors {
-                create("arm32") {
+                create("development") {
                     dimension = "abi"
-                    ndk { abiFilters "armeabi-v7a" }
-                    versionCode = 1000000 + versionBase
+                    ndk { abiFilters "arm64-v8a", "x86_64" }
                 }
-                create("arm64") {
+                create("production") {
                     dimension = "abi"
                     ndk { abiFilters "arm64-v8a" }
-                    versionCode = 2000000 + versionBase
                 }
             }
         }
+
+If you plan to release multiple flavors on Google Play, each flavor must also have a
+`different version code
+<https://developer.android.com/google/play/publishing/multiple-apks#VersionCodes>`_.
 
 If your app uses TensorFlow, consider replacing it with `TensorFlow Lite
 <https://www.tensorflow.org/lite/guide>`_:
@@ -119,10 +114,17 @@ How can I obfuscate my code?
 ----------------------------
 
 As described :ref:`here <android-bytecode>`, your code is automatically compiled to .pyc
-format if possible. To make the build fail if a compatible Python version isn't found,
-you can use the `src = true` setting.
+format if possible. To make this a required build step, use the `src = true` setting.
 
-If you want to hide your code further, you can compile it into an .so file using Cython
+If you want to perform additional obfuscation:
+
+* Store the original copy of your code in a different directory.
+* In your build.gradle file, add an `afterEvaluate` block `like this
+  one <https://github.com/chaquo/chaquopy/blob/16.0.0/demo/app/build.gradle.kts#L7>`__,
+  which copies the code to `src/main/python` while making whatever modifications you
+  want.
+
+To hide your code even further, you could compile it into an .so file using Cython
 and our package build tool. For more details, see `here
 <https://github.com/chaquo/chaquopy/issues/800#issuecomment-1413451177>`_.
 
@@ -151,8 +153,8 @@ To make your own mirror of our Maven repository:
 
 To make your own mirror of our pip repository:
 
-* Download whatever packages your app needs from https://chaquo.com/pypi-7.0, and arrange them
-  in the same directory structure as the server.
+* Download whatever packages your app needs from https://chaquo.com/pypi-13.1/, and
+  arrange them in the same directory structure as the server.
 * Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
   file:
 

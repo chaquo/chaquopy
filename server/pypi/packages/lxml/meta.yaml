@@ -1,6 +1,6 @@
 package:
   name: lxml
-  version: "4.6.3"
+  version: "5.3.0"
 
 requirements:
   host:

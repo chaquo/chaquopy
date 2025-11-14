@@ -1,7 +1,5 @@
 from distutils.errors import DistutilsOptionError
 
-from setuptools.extern.six.moves import map
-
 from setuptools.command.setopt import edit_config, option_base, config_file
 
 
@@ -51,7 +49,7 @@ class alias(option_base):
             return
 
         elif len(self.args) == 1:
-            alias, = self.args
+            (alias,) = self.args
             if self.remove:
                 command = None
             elif alias in aliases:

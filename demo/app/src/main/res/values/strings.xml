@@ -20,7 +20,6 @@
     <string name="demo_toast">Toast</string>
     <string name="demo_toast_text">Toast from Python</string>
     <string name="demo_sound">Sound</string>
-    <string name="demo_vibrate">Vibration</string>
 
     <string name="java_demo">Java API demo</string>
     <string name="java_demo_summary">Demonstrates using a Python library from Java code</string>

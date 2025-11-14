@@ -9,10 +9,10 @@ properties:
     type: object
     required: [name, version]
     properties:
-      name:             # Must be in its original form, as used in sdist filenames.
-        type: string
+      name:             # Must be in its original form, as shown in the page heading
+        type: string    #   on PyPI.
       version:          # We no longer accept numbers, because that would make it
-        type: string    # impossible to distinguish 0.1 from 0.10.
+        type: string    #   impossible to distinguish 0.1 from 0.10.
     additionalProperties: false
 
   source:
@@ -63,7 +63,6 @@ properties:
 
       # Requirements which must be installed in the build environment. One of the following:
       #
-      #   * `cmake`: see README.md
       #   * `fortran`: see README.md
       #   * `<package> <version>`: A Python package, which will be installed using pip
       build:

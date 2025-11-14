@@ -1,13 +1,20 @@
+import os
+import sys
+import types
+from importlib import import_module
+
+
 # We want to cause a quick and comprehensible failure when a package attempts to build
 # native code, while still allowing a pure-Python fallback if available. This is tricky,
 # because different packages have different approaches to pure-Python fallbacks:
 #
-# * Some packages simply catch any distutils exception thrown by setup(), and then run it again
-#   with the native components removed.
+# * Some packages (e.g. markupsafe==3.0.3) wrap setup() with an exception handler, and
+#   then run it again with the native components removed.
 #
-# * Some (e.g. sqlalchemy, wrapt) extend the distutils build_ext or build_clib command and
-#   override its run() method to wrap it with an exception handler. This means we can't simply
-#   block the commands by name, e.g. by overriding Distribution.run_command.
+# * Some (e.g. pyyaml==6.0.3, sqlalchemy, wrapt) extend the distutils build_ext or
+#   build_clib class and override its run() method to wrap it with an exception handler.
+#   This means we can't simply block the commands by name, e.g. by overriding
+#   Distribution.run_command.
 #
 # * Some (e.g. msgpack) go lower-level and catch exceptions in build_ext.build_extension. In
 #   Python 3, there's an `optional` keyword to Extension which has the same effect (used e.g.
@@ -30,20 +37,40 @@
 # list (e.g. minorminer, lz4), but the error messages from these packages aren't too bad, and
 # I've never seen one which has a pure-Python fallback.
 def disable_native():
+    disable_native_distutils()
+    disable_native_environ()
+
+
+def disable_native_distutils():
     # Recent versions of setuptools redirect distutils to their own bundled copy, so try
-    # to import that first.
+    # to import that first. Even more recent versions of setuptools provide a .pth file
+    # which makes this import unnecessary, but the package we're installing might have
+    # pinned an older version in its pyproject.toml file.
     try:
         import setuptools  # noqa: F401
     except ImportError:
         pass
 
+    try:
+        import distutils  # noqa: F401
+    except ImportError:
+        # distutils was removed in Python 3.12, so it will only exist if setuptools is
+        # in the build environment.
+        return
+
     from distutils import ccompiler
     from distutils.unixccompiler import UnixCCompiler
-    import os
-    import sys
-    import types
 
-    ccompiler.get_default_compiler = lambda *args, **kwargs: "disabled"
+    # In newer versions of Setuptools, ccompiler imports all of its symbols from
+    # elsewhere.
+    compiler_mods = [ccompiler]
+    original_mod_name = ccompiler.get_default_compiler.__module__
+    if original_mod_name != ccompiler.__name__:
+        compiler_mods.append(import_module(original_mod_name))
+
+    for mod in compiler_mods:
+        mod.get_default_compiler = lambda *args, **kwargs: "disabled"
+
     ccompiler.compiler_class["disabled"] = (
         "disabledcompiler", "DisabledCompiler",
         "Compiler disabled ({})".format(CHAQUOPY_NATIVE_ERROR))
@@ -73,6 +100,8 @@ def disable_native():
     disabled_mod.DisabledCompiler = DisabledCompiler
     sys.modules[disabled_mod_name] = disabled_mod
 
+
+def disable_native_environ():
     # Try to disable native builds for packages which don't use the distutils native build
     # system at all (e.g. uwsgi), or only use it to wrap an external build script (e.g. pynacl).
     for tool in ["ar", "as", "cc", "cxx", "ld"]:

@@ -1,94 +1,102 @@
 # Product release procedure
 
-## Runtime
+## Integration tests
 
-Run `gradlew runtime:check`.
+These are fully automated in GitHub Actions. Check the most recent run succeeded, and
+make a note of its commit, because we'll be tagging it later.
 
-Run `gradlew -P cmakeBuildType=Release publish`.
+Download the `maven` artifact from GitHub Actions, and unpack it into the local `maven`
+directory on all machines that will be used by the subsequent tests.
 
-Record pkgtest app sizes and startup times (#5683), and investigate if significantly worse than
-the previous version. Remember that the tests and the packages themselves may have changed.
 
-Open demo app, and run the Java and Python unit tests on any device under the following
-conditions:
+## Unit tests
+
+Open the demo app in Android Studio, and run the Java and Python unit tests on any
+device under the following conditions:
 
 * Set build variant to "debug".
 * Clean install, then run tests twice in the same process.
 * Kill the process, then run tests again in a new process.
+* Test "release" variant".
 * Test "releaseMinify" variant (minify is not enabled in the "release" variant, because it
   could prevent users importing classes in the Python console).
 * Change back to "debug" variant, and test a single-ABI build by temporarily changing
   abiFilters.
-* Re-enable all ABIs.
 
-Run Build > Generate Signed APK with the "release" variant. Save a copy of this APK,
-because we'll be releasing it on Google Play later.
+Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
 
-Use `adb` to install and test the APK on the following devices, with at least one device being
-a clean install, and at least one being an upgrade from the previous public release with the
-tests already run.
+Install the APK and run the Java and Python unit tests on all ABIs, with at least one
+device being each of the following:
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-* x86_64 emulator with targetSdkVersion
-* Any armeabi-v7a device
-* Any arm64-v8a device
-
-Record test times in #5683, and investigate if significantly worse than the previous version.
-Remember that the tests themselves may have changed.
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
+* targetSdk
+* 16 KB pages
+* A clean install
+* An upgrade from the previous public release, with the tests already run
 
 Test all the UI elements of the app on both minSdkVersion and targetSdkVersion.
 
-Test all the non-default Python versions on the same devices.
+For each of the non-default Python versions, run the Java and Python unit tests on the
+same devices.
 
 
-## Gradle plugin
+## Performance tests
 
-On one test machine, run `gradlew -P cmakeBuildType=Release publish`. Then, on each test
-machine:
+Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
+file to use the local Chaquopy version.
 
-* Copy `gradle`, `runtime` and (if necessary) `target` from the first test machine.
-* Pull the current version of this repository.
-* To make sure the artifacts are not overwritten, temporarily disable the `dependsOn
-  publish` line in `gradle-plugin/build.gradle`.
-* Run `gradlew --continue -P cmakeBuildType=Release gradle:check`.
+Record performance data in performance.md, and investigate if significantly worse than
+the previous version. Remember that the tests and the packages themselves may have
+changed.
 
 
 ## Package tests
 
-The following builds and tests can take a long time, and it's helpful to parallelize them
-as much as possible. So after each build, copy the APK out of the build directory and
-install it while running the next build. This is why we test the slowest devices first.
+Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
+file to use the local Chaquopy version.
 
-Temporarily edit pkgtest/app/build.gradle to replace the empty list in the `addPackages`
-line with `PACKAGE_GROUPS[1]`.
+Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes for
+the default Python version, ordered by number of PyPI downloads:
 
-Set `abiFilters` to each of the following values (this tests the single-ABI case), and
-test on a corresponding device:
+* Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
+* `cd /var/www/chaquo/pypi-13.1`
+* `cat path/to/top-pypi-packages.csv | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* TODO: once the default version is 3.13 or later, also include data from
+  https://beeware.org/mobile-wheels.
 
-* armeabi-v7a (use a 32-bit device)
-* arm64-v8a
+As of 2025-11, this is:
 
-Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on the
-following devices, with at least one being a clean install:
+    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
 
-* x86 emulator with minSdkVersion
-* x86_64 emulator with minSdkVersion
-  * TensorFlow will fail because of #5626, so test that on API 23.
-* x86_64 emulator with targetSdkVersion
+Search the package test scripts for the word "Android", and consider adding any packages
+which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
+Chaquopy's own unit tests.
 
-Repeat with `PACKAGE_GROUPS[2]`.
+Set `abiFilters` to each of `armeabi-v7a` and `arm64-v8a` (this tests the single-ABI
+case), and test on those ABIs, with at least one device being each of the following:
+
+* A physical device (on all ABIs if possible)
+* minSdk (on all ABIs if possible)
+* targetSdk
+* TODO: once the default version is 3.13 or later, include a device with 16 KB pages.
+* A clean install
+
+Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
+ABIs, with at least one device being each of the following:
+
+* minSdk (on all ABIs if possible)
 
 
 ## Public release
 
-Use release/bundle.sh to create bundle JARs for the following things, and [release them to
-Maven Central](https://central.sonatype.org/publish/publish-manual/#bundle-creation):
+Use release/bundle.sh to create bundles for the following things, and [release them to
+Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
 
 * `com.chaquo.python.gradle.plugin`
 * `gradle`
 * `runtime/*`
-* `target` (if updated)
+* `target` (if necessary)
 
 As a backup, also upload them to <https://chaquo.com/maven-central>.
 
@@ -112,10 +120,13 @@ and update all the public repositories as necessary.
   * Kotlin plugin
 * If .gitignore has changed, git rm any newly-ignored files.
 
-Open each public app in Android Studio and test it on any device, with a clean install.
+Open each public app in Android Studio and test it on minSdk and targetSdk, with a clean
+install.
 
-Take the signed APK of the demo app which was built above, and release it on Google Play,
-updating description and screenshots if necessary.
+Close the projects to make sure .idea files are written.
+
+Take the demo app APK which was tested above, and release it on Google Play, updating
+the description and screenshots if necessary.
 
 Set reminder to check for Google Play crash reports regularly over the next month.
 
@@ -134,7 +145,7 @@ Update:
 Run `gradlew runtime:doc`, and upload to server.
 
 If major.minor version number has changed:
-* Update "current" symlink.
+* Update "current" symlink (`ln -sfT`).
 * Add link on WordPress documentation page.
 
 
@@ -142,9 +153,11 @@ If major.minor version number has changed:
 
 Commit and push all example app repositories.
 
-Commit this repository, add version number tag, and push.
+Tag the commit the GitHub Actions artifacts were built from, and push the tag.
 
-Increment VERSION.txt for next version number.
+Increment the micro version number in VERSION.txt.
+
+Commit and push this repository.
 
 
 ## User communication
@@ -153,9 +166,11 @@ Create release page on GitHub with a link to the change log section.
 
 Post blog entry to website.
 
-Post links to Facebook and Twitter.
+Post link to X, and enable "only accounts you mention can reply", because it doesn't
+reliably send email notifications of replies. Enabling replies and apparently ignoring
+them would make us look worse than not enabling replies at all.
 
 Update any affected GitHub issues, StackOverflow questions, email threads, etc.
 
-If there are any packages whose announcement was postponed until this release, go through the
-package release procedure in pypi/README.md.
+If there are any packages whose announcement was postponed until this release, go
+through the package release procedure in pypi/README-internal.md.

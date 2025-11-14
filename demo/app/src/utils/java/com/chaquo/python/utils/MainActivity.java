@@ -16,6 +16,7 @@ public class MainActivity extends AppCompatActivity {
             String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             setTitle(getTitle() + " " + version);
         } catch (PackageManager.NameNotFoundException ignored) {}
+        App.setPySubtitle(this);
 
         setContentView(resId("layout", "activity_menu"));
         ((TextView)findViewById(resId("id", "tvCaption")))

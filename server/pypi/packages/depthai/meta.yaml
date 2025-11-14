@@ -1,0 +1,18 @@
+{% set version = "2.24.0.0" %}
+
+package:
+  name: depthai
+  version: "{{ version }}"
+
+build:
+  number: 2
+  script_env:
+   - CI=1  # Set to build a release package
+
+source:
+  git_url: https://github.com/luxonis/depthai-python.git
+  git_rev: v{{ version }}
+
+requirements:
+  host:
+    - python

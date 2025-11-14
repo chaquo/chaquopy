@@ -859,8 +859,9 @@ class InstallRequirement(object):
     def check_chaquopy_exception(self):
         # If `bdist_wheel` failed because of native code, don't fall back on `install`
         # because it'll definitely fail, wasting the user's time and making the failure
-        # message harder to read. But if `bdist_wheel` failed for some other reason, then
-        # it's still worth trying `install` (#5630).
+        # message harder to read. But if `bdist_wheel` failed for some other reason
+        # (e.g. #338, or https://github.com/python-acoustics/python-acoustics/issues/243),
+        # then it's still worth trying `install`.
         #
         # The error message may use spaces or underscores (see
         # chaquopy_monkey.disable_native).

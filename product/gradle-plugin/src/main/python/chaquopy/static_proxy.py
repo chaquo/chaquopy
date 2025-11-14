@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 
-# Do this as early as possible to minimize the chance of something else going wrong and causing
-# a less comprehensible error message.
-from .util import check_build_python
-check_build_python()
-
 import argparse
 import ast
 from contextlib import contextmanager
@@ -170,8 +165,7 @@ class Module(object):
         # to its fully-qualified name if it's a usable import, or otherwise to the node which
         # bound it so we can give a useful error if the name is passed to one of our functions.
         for node in root.body:
-            if isinstance(node, (ast.FunctionDef if sys.version_info < (3, 5)
-                                 else (ast.FunctionDef, ast.AsyncFunctionDef))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 self.bindings[node.name] = node
             elif isinstance(node, ast.ClassDef):
                 c = self.process_class(node)
@@ -184,8 +178,7 @@ class Module(object):
             elif isinstance(node, ast.Assign):
                 for t in node.targets:
                     self.process_assign(t)
-            elif isinstance(node, (ast.AugAssign if sys.version_info < (3, 6)
-                                   else (ast.AugAssign, ast.AnnAssign))):
+            elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
                 self.process_assign(node.target)
             elif isinstance(node, ast.Import):
                 self.process_import(node.names, lambda name: name)
@@ -225,8 +218,6 @@ class Module(object):
             self.bindings[key] = get_binding(value)
 
     def process_class(self, node):
-        # TODO allow static proxy classes as bases (#5283) and return, argument and throws
-        # types (#5284).
         self.bindings[node.name] = node
         if node.bases:
             first_base = node.bases[0]
@@ -281,23 +272,13 @@ class Module(object):
         return result
 
     def has_starargs(self, call):
-        if sys.version_info < (3, 5):
-            return bool(call.starargs)
-        else:
-            return any(isinstance(a, ast.Starred) for a in call.args)
+        return any(isinstance(a, ast.Starred) for a in call.args)
 
     def has_kwargs(self, call):
-        if sys.version_info < (3, 5):
-            return bool(call.kwargs)
-        else:
-            return any(kw.arg is None for kw in call.keywords)
+        return any(kw.arg is None for kw in call.keywords)
 
     def evaluate(self, expr):
-        if isinstance(expr, ast.Num):
-            return expr.n
-        elif isinstance(expr, ast.Str):
-            return expr.s
-        elif isinstance(expr, ast.NameConstant):  # True, False, None
+        if isinstance(expr, ast.Constant):
             return expr.value
         elif isinstance(expr, ast.Name):
             return self.resolve(expr)
@@ -357,7 +338,7 @@ class write_java(object):
         self.indent = 0
         with open(join(pkg_dirname, cls.name + ".java"), "w") as self.out_file:
             self.line("// Generated at {} with the command line:",
-                      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+                      datetime.now().astimezone().isoformat(timespec="seconds"))
             self.line("// {}", " ".join(sys.argv[1:]))
             self.line()
             self.line("package {};", cls.package)

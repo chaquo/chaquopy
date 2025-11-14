@@ -273,7 +273,7 @@ class InstallCommand(RequirementCommand):
             target_temp_dir = TempDirectory(kind="target")
             target_temp_dir_path = target_temp_dir.path
 
-            # Chaquopy: avoid conflict between --target and prefix (#5691).
+            # Chaquopy: avoid conflict between --target and prefix (#405).
             install_options.append('--prefix=')
 
         global_options = options.global_options or []

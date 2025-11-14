@@ -14,10 +14,10 @@ defaults:
 jobs:
 
   product:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -29,7 +29,7 @@ jobs:
           for version in $(./list-versions.py --build); do
               target_dir=../maven/com/chaquo/python/target/$version
               ./download-target.sh $target_dir
-              ./unpackage-target.sh prefix $target_dir
+              ./unpackage-target.sh $target_dir prefix
           done
 
       - name: Install Python requirements
@@ -42,10 +42,11 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
-        uses: actions/upload-artifact@v3.1.2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: maven
           # There's a fairly large per-file overhead, so exclude the hash files.
@@ -57,13 +58,14 @@ jobs:
             !**/*.sha512
           if-no-files-found: error
 
+      # This should match the version discovery logic in gradle-plugin/build.gradle.kts.
       - name: List Android Gradle plugin versions
         id: agp-versions
         run: |
-          cd product/gradle-plugin/src/test/integration/data
+          cd product/gradle-plugin/src/test/integration/data/base
           (
               echo -n versions=
-              echo base-* | sed 's/base-//g' | jq -cR 'split(" ")'
+              echo *.* | jq -cR 'split(" ")'
           ) >> $GITHUB_OUTPUT
 
     outputs:
@@ -71,10 +73,10 @@ jobs:
 
 
   docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -90,9 +92,10 @@ jobs:
       - name: Build
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew docs
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: docs
           path: |
@@ -101,17 +104,34 @@ jobs:
           if-no-files-found: error
 
 
+  gradlePython:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
+
+      - uses: ./.github/actions/setup-python
+
+      - uses: ./.github/actions/create-local-properties
+
+      - name: Test
+        run: |
+          cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
+          ./gradlew gradle:testPython
+
+
   demo:
     needs: [product]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven
@@ -128,7 +148,7 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew assembleRelease
 
-      - uses: actions/upload-artifact@v3.1.2
+      - uses: actions/upload-artifact@v4.3.3
         with:
           name: demo
           path: demo/app/build/outputs/apk/release
@@ -140,35 +160,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # We'd like to run macOS jobs first, because of their lower concurrency. But
+        # this doesn't reliably work (https://github.com/actions/runner/issues/703).
+        os: [macos, windows, linux]
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
-        os: [linux, macos, windows]
         include:
-          # We pin specific OS versions to ensure that the Python `extra-versions`
-          # listed below are all available. To avoid clutter in the GitHub UI, OS
-          # versions are not added to the `os` dimension directly.
+          # Runners must support all the Python versions in setup-python/action.yml.
           - os: linux
-            runs-on: ubuntu-20.04
+            runs-on: ubuntu-22.04
           - os: macos
-            runs-on: macos-12
+            runs-on: macos-15-intel
           - os: windows
             runs-on: windows-2022
 
     runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1
-      - uses: actions/checkout@v3.5.3
+      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
+      - uses: actions/checkout@v4.1.6
 
       - uses: ./.github/actions/setup-python
         id: setup-python
-        with:
-          # This should match OLD_BUILD_PYTHON_VERSION and MIN_BUILD_PYTHON_VERSION
-          # in test_gradle_plugin.
-          extra-versions: |
-            3.6
-            3.7
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: maven
           path: maven
@@ -183,4 +197,5 @@ jobs:
       - name: Test
         run: |
           cd product
+          export JAVA_HOME=$JAVA_HOME_11_X64
           CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

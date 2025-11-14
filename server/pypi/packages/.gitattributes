@@ -1,0 +1,2 @@
+# Preserve CRLFs in patch files, otherwise they won't apply. For example, see jpegio.
+*/patches/** -text

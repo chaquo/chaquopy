@@ -1,0 +1,10 @@
+[build-system]
+requires = ["hatchling==1.18.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pep517_hatch"
+version = "5.1.7"
+
+[tool.hatch.build]
+include = ["hatch1.py"]

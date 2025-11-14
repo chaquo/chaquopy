@@ -1,8 +1,8 @@
 import unittest
 
 
-# Run TensorFlow test first to avoid suspected address space fragmentation problems on some
-# 32-bit devices (#5719).
+# Run TensorFlow test first to avoid suspected address space fragmentation problems on
+# some 32-bit devices (#1209).
 class Test01TensorFlow(unittest.TestCase):
 
     # Based on https://www.tensorflow.org/guide/keras/train_and_evaluate
@@ -59,8 +59,8 @@ def cache_url(url, dir_name, base_name=None):
             f.write(data)
 
 
-# Downloading a URL with "Connection: close", as urllib does, causes an intermittent network
-# problem on the emulator (see #5601 and https://issuetracker.google.com/issues/150758736). For
+# Downloading a URL with "Connection: close", as urllib does, causes an intermittent
+# network problem on the emulator (https://issuetracker.google.com/issues/150758736). For
 # small files we could just retry until it succeeds, but for large files a failure is much more
 # likely, and we might have to keep retrying for several minutes. So use the stdlib's low-level
 # HTTP API to make a request with no Connection header.

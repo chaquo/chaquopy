@@ -1,37 +1,40 @@
 """Wheels support."""
 
-from distutils.util import get_platform
 import email
 import itertools
+import functools
 import os
 import posixpath
 import re
 import zipfile
+import contextlib
 
-import pkg_resources
+from distutils.util import get_platform
+
 import setuptools
-from pkg_resources import parse_version
+from setuptools.extern.packaging.version import Version as parse_version
+from setuptools.extern.packaging.tags import sys_tags
 from setuptools.extern.packaging.utils import canonicalize_name
-from setuptools.extern.six import PY3
-from setuptools import pep425tags
-from setuptools.command.egg_info import write_requirements
-
-
-__metaclass__ = type
+from setuptools.command.egg_info import write_requirements, _egg_basename
+from setuptools.archive_util import _unpack_zipfile_obj
 
 
 WHEEL_NAME = re.compile(
     r"""^(?P<project_name>.+?)-(?P<version>\d.*?)
     ((-(?P<build>\d.*?))?-(?P<py_version>.+?)-(?P<abi>.+?)-(?P<platform>.+?)
     )\.whl$""",
-    re.VERBOSE).match
+    re.VERBOSE,
+).match
 
-NAMESPACE_PACKAGE_INIT = '''\
-try:
-    __import__('pkg_resources').declare_namespace(__name__)
-except ImportError:
-    __path__ = __import__('pkgutil').extend_path(__path__, __name__)
-'''
+NAMESPACE_PACKAGE_INIT = "__import__('pkg_resources').declare_namespace(__name__)\n"
+
+
+@functools.lru_cache(maxsize=None)
+def _get_supported_tags():
+    # We calculate the supported tags only once, otherwise calling
+    # this method on thousands of wheels takes seconds instead of
+    # milliseconds.
+    return {(t.interpreter, t.abi, t.platform) for t in sys_tags()}
 
 
 def unpack(src_dir, dst_dir):
@@ -56,8 +59,21 @@ def unpack(src_dir, dst_dir):
         os.rmdir(dirpath)
 
 
-class Wheel:
+@contextlib.contextmanager
+def disable_info_traces():
+    """
+    Temporarily disable info traces.
+    """
+    from distutils import log
 
+    saved = log.set_threshold(log.WARN)
+    try:
+        yield
+    finally:
+        log.set_threshold(saved)
+
+
+class Wheel:
     def __init__(self, filename):
         match = WHEEL_NAME(os.path.basename(filename))
         if match is None:
@@ -75,23 +91,26 @@ class Wheel:
         )
 
     def is_compatible(self):
-        '''Is the wheel is compatible with the current platform?'''
-        supported_tags = pep425tags.get_supported()
-        return next((True for t in self.tags() if t in supported_tags), False)
+        '''Is the wheel compatible with the current platform?'''
+        return next((True for t in self.tags() if t in _get_supported_tags()), False)
 
     def egg_name(self):
-        return pkg_resources.Distribution(
-            project_name=self.project_name, version=self.version,
-            platform=(None if self.platform == 'any' else get_platform()),
-        ).egg_name() + '.egg'
+        return (
+            _egg_basename(
+                self.project_name,
+                self.version,
+                platform=(None if self.platform == 'any' else get_platform()),
+            )
+            + ".egg"
+        )
 
     def get_dist_info(self, zf):
         # find the correct name of the .dist-info dir in the wheel file
         for member in zf.namelist():
             dirname = posixpath.dirname(member)
-            if (dirname.endswith('.dist-info') and
-                    canonicalize_name(dirname).startswith(
-                        canonicalize_name(self.project_name))):
+            if dirname.endswith('.dist-info') and canonicalize_name(dirname).startswith(
+                canonicalize_name(self.project_name)
+            ):
                 return dirname
         raise ValueError("unsupported wheel format. .dist-info not found")
 
@@ -112,27 +131,26 @@ class Wheel:
 
     @staticmethod
     def _convert_metadata(zf, destination_eggdir, dist_info, egg_info):
+        import pkg_resources
+
         def get_metadata(name):
             with zf.open(posixpath.join(dist_info, name)) as fp:
-                value = fp.read().decode('utf-8') if PY3 else fp.read()
+                value = fp.read().decode('utf-8')
                 return email.parser.Parser().parsestr(value)
 
         wheel_metadata = get_metadata('WHEEL')
         # Check wheel format version is supported.
         wheel_version = parse_version(wheel_metadata.get('Wheel-Version'))
-        wheel_v1 = (
-            parse_version('1.0') <= wheel_version < parse_version('2.0dev0')
-        )
+        wheel_v1 = parse_version('1.0') <= wheel_version < parse_version('2.0dev0')
         if not wheel_v1:
-            raise ValueError(
-                'unsupported wheel format version: %s' % wheel_version)
+            raise ValueError('unsupported wheel format version: %s' % wheel_version)
         # Extract to target directory.
-        os.mkdir(destination_eggdir)
-        zf.extractall(destination_eggdir)
+        _unpack_zipfile_obj(zf, destination_eggdir)
         # Convert metadata.
         dist_info = os.path.join(destination_eggdir, dist_info)
         dist = pkg_resources.Distribution.from_location(
-            destination_eggdir, dist_info,
+            destination_eggdir,
+            dist_info,
             metadata=pkg_resources.PathMetadata(destination_eggdir, dist_info),
         )
 
@@ -142,13 +160,14 @@ class Wheel:
         def raw_req(req):
             req.marker = None
             return str(req)
-        install_requires = list(sorted(map(raw_req, dist.requires())))
+
+        install_requires = list(map(raw_req, dist.requires()))
         extras_require = {
-            extra: sorted(
+            extra: [
                 req
                 for req in map(raw_req, dist.requires((extra,)))
                 if req not in install_requires
-            )
+            ]
             for extra in dist.extras
         }
         os.rename(dist_info, egg_info)
@@ -162,11 +181,12 @@ class Wheel:
                 extras_require=extras_require,
             ),
         )
-        write_requirements(
-            setup_dist.get_command_obj('egg_info'),
-            None,
-            os.path.join(egg_info, 'requires.txt'),
-        )
+        with disable_info_traces():
+            write_requirements(
+                setup_dist.get_command_obj('egg_info'),
+                None,
+                os.path.join(egg_info, 'requires.txt'),
+            )
 
     @staticmethod
     def _move_data_entries(destination_eggdir, dist_data):
@@ -174,8 +194,7 @@ class Wheel:
         dist_data = os.path.join(destination_eggdir, dist_data)
         dist_data_scripts = os.path.join(dist_data, 'scripts')
         if os.path.exists(dist_data_scripts):
-            egg_info_scripts = os.path.join(
-                destination_eggdir, 'EGG-INFO', 'scripts')
+            egg_info_scripts = os.path.join(destination_eggdir, 'EGG-INFO', 'scripts')
             os.mkdir(egg_info_scripts)
             for entry in os.listdir(dist_data_scripts):
                 # Remove bytecode, as it's not properly handled
@@ -188,24 +207,28 @@ class Wheel:
                         os.path.join(egg_info_scripts, entry),
                     )
             os.rmdir(dist_data_scripts)
-        for subdir in filter(os.path.exists, (
-            os.path.join(dist_data, d)
-            for d in ('data', 'headers', 'purelib', 'platlib')
-        )):
+        for subdir in filter(
+            os.path.exists,
+            (
+                os.path.join(dist_data, d)
+                for d in ('data', 'headers', 'purelib', 'platlib')
+            ),
+        ):
             unpack(subdir, destination_eggdir)
         if os.path.exists(dist_data):
             os.rmdir(dist_data)
 
     @staticmethod
     def _fix_namespace_packages(egg_info, destination_eggdir):
-        namespace_packages = os.path.join(
-            egg_info, 'namespace_packages.txt')
+        namespace_packages = os.path.join(egg_info, 'namespace_packages.txt')
         if os.path.exists(namespace_packages):
             with open(namespace_packages) as fp:
                 namespace_packages = fp.read().split()
             for mod in namespace_packages:
                 mod_dir = os.path.join(destination_eggdir, *mod.split('.'))
                 mod_init = os.path.join(mod_dir, '__init__.py')
-                if os.path.exists(mod_dir) and not os.path.exists(mod_init):
+                if not os.path.exists(mod_dir):
+                    os.mkdir(mod_dir)
+                if not os.path.exists(mod_init):
                     with open(mod_init, 'w') as fp:
                         fp.write(NAMESPACE_PACKAGE_INIT)

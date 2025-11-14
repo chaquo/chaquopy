@@ -84,8 +84,13 @@ class install_lib(orig.install_lib):
         yield base + '.opt-2.pyc'
 
     def copy_tree(
-            self, infile, outfile,
-            preserve_mode=1, preserve_times=1, preserve_symlinks=0, level=1
+        self,
+        infile,
+        outfile,
+        preserve_mode=1,
+        preserve_times=1,
+        preserve_symlinks=0,
+        level=1,
     ):
         assert preserve_mode and preserve_times and not preserve_symlinks
         exclude = self.get_exclusions()
@@ -102,8 +107,7 @@ class install_lib(orig.install_lib):
 
         def pf(src, dst):
             if dst in exclude:
-                log.warn("Skipping installation of %s (namespace package)",
-                         dst)
+                log.warn("Skipping installation of %s (namespace package)", dst)
                 return False
 
             log.info("copying %s -> %s", src, os.path.dirname(dst))

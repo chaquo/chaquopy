@@ -1,6 +1,6 @@
 package:
   name: kiwisolver
-  version: "1.4.5"
+  version: "1.4.7"
 
 build:
   number: 0

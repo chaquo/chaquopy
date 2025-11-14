@@ -69,11 +69,6 @@ abstract class PythonExtension @Inject constructor (
                     "Invalid Python version '$value'. Available versions are " +
                     "${Common.PYTHON_VERSIONS_SHORT}.")
             }
-            if (value != Common.DEFAULT_PYTHON_VERSION) {
-                println("Warning: Python version $value may have fewer packages " +
-                "available. If you experience problems, try switching to " +
-                "version ${Common.DEFAULT_PYTHON_VERSION}.")
-            }
             _version = value
         }
 

@@ -2,7 +2,6 @@
 
 Build .egg distributions"""
 
-from distutils.errors import DistutilsSetupError
 from distutils.dir_util import remove_tree, mkpath
 from distutils import log
 from types import CodeType
@@ -12,24 +11,15 @@ import re
 import textwrap
 import marshal
 
-from setuptools.extern import six
-
-from pkg_resources import get_build_platform, Distribution, ensure_directory
-from pkg_resources import EntryPoint
 from setuptools.extension import Library
 from setuptools import Command
+from .._path import ensure_directory
 
-try:
-    # Python 2.7 or >=3.2
-    from sysconfig import get_path, get_python_version
+from sysconfig import get_path, get_python_version
 
-    def _get_purelib():
-        return get_path("purelib")
-except ImportError:
-    from distutils.sysconfig import get_python_lib, get_python_version
 
-    def _get_purelib():
-        return get_python_lib(False)
+def _get_purelib():
+    return get_path("purelib")
 
 
 def strip_module(filename):
@@ -51,15 +41,19 @@ def sorted_walk(dir):
 
 
 def write_stub(resource, pyfile):
-    _stub_template = textwrap.dedent("""
+    _stub_template = textwrap.dedent(
+        """
         def __bootstrap__():
             global __bootstrap__, __loader__, __file__
-            import sys, pkg_resources, imp
+            import sys, pkg_resources, importlib.util
             __file__ = pkg_resources.resource_filename(__name__, %r)
             __loader__ = None; del __bootstrap__, __loader__
-            imp.load_dynamic(__name__,__file__)
+            spec = importlib.util.spec_from_file_location(__name__,__file__)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
         __bootstrap__()
-        """).lstrip()
+        """
+    ).lstrip()
     with open(pyfile, 'w') as f:
         f.write(_stub_template % resource)
 
@@ -68,24 +62,25 @@ class bdist_egg(Command):
     description = "create an \"egg\" distribution"
 
     user_options = [
-        ('bdist-dir=', 'b',
-         "temporary directory for creating the distribution"),
-        ('plat-name=', 'p', "platform name to embed in generated filenames "
-                            "(default: %s)" % get_build_platform()),
-        ('exclude-source-files', None,
-         "remove all .py files from the generated egg"),
-        ('keep-temp', 'k',
-         "keep the pseudo-installation tree around after " +
-         "creating the distribution archive"),
-        ('dist-dir=', 'd',
-         "directory to put final built distributions in"),
-        ('skip-build', None,
-         "skip rebuilding everything (for testing/debugging)"),
+        ('bdist-dir=', 'b', "temporary directory for creating the distribution"),
+        (
+            'plat-name=',
+            'p',
+            "platform name to embed in generated filenames "
+            "(by default uses `pkg_resources.get_build_platform()`)",
+        ),
+        ('exclude-source-files', None, "remove all .py files from the generated egg"),
+        (
+            'keep-temp',
+            'k',
+            "keep the pseudo-installation tree around after "
+            + "creating the distribution archive",
+        ),
+        ('dist-dir=', 'd', "directory to put final built distributions in"),
+        ('skip-build', None, "skip rebuilding everything (for testing/debugging)"),
     ]
 
-    boolean_options = [
-        'keep-temp', 'skip-build', 'exclude-source-files'
-    ]
+    boolean_options = ['keep-temp', 'skip-build', 'exclude-source-files']
 
     def initialize_options(self):
         self.bdist_dir = None
@@ -105,18 +100,18 @@ class bdist_egg(Command):
             self.bdist_dir = os.path.join(bdist_base, 'egg')
 
         if self.plat_name is None:
+            from pkg_resources import get_build_platform
+
             self.plat_name = get_build_platform()
 
         self.set_undefined_options('bdist', ('dist_dir', 'dist_dir'))
 
         if self.egg_output is None:
-
             # Compute filename of the output egg
-            basename = Distribution(
-                None, None, ei_cmd.egg_name, ei_cmd.egg_version,
-                get_python_version(),
-                self.distribution.has_ext_modules() and self.plat_name
-            ).egg_name()
+            basename = ei_cmd._get_egg_basename(
+                py_version=get_python_version(),
+                platform=self.distribution.has_ext_modules() and self.plat_name,
+            )
 
             self.egg_output = os.path.join(self.dist_dir, basename + '.egg')
 
@@ -135,7 +130,7 @@ class bdist_egg(Command):
                     if normalized == site_packages or normalized.startswith(
                         site_packages + os.sep
                     ):
-                        item = realpath[len(site_packages) + 1:], item[1]
+                        item = realpath[len(site_packages) + 1 :], item[1]
                         # XXX else: raise ???
             self.distribution.data_files.append(item)
 
@@ -158,7 +153,7 @@ class bdist_egg(Command):
         self.run_command(cmdname)
         return cmd
 
-    def run(self):
+    def run(self):  # noqa: C901  # is too complex (14)  # FIXME
         # Generate metadata first
         self.run_command("egg_info")
         # We run install_lib before install_data, because some data hacks
@@ -175,10 +170,9 @@ class bdist_egg(Command):
         all_outputs, ext_outputs = self.get_ext_outputs()
         self.stubs = []
         to_compile = []
-        for (p, ext_name) in enumerate(ext_outputs):
+        for p, ext_name in enumerate(ext_outputs):
             filename, ext = os.path.splitext(ext_name)
-            pyfile = os.path.join(self.bdist_dir, strip_module(filename) +
-                                  '.py')
+            pyfile = os.path.join(self.bdist_dir, strip_module(filename) + '.py')
             self.stubs.append(pyfile)
             log.info("creating stub loader for %s", ext_name)
             if not self.dry_run:
@@ -198,8 +192,7 @@ class bdist_egg(Command):
         if self.distribution.scripts:
             script_dir = os.path.join(egg_info, 'scripts')
             log.info("installing scripts to %s", script_dir)
-            self.call_command('install_scripts', install_dir=script_dir,
-                              no_ep=1)
+            self.call_command('install_scripts', install_dir=script_dir, no_ep=1)
 
         self.copy_metadata_to(egg_info)
         native_libs = os.path.join(egg_info, "native_libs.txt")
@@ -216,9 +209,7 @@ class bdist_egg(Command):
             if not self.dry_run:
                 os.unlink(native_libs)
 
-        write_safety_flag(
-            os.path.join(archive_root, 'EGG-INFO'), self.zip_safe()
-        )
+        write_safety_flag(os.path.join(archive_root, 'EGG-INFO'), self.zip_safe())
 
         if os.path.exists(os.path.join(self.egg_info, 'depends.txt')):
             log.warn(
@@ -230,14 +221,20 @@ class bdist_egg(Command):
             self.zap_pyfiles()
 
         # Make the archive
-        make_zipfile(self.egg_output, archive_root, verbose=self.verbose,
-                     dry_run=self.dry_run, mode=self.gen_header())
+        make_zipfile(
+            self.egg_output,
+            archive_root,
+            verbose=self.verbose,
+            dry_run=self.dry_run,
+            mode=self.gen_header(),
+        )
         if not self.keep_temp:
             remove_tree(self.bdist_dir, dry_run=self.dry_run)
 
         # Add to 'Distribution.dist_files' so that the "upload" command works
         getattr(self.distribution, 'dist_files', []).append(
-            ('bdist_egg', get_python_version(), self.egg_output))
+            ('bdist_egg', get_python_version(), self.egg_output)
+        )
 
     def zap_pyfiles(self):
         log.info("Removing .py files from temporary directory")
@@ -254,11 +251,8 @@ class bdist_egg(Command):
 
                     pattern = r'(?P<name>.+)\.(?P<magic>[^.]+)\.pyc'
                     m = re.match(pattern, name)
-                    path_new = os.path.join(
-                        base, os.pardir, m.group('name') + '.pyc')
-                    log.info(
-                        "Renaming file from [%s] to [%s]"
-                        % (path_old, path_new))
+                    path_new = os.path.join(base, os.pardir, m.group('name') + '.pyc')
+                    log.info("Renaming file from [%s] to [%s]" % (path_old, path_new))
                     try:
                         os.remove(path_new)
                     except OSError:
@@ -273,43 +267,7 @@ class bdist_egg(Command):
         return analyze_egg(self.bdist_dir, self.stubs)
 
     def gen_header(self):
-        epm = EntryPoint.parse_map(self.distribution.entry_points or '')
-        ep = epm.get('setuptools.installation', {}).get('eggsecutable')
-        if ep is None:
-            return 'w'  # not an eggsecutable, do it the usual way.
-
-        if not ep.attrs or ep.extras:
-            raise DistutilsSetupError(
-                "eggsecutable entry point (%r) cannot have 'extras' "
-                "or refer to a module" % (ep,)
-            )
-
-        pyver = '{}.{}'.format(*sys.version_info)
-        pkg = ep.module_name
-        full = '.'.join(ep.attrs)
-        base = ep.attrs[0]
-        basename = os.path.basename(self.egg_output)
-
-        header = (
-            "#!/bin/sh\n"
-            'if [ `basename $0` = "%(basename)s" ]\n'
-            'then exec python%(pyver)s -c "'
-            "import sys, os; sys.path.insert(0, os.path.abspath('$0')); "
-            "from %(pkg)s import %(base)s; sys.exit(%(full)s())"
-            '" "$@"\n'
-            'else\n'
-            '  echo $0 is not the correct name for this egg file.\n'
-            '  echo Please rename it back to %(basename)s and try again.\n'
-            '  exec false\n'
-            'fi\n'
-        ) % locals()
-
-        if not self.dry_run:
-            mkpath(os.path.dirname(self.egg_output), dry_run=self.dry_run)
-            f = open(self.egg_output, 'w')
-            f.write(header)
-            f.close()
-        return 'a'
+        return 'w'
 
     def copy_metadata_to(self, target_dir):
         "Copy metadata (egg info) to the target_dir"
@@ -319,7 +277,7 @@ class bdist_egg(Command):
         prefix = os.path.join(norm_egg_info, '')
         for path in self.ei_cmd.filelist.files:
             if path.startswith(prefix):
-                target = os.path.join(target_dir, path[len(prefix):])
+                target = os.path.join(target_dir, path[len(prefix) :])
                 ensure_directory(target)
                 self.copy_file(path, target)
 
@@ -335,8 +293,7 @@ class bdist_egg(Command):
                 if os.path.splitext(filename)[1].lower() in NATIVE_EXTENSIONS:
                     all_outputs.append(paths[base] + filename)
             for filename in dirs:
-                paths[os.path.join(base, filename)] = (paths[base] +
-                                                       filename + '/')
+                paths[os.path.join(base, filename)] = paths[base] + filename + '/'
 
         if self.distribution.has_ext_modules():
             build_cmd = self.get_finalized_command('build_ext')
@@ -409,11 +366,9 @@ def scan_module(egg_dir, base, name, stubs):
     filename = os.path.join(base, name)
     if filename[:-1] in stubs:
         return True  # Extension module
-    pkg = base[len(egg_dir) + 1:].replace(os.sep, '.')
+    pkg = base[len(egg_dir) + 1 :].replace(os.sep, '.')
     module = pkg + (pkg and '.' or '') + os.path.splitext(name)[0]
-    if six.PY2:
-        skip = 8  # skip magic & date
-    elif sys.version_info < (3, 7):
+    if sys.version_info < (3, 7):
         skip = 12  # skip magic & date & file size
     else:
         skip = 16  # skip magic & reserved? & date & file size
@@ -429,9 +384,17 @@ def scan_module(egg_dir, base, name, stubs):
             safe = False
     if 'inspect' in symbols:
         for bad in [
-            'getsource', 'getabsfile', 'getsourcefile', 'getfile'
-            'getsourcelines', 'findsource', 'getcomments', 'getframeinfo',
-            'getinnerframes', 'getouterframes', 'stack', 'trace'
+            'getsource',
+            'getabsfile',
+            'getsourcefile',
+            'getfile' 'getsourcelines',
+            'findsource',
+            'getcomments',
+            'getframeinfo',
+            'getinnerframes',
+            'getouterframes',
+            'stack',
+            'trace',
         ]:
             if bad in symbols:
                 log.warn("%s: module MAY be using inspect.%s", module, bad)
@@ -444,7 +407,7 @@ def iter_symbols(code):
     for name in code.co_names:
         yield name
     for const in code.co_consts:
-        if isinstance(const, six.string_types):
+        if isinstance(const, str):
             yield const
         elif isinstance(const, CodeType):
             for name in iter_symbols(const):
@@ -456,20 +419,19 @@ def can_scan():
         # CPython, PyPy, etc.
         return True
     log.warn("Unable to analyze compiled code on this platform.")
-    log.warn("Please ask the author to include a 'zip_safe'"
-             " setting (either True or False) in the package's setup.py")
+    log.warn(
+        "Please ask the author to include a 'zip_safe'"
+        " setting (either True or False) in the package's setup.py"
+    )
 
 
 # Attribute names of options for commands that might need to be convinced to
 # install to the egg build directory
 
-INSTALL_DIRECTORY_ATTRS = [
-    'install_lib', 'install_dir', 'install_data', 'install_base'
-]
+INSTALL_DIRECTORY_ATTRS = ['install_lib', 'install_dir', 'install_data', 'install_base']
 
 
-def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=True,
-                 mode='w'):
+def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=True, mode='w'):
     """Create a zip file from all the files under 'base_dir'.  The output
     zip file will be named 'base_dir' + ".zip".  Uses either the "zipfile"
     Python module (if available) or the InfoZIP "zip" utility (if installed
@@ -485,7 +447,7 @@ def make_zipfile(zip_filename, base_dir, verbose=0, dry_run=0, compress=True,
         for name in names:
             path = os.path.normpath(os.path.join(dirname, name))
             if os.path.isfile(path):
-                p = path[len(base_dir) + 1:]
+                p = path[len(base_dir) + 1 :]
                 if not dry_run:
                     z.write(path, p)
                 log.debug("adding '%s'", p)

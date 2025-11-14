@@ -5,15 +5,134 @@ Change log
 
 .. towncrier release notes start
 
-14.0.2 (2023-01-29)
+16.1.0 (2025-05-07)
 ===================
 
-Backward incompatible
----------------------
+Features
+--------
 
-- :ref:`buildPython` must now be at least Python 3.7. (`#713
-  <https://github.com/chaquo/chaquopy/issues/713>`__)
+- The "may have fewer packages available" warning has been removed, since the
+  default Python version no longer has a clear advantage in its package
+  selection. (`#1272 <https://github.com/chaquo/chaquopy/issues/1272>`__)
+- The `_chaquopy` stub libraries for OpenSSL and SQLite are now linked in 16 KB
+  mode. (`#1324 <https://github.com/chaquo/chaquopy/issues/1324>`__)
+- Android Gradle plugin versions 8.9 to 8.13 are now supported. (`#1340
+  <https://github.com/chaquo/chaquopy/issues/1340>`__)
 
+
+Bugfixes
+--------
+
+- .pth files are now processed after `sys.path` is fully initialized. (`#1338
+  <https://github.com/chaquo/chaquopy/issues/1338>`__)
+- The importer now recognizes libraries with an SOABI suffix such as
+  `.cpython-313-aarch64-linux-android.so`. (`#1370
+  <https://github.com/chaquo/chaquopy/issues/1370>`__)
+
+
+16.0.0 (2024-10-15)
+===================
+
+Features
+--------
+
+- Update CA bundle to certifi 2024.8.30. (`#1169
+  <https://github.com/chaquo/chaquopy/issues/1169>`__)
+- Python version 3.13 is now supported. (`#1210
+  <https://github.com/chaquo/chaquopy/issues/1210>`__, `#1212
+  <https://github.com/chaquo/chaquopy/issues/1212>`__)
+- Update runtime Python versions to 3.8.20, 3.9.20, 3.10.15, 3.11.10, 3.12.7
+  and 3.13.0. (`#1211 <https://github.com/chaquo/chaquopy/issues/1211>`__)
+- Android Gradle plugin versions 8.6 to 8.8 are now supported. (`#1224
+  <https://github.com/chaquo/chaquopy/issues/1224>`__, `#1245
+  <https://github.com/chaquo/chaquopy/issues/1245>`__)
+
+
+Deprecations and Removals
+-------------------------
+
+- `minSdk` must now be at least API level 24. This
+  still covers `97% of active devices
+  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
+  (`#718 <https://github.com/chaquo/chaquopy/issues/718>`__)
+- :ref:`buildPython` must now be at least Python 3.8. (`#1027
+  <https://github.com/chaquo/chaquopy/issues/1027>`__)
+
+
+Bugfixes
+--------
+
+- When exceptions are thrown during an import, the traceback now contains only
+  a single copy of `import_override`, rather than one for every import level.
+  (`#889 <https://github.com/chaquo/chaquopy/issues/889>`__)
+- `sys.stdin` is no longer overridden, so it has all the standard attributes
+  including `buffer`. (`#1083
+  <https://github.com/chaquo/chaquopy/issues/1083>`__)
+
+
+15.0.1 (2023-12-24)
+===================
+
+Features
+--------
+
+- Kotlin build.gradle.kts files are now supported. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- A new Gradle DSL has been added, with a top-level `chaquopy` block. Kotlin
+  build.gradle.kts files must use the new DSL; Groovy build.gradle files may
+  use either the new or the old one. (`#231
+  <https://github.com/chaquo/chaquopy/issues/231>`__)
+- All Android wheels are now downloaded from https://chaquo.com/pypi-13.1/ –
+  the old pypi-7.0 URL is no longer used. (`#808
+  <https://github.com/chaquo/chaquopy/issues/808>`__)
+- `os.get_terminal_size` now returns ENOTTY rather than EPERM, which was
+  causing avc log spam when stdio is redirected. (`#886
+  <https://github.com/chaquo/chaquopy/issues/886>`__)
+- Update CA bundle to certifi 2023.11.17. (`#893
+  <https://github.com/chaquo/chaquopy/issues/893>`__)
+- Android Gradle plugin versions 8.1 to 8.5 are now supported. (`#908
+  <https://github.com/chaquo/chaquopy/issues/908>`__, `#1003
+  <https://github.com/chaquo/chaquopy/issues/1003>`__, `#1091
+  <https://github.com/chaquo/chaquopy/issues/1091>`__, `#1140
+  <https://github.com/chaquo/chaquopy/issues/1140>`__, `#1172
+  <https://github.com/chaquo/chaquopy/issues/1172>`__)
+- Python version 3.12 is now supported. (`#931
+  <https://github.com/chaquo/chaquopy/issues/931>`__, `#967
+  <https://github.com/chaquo/chaquopy/issues/967>`__)
+- Update runtime Python versions to 3.8.18, 3.9.18, 3.10.13, 3.11.6, and
+  3.12.1. (`#932 <https://github.com/chaquo/chaquopy/issues/932>`__)
+- The `importlib.resources.files` API is now supported in Python 3.9 and later.
+  (`#977 <https://github.com/chaquo/chaquopy/issues/977>`__)
+- Update pkg_resources from setuptools version 68.2.2.
+
+
+Deprecations and Removals
+-------------------------
+
+- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
+  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
+- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
+  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
+  <https://github.com/chaquo/chaquopy/issues/840>`__)
+
+
+Bugfixes
+--------
+
+- Fix "AttributeError: "'AssetFinder' object has no attribute
+  'extract_packages'" when AssetFinder subdirectories are on `sys.path`.
+  (`#820 <https://github.com/chaquo/chaquopy/issues/820>`__)
+- Unsupported `socket` functions such as `if_nametoindex` now throw `OSError`
+  as documented, rather than `AttributeError`. (`#870
+  <https://github.com/chaquo/chaquopy/issues/870>`__)
+- Fix FileNotFoundError when `pkgutil.iter_modules` is called with a
+  nonexistent path. (`#917 <https://github.com/chaquo/chaquopy/issues/917>`__)
+- ZIP files using BZ2 or LZMA compression are now supported. (`#953
+  <https://github.com/chaquo/chaquopy/issues/953>`__)
+
+
+14.0.2 (2023-01-29)
+===================
 
 Features
 --------
@@ -43,6 +162,13 @@ Features
 - Update to pip version 20.1.
 
 
+Deprecations and Removals
+-------------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
+
+
 Bugfixes
 --------
 
@@ -64,7 +190,7 @@ Bugfixes
   <https://github.com/chaquo/chaquopy/issues/663>`_).
 * [**BACKWARD INCOMPATIBLE**] `minSdkVersion` must now be at least API level 21. This
   still covers `98% of active devices
-  <https://dl.google.com/android/studio/metadata/distributions.json>`_.
+  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
 * Python versions 3.9, 3.10 and 3.11 are now supported (`#661
   <https://github.com/chaquo/chaquopy/issues/661>`_).
 * Detect changes to files or directories listed in requirements files (`#660
@@ -74,7 +200,7 @@ Bugfixes
   <https://github.com/chaquo/chaquopy/issues/672>`_).
 * Enable all warnings, including :any:`DeprecationWarning`,
   :any:`PendingDeprecationWarning`, :any:`ImportWarning` and :any:`ResourceWarning`.
-* Update to pkg_resources version 56.2.0.
+* Update pkg_resources from setuptools version 56.2.0.
 * Update to SQLite version 3.39.2.
 * Update Python 3.9 and later to OpenSSL version 3.0.5.
 
@@ -332,7 +458,7 @@ Bugfixes
 
 * Fix pip issues involving packages with optional native components (e.g. `websockets
   <https://pypi.org/project/websockets/>`_).
-* Work around inability of Android dynamic linker on API 22 and older to load multiple modules
+* Work around inability of Android dynamic linker on API level 22 and older to load multiple modules
   with the same basename (`details here <https://github.com/aosp-mirror/platform_bionic/blob/master/android-changes-for-ndk-developers.md#correct-sonamepath-handling-available-in-api-level--23>`_).
 * Fix `ctypes.pythonapi` and :any:`sys.abiflags`, and provide partial implementation of
   :any:`sysconfig.get_config_vars`.

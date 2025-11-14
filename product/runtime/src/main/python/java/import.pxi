@@ -65,19 +65,27 @@ def import_override(name, globals={}, locals={}, fromlist=None, level=0):
 # only does this for the standard import system: see remove_import_frames in Python/import.c.)
 def clean_exception(e):
     tb = e.__traceback__
-    while in_import_system(tb.tb_frame.f_code.co_filename):
-        tb = tb.tb_next
-        if tb is None:
-            # A file with a SyntaxError is not actually in the traceback, because it was never
-            # compiled successfully.
-            if isinstance(e, SyntaxError) and not in_import_system(e.filename):
-                break
-            else:
-                # The exception originated within the import system, so return it untouched to
-                # assist debugging.
-                return e
-    return e.with_traceback(tb)
 
+    tb_clean = []
+    while tb:
+        if not in_import_system(tb.tb_frame.f_code.co_filename):
+            tb_clean.append(tb)
+        tb = tb.tb_next
+
+    # A file with a SyntaxError is not actually in the traceback, because it was never
+    # compiled successfully.
+    if tb_clean or isinstance(e, SyntaxError):
+        # Construct a traceback from the non-import-system frames only.
+        for i, tb in enumerate(tb_clean):
+            tb.tb_next = (
+                None if i + 1 == len(tb_clean)
+                else tb_clean[i + 1]
+            )
+        return e.with_traceback(tb_clean[0] if tb_clean else None)
+    else:
+        # All frames came from the import system, so return the exception untouched to
+        # assist debugging.
+        return e
 
 def in_import_system(filename):
     filename = filename.replace("\\", "/")  # For .pyc files compiled on Windows.

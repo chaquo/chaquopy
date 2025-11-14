@@ -1,0 +1,16 @@
+--- Python-3.12.0-original/configure	2023-11-20 18:40:13
++++ Python-3.12.0/configure	2023-11-20 19:06:42
+@@ -28545,6 +28545,13 @@
+     py_cv_module__scproxy=n/a
+     py_cv_module_spwd=n/a
+  ;; #(
++
++  # Chaquopy: we can't build the grp module, because getgrent and setgrent aren't
++  # available until API level 26.
++  Linux-android)
++    py_cv_module_grp=n/a
++  ;;
++
+   Emscripten|WASI) :
+ 
+ 

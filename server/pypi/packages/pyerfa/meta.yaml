@@ -1,15 +1,15 @@
 {% if PY_VER == "3.8" %}
     {% set numpy_version = "1.19.5" %}
-{% else %}
+{% elif PY_VER in ["3.9", "3.10", "3.11"] %}
     {% set numpy_version = "1.23.3" %}
+{% elif PY_VER in ["3.12", "3.13"] %}
+    {% set numpy_version = "1.26.2" %}
 {% endif %}
 
 package:
   name: pyerfa
-  version: "2.0.0.3"
+  version: "2.0.1.4"
 
 requirements:
-  build:
-    - packaging 23.1
   host:
     - numpy {{ numpy_version }}

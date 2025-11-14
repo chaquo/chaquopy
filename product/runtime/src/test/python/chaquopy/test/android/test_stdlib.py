@@ -1,7 +1,9 @@
 import os
-from os.path import dirname, exists, join, realpath
 import subprocess
 import sys
+from contextlib import closing
+from os.path import dirname, exists, join, realpath
+from unittest import skipIf
 from warnings import catch_warnings, filterwarnings
 
 from android.os import Build
@@ -20,21 +22,6 @@ class TestAndroidStdlib(FilterWarningsCase):
         # attribute will only exist if _datetime was available when datetime was first
         # imported.
         self.assertTrue(datetime.datetime_CAPI)
-
-    def test_json(self):
-        from json import encoder, scanner
-        # These attributes will be None if the native _json module was unavailable when json
-        # was first imported, which would significantly reduce the module's performance.
-        self.assertTrue(encoder.c_make_encoder)
-        self.assertTrue(scanner.c_make_scanner)
-
-    def test_lib2to3(self):
-        with catch_warnings():
-            for category in [DeprecationWarning, PendingDeprecationWarning]:
-                filterwarnings("default", category=category)
-
-            # Requires grammar files to be available in stdlib zip.
-            from lib2to3 import pygram  # noqa: F401
 
     def test_hashlib(self):
         import hashlib
@@ -69,6 +56,22 @@ class TestAndroidStdlib(FilterWarningsCase):
                 else:
                     self.assertFalse(hasattr(hashlib, name))
 
+    def test_json(self):
+        from json import encoder, scanner
+        # These attributes will be None if the native _json module was unavailable when json
+        # was first imported, which would significantly reduce the module's performance.
+        self.assertTrue(encoder.c_make_encoder)
+        self.assertTrue(scanner.c_make_scanner)
+
+    @skipIf(sys.version_info >= (3, 13), "lib2to3 was removed in Python 3.13")
+    def test_lib2to3(self):
+        with catch_warnings():
+            for category in [DeprecationWarning, PendingDeprecationWarning]:
+                filterwarnings("default", category=category)
+
+            # Requires grammar files to be available in stdlib zip.
+            from lib2to3 import pygram  # noqa: F401
+
     def test_locale(self):
         import locale
         self.assertEqual("UTF-8", locale.getlocale()[1])
@@ -102,7 +105,14 @@ class TestAndroidStdlib(FilterWarningsCase):
         for name in ["Barrier", "BoundedSemaphore", "Condition", "Event", "Lock", "RLock",
                      "Semaphore"]:
             cls = getattr(synchronize, name)
-            with self.assertRaisesRegex(OSError, "This platform lacks a functioning sem_open"):
+            with self.assertRaisesRegex(
+                OSError,
+                (
+                    "This platform lacks a functioning sem_open"
+                    if sys.version_info < (3, 13)
+                    else "No module named '_multiprocessing'"
+                )
+            ):
                 if name == "Barrier":
                     cls(1, ctx=ctx)
                 else:
@@ -117,6 +127,12 @@ class TestAndroidStdlib(FilterWarningsCase):
             with self.subTest(name=name):
                 self.assertTrue(os.access(name, os.X_OK))
 
+        for args in [[], [1]]:
+            with self.assertRaisesRegex(
+                OSError, r"Inappropriate ioctl for device|Not a typewriter"
+            ):
+                os.get_terminal_size(*args)
+
     def test_pickle(self):
         import pickle
         # This attribute will only exist if the native _pickle module was available when
@@ -129,9 +145,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         python_bits = platform.architecture()[0]
         self.assertEqual(python_bits, "64bit" if ("64" in Build.CPU_ABI) else "32bit")
 
-        # Requires sys.executable to exist.
-        p = platform.platform()
-        self.assertRegex(p, r"^Linux")
+        self.assertRegex(
+            platform.platform(),
+            r"^Linux" if sys.version_info < (3, 13) else r"^Android")
 
     def test_select(self):
         import select
@@ -162,11 +178,11 @@ class TestAndroidStdlib(FilterWarningsCase):
 
     def test_sqlite(self):
         import sqlite3
-        conn = sqlite3.connect(":memory:")
-        conn.execute("create table test (a text, b text)")
-        conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
-        cur = conn.execute("select b from test where a = 'bravo'")
-        self.assertEqual([("two",)], cur.fetchall())
+        with closing(sqlite3.connect(":memory:")) as conn:
+            conn.execute("create table test (a text, b text)")
+            conn.execute("insert into test values ('alpha', 'one'), ('bravo', 'two')")
+            cur = conn.execute("select b from test where a = 'bravo'")
+            self.assertEqual([("two",)], cur.fetchall())
 
     def test_ssl(self):
         from urllib.request import urlopen
@@ -203,7 +219,9 @@ class TestAndroidStdlib(FilterWarningsCase):
         for p in sys.path:
             self.assertTrue(exists(p), p)
 
-        self.assertRegex(sys.platform, r"^linux")
+        self.assertEqual(
+            sys.platform,
+            "linux" if sys.version_info < (3, 13) else "android")
         self.assertNotIn("dirty", sys.version)
 
     def test_sysconfig(self):
@@ -211,10 +229,11 @@ class TestAndroidStdlib(FilterWarningsCase):
         ldlibrary = "libpython{}.{}.so".format(*sys.version_info[:2])
         self.assertEqual(ldlibrary, sysconfig.get_config_vars()["LDLIBRARY"])
 
-        with catch_warnings():
-            filterwarnings("default", category=DeprecationWarning)
-            import distutils.sysconfig
-        self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
+        if sys.version_info < (3, 12):
+            with catch_warnings():
+                filterwarnings("default", category=DeprecationWarning)
+                import distutils.sysconfig
+            self.assertEqual(ldlibrary, distutils.sysconfig.get_config_vars()["LDLIBRARY"])
 
     def test_tempfile(self):
         import tempfile
