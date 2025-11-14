@@ -8,7 +8,7 @@ import java.util.*;
  * respective build scripts. */
 public class Common {
     // Minimum Android Gradle plugin version
-    public static final String MIN_AGP_VERSION = "7.0.0";
+    public static final String MIN_AGP_VERSION = "7.3.0";
 
     // This should match api_level in target/android-env.sh.
     public static final int MIN_SDK_VERSION = 24;
@@ -18,8 +18,6 @@ public class Common {
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.8.20", "1");
-        PYTHON_VERSIONS.put("3.9.20", "1");
         PYTHON_VERSIONS.put("3.10.15", "1");
         PYTHON_VERSIONS.put("3.11.10", "1");
         PYTHON_VERSIONS.put("3.12.7", "1");
@@ -34,8 +32,7 @@ public class Common {
         }
     }
 
-    // This is the version with the best set of native packages in the repository.
-    public static final String DEFAULT_PYTHON_VERSION = "3.8";
+    public static final String DEFAULT_PYTHON_VERSION = "3.10";
 
     // Wheel tags (PEP 425).
     public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython
@@ -106,57 +103,6 @@ public class Common {
             }
         }
         throw new RuntimeException("unknown os.name: " + property);
-    }
-
-    public static String findExecutable(String name) throws FileNotFoundException {
-        File file = new File(name);
-        if (file.isAbsolute()) {
-            if (! file.exists()) {
-                throw new FileNotFoundException("'" + name + "' does not exist");
-            }
-            return name;
-        }
-
-        // The default PATH on Mac is /usr/bin:/bin:/usr/sbin:/sbin. However, apps can't
-        // install anything into these locations, so the python.org installers use
-        // /usr/local/bin instead. This directory may also appear to be on the default
-        // PATH, but this is because it's listed in /etc/paths, which only affects
-        // shells, but not other apps like Android Studio and its Gradle subprocesses.
-        //
-        // As of Gradle 6.9, this appears to be unnecessary (#821). So once the
-        // `product` project is using a newer version than that, we can remove this
-        // method and let Gradle find executables itself.
-        List<String> path = new ArrayList<>();
-        String osName = System.getProperty("os.name").toLowerCase();
-        if (osName.startsWith("mac")) {
-            final String ETC_PATHS = "/etc/paths";
-            try (BufferedReader reader = new BufferedReader(new FileReader(ETC_PATHS))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    path.add(line);
-                }
-            } catch (IOException e) {
-                System.out.println("Warning: while reading " + ETC_PATHS + ": " + e);
-            }
-        }
-        Collections.addAll(path, System.getenv("PATH").split(File.pathSeparator));
-
-        List<String> exts = new ArrayList<>();
-        exts.add("");
-        if (osName.startsWith("win")) {
-            exts.add(".exe");
-            exts.add(".bat");
-        }
-
-        for (String dir : path) {
-            for (String ext : exts) {
-                file = new File(dir, name + ext);
-                if (file.exists()) {
-                    return file.toString();
-                }
-            }
-        }
-        throw new FileNotFoundException("Couldn't find '" + name + "' on PATH");
     }
 
 }

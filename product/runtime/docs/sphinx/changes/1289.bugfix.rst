@@ -1,0 +1,1 @@
+Handle the Chaquopy and Android plugins being declared in the top-level `plugins` block of settings.gradle, as Flutter does.

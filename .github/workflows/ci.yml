@@ -165,12 +165,11 @@ jobs:
         os: [macos, windows, linux]
         agp-version: ${{ fromJSON(needs.product.outputs.agp-versions) }}
         include:
-          # Runners must support all the Python versions in setup-python/action.yml: see
-          # https://github.com/actions/python-versions/blob/main/versions-manifest.json.
+          # Runners must support all the Python versions in setup-python/action.yml.
           - os: linux
             runs-on: ubuntu-22.04
           - os: macos
-            runs-on: macos-13
+            runs-on: macos-15-intel
           - os: windows
             runs-on: windows-2022
 

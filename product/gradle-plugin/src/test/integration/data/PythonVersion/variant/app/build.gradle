@@ -14,10 +14,10 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            version "3.8"
+            version "{{ defaultPythonVersion }}"
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 
@@ -29,14 +29,14 @@ android {
         }
         bravo {
             dimension "letter"
-            python { version "3.9" }
+            python { version "{{ secondPythonVersion }}" }
         }
         one {
             dimension "number"
         }
         two {
             dimension "number"
-            python { version "3.10" }
+            python { version "{{ thirdPythonVersion }}" }
         }
     }
 }

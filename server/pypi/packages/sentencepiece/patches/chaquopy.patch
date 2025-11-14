@@ -1,30 +1,21 @@
---- src-original/setup.py	2021-01-08 16:09:18.000000000 +0000
-+++ src/setup.py	2021-01-11 22:03:33.904597583 +0000
-@@ -98,7 +98,8 @@
- else:
+--- src-original/setup.py	2025-08-12 05:52:58.000000000 +0000
++++ src/setup.py	2025-11-05 19:33:33.331371791 +0000
+@@ -227,6 +227,7 @@
    SENTENCEPIECE_EXT = Extension(
        'sentencepiece._sentencepiece',
--      sources=['src/sentencepiece/sentencepiece_wrap.cxx'])
-+      sources=['src/sentencepiece/sentencepiece_wrap.cxx'],
-+      libraries=["log"])  # Chaquopy: added
+       sources=['src/sentencepiece/sentencepiece_wrap.cxx'],
++      libraries=["log"],  # Chaquopy: see bundled.patch
+   )
    cmdclass = {'build_ext': build_ext}
-
- setup(
---- src-original/build_bundled.sh	2021-01-09 15:24:24.000000000 +0000
-+++ src/build_bundled.sh	2023-12-16 22:18:22.971159515 +0000
-@@ -4,12 +4,12 @@
  
- mkdir bundled
- cd bundled
--# Try taged version. Othewise, use head.
-+# Chaquopy: removed fallback onto HEAD.
- git clone https://github.com/google/sentencepiece.git \
--  -b v"${VERSION}" --depth 1 || \
--  git clone https://github.com/google/sentencepiece.git --depth 1
-+  -b v"${VERSION}" --depth 1
+--- src-original/build_bundled.sh	2025-08-12 05:52:58.000000000 +0000
++++ src/build_bundled.sh	2025-11-05 19:36:35.233764329 +0000
+@@ -18,5 +18,8 @@
+   SRC_DIR=./sentencepiece
+ fi
  
- cd sentencepiece
-+patch -p1 -i $RECIPE_DIR/bundled.patch  # Chaquopy
- mkdir build
- cd build
- cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=../..
++# Chaquopy
++patch -d $SRC_DIR -p1 -i $RECIPE_DIR/bundled.patch || exit 1
++
+ cmake ${SRC_DIR} -B ${BUILD_DIR} -DSPM_ENABLE_SHARED=OFF -DSPM_DISABLE_EMBEDDED_DATA=ON -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
+ cmake --build ${BUILD_DIR} --config Release --target install --parallel $(nproc)

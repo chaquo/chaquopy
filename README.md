@@ -5,7 +5,7 @@ including:
 
 * Full integration with Android Studio's standard Gradle build system.
 * Simple APIs for calling Python code from Java/Kotlin, and vice versa.
-* A wide range of third-party Python packages, including SciPy, OpenCV, TensorFlow and many
+* A wide range of third-party Python packages, including SciPy, Pandas, Pillow, and many
   more.
 
 To get started, see the [documentation](https://chaquo.com/chaquopy/doc/current/).

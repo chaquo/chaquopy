@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [[ "$1" != "-m" ]]; then
+    echo "$(basename "$0") was probed"
+else
+    echo "$(basename "$0") was used"
+    exit 1
+fi

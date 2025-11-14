@@ -31,6 +31,7 @@ device being each of the following:
 * A physical device (on all ABIs if possible)
 * minSdk (on all ABIs if possible)
 * targetSdk
+* 16 KB pages
 * A clean install
 * An upgrade from the previous public release, with the tests already run
 
@@ -55,16 +56,18 @@ changed.
 Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
 file to use the local Chaquopy version.
 
-Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes,
-ordered by number of PyPI downloads, excluding TensorFlow (#1209):
+Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes for
+the default Python version, ordered by number of PyPI downloads:
 
-* Get the PyPI statistics as described in server/pypi/README-internal.md.
-* `cd server/pypi/packages`
-* `cat pypi-downloads.csv | cut -d, -f1 | while read name; do if [ -e $name ] && [ $name != tensorflow ]; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
+* `cd /var/www/chaquo/pypi-13.1`
+* `cat path/to/top-pypi-packages.csv | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* TODO: once the default version is 3.13 or later, also include data from
+  https://beeware.org/mobile-wheels.
 
-As of 2023-12, this is:
+As of 2025-11, this is:
 
-    numpy cryptography cffi pandas aiohttp yarl greenlet frozenlist grpcio lxml psutil multidict pillow scipy bcrypt matplotlib pynacl scikit-learn kiwisolver regex ruamel-yaml-clib google-crc32c pycryptodomex contourpy pyzmq pycryptodome zope-interface h5py tokenizers torch shapely numba llvmlite xgboost scikit-image statsmodels sentencepiece opencv-python torchvision brotli
+    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
 
 Search the package test scripts for the word "Android", and consider adding any packages
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
@@ -76,6 +79,7 @@ case), and test on those ABIs, with at least one device being each of the follow
 * A physical device (on all ABIs if possible)
 * minSdk (on all ABIs if possible)
 * targetSdk
+* TODO: once the default version is 3.13 or later, include a device with 16 KB pages.
 * A clean install
 
 Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
@@ -86,8 +90,8 @@ ABIs, with at least one device being each of the following:
 
 ## Public release
 
-Use release/bundle.sh to create bundle JARs for the following things, and [release them to
-Maven Central](https://central.sonatype.org/publish/publish-manual/#bundle-creation):
+Use release/bundle.sh to create bundles for the following things, and [release them to
+Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
 
 * `com.chaquo.python.gradle.plugin`
 * `gradle`

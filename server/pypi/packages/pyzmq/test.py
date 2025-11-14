@@ -46,7 +46,7 @@ class TestPyzmq(unittest.TestCase):
             except ImportError:
                 pass
         else:
-            self.skipTest(f"requires at least one of {OTHER_MODULES}")
+            self.fail(f"requires at least one of {OTHER_MODULES}")
 
         self.assertNotEqual(zmq_mod, other_mod)
         self.assertNotEqual(zmq_mod.__file__, other_mod.__file__)

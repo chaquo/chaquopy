@@ -1,18 +1,20 @@
 import os
 import sys
 import types
+from importlib import import_module
 
 
 # We want to cause a quick and comprehensible failure when a package attempts to build
 # native code, while still allowing a pure-Python fallback if available. This is tricky,
 # because different packages have different approaches to pure-Python fallbacks:
 #
-# * Some packages simply catch any distutils exception thrown by setup(), and then run it again
-#   with the native components removed.
+# * Some packages (e.g. markupsafe==3.0.3) wrap setup() with an exception handler, and
+#   then run it again with the native components removed.
 #
-# * Some (e.g. sqlalchemy, wrapt) extend the distutils build_ext or build_clib command and
-#   override its run() method to wrap it with an exception handler. This means we can't simply
-#   block the commands by name, e.g. by overriding Distribution.run_command.
+# * Some (e.g. pyyaml==6.0.3, sqlalchemy, wrapt) extend the distutils build_ext or
+#   build_clib class and override its run() method to wrap it with an exception handler.
+#   This means we can't simply block the commands by name, e.g. by overriding
+#   Distribution.run_command.
 #
 # * Some (e.g. msgpack) go lower-level and catch exceptions in build_ext.build_extension. In
 #   Python 3, there's an `optional` keyword to Extension which has the same effect (used e.g.
@@ -59,7 +61,16 @@ def disable_native_distutils():
     from distutils import ccompiler
     from distutils.unixccompiler import UnixCCompiler
 
-    ccompiler.get_default_compiler = lambda *args, **kwargs: "disabled"
+    # In newer versions of Setuptools, ccompiler imports all of its symbols from
+    # elsewhere.
+    compiler_mods = [ccompiler]
+    original_mod_name = ccompiler.get_default_compiler.__module__
+    if original_mod_name != ccompiler.__name__:
+        compiler_mods.append(import_module(original_mod_name))
+
+    for mod in compiler_mods:
+        mod.get_default_compiler = lambda *args, **kwargs: "disabled"
+
     ccompiler.compiler_class["disabled"] = (
         "disabledcompiler", "DisabledCompiler",
         "Compiler disabled ({})".format(CHAQUOPY_NATIVE_ERROR))

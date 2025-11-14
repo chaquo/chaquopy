@@ -16,16 +16,16 @@ First, clone this repository.
 
 Then, go to [this Maven Central
 page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
-Python version you want to build for. Within a given Python minor version (e.g. 3.8),
+Python version you want to build for. Within a given Python minor version (e.g. 3.13),
 you should usually use the newest version available. Then use `download-target.sh` to
 download it into `maven` in the root of this repository. For example, to download
-version 3.8.16-0, run:
+version 3.13.0-1, run:
 
-    target/download-target.sh maven/com/chaquo/python/target/3.8.16-0
+    target/download-target.sh maven/com/chaquo/python/target/3.13.0-1
 
 You'll also need a matching version of Python installed on your build machine. For
-example, if you're building for Python 3.8, then `python3.8` must be on the PATH. You may
-be able to get this from your distribution, or from an unofficial package repository.
+example, if you're building for Python 3.13, then `python3.13` must be on the PATH. You
+may be able to get this from your distribution, or from an unofficial package repository.
 Otherwise, here's how to install it with Miniconda:
 
 * Download the installer from <https://docs.conda.io/en/latest/miniconda.html>.
@@ -70,7 +70,7 @@ Run build-wheel from this directory as follows:
 
 Where:
 
-* `X.Y` is the Python version you set up above, e.g. `3.8`.
+* `X.Y` is the Python version you set up above, e.g. `3.13`.
 * `ABI` is an [Android
   ABI](https://chaquo.com/chaquopy/doc/current/android.html#android-abis).
 * `PACKAGE` is a subdirectory of `packages` in this directory, or the path to another

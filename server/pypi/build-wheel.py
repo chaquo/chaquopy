@@ -254,9 +254,9 @@ class BuildWheel:
         python_ver = self.python or ".".join(map(str, sys.version_info[:2]))
 
         # Installing Python's bundled pip and setuptools into a new environment takes
-        # about 3.5 seconds on Python 3.8, and 6 seconds on Python 3.11. To avoid this,
-        # we create one bootstrap environment per Python version, shared between all
-        # packages, and use that to install the build environments.
+        # about 6 seconds on Python 3.11. To avoid this, we create one bootstrap
+        # environment per Python version, shared between all packages, and use that to
+        # install the build environments.
         os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         bootstrap_env = self.get_bootstrap_env(python_ver)
         ensure_empty(self.build_env)

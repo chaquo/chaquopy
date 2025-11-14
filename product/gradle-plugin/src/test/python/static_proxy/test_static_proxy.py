@@ -45,8 +45,7 @@ class TestStaticProxy(FilterWarningsCase):
 
         self.run_json("errors", "syntax", False, "syntax.py:3:5: invalid syntax")
         self.run_json("errors", "syntax_py2", False,
-                      f"syntax_py2.py:1:{7 if sys.version_info < (3, 10) else 1}"
-                      f": Missing parentheses in call to 'print'")
+                      "syntax_py2.py:1:1: Missing parentheses in call to 'print'")
 
         for name in ["starargs", "kwargs"]:
             self.run_json("errors", name, False,

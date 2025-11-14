@@ -1,8 +1,8 @@
 name: Setup Python
 description:
 
-# When updating this file, see the comment in ci.yml about integration test
-# runner versions.
+# The available Python versions on each runner are listed at
+# https://github.com/actions/python-versions/blob/main/versions-manifest.json.
 runs:
   using: composite
   steps:
@@ -15,25 +15,23 @@ runs:
       id: python-default
       shell: bash
       run: |
-        version=3.8
-        if [ $RUNNER_OS = Windows ]; then
-            echo "command=py -$version"
-            echo "version=3.8.10"
-        else
-            echo "command=python$version"
-            echo "version=3.8.12"
-        fi >> $GITHUB_OUTPUT
+        version="3.10"
+        (
+            echo "full-version=${version}.11"
+            if [ $RUNNER_OS = Windows ]; then
+                echo "command=py -$version"
+            else
+                echo "command=python$version"
+            fi
+        ) >> $GITHUB_OUTPUT
 
     - uses: actions/setup-python@v5.1.0
       with:
         # This should include all major.minor versions supported by the runtime, plus
-        # OLD_BUILD_PYTHON_VERSION, MIN_BUILD_PYTHON_VERSION and
-        # MAX_BUILD_PYTHON_VERSION from test_gradle_plugin.
+        # OLD_PYTHON_VERSION from test_gradle_plugin.
         python-version: |
           3.7
-          ${{ steps.python-default.outputs.version }}
-          3.9
-          3.10
+          ${{ steps.python-default.outputs.full-version }}
           3.11
           3.12
           3.13

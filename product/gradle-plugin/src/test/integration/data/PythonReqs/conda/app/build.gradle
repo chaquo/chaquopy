@@ -11,7 +11,7 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython System.getenv("chaquopy_conda_env") + "/python.exe"
+            buildPython $/{{ buildPython }}/$
             pip {
                 install "six"
             }

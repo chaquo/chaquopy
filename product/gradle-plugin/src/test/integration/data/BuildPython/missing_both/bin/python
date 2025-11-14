@@ -1,8 +1,0 @@
-#!/bin/bash
-
-if [[ "$1" = "--version" ]]; then
-    exit 0
-else
-    echo "Versionless executable was used"
-    exit 1
-fi

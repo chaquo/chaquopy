@@ -826,9 +826,7 @@ class TestAndroidImport(FilterWarningsCase):
         with self.assertRaisesRegex(FileNotFoundError, bad_path):
             import_from_filename("nonexistent", bad_path)
 
-    # The original importlib.resources API was deprecated in Python 3.11, but its
-    # replacement isn't available until Python 3.9.
-    #
+    # The original importlib.resources API was deprecated in Python 3.11.
     # This API cannot access subdirectories within packages.
     def test_resources_old(self):
         with catch_warnings():
@@ -916,7 +914,6 @@ class TestAndroidImport(FilterWarningsCase):
         with open(path, "rb" if binary else "r") as file:
             self.assertEqual(file.read(), data)
 
-    @skipIf(sys.version_info < (3, 9), "resources.files was added in Python 3.9")
     def test_resources_new(self):
         # App ZIP
         pkg = "android1"
@@ -1050,7 +1047,7 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertEqual(dist.version, dist.metadata["Version"])
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
-        self.assertEqual(["chaquopy-libcxx (>=11000)"], dist.requires)
+        self.assertIn("chaquopy-libcxx", [req.split()[0] for req in dist.requires])
 
         # Distribution objects don't implement __eq__.
         def dist_attrs(dist):
