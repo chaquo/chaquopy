@@ -2,6 +2,10 @@ package:
   name: cryptography
   version: "46.0.3"
 
+build:
+  script_env:
+    - PYO3_NO_PYTHON=1
+
 requirements:
   build:
     - rust
