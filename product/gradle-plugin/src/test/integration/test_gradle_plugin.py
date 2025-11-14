@@ -1362,6 +1362,29 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong("No matching distribution found for api_level",
                                   run.stderr)
 
+    def test_mixed_index(self):
+        # 1.3: compatible native wheel
+        # 1.6: incompatible native wheel
+        # 2.0: sdist
+        #
+        # Because of --prefer-binary, the compatible native wheel should be chosen,
+        # despite having a lower version than the sdist.
+        self.RunGradle(
+            "base", "PythonReqs/mixed_index_1",
+            requirements=[
+                ("native3_android_15_x86/__init__.py", {"content": "# Version 1.3"})
+            ],
+            pyc=["stdlib"],
+        )
+
+        # If we add a pure-Python wheel with version number 1.9, that should now be
+        # chosen. Not using `rerun`, because that would think everything is up to date.
+        self.RunGradle(
+            "base", "PythonReqs/mixed_index_1", "PythonReqs/mixed_index_2",
+            requirements=[("native3_pure_0/__init__.py", {"content": "# Version 1.8"})],
+            pyc=["stdlib"],
+        )
+
     def test_sdist_index(self):
         # This test has only an sdist, which will fail at the egg_info stage as in
         # test_mixed_index.
