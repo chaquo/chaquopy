@@ -40,33 +40,22 @@ Notify any users who requested this package on GitHub or elsewhere.
 
 ## Testing the most popular packages
 
-### Get the list
-
-To list the most downloaded packages on PyPI, run the following query on
-[BigQuery](https://bigquery.cloud.google.com/dataset/the-psf:pypi?pli=1). I had to create
-my own Google Cloud project and run the query within that, otherwise I got the error "User
-does not have bigquery.jobs.create permission in project the-psf".
-```
-SELECT file.project, COUNT(*) as downloads,
-FROM `bigquery-public-data.pypi.file_downloads`
-WHERE DATE(timestamp) BETWEEN DATE("2021-08-28") and DATE("2021-09-03")
-GROUP BY file.project
-ORDER BY downloads DESC
-LIMIT 10000
-```
-Use a 7-day window to avoid any bias from weekday/weekend differences, and make it end
-at least 2 days in the past in case there's any delay.
-
 ### Run the tests
+
+Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
 
 Build scripts can run arbitrary code, so these tests must be done within Docker, like
 this:
 
-`cat pypi-downloads-20210828-20210903.csv | head -n 1000 | cut -d, -f1 | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log -v $ANDROID_HOME:/root/android-sdk chaquopy-piptest`
+* `cd piptest`
+* `docker build -t chaquopy-piptest .`
+* `cat path/to/top-pypi-packages.csv | tail -n +2 | head -n 1000 | cut -d, -f2 | tr -d '"' | xargs -n 1 -P $(nproc) docker run --rm -v $(pwd)/log:/root/server/pypi/piptest/log -v $(pwd)/../../../maven:/root/maven chaquopy-piptest`
+* This will test against the Chaquopy build from your local `maven` directory. To test
+  against the newest version on Maven Central, remove the `-v ... maven` option.
 
 ### Analyze the results
 
-The results can be summarized as follows:
+The results are written to `piptest/log`, and can be summarized as follows:
 * Successful: search for `BUILD SUCCESSFUL`.
 * Failed: search for `BUILD FAILED`. This can be divided into:
   * Failed (native): search for `Chaquopy.cannot.compile.native.code`.
