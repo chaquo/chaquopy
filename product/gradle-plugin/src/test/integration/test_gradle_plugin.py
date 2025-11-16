@@ -4,6 +4,7 @@
 
 from contextlib import contextmanager
 from fnmatch import fnmatch
+from glob import glob
 import hashlib
 import json
 import os
@@ -987,92 +988,59 @@ class PythonReqs(GradleTestCase):
         os.symlink(real_path, link_path)
         run.rerun(requirements=["apple/__init__.py"])
 
-    def test_python_version(self):
-        # Use a fresh RunGradle instance for each test in order to clear the pip cache.
-        for version in [MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]:
-            with self.subTest(version=version):
-                self.RunGradle("base", "PythonReqs/python_version",
-                               context={"pythonVersion": version},
-                               python_version=version,
-                               requirements=["apple/__init__.py",
-                                             "no_binary_sdist/__init__.py",
-                                             "six.py"],
-                               abis=["x86_64"],
-                               pyc=["stdlib"])
-
     CHAQUO_REQUIREMENT = "murmurhash==0.28.0"
 
     def test_download_wheel(self):
-        # Our current version of pip shows the full URL for custom indexes, but only
-        # the filename for PyPI.
-        CHAQUO_URL = ("https://chaquo.com/pypi-13.1/murmurhash/"
-                      "murmurhash-0.28.0-7-cp310-cp310-android_16_x86.whl")
-        PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
+        # This is as good a test as any to cover the range of Python versions.
+        # Use a fresh RunGradle instance for each test in order to clear the pip cache.
+        for version in set(
+            [DEFAULT_PYTHON_VERSION, MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]
+        ):
+            with self.subTest(version=version):
+                # Our current version of pip shows the full URL for custom indexes, but
+                # only the filename for PyPI.
+                CHAQUO_URL = (r"https://chaquo.com/pypi-13.1/murmurhash/"
+                              r"murmurhash-0.28.0-.+-cp.+-cp.+-android_.+\.whl")
+                PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
 
-        common_reqs = (["murmurhash/" + name for name in
+                common_reqs = (
+                    ["murmurhash/" + name for name in
                         ["__init__.pxd", "__init__.py", "about.py", "mrmr.pxd", "mrmr.pyx",
                          "include/murmurhash/MurmurHash2.h", "include/murmurhash/MurmurHash3.h",
                          "tests/__init__.py", "tests/test_import.py"]] +
-                       ["chaquopy_libcxx-180000.dist-info/" + name for name in
+                    ["chaquopy_libcxx-180000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
-                       ["murmurhash-0.28.0.dist-info/" + name for name in
-                        ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
-        abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
-        kwargs = dict(
-            context={"install": self.CHAQUO_REQUIREMENT},
-            abis=["armeabi-v7a", "x86"],
-            requirements={"common": common_reqs, "armeabi-v7a": abi_reqs, "x86": abi_reqs},
-            include_dist_info=True)
-        run = self.RunGradle("base", "PythonReqs/download_wheel_1", **kwargs)
-        self.assertInLong("Downloading " + CHAQUO_URL, run.stdout)
+                    ["murmurhash-0.28.0.dist-info/" + name for name in
+                        ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]]
+                )
+                abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
 
-        common_reqs += (["six.py"] +
-                        ["six-1.14.0.dist-info/" + name
-                         for name in ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]])
-        run.rerun("PythonReqs/download_wheel_2", **kwargs)
-        self.assertInLong("Using cached " + CHAQUO_URL, run.stdout)
-        self.assertInLong("Downloading " + PYPI_URL, run.stdout)
-
-    # Pure-Python wheels built from sdists should be cached and reused on subsequent
-    # runs of pip, even if the ABI is different.
-    def test_download_sdist(self):
-        for package, version, files in [
-            # Use the last version of six which doesn't have a wheel on PyPI. We can't
-            # simply use --no-binary, because that disables the wheel cache completely.
-            ("six", "1.4.1", ["six.py"]),
-
-            # This package has optional native components, and generates a wheel tagged
-            # with the build platform even when the native components are omitted.
-            ("PyYAML", "3.12",
-             ["yaml/" + name + ".py" for name in [
-                "__init__", "composer", "constructor", "cyaml", "dumper", "emitter",
-                "error", "events", "loader", "nodes", "parser", "reader", "representer",
-                "resolver", "scanner", "serializer", "tokens"
-             ]]),
-        ]:
-            with self.subTest(package):
-                install = f"{package}=={version}"
-                filename = f"{package}-{version}.tar.gz"
-                success = f"Successfully built {package}"
+                def kwargs(*abis):
+                    return dict(
+                        context={"install": self.CHAQUO_REQUIREMENT},
+                        abis=list(abis),
+                        requirements=(
+                            common_reqs + abi_reqs
+                            if len(abis) == 1
+                            else {"common": common_reqs} | {abi: abi_reqs for abi in abis}
+                        ),
+                        include_dist_info=True)
 
                 run = self.RunGradle(
-                    "base", "PythonReqs/download_sdist",
-                    context={"install": install, "abi": "arm64-v8a"},
-                    requirements=files, abis=["arm64-v8a"]
+                    "base", "PythonReqs/download_wheel_1", **kwargs("arm64-v8a")
                 )
-                self.assertInStdout(f"Downloading {filename}", run, re=True)
-                self.assertInStdout(success, run)
+                self.assertInStdout("Downloading " + CHAQUO_URL, run, re=True)
 
+                common_reqs += (
+                    ["six.py"] +
+                    ["six-1.14.0.dist-info/" + name
+                     for name in ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]]
+                )
                 run.rerun(
-                    "PythonReqs/download_sdist",
-                    context={"install": install, "abi": "x86_64"},
-                    requirements=files, abis=["x86_64"]
+                    "PythonReqs/download_wheel_2", **kwargs("arm64-v8a", "x86_64")
                 )
-
-                # pip prints lots of detail when it puts a wheel into the cache, but
-                # says absolutely nothing when it takes one out.
-                self.assertNotInLong(filename, run.stdout)
-                self.assertNotInLong(success, run.stdout)
+                self.assertInStdout("Using cached " + CHAQUO_URL, run, re=True)
+                self.assertInStdout("Downloading " + PYPI_URL, run)
 
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
     # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
@@ -1227,55 +1195,6 @@ class PythonReqs(GradleTestCase):
             dist_versions=[("pep517_hatch", "5.1.7")],
             requirements=["hatch1.py"])
 
-    def test_sdist_native_ext(self):
-        self.sdist_native("sdist_native_ext")
-
-    def test_sdist_native_clib(self):
-        self.sdist_native("sdist_native_clib")
-
-    def test_sdist_native_compiler(self):
-        self.sdist_native("sdist_native_compiler")
-
-    def test_sdist_native_cc(self):
-        self.sdist_native("sdist_native_cc")
-
-    def sdist_native(self, name):
-        run = self.RunGradle("base", f"PythonReqs/{name}", succeed=False)
-        setup_error = (
-            "Failed to run Chaquopy_cannot_compile_native_code"
-            if name == "sdist_native_cc"
-            else "Chaquopy cannot compile native code"
-        )
-        self.assertInLong(setup_error, run.stderr)
-
-        url = r"file:.*app/sdist_native"
-        if name in ["sdist_native_compiler", "sdist_native_cc"]:
-            # These tests fail at the egg_info stage, so the name and version
-            # are unavailable.
-            req_str = url
-        else:
-            # These tests fail at the bdist_wheel stage, so the name and version
-            # have been obtained from egg_info.
-            req_str = f"{name}==1.0 from {url}"
-        self.assertInLong(
-            rf"Failed to install {req_str}." + self.tracker_advice() + r"$",
-            run.stderr, re=True,
-        )
-
-    def test_sdist_native_optional_ext(self):
-        self.sdist_native_optional("sdist_native_optional_ext")
-
-    def test_sdist_native_optional_compiler(self):
-        self.sdist_native_optional("sdist_native_optional_compiler")
-
-    def sdist_native_optional(self, name):
-        self.RunGradle("base", f"PythonReqs/{name}", requirements=[f"{name}.py"])
-
-    # site-packages should not be visible to setup.py scripts.
-    def test_sdist_site(self):
-        run = self.RunGradle("base", "PythonReqs/sdist_site", succeed=False)
-        self.assertInLong("No module named 'javaproperties'", run.stderr)
-
     def test_editable(self):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid pip install format: [-e, src]", run.stderr)
@@ -1300,7 +1219,7 @@ class PythonReqs(GradleTestCase):
             "PythonReqs/index_url_http",
             context={"install": "six<=1.16.0"},
             dist_versions=[("six", "1.16.0")],
-            abis=["armeabi-v7a", "x86"],
+            abis=["arm64-v8a"],
             **kwargs,
         )
 
@@ -1311,7 +1230,9 @@ class PythonReqs(GradleTestCase):
             context={"install": self.CHAQUO_REQUIREMENT},
             succeed=False,
         )
-        self.assertInStderr(f"Failed to install {self.CHAQUO_REQUIREMENT}", run)
+        self.assertInStderr(
+            f"No matching distribution found for {self.CHAQUO_REQUIREMENT}", run
+        )
 
     def test_wheel_index(self):
         # This test has build platform wheels for version 0.2, and an Android wheel for version
@@ -1362,36 +1283,43 @@ class PythonReqs(GradleTestCase):
                 self.assertInLong("No matching distribution found for api_level",
                                   run.stderr)
 
-    def test_mixed_index(self):
+    def test_only_binary(self):
         # 1.3: compatible native wheel
         # 1.6: incompatible native wheel
+        # 1.9: pure-Python wheel
         # 2.0: sdist
         #
-        # Because of --prefer-binary, the compatible native wheel should be chosen,
-        # despite having a lower version than the sdist.
+        # Because of --only-binary, the pure-Python wheel should be chosen, despite
+        # having a lower version than the sdist.
         self.RunGradle(
-            "base", "PythonReqs/mixed_index_1",
+            "base", "PythonReqs/only_binary",
+            requirements=[("native3_pure_0/__init__.py", {"content": "# Version 1.8"})],
+            pyc=["stdlib"],
+        )
+
+        def remove_wheels(pattern, expected_count):
+            whls = glob(f"{self.run_dir}/project/app/packages/{pattern}")
+            self.assertEqual(len(whls), expected_count, whls)
+            for whl in whls:
+                os.remove(whl)
+
+        # If we remove the pure-Python wheel, the compatible native wheel should be
+        # chosen. Not reusing the RunGradle object, because Gradle would think
+        # everything is up to date.
+        run = self.RunGradle("base", "PythonReqs/only_binary", run=False)
+        remove_wheels("*-none-any.whl", 1)
+        run.rerun(
             requirements=[
                 ("native3_android_15_x86/__init__.py", {"content": "# Version 1.3"})
             ],
             pyc=["stdlib"],
         )
 
-        # If we add a pure-Python wheel with version number 1.9, that should now be
-        # chosen. Not using `rerun`, because that would think everything is up to date.
-        self.RunGradle(
-            "base", "PythonReqs/mixed_index_1", "PythonReqs/mixed_index_2",
-            requirements=[("native3_pure_0/__init__.py", {"content": "# Version 1.8"})],
-            pyc=["stdlib"],
-        )
-
-    def test_sdist_index(self):
-        # This test has only an sdist, which will fail at the egg_info stage as in
-        # test_mixed_index.
-        run = self.RunGradle("base", "PythonReqs/sdist_index", succeed=False)
-        self.assertInLong(r"Failed to install native4 from file:.*dist/native4-0.2.tar.gz." +
-                          self.tracker_advice() + r"$",
-                          run.stderr, re=True)
+        # Even if we remove all wheels, the sdist still should not be chosen.
+        run = self.RunGradle("base", "PythonReqs/only_binary", run=False)
+        remove_wheels("*.whl", 3)
+        run.rerun(succeed=False)
+        self.assertInStderr("No matching distribution found for native3", run)
 
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
@@ -1574,10 +1502,6 @@ class PythonReqs(GradleTestCase):
                     abis=[abi],
                     requirements=[f"{machine}.py"],
                 )
-
-    def tracker_advice(self):
-        return ("\nFor assistance, please raise an issue at "
-                "https://github.com/chaquo/chaquopy/issues.")
 
 
 class StaticProxy(GradleTestCase):
@@ -1854,8 +1778,9 @@ class RunGradle(object):
         # Python requirements
         requirements = kwargs.get("requirements", [])
         for suffix in abi_suffixes:
+            zip_filename = f"{asset_dir}/requirements-{suffix}.imy"
             self.test.checkZip(
-                f"{asset_dir}/requirements-{suffix}.imy",
+                zip_filename,
                 (requirements[suffix] if isinstance(requirements, dict)
                     else requirements if suffix == "common"
                     else []),
@@ -1863,6 +1788,19 @@ class RunGradle(object):
                 include_dist_info=kwargs.get("include_dist_info", False),
                 dist_versions=(kwargs.get("dist_versions") if suffix == "common"
                                else None))
+
+            with ZipFile(zip_filename) as zip_file:
+                for info in zip_file.infolist():
+                    bname = basename(info.filename)
+                    if bname.endswith(".so") and not bname.startswith("lib"):
+                        if len(abis) == 1:
+                            self.test.assertEqual(suffix, "common")
+                            abi = abis[0]
+                        else:
+                            self.test.assertNotEqual(suffix, "common")
+                            abi = suffix
+                        with zip_file.open(info) as so_file:  # Always binary mode
+                            self.check_python_so(so_file, python_version, abi)
 
         # Python bootstrap
         with ZipFile(join(asset_dir, "bootstrap.imy")) as bootstrap_zip:
@@ -2009,21 +1947,24 @@ class RunGradle(object):
                 os.listdir(abi_dir))
             self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
 
-    def check_python_so(self, so_filename, python_version, abi):
-        libpythons = []
-        with open(so_filename, "rb") as so_file:
-            ef = ELFFile(so_file)
-            self.test.assertEqual(
-                ef.header.e_machine,
-                {"arm64-v8a": "EM_AARCH64",
-                 "armeabi-v7a": "EM_ARM",
-                 "x86": "EM_386",
-                 "x86_64": "EM_X86_64"}[abi])
+    def check_python_so(self, filename_or_file, python_version, abi):
+        if isinstance(filename_or_file, str):
+            with open(filename_or_file, "rb") as file:
+                return self.check_python_so(file, python_version, abi)
 
-            for tag in ef.get_section_by_name(".dynamic").iter_tags():
-                if tag.entry.d_tag == "DT_NEEDED" and \
-                   tag.needed.startswith("libpython"):
-                    libpythons.append(tag.needed)
+        libpythons = []
+        ef = ELFFile(filename_or_file)
+        self.test.assertEqual(
+            ef.header.e_machine,
+            {"arm64-v8a": "EM_AARCH64",
+             "armeabi-v7a": "EM_ARM",
+             "x86": "EM_386",
+             "x86_64": "EM_X86_64"}[abi])
+
+        for tag in ef.get_section_by_name(".dynamic").iter_tags():
+            if tag.entry.d_tag == "DT_NEEDED" and \
+               tag.needed.startswith("libpython"):
+                libpythons.append(tag.needed)
         self.test.assertEqual([f"libpython{python_version}.so"], libpythons)
 
     def dump_run(self, msg):

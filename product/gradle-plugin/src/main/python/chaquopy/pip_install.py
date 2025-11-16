@@ -115,7 +115,7 @@ class PipInstall(object):
             cmdline = [
                 sys.executable, "-m", "pip", "install",
                 "--disable-pip-version-check",
-                "--prefer-binary",
+                "--only-binary", ":all:",
                 "--use-pep517",  # TODO: remove after updating to pip 25.3.
                 "--no-compile",  # Compilation is handled in PythonTasks.kt.
                 "--isolated",  # Disable environment variables.
