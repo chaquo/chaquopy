@@ -82,10 +82,7 @@ def _get_prepared_distribution(
     """
     abstract_dist = make_distribution_for_install_requirement(req)
     with req_tracker.track(req):
-        try:
-            abstract_dist.prepare_distribution_metadata(finder, build_isolation)
-        except InstallationError:
-            abstract_dist.req.chaquopy_setup_py_failed()
+        abstract_dist.prepare_distribution_metadata(finder, build_isolation)
     return abstract_dist
 
 

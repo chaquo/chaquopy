@@ -109,23 +109,6 @@ class BuildEnvironment(object):
                 '''
             ).format(system_sites=system_sites, lib_dirs=self._lib_dirs))
 
-            # Chaquopy
-            from os.path import dirname, join
-            import shutil
-            # Copy chaquopy_monkey unconditionally, so we can import it unconditionally in
-            # check_chaquopy_exception.
-            shutil.copy(join(dirname(pip_location), "../chaquopy_monkey.py"),
-                        self._site_dir)
-            from pip._vendor.packaging import markers
-            if markers.android_platform:
-                # We're not a recursive PEP517 pip instance.
-                fp.write(textwrap.dedent(
-                    '''
-                    import chaquopy_monkey
-                    chaquopy_monkey.disable_native()
-                    '''
-                ))
-
     def __enter__(self):
         self._save_env = {
             name: os.environ.get(name, None)

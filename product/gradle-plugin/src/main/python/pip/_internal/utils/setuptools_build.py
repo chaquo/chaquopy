@@ -13,7 +13,6 @@ if MYPY_CHECK_RUNNING:
 # warning: "warning: manifest_maker: standard file '-c' not found".
 _SETUPTOOLS_SHIM = (
     "import sys, setuptools, tokenize; sys.argv[0] = {0!r}; __file__={0!r};"
-    "{chaquopy_monkey};"
     "f=getattr(tokenize, 'open', open)(__file__);"
     "code=f.read().replace('\\r\\n', '\\n');"
     "f.close();"
@@ -40,16 +39,7 @@ def make_setuptools_shim_args(
     args = [sys.executable]
     if unbuffered_output:
         args += ["-u"]
-
-    from pip._vendor.packaging import markers
-    chaquopy_monkey = (
-        "import chaquopy_monkey; chaquopy_monkey.disable_native()"
-        if markers.android_platform  # We're not a recursive PEP517 pip instance.
-        else "pass"
-    )
-    args.extend(['-c', _SETUPTOOLS_SHIM.format(setup_py_path,
-                                               chaquopy_monkey=chaquopy_monkey)])
-
+    args += ["-c", _SETUPTOOLS_SHIM.format(setup_py_path)]
     if global_options:
         args += global_options
     if no_user_config:

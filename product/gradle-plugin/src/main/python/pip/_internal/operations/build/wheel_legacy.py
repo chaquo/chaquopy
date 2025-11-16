@@ -76,7 +76,6 @@ def build_wheel_legacy(
     global_options,  # type: List[str]
     build_options,  # type: List[str]
     tempd,  # type: str
-    req,  # Chaquopy: added
 ):
     # type: (...) -> Optional[str]
     """Build one unpacked package using the "legacy" build process.
@@ -102,7 +101,6 @@ def build_wheel_legacy(
             )
         except Exception:
             spinner.finish("error")
-            req.check_chaquopy_exception()
             logger.error('Failed building wheel for %s', name)
             return None
 

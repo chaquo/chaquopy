@@ -238,8 +238,7 @@ def call_subprocess(
                 'Command errored out with exit status {}: {} '
                 'Check the logs for full command output.'
             ).format(proc.returncode, command_desc)
-            raise InstallationError(exc_msg,
-                output="".join(all_output))  # Chaquopy: added for check_chaquopy_exception.
+            raise InstallationError(exc_msg)
         elif on_returncode == 'warn':
             subprocess_logger.warning(
                 'Command "{}" had error code {} in {}'.format(

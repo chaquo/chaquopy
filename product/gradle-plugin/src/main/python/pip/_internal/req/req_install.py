@@ -848,27 +848,3 @@ class InstallRequirement(object):
             raise
 
         self.install_succeeded = success
-
-    def chaquopy_setup_py_failed(self):
-        from pip._internal.exceptions import CommandError
-        # {} may be a long URL, hence the newline.
-        message = ("Failed to install {}.\nFor assistance, please raise an issue "
-                   "at https://github.com/chaquo/chaquopy/issues.".format(self))
-        raise CommandError(message)
-
-    def check_chaquopy_exception(self):
-        # If `bdist_wheel` failed because of native code, don't fall back on `install`
-        # because it'll definitely fail, wasting the user's time and making the failure
-        # message harder to read. But if `bdist_wheel` failed for some other reason
-        # (e.g. #338, or https://github.com/python-acoustics/python-acoustics/issues/243),
-        # then it's still worth trying `install`.
-        #
-        # The error message may use spaces or underscores (see
-        # chaquopy_monkey.disable_native).
-        from chaquopy_monkey import CHAQUOPY_NATIVE_ERROR
-        import re
-
-        exc = sys.exc_info()[1]
-        if isinstance(exc, InstallationError) and \
-           re.search(CHAQUOPY_NATIVE_ERROR.replace(" ", "."), exc.output):
-            self.chaquopy_setup_py_failed()
