@@ -16,7 +16,7 @@ import subprocess
 import sys
 
 from pip._internal.utils.misc import rmtree
-from pip._vendor.retrying import retry
+from retrying import retry
 
 from .util import CommandError
 

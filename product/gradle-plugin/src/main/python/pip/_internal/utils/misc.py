@@ -128,15 +128,20 @@ def get_prog():
     return 'pip'
 
 
+# Chaquopy: see comment on rmtree_errorhandler.
 def rmtree(dir, ignore_errors=False):
     # type: (str, bool) -> None
     shutil.rmtree(dir, ignore_errors=ignore_errors,
                   onerror=rmtree_errorhandler)
 
-# Chaquopy: moved @retry from top-level rmtree to here. On Windows, rmtree often gets blocked
-# by the virus scanner, and when deleting very large directory trees, the total number of
-# retries within the tree exceeds the limit and it gives up, even if no individual directory
-# required more than 2 attempts. For performance, also reduced wait time from 500 ms to 50.
+
+# Chaquopy: moved @retry from top-level rmtree to here. On Windows, rmtree often gets
+# blocked by the virus scanner, and when deleting large directory trees, the total
+# number of retries within the tree exceeds the limit and it gives up, even if no
+# individual directory required more than 2 attempts
+# (https://github.com/pypa/pip/issues/4734#issuecomment-388651399).
+#
+# For performance, also reduced wait time from 500 ms to 50.
 @retry(wait_fixed=50, stop_max_delay=3000)
 def rmtree_errorhandler(func, path, exc_info):
     """On Windows, the files in .svn are read-only, so when rmtree() tries to
