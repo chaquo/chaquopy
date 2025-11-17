@@ -2,9 +2,7 @@
 The main purpose of this module is to expose LinkCollector.collect_links().
 """
 
-# Chaquopy: cgi was removed in Python 3.13 - replaced with EmailMessage.
-from email.message import EmailMessage
-
+import cgi
 import functools
 import itertools
 import logging
@@ -185,11 +183,7 @@ def _get_encoding_from_headers(headers):
     """Determine if we have any encoding information in our headers.
     """
     if headers and "Content-Type" in headers:
-        # Chaquopy: cgi was removed in Python 3.13 - replaced with EmailMessage.
-        msg = EmailMessage()
-        msg["Content-Type"] = headers["Content-Type"]
-        params = msg["Content-Type"].params
-
+        content_type, params = cgi.parse_header(headers["Content-Type"])
         if "charset" in params:
             return params['charset']
     return None

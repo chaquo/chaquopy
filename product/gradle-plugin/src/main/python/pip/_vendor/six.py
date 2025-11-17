@@ -1,9 +1,3 @@
-# Chaquopy: backported from pip 23.3.1 to support Python 3.12. Error was:
-#
-#   File "/Users/msmith/git/chaquo/chaquopy/product/gradle-plugin/build/test/integration/8.1/PythonReqs/buildpython/project/app/build/python/bp/pip/_vendor/pkg_resources/__init__.py", line 58, in <module>
-#     from pip._vendor.six.moves import urllib, map, filter
-# ModuleNotFoundError: No module named 'pip._vendor.six.moves'
-
 # Copyright (c) 2010-2020 Benjamin Peterson
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,7 +29,7 @@ import sys
 import types
 
 __author__ = "Benjamin Peterson <benjamin@python.org>"
-__version__ = "1.16.0"
+__version__ = "1.14.0"
 
 
 # Useful for very coarse version differentiation.
@@ -76,11 +70,6 @@ else:
             # 64-bit
             MAXSIZE = int((1 << 63) - 1)
         del X
-
-if PY34:
-    from importlib.util import spec_from_loader
-else:
-    spec_from_loader = None
 
 
 def _add_doc(func, doc):
@@ -197,11 +186,6 @@ class _SixMetaPathImporter(object):
             return self
         return None
 
-    def find_spec(self, fullname, path, target=None):
-        if fullname in self.known_modules:
-            return spec_from_loader(fullname, self)
-        return None
-
     def __get_module(self, fullname):
         try:
             return self.known_modules[fullname]
@@ -238,12 +222,6 @@ class _SixMetaPathImporter(object):
         self.__get_module(fullname)  # eventually raises ImportError
         return None
     get_source = get_code  # same as get_code
-
-    def create_module(self, spec):
-        return self.load_module(spec.name)
-
-    def exec_module(self, module):
-        pass
 
 _importer = _SixMetaPathImporter(__name__)
 
@@ -912,11 +890,12 @@ def ensure_binary(s, encoding='utf-8', errors='strict'):
       - `str` -> encoded to `bytes`
       - `bytes` -> `bytes`
     """
-    if isinstance(s, binary_type):
-        return s
     if isinstance(s, text_type):
         return s.encode(encoding, errors)
-    raise TypeError("not expecting type '%s'" % type(s))
+    elif isinstance(s, binary_type):
+        return s
+    else:
+        raise TypeError("not expecting type '%s'" % type(s))
 
 
 def ensure_str(s, encoding='utf-8', errors='strict'):
@@ -930,15 +909,12 @@ def ensure_str(s, encoding='utf-8', errors='strict'):
       - `str` -> `str`
       - `bytes` -> decoded to `str`
     """
-    # Optimization: Fast return for the common case.
-    if type(s) is str:
-        return s
-    if PY2 and isinstance(s, text_type):
-        return s.encode(encoding, errors)
-    elif PY3 and isinstance(s, binary_type):
-        return s.decode(encoding, errors)
-    elif not isinstance(s, (text_type, binary_type)):
+    if not isinstance(s, (text_type, binary_type)):
         raise TypeError("not expecting type '%s'" % type(s))
+    if PY2 and isinstance(s, text_type):
+        s = s.encode(encoding, errors)
+    elif PY3 and isinstance(s, binary_type):
+        s = s.decode(encoding, errors)
     return s
 
 

@@ -5,8 +5,7 @@ import os
 import sys
 from collections import namedtuple
 
-# Chaquopy: backport from https://github.com/pypa/pip/pull/10035
-from pip._vendor import six, tomli as toml
+from pip._vendor import six, toml
 from pip._vendor.packaging.requirements import InvalidRequirement, Requirement
 
 from pip._internal.exceptions import InstallationError
