@@ -107,8 +107,6 @@ def wheel_root_is_purelib(metadata):
 
 def get_entrypoints(filename):
     # type: (str) -> Tuple[Dict[str, str], Dict[str, str]]
-    return {}, {}   # Chaquopy: disabled
-
     if not os.path.exists(filename):
         return {}, {}
 
@@ -254,13 +252,7 @@ def get_csv_rows_for_installed(
         # Make a copy because we are mutating the row.
         row = list(row)
         old_path = row[0]
-
-        # Chaquopy: some .data subdirectories may have been skipped (see edit in
-        # move_wheel_files).
-        new_path = installed.pop(old_path, None)
-        if not new_path:
-            continue
-
+        new_path = installed.pop(old_path, old_path)
         row[0] = new_path
         if new_path in changed:
             digest, length = rehash(new_path)
@@ -452,13 +444,6 @@ def install_unpacked_wheel(
         fixer = None
         filter = None
         for subdir in os.listdir(os.path.join(wheeldir, datadir)):
-            # Chaquopy: only include .data subdirectories which should be installed into the
-            # target directory. Other subdirectories should be skipped, as pip with --target
-            # will probably install them to the wrong place and/or create invalid entries in
-            # the RECORD file.
-            if subdir not in ["purelib", "platlib"]:
-                continue
-
             fixer = None
             if subdir == 'scripts':
                 fixer = fix_script
