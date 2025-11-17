@@ -118,7 +118,8 @@ class PipInstall(object):
                 "--only-binary", ":all:",
                 "--use-pep517",  # TODO: remove after updating to pip 25.3.
                 "--no-compile",  # Compilation is handled in PythonTasks.kt.
-                "--isolated",  # Disable environment variables.
+                # --isolated used to be here, but is now patched in
+                # pip/_internal/cli/main.py.
                 "--target", abi_dir,
                 "--platform", self.platform_tag(abi)
             ] + (

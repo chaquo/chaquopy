@@ -1073,13 +1073,16 @@ class PythonReqs(GradleTestCase):
         dist_versions=[("six", "1.14.0"), ("build_requires_six", "1.14.0")],
         requirements=["six.py"])
 
-    # `PIP_...` environment variables should have no effect.
+    # `PIP_...` environment variables should have no effect. This test tries to install
+    # a package both directly into the app, and into a build environment, which will use
+    # a pip subprocess. If the PIP_CERT environment variable takes effect, pip will be
+    # unable to contact PyPI.
     def test_isolated_env(self):
         self.RunGradle("base", "PythonReqs/isolated",
                        env={"PIP_CERT": "invalid"},
                        **self.ISOLATED_KWARGS)
 
-    # Pip configuration files should have no effect.
+    # Same as test_isolated_env, but using a pip configuration file.
     def test_isolated_config(self):
         config_filename = join(appdirs.user_config_dir("pip", appauthor=False, roaming=True),
                                "pip.ini" if (os.name == "nt") else "pip.conf")

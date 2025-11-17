@@ -159,9 +159,7 @@ class BuildEnvironment(object):
         finder,  # type: PackageFinder
         requirements,  # type: Iterable[str]
         prefix_as_string,  # type: str
-        message,  # type: Optional[str]
-        *,
-        isolated,  # Chaquopy: added
+        message  # type: Optional[str]
     ):
         # type: (...) -> None
         prefix = self._prefixes[prefix_as_string]
@@ -174,12 +172,6 @@ class BuildEnvironment(object):
             '--ignore-installed', '--no-user', '--prefix', prefix.path,
             '--no-warn-script-location',
         ]  # type: List[str]
-
-        # Chaquopy: the subprocess should inherit isolated mode
-        # (https://github.com/chaquo/chaquopy/issues/777).
-        if isolated:
-            args.append('--isolated')
-
         if logger.getEffectiveLevel() <= logging.DEBUG:
             args.append('-v')
         for format_control in ('no_binary', 'only_binary'):

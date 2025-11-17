@@ -70,6 +70,10 @@ def main(args=None):
     except locale.Error as e:
         # setlocale can apparently crash if locale are uninitialized
         logger.debug("Ignoring error %s when setting locale", e)
-    command = create_command(cmd_name, isolated=("--isolated" in cmd_args))
+
+    # Chaquopy: forced `isolated` to True, because pip doesn't pass it through to pip
+    # subprocesses when installing build environments
+    # (https://github.com/chaquo/chaquopy/issues/777).
+    command = create_command(cmd_name, isolated=True)
 
     return command.main(cmd_args)
