@@ -992,7 +992,6 @@ class PythonReqs(GradleTestCase):
 
     def test_download_wheel(self):
         # This is as good a test as any to cover the range of Python versions.
-        # Use a fresh RunGradle instance for each test in order to clear the pip cache.
         for version in set(
             [DEFAULT_PYTHON_VERSION, MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]
         ):
@@ -1026,10 +1025,15 @@ class PythonReqs(GradleTestCase):
                         ),
                         include_dist_info=True)
 
+                def assert_url(url):
+                    self.assertInStdout(
+                        fr"(Downloading|Using cached) {url}", run, re=True
+                    )
+
                 run = self.RunGradle(
                     "base", "PythonReqs/download_wheel_1", **kwargs("arm64-v8a")
                 )
-                self.assertInStdout("Downloading " + CHAQUO_URL, run, re=True)
+                assert_url(CHAQUO_URL)
 
                 common_reqs += (
                     ["six.py"] +
@@ -1039,8 +1043,8 @@ class PythonReqs(GradleTestCase):
                 run.rerun(
                     "PythonReqs/download_wheel_2", **kwargs("arm64-v8a", "x86_64")
                 )
-                self.assertInStdout("Using cached " + CHAQUO_URL, run, re=True)
-                self.assertInStdout("Downloading " + PYPI_URL, run)
+                assert_url(CHAQUO_URL)
+                assert_url(PYPI_URL)
 
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
     # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
@@ -1176,6 +1180,9 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/wheel_data",
                        requirements=["purelib.txt", "platlib.txt"])
 
+    # Even with --only-binary, it should still be possible to install a local path to a
+    # pure-Python sdist. It's also possible to install a local path to a source
+    # directory, which is covered by several other tests.
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
@@ -1561,13 +1568,6 @@ class RunGradle(object):
         self.test = test
         if os.path.exists(test.run_dir):
             rmtree(test.run_dir)
-
-        # Keep each test independent by clearing the pip cache. The appdirs module used in
-        # pip._internal.locations is an old or modified version imported from
-        # pip._internal.utils, which is why pip doesn't need to pass `appauthor`.
-        cache_dir = appdirs.user_cache_dir("chaquopy/pip", appauthor=False)
-        if exists(cache_dir):
-            rmtree(cache_dir)
 
         self.project_dir = join(test.run_dir, "project")
         os.makedirs(self.project_dir)

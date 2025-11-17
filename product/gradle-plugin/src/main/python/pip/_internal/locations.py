@@ -28,8 +28,7 @@ if MYPY_CHECK_RUNNING:
 
 
 # Application Directories
-# Chaquopy: use a separate directory in case of incompatiblity with the system version of pip.
-USER_CACHE_DIR = appdirs.user_cache_dir("chaquopy/pip")
+USER_CACHE_DIR = appdirs.user_cache_dir("pip")
 
 
 def get_major_minor_version():

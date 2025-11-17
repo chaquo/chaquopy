@@ -118,11 +118,7 @@ def check_dist_restriction(options, check_target=False):
     # Installations or downloads using dist restrictions must not combine
     # source distributions and dist-specific wheels, as they are not
     # guaranteed to be locally compatible.
-    #
-    # Chaquopy: added False to disable this restriction. It's safe for us to run
-    # source distributions, as long as we ensure they fail immediately if they
-    # try to build anything native.
-    if False and dist_restriction_set and sdist_dependencies_allowed:
+    if dist_restriction_set and sdist_dependencies_allowed:
         raise CommandError(
             "When restricting platform and interpreter constraints using "
             "--python-version, --platform, --abi, or --implementation, "

@@ -57,19 +57,15 @@ this:
 
 The results are written to `piptest/log`, and can be summarized as follows:
 * Successful: search for `BUILD SUCCESSFUL`.
-* Failed: search for `BUILD FAILED`. This can be divided into:
-  * Failed (native): search for `Chaquopy.cannot.compile.native.code`.
-  * Failed (other). Review these to see if they indicate any bug in the build process.
+* Failed: search for `BUILD FAILED`.
 
-You may also wish to check the following:
+Check the following:
 
-* Packages which took more than 2 minutes. Even if they succeeded, this may indicate that
-  they were building native code with a host compiler, or doing something else they
-  shouldn't be:
-  * `for package in <list>; do egrep -H 'BUILD (SUCCESSFUL|FAILED) in [2-9]m' log/$package.txt; done`
-* Failed requirements which many packages depend on. This will also reveal dependencies on
-  packages which we do have in the repository, but with an incompatible version:
-  * `pattern='Failed to install|No matching distribution found for|Failed building wheel for'; cat log/* | grep -Eia "$pattern" | sed -E "s/.*($pattern)//; s/[ (]from.*//" | sort | uniq -c | sort -nr`
-
-Do whatever's necessary to maintain the 90% support level mentioned in
-product/runtime/docs/sphinx/android.rst.
+* Logs which don't contain either a success or a failure message.
+* Packages with an error other than "No matching distribution".
+* Packages which took more than 3 minutes. Even if they succeeded, this may indicate
+  that they were doing something wrong:
+  * `grep -Erl 'BUILD (SUCCESSFUL|FAILED) in [3-9]m' log`
+* Failed requirements which many packages depend on. This will also reveal dependencies
+  on packages which are available, but with an incompatible version:
+  * `pattern="No matching distribution found for " && cat log/* | grep -Ea "$pattern" | sed -E "s/.*$pattern//; s/ \(from.*//" | sort | uniq -c | sort -nr`
