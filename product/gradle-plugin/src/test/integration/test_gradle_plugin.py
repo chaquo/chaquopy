@@ -1209,32 +1209,16 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/editable", succeed=False)
         self.assertInLong("Invalid pip install format: [-e, src]", run.stderr)
 
-    # This is not necessarily the ideal behavior, but it's the current behavior, slightly
-    # modified by a patch (https://github.com/pypa/pip/issues/5846).
+    # If the user passes a custom index URL, we should disable our repository as well as
+    # the default one.
     def test_index_url(self):
-        kwargs = dict(requirements=["six.py"])
-
-        # With a file: URL, pip looks for an index.html file, and uses only the links
-        # it finds there.
-        run = self.RunGradle("base", "PythonReqs/index_url_file",
-                             dist_versions=[("six", "1.12.0")], **kwargs)
-
-        # With a simple path, pip scans the directory and ignores any index.html file.
-        # This was enabled by a patch.
-        run.rerun("PythonReqs/index_url_path",
-                  dist_versions=[("six", "1.14.0")], **kwargs)
-
-        # For completeness, check an HTTP index URL as well.
-        run.rerun(
-            "PythonReqs/index_url_http",
-            context={"install": "six<=1.16.0"},
-            dist_versions=[("six", "1.16.0")],
+        run = self.RunGradle(
+            "base", "PythonReqs/index_url_http",
+            context={"install": "six"},
             abis=["arm64-v8a"],
-            **kwargs,
+            requirements=["six.py"],
         )
 
-        # If the user passes a custom index URL, disable our repository as well
-        # as the default one.
         run.rerun(
             "PythonReqs/index_url_http",
             context={"install": self.CHAQUO_REQUIREMENT},

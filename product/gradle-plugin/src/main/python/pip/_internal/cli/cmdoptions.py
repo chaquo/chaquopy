@@ -81,9 +81,10 @@ def check_dist_restriction(options: Values, check_target: bool = False) -> None:
     )
 
     # Chaquopy: make environment markers simulate Android.
-    if options.platform:
+    if options.platforms:
         from pip._vendor.packaging import markers
-        markers.android_platform = options.platform
+        assert len(options.platforms) == 1, options.platforms
+        markers.android_platform = options.platforms[0]
 
     # Installations or downloads using dist restrictions must not combine
     # source distributions and dist-specific wheels, as they are not

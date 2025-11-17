@@ -153,18 +153,13 @@ To make your own mirror of our Maven repository:
 
 To make your own mirror of our pip repository:
 
-* Download whatever packages your app needs from https://chaquo.com/pypi-13.1/, and
-  arrange them in the same directory structure as the server.
-* Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
-  file:
+* Download whatever wheels your app needs from https://chaquo.com/pypi-13.1/.
+* Add the following line to the :ref:`pip block <android-requirements>` of your
+  build.gradle file:
 
   .. code-block:: kotlin
 
-      options("--index-url", "https://pypi.org/simple/")
-      options("--extra-index-url", "YOUR_MIRROR")
-
-  Where `YOUR_MIRROR` is the directory containing the package directories you downloaded
-  above. Either an HTTP URL or a local path can be used.
+      options("--find-links", "path/to/wheels/directory")
 
 
 How do I ...
