@@ -75,6 +75,8 @@ class PipInstall(object):
 
             self.pip_options.append("--no-deps")
             for abi in self.android_abis[1:]:
+                # pip output contains blank lines, so add another one for separation.
+                print()
                 req_infos, abi_trees[abi] = self.pip_install(abi, native_reqs)
                 for ri in req_infos:
                     rmtree(ri.dist_info)
@@ -110,8 +112,6 @@ class PipInstall(object):
             # Disable all config files (https://github.com/pypa/pip/issues/3828).
             os.environ["PIP_CONFIG_FILE"] = os.devnull
 
-            # Warning: `pip install --target` is very simple-minded: see
-            # https://github.com/pypa/pip/issues/4625#issuecomment-375977073.
             cmdline = [
                 sys.executable, "-m", "pip", "install",
                 "--disable-pip-version-check",
@@ -141,7 +141,8 @@ class PipInstall(object):
         abi_tree = {}
 
         # We used to use distlib to parse the dist-info, but it's too strict about
-        # validating the METADATA file, even though we don't use that file.
+        # validating the METADATA file, even though we don't use that file. So now we
+        # do it manually.
         for dist_info in Path(abi_dir).glob("*.dist-info"):
             try:
                 wheel_info = email.parser.Parser().parse((dist_info / "WHEEL").open())
@@ -155,12 +156,27 @@ class PipInstall(object):
                     # The path may be either absolute, or relative to the directory
                     # containing the .dist-info directory.
                     path_abs = abspath(join(abi_dir, path))
-                    if not path_abs.startswith(abi_dir):
-                        # pip's gone and installed something outside of the target directory.
-                        raise ValueError("invalid path in RECORD: '{}'".format(path))
-                    path = relpath(path_abs, abi_dir)
 
+                    # `pip install --target` puts everything into the given directory,
+                    # including things like scripts or headers which are supposed to go
+                    # outside of site-packages. However, the paths in RECORD will give
+                    # the location of where the file *would* be in a normal venv. These
+                    # files are unlikely to be useful at runtime, so remove them.
+                    exclude = False
+                    if not path_abs.startswith(abi_dir):
+                        path_abs = abspath(
+                            join(abi_dir, re.sub(r"^(\.\.[\\/])+", "", path))
+                        )
+                        if path_abs.startswith(abi_dir) and exists(path_abs):
+                            exclude = True
+                        else:
+                            raise ValueError(f"invalid path in RECORD: '{path}'")
+
+                    path = relpath(path_abs, abi_dir)
                     if any(fnmatch(path, pattern) for pattern in EXCLUDE_PATTERNS):
+                        exclude = True
+
+                    if exclude:
                         remove(path_abs, remove_empty_dirs=True)
                     elif Path(path_abs).is_relative_to(dist_info):
                         pass
@@ -181,7 +197,7 @@ class PipInstall(object):
                 req_infos.append(ReqInfo(dist_info, req_tree, is_pure))
 
             except Exception:
-                logger.error("Failed to process " + dist_info)
+                logger.error(f"Failed to process {dist_info}")
                 raise
 
         return req_infos, abi_tree

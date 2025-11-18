@@ -1009,8 +1009,10 @@ class PythonReqs(GradleTestCase):
                          "tests/__init__.py", "tests/test_import.py"]] +
                     ["chaquopy_libcxx-180000.dist-info/" + name for name in
                         ["INSTALLER", "LICENSE.TXT", "METADATA"]] +
-                    ["murmurhash-0.28.0.dist-info/" + name for name in
-                        ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]]
+                    ["murmurhash-0.28.0.dist-info/" + name
+                     for name in [
+                        "INSTALLER", "LICENSE", "METADATA", "REQUESTED", "top_level.txt"
+                     ]]
                 )
                 abi_reqs = ["chaquopy/lib/libc++_shared.so", "murmurhash/mrmr.so"]
 
@@ -1038,7 +1040,9 @@ class PythonReqs(GradleTestCase):
                 common_reqs += (
                     ["six.py"] +
                     ["six-1.14.0.dist-info/" + name
-                     for name in ["INSTALLER", "LICENSE", "METADATA", "top_level.txt"]]
+                     for name in [
+                        "INSTALLER", "LICENSE", "METADATA", "REQUESTED", "top_level.txt"
+                     ]]
                 )
                 run.rerun(
                     "PythonReqs/download_wheel_2", **kwargs("arm64-v8a", "x86_64")
@@ -1318,7 +1322,7 @@ class PythonReqs(GradleTestCase):
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.
         self.post_check = make_asset_check(self, {
-            "requirements-common.imy": "844bc1e437bddd8ec9168fbc3858f70d17e0d0af",
+            "requirements-common.imy": "ea22c417eb6614bb8d09f21ea72d24c7483e78fe",
             "requirements-armeabi-v7a.imy": "8ef282896a9a057d363dd7e294d52f89a80ae36a",
             "requirements-x86.imy": "4d0c2dfb5ac62016df8deceb9d827abd6a16cc48"})
 
@@ -1408,25 +1412,13 @@ class PythonReqs(GradleTestCase):
     #
     # All versions of dd.py are padded out to the same length to verify that the hash is being
     # checked and not just the length.
+    #
+    # The current version of pip apparently installs packages in reverse alphabetical
+    # order, regardless of what order the requirements are listed. So the "pure" package
+    # will always come before the "native" one. If that ever changes, alternative
+    # results can be found in the history of this file.
     def test_duplicate_filenames(self):
-        run = self.RunGradle(
-            "base", "PythonReqs/duplicate_filenames_np",  # Native, then pure.
-            abis=["armeabi-v7a", "x86"],
-            requirements={
-                "common":       ["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
-                                 ("pkg/dd.py", {"content": "# pure #############"}),
-                                 ("pkg/di.py", {"content": "# pure"}),
-                                 ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"})],
-                "armeabi-v7a":  ["native_armeabi_v7a.pyd",
-                                 ("pkg/id.py", {"content": "# pure and armeabi-v7a"})],
-                "x86":          ["native_x86.pyd",
-                                 ("pkg/dd.py", {"content": "# x86 ##############"}),
-                                 ("pkg/di.py", {"content": "# armeabi-v7a and x86"}),
-                                 ("pkg/id.py", {"content": "# x86"})]},
-            pyc=["stdlib"])
-
-        run.apply_layers("PythonReqs/duplicate_filenames_pn")  # Pure, then native.
-        run.rerun(
+        kwargs = dict(
             abis=["armeabi-v7a", "x86"],
             requirements={
                 "common":       ["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
@@ -1438,18 +1430,28 @@ class PythonReqs(GradleTestCase):
                 "x86":          ["native_x86.pyd",
                                  ("pkg/dd.py", {"content": "# x86 ##############"}),
                                  ("pkg/id.py", {"content": "# x86"})]},
-            pyc=["stdlib"])
+            pyc=["stdlib"],
+        )
 
-    # With a single ABI, everything should end up in common, but in two phases: first files
-    # from the pure package will be moved, then all the rest. Check that this doesn't cause
-    # any problems like trying to overwrite the target directory.
+        run = self.RunGradle(
+            "base", "PythonReqs/duplicate_filenames_np",  # Native, then pure.
+            **kwargs,
+        )
+        run.rerun(
+            "PythonReqs/duplicate_filenames_pn",  #  Pure, then native.
+            **kwargs,
+        )
+
+    # Same as test_duplicate_filenames, but with a single ABI. Everything should end
+    # up in "common", but in two phases: first files from the pure package will be
+    # moved, then all the rest. Check that this doesn't cause any problems like trying
+    # to overwrite the target directory.
     #
     # This test also installs 4 additional single_file packages: one each at the beginning and
     # end of the alphabet, both before and after the duplicate_filenames packages. This
     # exercises the .dist-info processing a bit more (see commit on 2018-06-17).
     def test_duplicate_filenames_single_abi(self):
-        run = self.RunGradle(
-            "base", "PythonReqs/duplicate_filenames_single_abi_pn",
+        kwargs = dict(
             requirements=["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
                           "native_x86.pyd",
                           ("pkg/dd.py", {"content": "# x86 ##############"}),
@@ -1457,17 +1459,16 @@ class PythonReqs(GradleTestCase):
                           ("pkg/id.py", {"content": "# x86"}),
                           ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
                           "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"],
-            pyc=["stdlib"])
-
-        run.apply_layers("PythonReqs/duplicate_filenames_single_abi_np")
-        run.rerun(requirements=["pkg/__init__.py", "pkg/native_only.py", "pkg/pure_only.py",
-                                "native_x86.pyd",
-                                ("pkg/dd.py", {"content": "# pure #############"}),
-                                ("pkg/di.py", {"content": "# pure"}),
-                                ("pkg/id.py", {"content": "# pure and armeabi-v7a"}),
-                                ("pkg/ii.py", {"content": "# pure, armeabi-v7a and x86"}),
-                                "aa_before.py", "zz_before.py", "aa_after.py", "zz_after.py"],
-                  pyc=["stdlib"])
+            pyc=["stdlib"],
+        )
+        run = self.RunGradle(
+            "base", "PythonReqs/duplicate_filenames_single_abi_pn",
+            **kwargs,
+        )
+        run.rerun(
+            "PythonReqs/duplicate_filenames_single_abi_np",
+            **kwargs,
+        )
 
     def test_marker_platform(self):
         run = self.RunGradle("base", run=False)
