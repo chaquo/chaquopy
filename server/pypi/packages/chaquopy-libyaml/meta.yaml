@@ -1,0 +1,8 @@
+{% set version = "0.2.5" %}
+
+package:
+  name: chaquopy-libyaml
+  version: "{{ version }}"
+
+source:
+  url: http://pyyaml.org/download/libyaml/yaml-{{ version }}.tar.gz

@@ -484,7 +484,7 @@ class BuildWheel:
         # create links from the other names so the compiler can find them.
         SONAME_PATTERNS = [
             (r"^(lib.*)\.so\..*$", r"\1.so"),
-            (r"^(lib.*?)[\d.]+\.so$", r"\1.so"),  # e.g. libpng
+            (r"^(lib.*?)-?[\d.]+\.so$", r"\1.so"),  # e.g. libpng, libyaml
             (r"^(lib.*)_(chaquopy|python)\.so$", r"\1.so"),  # e.g. libssl, libjpeg
         ]
         reqs_lib_dir = f"{self.host_env}/chaquopy/lib"
