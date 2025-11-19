@@ -61,13 +61,13 @@ the default Python version, ordered by number of PyPI downloads:
 
 * Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
 * `cd /var/www/chaquo/pypi-13.1`
-* `cat path/to/top-pypi-packages.csv | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* `cat path/to/top-pypi-packages.csv | tail -n +2 | head -n 2000 | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | grep -vE 'opencv.*(contrib|headless)|^argon2-cffi$' | head -n40 | tr '\n' ' '`
 * TODO: once the default version is 3.13 or later, also include data from
   https://beeware.org/mobile-wheels.
 
 As of 2025-11, this is:
 
-    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
+    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi-bindings sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
 
 Search the package test scripts for the word "Android", and consider adding any packages
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by

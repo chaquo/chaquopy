@@ -153,18 +153,13 @@ To make your own mirror of our Maven repository:
 
 To make your own mirror of our pip repository:
 
-* Download whatever packages your app needs from https://chaquo.com/pypi-13.1/, and
-  arrange them in the same directory structure as the server.
-* Add the following lines to the :ref:`pip block <android-requirements>` of your build.gradle
-  file:
+* Download whatever wheels your app needs from https://chaquo.com/pypi-13.1/.
+* Add the following line to the :ref:`pip block <android-requirements>` of your
+  build.gradle file:
 
   .. code-block:: kotlin
 
-      options("--index-url", "https://pypi.org/simple/")
-      options("--extra-index-url", "YOUR_MIRROR")
-
-  Where `YOUR_MIRROR` is the directory containing the package directories you downloaded
-  above. Either an HTTP URL or a local path can be used.
+      options("--find-links", "path/to/wheels/directory")
 
 
 How do I ...
@@ -272,18 +267,31 @@ There are many ways of doing this: here's one example from the Electron Cash pro
 Build errors
 ============
 
-First, make sure you're seeing the complete build log in Android Studio:
+.. _faq-pip:
 
-* In version 3.6 and newer, click the "Build: failed" caption to the left of the message.
-* In version 3.5 and older, click the "Toggle view" button to the left of the message.
+Could not find a version that satisfies the requirement
+-------------------------------------------------------
 
-Chaquopy cannot compile native code
------------------------------------
+You're probably trying to install a package which isn't available for Android yet. There
+may be some different versions available, in which case the error message will list
+them.
 
-You're trying to install a native package which we haven't built yet. There may be a different
-version available, in which case there will be a "pre-built wheels" message in the build log.
-Otherwise, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_ for
-help.
+The package may also be available for a different :ref:`Python version
+<python-version>`. To see the available versions:
+
+* Browse the `Chaquopy wheel repository <https://chaquo.com/pypi-13.1/>`_.
+* Open the package's page on `PyPI <https://pypi.org/>`_, click "Download files", and
+  search for "Android".
+* The compatible Python version is indicated by the "cp" marker in each filename.
+
+To add or update a package, do one of the following:
+
+* Post a request on the project's issue tracker, pointing them at the `mobile wheels
+  information page <https://beeware.org/mobile-wheels/>`__.
+* Try to build it yourself by following `these instructions
+  <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`_.
+* Search our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_ for advice
+  on the package, and create a new issue if necessary.
 
 No Python interpreter configured for the module
 -----------------------------------------------

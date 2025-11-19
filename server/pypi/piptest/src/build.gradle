@@ -1,14 +1,14 @@
 buildscript {
-    def repoRoot = "../../../../.."
-    def version = file("$repoRoot/VERSION.txt").text.trim()
-
     repositories {
-        maven { url "$repoRoot/maven" }
+        def mavenDir = file("../../../../maven")
+        if (mavenDir.exists()) {
+            maven { url mavenDir }
+        }
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.4.0'
-        classpath "com.chaquo.python:gradle:$version"
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath "com.chaquo.python:gradle:+"
     }
 }

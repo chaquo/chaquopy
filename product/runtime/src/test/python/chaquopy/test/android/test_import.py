@@ -26,7 +26,7 @@ from ..test_utils import FilterWarningsCase
 from . import ABI, context
 
 
-REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments", "extract-packages"]
+REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments", "extract_packages"]
 
 # REQS_COMMON_ZIP and REQS_ABI_ZIP are now both extracted into the same directory, but we
 # maintain the distinction in the tests in case that changes again in the future.
@@ -699,7 +699,12 @@ class TestAndroidImport(FilterWarningsCase):
             filterwarnings("default", category=DeprecationWarning)
             import pkg_resources as pr
 
-        self.assertCountEqual(REQUIREMENTS, [dist.project_name for dist in pr.working_set])
+        # pkg_resources normalizes distribution names by replacing runs of
+        # non-alphanumeric characters with a single "-", but doesn't change the case.
+        self.assertCountEqual(
+            [dist.project_name for dist in pr.working_set],
+            [req.replace("_", "-") for req in REQUIREMENTS],
+        )
         self.assertEqual("0.28.0", pr.get_distribution("murmurhash").version)
 
     def test_pr_resources(self):
