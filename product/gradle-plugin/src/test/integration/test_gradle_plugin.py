@@ -1050,6 +1050,18 @@ class PythonReqs(GradleTestCase):
                 assert_url(CHAQUO_URL)
                 assert_url(PYPI_URL)
 
+    # Check for proper isolation of the target directory by installing a package which
+    # is present in pip's own environment. Possible things that could go wrong:
+    #
+    # * pip sees the package is already present and doesn't install it.
+    # * pip installs it in its own environment, which will cause an UP-TO-DATE failure
+    #   in the extractBuildPackages task.
+    def test_target(self):
+        self.RunGradle(
+            "base", "PythonReqs/target",
+            requirements=["retrying.py"]
+        )
+
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
     # Linux because conda uses RPATH on that platform, and I think it's similar on Mac.
     @skipUnless(os.name == "nt", "Windows only")
@@ -1181,6 +1193,13 @@ class PythonReqs(GradleTestCase):
                              requirements=["apple/__init__.py"])
         run.rerun("PythonReqs/wheel_file_2", requirements=["apple2/__init__.py"])
 
+    # Entry point scripts should not be included in the APK.
+    def test_entry_points(self):
+        self.RunGradle(
+            "base", "PythonReqs/entry_points",
+            requirements=["hello.py"],
+        )
+
     # This wheel has .data subdirectories for each of the possible distutils scheme keys. Only
     # purelib and platlib should be included in the APK.
     def test_wheel_data(self):
@@ -1189,7 +1208,7 @@ class PythonReqs(GradleTestCase):
 
     # Even with --only-binary, it should still be possible to install a local path to a
     # pure-Python sdist. It's also possible to install a local path to a source
-    # directory, which is covered by several other tests.
+    # directory, which is covered by test_directory.
     def test_sdist_file(self):
         self.RunGradle("base", "PythonReqs/sdist_file", requirements=["alpha_dep/__init__.py"])
 
