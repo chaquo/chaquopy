@@ -10,7 +10,7 @@ import sys
 
 
 PROGRAM_NAME = basename(__file__)
-TIME_LIMIT = 300  # seconds
+TIME_LIMIT = 600  # seconds
 piptest_dir = abspath(dirname(__file__))
 
 

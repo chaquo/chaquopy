@@ -269,12 +269,17 @@ Build errors
 
 .. _faq-pip:
 
-Could not find a version that satisfies the requirement
--------------------------------------------------------
+pip errors
+----------
 
-You're probably trying to install a package which isn't available for Android yet. There
-may be some different versions available, in which case the error message will list
-them.
+If you get one of the following errors, you're probably trying to install a package
+which isn't available for Android yet:
+
+* "Could not find a version that satisfies the requirement"
+* "No matching distributions available for your environment"
+
+If your version requirements are too tight, but there are other versions available, then
+the error message will list them after the words "from versions".
 
 The package may also be available for a different :ref:`Python version
 <python-version>`. To see the available versions:

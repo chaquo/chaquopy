@@ -62,10 +62,7 @@ The results are written to `piptest/log`, and can be summarized as follows:
 Check the following:
 
 * Logs which don't contain either a success or a failure message.
-* Packages with an error other than "No matching distribution".
+* Packages with an error other than "no matching distribution" (case-insensitive).
 * Packages which took more than 3 minutes. Even if they succeeded, this may indicate
   that they were doing something wrong:
   * `grep -Erl 'BUILD (SUCCESSFUL|FAILED) in [3-9]m' log`
-* Failed requirements which many packages depend on. This will also reveal dependencies
-  on packages which are available, but with an incompatible version:
-  * `pattern="No matching distribution found for " && cat log/* | grep -Ea "$pattern" | sed -E "s/.*$pattern//; s/ \(from.*//" | sort | uniq -c | sort -nr`
