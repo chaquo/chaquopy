@@ -32,7 +32,7 @@ ext.TEST_PACKAGES = [
 
 android {
     namespace "com.chaquo.python.pkgtest3"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
