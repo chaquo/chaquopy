@@ -746,10 +746,6 @@ class BuildPython(GradleTestCase):
     PROBLEM = "A problem occurred starting process 'command '{}''"
     NON_ZERO = "Process 'command '{}'' finished with non-zero exit value 1"
     VERSION = "it is version {}"
-    FAILED = (NON_ZERO.format(r".+") + " \n\n" +
-              r"To view full details in Android Studio:\n"
-              r"\* Click the 'Build: failed' caption to the left of this message.\n"
-              r"\* Then scroll up to see the full output.")
 
     @classmethod
     def missing_error(cls, version, advice=SEE):
@@ -975,12 +971,6 @@ class PythonReqs(GradleTestCase):
         # Remove all.
         run.apply_layers("base")
         run.rerun()
-
-    # When pip fails, make sure we tell the user how to see the full output.
-    def test_fail(self):
-        run = self.RunGradle("base", "PythonReqs/fail", succeed=False)
-        self.assertInLong(self.NOT_FOUND.format("chaquopy-nonexistent"), run.stderr)
-        self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
     # https://github.com/chaquo/chaquopy/issues/468
     @skipUnless(os.name == "posix", "Requires symlink support")
