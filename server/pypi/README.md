@@ -63,7 +63,8 @@ these can be installed using your distribution. Some of them have special entrie
   [here](https://github.com/mzakharo/android-gfortran/releases/tag/r21e). Create a
   `fortran` subdirectory in the same directory as this README, and unpack the .bz2 files
   into it.
-* `rust`: `rustup` must be on the PATH.
+* `rust`: `rustup` must be on the PATH. One can set `PYO3_NO_PYTHON=1` in `script_env:` to build without a Python interpreter (https://pyo3.rs/main/building-and-distribution#building-abi3-extensions-without-a-python-interpreter). 
+  Building with a Python interpreter is supported only for Python 3.13 and above.
 
 
 ## Building a package
