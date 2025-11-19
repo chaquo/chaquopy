@@ -75,10 +75,11 @@ SECOND_PYTHON_VERSION, *_, THIRD_PYTHON_VERSION = [
 agp_version = os.environ["CHAQUOPY_AGP_VERSION"]
 agp_version_info = tuple(map(int, agp_version.split(".")))
 
-# This pattern causes Android Studio to show the line as a warning in tree view. However, the
-# "Warning: " prefix will be removed, so the rest of the message should start with a capital
-# letter.
+# These prefixes cause Android Studio to highlight the line as a warning or error.
+# However, the prefix will be removed in the tree view, so the rest of the message
+# should start with a capital letter.
 WARNING = "^Warning: "
+ERROR = "^ERROR: "
 
 
 class GradleTestCase(TestCase):
@@ -679,7 +680,7 @@ class ExtractPackages(GradleTestCase):
 class Pyc(GradleTestCase):
     FAILED = "Failed to compile to .pyc format: "
     MAGIC = "magic number is {}; expected {}. "
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode"
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
 
     def test_change(self):
         kwargs = dict(app=["hello.py"], requirements=["six.py"])
@@ -739,7 +740,7 @@ class Pyc(GradleTestCase):
 # This class tests buildPython via the pip_install script. The other two scripts that
 # use buildPython (pyc and static_proxy) have separate tests in their own classes.
 class BuildPython(GradleTestCase):
-    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
+    SEE = "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
     NOT_EXIST = "'{}' does not exist"
     COULDNT_FIND = "Couldn't find '{}' on the PATH or in the project directory"
     PROBLEM = "A problem occurred starting process 'command '{}''"
@@ -948,6 +949,9 @@ class BuildPython(GradleTestCase):
 
 
 class PythonReqs(GradleTestCase):
+    # This wording is referenced in the FAQ.
+    NOT_FOUND = "Could not find a version that satisfies the requirement {}"
+
     def test_change(self):
         # No reqs.
         run = self.RunGradle("base")
@@ -975,7 +979,7 @@ class PythonReqs(GradleTestCase):
     # When pip fails, make sure we tell the user how to see the full output.
     def test_fail(self):
         run = self.RunGradle("base", "PythonReqs/fail", succeed=False)
-        self.assertInLong("No matching distribution found for chaquopy-nonexistent", run.stderr)
+        self.assertInLong(self.NOT_FOUND.format("chaquopy-nonexistent"), run.stderr)
         self.assertInLong(BuildPython.FAILED, run.stderr, re=True)
 
     # https://github.com/chaquo/chaquopy/issues/468
@@ -1050,6 +1054,21 @@ class PythonReqs(GradleTestCase):
                 assert_url(CHAQUO_URL)
                 assert_url(PYPI_URL)
 
+    def test_not_found(self):
+        req = "numpy==1.9.9"
+        run = self.RunGradle(
+            "base", "PythonReqs/install", context={"install": req},
+            succeed=False,
+        )
+        self.assertInStderr(
+            self.NOT_FOUND.format(req) + " (from versions: 1.23.3, 1.26.2)", run
+        )
+        self.assertInStderr(
+            ERROR + "pip returned exit status 1. For advice, see "
+            "https://chaquo.com/chaquopy/doc/current/faq.html#faq-pip.",
+            run, re=True
+        )
+
     # Check for proper isolation of the target directory by installing a package which
     # is present in pip's own environment. Possible things that could go wrong:
     #
@@ -1058,8 +1077,8 @@ class PythonReqs(GradleTestCase):
     #   in the extractBuildPackages task.
     def test_target(self):
         self.RunGradle(
-            "base", "PythonReqs/target",
-            requirements=["retrying.py"]
+            "base", "PythonReqs/install", context={"install": "retrying"},
+            requirements=["retrying.py"],
         )
 
     # Test the OpenSSL PATH workaround for conda on Windows. This is not necessary on
@@ -1247,9 +1266,7 @@ class PythonReqs(GradleTestCase):
             context={"install": self.CHAQUO_REQUIREMENT},
             succeed=False,
         )
-        self.assertInStderr(
-            f"No matching distribution found for {self.CHAQUO_REQUIREMENT}", run
-        )
+        self.assertInStderr(self.NOT_FOUND.format(self.CHAQUO_REQUIREMENT), run)
 
     def test_wheel_index(self):
         # This test has build platform wheels for version 0.2, and an Android wheel for version
@@ -1263,7 +1280,7 @@ class PythonReqs(GradleTestCase):
         self.check_build_platform_wheel("native2", "0.2")
         run.apply_layers("PythonReqs/wheel_index_2")
         run.rerun(succeed=False)
-        self.assertInLong("No matching distribution found for native2", run.stderr)
+        self.assertInStderr(self.NOT_FOUND.format("native2"), run)
 
     # Checks that when pip is installing for the build platform, it selects the given
     # version of the given package. This requires the platform to have a compatible wheel
@@ -1297,8 +1314,7 @@ class PythonReqs(GradleTestCase):
                 "PythonReqs/api_level", context={"minSdk": min_api_level}, **kwargs
             )
             if not expected_version:
-                self.assertInLong("No matching distribution found for api_level",
-                                  run.stderr)
+                self.assertInStderr(self.NOT_FOUND.format("api_level"), run)
 
     def test_only_binary(self):
         # 1.3: compatible native wheel
@@ -1336,7 +1352,7 @@ class PythonReqs(GradleTestCase):
         run = self.RunGradle("base", "PythonReqs/only_binary", run=False)
         remove_wheels("*.whl", 3)
         run.rerun(succeed=False)
-        self.assertInStderr("No matching distribution found for native3", run)
+        self.assertInStderr(self.NOT_FOUND.format("native3"), run)
 
     def test_multi_abi(self):
         # Check requirements ZIPs are reproducible.

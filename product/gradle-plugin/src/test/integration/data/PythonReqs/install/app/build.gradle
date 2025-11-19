@@ -12,7 +12,7 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "retrying"
+                install "{{ install }}"
             }
         }
         ndk {

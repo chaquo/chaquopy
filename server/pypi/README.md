@@ -3,6 +3,10 @@
 This directory contains the build-wheel tool, which produces Android .whl files compatible
 with Chaquopy.
 
+This tool supports Python 3.13 and older, and will not be updated for newer versions.
+For Python 3.13 and newer, we recommend you use
+[cibuildwheel](https://cibuildwheel.pypa.io/en/stable/) instead.
+
 build-wheel can build .whl files for all [Android
 ABIs](https://developer.android.com/ndk/guides/abis) (armeabi-v7a, arm64-v8a, x86 and
 x86_64). However, the tool itself only runs on Linux x86-64. If you don't already have a

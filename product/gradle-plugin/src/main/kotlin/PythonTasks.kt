@@ -61,7 +61,7 @@ internal class TaskBuilder(
             try {
                 bpInfo = findBuildPython()
                 inputs.property("info", bpInfo.info)
-            } catch (e: BuildPythonException) {
+            } catch (e: ExecException) {
                 bpInfo = null
                 exception = e
             }
@@ -525,13 +525,15 @@ internal class TaskBuilder(
                     }
                     args(dir)
                 })
-            } catch (e: BuildPythonException) {
+            } catch (e: ExecException) {
                 if (setting == true) {
                     throw e
                 } else {
                     // Messages should be formatted the same as those from chaquopy.pyc.
-                    warn("Failed to compile to .pyc format: ${e.shortMessage} See " +
-                        "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode")
+                    warn(
+                        "Failed to compile to .pyc format: " +
+                        e.message!!.replace("#buildpython", "#android-bytecode")
+                    )
                 }
             }
         }
@@ -571,20 +573,9 @@ internal class TaskBuilder(
     }
 
     fun execBuildPython(args: List<String>) {
-        try {
-            exec {
-                executable(buildPackagesTask.get().pythonExecutable)
-                this.args(args)
-            }
-        } catch (e: ExecException) {
-            // Message will be something like "Process 'command 'py'' finished with
-            // non-zero exit value 1", so we need to tell the user how to see the
-            // command output.
-            throw BuildPythonException(
-                e.message!!,
-                "\n\nTo view full details in Android Studio:\n" +
-                "* Click the 'Build: failed' caption to the left of this message.\n" +
-                "* Then scroll up to see the full output.")
+        exec {
+            executable(buildPackagesTask.get().pythonExecutable)
+            this.args(args)
         }
     }
 
@@ -639,12 +630,14 @@ internal class TaskBuilder(
             }
         }
         if (bpSetting != null) {
-            throw BuildPythonException(
-                "$bpSetting is not a valid Python $version command: $error.",
-                BUILD_PYTHON_ADVICE)
+            throw ExecException(
+                "$bpSetting is not a valid Python $version command: $error. " +
+                BUILD_PYTHON_ADVICE
+            )
         } else {
-            throw BuildPythonException(
-                "Couldn't find Python $version.", BUILD_PYTHON_ADVICE)
+            throw ExecException(
+                "Couldn't find Python $version. $BUILD_PYTHON_ADVICE"
+            )
         }
     }
 
@@ -694,10 +687,7 @@ internal class TaskBuilder(
 
 
 val BUILD_PYTHON_ADVICE =
-    "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
-
-class BuildPythonException(val shortMessage: String, suffix: String) :
-    GradleException("$shortMessage $suffix")
+    "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
 
 
 abstract class OutputDirTask : DefaultTask() {

@@ -85,8 +85,9 @@ class PipInstall(object):
             logger.debug("Finished")
 
         except CommandError as e:
-            logger.error(str(e))
-            sys.exit(1)
+            # "ERROR" at the start of a line matches the formatting of pip's own errors,
+            # and causes Android Studio to highlight it as an error in tree view.
+            sys.exit(f"ERROR: {e}")
 
     # pip makes no attempt to check for multiple packages providing the same filename, so the
     # version we end up with will be the one that pip installed last. We therefore treat a
@@ -134,7 +135,10 @@ class PipInstall(object):
             logger.debug("Running {}".format(cmdline))
             subprocess.check_call(cmdline)
         except subprocess.CalledProcessError as e:
-            raise CommandError("Exit status {}".format(e.returncode))
+            raise CommandError(
+                f"pip returned exit status {e.returncode}. For advice, see "
+                f"https://chaquo.com/chaquopy/doc/current/faq.html#faq-pip."
+            )
 
         logger.debug("Scanning distributions")
         req_infos = []
