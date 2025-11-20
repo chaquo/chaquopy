@@ -60,7 +60,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.10", "3.11", "3.12", "3.13"]
+assert list(PYTHON_VERSIONS) == ["3.10", "3.11", "3.12", "3.13", "3.14"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 MIN_PYTHON_VERSION, *_, MAX_PYTHON_VERSION = list(PYTHON_VERSIONS)
@@ -1833,6 +1833,8 @@ class RunGradle(object):
         if python_version_info >= (3, 13):
             stdlib_bootstrap_expected -= {"_sha2.so"}
             stdlib_bootstrap_expected |= {"_opcode.so"}
+        if python_version_info >= (3, 14):
+            stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
 
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
@@ -1893,6 +1895,9 @@ class RunGradle(object):
             stdlib_native_expected |= {
                 "_interpreters.so", "_interpchannels.so", "_interpqueues.so",
                 "_sha2.so"}
+        if python_version_info >= (3, 14):
+            stdlib_native_expected -= {"_contextvars.so"}
+            stdlib_native_expected |= {"_hmac.so", "_remote_debugging.so", "_zstd.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1932,6 +1937,7 @@ class RunGradle(object):
             "3.11": 3495,
             "3.12": 3531,
             "3.13": 3571,
+            "3.14": 3627,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             magic_actual = pyc_file.read(2)

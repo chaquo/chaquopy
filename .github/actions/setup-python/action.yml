@@ -16,6 +16,7 @@ runs:
           3.11
           3.12
           3.13
+          3.14
         allow-prereleases: true
 
     - name: Get default Python version
