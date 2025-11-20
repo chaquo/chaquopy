@@ -10,6 +10,9 @@ Update Common.java with the version you want to build, and the build number you 
 give it. Once a version has been published on Maven Central, it cannot be changed, so
 any fixes must be released under a different build number.
 
+If building Python 3.12 or older, consider updating the cpython-android-source-deps
+library versions in python/build.sh.
+
 Make sure the build machine has `pythonX.Y` on the PATH, where `X.Y` is the Python
 major.minor version you want to build (e.g. `3.13`).
 
