@@ -83,6 +83,8 @@ class TestAndroidImport(FilterWarningsCase):
         if sys.version_info >= (3, 13):
             stdlib_bootstrap_expected -= {"_sha2.so"}
             stdlib_bootstrap_expected |= {"_opcode.so"}
+        if sys.version_info >= (3, 14):
+            stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
 
         for subdir, entries in [
             (

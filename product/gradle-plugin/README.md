@@ -94,7 +94,6 @@ Target:
 
 Product:
 
-* If necessary, update pip as described in the section below.
 * In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
 * Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
 * Update .github/actions/setup-python/action.yml.
@@ -110,6 +109,7 @@ Tests (this list is referenced from target/README.md):
 * Run all integration tests.
 * Temporarily change the Python version of the demo app, and run the Python and Java
   unit tests on the full set of pre-release devices (see release/README.md).
+* Release the target packages to Maven Central (see release/README.md).
 
 
 ## Removing a Python version
