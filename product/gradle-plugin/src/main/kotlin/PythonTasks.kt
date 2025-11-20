@@ -402,6 +402,11 @@ internal class TaskBuilder(
                         "_opcode.*"  // opcode < dis < inspect < importer
                     ))
                 }
+                if (versionInt >= 314) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf(
+                        "_datetime.*", "_opcode.*"
+                    ))
+                }
 
                 for (abi in abis) {
                     project.copy {
