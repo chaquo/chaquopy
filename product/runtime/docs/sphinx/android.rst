@@ -405,8 +405,21 @@ can declare them like this::
         }
     }
 
-Each extracted file will slightly slow down your app's startup, so this setting should be
-used on the deepest possible package.
+The files are extracted when the package is imported for the first time. Each extracted
+file will slightly slow down your app's startup, so this setting should be used on the
+deepest possible package.
+
+For development purposes, it is sometimes useful to extract all packages. This is
+possible using a wildcard::
+
+    chaquopy {
+        defaultConfig {
+            extractPackages("*")
+        }
+    }
+
+If the wildcard is used, all packages are imported before your app's code starts
+running.
 
 .. _android-data:
 
