@@ -1,8 +1,9 @@
+# See notes in pyzmq/meta.yaml.
 {% set version = "4.3.4" %}
 
 package:
   name: chaquopy-libzmq
-  version: {{ version }}  # See buildutils/bundle.py in pyzmq
+  version: {{ version }}
 
 build:
   number: 0
