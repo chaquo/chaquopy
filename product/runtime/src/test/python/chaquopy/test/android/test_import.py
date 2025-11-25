@@ -20,6 +20,7 @@ import types
 from warnings import catch_warnings, filterwarnings
 import zipfile
 
+from java._vendor.elftools.common.exceptions import ELFError
 from java.android import importer
 
 from ..test_utils import FilterWarningsCase
@@ -175,6 +176,10 @@ class TestAndroidImport(FilterWarningsCase):
         filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
         mod = self.check_module("murmurhash.mrmr", filename, filename)
         self.check_extract_if_changed(mod, filename)
+
+    def test_loader_priority(self):
+        with self.assertRaisesRegex(ELFError, r"Magic number does not match"):
+            import loader_priority  # noqa: F401
 
     def test_ctypes(self):
         def assertHasSymbol(dll, name):

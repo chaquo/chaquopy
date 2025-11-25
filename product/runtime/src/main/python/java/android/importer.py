@@ -759,12 +759,14 @@ def get_needed(path):
 
 # Suffixes are in order of preference.
 LOADERS = {
+    # .so files should come first, to match the standard finder. For example, pyzmq
+    # 27.1.0 depends on this (see zmq/backend/cython/_zmq.py).
+    **{suffix: ExtensionAssetLoader for suffix in _imp.extension_suffixes()},
+
     # .pyc should be preferred over .py, because it'll load faster.
     ".pyc": SourcelessAssetLoader,
     ".py": SourceAssetLoader,
 }
-for suffix in _imp.extension_suffixes():
-    LOADERS[suffix] = ExtensionAssetLoader
 
 
 class AssetZipFile(ZipFile):
