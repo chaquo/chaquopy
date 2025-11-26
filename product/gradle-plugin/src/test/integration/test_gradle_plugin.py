@@ -193,7 +193,7 @@ class GradleTestCase(TestCase):
                 with self.subTest(f=f):
                     filename, attrs = f if isinstance(f, tuple) else (f, {})
                     if pyc and filename.endswith(".py"):
-                        if any(filename.startswith(ep.replace(".", "/") + "/")
+                        if any(ep == "*" or filename.startswith(ep.replace(".", "/") + "/")
                                for ep in extract_packages):
                             expected_files.append(filename)
                         filename += "c"
@@ -675,6 +675,11 @@ class ExtractPackages(GradleTestCase):
                        app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
                        variants={"red-debug": dict(extract_packages=["common"]),
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
+        
+    def test_wildcard(self):
+        self.RunGradle("base", "ExtractPackages/wildcard",
+                       app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
+                       extract_packages=["common", "*"])
 
 
 class Pyc(GradleTestCase):
