@@ -82,11 +82,12 @@ def initialize_importlib(context, build_json, app_path):
         assert isinstance(finder, AssetFinder), ("Finder for '{}' is {}"
                                                  .format(entry, type(finder).__name__))
 
-        # Extract data files from the root directory. This includes .pth files, which will be
-        # read by addsitedir below.
+        # Extract necessary files from the root directory. This includes .pth files,
+        # which will be read by addsitedir below.
         finder.extract_dir("", recursive=False)
 
-        # Extract data files from top-level directories which aren't Python packages.
+        # Extract necessary files from top-level directories which aren't Python
+        # packages or dist-info directories.
         for name in finder.listdir(""):
             if finder.isdir(name) and \
                not is_dist_info(name) and \
@@ -140,7 +141,7 @@ def initialize_ctypes():
         # API (e.g. soundfile uses ffi.dlopen), so make sure its dependencies are
         # extracted and pre-loaded.
         try:
-            return reqs_finder.extract_lib(filename)
+            return reqs_finder.find_lib(filename)
         except FileNotFoundError:
             pass
 
@@ -159,15 +160,12 @@ def initialize_ctypes():
         if name:  # CDLL(None) is equivalent to dlopen(NULL).
             if "/" not in name:
                 try:
-                    name = reqs_finder.extract_lib(name)
+                    name = reqs_finder.find_lib(name)
                 except FileNotFoundError:
                     pass
-            else:
-                # Some packages (e.g. llvmlite) use CDLL to load libraries from their own
-                # directories.
-                finder = get_importer(dirname(name))
-                if isinstance(finder, AssetFinder):
-                    name = finder.extract_so(name)
+
+            if exists(name):
+                load_needed(name)
 
         CDLL_init_original(self, name, *args, **kwargs)
 
@@ -521,16 +519,12 @@ class AssetFinder:
                 if mod_base_name and (mod_base_name != "__init__"):
                     yield prefix + mod_base_name, False
 
-    # If this method raises FileNotFoundError, then maybe it's a system library, or one of the
-    # libraries loaded by AndroidPlatform.loadNativeLibs. If the library is truly missing,
-    # we'll get an exception when we load the file that needs it.
-    def extract_lib(self, filename):
-        return self.extract_so(f"chaquopy/lib/{filename}")
-
-    def extract_so(self, path):
-        path = self.extract_if_changed(self.zip_path(path))
-        load_needed(self, path)
-        return path
+    def find_lib(self, filename):
+        zip_path = f"chaquopy/lib/{filename}"
+        if self.exists(zip_path):
+            return join(self.extract_root, zip_path)
+        else:
+            raise FileNotFoundError(zip_path)
 
     def extract_dir(self, zip_dir, recursive=True):
         dotted_dir = zip_dir.replace("/", ".")
@@ -542,9 +536,9 @@ class AssetFinder:
             if self.isdir(zip_path):
                 if recursive:
                     self.extract_dir(zip_path)
-            elif (extract_package and filename.endswith(".py")
-                  or not (any(filename.endswith(suffix) for suffix in LOADERS) or
-                          re.search(r"^lib.*\.so\.", filename))):  # e.g. libgfortran
+            # For performance, we don't extract any Python files unless the package
+            # is listed in extract_packages.
+            elif extract_package or not filename.endswith((".py", ".pyc")):
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
@@ -715,34 +709,45 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
-        self.finder.extract_so(self.path)
+        load_needed(self.path)
         return super().create_module(spec)
 
 
 needed_lock = RLock()
 needed_loaded = {}
 
-# CDLL will cause a recursive call back to extract_so, so there's no need for any additional
-# recursion here. If we return to executables in the future, we can implement a separate
-# recursive extraction on top of get_needed.
-def load_needed(finder, path):
+# Load any libraries in chaquopy/lib which are needed by the .so file at the given path.
+#
+# RTLD_GLOBAL and RTLD_LOCAL behave a bit differently on Android compared to Linux:
+#
+# * Regardless of the mode, dlopening a library is sufficient to make it available to
+#   other libraries which use its SONAME in a DT_NEEDED entry.
+#
+# * Regardless of the mode, the library's symbols are NOT implicitly available to other
+#   libraries which don't list it in DT_NEEDED. But this may change in the future, so
+#   it's safer for us to use the default of RTLD_LOCAL, which should avoid conflicts
+#   between multiple libraries defining the same symbol.
+#
+# * RTLD_GLOBAL makes the library's symbols available to explicit searches of other
+#   libraries using dlsym, but that probably isn't relevant to us.
+#
+# Sources:
+# * https://github.com/android/ndk/issues/1244#issuecomment-620310397
+# * https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md
+def load_needed(path):
     with needed_lock:
         for soname in get_needed(path):
             if soname not in needed_loaded:
                 try:
-                    # Before API level 23, the only dlopen mode was RTLD_GLOBAL, and
-                    # RTLD_LOCAL was ignored. From API level 23, RTLD_LOCAL is available
-                    # and used by default, just like in Linux
-                    # (https://android.googlesource.com/platform/bionic/+/master/android-changes-for-ndk-developers.md).
+                    # Whether the library is closed when the CDLL object is garbage
+                    # collected is not documented, so keep a reference for safety.
                     #
-                    # We use RTLD_GLOBAL to make the library's symbols available to
-                    # subsequently-loaded libraries, but this may not actually work -
-                    # see #728.
-                    #
-                    # It doesn't look like the library is closed when the CDLL object is garbage
-                    # collected, but this isn't documented, so keep a reference for safety.
-                    needed_loaded[soname] = ctypes.CDLL(soname, ctypes.RTLD_GLOBAL)
-                except FileNotFoundError:
+                    # CDLL will recursively call load_needed if necessary.
+                    needed_loaded[soname] = ctypes.CDLL(soname)
+                except OSError:
+                    # It's not in chaquopy/lib, but maybe it can be found in some other
+                    # way, such as DT_RUNPATH. If it's truly missing, we'll get an
+                    # exception when we load the file that needs it.
                     needed_loaded[soname] = None
 
 
