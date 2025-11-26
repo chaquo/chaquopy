@@ -12,12 +12,14 @@ android {
         versionName "0.0.1"
         python {
             pip {
-                install "six<=1.16.0"
+                // The only difference between this test and download_wheel_1 should be
+                // the presence of --index-url.
                 options "--index-url", "https://pypi.org/simple"
+                install "{{ install }}"
             }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "arm64-v8a"
         }
     }
 }

@@ -240,8 +240,15 @@ You can set your app's Python version like this::
         }
     }
 
+Or if you're using Briefcase, do the following:
+
+* Create a new virtual environment with the desired Python version.
+* Activate the environment and install Briefcase into it.
+* Run `briefcase create android`.
+
 In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.10,
-and the other available versions are 3.11, 3.12, 3.13 and 3.14.
+and the other available versions are 3.11, 3.12, 3.13 and 3.14. Different Python
+versions will support a different selection of :ref:`packages <android-requirements>`.
 
 Python 3.11 and older supports both :ref:`32-bit and 64-bit ABIs <android-abis>`. Python
 3.12 and newer supports only 64-bit.
@@ -339,14 +346,8 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
     }
 
 Chaquopy can install almost all pure-Python packages, plus a large selection
-of packages with native components. To see which native packages are currently
-available, you can `browse the repository here <https://chaquo.com/pypi-13.1/>`_. To
-add or update a package:
-
-* Try to build it yourself by following `these instructions
-  <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`__.
-* Search our `issue tracker <https://github.com/chaquo/chaquopy/issues>`__ for advice
-  on the package, and create a new issue if necessary.
+of packages with native components. If you have trouble installing a package, see
+:ref:`the FAQ <faq-pip>`.
 
 To pass options to `pip install`, give them as a comma-separated list to the `options`
 method. For example::
