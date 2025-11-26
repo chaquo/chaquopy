@@ -86,6 +86,10 @@ def initialize_importlib(context, build_json, app_path):
         # read by addsitedir below.
         finder.extract_dir("", recursive=False)
 
+        # Extract all Python packages if requested.
+        if "*" in build_json["extract_packages"]:
+            finder.extract_dir("")
+
         # Extract data files from top-level directories which aren't Python packages.
         for name in finder.listdir(""):
             if finder.isdir(name) and \
