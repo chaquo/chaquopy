@@ -3,8 +3,8 @@
 Use the pkgtest app as follows (process for older versions varied as noted in the
 table):
 
-* Chaquopy release build – temporarily edit the top-level build.gradle file to set the
-  version.
+* Chaquopy release build – temporarily edit the pkgtest top-level build.gradle file to
+  set the version.
 * App debug build
 * scipy and matplotlib
 * abiFilters set to arm64-v8a and x86_64
@@ -32,13 +32,14 @@ Sizes are as reported in Settings:
 ```
                              First run         Second run
                            Startup   Test    Startup   Test    App MB    Data MB
-Samsung J2
+
    8.0.0                      3.46  13.81       3.20   7.73      76.7       59.2
    8.0.1                      3.57  13.80       3.38   7.79      76.9       59.2
    9.0.0                      3.56  14.25       3.34   7.70      77.3       59.2
    9.1.0                      3.49  14.29       3.30   7.59      78.5       59.3
 
-Nexus 4
+* Moved from Samsung J2 to Nexus 4.
+
    9.1.0                      3.52  17.49       3.48   8.91      78.8       59.3
   10.0.1                      3.82  19.50       3.61   9.04      76.8       59.4
 
@@ -57,19 +58,25 @@ Nexus 4
 
   14.0.2                      3.40  18.97       3.06  11.31      76.1       62.7
 
+* Moved from Nexus 4 to Pixel 7.
 * Changed abiFilters from armeabi-v7a and x86 to arm64-v8a and x86_64.
 * Startup times now use the time from the "Displayed com.application.id: +123ms" message.
   Previously we measured from the first to the last message mentioning the application
   ID, which is roughly the same.
 
-Pixel 7
-  14.0.2                      0.64  1.51        0.62  0.89       78.7       67.7
-  15.0.1                      0.61  1.54        0.55  0.93       78.7       68.0
+  14.0.2                      0.64   1.51       0.62   0.89      78.7       67.7
+
+* Updated Matplotlib from 3.1.2 to 3.6.0.
+
+  15.0.1                      0.61   1.54       0.55   0.93      78.7       68.0
 
 * Re-testing 15.0.1 now shows an App size of 84.4 MB, and even the APK is bigger than 80,
   so most of the increase here is probably caused by new versions of the AGP or the
   app's Java dependencies.
 
-  16.0.0                      0.63  1.50        0.60  0.91       84.9       68.3
-  16.1.0                      0.61  1.46        0.59  0.86       85.1       68.5
+  16.0.0                      0.63   1.50       0.60   0.91      84.9       68.3
+  16.1.0                      0.61   1.46       0.59   0.86      85.1       68.5
+
+* Updated Python from 3.8 to 3.10, NumPy from 1.19.5 to 1.26.2, and SciPy from
+  1.4.1 to 1.8.1.
 ```

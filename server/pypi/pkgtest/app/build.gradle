@@ -20,7 +20,6 @@ ext.TEST_PACKAGES = [
     "photutils": ["scipy"],
     "pycurl": ["certifi"],
     "pyzbar": ["pillow"],
-    "pyzmq": ["cytoolz"],
     "qutip": ["setuptools"],
     "ruamel-yaml-clib": ["ruamel-yaml"],
     "shapely": ["numpy"],
