@@ -1,2 +1,2 @@
-This is obviiously an invalid .so file, but it still proves that the finder prefers .so
+This is obviously an invalid .so file, but it still proves that the finder prefers .so
 files over .py files with the same name.

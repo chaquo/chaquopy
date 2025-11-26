@@ -539,8 +539,8 @@ class AssetFinder:
             if self.isdir(zip_path):
                 if recursive:
                     self.extract_dir(zip_path)
-            # For performance, we don't extract any Python files unless the package
-            # is listed in extract_packages.
+            # For performance, we don't extract any Python modules unless their
+            # containing package is listed in extract_packages.
             elif extract_package or not filename.endswith(PYTHON_SUFFIXES):
                 self.extract_if_changed(zip_path)
 
