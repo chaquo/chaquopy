@@ -408,6 +408,15 @@ can declare them like this::
 Each extracted file will slightly slow down your app's startup, so this setting should be
 used on the deepest possible package.
 
+But for development purposes, it is sometimes useful to extract all packages. This is
+possible using a wildcard::
+
+    chaquopy {
+        defaultConfig {
+            extractPackages("*")
+        }
+    }
+
 .. _android-data:
 
 Data files
