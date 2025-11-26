@@ -538,7 +538,7 @@ class AssetFinder:
                     self.extract_dir(zip_path)
             # For performance, we don't extract any Python files unless the package
             # is listed in extract_packages.
-            elif extract_package or not filename.endswith((".py", ".pyc")):
+            elif extract_package or not filename.endswith(PYTHON_SUFFIXES):
                 self.extract_if_changed(zip_path)
 
     def extract_if_changed(self, zip_path):
@@ -709,6 +709,7 @@ class SourcelessAssetLoader(AssetLoader, machinery.SourcelessFileLoader):
 
 class ExtensionAssetLoader(AssetLoader, machinery.ExtensionFileLoader):
     def create_module(self, spec):
+        self.finder.extract_if_changed(self.finder.zip_path(self.path))
         load_needed(self.path)
         return super().create_module(spec)
 
@@ -772,6 +773,12 @@ LOADERS = {
     ".pyc": SourcelessAssetLoader,
     ".py": SourceAssetLoader,
 }
+
+# If a filename ends with .so, without any .cpython or .abi3 marker, then we can't
+# distinguish it from a non-Python library, so we must eagerly extract it.
+PYTHON_SUFFIXES = tuple(
+    suffix for suffix in LOADERS if suffix != ".so"
+)
 
 
 class AssetZipFile(ZipFile):

@@ -32,30 +32,32 @@ REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments", "extract_packages"]
 # REQS_COMMON_ZIP and REQS_ABI_ZIP are now both extracted into the same directory, but we
 # maintain the distinction in the tests in case that changes again in the future.
 APP_ZIP = "app"
-REQS_COMMON_ZIP = "requirements-common"
-multi_abi = len([name for name in context.getAssets().list("chaquopy")
-                 if name.startswith("requirements")]) > 2
-REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
+REQS_COMMON_ZIP = REQS_ABI_ZIP = "requirements"
+STDLIB_ZIP = f"stdlib-{ABI}"
 
 def asset_path(zip_name, *paths):
-    return join(realpath(context.getFilesDir().toString()), "chaquopy/AssetFinder",
-                zip_name.partition("-")[0], *paths)
+    return join(
+        realpath(context.getFilesDir().toString()),
+        "chaquopy/AssetFinder",
+        zip_name,
+        *paths,
+    )
 
 def resource_path(zip_name, package, filename):
     return asset_path(zip_name, package.replace(".", "/"), filename)
 
 
 def extracted(filename):
-    return not filename.endswith((".py", ".pyc"))
+    return not filename.endswith((".py", ".pyc", ".abi3.so", add_soabi(".so")))
 
 
-def add_soabi(version_info, abi, filename):
-    soabi = f"cpython-{version_info[0]}{version_info[1]}"
-    if version_info >= (3, 13):
+def add_soabi(filename):
+    soabi = f"cpython-{sys.version_info[0]}{sys.version_info[1]}"
+    if sys.version_info >= (3, 13):
         soabi += "-" + {
             "arm64-v8a": "aarch64",
             "x86_64": "x86_64",
-        }[abi] + "-linux-android"
+        }[ABI] + "-linux-android"
     return filename.replace(".so", f".{soabi}.so")
 
 
@@ -88,13 +90,7 @@ class TestAndroidImport(FilterWarningsCase):
             stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
 
         for subdir, entries in [
-            (
-                ABI,
-                [
-                    add_soabi(sys.version_info, ABI, filename)
-                    for filename in stdlib_bootstrap_expected
-                ],
-            ),
+            (ABI, [add_soabi(filename) for filename in stdlib_bootstrap_expected]),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -110,6 +106,24 @@ class TestAndroidImport(FilterWarningsCase):
                     for filename in entries:
                         with self.subTest(filename=filename):
                             self.assertIn(re.sub(r"\..*", "", filename), sys.modules)
+
+        # The only other extracted stdlib modules should be those used by the unit
+        # tests. This should pass on repeated runs, but the files may require manual
+        # cleanup if anything else is imported while debugging.
+        #
+        # These bounds don't have to be particularly tight, we just need to verify that
+        # it's extracting something expected, but not everything.
+        stdlib_extracted_expected = {
+            "_asyncio.so", "_blake2.so", "_contextvars.so", "_csv.so", "_hashlib.so",
+            "_heapq.so", "_json.so", "_multiprocessing.so", "_pickle.so",
+            "_posixsubprocess.so", "_queue.so", "_socket.so", "_sqlite3.so", "_ssl.so",
+            "array.so", "fcntl.so", "pyexpat.so", "select.so", "unicodedata.so",
+        }
+        actual = set(os.listdir(asset_path(STDLIB_ZIP)))
+        self.assertIn(add_soabi("_posixsubprocess.so"), actual)  # subprocess < test_stdlib
+        self.assertLessEqual(
+            actual, {add_soabi(filename) for filename in stdlib_extracted_expected}
+        )
 
     def test_init(self):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
@@ -173,10 +187,18 @@ class TestAndroidImport(FilterWarningsCase):
             pyc_file.write(header)
 
     def test_so(self):
+        # murmurhash's module has no SOABI suffix, so it should be extracted when its
+        # containing package is imported.
         import murmurhash
         filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
-        self.check_module("murmurhash.mrmr", filename)
+        self.check_module("murmurhash.mrmr", filename, cache_filename=None)
         self.check_extract_if_changed(murmurhash, filename)
+
+        # stdlib modules have SOABI suffixes, so they should be extracted individually
+        # on demand.
+        filename = asset_path(STDLIB_ZIP, add_soabi("fcntl.so"))
+        mod = self.check_module("fcntl", filename, cache_filename=filename)
+        self.check_extract_if_changed(mod, filename)
 
     def test_loader_priority(self):
         with self.assertRaisesRegex(ELFError, r"Magic number does not match"):
@@ -362,6 +384,13 @@ class TestAndroidImport(FilterWarningsCase):
                 with open(f"{cache_dir}/{path}") as file:
                     self.assertEqual(f"# This file is {package}/{path}\n", file.read())
 
+    def test_top_level(self):
+        actual = set(os.listdir(asset_path(REQS_COMMON_ZIP)))
+        self.assertGreaterEqual(actual, {"chaquopy"})
+        self.assertLessEqual(
+            actual, {"chaquopy", "ep_bravo", "ep_charlie", "murmurhash"}
+        )
+
     def clean_reload(self, mod):
         sys.modules.pop(mod.__name__, None)
         submod_names = [name for name in sys.modules if name.startswith(mod.__name__ + ".")]
@@ -372,7 +401,7 @@ class TestAndroidImport(FilterWarningsCase):
         # in import.c).
         return import_module(mod.__name__)
 
-    def check_module(self, mod_name, filename, cache_filename=None, *, is_package=False,
+    def check_module(self, mod_name, filename, cache_filename, *, is_package=False,
                      source_head=None):
         if cache_filename and exists(cache_filename):
             os.remove(cache_filename)
@@ -675,8 +704,8 @@ class TestAndroidImport(FilterWarningsCase):
     # Make sure the standard library importer implements the new loader API
     # (https://stackoverflow.com/questions/63574951).
     def test_zipimport(self):
-        for mod_name in ["zipfile",  # Imported during bootstrap
-                         "wave"]:    # Imported after bootstrap
+        for mod_name in ["zipfile",  # Imported during bootstrap (in importer.py)
+                         "subprocess"]:  # Imported after bootstrap (in test_stdlib.py)
             with self.subTest(mod_name=mod_name):
                 old_mod = import_module(mod_name)
                 spec = importlib.util.find_spec(mod_name)
