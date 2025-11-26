@@ -319,13 +319,11 @@ internal class TaskBuilder(
         // Exclude .py files which have a corresponding .pyc, unless unless they’re
         // included in extractPackages.
         val excludePy = { fte: FileTreeElement ->
-            if ("*" in python.extractPackages) {
-                false
-            } else if (fte.name.endsWith(".py") &&
+            if (fte.name.endsWith(".py") &&
                 File(fte.file.parent, fte.name + "c").exists()
             ) {
                 ! python.extractPackages.any {
-                    fte.path.replace("/", ".").startsWith(it + ".")
+                    it == "*" || fte.path.replace("/", ".").startsWith(it + ".")
                 }
             } else false
         }
