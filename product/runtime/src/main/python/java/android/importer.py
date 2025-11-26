@@ -136,14 +136,17 @@ def initialize_ctypes():
     def find_library_override(name):
         filename = "lib{}.so".format(name)
 
-        # First look in the requirements. The return value will probably be passed to
-        # CDLL_init_override below, but the caller may load the library using another
-        # API (e.g. soundfile uses ffi.dlopen), so make sure its dependencies are
-        # extracted and pre-loaded.
+        # First look in the requirements.
         try:
-            return reqs_finder.find_lib(filename)
+            filename = reqs_finder.find_lib(filename)
         except FileNotFoundError:
             pass
+        else:
+            # The return value will probably be passed to CDLL_init_override below, but
+            # the caller may load the library in another way (e.g. soundfile uses
+            # ffi.dlopen), so make sure its dependencies are pre-loaded.
+            load_needed(filename)
+            return filename
 
         # For system libraries I can't see any easy way of finding the absolute library
         # filename, but we can at least support the case where the user passes the return value

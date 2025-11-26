@@ -25,7 +25,7 @@ Bugfixes
 
 - .pth files are now processed after `sys.path` is fully initialized. (`#1338
   <https://github.com/chaquo/chaquopy/issues/1338>`__)
-- The importer now recognizes libraries with an SOABI suffix such as
+- The importer now recognizes modules with an SOABI suffix such as
   `.cpython-313-aarch64-linux-android.so`. (`#1370
   <https://github.com/chaquo/chaquopy/issues/1370>`__)
 
