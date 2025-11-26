@@ -534,8 +534,11 @@ class AssetFinder:
 
     def extract_dir(self, zip_dir, recursive=True):
         dotted_dir = zip_dir.replace("/", ".")
-        extract_package = any((dotted_dir == ep) or dotted_dir.startswith(ep + ".")
-                              for ep in self.extract_packages)
+        if "*" in self.extract_packages:
+            extract_package = True
+        else:
+            extract_package = any((dotted_dir == ep) or dotted_dir.startswith(ep + ".")
+                      for ep in self.extract_packages)
 
         for filename in self.listdir(zip_dir):
             zip_path = join(zip_dir, filename)
