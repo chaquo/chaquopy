@@ -97,15 +97,19 @@ Product:
 * In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
 * Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
 * Update .github/actions/setup-python/action.yml.
-* Build any packages used by the demo app.
 * Update android.rst and versions.rst.
 
 Tests (this list is referenced from target/README.md):
 
 * Run `gradle:testPython`.
-* Run integration tests.
+* Run `Dsl` integration test, and update stdlib modules list as necessary.
+* Run pkgtest app with no packages, and verify you can get as far as the Python console.
+  This may require further updates to `BOOTSTRAP_NATIVE_STDLIB`.
+* Build, test and release any packages used by the demo app and integration tests.
+* Run all integration tests.
 * Temporarily change the Python version of the demo app, and run the Python and Java
   unit tests on the full set of pre-release devices (see release/README.md).
+* Release the target packages to Maven Central (see release/README.md).
 
 
 ## Removing a Python version

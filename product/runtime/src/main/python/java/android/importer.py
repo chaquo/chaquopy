@@ -17,11 +17,17 @@ import sys
 from tempfile import NamedTemporaryFile
 import time
 from threading import RLock
+import types
 from zipfile import ZipFile, ZipInfo
 from zipimport import zipimporter
 
 import java.chaquopy
+
+# elftools imports pdb, which in Python 3.14 pulls in asyncio, socket and other large
+# things. Since we'll never use this feature of elftools, disable that import.
+sys.modules["pdb"] = types.ModuleType("pdb")
 from java._vendor.elftools.elf.elffile import ELFFile
+del sys.modules["pdb"]
 
 from com.chaquo.python.android import AndroidPlatform
 from com.chaquo.python.internal import Common

@@ -11,13 +11,23 @@ android {
         versionCode 1
         versionName "0.0.1"
         python {
+            version "{{ pythonVersion }}"
             pip {
-                install "linux-1.0-py2.py3-none-any.whl; 'linux' in sys.platform"
-                install "not_linux-1.0-py2.py3-none-any.whl; 'linux' not in sys.platform"
+                install "android_ps-1.0-py2.py3-none-any.whl; platform_system == 'Android'"
+                install "android_sp-1.0-py2.py3-none-any.whl; sys_platform == 'android'"
+
+                install "linux_ps-1.0-py2.py3-none-any.whl; platform_system == 'Linux'"
+                install "linux_sp-1.0-py2.py3-none-any.whl; sys_platform == 'linux'"
+
+                install "nt-1.0-py2.py3-none-any.whl; os_name == 'nt'"
+                install "posix-1.0-py2.py3-none-any.whl; os_name == 'posix'"
+
+                install "py312-1.0-py2.py3-none-any.whl; python_version == '3.12'"
+                install "py313-1.0-py2.py3-none-any.whl; python_version == '3.13'"
             }
         }
         ndk {
-            abiFilters "x86"
+            abiFilters "x86_64"
         }
     }
 }

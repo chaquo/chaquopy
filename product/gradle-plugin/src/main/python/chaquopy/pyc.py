@@ -17,6 +17,7 @@ MAGIC = {
     "3.11": 3495,
     "3.12": 3531,
     "3.13": 3571,
+    "3.14": 3627,
 }
 
 
@@ -93,7 +94,8 @@ def error(args, message):
     # Messages should be formatted the same as those from the Gradle plugin.
     message = (
         f"Failed to compile to .pyc format: {message}. "
-        f"See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode")
+        f"See https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode."
+    )
     if args.warning:
         print("Warning:", message)
         sys.exit(0)

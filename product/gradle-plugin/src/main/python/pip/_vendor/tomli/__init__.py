@@ -1,9 +1,8 @@
-"""A lil' TOML parser."""
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2021 Taneli Hukkinen
+# Licensed to PSF under a Contributor Agreement.
 
 __all__ = ("loads", "load", "TOMLDecodeError")
+__version__ = "2.3.0"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
 
-# Chaquopy: backported from pip 21.2 to support TOML v1.0.0 syntax in pyproject.toml.
-# See test_pep517_toml_1_0.
-__version__ = "1.0.3"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
-
-from pip._vendor.tomli._parser import TOMLDecodeError, load, loads
+from ._parser import TOMLDecodeError, load, loads

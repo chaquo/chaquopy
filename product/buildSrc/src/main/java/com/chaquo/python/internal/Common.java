@@ -18,10 +18,11 @@ public class Common {
     public static final Map<String, String> PYTHON_VERSIONS = new LinkedHashMap<>();
     static {
         // Version, build number
-        PYTHON_VERSIONS.put("3.10.15", "1");
-        PYTHON_VERSIONS.put("3.11.10", "1");
-        PYTHON_VERSIONS.put("3.12.7", "1");
-        PYTHON_VERSIONS.put("3.13.0", "1");
+        PYTHON_VERSIONS.put("3.10.19", "0");
+        PYTHON_VERSIONS.put("3.11.14", "0");
+        PYTHON_VERSIONS.put("3.12.12", "0");
+        PYTHON_VERSIONS.put("3.13.9", "0");
+        PYTHON_VERSIONS.put("3.14.0", "0");
     }
 
     public static List<String> PYTHON_VERSIONS_SHORT = new ArrayList<>();
@@ -33,9 +34,6 @@ public class Common {
     }
 
     public static final String DEFAULT_PYTHON_VERSION = "3.10";
-
-    // Wheel tags (PEP 425).
-    public static final String PYTHON_IMPLEMENTATION = "cp";  // CPython
 
     public static List<String> supportedAbis(String pythonVersion) {
         if (!PYTHON_VERSIONS_SHORT.contains(pythonVersion)) {

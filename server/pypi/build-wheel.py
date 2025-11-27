@@ -484,7 +484,7 @@ class BuildWheel:
         # create links from the other names so the compiler can find them.
         SONAME_PATTERNS = [
             (r"^(lib.*)\.so\..*$", r"\1.so"),
-            (r"^(lib.*?)[\d.]+\.so$", r"\1.so"),  # e.g. libpng
+            (r"^(lib.*?)-?[\d.]+\.so$", r"\1.so"),  # e.g. libpng, libyaml
             (r"^(lib.*)_(chaquopy|python)\.so$", r"\1.so"),  # e.g. libssl, libjpeg
         ]
         reqs_lib_dir = f"{self.host_env}/chaquopy/lib"
@@ -728,20 +728,28 @@ class BuildWheel:
                     os.environ[key] = value
 
     def generate_cmake_toolchain(self, env):
-        ndk = abspath(f"{env['AR']}/../../../../../..")
-        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
-
         # This environment variable requires CMake 3.21 or later.
+        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
         env["CMAKE_TOOLCHAIN_FILE"] = toolchain_filename
 
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
-                set(ANDROID_ABI {self.abi})
-                set(ANDROID_PLATFORM {self.api_level})
-                set(ANDROID_STL c++_shared)
-                include({ndk}/build/cmake/android.toolchain.cmake)
+                # To support as many build systems as possible, we use environment
+                # variables as the single source of truth for compiler flags and paths,
+                # so they don't need to be specified here.
 
-                list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)
+                set(CMAKE_SYSTEM_NAME Android)
+                set(CMAKE_SYSTEM_PROCESSOR {ABIS[self.abi].uname_machine})
+
+                # Inhibit all of CMake's own NDK handling code.
+                set(CMAKE_SYSTEM_VERSION 1)
+
+                # Tell CMake where to look for headers and libraries.
+                set(CMAKE_FIND_ROOT_PATH "{self.host_env}/chaquopy")
+                set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+                set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
                 """), file=toolchain_file)
 
             if self.needs_python:

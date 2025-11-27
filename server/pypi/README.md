@@ -3,6 +3,10 @@
 This directory contains the build-wheel tool, which produces Android .whl files compatible
 with Chaquopy.
 
+This tool supports Python 3.13 and older, and will not be updated for newer versions.
+For Python 3.13 and newer, we recommend you use
+[cibuildwheel](https://cibuildwheel.pypa.io/en/stable/) instead.
+
 build-wheel can build .whl files for all [Android
 ABIs](https://developer.android.com/ndk/guides/abis) (armeabi-v7a, arm64-v8a, x86 and
 x86_64). However, the tool itself only runs on Linux x86-64. If you don't already have a
@@ -124,10 +128,12 @@ If any changes are needed to make the build work, the easiest procedure is:
 
 .whl files can be built into your app using the [`pip`
 block](https://chaquo.com/chaquopy/doc/current/android.html#requirements) in your
-`build.gradle` file. First, add an `options` line to pass
-[`--extra-index-url`](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-extra-index-url)
-with the location of the `dist` directory mentioned above. Either an HTTP URL or a local path
-can be used. Then add an `install` line giving the name of your package.
+`build.gradle` file.:
+
+* Add an `options` line to pass
+  [`--find-links`](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-find-links)
+  with the location of the `dist` subdirectory that contains the wheels.
+* Add an `install` line giving the name of your package.
 
 
 ## Testing a package
@@ -145,7 +151,7 @@ follows:
 
 * Set `PACKAGES` to the package's name.
 * Set `python { version }` to the Python version you want to test.
-* Set the `--extra-index-url` as described above.
+* Add a `--find-links` option as described above.
 * Set `abiFilters` to the ABIs you want to test.
 
 Then run the app.
