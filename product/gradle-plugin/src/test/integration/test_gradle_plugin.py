@@ -677,9 +677,17 @@ class ExtractPackages(GradleTestCase):
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
         
     def test_wildcard(self):
+        PY_FILES = [
+            "pkg1/__init__.py",
+            "pkg2/__init__.py",
+            "pkg3/__init__.py",
+            "pkg3/mod1.py",
+            "pkg3/sub_pkg/__init__.py",
+            "pkg3/sub_pkg/mod2.py",
+        ]
         self.RunGradle("base", "ExtractPackages/wildcard",
-                       app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
-                       extract_packages=["common", "*"])
+                       app=PY_FILES,
+                       extract_packages=["pkg1", "*"])
 
 
 class Pyc(GradleTestCase):
