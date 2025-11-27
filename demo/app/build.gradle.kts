@@ -23,12 +23,12 @@ afterEvaluate {
 
 android {
     namespace = "com.chaquo.python.demo"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
 
         val plugins = buildscript.configurations.getByName("classpath")
              .resolvedConfiguration.resolvedArtifacts.map {
@@ -145,9 +145,7 @@ for (path in listOf(
 }
 
 dependencies {
-    // appcompat version 1.2.0 is required to fix an incompatibility with WebView on API level
-    // 21 (https://stackoverflow.com/questions/41025200).
-    implementation("androidx.appcompat:appcompat:1.2.0-beta01")
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.constraintlayout:constraintlayout:1.1.3")
     implementation("androidx.lifecycle:lifecycle-extensions:2.1.0")
     implementation("androidx.preference:preference:1.1.1")

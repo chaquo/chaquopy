@@ -37,7 +37,7 @@ android {
     defaultConfig {
         applicationId "com.chaquo.python.pkgtest3"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
 
         String pluginVersion = null
         for (art in rootProject.buildscript.configurations.getByName("classpath")

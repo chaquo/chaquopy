@@ -4,19 +4,19 @@ from android.app import AlertDialog
 from android.content import DialogInterface
 from android.graphics.drawable import ColorDrawable
 from android.os import Bundle
-from androidx.appcompat.app import AppCompatActivity
 from androidx.fragment.app import DialogFragment
 from androidx.preference import Preference, PreferenceFragmentCompat
 from android.view import Menu, MenuItem, View
 from java.lang import String
 
+from com.chaquo.python.utils import BaseActivity
 from com.chaquo.python.demo import R
 
 
-class UIDemoActivity(static_proxy(AppCompatActivity)):
+class UIDemoActivity(static_proxy(BaseActivity)):
     @Override(jvoid, [Bundle])
     def onCreate(self, state):
-        AppCompatActivity.onCreate(self, state)
+        BaseActivity.onCreate(self, state)
         if state is None:
             state = Bundle()
         self.setContentView(R.layout.activity_menu)
