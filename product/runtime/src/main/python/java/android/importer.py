@@ -83,8 +83,9 @@ def initialize_importlib(context, build_json, app_path):
                                                  .format(entry, type(finder).__name__))
 
         # Extract necessary files from the root directory. This includes .pth files,
-        # which will be read by addsitedir below.
-        finder.extract_dir("", recursive=False)
+        # which will be read by addsitedir below. If requested, also extract all Python
+        # packages.
+        finder.extract_dir("", recursive="*" in build_json["extract_packages"])
 
         # Extract necessary files from top-level directories which aren't Python
         # packages or dist-info directories.
@@ -531,8 +532,10 @@ class AssetFinder:
 
     def extract_dir(self, zip_dir, recursive=True):
         dotted_dir = zip_dir.replace("/", ".")
-        extract_package = any((dotted_dir == ep) or dotted_dir.startswith(ep + ".")
-                              for ep in self.extract_packages)
+        extract_package = any(
+            ep in (dotted_dir, "*") or dotted_dir.startswith(ep + ".")
+            for ep in self.extract_packages
+        )
 
         for filename in self.listdir(zip_dir):
             zip_path = join(zip_dir, filename)
