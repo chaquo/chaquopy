@@ -14,7 +14,7 @@ import androidx.appcompat.app.*;
 import androidx.core.content.*;
 import androidx.lifecycle.*;
 
-public abstract class ConsoleActivity extends AppCompatActivity
+public abstract class ConsoleActivity extends BaseActivity
 implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollChangedListener {
 
     // Because tvOutput has freezesText enabled, letting it get too large can cause a
@@ -49,8 +49,6 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        App.setPySubtitle(this);
-
         consoleModel = ViewModelProviders.of(this).get(ConsoleModel.class);
         task = ViewModelProviders.of(this).get(getTaskClass());
         setContentView(resId("layout", "activity_console"));

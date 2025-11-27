@@ -2,7 +2,11 @@
 <resources>
 
     <style name="AppTheme.V35" parent="AppTheme.Base">
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+        <!-- API level 35 enables edge to edge layout, which makes the app responsible
+        for drawing the status bar background. I couldn't find any easy way of doing
+        that with the AppCompatActivity's built-in action bar layout, so let's leave
+        it as the activity's background color (white). -->
+        <item name="android:windowLightStatusBar">true</item>
     </style>
     <style name="AppTheme" parent="AppTheme.V35"/>
 
