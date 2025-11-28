@@ -38,8 +38,9 @@ In your *top-level* `build.gradle` file, set the Chaquopy version:
     }
 
 Also check the Android Gradle plugin version (`com.android.application` or
-`com.android.library`): it should be between 7.0.x and 8.1.x. Older versions as far back
-as 2.2 are supported by :doc:`older versions of Chaquopy <../versions>`.
+`com.android.library`): it should be between 7.3.x and 8.13.x. Older versions are
+supported by :doc:`older versions of Chaquopy <../versions>`. Newer versions may work,
+but have not been tested.
 
 Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usually in the
 `app` directory)::
@@ -55,8 +56,8 @@ Then apply the Chaquopy plugin in the *module-level* `build.gradle` file (usuall
 
 Your project's `minSdk
 <https://developer.android.com/reference/tools/gradle-api/8.1/com/android/build/api/dsl/BaseFlavor#minSdk()>`_
-must be at least 21. Older versions as far back as 15 are supported by :doc:`older
-versions of Chaquopy <../versions>`.
+must be at least 24. Older versions are supported by :doc:`older versions of Chaquopy
+<../versions>`.
 
 .. _android-abis:
 
@@ -67,9 +68,11 @@ The Python interpreter is a native component, so you must use the `abiFilters
 <https://developer.android.com/studio/projects/gradle-external-native-builds#specify-abi>`_
 setting to specify which ABIs you want the app to support. The currently available ABIs are:
 
-* `armeabi-v7a`, for older Android devices
-* `arm64-v8a`, for newer Android devices, and the emulator on Apple silicon (M1)
-* `x86` and `x86_64`, for the emulator on other platforms
+* `armeabi-v7a` for older Android devices (:ref:`Python 3.11 <python-version>` and older
+  only)
+* `arm64-v8a` for current Android devices, and emulators on Apple silicon
+* `x86` for older emulators (:ref:`Python 3.11 <python-version>` and older only)
+* `x86_64` for current emulators
 
 The following setting will work for most projects:
 
@@ -81,7 +84,7 @@ The following setting will work for most projects:
             defaultConfig {
                 ndk {
                     // On Apple silicon, you can omit x86_64.
-                    abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+                    abiFilters += listOf("arm64-v8a", "x86_64")
                 }
             }
         }
@@ -92,7 +95,7 @@ The following setting will work for most projects:
             defaultConfig {
                 ndk {
                     // On Apple silicon, you can omit x86_64.
-                    abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
+                    abiFilters "arm64-v8a", "x86_64"
                 }
             }
         }
@@ -165,15 +168,17 @@ example, here's how to create flavors for different :ref:`Python versions
 buildPython
 -----------
 
-Some features require Python 3.7 or later to be available on the build machine. These features
-are indicated by a note in their documentation sections.
+Some features require Python to be available on the build machine. The Python major and
+minor versions must match your app, e.g. if  :ref:`your app's Python version
+<python-version>` is 3.13, then you must build with Python 3.13. The micro version
+doesn't matter.
 
-By default, Chaquopy will try to find Python on the PATH with the standard command for your
-operating system, first with a matching minor version, and then with a matching major version.
-For example, if :ref:`your app's Python version <python-version>` is 3.8, then:
+By default, Chaquopy will try to find Python on the PATH with the standard commands for
+your operating system. For example, if :ref:`your app's Python version <python-version>`
+is 3.13, then:
 
-* On Linux and Mac it will try `python3.8`, then `python3`.
-* On Windows, it will try `py -3.8`, then `py -3`.
+* On Linux and Mac it will try `python3.13`, then `python3`.
+* On Windows, it will try `py -3.13`, then `py -3`.
 * On all platforms, it will finally try `python`.
 
 If this doesn't work for you, set your Python command using the `buildPython` setting.
@@ -182,7 +187,9 @@ For example, on Windows you might use one of the following::
     chaquopy {
         defaultConfig {
             buildPython("C:/path/to/python.exe")
-            buildPython("C:/path/to/py.exe", "-3.8")
+
+            // Commands with multiple arguments must be passed as multiple strings.
+            buildPython("C:/path/to/py.exe", "-3.13")
         }
     }
 
@@ -229,13 +236,22 @@ You can set your app's Python version like this::
 
     chaquopy {
         defaultConfig {
-            version = "3.8"
+            version = "3.13"
         }
     }
 
-In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.8. The
-other available versions are 3.9, 3.10 and 3.11, but these may have fewer :ref:`packages
-<android-requirements>` available.
+Or if you're using Briefcase, do the following:
+
+* Create a new virtual environment with the desired Python version.
+* Activate the environment and install Briefcase into it.
+* Run `briefcase create android`.
+
+In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.10,
+and the other available versions are 3.11, 3.12, 3.13 and 3.14. Different Python
+versions will support a different selection of :ref:`packages <android-requirements>`.
+
+Python 3.11 and older supports both :ref:`32-bit and 64-bit ABIs <android-abis>`. Python
+3.12 and newer supports only 64-bit.
 
 .. _android-source:
 
@@ -329,12 +345,9 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
         }
     }
 
-In our most recent tests, Chaquopy could install over 90% of the top 1000 packages on `PyPI
-<https://pypi.org/>`_. This includes almost all pure-Python packages, plus a constantly-growing
-selection of packages with native components. To see which native packages are currently
-available, you can `browse the repository here <https://chaquo.com/pypi-7.0/>`_. To
-request a package to be added or updated, or for any other problem with installing
-requirements, please visit our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_.
+Chaquopy can install almost all pure-Python packages, plus a large selection
+of packages with native components. If you have trouble installing a package, see
+:ref:`the FAQ <faq-pip>`.
 
 To pass options to `pip install`, give them as a comma-separated list to the `options`
 method. For example::
@@ -442,11 +455,11 @@ unless they're covered by the :ref:`extractPackages <extractPackages>` setting. 
 this prevents source code text from appearing in stack traces, so during development you
 may wish to disable it. There are individual settings for:
 
-* `src`: :ref:`local source code <android-source>`
+* `src`: :ref:`source code <android-source>`
 * `pip`: :ref:`requirements <android-requirements>`
 * `stdlib`: the Python standard library
 
-For example, to disable compilation of your local source code::
+For example, to disable compilation of your source code::
 
     chaquopy {
         defaultConfig {
@@ -455,11 +468,6 @@ For example, to disable compilation of your local source code::
             }
         }
     }
-
-In the case of `src` and `pip`, your :ref:`buildPython <buildPython>` must use the same
-bytecode format as Chaquopy itself. Usually this means it must have the same minor version,
-e.g. if :ref:`your app's Python version <python-version>` is 3.8, then `buildPython` can be
-any version of Python 3.8.
 
 If bytecode compilation fails, the build will continue with a warning, unless you've
 explicitly set one of the `pyc` settings to `true`. Your app will still work, but its code will
@@ -500,9 +508,11 @@ include:
 multiprocessing
 ---------------
 
-Because Android doesn't support POSIX semaphores, most of the :any:`multiprocessing` APIs will
-fail with the error "This platform lacks a functioning sem_open implementation". The simplest
-solution is to use :any:`multiprocessing.dummy` instead.
+Because Android doesn't support the System V IPC API, most of the :any:`multiprocessing`
+APIs will fail with the error "This platform lacks a functioning sem_open
+implementation" or "No module named '_multiprocessing'".
+
+The simplest solution is to use :any:`multiprocessing.dummy` instead.
 
 .. _android-os:
 
@@ -530,21 +540,11 @@ read and write this directory from Android Studio using the `Device File Explore
 <https://developer.android.com/studio/debug/device-file-explorer>`_. Its path will be something
 like `/data/data/your.application.id/files`.
 
-socket
-------
-
-The following functions are unavailable because they're not supported by our minimum
-Android version:
-
-* :any:`socket.if_nameindex`
-* :any:`socket.if_nametoindex`
-* :any:`socket.if_indextoname`
-
 ssl
 ---
 
 The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://github.com/certifi/python-certifi/>`_ version 2022.12.7. The system CA store is
+<https://pypi.org/project/certifi/>`_ version 2025.8.3. The system CA store is
 not used.
 
 sys
@@ -561,7 +561,7 @@ by non-Python libraries. If you want to redirect them as well, see
 `AndroidPlatform.redirectStdioToLogcat
 <java/com/chaquo/python/android/AndroidPlatform.html#redirectStdioToLogcat()>`_.
 
-By default, :any:`sys.stdin` always returns EOF. If you want to run some code which takes
+:any:`sys.stdin` always returns EOF. If you want to run some code which takes
 interactive text input, have a look at the `console app template
 <https://github.com/chaquo/chaquopy-console>`_.
 

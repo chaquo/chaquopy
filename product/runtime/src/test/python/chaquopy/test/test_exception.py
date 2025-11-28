@@ -63,5 +63,6 @@ class TestException(FilterWarningsCase):
 
 
 def trace_line(method):
+    # In AGP 8.2, ProGuard renames all Java source files to "SourceFile".
     return (r"\s*at com.chaquo.python.TestException." + method +
-            r"\(TestException.java:[0-9]+\)\s*")
+            r"\(.+:[0-9]+\)\s*")

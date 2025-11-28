@@ -14,9 +14,11 @@ class TestRawpy(unittest.TestCase):
             self.assertEqual(2868, raw.sizes.height)
 
 
-# Downloading a URL with "Connection: close", as urllib does, causes an intermittent network
-# problem on the emulator (see #5601 and https://issuetracker.google.com/issues/150758736). So
-# use the stdlib's low-level HTTP API to make a request with no Connection header.
+# Downloading a URL with "Connection: close", as urllib does, causes an intermittent
+# network problem on the emulator (https://issuetracker.google.com/issues/150758736). For
+# small files we could just retry until it succeeds, but for large files a failure is much more
+# likely, and we might have to keep retrying for several minutes. So use the stdlib's low-level
+# HTTP API to make a request with no Connection header.
 def read_url(url):
     from http.client import HTTPConnection, HTTPSConnection
     from urllib.parse import urlparse

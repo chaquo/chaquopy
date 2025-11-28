@@ -6,17 +6,17 @@ diff -ur src-original/setup.py src/setup.py
                        '-DPYTHON_EXECUTABLE=' + sys.executable]
  
 +        # Chaquopy
-+        abi = os.environ["CHAQUOPY_ABI"]
++        host = os.environ["HOST"]
 +        cmake_args += [
-+            "-DCMAKE_TOOLCHAIN_FILE=" + os.path.abspath("../chaquopy.toolchain.cmake"),
++            "-DCMAKE_VERBOSE_MAKEFILE=TRUE",
 +            "-DDLIB_USE_CUDA=no",
 +
 +            # By default, dlib/cmake_utils/set_compiler_specific_options.cmake sets these
 +            # options by running executables on the host, so force them according to
 +            # https://developer.android.com/ndk/guides/abis.
-+            f"-DSSE4_IS_AVAILABLE_ON_HOST={abi == 'x86_64'}",
++            f"-DSSE4_IS_AVAILABLE_ON_HOST={host.startswith('x86_64')}",
 +            f"-DAVX_IS_AVAILABLE_ON_HOST=False",
-+            f"-DARM_NEON_IS_AVAILABLE={abi == 'arm64-v8a'}",
++            f"-DARM_NEON_IS_AVAILABLE={host.startswith('arm')}",
 +        ]
 +
          cmake_args += cmake_extra_options 

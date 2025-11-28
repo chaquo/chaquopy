@@ -30,15 +30,16 @@ cdef extern from "chaquopy_java_extra.h":
     void PyInit_chaquopy_java() except *
 
 
-cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved):
+cdef public jint JNI_OnLoad(JavaVM *jvm, void *reserved) noexcept:
     return JNI_VERSION_1_6
 
 
 # === com.chaquo.python.Python ================================================
 
 # This runs before Py_Initialize, so it must compile to pure C.
-cdef public void Java_com_chaquo_python_Python_startNative \
-    (JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path):
+cdef public void Java_com_chaquo_python_Python_startNative(
+    JNIEnv *env, jobject klass, jobject j_platform, jobject j_python_path
+) noexcept:
     if getenv("CHAQUOPY_PROCESS_TYPE") == NULL:  # See jvm.pxi
         startNativeJava(env, j_platform, j_python_path)
     else:
@@ -46,7 +47,9 @@ cdef public void Java_com_chaquo_python_Python_startNative \
 
 
 # We're running in a Java process, so start the Python VM.
-cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path):
+cdef void startNativeJava(
+    JNIEnv *env, jobject j_platform, jobject j_python_path
+) noexcept:
     cdef const char *python_path
     if j_python_path != NULL:
         python_path = env[0].GetStringUTFChars(env, j_python_path, NULL)
@@ -54,7 +57,7 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
             throw_simple_exception(env, "GetStringUTFChars failed in startNativeJava")
             return
         try:
-            if not set_path(env, python_path):
+            if not set_env(env, "PYTHONPATH", python_path):
                 return
             if not set_env(env, "CHAQUOPY_PROCESS_TYPE", "java"):  # See chaquopy.pyx
                 return
@@ -86,12 +89,12 @@ cdef void startNativeJava(JNIEnv *env, jobject j_platform, jobject j_python_path
     # module intialization, so the GIL now exists and we have it. We must release the GIL
     # before we return to Java so that the methods below can be called from any thread.
     # (http://bugs.python.org/issue1720250)
-    PyEval_SaveThread();
+    PyEval_SaveThread()
 
 
 # WARNING: This function (specifically PyInit_chaquopy_java) will crash if called
 # more than once.
-cdef bint init_module(JNIEnv *env) with gil:
+cdef bint init_module(JNIEnv *env) noexcept with gil:
     try:
         # See CYTHON_PEP489_MULTI_PHASE_INIT in chaquopy_java_extra.h.
         PyInit_chaquopy_java()
@@ -101,14 +104,9 @@ cdef bint init_module(JNIEnv *env) with gil:
         return False
 
 
-# This runs before Py_Initialize, so it must compile to pure C.
-cdef public bint set_path(JNIEnv *env, const char *python_path):
-    return set_env(env, "PYTHONPATH", python_path)
-
-
 # The POSIX setenv function is not available on MSYS2.
 # This runs before Py_Initialize, so it must compile to pure C.
-cdef bint set_env(JNIEnv *env, const char *name, const char *value):
+cdef bint set_env(JNIEnv *env, const char *name, const char *value) noexcept:
     cdef int putenvArgLen = strlen(name) + 1 + strlen(value) + 1
     cdef char *putenvArg = <char*>malloc(putenvArgLen)
     if snprintf(putenvArg, putenvArgLen, "%s=%s", name, value) != (putenvArgLen - 1):
@@ -124,7 +122,7 @@ cdef bint set_env(JNIEnv *env, const char *name, const char *value):
 
 
 cdef public jlong Java_com_chaquo_python_Python_getModuleNative \
-    (JNIEnv *env, jobject this, jobject j_name) with gil:
+    (JNIEnv *env, jobject this, jobject j_name) noexcept with gil:
     try:
         return p2j_pyobject(env, import_module(j2p_string(env, LocalRef.create(env, j_name))))
     except BaseException:
@@ -136,7 +134,7 @@ cdef public jlong Java_com_chaquo_python_Python_getModuleNative \
 # === com.chaquo.python.PyObject ==============================================
 
 cdef public void Java_com_chaquo_python_PyObject_closeNative \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         Py_DECREF(j2p_pyobject(env, this))  # Matches with INCREF in p2j_pyobject.
         return
@@ -146,7 +144,7 @@ cdef public void Java_com_chaquo_python_PyObject_closeNative \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_fromJavaNative \
-    (JNIEnv *env, jobject klass, jobject o) with gil:
+    (JNIEnv *env, jobject klass, jobject o) noexcept with gil:
     try:
         return p2j_pyobject(env, j2p(env, LocalRef.create(env, o)))
     except BaseException:
@@ -156,7 +154,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_fromJavaNative \
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_toJava \
-    (JNIEnv *env, jobject this, jobject to_klass) with gil:
+    (JNIEnv *env, jobject this, jobject to_klass) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         if not to_klass:
@@ -177,7 +175,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_toJava \
 # can't simply call a common function, because the main return statement has to be inside a
 # SavedException try block in case of numeric overflow.
 cdef public jboolean Java_com_chaquo_python_PyObject_toBoolean \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -190,7 +188,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_toBoolean \
     return 0
 
 cdef public jbyte Java_com_chaquo_python_PyObject_toByte \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -203,7 +201,7 @@ cdef public jbyte Java_com_chaquo_python_PyObject_toByte \
     return 0
 
 cdef public jchar Java_com_chaquo_python_PyObject_toChar \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -219,7 +217,7 @@ cdef public jchar Java_com_chaquo_python_PyObject_toChar \
     return 0
 
 cdef public jshort Java_com_chaquo_python_PyObject_toShort \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -232,7 +230,7 @@ cdef public jshort Java_com_chaquo_python_PyObject_toShort \
     return 0
 
 cdef public jint Java_com_chaquo_python_PyObject_toInt \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -245,7 +243,7 @@ cdef public jint Java_com_chaquo_python_PyObject_toInt \
     return 0
 
 cdef public jlong Java_com_chaquo_python_PyObject_toLong \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -258,7 +256,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_toLong \
     return 0
 
 cdef public jfloat Java_com_chaquo_python_PyObject_toFloat \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -274,7 +272,7 @@ cdef public jfloat Java_com_chaquo_python_PyObject_toFloat \
     return 0
 
 cdef public jdouble Java_com_chaquo_python_PyObject_toDouble \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         try:
@@ -287,7 +285,7 @@ cdef public jdouble Java_com_chaquo_python_PyObject_toDouble \
     return 0
 
 cdef public jlong Java_com_chaquo_python_PyObject_id \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         return id(j2p_pyobject(env, this))
     except BaseException:
@@ -297,7 +295,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_id \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_typeNative \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         return p2j_pyobject(env, type(j2p_pyobject(env, this)))
     except BaseException:
@@ -307,7 +305,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_typeNative \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_callThrowsNative \
-    (JNIEnv *env, jobject this, jobject jargs) with gil:
+    (JNIEnv *env, jobject this, jobject jargs) noexcept with gil:
     try:
         return call(env, j2p_pyobject(env, this), jargs)
     except BaseException:
@@ -319,7 +317,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_callThrowsNative \
 # It's worth making this a native method in order to avoid the temporary PyObject which would
 # be created by `get(name).call(...)`.
 cdef public jlong Java_com_chaquo_python_PyObject_callAttrThrowsNative \
-    (JNIEnv *env, jobject this, jobject j_key, jobject jargs) with gil:
+    (JNIEnv *env, jobject this, jobject j_key, jobject jargs) noexcept with gil:
     try:
         attr = getattr(j2p_pyobject(env, this),
                        j2p_string(env, LocalRef.create(env, j_key)))
@@ -357,7 +355,7 @@ cdef jlong call(JNIEnv *j_env, obj, jobject jargs) except? 0:
 # === com.chaquo.python.PyObject (Map) ========================================
 
 cdef public jboolean Java_com_chaquo_python_PyObject_containsKeyNative \
-    (JNIEnv *env, jobject this, jobject j_key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         key = j2p_string(env, LocalRef.create(env, j_key))
@@ -369,7 +367,7 @@ cdef public jboolean Java_com_chaquo_python_PyObject_containsKeyNative \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_getNative \
-    (JNIEnv *env, jobject this, jobject j_key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         key = j2p_string(env, LocalRef.create(env, j_key))
@@ -385,7 +383,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_getNative \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_putNative \
-    (JNIEnv *env, jobject this, jobject j_key, jobject j_value) with gil:
+    (JNIEnv *env, jobject this, jobject j_key, jobject j_value) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         key = j2p_string(env, LocalRef.create(env, j_key))
@@ -402,7 +400,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_putNative \
 
 
 cdef public jlong Java_com_chaquo_python_PyObject_removeNative \
-    (JNIEnv *env, jobject this, jobject j_key) with gil:
+    (JNIEnv *env, jobject this, jobject j_key) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         key = j2p_string(env, LocalRef.create(env, j_key))
@@ -419,7 +417,7 @@ cdef public jlong Java_com_chaquo_python_PyObject_removeNative \
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_dir \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         keys = java.jclass("java.util.ArrayList")()
         for key in dir(j2p_pyobject(env, this)):
@@ -433,7 +431,7 @@ cdef public jobject Java_com_chaquo_python_PyObject_dir \
 # === com.chaquo.python.PyObject (Object) =====================================
 
 cdef public jboolean Java_com_chaquo_python_PyObject_equals \
-    (JNIEnv *env, jobject this, jobject that) with gil:
+    (JNIEnv *env, jobject this, jobject that) noexcept with gil:
     try:
         return j2p_pyobject(env, this) == j2p(env, LocalRef.create(env, that))
     except BaseException:
@@ -443,11 +441,11 @@ cdef public jboolean Java_com_chaquo_python_PyObject_equals \
 
 
 cdef public jobject Java_com_chaquo_python_PyObject_toString \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     return to_string(env, this, str)
 
 cdef public jobject Java_com_chaquo_python_PyObject_repr \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     return to_string(env, this, repr)
 
 cdef jobject to_string(JNIEnv *env, jobject this, func):
@@ -461,7 +459,7 @@ cdef jobject to_string(JNIEnv *env, jobject this, func):
 
 
 cdef public jint Java_com_chaquo_python_PyObject_hashCode \
-    (JNIEnv *env, jobject this) with gil:
+    (JNIEnv *env, jobject this) noexcept with gil:
     try:
         self = j2p_pyobject(env, this)
         return ctypes.c_int32(hash(self)).value

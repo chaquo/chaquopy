@@ -1,9 +1,18 @@
 pluginManagement {
     repositories {
         maven { url = uri("../maven") }
-        google()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
+    }
+    plugins {
+        id("com.chaquo.python") version file("../VERSION.txt").readText().trim()
     }
 }
 

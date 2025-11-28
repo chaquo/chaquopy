@@ -1,30 +1,14 @@
 import com.chaquo.python.internal.BuildCommon;
 import com.chaquo.python.internal.Common;
-import static com.chaquo.python.internal.Common.findExecutable;
+import static com.chaquo.python.internal.Common.osName;
 
 group = "com.chaquo.python.runtime"
 
 
-def osNameProperty = System.properties['os.name']
-String osName = null
-for (name in ["linux", "mac", "windows"]) {
-    if (osNameProperty.toLowerCase(Locale.ENGLISH).startsWith(name)) {
-        osName = name
-        break
-    }
-}
-if (osName == null) {
-    throw new GradleException("unknown os.name: '$osNameProperty'")
-}
-
-String hostPythonExe() {
-    return findExecutable("python$Common.DEFAULT_PYTHON_VERSION")
-}
-
 String hostPythonHome() {
     return new ByteArrayOutputStream().withStream { output ->
         exec {
-            executable hostPythonExe()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args "-c", "import sys; print(sys.base_prefix)"
             standardOutput = output
         }
@@ -84,10 +68,10 @@ Common.PYTHON_VERSIONS_SHORT.each { pyVersion ->
         doLast {
             exec {
                 workingDir destinationDir
-                if (osName == "windows") {
-                    commandLine findExecutable("py"), "-$pyVersion"
+                if (osName() == "windows") {
+                    commandLine "py", "-$pyVersion"
                 } else {
-                    commandLine findExecutable("python$pyVersion")
+                    commandLine "python$pyVersion"
                 }
                 args "-m", "compileall"
                 args "-q", "-b", "."
@@ -121,11 +105,19 @@ String sdkPath(String path) {
     return absPath
 }
 
-// Android Studio 4.2 no longer comes with JNI headers, so build against an older JRE. Also,
-// some of the Python unit tests don't work on Java 11 yet (#5727).
-//
-// This does not affect the Java unit tests, which will use the same Java as Gradle itself.
-def javaHome = BuildCommon.localProperty(project, 'chaquopy.java.home.8')
+// Do this lazily to avoid depending on a specific version of CMake in CI when
+// CHAQUOPY_NO_BUILD is set
+// (https://github.com/actions/runner-images/issues/11111#issuecomment-2585484643).
+String cmakeExecutable(String name) {
+    return "${sdkPath("cmake/3.22.1")}/bin/$name"
+}
+
+// On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
+// variable does not affect the Java unit tests, which always use the same Java as
+// Gradle itself.
+String javaHome() {
+    return BuildCommon.localProperty(project, 'chaquopy.java.home.8')
+}
 
 def docs = tasks.register("docs") {
     group = "documentation"
@@ -158,7 +150,7 @@ TaskProvider cythonTask(String name, Closure closure) {
         outputs.file outFile
 
         workingDir inFile.parent  // Reduce clutter in exception traces
-        executable findExecutable("cython")
+        executable "cython"
         args "-Wextra", "-Werror", inFile.name, "-I", outDir, "-o", outFile
 
         doLast {
@@ -202,7 +194,6 @@ cythonTask("cythonJava") {
     }
 }
 
-def sdkCmakeDir = sdkPath("cmake/3.22.1")
 def androidJar = "${sdkPath("platforms/android-" + Common.COMPILE_SDK_VERSION)}/android.jar"
 
 dependencies {
@@ -221,7 +212,7 @@ def proxyTask = tasks.register("generateStaticProxy", Exec) {
     outputs.upToDateWhen { false }
     doFirst { delete outputDir }
     environment "PYTHONPATH", "$projectDir/../gradle-plugin/src/main/python"
-    executable hostPythonExe()
+    executable "python$Common.DEFAULT_PYTHON_VERSION"
     args "-m", "chaquopy.static_proxy"
     args "--path", "$projectDir/src/test/python"
     args "--java", outputDir
@@ -230,10 +221,21 @@ def proxyTask = tasks.register("generateStaticProxy", Exec) {
 }
 sourceSets.test.java.srcDir(proxyTask)
 
-(["host"] + Common.ABIS).each { abi ->
+// CMakeLists.txt may contain configuration-specific settings, so make sure we only use
+// one of the known configurations.
+String cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
+def KNOWN_BUILD_TYPES = ["Debug", "Release"]
+if (!(cmakeBuildType in KNOWN_BUILD_TYPES)) {
+    throw new GradleException(
+        "Unknown build type '$cmakeBuildType'; valid values are $KNOWN_BUILD_TYPES")
+}
+
+(["host"] + Common.supportedAbis("3.11")).each { abi ->
+    def pyVersions = Common.PYTHON_VERSIONS_SHORT.findAll {
+        Common.supportedAbis(it).contains(abi)
+    }
     def pyLibSuffix = ".so"
     def cmakeBuildSubdir = "$buildDir/cmake/$abi"
-    def cmakeBuildType = findProperty("cmakeBuildType") ?: "Debug"
     def cmake = tasks.register("cmake-$abi", Exec) {
         group = "build"
         dependsOn("cythonPython", "cythonJava")
@@ -251,36 +253,46 @@ sourceSets.test.java.srcDir(proxyTask)
             mkdir cmakeBuildSubdir
         }
         workingDir cmakeBuildSubdir
-        executable "$sdkCmakeDir/bin/cmake"
-        args "-GNinja", "-DCMAKE_MAKE_PROGRAM=$sdkCmakeDir/bin/ninja",
+        executable cmakeExecutable("cmake")
+        args "-GNinja", "-DCMAKE_MAKE_PROGRAM=${cmakeExecutable("ninja")}",
              "-DCMAKE_BUILD_TYPE=$cmakeBuildType",
              "-DCHAQUOPY_SRC_DIR=build/cython"
 
         if (abi == "host") {
             String javaIncludeSubdir
-            if (osName == "windows") {
+            if (osName() == "windows") {
                 pyLibSuffix = ".pyd"
                 javaIncludeSubdir = "win32"
-            } else if (osName == "mac") {
+            } else if (osName() == "mac") {
                 javaIncludeSubdir = "darwin"
             } else {
-                javaIncludeSubdir = osName
+                javaIncludeSubdir = osName()
             }
             args "-DCHAQUOPY_PYTHON_VERSION=$Common.DEFAULT_PYTHON_VERSION"
             args "-DCHAQUOPY_LIB_DIRS=${hostPythonHome()}/lib"
             args "-DCHAQUOPY_INCLUDE_PYTHON=${hostPythonHome()}/include"
-            args ("-DCHAQUOPY_INCLUDE_JAVA=$javaHome/include;" +
-                  "$javaHome/include/$javaIncludeSubdir")
+            args ("-DCHAQUOPY_INCLUDE_JAVA=${javaHome()}/include;" +
+                  "${javaHome()}/include/$javaIncludeSubdir")
         } else {
-            // This must be one of the NDK versions which are pre-installed on the
-            // GitHub Actions runner. Ideally it would also match the version in
-            // target/build-common.sh, but the latter is more difficult to change.
-            def ndkDir = sdkPath("ndk/23.2.8568313")
+            String ndkDir = null
+            def androidEnvFile = file("../../target/android-env.sh").absoluteFile
+            for (line in androidEnvFile.readLines()) {
+                def match = line =~ /ndk_version=(\S+)/
+                if (match) {
+                    ndkDir = sdkPath("ndk/${match.group(1)}")
+                    break
+                }
+            }
+            if (ndkDir == null) {
+                throw new GradleException("Failed to find NDK version in $androidEnvFile")
+            }
+
             def prefixDir = "$projectDir/../../target/prefix/$abi"
             args "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
-                 "-DANDROID_ABI=$abi", "-DANDROID_STL=system",
+                 "-DANDROID_ABI=$abi",
                  "-DANDROID_NATIVE_API_LEVEL=$Common.MIN_SDK_VERSION",
-                 "-DCHAQUOPY_PYTHON_VERSIONS=${Common.PYTHON_VERSIONS_SHORT.join(';')}",
+                 "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+                 "-DCHAQUOPY_PYTHON_VERSIONS=${pyVersions.join(';')}",
                  "-DCHAQUOPY_INCLUDE_PYTHON=$prefixDir/include",
                  "-DCHAQUOPY_LIB_DIRS=$prefixDir/lib"
         }
@@ -292,12 +304,16 @@ sourceSets.test.java.srcDir(proxyTask)
         // No inputs or outputs: the command itself determines whether it's up to date.
         group = "build"
         dependsOn cmake
-        executable "$sdkCmakeDir/bin/cmake"
-        args "--build", cmakeBuildSubdir
+        executable cmakeExecutable("cmake")
+
+        // Ninja's parallel build defaults to the number of processors plus 2, which
+        // overloads the GitHub Actions runner.
+        args "--build", cmakeBuildSubdir,
+             "--parallel", Runtime.getRuntime().availableProcessors()
     }
     if (abi != "host") {
         for (name in ["chaquopy", "libchaquopy_java"]) {
-            for (pyVersion in Common.PYTHON_VERSIONS_SHORT) {
+            for (pyVersion in pyVersions) {
                 addArtifact(
                     cmakeBuild, new File(cmakeBuildSubdir, "$name-${pyVersion}.so"),
                     pyVersion, abi)
@@ -328,8 +344,8 @@ sourceSets.test.java.srcDir(proxyTask)
 
             // Can't use -Djava.library.path because we need something which also works
             // for Python processes.
-            def pathVar = (osName == "windows") ? "PATH"
-                          : (osName == "mac") ? "DYLD_LIBRARY_PATH"
+            def pathVar = (osName() == "windows") ? "PATH"
+                          : (osName() == "mac") ? "DYLD_LIBRARY_PATH"
                           : "LD_LIBRARY_PATH"
             environment pathVar, (cmakeBuildSubdir + File.pathSeparator +
                                   (System.getenv(pathVar) ?: ""))
@@ -342,8 +358,8 @@ sourceSets.test.java.srcDir(proxyTask)
             group = "verification"
             configure(hostConfig)
             workingDir "$projectDir/src/test/python"
-            environment "JAVA_HOME", javaHome
-            executable hostPythonExe()
+            environment "JAVA_HOME", javaHome()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args "-m", "unittest"
             if (project.hasProperty("testPythonArgs")) {
                 args project.testPythonArgs.split(" ")
@@ -365,13 +381,13 @@ sourceSets.test.java.srcDir(proxyTask)
             configure(hostConfig)
             outputs.upToDateWhen { false }
             environment "PYTHONHOME", hostPythonHome()
-            if (osName == "linux") {
+            if (osName() == "linux") {
                 // libchaquopy_java.so is linked against libpython, but that doesn't add
                 // the libpython symbols to the global scope, which is required in order to
                 // load native modules like ctypes. Loading libpython with
                 // System.loadLibrary doesn't help: presumably it uses RTLD_LOCAL on
                 // Linux. Altering chaquopy_java to call dlopen with RTLD_GLOBAL would be
-                // the proper solution, but let's do it the easy way for now. See #5695.
+                // the proper solution, but let's do it the easy way for now. See #1201.
                 environment(
                     "LD_PRELOAD",
                     "/usr/lib/x86_64-linux-gnu/libpython${Common.DEFAULT_PYTHON_VERSION}.so"
@@ -401,7 +417,7 @@ sourceSets.test.java.srcDir(proxyTask)
                     writer.println "export $key='${env.get(key)}'"
                 }
                 writer.println "export PATH=\"$cmakeBuildSubdir${File.pathSeparator}" + '$PATH"'
-                writer.println "winpty ${hostPythonExe()} " + '"$@"'
+                writer.println "winpty python$Common.DEFAULT_PYTHON_VERSION " + '"$@"'
                 writer.close()
             }
         }
@@ -413,10 +429,10 @@ sourceSets.test.java.srcDir(proxyTask)
 
             // We call a specific Python executable rather than running `sphinx-build`,
             // because Sphinx needs to be able to import the runtime module.
-            executable hostPythonExe()
+            executable "python$Common.DEFAULT_PYTHON_VERSION"
             args("-m", "sphinx", "-v", "-W", "--keep-going", "-b", "html",
                  "docs/sphinx", docsDir)
-            environment "JAVA_HOME", javaHome
+            environment "JAVA_HOME", javaHome()
         }
         docs.configure {
             dependsOn("sphinx")

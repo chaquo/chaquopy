@@ -1,0 +1,17 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index f7e4d50..3aba9f3 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -61,6 +61,12 @@ if (SPM_USE_BUILTIN_PROTOBUF)
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream.cc
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl.cc
+     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/protobuf-lite/zero_copy_stream_impl_lite.cc)
++
++  # Chaquopy
++  if (ANDROID)
++    list(APPEND SPM_LIBS log)  # Used by protobuf
++  endif()
++
+   if (MSVC)
+     add_definitions("/DHAVE_PTHREAD /wd4018 /wd4514")
+   else()

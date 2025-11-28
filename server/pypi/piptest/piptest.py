@@ -1,18 +1,16 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python3
 
 import argparse
 from datetime import datetime
-from distutils.dir_util import copy_tree
 import io
 import os
 from os.path import abspath, basename, dirname, exists, join
-from shutil import rmtree
 import subprocess
 import sys
 
 
 PROGRAM_NAME = basename(__file__)
-TIME_LIMIT = 300  # seconds
+TIME_LIMIT = 600  # seconds
 piptest_dir = abspath(dirname(__file__))
 
 
@@ -20,15 +18,12 @@ def main():
     args = parse_args()
     print(f"{args.package}: start", flush=True)
 
-    build_dir = ensure_empty(join(piptest_dir, "build", args.package))
-    copy_tree(join(piptest_dir, "src"), build_dir)
-
     log_dir = ensure_dir(join(piptest_dir, "log"))
     with open(join(log_dir, args.package + ".txt"), "wb", buffering=0) as log_file:
         log_file_text = io.TextIOWrapper(log_file, write_through=True)
         timestamp = datetime.utcnow().isoformat(timespec="seconds") + "Z"
         print(f"{PROGRAM_NAME}: testing '{args.package}' at {timestamp}", file=log_file_text)
-        os.chdir(build_dir)
+        os.chdir(join(piptest_dir, "src"))
         os.environ.update(piptest_verbose=str(args.v), piptest_package=args.package)
         try:
             subprocess.run(["./gradlew", "--console", "plain", "--stacktrace",
@@ -46,8 +41,6 @@ def main():
             sys.exit(1)
         else:
             print(f"{args.package}: PASS")
-            os.chdir(piptest_dir)
-            rmtree(build_dir)
 
 
 def parse_args():
@@ -56,11 +49,6 @@ def parse_args():
     ap.add_argument("package")
     return ap.parse_args()
 
-
-def ensure_empty(dir_name):
-    if exists(dir_name):
-        rmtree(dir_name)
-    return ensure_dir(dir_name)
 
 def ensure_dir(dir_name):
     if not exists(dir_name):

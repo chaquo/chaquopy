@@ -4,7 +4,7 @@ import sys
 import traceback
 from types import ModuleType
 import warnings
-from . import stream, importer
+from . import importer
 
 from org.json import JSONArray, JSONObject
 
@@ -13,12 +13,22 @@ def initialize(context_local, build_json_object, app_path):
     global context
     context = context_local
 
-    stream.initialize()
+    # Redirect stdout and stderr to logcat - this was upstreamed in Python 3.13.
+    if sys.version_info < (3, 13):
+        from ctypes import CDLL, c_char_p, c_int
+        from . import stream
+
+        android_log_write = getattr(CDLL("liblog.so"), "__android_log_write")
+        android_log_write.argtypes = (c_int, c_char_p, c_char_p)
+        stream.init_streams(android_log_write, stdout_prio=4, stderr_prio=5)
+
     importer.initialize(context, convert_json_object(build_json_object), app_path)
 
     # These are ordered roughly from low to high level.
-    for name in ["warnings", "sys", "os", "tempfile", "multiprocessing"]:
-        globals()[f"initialize_{name}"]()
+    for name in [
+        "warnings", "sys", "os", "tempfile", "ssl", "multiprocessing"
+    ]:
+        importer.add_import_trigger(name, globals()[f"initialize_{name}"])
 
 
 def convert_json_object(obj):
@@ -44,10 +54,8 @@ def initialize_warnings():
 
 
 def initialize_sys():
-    # argv defaults to not existing, which may crash some programs.
-    sys.argv = [""]
-
-    # executable defaults to the empty string, but this causes platform.platform() to crash.
+    # executable defaults to the empty string, but this causes platform.platform() to
+    # crash, and would probably confuse a lot of other code as well.
     try:
         sys.executable = os.readlink("/proc/{}/exe".format(os.getpid()))
     except Exception:
@@ -57,6 +65,8 @@ def initialize_sys():
 
 
 def initialize_os():
+    import errno
+
     # By default, os.path.expanduser("~") returns "/data", which is an unwritable directory.
     # Make it return something more usable.
     os.environ.setdefault("HOME", str(context.getFilesDir()))
@@ -70,6 +80,16 @@ def initialize_os():
     get_exec_path_original = os.get_exec_path
     os.get_exec_path = get_exec_path_override
 
+    # Our redirectStdioToLogcat mechanism replaces the native stdout with a pipe, so
+    # attempting to get its terminal size returns EPERM rather than ENOTTY. Both of
+    # these result in an OSError, so the calling code will still work, but it generates
+    # a log message like `avc: denied { ioctl } for path="pipe:[10138300]"`, which can
+    # be a problem if the app is doing it repeatedly.
+    def get_terminal_size_override(*args, **kwargs):
+        error = errno.ENOTTY
+        raise OSError(error, os.strerror(error))
+    os.get_terminal_size = get_terminal_size_override
+
 
 def initialize_tempfile():
     tmpdir = join(str(context.getCacheDir()), "chaquopy/tmp")
@@ -77,7 +97,6 @@ def initialize_tempfile():
     os.environ["TMPDIR"] = tmpdir
 
 
-# Called from importer.exec_module_trigger.
 def initialize_ssl():
     # OpenSSL may be able to find the system CA store on some devices, but for consistency
     # we disable this and use our own bundled file.
@@ -85,6 +104,9 @@ def initialize_ssl():
     # Unfortunately we can't do this with SSL_CERT_FILE, because OpenSSL ignores
     # environment variables when getauxval(AT_SECURE) is enabled, which is always the case
     # on Android (https://android.googlesource.com/platform/bionic/+/6bb01b6%5E%21/).
+    #
+    # TODO: to pass the CPython test suite, we have now patched our OpenSSL build to
+    # ignore AT_SECURE, so we can probably use the environment variable now.
     import ssl
     cacert = join(str(context.getFilesDir()), "chaquopy/cacert.pem")
     def set_default_verify_paths(self):
@@ -93,7 +115,6 @@ def initialize_ssl():
 
 
 def initialize_multiprocessing():
-    import _multiprocessing
     from multiprocessing import context, heap, pool
     import threading
 
@@ -135,7 +156,9 @@ def initialize_multiprocessing():
                         "workaround can be removed")
 
     class SemLock:
-        SEM_VALUE_MAX = _multiprocessing.SemLock.SEM_VALUE_MAX
+        # multiprocessing.synchronize reads this attribute during import.
+        SEM_VALUE_MAX = 99
+
         def __init__(self, *args, **kwargs):
             raise OSError(error_message)
 

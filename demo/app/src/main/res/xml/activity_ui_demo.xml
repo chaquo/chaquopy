@@ -5,6 +5,5 @@
     <Preference android:title="@string/demo_dialog" android:key="demo_dialog"/>
     <Preference android:title="@string/demo_toast" android:key="demo_toast"/>
     <Preference android:title="@string/demo_sound" android:key="demo_sound"/>
-    <Preference android:title="@string/demo_vibrate" android:key="demo_vibrate"/>
 
 </PreferenceScreen>

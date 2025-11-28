@@ -3,8 +3,8 @@
 # modified copy of pip will prefer it over any newer versions on PyPI.
 
 package:
-  name: SoundFile
-  version: "0.10.3.post1"
+  name: soundfile
+  version: "0.13.1"
 
 requirements:
   host:

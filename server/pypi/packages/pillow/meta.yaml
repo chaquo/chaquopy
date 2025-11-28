@@ -1,6 +1,6 @@
 package:
-  name: Pillow
-  version: "9.2.0"
+  name: pillow
+  version: "11.0.0"
 
 requirements:
   host:

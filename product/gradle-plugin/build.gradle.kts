@@ -1,6 +1,6 @@
 import com.chaquo.python.internal.BuildCommon
 import com.chaquo.python.internal.Common
-import com.chaquo.python.internal.Common.findExecutable
+import com.chaquo.python.internal.Common.osName
 
 plugins {
     `java-gradle-plugin`
@@ -39,7 +39,7 @@ dependencies {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_11
 }
 
 sourceSets.main {
@@ -66,11 +66,11 @@ tasks.processResources {
 // example, if you pass Exec the command `cmd /c start notepad.exe`, then cmd will exit
 // immediately, but the Exec task won't complete until you close Notepad.
 abstract class TestPythonTask : DefaultTask() {
-    lateinit var pythonVersion: String
+    @get:Internal lateinit var pythonVersion: String
 
     // Emulate the necessary Exec properties.
-    lateinit var workingDir: String
-    val environment: MutableMap<String, String> = HashMap()
+    @get:Internal lateinit var workingDir: String
+    @get:Internal val environment: MutableMap<String, String> = HashMap()
 
     init {
         group = "verification"
@@ -83,20 +83,26 @@ abstract class TestPythonTask : DefaultTask() {
         pb.directory(File(workingDir))
         pb.environment().putAll(environment)
 
-        command += if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-            listOf(findExecutable("py"), "-$pythonVersion")
+        command += if (osName() == "windows") {
+            listOf("py", "-$pythonVersion")
         } else {
-            listOf(findExecutable("python$pythonVersion"))
+            listOf("python$pythonVersion")
         }
         command += listOf("-m", "unittest")
         val args = project.findProperty("testPythonArgs")
         if (args != null) {
             command += "-v"
-            command += args.toString().split(Regex("""\s+"""))
+            command += args.toString().split(Regex("""\s+""")).filter { !it.isEmpty() }
         } else {
             command += listOf("discover", "-v")
         }
         pb.command(command)
+
+        // Lower levels mean more logging.
+        if (project.gradle.startParameter.logLevel <= LogLevel.INFO) {
+            println("TestPythonTask: $command")
+        }
+
         pb.redirectErrorStream(true)  // Merge stdout and stderr.
         val process = pb.start()
 
@@ -105,7 +111,7 @@ abstract class TestPythonTask : DefaultTask() {
         // daemon's *native* stdout, which isn't connected to anything. So we
         // capture the output manually and send it to System.out, which is connected
         // to the Gradle client.
-        val stdout = process.getInputStream()  // sic
+        val stdout = process.inputStream  // It's an input from our point of view.
         val buffer = ByteArray(1024 * 1024)
         while (true) {
             val available = stdout.available()
@@ -126,25 +132,35 @@ abstract class TestPythonTask : DefaultTask() {
     }
 }
 
-tasks.register<TestPythonTask>("testPython") {
-    pythonVersion = "3.7"  // Minimum supported buildPython version
-    workingDir = "$projectDir/src/test/python"
+
+tasks.register("testPython") {
+    group = "verification"
+}.let {
+    tasks.named("check") { dependsOn(it) }
 }
+
+for (pythonVer in Common.PYTHON_VERSIONS_SHORT) {
+    tasks.register<TestPythonTask>("testPython-$pythonVer") {
+        pythonVersion = pythonVer
+        workingDir = "$projectDir/src/test/python"
+    }.let {
+        tasks.named("testPython") { dependsOn(it) }
+    }
+}
+
 
 tasks.register("testIntegration") {
     group = "verification"
+}.let {
+    tasks.named("check") { dependsOn(it) }
 }
 
-tasks.check {
-    dependsOn("testPython", "testIntegration")
-}
-
+// This should match the version discovery logic in ci.yml.
 val INTEGRATION_DIR = "$projectDir/src/test/integration"
-val PATTERN = Regex("^base-(.+)$")
-for (f in file("$INTEGRATION_DIR/data").listFiles()!!) {
-    PATTERN.find(f.name)?.let {
-        val version = it.groupValues[1]
-        val task = tasks.register<TestPythonTask>("testIntegration-$version") {
+for (f in file("$INTEGRATION_DIR/data/base").listFiles()!!) {
+    val version = f.name
+    if (version[0].isDigit()) {
+        tasks.register<TestPythonTask>("testIntegration-$version") {
             pythonVersion = Common.DEFAULT_PYTHON_VERSION
             if (System.getenv("CHAQUOPY_NO_BUILD") == null) {  // Used in CI
                 dependsOn(tasks.publish, ":runtime:publish")
@@ -152,7 +168,8 @@ for (f in file("$INTEGRATION_DIR/data").listFiles()!!) {
             workingDir = INTEGRATION_DIR
             environment["CHAQUOPY_AGP_VERSION"] = version
             environment["ANDROID_HOME"] = BuildCommon.androidHome(project)
+        }.let {
+            tasks.named("testIntegration") { dependsOn(it) }
         }
-        tasks.named("testIntegration") { dependsOn(task) }
     }
 }

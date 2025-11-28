@@ -9,7 +9,7 @@ class TestAiohttp(unittest.TestCase):
 
         async def main():
             async with aiohttp.ClientSession() as session:
-                async with session.get('http://python.org') as response:
+                async with session.get('https://www.python.org/') as response:
                     self.assertEqual(200, response.status)
                     self.assertRegex(response.headers['content-type'], r"^text/html")
 

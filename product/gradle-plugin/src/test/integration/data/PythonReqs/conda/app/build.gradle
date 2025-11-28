@@ -3,15 +3,15 @@ apply plugin: 'com.chaquo.python'
 
 android {
     namespace "com.chaquo.python.test"
-    compileSdk 23
+    compileSdk 31
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdk 21
-        targetSdk 23
+        minSdk 24
+        targetSdk 31
         versionCode 1
         versionName "0.0.1"
         python {
-            buildPython System.getenv("chaquopy_conda_env") + "/python.exe"
+            buildPython $/{{ buildPython }}/$
             pip {
                 install "six"
             }

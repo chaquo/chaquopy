@@ -22,8 +22,9 @@ Data types are converted between Python and Java as follows:
 
 * Java `String` and `char` both correspond to Python `str`.
 
-* A Java array is represented by a :any:`jarray` object. Java array parameters and fields
-  can also be implicitly converted from any sequence, except a string.
+* A Java array is represented by a :any:`jarray` object. Java arrays can also be
+  :ref:`implicitly created <python-array-create>` from any Python sequence, except a
+  string.
 
 * All other Java objects are represented by a :any:`jclass` object.
 
@@ -79,8 +80,8 @@ parameter. For example, a `jint` will only be applicable to a Java `int` or larg
 Classes
 -------
 
-.. note:: Rather than calling `jclass` directly, it's usually more convenient to use the
-          `import hook`_.
+The most convenient way to access Java classes is to use the `import hook`_. However,
+you may also use the following function:
 
 .. autofunction:: java.jclass(cls_name)
 
@@ -164,10 +165,17 @@ useful, so the equivalent Python operations are defined as follows:
 Creating
 ........
 
-There's usually no need to create `jarray` objects directly, because any sequence (except a
-string) can be passed directly to a Java method or field which takes an array type.
+There's usually no need to create `jarray` objects directly, because any Python sequence
+(except a string) can be passed directly to a Java method or field which takes an array
+type:
 
-However, where a method has multiple array-type overloads, you may need to disambiguate the
+* When passing a sequence to a Java method, Chaquopy will create a Java array and copy
+  the sequence into it. If the sequence is writable, it will also copy the Java array
+  back into the sequence after the method returns.
+* Assigning a sequence to a Java field is the same, except modifications will not be
+  copied back.
+
+When a Java method has multiple array-type overloads, you may need to disambiguate the
 call. For example, if a class defines both `f(long[] x)` and `f(int[] x)`, then calling
 `f([1,2,3])` will fail with an ambiguous overload error. To call the `int[]` overload, use
 `f(jarray(jint)([1,2,3]))`.
@@ -228,17 +236,22 @@ Casting
 Import hook
 ===========
 
-The import hook allows you to write code like `from java.lang import String`, which is
-equivalent to `String = jclass("java.lang.String")`.
+The import hook allows you to import Java classes using normal Python syntax. For
+example::
 
-* **Only the** `from ... import` **form is supported**, e.g. `import java.lang.String` will not
+    from java.lang import System, Thread
+
+Be aware of the following limitations:
+
+* Only the `from ... import` form is supported, e.g. `import java.lang.String` will not
   work.
 * Wildcard import is not supported, e.g. `from java.lang import *` will not work.
-* Only classes and interfaces can be imported from Java, not packages, e.g. `import java.lang`
-  and `from java import lang` will not work. Similarly, Java packages are never added to
-  :any:`sys.modules`.
-* Nested and inner classes cannot be imported directly. Instead, import the outer class,
-  and access the nested class as an attribute, e.g. `Outer.Nested`.
+* Importing entire packages is not supported, e.g. `import java.lang` and `from java
+  import lang` will not work.
+* Nested and inner classes cannot be imported directly. Instead, import the outer class
+  (e.g. `from java.util import Map`), then access the nested class as an attribute (e.g.
+  `Map.Entry`).
+* The Java package will not be added to :any:`sys.modules`.
 
 To avoid confusion, it's recommended to avoid having a Java package and a Python module with
 the same name. However, this is still possible, subject to the following points:

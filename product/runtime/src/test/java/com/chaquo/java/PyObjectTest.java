@@ -7,8 +7,8 @@ import org.junit.*;
 import org.junit.rules.*;
 import org.junit.runners.*;
 
+import static com.chaquo.java.MatchesPattern.matchesPattern;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.core.AnyOf.anyOf;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsInstanceOf.any;
@@ -772,7 +772,7 @@ public class PyObjectTest {
     }
 
     // ==== Object ===========================================================
-    
+
     @SuppressWarnings("AssertEqualsBetweenInconvertibleTypes")
     @Test
     public void equals() {
@@ -812,19 +812,22 @@ public class PyObjectTest {
         assertEquals("'hello'", pyobjecttest.get("str_var").repr());
     }
 
-    @SuppressWarnings({"UnusedAssignment", "unused"})
     @Test
     public void finalize_() {
         PyObject DT = pyobjecttest.get("DelTrigger");
         PyObject TestCase = python.getModule("unittest").get("TestCase");
         PyObject test = TestCase.call("__init__");  // https://stackoverflow.com/a/18084492/220765
+        finalizeInner(DT, test);
+        DT.callAttr("assertTriggered", test, true);
+    }
 
+    // Setting a local variable to null doesn't reliably release the reference in a
+    // release build (#1061), so we wrap the reference's lifetime in a method call.
+    private void finalizeInner(PyObject DT, PyObject test) {
         DT.callAttr("reset");
         PyObject dt = DT.call();
         DT.callAttr("assertTriggered", test, false);
-        dt.toString();  // Prevent Android Studio 3.1 release build from nulling dt prematurely.
-        dt = null;
-        DT.callAttr("assertTriggered", test, true);
+        dt.id();  // Prevent Java from releasing dt before the first assertTriggered.
     }
 
 }

@@ -23,25 +23,38 @@ afterEvaluate {
 
 android {
     namespace = "com.chaquo.python.demo"
-    compileSdk = 33
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.chaquo.python.demo3"
-        minSdk = 21
-        targetSdk = 33
+        minSdk = 24
+        targetSdk = 36
 
-        versionName = System.getProperty("chaquopyVersion")  // Set in the root project
+        val plugins = buildscript.configurations.getByName("classpath")
+             .resolvedConfiguration.resolvedArtifacts.map {
+                 it.moduleVersion.id
+            }.filter {
+                it.group == "com.chaquo.python" && it.name == "gradle"
+            }
+        if (plugins.size != 1) {
+            throw GradleException("found ${plugins.size} Chaquopy plugins")
+        }
+        versionName = plugins[0].version
+
         val verParsed = versionName!!.split(".").map { it.toInt() }
         versionCode = verParsed[0] * 1000000 +
                       verParsed[1] * 1000 +
                       verParsed[2] * 10
 
         ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            abiFilters += listOf(
+                "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+            )
         }
+    }
 
-        // Remove other languages imported from Android support libraries.
-        resourceConfigurations += "en"
+    androidResources {
+        localeFilters += "en"
     }
 
     // Chaquopy generates extra internal-use constructors on static proxy classes.
@@ -83,16 +96,20 @@ android {
 
 chaquopy {
     defaultConfig {
+        version = "3.10"
+
         // Android UI demo
         pip {
-            install("Pygments==2.2.0")  // Also used in Java API demo
+            install("Pygments==2.13.0")  // Also used in Java API demo
         }
         staticProxy("chaquopy.demo.ui_demo")
 
         // Python unit tests
         pip {
-            // In newer versions, importing murmurhash automatically imports and
-            // extracts murmurhash/mrmr.so, which would complicate the tests.
+            // We use an old version of murmurhash (built from the Chaquopy branch
+            // `murmurhash-0`), because in newer versions, importing murmurhash
+            // automatically imports and extracts murmurhash/mrmr.so, which would
+            // complicate the tests.
             install("murmurhash==0.28.0")  // Requires chaquopy-libcxx
 
             // Because we set pyc.src to false, we must test extractPackages via pip.
@@ -128,12 +145,10 @@ for (path in listOf(
 }
 
 dependencies {
-    // appcompat version 1.2.0 is required to fix an incompatibility with WebView on API level
-    // 21 (https://stackoverflow.com/questions/41025200).
-    implementation("androidx.appcompat:appcompat:1.2.0-beta01")
+    // Keep these versions the same as the pkgtest app.
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.constraintlayout:constraintlayout:1.1.3")
     implementation("androidx.lifecycle:lifecycle-extensions:2.1.0")
     implementation("androidx.preference:preference:1.1.1")
-    implementation("junit:junit:4.12")
-    implementation("org.hamcrest:hamcrest-library:2.2")
+    implementation("junit:junit:4.13.2")
 }

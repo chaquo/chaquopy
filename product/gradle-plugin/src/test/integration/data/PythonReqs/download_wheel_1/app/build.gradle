@@ -3,20 +3,22 @@ apply plugin: 'com.chaquo.python'
 
 android {
     namespace "com.chaquo.python.test"
-    compileSdk 23
+    compileSdk 31
     defaultConfig {
         applicationId "com.chaquo.python.test"
-        minSdk 21
-        targetSdk 23
+        minSdk 24
+        targetSdk 31
         versionCode 1
         versionName "0.0.1"
         python {
             pip {
-                install "murmurhash==0.28.0"  // From chaquo.com
+                // The only difference between this test and index_url_http should be
+                // the presence of --index-url.
+                install "{{ install }}"
             }
         }
         ndk {
-            abiFilters "armeabi-v7a", "x86"
+            abiFilters "arm64-v8a"
         }
     }
 }

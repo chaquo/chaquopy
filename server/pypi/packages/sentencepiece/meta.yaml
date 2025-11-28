@@ -1,13 +1,10 @@
 package:
   name: sentencepiece
-  version: "0.1.95"
-
-build:
-  number: 2
+  version: "0.2.1"
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
 
 about:
-  license_file: bundled/sentencepiece/LICENSE
+  license_file: sentencepiece/LICENSE

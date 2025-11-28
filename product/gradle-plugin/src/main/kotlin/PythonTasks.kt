@@ -3,6 +3,7 @@ package com.chaquo.python
 import com.android.build.api.variant.*
 import com.chaquo.python.internal.*
 import com.chaquo.python.internal.Common.assetZip
+import com.chaquo.python.internal.Common.osName
 import org.apache.commons.compress.archivers.zip.*
 import org.gradle.api.*
 import org.gradle.api.artifacts.*
@@ -24,9 +25,7 @@ internal class TaskBuilder(
     val abis: List<String>
 ) {
     val project = plugin.project
-    lateinit var buildPython: List<String>
-
-    lateinit var buildPackagesTask: Provider<OutputDirTask>
+    lateinit var buildPackagesTask: Provider<BuildPackagesTask>
     lateinit var srcTask: Provider<OutputDirTask>
     lateinit var reqsTask: Provider<OutputDirTask>
 
@@ -56,33 +55,83 @@ internal class TaskBuilder(
         }
     }
 
-    fun createBuildPackagesTask(): Provider<OutputDirTask> {
-        val taskName = "extractPythonBuildPackages"
-        try {
-            return project.tasks.named<OutputDirTask>(taskName)
-        } catch (e: UnknownDomainObjectException) {
-            return project.tasks.register<OutputDirTask>(taskName) {
-                // Keep the path short to avoid the the Windows 260-character limit.
-                outputFiles = project.fileTree(plugin.buildSubdir("bp")) {
-                    exclude("**/__pycache__")
-                }
+    fun createBuildPackagesTask() =
+        registerTask("extract", "buildPackages", BuildPackagesTask::class) {
+            var bpInfo: BuildPythonInfo?
+            try {
+                bpInfo = findBuildPython()
+                inputs.property("info", bpInfo.info)
+            } catch (e: ExecException) {
+                bpInfo = null
+                exception = e
+            }
+
+            // Keep the path short to avoid the the Windows 260-character limit.
+            outputDir.set(plugin.buildSubdir("env", variant))
+
+            if (bpInfo != null) {
                 doLast {
+                    exec {
+                        commandLine(bpInfo.commandLine)
+                        args("-m", "venv", "--without-pip", project.file(outputDir))
+                    }
+
                     val zipPath = plugin.extractResource(
                         "gradle/build-packages.zip", plugin.buildSubdir())
                     project.copy {
                         from(project.zipTree(zipPath))
-                        into(outputDir)
+                        into(sitePackages)
                     }
                     project.delete(zipPath)
+
+                    // Pre-generate the __pycache__ directories to avoid the outputDir
+                    // contents changing and breaking the up to date checks.
+                    exec {
+                        commandLine(bpInfo.commandLine)
+                        args("-Wignore", "-m", "compileall", "-qq",
+                             project.file(outputDir))
+                    }
                 }
             }
+        }
+
+    abstract class BuildPackagesTask : OutputDirTask() {
+        @get:Internal
+        lateinit var exception: Exception
+
+        @get:Internal
+        val pythonExecutable by lazy {
+            if (::exception.isInitialized) {
+                throw exception
+            } else {
+                project.file(outputDir).resolve(
+                    if (osName() == "windows") "Scripts/python.exe" else "bin/python"
+                )
+            }
+        }
+
+        @get:Internal
+        val sitePackages by lazy {
+            val libPythonDir = if (osName() == "windows") {
+                assertExists(project.file(outputDir).resolve("Lib"))
+            } else {
+                val libDir = assertExists(project.file(outputDir).resolve("lib"))
+                val pythonDirs = libDir.listFiles()!!.filter {
+                    it.name.startsWith("python")
+                }
+                if (pythonDirs.size != 1) {
+                    throw GradleException(
+                        "found ${pythonDirs.size} python directories in $libDir")
+                }
+                pythonDirs[0]
+            }
+            libPythonDir.resolve("site-packages")
         }
     }
 
     fun createSrcTask() =
         registerTask("merge", "sources") {
             inputs.files(buildPackagesTask)
-            inputs.property("buildPython", python.buildPython).optional(true)
             inputs.property("pyc", python.pyc.src).optional(true)
 
             val dirSets = ArrayList<SourceDirectorySet>()
@@ -94,7 +143,7 @@ internal class TaskBuilder(
                 }
             }
 
-            outputDir = plugin.buildSubdir("sources", variant)
+            outputDir.set(plugin.buildSubdir("sources", variant))
             doLast {
                 project.copy {
                     for (dirSet in dirSets) {
@@ -114,14 +163,14 @@ internal class TaskBuilder(
                     // Allow duplicates for empty files (e.g. __init__.py)
                     eachFile {
                         if (file.length() == 0L) {
-                            val destFile = File(outputDir, path)
+                            val destFile = project.file(outputDir).resolve(path)
                             if (destFile.exists() && destFile.length() == 0L) {
                                 duplicatesStrategy = DuplicatesStrategy.INCLUDE
                             }
                         }
                     }
                 }
-                compilePyc(python.pyc.src, outputDir)
+                compilePyc(python.pyc.src, project.file(outputDir))
             }
         }
 
@@ -145,16 +194,12 @@ internal class TaskBuilder(
     }
 
     fun createReqsTask() =
-        registerTask("generate", "requirements") {
+        registerTask("install", "requirements") {
             inputs.files(buildPackagesTask)
-            inputs.property("abis", abis)
-            inputs.property("minApiLevel", variant.minSdkVersion.apiLevel)
-            inputs.property("buildPython", python.buildPython).optional(true)
-            inputs.property("pip", python.pip)
             inputs.property("pyc", python.pyc.pip).optional(true)
 
             // Keep the path short to avoid the the Windows 260-character limit.
-            outputDir = plugin.buildSubdir("pip", variant)
+            outputDir.set(plugin.buildSubdir("pip", variant))
 
             val reqsArgs = ArrayList<String>()
             for (req in python.pip.reqs) {
@@ -175,40 +220,28 @@ internal class TaskBuilder(
                 } catch (_: FileNotFoundException) {}
             }
 
+            val args = ArrayList<String>().apply {
+                args("-m", "chaquopy.pip_install")
+                args("--target", project.file(outputDir))
+                args("--android-abis", *abis.toTypedArray())
+                args("--min-api-level", variant.minSdkVersion.apiLevel)
+                args(reqsArgs)
+                args("--")
+                args(python.pip.options)
+            }
+            inputs.property("args", args)
+
             doLast {
                 if (!reqsArgs.isEmpty()) {
-                    // If the user passes  a custom index url, disable our repository as
-                    // well as the default one.
-                    val customIndexUrl = listOf("--index-url", "-i").any {
-                        it in python.pip.options
-                    }
-
-                    execBuildPython {
-                        args("-m", "chaquopy.pip_install")
-                        args("--target", outputDir)
-                        args("--android-abis", *abis.toTypedArray())
-                        args("--min-api-level", variant.minSdkVersion.apiLevel)
-                        args(reqsArgs)
-                        args("--")
-                        args("--disable-pip-version-check")
-                        if (!customIndexUrl) {
-                            args("--extra-index-url", "https://chaquo.com/pypi-7.0")
-                            args("--extra-index-url", "https://chaquo.com/pypi-13.1")
-                        }
-                        args("--implementation", Common.PYTHON_IMPLEMENTATION)
-                        args("--python-version", pythonVersionInfo(python).key)
-                        args("--abi", (Common.PYTHON_IMPLEMENTATION +
-                                       python.version!!.replace(".", "")))
-                        args("--no-compile")
-                        args(python.pip.options)
-                    }
-                    compilePyc(python.pyc.pip, outputDir)
+                    execBuildPython(args)
+                    compilePyc(python.pyc.pip, project.file(outputDir))
                 }
 
-                // Requirements subdirectories must exist, or their ZIPs won't be created,
-                // and the app will crash (#5631).
+                // In #250 it looks like someone used a buildPython which returned
+                // success without doing anything. This led to a runtime crash because
+                // the requirements ZIPs were missing from the app.
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
-                    val subdir = File(outputDir, subdirName)
+                    val subdir = project.file(outputDir).resolve(subdirName)
                     if (!subdir.exists()) {
                         if (reqsArgs.isEmpty()) {
                             project.mkdir(subdir)
@@ -238,7 +271,7 @@ internal class TaskBuilder(
             if (! file.exists()) {
                 file = null
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // In case any of the above code throws on an invalid filename.
             file = null
         }
@@ -258,49 +291,33 @@ internal class TaskBuilder(
     }
 
     fun createProxyTask() {
-        val outputDir = plugin.buildSubdir("proxies", variant)
-        val task = registerTask("generate", "proxies") {
+        registerGenerateTask(variant.sources.java!!, "proxies") {
             inputs.files(buildPackagesTask, reqsTask, srcTask)
-            inputs.property("buildPython", python.buildPython).optional(true)
-            inputs.property("staticProxy", python.staticProxy)
+            outputDir.set(plugin.buildSubdir("proxies", variant))
 
-            this.outputDir = outputDir
+            val args = ArrayList<String>().apply {
+                args("-m", "chaquopy.static_proxy")
+                args("--path",
+                     listOf(
+                         project.file(srcTask.get().outputDir),
+                         project.file(reqsTask.get().outputDir).resolve("common")
+                     ).joinToString(File.pathSeparator))
+                args("--java", project.file(outputDir))
+                args(python.staticProxy)
+            }
+            inputs.property("args", args)
+
             doLast {
                 if (!python.staticProxy.isEmpty()) {
-                    execBuildPython {
-                        args("-m", "chaquopy.static_proxy")
-                        args("--path",
-                             listOf(
-                                srcTask.get().outputDir,
-                                "${reqsTask.get().outputDir}/common"
-                             ).joinToString(File.pathSeparator))
-                        args("--java", outputDir)
-                        args(python.staticProxy)
-                    }
+                    execBuildPython(args)
                 }
-            }
-        }
-
-        // The supported API to add Java source files is variant.sources, which isn't
-        // available in our current minimum AGP version (see extendMergeTask). So we use
-        // the deprecated API instead.
-        val android = project.extensions.getByName("android")
-        val oldVariants = android.javaClass.getMethod(
-            if (plugin.isLibrary) "getLibraryVariants" else "getApplicationVariants"
-        ).invoke(android) as DomainObjectSet<*>
-
-        oldVariants.forEach {
-            val cls = it.javaClass
-            if (cls.getMethod("getName").invoke(it) as String == variant.name) {
-                cls.getMethod(
-                    "registerJavaGeneratingTask",
-                    TaskProvider::class.java, Collection::class.java
-                ).invoke(it, task, listOf(outputDir))
             }
         }
     }
 
     fun createAssetsTasks() {
+        // Exclude .py files which have a corresponding .pyc, unless unless they’re
+        // included in extractPackages.
         val excludePy = { fte: FileTreeElement ->
             if (fte.name.endsWith(".py") &&
                 File(fte.file.parent, fte.name + "c").exists()
@@ -311,7 +328,7 @@ internal class TaskBuilder(
             } else false
         }
 
-        val srcAssetsTask = assetTask("source") {
+        val srcAssetsTask = registerAssetTask("source") {
             inputs.files(srcTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
@@ -321,11 +338,11 @@ internal class TaskBuilder(
             }
         }
 
-        val reqsAssetsTask = assetTask("requirements") {
+        val reqsAssetsTask = registerAssetTask("requirements") {
             inputs.files(reqsTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
-                for (subdir in reqsTask.get().outputDir.listFiles()!!) {
+                for (subdir in project.file(reqsTask.get().outputDir).listFiles()!!) {
                     makeZip(
                         project.fileTree(subdir).matching { exclude(excludePy) },
                         File(assetDir, assetZip(Common.ASSET_REQUIREMENTS, subdir.name)))
@@ -333,7 +350,7 @@ internal class TaskBuilder(
             }
         }
 
-        val miscAssetsTask = assetTask("misc") {
+        val miscAssetsTask = registerAssetTask("misc") {
             val runtimeBootstrap = plugin.getConfig("runtimeBootstrap", variant)
             val runtimeModules = plugin.getConfig("runtimeModules", variant)
             val targetStdlib = plugin.getConfig("targetStdlib", variant)
@@ -353,19 +370,43 @@ internal class TaskBuilder(
                 // pre-extracted by AndroidPlatform so they can be loaded with the
                 // standard FileFinder. All other native modules are loaded from a .zip using
                 // AssetFinder.
-                val BOOTSTRAP_NATIVE_STDLIB = listOf(
-                    "_bz2.so",  // zipfile < importer
-                    "_ctypes.so",  // java.primitive and importer
-                    "_datetime.so",  // calendar < importer (see test_datetime)
-                    "_lzma.so",  // zipfile < importer
-                    "_random.so",  // random < tempfile < zipimport
-                    "_sha512.so",  // random < tempfile < zipimport
-                    "_struct.so",  // zipfile < importer
-                    "binascii.so",  // zipfile < importer
-                    "math.so",  // datetime < calendar < importer
-                    "mmap.so",  // elftools < importer
-                    "zlib.so"  // zipimport
+                //
+                // If this list changes, search for references to this variable name to
+                // find the tests that need to be updated.
+                val BOOTSTRAP_NATIVE_STDLIB = mutableListOf(
+                    "_bz2.*",  // zipfile < importer
+                    "_ctypes.*",  // java.primitive and importer
+                    "_datetime.*",  // calendar < importer (see test_datetime)
+                    "_lzma.*",  // zipfile < importer
+                    "_random.*",  // random < tempfile < importer
+                    "_sha512.*",  // random < tempfile < importer
+                    "_struct.*",  // zipfile < importer
+                    "binascii.*",  // zipfile < importer
+                    "math.*",  // datetime < calendar < importer
+                    "mmap.*",  // elftools < importer
+                    "zlib.*"  // zipimport
                 )
+
+                val versionParts = python.version!!.split(".")
+                val versionInt =
+                    (versionParts[0].toInt() * 100) + versionParts[1].toInt()
+                if (versionInt >= 312) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.*"))
+                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                        "_sha2.*"  // random < tempfile < zipimport
+                    ))
+                }
+                if (versionInt >= 313) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.*"))
+                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                        "_opcode.*"  // opcode < dis < inspect < importer
+                    ))
+                }
+                if (versionInt >= 314) {
+                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf(
+                        "_datetime.*", "_opcode.*"
+                    ))
+                }
 
                 for (abi in abis) {
                     project.copy {
@@ -394,7 +435,7 @@ internal class TaskBuilder(
             }
         }
 
-        assetTask("build") {
+        registerAssetTask("build") {
             val tasks = arrayOf(srcAssetsTask, reqsAssetsTask, miscAssetsTask)
             inputs.files(*tasks)
             doLast {
@@ -408,48 +449,22 @@ internal class TaskBuilder(
 
     }
 
-    fun assetTask(
+    fun registerAssetTask(
         name: String, configure: AssetDirTask.() -> Unit
-    ): Provider<AssetDirTask> {
-        val task = registerTask("generate", "${name}Assets", AssetDirTask::class) {
-            outputDir = plugin.buildSubdir("assets/$name", variant)
-            configure()
-        }
-
-        extendMergeTask(if (plugin.isLibrary) "package" else "merge",
-                        "assets", task)
-        return task
-    }
-
-    // There are a couple of supported APIs for adding content to the APK, but they
-    // aren't available in our current minimum AGP version:
-    //   * variant.sources supports Java files from AGP 7.2, and assets and native libs
-    //     from 7.3.
-    //   * variant.artifacts supports Java files and assets from AGP 7.1 (though you
-    //     have to compile the Java files yourself), and native libs from 8.1.
-    fun <T: OutputDirTask> extendMergeTask(
-        verb: String, noun: String, inputTask: Provider<T>
+    ) = registerGenerateTask(
+        variant.sources.assets!!, "${name}Assets", AssetDirTask::class
     ) {
-        project.tasks.named("$verb${variant.name.capitalize()}${noun.capitalize()}") {
-            inputs.files(inputTask)
-            val mergeTask = this
-            val getOutputDir = mergeTask.javaClass.getMethod("getOutputDir")
-            doLast {
-                project.copy {
-                    from(inputTask.get().outputDir)
-                    into(getOutputDir.invoke(mergeTask) as DirectoryProperty)
-                }
-            }
-        }
+        outputDir.set(plugin.buildSubdir("assets/$name", variant))
+        configure()
     }
 
     fun createJniLibsTasks() {
-        val task = registerTask("generate", "jniLibs") {
+        registerGenerateTask(variant.sources.jniLibs!!, "jniLibs") {
             val runtimeJni = plugin.getConfig("runtimeJni", variant)
             val targetNative = plugin.getConfig("targetNative", variant)
             inputs.files(runtimeJni, targetNative)
 
-            outputDir = plugin.buildSubdir("jniLibs", variant)
+            outputDir.set(plugin.buildSubdir("jniLibs", variant))
             doLast {
                 val artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
                 for (art in artifacts) {
@@ -474,12 +489,31 @@ internal class TaskBuilder(
                 for (abi in abis) {
                     project.copy {
                         fromRuntimeArtifact(runtimeJni, abi)
-                        into("$outputDir/$abi")
+                        into(project.file(outputDir).resolve(abi))
                     }
                 }
             }
         }
-        extendMergeTask("merge", "jniLibFolders", task)
+    }
+
+    fun registerGenerateTask(
+        sourceDirs: SourceDirectories, noun: String, configure: OutputDirTask.() -> Unit
+    ) = registerGenerateTask(sourceDirs, noun, OutputDirTask::class, configure)
+
+    fun <T: OutputDirTask> registerGenerateTask(
+        sourceDirs: SourceDirectories,
+        noun: String,
+        cls: KClass<T>,
+        configure: T.() -> Unit
+    ): TaskProvider<T> {
+        // addGeneratedSourceDirectory sets outputDir to a subdirectory of
+        // build/generated. Run our own configure action afterwards so we can override
+        // that to a shorter path inside build/python, and reduce the risk of hitting
+        // the Windows 260 character limit.
+        val task = registerTask("generate", noun, cls) {}
+        sourceDirs.addGeneratedSourceDirectory(task, OutputDirTask::outputDir)
+        task.configure(configure)
+        return task
     }
 
     // We can't remove the .py files here because the static proxy generator needs them.
@@ -487,22 +521,24 @@ internal class TaskBuilder(
     fun compilePyc(setting: Boolean?, dir: File) {
         if (setting != false) {
             try {
-                execBuildPython {
+                execBuildPython(ArrayList<String>().apply {
                     args("-m", "chaquopy.pyc")
-                    args("--python", python.version)
-                    args("--quiet") // TODO #5411: option to display syntax errors
+                    args("--python", python.version!!)
+                    args("--quiet")
                     if (setting != true) {
                         args("--warning")
                     }
                     args(dir)
-                }
-            } catch (e: BuildPythonException) {
+                })
+            } catch (e: ExecException) {
                 if (setting == true) {
                     throw e
                 } else {
                     // Messages should be formatted the same as those from chaquopy.pyc.
-                    warn("Failed to compile to .pyc format: ${e.shortMessage} See " +
-                        "https://chaquo.com/chaquopy/doc/current/android.html#android-bytecode")
+                    warn(
+                        "Failed to compile to .pyc format: " +
+                        e.message!!.replace("#buildpython", "#android-bytecode")
+                    )
                 }
             }
         }
@@ -519,7 +555,7 @@ internal class TaskBuilder(
 
     fun <T: OutputDirTask> registerTask(
         verb: String, noun: String, cls: KClass<T>, configure: T.() -> Unit
-    ): Provider<T> {
+    ): TaskProvider<T> {
         // This matches the format of the AGP's own task names.
         return project.tasks.register(
             "$verb${variant.name.capitalize()}Python${noun.capitalize()}",
@@ -541,99 +577,127 @@ internal class TaskBuilder(
         }
     }
 
-    fun execBuildPython(configure: ExecSpec.() -> Unit) {
-        if (! ::buildPython.isInitialized) {
-            buildPython = findBuildPython()
-        }
-
-        try {
-            project.exec {
-                environment("PYTHONPATH", buildPackagesTask.get().outputDir)
-                commandLine(buildPython)
-                args("-S")  // Avoid interference from site-packages. This is not inherited by
-                            // subprocesses, so it's used again in pip_install.py.
-                configure()
-            }
-        } catch (e: ExecException) {
-            // Message will be something like "Process 'command 'py'' finished with
-            // non-zero exit value 1", so we need to tell the user how to see the
-            // command output.
-            throw BuildPythonException(
-                e.message!!,
-                "\n\nTo view full details in Android Studio:\n" +
-                "* Click the 'Build: failed' caption to the left of this message.\n" +
-                "* Then scroll up to see the full output.")
+    fun execBuildPython(args: List<String>) {
+        exec {
+            executable(buildPackagesTask.get().pythonExecutable)
+            this.args(args)
         }
     }
 
-    fun findBuildPython(): List<String> {
+    data class BuildPythonInfo(val commandLine: List<String>, val info: String)
+
+    fun findBuildPython(): BuildPythonInfo {
+        val version = python.version!!
         val bpSetting = python.buildPython
+
         val bps = sequence {
             if (bpSetting != null) {
                 yield(bpSetting)
-
-                // Backward compatibility for when buildPython only took a single string
-                if (bpSetting.size == 1) {
-                    yield(bpSetting[0].split(Regex("""\s+""")))
-                }
             } else {
-                val version = python.version!!
+                // Trying the `python3` and `py -3` commands is usually unnecessary, but
+                // might be useful in some situations.
                 for (suffix in listOf(version, version.split(".")[0])) {
-                    if (System.getProperty("os.name").startsWith("Windows")) {
-                        // See PEP 397. After running the official Windows installer
-                        // with default settings, this will be the only Python thing on
-                        // the PATH.
+                    if (osName() == "windows") {
                         yield(listOf("py", "-$suffix"))
                     } else {
-                        // See PEP 394.
                         yield(listOf("python$suffix"))
                     }
                 }
-
-                // On Windows, both venv and conda environments contain only a `python`
-                // executable, not `pythonX`, `pythonX.Y`, or `py`. It's also reasonable
-                // to use this as a final fallback on Unix (#752).
                 yield(listOf("python"))
             }
         }
 
+        val checkScript = plugin.extractResource(
+            "check_build_python.py", plugin.buildSubdir())
+        var error: String? = null
+        var gotStderr = false
         for (bp in bps) {
+            val stdout = ByteArrayOutputStream()
+            val stderr = ByteArrayOutputStream()
             try {
-                project.exec {
+                exec {
                     commandLine(bp)
-                    args("--version")
-                    standardOutput = ByteArrayOutputStream()
-                    errorOutput = ByteArrayOutputStream()
+                    args(checkScript, version)
+                    standardOutput = stdout
+                    errorOutput = stderr
                 }
-                return bp
-            } catch (_: ExecException) {}
+                return BuildPythonInfo(bp, stdout.toString())
+            } catch (e: ExecException) {
+                // Prefer stderr over an exception message.
+                if (stderr.size() > 0 && !gotStderr) {
+                    error = stderr.toString().trim()
+                    gotStderr = true
+
+                // Prefer an earlier error over a later one.
+                } else if (error == null) {
+                    error = e.message ?: e.javaClass.name
+                }
+            }
         }
         if (bpSetting != null) {
-            throw BuildPythonException(
-                "$bpSetting does not appear to be a valid Python command.",
-                BUILD_PYTHON_ADVICE)
+            throw ExecException(
+                "$bpSetting is not a valid Python $version command: $error. " +
+                BUILD_PYTHON_ADVICE
+            )
         } else {
-            throw BuildPythonException("Couldn't find Python.", BUILD_PYTHON_ADVICE)
+            throw ExecException(
+                "Couldn't find Python $version. $BUILD_PYTHON_ADVICE"
+            )
+        }
+    }
+
+    // To reduce differences between platforms, and make testing easier, we resolve
+    // executables to absolute paths manually (#1411).
+    fun exec(configure: ExecSpec.() -> Unit) {
+        plugin.execOps.exec {
+            configure()
+            var execFile = File(executable)
+            if (!execFile.isAbsolute) {
+                execFile = File(project.projectDir, executable)
+            }
+
+            if (execFile.exists()) {
+                setExecutable(execFile)
+            } else {
+                // If the executable contains no slashes, search the PATH.
+                if (File.separator in executable || "/" in executable) {
+                    throw ExecException("'$execFile' does not exist")
+                }
+
+                // For consistency between machines, we don't use the PATHEXT variable.
+                val exts = mutableListOf("")
+                if (osName() == "windows") {
+                    exts += listOf(".exe", ".bat")
+                }
+
+                outer@ for (dir in System.getenv("PATH").split(File.pathSeparator)) {
+                    for (ext in exts) {
+                        execFile = File(dir, executable + ext)
+                        if (execFile.exists()) {
+                            break@outer
+                        }
+                    }
+                }
+                if (execFile.exists()) {
+                    setExecutable(execFile)
+                } else {
+                    throw ExecException(
+                        "Couldn't find '$executable' on the PATH " +
+                        "or in the project directory")
+                }
+            }
         }
     }
 }
 
 
 val BUILD_PYTHON_ADVICE =
-    "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython"
-
-class BuildPythonException(val shortMessage: String, suffix: String) :
-    GradleException("$shortMessage $suffix")
+    "See https://chaquo.com/chaquopy/doc/current/android.html#buildpython."
 
 
-open class OutputDirTask : DefaultTask() {
-    @get:OutputFiles
-    lateinit var outputFiles: ConfigurableFileTree
-
-    @get:Internal
-    var outputDir: File
-        get() = outputFiles.dir
-        set(value) { outputFiles = project.fileTree(value) }
+abstract class OutputDirTask : DefaultTask() {
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
 
     @TaskAction
     open fun run() {
@@ -642,10 +706,10 @@ open class OutputDirTask : DefaultTask() {
     }
 }
 
-open class AssetDirTask : OutputDirTask() {
+abstract class AssetDirTask : OutputDirTask() {
     @get:Internal
     val assetDir
-        get() = File(outputDir, Common.ASSET_DIR)
+        get() = project.file(outputDir).resolve(Common.ASSET_DIR)
 
     @TaskAction
     override fun run() {
@@ -728,5 +792,24 @@ fun makeZip(tree: FileTree, outFile: File) {
                 zip.closeArchiveEntry()
             }
         })
+    }
+}
+
+
+fun assertExists(f: File) : File {
+    if (!f.exists()) {
+        throw GradleException("$f does not exist")
+    }
+    return f
+}
+
+
+// Helpers for building argument lists with a similar syntax to ExecSpec.
+fun MutableList<String>.args(vararg args: Any) =
+    this.args(args.asList())
+
+fun MutableList<String>.args(args: Iterable<Any>) {
+    for (arg in args) {
+        add(arg.toString())
     }
 }

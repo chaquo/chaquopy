@@ -1,7 +1,10 @@
 package:
   name: google-crc32c
-  version: "1.1.4"
+  # When updating, check the version of the google_crc32c submodule in
+  # https://github.com/googleapis/python-crc32c, and consider updating chaquopy-crc32c
+  # as well, and changing the host requirement below.
+  version: "1.7.1"
 
 requirements:
   host:
-    - chaquopy-crc32c 1.0.6
+    - chaquopy-crc32c 1.1.2

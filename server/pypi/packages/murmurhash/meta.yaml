@@ -1,6 +1,9 @@
+# We also maintain an older version of this package to support the Chaquopy unit tests -
+# see the branch `murmurhash-0`.
+
 package:
   name: murmurhash
-  version: "1.0.2"
+  version: "1.0.10"
 
 build:
-  number: 1
+  number: 0

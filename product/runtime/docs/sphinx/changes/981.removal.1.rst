@@ -1,0 +1,1 @@
+Pip now uses the `--only-binary` option, so it will no longer install sdists from PyPI or other indexes. Installing a local path to an sdist or source directory is still possible, as long as it's a pure-Python package.

@@ -1,7 +1,7 @@
 # This is a pure-Python package, but we build it into a set of identical native-tagged wheels
 # to add a requirement for the native library which it uses.
 
-{% set version = "0.1.8" %}
+{% set version = "0.1.9" %}
 
 package:
   name: pyzbar

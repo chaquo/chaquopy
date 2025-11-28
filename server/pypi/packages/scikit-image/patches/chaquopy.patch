@@ -1,13 +1,27 @@
 --- src-original/setup.py	2021-08-24 11:50:48.172484900 +0000
-+++ src/setup.py	2022-07-11 22:15:55.179880743 +0000
-@@ -11,6 +11,11 @@
++++ src/setup.py	2023-12-18 12:46:50.020340564 +0000
+@@ -7,10 +7,25 @@
+ import builtins
+ import textwrap
+ 
++# Chaquopy: complex.h functions were introduced between API levels 23 and 26, so make
++# Cython use its own implementations instead.
++#
++# This isn't a problem with Cython's C++ mode, e.g. in qutip, presumably because libcxx
++# contains its own implementations of complex number functions in order to be compatible
++# with the minimum API level supported by the NDK. In fact, setting CYTHON_CCOMPLEX=0
++# for such a module causes Cython to generate code that passes Cython's own complex type
++# to C++ standard library functions, which obviously fails to compile. So that's why we
++# can't add this to the default CFLAGS.
++os.environ["CFLAGS"] += " -DCYTHON_CCOMPLEX=0"
++
+ import setuptools
  from distutils.command.build_py import build_py
  from distutils.command.sdist import sdist
  from distutils.errors import CompileError, LinkError
 +
-+# Chaquopy
-+sys.path.insert(0, os.path.abspath("../requirements"))  # For numpy.distutils
-+builtins.__NUMPY_SETUP__ = True  # Prevent the compiled parts from being imported.
++# Chaquopy: prevent the compiled parts of NumPy from being imported.
++builtins.__NUMPY_SETUP__ = True
 +
  from numpy.distutils.command.build_ext import build_ext
  

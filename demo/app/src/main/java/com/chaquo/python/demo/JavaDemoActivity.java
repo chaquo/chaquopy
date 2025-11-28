@@ -7,9 +7,11 @@ import android.webkit.*;
 import android.widget.*;
 import androidx.appcompat.app.*;
 import com.chaquo.python.*;
+import com.chaquo.python.utils.*;
+
 import java.io.*;
 
-public class JavaDemoActivity extends AppCompatActivity {
+public class JavaDemoActivity extends BaseActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

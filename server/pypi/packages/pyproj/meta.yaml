@@ -8,10 +8,10 @@
 
 package:
   name: pyproj
-  version: "3.4.1"
+  version: "3.6.1"
 
 build:
-  number: 3
+  number: 0
   script_env:
     - PROJ_VERSION={{ proj_version }}
 

@@ -1,73 +1,57 @@
-diff -ur src-original/setup.py src/setup.py
---- src-original/setup.py	2020-06-22 21:42:24.000000000 +0000
-+++ src/setup.py	2020-07-20 15:44:45.208593276 +0000
-@@ -52,7 +52,7 @@
- if 'freebsd' in sys.platform:
-     CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_freebsd'),)
- if 'linux' in sys.platform:
--    CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_linux'),)
-+    CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_android'),)  # Chaquopy
- if 'openbsd' in sys.platform:
-     CARES_INCLUDE += (os.path.join('third_party', 'cares', 'config_openbsd'),)
- SSL_INCLUDE = (os.path.join('third_party', 'boringssl-with-bazel', 'src',
-@@ -115,8 +115,10 @@
-     return os.environ.get(env_name, default).upper() not in ['FALSE', '0', '']
+--- src-original/setup.py	2023-11-16 22:38:50.000000000 +0000
++++ src/setup.py	2023-12-08 19:35:37.717504000 +0000
+@@ -64,7 +64,7 @@
+ if "freebsd" in sys.platform:
+     CARES_INCLUDE += (os.path.join("third_party", "cares", "config_freebsd"),)
+ if "linux" in sys.platform:
+-    CARES_INCLUDE += (os.path.join("third_party", "cares", "config_linux"),)
++    CARES_INCLUDE += (os.path.join("third_party", "cares", "config_android"),)  # Chaquopy
+ if "openbsd" in sys.platform:
+     CARES_INCLUDE += (os.path.join("third_party", "cares", "config_openbsd"),)
+ RE2_INCLUDE = (os.path.join("third_party", "re2"),)
+@@ -352,7 +353,10 @@
  
- 
-+# Chaquopy: disabled asm to avoid having to fix platform detection, This is unlikely to be
-+# performance-critical.
- BUILD_WITH_BORING_SSL_ASM = _env_bool_value('GRPC_BUILD_WITH_BORING_SSL_ASM',
--                                            'True')
-+                                            'False')
- 
- # Export this environment variable to override the platform variant that will
- # be chosen for boringssl assembly optimizations. This option is useful when
-@@ -168,7 +168,8 @@
- EXTRA_ENV_COMPILE_ARGS = os.environ.get('GRPC_PYTHON_CFLAGS', None)
- EXTRA_ENV_LINK_ARGS = os.environ.get('GRPC_PYTHON_LDFLAGS', None)
- if EXTRA_ENV_COMPILE_ARGS is None:
--    EXTRA_ENV_COMPILE_ARGS = ' -std=c++11'
-+    # Chaquopy: removed `-std=c++11`, which clang doesn't allow with C files.
-+    EXTRA_ENV_COMPILE_ARGS = ''
-     if 'win32' in sys.platform:
-         if sys.version_info < (3, 5):
-             EXTRA_ENV_COMPILE_ARGS += ' -D_hypot=hypot'
-@@ -185,7 +186,8 @@
-             # available dynamically
-             EXTRA_ENV_COMPILE_ARGS += ' /MT'
-     elif "linux" in sys.platform:
--        EXTRA_ENV_COMPILE_ARGS += ' -std=gnu99 -fvisibility=hidden -fno-wrapv -fno-exceptions'
-+        # Chaquopy: removed `-std=gnu99`, which clang doesn't allow with C++ files.
-+        EXTRA_ENV_COMPILE_ARGS += ' -fvisibility=hidden -fno-wrapv -fno-exceptions'
-     elif "darwin" in sys.platform:
-         EXTRA_ENV_COMPILE_ARGS += ' -stdlib=libc++ -fvisibility=hidden -fno-wrapv -fno-exceptions'
- 
-@@ -213,6 +215,7 @@
- CYTHON_HELPER_C_FILES = ()
- 
- CORE_C_FILES = tuple(grpc_core_dependencies.CORE_SOURCE_FILES)
-+CORE_C_FILES += ("third_party/cares/cares/ares_android.c",)  # Chaquopy
- if "win32" in sys.platform:
-     CORE_C_FILES = filter(lambda x: 'third_party/cares' not in x, CORE_C_FILES)
- 
-@@ -238,6 +241,7 @@
  EXTENSION_LIBRARIES = ()
  if "linux" in sys.platform:
-     EXTENSION_LIBRARIES += ('rt',)
-+    EXTENSION_LIBRARIES += ('log', 'dl')  # Chaquopy
+-    EXTENSION_LIBRARIES += ("rt",)
++    EXTENSION_LIBRARIES += (
++        "log",  # Chaquopy: for __android_log_...
++        "dl",  # Chaquopy: for dlopen
++    )
  if not "win32" in sys.platform:
-     EXTENSION_LIBRARIES += ('m',)
+     EXTENSION_LIBRARIES += ("m",)
  if "win32" in sys.platform:
-diff -ur src-original/third_party/cares/config_android/ares_config.h src/third_party/cares/config_android/ares_config.h
---- src-original/third_party/cares/config_android/ares_config.h	2018-06-01 23:53:55.000000000 +0000
-+++ src/third_party/cares/config_android/ares_config.h	2018-11-30 23:35:50.419146489 +0000
-@@ -442,7 +443,8 @@
-   /* 'FD_ZERO' doesn't use __fdelt_chk, no need to redefine. */
+--- src-original/src/python/grpcio/_parallel_compile_patch.py	2023-11-16 22:38:51.000000000 +0000
++++ src/src/python/grpcio/_parallel_compile_patch.py	2023-12-08 18:58:29.306412400 +0000
+@@ -60,9 +60,10 @@
+     # run compilation of individual files in parallel
+     import multiprocessing.pool
  
-   #ifdef __FDS_BITS
--    #define GRPC_CARES_FDS_BITS(set) __FDS_BITS(set)
-+    /* Chaquopy: added first argument to __FDS_BITS. */
-+    #define GRPC_CARES_FDS_BITS(set) __FDS_BITS(fd_set*,set)
-   #else
-     #define GRPC_CARES_FDS_BITS(set) ((set)->fds_bits)
-   #endif
+-    multiprocessing.pool.ThreadPool(BUILD_EXT_COMPILER_JOBS).map(
++    # Chaquopy: use imap_unordered for faster failure.
++    list(multiprocessing.pool.ThreadPool(BUILD_EXT_COMPILER_JOBS).imap_unordered(
+         _compile_single_file, objects
+-    )
++    ))
+     return objects
+ 
+ 
+--- src-original/third_party/cares/cares/src/lib/ares_init.c	2023-11-16 22:38:55.000000000 +0000
++++ src/third_party/cares/cares/src/lib/ares_init.c	2023-12-08 19:47:19.179698236 +0000
+@@ -1577,14 +1577,14 @@
+     channel->ednspsz = EDNSPACKETSZ;
+ 
+   if (channel->nservers == -1) {
+-    /* If nobody specified servers, try a local named. */
++    /* Chaquopy: default to the Google public DNS server. */
+     channel->servers = ares_malloc(sizeof(struct server_state));
+     if (!channel->servers) {
+       rc = ARES_ENOMEM;
+       goto error;
+     }
+     channel->servers[0].addr.family = AF_INET;
+-    channel->servers[0].addr.addrV4.s_addr = htonl(INADDR_LOOPBACK);
++    channel->servers[0].addr.addrV4.s_addr = htonl(0x08080808);  /* Chaquopy: 8.8.8.8 */
+     channel->servers[0].addr.udp_port = 0;
+     channel->servers[0].addr.tcp_port = 0;
+     channel->nservers = 1;
