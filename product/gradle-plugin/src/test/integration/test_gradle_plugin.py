@@ -675,7 +675,7 @@ class ExtractPackages(GradleTestCase):
                        app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
                        variants={"red-debug": dict(extract_packages=["common"]),
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
-        
+
     def test_wildcard(self):
         PY_FILES = [
             "pkg1/__init__.py",
