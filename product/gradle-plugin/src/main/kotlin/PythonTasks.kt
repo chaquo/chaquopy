@@ -323,7 +323,7 @@ internal class TaskBuilder(
                 File(fte.file.parent, fte.name + "c").exists()
             ) {
                 ! python.extractPackages.any {
-                    fte.path.replace("/", ".").startsWith(it + ".")
+                    it == "*" || fte.path.replace("/", ".").startsWith(it + ".")
                 }
             } else false
         }
