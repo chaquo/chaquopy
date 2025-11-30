@@ -1,0 +1,1 @@
+Improved compatibility with various ways of tagging a wheel as Android-specific.

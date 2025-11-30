@@ -1228,6 +1228,20 @@ class PythonReqs(GradleTestCase):
         self.RunGradle("base", "PythonReqs/wheel_data",
                        requirements=["purelib.txt", "platlib.txt"])
 
+    # This package has wheels with `Root-Is-Purelib: true`, but platform tags of the
+    # form `py3-none-android_...`. pip_install.py should treat this as a non-pure
+    # package, and install both ABIs.
+    def test_py3_none(self):
+        self.RunGradle(
+            "base", "PythonReqs/py3_none",
+            abis=["arm64-v8a", "x86_64"],
+            requirements={
+                "common": [],
+                "arm64-v8a": ["arm64_v8a.py"],
+                "x86_64": ["x86_64.py"],
+            },
+        )
+
     # Even with --only-binary, it should still be possible to install a local path to a
     # pure-Python sdist. It's also possible to install a local path to a source
     # directory, which is covered by test_directory.
