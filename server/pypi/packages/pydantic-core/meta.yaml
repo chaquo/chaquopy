@@ -1,0 +1,9 @@
+package:
+  name: pydantic-core
+  version: "2.41.4"
+
+requirements:
+  build:
+    - rust
+  host:
+    - python
