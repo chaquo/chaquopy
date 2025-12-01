@@ -1,6 +1,10 @@
 package:
   name: cryptography
-  version: "42.0.8"
+  version: "46.0.0"
+
+build:
+  script_env:
+    - PYO3_NO_PYTHON=1
 
 requirements:
   build:
