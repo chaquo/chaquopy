@@ -1,1 +1,0 @@
-The importer now matches the standard behavior of preferring an .so file over a .py file of the same name.

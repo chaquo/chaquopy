@@ -1,1 +1,0 @@
-Improved compatibility with various ways of bundling non-Python libraries in a wheel.

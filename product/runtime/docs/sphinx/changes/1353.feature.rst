@@ -1,1 +1,0 @@
-Update CA bundle to certifi 2025.8.3.

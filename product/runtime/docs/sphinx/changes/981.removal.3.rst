@@ -1,1 +1,0 @@
-Pip's `--extra-index-url` option no longer accepts local paths. Use `--find-links` instead, but note that this option expects wheels to be directly under the given directory, not in subdirectories named after each package.

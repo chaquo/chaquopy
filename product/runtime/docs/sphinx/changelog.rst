@@ -5,6 +5,76 @@ Change log
 
 .. towncrier release notes start
 
+17.0.0 (2025-12-01)
+===================
+
+Features
+--------
+
+- Improved compatibility with various ways of bundling non-Python libraries in
+  a wheel. (`#892 <https://github.com/chaquo/chaquopy/issues/892>`__, `#1383
+  <https://github.com/chaquo/chaquopy/issues/1383>`__)
+- Update to pip version 25.3. (`#981
+  <https://github.com/chaquo/chaquopy/issues/981>`__)
+- Improved detection of changes to :ref:`buildPython`. (`#991
+  <https://github.com/chaquo/chaquopy/issues/991>`__)
+- Devices with 16 KB pages are now supported. However, any Android wheels built
+  before October 2024 will still fail to load on 16 KB devices. For best
+  compatibility with these devices, use Python 3.13 or later. (`#1171
+  <https://github.com/chaquo/chaquopy/issues/1171>`__)
+- Python version 3.14 is now supported. (`#1350
+  <https://github.com/chaquo/chaquopy/issues/1350>`__)
+- Update runtime Python versions to 3.10.19, 3.11.14, 3.12.12, 3.13.9 and
+  3.14.0. (`#1352 <https://github.com/chaquo/chaquopy/issues/1352>`__)
+- Update CA bundle to certifi 2025.8.3. (`#1353
+  <https://github.com/chaquo/chaquopy/issues/1353>`__)
+- Improved compatibility with various ways of tagging a wheel as
+  Android-specific. (`#1374
+  <https://github.com/chaquo/chaquopy/issues/1374>`__)
+- Improved error messages when :ref:`buildPython` is not found. (`#1411
+  <https://github.com/chaquo/chaquopy/issues/1411>`__)
+- Added the wildcard `*` to :ref:`extractPackages` to extract all packages at
+  startup. (`#1424 <https://github.com/chaquo/chaquopy/issues/1424>`__)
+
+
+Deprecations and Removals
+-------------------------
+
+- Pip now uses the `--only-binary` option, so it will no longer install sdists
+  from PyPI or other indexes. Installing a local path to an sdist or source
+  directory is still possible, as long as it's a pure-Python package. (`#981
+  <https://github.com/chaquo/chaquopy/issues/981>`__)
+- Pip's `--extra-index-url` option no longer accepts local paths. Use
+  `--find-links` instead, but note that this option expects wheels to be
+  directly under the given directory, not in subdirectories named after each
+  package. (`#981 <https://github.com/chaquo/chaquopy/issues/981>`__)
+- :ref:`buildPython` must now have the same Python major and minor versions as
+  the app. (`#991 <https://github.com/chaquo/chaquopy/issues/991>`__)
+- The default Python version is now 3.10, and Python 3.8 and 3.9 are no longer
+  supported. Some packages are not available yet for Python 3.10 or later. If
+  you need any of those packages, please remain on the previous version of
+  Chaquopy for now. (`#1039
+  <https://github.com/chaquo/chaquopy/issues/1039>`__)
+- Android Gradle plugin versions 7.0 to 7.2 are no longer supported. (`#1373
+  <https://github.com/chaquo/chaquopy/issues/1373>`__)
+- :ref:`buildPython` commands with multiple arguments must now be passed as
+  multiple strings, not as a single space-separated string. (`#1411
+  <https://github.com/chaquo/chaquopy/issues/1411>`__)
+- Pip no longer prefers older Android wheels over newer pure-Python wheels.
+  (`#1417 <https://github.com/chaquo/chaquopy/issues/1417>`__)
+
+
+Bugfixes
+--------
+
+- Handle the Chaquopy and Android plugins being declared in the top-level
+  `plugins` block of settings.gradle, as Flutter does. (`#1289
+  <https://github.com/chaquo/chaquopy/issues/1289>`__)
+- The importer now matches the standard behavior of preferring an .so file over
+  a .py file of the same name. (`#1431
+  <https://github.com/chaquo/chaquopy/issues/1431>`__)
+
+
 16.1.0 (2025-05-07)
 ===================
 
