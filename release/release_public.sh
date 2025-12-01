@@ -23,10 +23,12 @@ update_version "$public_root/build.gradle"
 
 private_utils_dir="$private_src_dir/utils"
 public_main_dir="$public_root/app/src/main"
-for pattern in "java/com/chaquo/python/utils/"{*ConsoleActivity,*LiveEvent,Utils}".java" \
-               "python/chaquopy/__init__.py" "python/chaquopy/utils/"{__init__,console}".py" \
-               "res/drawable*/ic_vertical_align_*" "res/layout*/activity_console.xml" \
-               "res/menu*/top_bottom.xml" "res/values*/console.xml" ; do
+for pattern in \
+    "java/com/chaquo/python/utils/"{BaseActivity,*ConsoleActivity,*LiveEvent,Utils}".java" \
+    "python/chaquopy/__init__.py" "python/chaquopy/utils/"{__init__,console}".py" \
+    "res/drawable*/ic_vertical_align_*" "res/layout*/activity_console.xml" \
+    "res/menu*/top_bottom.xml" "res/values*/console.xml"
+do
     for private_file in $private_utils_dir/$pattern; do
         public_file="$(echo "$private_file" | sed "s|$private_utils_dir|$public_main_dir|")"
         rm -rf "$public_file"

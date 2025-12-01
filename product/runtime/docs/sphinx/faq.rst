@@ -295,8 +295,6 @@ To add or update a package, do one of the following:
   information page <https://beeware.org/mobile-wheels/>`__.
 * Try to build it yourself by following `these instructions
   <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`_.
-* Search our `issue tracker <https://github.com/chaquo/chaquopy/issues>`_ for advice
-  on the package, and create a new issue if necessary.
 
 No Python interpreter configured for the module
 -----------------------------------------------

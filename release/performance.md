@@ -79,4 +79,6 @@ Sizes are as reported in Settings:
 
 * Updated Python from 3.8 to 3.10, NumPy from 1.19.5 to 1.26.2, and SciPy from
   1.4.1 to 1.8.1.
+
+  17.0.0                      0.67   1.67       0.60   1.03      99.9       88.6
 ```

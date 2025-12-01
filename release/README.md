@@ -9,6 +9,20 @@ Download the `maven` artifact from GitHub Actions, and unpack it into the local 
 directory on all machines that will be used by the subsequent tests.
 
 
+## BeeWare compatibility tests
+
+Pull the current versions of briefcase, toga and briefcase-android-gradle-template.
+
+Edit briefcase-android-gradle-template to use the new Chaquopy version, and temporarily
+add a `repositories` entry pointing at the artifacts you downloaded above, e.g.:
+
+   maven { url "/Users/msmith/git/chaquo/chaquopy/maven" }
+
+Use that template to run the Toga testbed.
+
+We will create a Briefcase PR in the final step below.
+
+
 ## Unit tests
 
 Open the demo app in Android Studio, and run the Java and Python unit tests on any
@@ -47,8 +61,8 @@ Open the pkgtest app in Android Studio, and temporarily edit the top-level build
 file to use the local Chaquopy version.
 
 Record performance data in performance.md, and investigate if significantly worse than
-the previous version. Remember that the tests and the packages themselves may have
-changed.
+the previous version. Remember that the tests, the packages, and their dependencies may
+all have changed.
 
 
 ## Package tests
@@ -142,11 +156,8 @@ Update:
 * `versions.rst`
 * `release` in `conf.py`
 
-Run `gradlew runtime:doc`, and upload to server.
-
-If major.minor version number has changed:
-* Update "current" symlink (`ln -sfT`).
-* Add link on WordPress documentation page.
+Run `gradlew runtime:doc`, and check the output. It will be released in the final step
+below.
 
 
 ## Version control
@@ -160,7 +171,11 @@ Increment the micro version number in VERSION.txt.
 Commit and push this repository.
 
 
-## User communication
+## Once the Maven Central release is live
+
+Upload documentation to the webserver. If the major.minor version number has changed:
+* Update the "current" symlink (`ln -sfT`).
+* Add a link on the WordPress documentation page.
 
 Create release page on GitHub with a link to the change log section.
 
@@ -170,7 +185,8 @@ Post link to X, and enable "only accounts you mention can reply", because it doe
 reliably send email notifications of replies. Enabling replies and apparently ignoring
 them would make us look worse than not enabling replies at all.
 
-Update any affected GitHub issues, StackOverflow questions, email threads, etc.
+Remove the temporary `maven` repository from briefcase-android-gradle-template, and
+create a PR.
 
-If there are any packages whose announcement was postponed until this release, go
-through the package release procedure in pypi/README-internal.md.
+On the Python wiki, update the Android and GuiProgramming pages, and remove obsolete
+projects.
