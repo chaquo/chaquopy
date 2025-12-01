@@ -115,9 +115,10 @@ class TestAndroidImport(FilterWarningsCase):
         # it's extracting something expected, but not everything.
         stdlib_extracted_expected = {
             "_asyncio.so", "_blake2.so", "_contextvars.so", "_csv.so", "_hashlib.so",
-            "_heapq.so", "_json.so", "_multiprocessing.so", "_pickle.so",
-            "_posixsubprocess.so", "_queue.so", "_socket.so", "_sqlite3.so", "_ssl.so",
-            "array.so", "fcntl.so", "pyexpat.so", "select.so", "unicodedata.so",
+            "_interpreters.so", "_heapq.so", "_json.so", "_multiprocessing.so",
+            "_pickle.so", "_posixsubprocess.so", "_queue.so", "_socket.so",
+            "_sqlite3.so", "_ssl.so", "_zstd.so", "array.so", "fcntl.so",
+            "pyexpat.so", "select.so", "unicodedata.so",
         }
         actual = set(os.listdir(asset_path(STDLIB_ZIP)))
         self.assertIn(add_soabi("_posixsubprocess.so"), actual)  # subprocess < test_stdlib
