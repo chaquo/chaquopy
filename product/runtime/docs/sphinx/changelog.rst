@@ -12,17 +12,19 @@ Features
 --------
 
 - Improved compatibility with various ways of bundling non-Python libraries in
-  a wheel. (`#892 <https://github.com/chaquo/chaquopy/issues/892>`__, `#1383
+  a wheel. (`#728 <https://github.com/chaquo/chaquopy/issues/728>`__,
+  `#892 <https://github.com/chaquo/chaquopy/issues/892>`__, `#1383
   <https://github.com/chaquo/chaquopy/issues/1383>`__)
 - Update to pip version 25.3. (`#981
   <https://github.com/chaquo/chaquopy/issues/981>`__)
 - Improved detection of changes to :ref:`buildPython`. (`#991
   <https://github.com/chaquo/chaquopy/issues/991>`__)
-- Devices with 16 KB pages are now supported. However, any Android wheels built
-  before October 2024 will still fail to load on 16 KB devices. For best
+- Devices with 16 KB pages are now supported by Chaquopy itself. However, many
+  existing Android wheels will still fail to load on 16 KB devices. For best
   compatibility with these devices, use Python 3.13 or later. (`#1171
   <https://github.com/chaquo/chaquopy/issues/1171>`__)
-- Python version 3.14 is now supported. (`#1350
+- Python version 3.14 is now supported. However, it currently has very few
+  Android wheels available. (`#1350
   <https://github.com/chaquo/chaquopy/issues/1350>`__)
 - Update runtime Python versions to 3.10.19, 3.11.14, 3.12.12, 3.13.9 and
   3.14.0. (`#1352 <https://github.com/chaquo/chaquopy/issues/1352>`__)

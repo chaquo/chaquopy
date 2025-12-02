@@ -281,20 +281,22 @@ which isn't available for Android yet:
 If your version requirements are too tight, but there are other versions available, then
 the error message will list them after the words "from versions".
 
-The package may also be available for a different :ref:`Python version
-<python-version>`. To see the available versions:
+The package may also be available as a wheel for a different :ref:`Python version
+<python-version>`. A wheel's Python version is indicated by the "cp" marker in its
+filename. To see the available wheels:
 
 * Browse the `Chaquopy wheel repository <https://chaquo.com/pypi-13.1/>`_.
 * Open the package's page on `PyPI <https://pypi.org/>`_, click "Download files", and
   search for "Android".
-* The compatible Python version is indicated by the "cp" marker in each filename.
 
-To add or update a package, do one of the following:
+If you need a new package or version, please post a request on the package's own issue
+tracker, pointing them at `these instructions
+<https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`__.
 
-* Post a request on the project's issue tracker, pointing them at the `mobile wheels
-  information page <https://beeware.org/mobile-wheels/>`__.
-* Try to build it yourself by following `these instructions
-  <https://github.com/chaquo/chaquopy/blob/master/server/pypi/README.md>`_.
+Alternatively, you could try following the instructions to build the package yourself.
+If you're successful, consider opening a PR in the package's own repository to make its
+Android support official. That way, you'll automatically get builds of all future
+versions.
 
 No Python interpreter configured for the module
 -----------------------------------------------
