@@ -1,1 +1,0 @@
-Pip no longer prefers older Android wheels over newer pure-Python wheels.

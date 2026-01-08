@@ -149,8 +149,15 @@ class PipInstall(object):
         # do it manually.
         for dist_info in Path(abi_dir).glob("*.dist-info"):
             try:
+                # pip now installs all packages via wheels, even if they're installed
+                # from source code, so the WHEEL file is guaranteed to exist.
                 wheel_info = email.parser.Parser().parse((dist_info / "WHEEL").open())
-                is_pure = wheel_info.get("Root-Is-Purelib", "false") == "true"
+
+                # If there are multiple tags, we can't know which one matched, so err on
+                # the side of caution. If this causes us to install the same package
+                # twice, that will be dealt with in merge_common.
+                tags = wheel_info.get_all("Tag", [])
+                is_pure = tags and all(tag.endswith("-any") for tag in tags)
 
                 req_tree = {}
                 for row in csv.reader((dist_info / "RECORD").open()):

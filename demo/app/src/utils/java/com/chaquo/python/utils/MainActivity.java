@@ -4,10 +4,9 @@ import android.content.pm.*;
 import android.os.*;
 import android.text.method.*;
 import android.widget.*;
-import androidx.appcompat.app.*;
 import androidx.preference.*;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -16,7 +15,6 @@ public class MainActivity extends AppCompatActivity {
             String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             setTitle(getTitle() + " " + version);
         } catch (PackageManager.NameNotFoundException ignored) {}
-        App.setPySubtitle(this);
 
         setContentView(resId("layout", "activity_menu"));
         ((TextView)findViewById(resId("id", "tvCaption")))

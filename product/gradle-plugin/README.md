@@ -160,8 +160,12 @@ encouraging developers to test against it.
 * Go to the new Android version's page
   [here](https://developer.android.com/about/versions), and review the "Behavior
   changes" section to see if anything could affect the demo app or Chaquopy itself.
-* Update demo and pkgtest apps, and test all features on an emulator with the new
-  Android version.
+* Update `COMPILE_SDK_VERSION` in Common.java, and rebuild the `product` project.
+* In the demo and pkgtest apps:
+  * Update `compileSdk` and `targetSdk`. The IDE may prompt you to use the SDK Upgrade
+    Assistant, but all that does is show you the same content as the pages above,
+    filtered for what it believes is relevant to the current app.
+  * Test all features on an emulator with the new Android version.
 * Leave the public apps alone for now: they will be dealt with during the next release
   (see release/README.md).
 * Consider also updating the targetSdk in:

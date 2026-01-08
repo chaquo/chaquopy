@@ -1,1 +1,0 @@
-Devices with 16 KB pages are now supported. However, any Android wheels built before October 2024 will still fail to load on 16 KB devices. For best compatibility with these devices, use Python 3.13 or later.

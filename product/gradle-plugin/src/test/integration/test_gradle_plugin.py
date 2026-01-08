@@ -193,7 +193,7 @@ class GradleTestCase(TestCase):
                 with self.subTest(f=f):
                     filename, attrs = f if isinstance(f, tuple) else (f, {})
                     if pyc and filename.endswith(".py"):
-                        if any(filename.startswith(ep.replace(".", "/") + "/")
+                        if any(ep == "*" or filename.startswith(ep.replace(".", "/") + "/")
                                for ep in extract_packages):
                             expected_files.append(filename)
                         filename += "c"
@@ -675,6 +675,19 @@ class ExtractPackages(GradleTestCase):
                        app=["common/__init__.py", "red/__init__.py", "blue/__init__.py"],
                        variants={"red-debug": dict(extract_packages=["common"]),
                                  "blue-debug": dict(extract_packages=["common", "blue"])})
+
+    def test_wildcard(self):
+        PY_FILES = [
+            "pkg1/__init__.py",
+            "pkg2/__init__.py",
+            "pkg3/__init__.py",
+            "pkg3/mod1.py",
+            "pkg3/sub_pkg/__init__.py",
+            "pkg3/sub_pkg/mod2.py",
+        ]
+        self.RunGradle("base", "ExtractPackages/wildcard",
+                       app=PY_FILES,
+                       extract_packages=["pkg1", "*"])
 
 
 class Pyc(GradleTestCase):
@@ -1214,6 +1227,20 @@ class PythonReqs(GradleTestCase):
     def test_wheel_data(self):
         self.RunGradle("base", "PythonReqs/wheel_data",
                        requirements=["purelib.txt", "platlib.txt"])
+
+    # This package has wheels with `Root-Is-Purelib: true`, but platform tags of the
+    # form `py3-none-android_...`. pip_install.py should treat this as a non-pure
+    # package, and install both ABIs.
+    def test_py3_none(self):
+        self.RunGradle(
+            "base", "PythonReqs/py3_none",
+            abis=["arm64-v8a", "x86_64"],
+            requirements={
+                "common": [],
+                "arm64-v8a": ["arm64_v8a.py"],
+                "x86_64": ["x86_64.py"],
+            },
+        )
 
     # Even with --only-binary, it should still be possible to install a local path to a
     # pure-Python sdist. It's also possible to install a local path to a source

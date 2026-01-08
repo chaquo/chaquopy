@@ -28,11 +28,4 @@ public class App extends Application {
 
         Python.start(platform);
     }
-
-    public static void setPySubtitle(AppCompatActivity activity) {
-        PyObject platform = Python.getInstance().getModule("platform");
-        activity.getSupportActionBar().setSubtitle(
-            "Python " + platform.callAttr("python_version").toString());
-    }
-
 }

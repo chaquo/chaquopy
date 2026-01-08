@@ -8,7 +8,7 @@ from importlib.util import cache_from_source, MAGIC_NUMBER
 import io
 import marshal
 import os
-from os.path import dirname, exists, join, realpath, relpath, splitext
+from os.path import basename, dirname, exists, join, realpath, relpath
 from pathlib import Path, PosixPath
 import pkgutil
 import re
@@ -20,6 +20,7 @@ import types
 from warnings import catch_warnings, filterwarnings
 import zipfile
 
+from java._vendor.elftools.common.exceptions import ELFError
 from java.android import importer
 
 from ..test_utils import FilterWarningsCase
@@ -31,30 +32,32 @@ REQUIREMENTS = ["chaquopy-libcxx", "murmurhash", "Pygments", "extract_packages"]
 # REQS_COMMON_ZIP and REQS_ABI_ZIP are now both extracted into the same directory, but we
 # maintain the distinction in the tests in case that changes again in the future.
 APP_ZIP = "app"
-REQS_COMMON_ZIP = "requirements-common"
-multi_abi = len([name for name in context.getAssets().list("chaquopy")
-                 if name.startswith("requirements")]) > 2
-REQS_ABI_ZIP = f"requirements-{ABI}" if multi_abi else REQS_COMMON_ZIP
+REQS_COMMON_ZIP = REQS_ABI_ZIP = "requirements"
+STDLIB_ZIP = f"stdlib-{ABI}"
 
 def asset_path(zip_name, *paths):
-    return join(realpath(context.getFilesDir().toString()), "chaquopy/AssetFinder",
-                zip_name.partition("-")[0], *paths)
+    return join(
+        realpath(context.getFilesDir().toString()),
+        "chaquopy/AssetFinder",
+        zip_name,
+        *paths,
+    )
 
 def resource_path(zip_name, package, filename):
     return asset_path(zip_name, package.replace(".", "/"), filename)
 
 
-def importable(filename):
-    return splitext(filename)[1] in [".py", ".pyc", ".so"]
+def extracted(filename):
+    return not filename.endswith((".py", ".pyc", ".abi3.so", add_soabi(".so")))
 
 
-def add_soabi(version_info, abi, filename):
-    soabi = f"cpython-{version_info[0]}{version_info[1]}"
-    if version_info >= (3, 13):
+def add_soabi(filename):
+    soabi = f"cpython-{sys.version_info[0]}{sys.version_info[1]}"
+    if sys.version_info >= (3, 13):
         soabi += "-" + {
             "arm64-v8a": "aarch64",
             "x86_64": "x86_64",
-        }[abi] + "-linux-android"
+        }[ABI] + "-linux-android"
     return filename.replace(".so", f".{soabi}.so")
 
 
@@ -87,13 +90,7 @@ class TestAndroidImport(FilterWarningsCase):
             stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
 
         for subdir, entries in [
-            (
-                ABI,
-                [
-                    add_soabi(sys.version_info, ABI, filename)
-                    for filename in stdlib_bootstrap_expected
-                ],
-            ),
+            (ABI, [add_soabi(filename) for filename in stdlib_bootstrap_expected]),
             (f"{ABI}/java", ["chaquopy.so"]),
         ]:
             with self.subTest(subdir=subdir):
@@ -109,6 +106,25 @@ class TestAndroidImport(FilterWarningsCase):
                     for filename in entries:
                         with self.subTest(filename=filename):
                             self.assertIn(re.sub(r"\..*", "", filename), sys.modules)
+
+        # The only other extracted stdlib modules should be those used by the unit
+        # tests. This should pass on repeated runs, but the files may require manual
+        # cleanup if anything else is imported while debugging.
+        #
+        # These bounds don't have to be particularly tight, we just need to verify that
+        # it's extracting something expected, but not everything.
+        stdlib_extracted_expected = {
+            "_asyncio.so", "_blake2.so", "_contextvars.so", "_csv.so", "_hashlib.so",
+            "_interpreters.so", "_heapq.so", "_json.so", "_multiprocessing.so",
+            "_pickle.so", "_posixsubprocess.so", "_queue.so", "_socket.so",
+            "_sqlite3.so", "_ssl.so", "_zstd.so", "array.so", "fcntl.so",
+            "pyexpat.so", "select.so", "unicodedata.so",
+        }
+        actual = set(os.listdir(asset_path(STDLIB_ZIP)))
+        self.assertIn(add_soabi("_posixsubprocess.so"), actual)  # subprocess < test_stdlib
+        self.assertLessEqual(
+            actual, {add_soabi(filename) for filename in stdlib_extracted_expected}
+        )
 
     def test_init(self):
         self.check_py("murmurhash", REQS_COMMON_ZIP, "murmurhash/__init__.py", "get_include",
@@ -172,9 +188,22 @@ class TestAndroidImport(FilterWarningsCase):
             pyc_file.write(header)
 
     def test_so(self):
+        # murmurhash's module has no SOABI suffix, so it should be extracted when its
+        # containing package is imported.
+        import murmurhash
         filename = asset_path(REQS_ABI_ZIP, "murmurhash/mrmr.so")
-        mod = self.check_module("murmurhash.mrmr", filename, filename)
+        self.check_module("murmurhash.mrmr", filename, cache_filename=None)
+        self.check_extract_if_changed(murmurhash, filename)
+
+        # stdlib modules have SOABI suffixes, so they should be extracted individually
+        # on demand.
+        filename = asset_path(STDLIB_ZIP, add_soabi("fcntl.so"))
+        mod = self.check_module("fcntl", filename, cache_filename=filename)
         self.check_extract_if_changed(mod, filename)
+
+    def test_loader_priority(self):
+        with self.assertRaisesRegex(ELFError, r"Magic number does not match"):
+            import loader_priority  # noqa: F401
 
     def test_ctypes(self):
         def assertHasSymbol(dll, name):
@@ -183,29 +212,31 @@ class TestAndroidImport(FilterWarningsCase):
             with self.assertRaises(AttributeError):
                 getattr(dll, name)
 
-        # Library extraction from calling CDLL with a path outside of chaquopy/lib.
-        from murmurhash import mrmr
-        os.remove(mrmr.__file__)
-        ctypes.CDLL(mrmr.__file__)
-        self.assertPredicate(exists, mrmr.__file__)
-
-        # Library extraction caused by find_library.
+        # find_library should find libraries inside chaquopy/lib.
         LIBCXX_FILENAME = asset_path(REQS_ABI_ZIP, "chaquopy/lib/libc++_shared.so")
-        os.remove(LIBCXX_FILENAME)
         self.assertEqual(find_library("c++_shared"), LIBCXX_FILENAME)
         self.assertPredicate(exists, LIBCXX_FILENAME)
-        libcxx = ctypes.CDLL(LIBCXX_FILENAME)
-        assertHasSymbol(libcxx, "_ZSt9terminatev")  # std::terminate()
-        assertNotHasSymbol(libcxx, "nonexistent")
 
-        # Calling CDLL with a basename in chaquopy/lib can also cause an extraction.
-        os.remove(LIBCXX_FILENAME)
-        ctypes.CDLL("libc++_shared.so")
-        self.assertPredicate(exists, LIBCXX_FILENAME)
+        # CDLL should accept both absolute paths and basenames inside chaquopy/lib.
+        for path in [LIBCXX_FILENAME, basename(LIBCXX_FILENAME)]:
+            with self.subTest(path):
+                libcxx = ctypes.CDLL(path)
+                assertHasSymbol(libcxx, "_ZSt9terminatev")  # std::terminate()
+                assertNotHasSymbol(libcxx, "nonexistent")
+
+        # CDLL should accept absolute paths outside of chaquopy/lib.
+        from murmurhash import mrmr
+        mrmr_dll = ctypes.CDLL(mrmr.__file__)
+        assertHasSymbol(mrmr_dll, "PyInit_mrmr")
 
         # CDLL with nonexistent filenames, both relative and absolute.
         for name in ["invalid.so", f"{dirname(mrmr.__file__)}/invalid.so"]:
-            with self.assertRaisesRegex(OSError, "invalid.so"):
+            with (
+                self.subTest(name),
+                self.assertRaisesRegex(
+                    OSError, rf'dlopen failed: library "{name}" not found'
+                ),
+            ):
                 ctypes.CDLL(name)
 
         # System libraries.
@@ -234,8 +265,15 @@ class TestAndroidImport(FilterWarningsCase):
             with self.subTest(dir_name=dir_name):
                 extracted_dir = asset_path(APP_ZIP, dir_name)
                 self.assertCountEqual(
-                    ["non_package_data.txt"] + (["test.pth"] if not dir_name else []),
-                    [entry.name for entry in os.scandir(extracted_dir) if entry.is_file()])
+                    [entry.name for entry in os.scandir(extracted_dir) if entry.is_file()],
+                    [
+                        # Should extract everything except .py and .pyc files.
+                        "libnon_package_data.so.1",
+                        "non_package_data.so",
+                        "non_package_data.txt",
+                        *(["test.pth"] if not dir_name else []),
+                    ]
+                )
                 with open(join(extracted_dir, "non_package_data.txt")) as f:
                     self.assertPredicate(str.startswith, f.read(),
                                          f"# Text file in {dir_description}")
@@ -243,6 +281,15 @@ class TestAndroidImport(FilterWarningsCase):
         # Package directories shouldn't be extracted on startup, but on first import. This
         # package is never imported, so it should never be extracted at all.
         self.assertNotPredicate(exists, asset_path(APP_ZIP, "never_imported"))
+
+        # The chaquopy directory is also treated as non-package data.
+        for dir_name, expected in [
+            ("chaquopy", ["lib"]),
+            ("chaquopy/lib", ["libc++_shared.so"]),
+        ]:
+            self.assertCountEqual(
+                os.listdir(asset_path(REQS_ABI_ZIP, dir_name)), expected
+            )
 
     def test_package_data(self):
         # App ZIP
@@ -277,8 +324,7 @@ class TestAndroidImport(FilterWarningsCase):
         data = pkgutil.get_data(package, filename)
         self.assertTrue(data.startswith(start))
 
-        if importable(filename):
-            # Importable files are not extracted.
+        if not extracted(filename):
             self.assertNotPredicate(exists, cache_filename)
         else:
             self.check_extract_if_changed(mod, cache_filename)
@@ -304,11 +350,13 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
 
     def test_extract_packages(self):
-        self.check_extract_packages("ep_alpha", [])
-        self.check_extract_packages("ep_bravo", [
+        self.check_extract_packages("ep_alpha", [])  # Not extracted
+        self.check_extract_packages("ep_bravo", [  # Top-level package extracted
             "__init__.py", "mod.py", "one/__init__.py", "two/__init__.py"
         ])
-        self.check_extract_packages("ep_charlie", ["one/__init__.py"])
+        self.check_extract_packages("ep_charlie", [  # Second-level package extracted
+            "one/__init__.py"
+        ])
 
         # If a module has both a .py and a .pyc file, the .pyc file should be used because
         # it'll load faster.
@@ -328,13 +376,21 @@ class TestAndroidImport(FilterWarningsCase):
         if not files:
             self.assertNotPredicate(exists, cache_dir)
         else:
-            self.assertCountEqual(files,
+            pyc_files = [file + "c" for file in files if file.endswith(".py")]
+            self.assertCountEqual(files + pyc_files,
                                   [relpath(join(dirpath, name), cache_dir)
                                    for dirpath, _, filenames in os.walk(cache_dir)
                                    for name in filenames])
             for path in files:
                 with open(f"{cache_dir}/{path}") as file:
                     self.assertEqual(f"# This file is {package}/{path}\n", file.read())
+
+    def test_top_level(self):
+        actual = set(os.listdir(asset_path(REQS_COMMON_ZIP)))
+        self.assertGreaterEqual(actual, {"chaquopy"})
+        self.assertLessEqual(
+            actual, {"chaquopy", "ep_bravo", "ep_charlie", "murmurhash"}
+        )
 
     def clean_reload(self, mod):
         sys.modules.pop(mod.__name__, None)
@@ -649,8 +705,8 @@ class TestAndroidImport(FilterWarningsCase):
     # Make sure the standard library importer implements the new loader API
     # (https://stackoverflow.com/questions/63574951).
     def test_zipimport(self):
-        for mod_name in ["zipfile",  # Imported during bootstrap
-                         "wave"]:    # Imported after bootstrap
+        for mod_name in ["zipfile",  # Imported during bootstrap (in importer.py)
+                         "subprocess"]:  # Imported after bootstrap (in test_stdlib.py)
             with self.subTest(mod_name=mod_name):
                 old_mod = import_module(mod_name)
                 spec = importlib.util.find_spec(mod_name)
@@ -794,7 +850,7 @@ class TestAndroidImport(FilterWarningsCase):
 
             abs_filename = pr.resource_filename(package, filename)
             self.assertEqual(abs_filename, resource_path(zip_name, package, filename))
-            if importable(filename):
+            if not extracted(filename):
                 # pkg_resources has a mechanism for extracting resources to temporary
                 # files, but we don't currently support it.
                 self.assertNotPredicate(exists, abs_filename)
@@ -900,7 +956,7 @@ class TestAndroidImport(FilterWarningsCase):
             self.assertIsInstance(file, io.TextIOWrapper)
             buffer = file.buffer
 
-        if importable(abs_filename):
+        if not extracted(abs_filename):
             self.assertIsInstance(buffer, io.BytesIO)
         else:
             self.assertIsInstance(buffer, io.BufferedReader)
@@ -910,7 +966,7 @@ class TestAndroidImport(FilterWarningsCase):
 
     def check_resource_path(self, path, abs_filename, data, binary):
         self.assertIs(type(path), PosixPath)
-        if importable(abs_filename):
+        if not extracted(abs_filename):
             # Non-extracted files are copied to the temporary directory.
             self.assertEqual(dirname(path),
                              join(str(context.getCacheDir()), "chaquopy/tmp"))
@@ -1017,7 +1073,7 @@ class TestAndroidImport(FilterWarningsCase):
             # We should get the same result when passing the whole filename at once.
             self.assertEqual(resources.files(package) / filename, path)
 
-            if importable(filename):
+            if not extracted(filename):
                 self.assertNotIsInstance(path, Path)
             else:
                 self.assertIs(type(path), PosixPath)
