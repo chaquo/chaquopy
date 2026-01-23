@@ -57,13 +57,13 @@ also be given here.
   the Chaquopy development version and the new AGP version.
 
 * Open the "product" project in the new Android Studio version, then:
-  * Consider updating the Gradle version, but first see the note in
-    product/gradle/wrapper/gradle-wrapper.properties.
   * Sync the project.
   * Test it by running the `publish` task.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
-  * In Android Studio, run Tools > AGP Upgrade Assistant.
+  * In Android Studio, run Tools > AGP Upgrade Assistant. If this applies any
+    compatibility settings which are no longer the default, try to use the recommended
+    settings instead.
   * Apply any other updates from the "base" directory above.
   * Test the app.
 * Close all projects to make sure .idea files are written.

@@ -38,7 +38,7 @@ In your *top-level* `build.gradle` file, set the Chaquopy version:
     }
 
 Also check the Android Gradle plugin version (`com.android.application` or
-`com.android.library`): it should be between 7.3.x and 8.13.x. Older versions are
+`com.android.library`): it should be between 7.3.x and 9.0.x. Older versions are
 supported by :doc:`older versions of Chaquopy <../versions>`. Newer versions may work,
 but have not been tested.
 

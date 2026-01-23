@@ -13,7 +13,7 @@ class TestException(FilterWarningsCase):
     def test_constructor(self):
         from java.lang import RuntimeException
         with self.assertRaisesRegex(RuntimeException,
-                                    r"^hello constructor" + trace_line("<init>")):
+                                    r"^hello constructor\s*\n" + trace_line("<init>")):
             self.TE(True)
 
     def test_simple(self):
@@ -63,6 +63,10 @@ class TestException(FilterWarningsCase):
 
 
 def trace_line(method):
-    # In AGP 8.2, ProGuard renames all Java source files to "SourceFile".
-    return (r"\s*at com.chaquo.python.TestException." + method +
+    # With AGP 8.2, ProGuard obfuscates Java source filenames even when the class name
+    # itself is visible, so we can't check them.
+    #
+    # With AGP 9.0, ProGuard causes an "androidx.core.app.c.p" frame to appear at the
+    # top of the stack trace. So we allow one additional line before the expected line.
+    return (r"(.*\n)?\s*at com.chaquo.python.TestException." + method +
             r"\(.+:[0-9]+\)\s*")
