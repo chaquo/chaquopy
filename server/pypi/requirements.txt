@@ -4,7 +4,7 @@ Jinja2==2.11.3
 jsonschema==2.6.0
 pyelftools==0.29
 pypi-simple==1.1.0
-PyYAML==6.0
+PyYAML==6.0.1
 setuptools==69.1.1
 tqdm==4.66.1
 wheel==0.33.6
