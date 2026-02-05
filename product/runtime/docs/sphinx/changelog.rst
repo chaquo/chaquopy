@@ -19,6 +19,8 @@ Features
   <https://github.com/chaquo/chaquopy/issues/981>`__)
 - Improved detection of changes to :ref:`buildPython`. (`#991
   <https://github.com/chaquo/chaquopy/issues/991>`__)
+- Android Gradle plugin version 9.0 is now supported. (`#1096
+  <https://github.com/chaquo/chaquopy/issues/1096>`__)
 - Devices with 16 KB pages are now supported by Chaquopy itself. However, many
   existing Android wheels will still fail to load on 16 KB devices. For best
   compatibility with these devices, use Python 3.13 or later. (`#1171

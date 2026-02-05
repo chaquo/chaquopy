@@ -1,6 +1,5 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
     id 'com.chaquo.python'
 }
 
@@ -26,7 +25,8 @@ ext.TEST_PACKAGES = [
     "shapely": ["numpy"],
     "spacy": ["https://github.com/explosion/spacy-models/releases/download/$SPACY_MODEL/${SPACY_MODEL}-py3-none-any.whl"],
     "soundfile": ["numpy"],
-    "tensorflow": [PROTOBUF_REQ]
+    "tensorflow": [PROTOBUF_REQ],
+    "xgboost": ["scikit-learn"],
 ]
 
 
@@ -83,14 +83,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles(
+                getDefaultProguardFile('proguard-android-optimize.txt'),
+                'proguard-rules.pro'
+            )
         }
     }
 

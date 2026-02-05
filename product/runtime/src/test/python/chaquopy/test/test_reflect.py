@@ -440,7 +440,12 @@ class TestReflect(FilterWarningsCase):
         self.assertEqual("public", a.publ)
 
         self.assertFalse(hasattr(a, "getPriv"))
-        self.assertFalse(hasattr(a, "getPack"))
+
+        # With AGP 9.0, ProGuard causes this method to become visible for some reason.
+        # See also TestAndroidReflect.assertMembers.
+        if hasattr(a, "getPack"):
+            self.assertEqual("package", a.getPack())
+
         self.assertEqual("protected", a.getProt())
         self.assertEqual("public", a.getPubl())
 
@@ -578,6 +583,11 @@ class TestAndroidReflect(FilterWarningsCase):
 
         for name in self.MEMBERS:
             if name not in names:
+                # With AGP 9.0, ProGuard causes this method to become visible for some
+                # reason. See also TestReflect.test_access.
+                if name == "iMethodProtected":
+                    continue
+
                 with self.subTest(name=name):
                     self.assertFalse(self.declares_member(cls, name))
 

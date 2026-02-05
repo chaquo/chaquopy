@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("com.chaquo.python")
 }
 
@@ -66,9 +65,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
 
     // For testing with minifyEnabled (see release/README.md).
     buildTypes {
@@ -76,7 +72,7 @@ android {
             initWith(getByName("release"))
             isMinifyEnabled = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
+                getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
@@ -136,8 +132,9 @@ for (path in listOf(
     "src/utils"                         // Files shared with pkgtest app
 )) {
     android.sourceSets.getByName("main") {
-        java { srcDir("$path/java") }
-        res { srcDir("$path/res") }
+        java { directories.add("$path/java") }
+        kotlin { directories.add("$path/java") }
+        res { directories.add("$path/res") }
     }
     chaquopy.sourceSets.getByName("main") {
         srcDir("$path/python")

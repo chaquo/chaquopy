@@ -363,8 +363,9 @@ class AndroidPlugin(GradleTestCase):
                           run.stderr)
 
     # This test uses the oldest Gradle and AGP versions on which the Chaquopy plugin is
-    # still capable of loading and giving a useful error message. This should be the same
-    # Gradle version as in product/gradle/wrapper/gradle-wrapper.properties.
+    # still capable of loading and giving a useful error. Keep these versions as low as
+    # reasonably possible, and build the Gradle plugin against the same Gradle version
+    # (see product/gradle/wrapper/gradle-wrapper.properties).
     #
     # Also tests making a change.
     def test_old(self):
