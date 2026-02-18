@@ -15,6 +15,7 @@ def PROTOBUF_REQ = "protobuf<4.25"
 ext.TEST_PACKAGES = [
     "argon2-cffi-bindings": ["argon2-cffi"],
     "backports-zoneinfo": ["tzdata"],
+    "chaquopy-ffmpeg": ["ffmpeg-python"],
     "dlib": ["numpy"],
     "grpcio": [PROTOBUF_REQ],
     "photutils": ["scipy"],
