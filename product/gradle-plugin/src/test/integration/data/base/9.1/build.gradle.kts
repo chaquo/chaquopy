@@ -1,0 +1,7 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    id("com.android.application") version "{{ agpVersion }}" apply false
+    id("com.android.library") version "{{ agpVersion }}" apply false
+    id("com.android.dynamic-feature") version "{{ agpVersion }}" apply false
+    id("com.chaquo.python") version "{{ chaquopyVersion }}" apply false
+}
