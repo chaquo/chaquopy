@@ -2070,22 +2070,28 @@ def dex_classes(apk_dir):
     dexdump_cmd = f"{build_tools_dir}/{newest_ver}/dexdump"
 
     classes = {}
-    file_num = 1
+    file_num = 0
     while True:
         # Multidex is used by default in debug builds when minSdkVersion is 21 or higher
         # (https://developer.android.com/studio/build/multidex).
-        dex_filename = f"{apk_dir}/classes{file_num if (file_num > 1) else ''}.dex"
-        if exists(dex_filename):
-            for line in run([dexdump_cmd, dex_filename], check=True, capture_output=True,
-                            text=True).stdout.splitlines():
-                match = re.search(r"Class descriptor *: *'L(.*);'", line)
-                if match:
-                    package, _, name = match[1].replace("/", ".").rpartition(".")
-                    if not exclude_class(name):
-                        classes.setdefault(package, []).append(name)
-        else:
-            break
         file_num += 1
+        dex_filename = f"{apk_dir}/classes{file_num if (file_num > 1) else ''}.dex"
+        if not exists(dex_filename):
+            break
+
+        pending_class = None
+        for line in run([dexdump_cmd, dex_filename], check=True, capture_output=True,
+                        text=True).stdout.splitlines():
+            if match := re.search(r"Class descriptor *: *'L(.*);'", line):
+                package, _, name = match[1].replace("/", ".").rpartition(".")
+                if not exclude_class(name):
+                    pending_class = (package, name)
+            elif pending_class:
+                # AGP 9.2 generates hundreds of synthetic classes for Android APIs.
+                if "SYNTHETIC" not in line:
+                    package, name = pending_class
+                    classes.setdefault(package, []).append(name)
+                pending_class = None
 
     return classes
 
