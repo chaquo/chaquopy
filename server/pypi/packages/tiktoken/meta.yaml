@@ -1,0 +1,12 @@
+package:
+  name: tiktoken
+  version: 0.9.0
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - rust
+  host:
+    - python
