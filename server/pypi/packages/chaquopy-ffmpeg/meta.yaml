@@ -1,0 +1,11 @@
+{% set version = "2.8.4" %}
+
+package:
+  name: chaquopy-ffmpeg
+  version: {{ version }} 
+
+build:
+  number: 0
+
+source:
+  url: https://github.com/Javernaut/ffmpeg-android-maker/archive/refs/tags/v{{version}}.tar.gz
