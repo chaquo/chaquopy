@@ -2,8 +2,7 @@
 set -eu
 
 export CROSS="1"
-export CROSS_SUFFIX=$(echo $CC | sed 's/gcc$//')  # Actually a prefix
-export HOSTCC="gcc"
+export HOSTCC="cc"
 
 # "If your application is already multi-threaded, it will conflict with OpenBLAS
 # multi-threading. Thus, you must set OpenBLAS to use single thread."
@@ -20,11 +19,6 @@ export USE_THREAD=0
 # this limit will give the error "Program is Terminated. Because you tried to allocate too many
 # memory regions."
 export NUM_THREADS=8
-
-# Prevent large local variables silently being treated as static, thus destroying thread-safety
-# (http://wwwf.imperial.ac.uk/~mab201/20120814.html and
-# https://github.com/xianyi/OpenBLAS/issues/477#issuecomment-222378330).
-export FFLAGS="-frecursive"
 
 case $CHAQUOPY_ABI in
     armeabi-v7a)
@@ -66,7 +60,9 @@ case $CHAQUOPY_ABI in
         ;;
 esac
 
-make -j "$CPU_COUNT"
+# The Makefile assumes that all build tools have the same path prefix as $CC.
+make -j "$CPU_COUNT" AR="$AR" AS="$AS" CC="$CC" CXX="$CXX" LD="$LD" NM="$NM" \
+     RANLIB="$RANLIB" READELF="$READELF" STRIP="$STRIP"
 
 make install  # The PREFIX environment variable will be respected.
 cd $PREFIX/lib
