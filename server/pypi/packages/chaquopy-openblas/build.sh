@@ -1,8 +1,8 @@
 #!/bin/bash
 set -eu
 
-export CROSS="1"
 export HOSTCC="cc"
+export NOFORTRAN="1"
 
 # "If your application is already multi-threaded, it will conflict with OpenBLAS
 # multi-threading. Thus, you must set OpenBLAS to use single thread."
@@ -60,9 +60,7 @@ case $CHAQUOPY_ABI in
         ;;
 esac
 
-# The Makefile assumes that all build tools have the same path prefix as $CC.
-make -j "$CPU_COUNT" AR="$AR" AS="$AS" CC="$CC" CXX="$CXX" LD="$LD" NM="$NM" \
-     RANLIB="$RANLIB" READELF="$READELF" STRIP="$STRIP"
+make -j "$CPU_COUNT"
 
 make install  # The PREFIX environment variable will be respected.
 cd $PREFIX/lib

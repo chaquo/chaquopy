@@ -1,13 +1,11 @@
+{% set version = "0.3.33" %}
+
 package:
   name: chaquopy-openblas
-  version: "0.2.20"
-
-source:
-  url: https://github.com/xianyi/OpenBLAS/archive/v0.2.20.tar.gz
+  version: "{{ version }}"
 
 build:
-  number: 6
+  number: 1
 
-requirements:
-  build:
-    - fortran
+source:
+  url: https://github.com/OpenMathLib/OpenBLAS/archive/v{{ version }}.tar.gz
