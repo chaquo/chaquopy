@@ -595,16 +595,19 @@ class BuildWheel:
 
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
-            toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
-            gfortran = f"{PYPI_DIR}/fortran/{toolchain}-4.9/bin/{tool_prefix}-gfortran"
-            if not exists(gfortran):
-                raise CommandError(f"This package requries a Fortran compiler, but "
-                                   f"{gfortran} does not exist. See README.md.")
+            from cibuildwheel.platforms.android import setup_fortran
 
+            setup_fortran(env)
             compiler_vars += ["FC", "F77", "F90"]
-            env["FC"] = gfortran  # Used by OpenBLAS
-            env["F77"] = env["F90"] = gfortran  # Used by numpy.distutils
+            assert "FC" in env  # Used by OpenBLAS
+            env["F77"] = env["F90"] = env["FC"]  # Used by numpy.distutils
             env["FARCH"] = env["CFLAGS"]  # Used by numpy.distutils
+
+            # Install the Fortran compiler pre-emptively, because:
+            #   - It avoids confusion from the CC wrapper scripts below.
+            #   - It avoids a long pause during the build, whose cause may not be
+            #     obvious if the build system is capturing output.
+            run(f"{env['FC']} --version", env={**os.environ, **env})
 
         # Wrap compiler and linker commands with a script which removes include and
         # library directories which are not in known safe locations.
@@ -675,15 +678,15 @@ class BuildWheel:
     @contextmanager
     def env_vars(self):
         env = {}
-        self.get_common_env_vars(env)
-
         pypi_env = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{pypi_env}/bin",
             f"{self.build_env}/bin",
             f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
             os.environ["PATH"]])
+        env["VIRTUAL_ENV"] = self.build_env
 
+        self.get_common_env_vars(env)
         if self.needs_python:
             self.get_python_env_vars(env, pypi_env)
         if "rust" in self.non_python_build_reqs:
