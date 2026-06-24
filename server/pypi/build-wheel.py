@@ -660,7 +660,8 @@ class BuildWheel:
         tool_prefix = ABIS[self.abi].tool_prefix
         run(f"rustup target add {tool_prefix}")
         env.update({
-            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
+            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib"
+                         f" -C link-arg=-Wl,-z,max-page-size=16384",
             "CARGO_BUILD_TARGET": tool_prefix,
 
             # Normally PyO3 requires sysconfig modules, which are not currently
