@@ -1,14 +1,18 @@
---- src-original/f_check	2017-07-24 04:03:35.000000000 +0000
-+++ src/f_check	2018-04-16 12:25:08.347006310 +0000
-@@ -71,7 +71,10 @@
+--- src-original/Makefile.install	2026-04-23 11:50:46.000000000 +0000
++++ src/Makefile.install	2026-06-23 18:47:03.400874915 +0000
+@@ -194,11 +194,13 @@
+ 	PKGFILE="$(DESTDIR)$(OPENBLAS_PKGCONFIG_DIR)/$(LIBSONAMEBASE)$(SUFFIX64).pc"
  
- 	if ($data =~ /GNU/) {
- 
--	    $data =~ /(\d)\.(\d).(\d)/;
-+            # Chaquopy: Android GCC version number only has 2 components. I'm not
-+            # going to try fixing this because I don't know what might be
-+            # depending on it (see history of toolchain/gcc/gcc-4.9/gcc/BASE-VER).
-+            $data =~ /(\d)\.(\d)\.x/;
- 	    $major = $1;
- 	    $minor = $2;
- 
+ 	@echo Generating $(LIBSONAMEBASE)$(SUFFIX64).pc in "$(DESTDIR)$(OPENBLAS_PKGCONFIG_DIR)"
+-	@echo 'libdir='$(OPENBLAS_LIBRARY_DIR) > "$(PKGFILE)"
++# Chaquopy: added `prefix`, and edited `libdir` and `includedir` to use it.
++	@echo 'prefix=/usr' > "$(PKGFILE)"
++	@echo 'libdir=$${prefix}/lib' >> "$(PKGFILE)"
+ 	@echo 'libprefix='$(LIBNAMEPREFIX) >> "$(PKGFILE)"
+ 	@echo 'libnamesuffix='$(LIBNAMESUFFIX) >> "$(PKGFILE)"
+ 	@echo 'libsuffix='$(SYMBOLSUFFIX) >> "$(PKGFILE)"
+-	@echo 'includedir='$(OPENBLAS_INCLUDE_DIR) >> "$(PKGFILE)"
++	@echo 'includedir=$${prefix}/include' >> "$(PKGFILE)"
+ 	@echo 'omp_opt='$(FOMP_OPT) >> "$(PKGFILE)"
+ 	@echo 'openblas_config= USE_64BITINT='$(INTERFACE64) 'DYNAMIC_ARCH='$(DYNAMIC_ARCH) 'DYNAMIC_OLDER='$(DYNAMIC_OLDER) 'NO_CBLAS='$(NO_CBLAS) 'NO_LAPACK='$(NO_LAPACK) 'NO_LAPACKE='$(NO_LAPACKE) 'NO_AFFINITY='$(NO_AFFINITY) 'USE_OPENMP='$(USE_OPENMP) $(TARGET) 'MAX_THREADS='$(NUM_THREADS)>> "$(PKGFILE)"
+ 	@echo 'version='$(VERSION) >> "$(PKGFILE)"

@@ -58,10 +58,7 @@ Depending on which package you're building, you may also need additional tools. 
 these can be installed using your distribution. Some of them have special entries in the
 `build` requirements section of meta.yaml:
 
-* `fortran`: You must install the Fortran compiler from
-  [here](https://github.com/mzakharo/android-gfortran/releases/tag/r21e). Create a
-  `fortran` subdirectory in the same directory as this README, and unpack the .bz2 files
-  into it.
+* `fortran`: A Fortran compiler will be downloaded automatically.
 * `rust`: `rustup` must be on the PATH.
 
 
