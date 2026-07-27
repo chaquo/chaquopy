@@ -53,8 +53,7 @@ also be given here.
     version, and publish them to the website.
   * If it fails, plan to perform a Chaquopy release as soon as possible, because Android
     Studio's auto-updater will cause many users to move to the new AGP version.
-* Revert the changes to test_gradle_plugin.py, then run all integration tests against
-  the Chaquopy development version and the new AGP version.
+* Revert the changes to test_gradle_plugin.py.
 
 * Open the "product" project in the new Android Studio version, then:
   * Sync the project.
@@ -68,6 +67,8 @@ also be given here.
   * Test the app.
 * Close all projects to make sure .idea files are written.
 * Add .gitignore entries if necessary.
+* Commit and push to GitHub, and check that CI passes on all platforms with the Chaquopy
+  development version.
 
 
 ## Removing support for an Android Gradle plugin version
