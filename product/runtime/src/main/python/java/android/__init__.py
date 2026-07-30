@@ -85,6 +85,8 @@ def initialize_os():
     # these result in an OSError, so the calling code will still work, but it generates
     # a log message like `avc: denied { ioctl } for path="pipe:[10138300]"`, which can
     # be a problem if the app is doing it repeatedly.
+    #
+    # TODO: remove once fixed upstream (https://github.com/python/cpython/pull/154885).
     def get_terminal_size_override(*args, **kwargs):
         error = errno.ENOTTY
         raise OSError(error, os.strerror(error))
@@ -114,6 +116,7 @@ def initialize_ssl():
     ssl.SSLContext.set_default_verify_paths = set_default_verify_paths
 
 
+# TODO: remove once fixed upstream (https://github.com/python/cpython/issues/134634).
 def initialize_multiprocessing():
     from multiprocessing import context, heap, pool
     import threading
