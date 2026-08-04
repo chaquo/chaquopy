@@ -336,10 +336,6 @@ implements ViewTreeObserver.OnGlobalLayoutListener, ViewTreeObserver.OnScrollCha
 
     }
 
-    public int resId(String type, String name) {
-        return Utils.resId(this, type, name);
-    }
-
     // =============================================================================================
 
     public static abstract class Task extends AndroidViewModel {
