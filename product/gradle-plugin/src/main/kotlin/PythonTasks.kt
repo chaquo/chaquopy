@@ -8,7 +8,8 @@ import org.apache.commons.compress.archivers.zip.*
 import org.gradle.api.*
 import org.gradle.api.artifacts.*
 import org.gradle.api.file.*
-import org.gradle.api.provider.ListProperty
+import org.gradle.api.model.*
+import org.gradle.api.provider.*
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
@@ -18,6 +19,7 @@ import org.gradle.process.*
 import org.gradle.process.internal.*
 import org.json.*
 import java.io.*
+import java.nio.file.*
 import java.security.*
 import java.util.*
 import javax.inject.*
@@ -87,8 +89,9 @@ internal class TaskBuilder(
         @TaskAction
         override fun run() {
             super.run()
+            val findCommandDir = file(findCommandDir)
+            val outputDir = file(outputDir)
 
-            val findCommandDir = project.file(this@BuildPackagesTask.findCommandDir)
             val errorFile = findCommandDir.resolve(ERROR_FILENAME)
             if (errorFile.exists()) {
                 fsOps.copy {
@@ -102,31 +105,31 @@ internal class TaskBuilder(
                 findCommandDir.resolve(COMMAND_FILENAME).readText().split("\n")
             execOps.exec {
                 commandLine(command)
-                args("-m", "venv", "--without-pip", project.file(outputDir))
+                args("-m", "venv", "--without-pip", outputDir)
             }
 
-            val zipPath = extractResource("build-packages.zip", project.file(outputDir))
-            project.copy {
-                from(project.zipTree(zipPath))
+            val zipPath = extractResource("build-packages.zip", outputDir)
+            copy {
+                from(zipTree(zipPath))
                 into(sitePackages)
             }
-            project.delete(zipPath)
+            delete(zipPath)
 
             // Pre-generate the __pycache__ directories to avoid the outputDir
             // contents changing and breaking the up to date checks.
             execOps.exec {
                 commandLine(command)
-                args("-Wignore", "-m", "compileall", "-qq",
-                    project.file(outputDir))
+                args("-Wignore", "-m", "compileall", "-qq", outputDir)
             }
         }
 
         @get:Internal
         val sitePackages by lazy {
+            val outputDir = file(outputDir)
             val libPythonDir = if (osName() == "windows") {
-                assertExists(project.file(outputDir).resolve("Lib"))
+                assertExists(outputDir.resolve("Lib"))
             } else {
-                val libDir = assertExists(project.file(outputDir).resolve("lib"))
+                val libDir = assertExists(outputDir.resolve("lib"))
                 val pythonDirs = libDir.listFiles()!!.filter {
                     it.name.startsWith("python")
                 }
@@ -156,7 +159,8 @@ internal class TaskBuilder(
 
             outputDir.set(plugin.buildSubdir("sources", variant))
             doLast {
-                project.copy {
+                val outputDir = file(outputDir)
+                copy {
                     for (dirSet in dirSets) {
                         for (srcDir in dirSet.srcDirs) {
                             from(srcDir) {
@@ -174,14 +178,14 @@ internal class TaskBuilder(
                     // Allow duplicates for empty files (e.g. __init__.py)
                     eachFile {
                         if (file.length() == 0L) {
-                            val destFile = project.file(outputDir).resolve(path)
+                            val destFile = outputDir.resolve(path)
                             if (destFile.exists() && destFile.length() == 0L) {
                                 duplicatesStrategy = DuplicatesStrategy.INCLUDE
                             }
                         }
                     }
                 }
-                compilePyc(python.pyc.src, project.file(outputDir))
+                compilePyc(python.pyc.src, outputDir)
             }
         }
 
@@ -211,6 +215,7 @@ internal class TaskBuilder(
 
             // Keep the path short to avoid the the Windows 260-character limit.
             outputDir.set(plugin.buildSubdir("pip", variant))
+            val outputDir = project.file(outputDir)
 
             val reqsArgs = ArrayList<String>()
             for (req in python.pip.reqs) {
@@ -233,7 +238,7 @@ internal class TaskBuilder(
 
             val args = ArrayList<String>().apply {
                 args("-m", "chaquopy.pip_install")
-                args("--target", project.file(outputDir))
+                args("--target", outputDir)
                 args("--android-abis", *abis.toTypedArray())
                 args("--min-api-level", variant.minSdkVersion.apiLevel)
                 args(reqsArgs)
@@ -245,17 +250,17 @@ internal class TaskBuilder(
             doLast {
                 if (!reqsArgs.isEmpty()) {
                     execBuildPython(args)
-                    compilePyc(python.pyc.pip, project.file(outputDir))
+                    compilePyc(python.pyc.pip, outputDir)
                 }
 
                 // In #250 it looks like someone used a buildPython which returned
                 // success without doing anything. This led to a runtime crash because
                 // the requirements ZIPs were missing from the app.
                 for (subdirName in listOf(Common.ABI_COMMON) + abis) {
-                    val subdir = project.file(outputDir).resolve(subdirName)
+                    val subdir = outputDir.resolve(subdirName)
                     if (!subdir.exists()) {
                         if (reqsArgs.isEmpty()) {
-                            project.mkdir(subdir)
+                            mkdir(subdir)
                         } else {
                             throw GradleException("$subdir was not created: please " +
                                                   "check your buildPython setting")
@@ -273,12 +278,7 @@ internal class TaskBuilder(
     fun addReqInput(inputs: TaskInputs, req: String, baseDir: File) {
         var file: File?
         try {
-            file = File(req)
-            if (! file.isAbsolute) {
-                // Passing two absolute paths to the File constructor will simply
-                // concatenate them rather than returning the second one.
-                file = File(baseDir, req)
-            }
+            file = baseDir.resolve(req)
             if (! file.exists()) {
                 file = null
             }
@@ -344,7 +344,7 @@ internal class TaskBuilder(
             inputs.files(srcTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
-                makeZip(project.fileTree(srcTask.get().outputDir)
+                makeZip(fileTree(srcTask.get().outputDir)
                             .matching { exclude(excludePy) },
                         File(assetDir, assetZip(Common.ASSET_APP)))
             }
@@ -354,9 +354,9 @@ internal class TaskBuilder(
             inputs.files(reqsTask)
             inputs.property("extractPackages", python.extractPackages)
             doLast {
-                for (subdir in project.file(reqsTask.get().outputDir).listFiles()!!) {
+                for (subdir in file(reqsTask.get().outputDir).listFiles()!!) {
                     makeZip(
-                        project.fileTree(subdir).matching { exclude(excludePy) },
+                        fileTree(subdir).matching { exclude(excludePy) },
                         File(assetDir, assetZip(Common.ASSET_REQUIREMENTS, subdir.name)))
                 }
             }
@@ -370,7 +370,7 @@ internal class TaskBuilder(
             inputs.files(runtimeBootstrap, runtimeModules, targetStdlib, targetNative)
 
             doLast {
-                project.copy {
+                copy {
                     fromRuntimeArtifact(runtimeBootstrap)
                     from(targetStdlib) {
                         rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
@@ -421,24 +421,24 @@ internal class TaskBuilder(
                 }
 
                 for (abi in abis) {
-                    project.copy {
-                        from(project.zipTree(resolveArtifact(targetNative, abi).file))
+                    copy {
+                        from(zipTree(resolveArtifact(targetNative, abi).file))
                         include("lib-dynload/**")
                         into(assetDir)
                     }
-                    makeZip(project.fileTree("$assetDir/lib-dynload/$abi")
+                    makeZip(fileTree("$assetDir/lib-dynload/$abi")
                                 .matching { exclude(BOOTSTRAP_NATIVE_STDLIB) },
                             File(assetDir, assetZip(Common.ASSET_STDLIB, abi)))
 
                     val bootstrapDir = "$assetDir/${Common.ASSET_BOOTSTRAP_NATIVE}/$abi"
-                    project.copy {
+                    copy {
                         from("$assetDir/lib-dynload/$abi")
                         include(BOOTSTRAP_NATIVE_STDLIB)
                         into(bootstrapDir)
                     }
-                    project.delete("$assetDir/lib-dynload")
+                    delete("$assetDir/lib-dynload")
 
-                    project.copy {
+                    copy {
                         fromRuntimeArtifact(runtimeModules, abi)
                         into("$bootstrapDir/java")
                     }
@@ -483,8 +483,8 @@ internal class TaskBuilder(
                     // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in
                     // the build directory.
                     // (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
-                    project.copy {
-                        from(project.zipTree(art.file))
+                    copy {
+                        from(zipTree(art.file))
                         include("jniLibs/**")
                         into(outputDir)
                         eachFile {
@@ -499,9 +499,9 @@ internal class TaskBuilder(
                 }
 
                 for (abi in abis) {
-                    project.copy {
+                    copy {
                         fromRuntimeArtifact(runtimeJni, abi)
-                        into(project.file(outputDir).resolve(abi))
+                        into(file(outputDir).resolve(abi))
                     }
                 }
             }
@@ -538,7 +538,7 @@ internal class TaskBuilder(
         }
 
         fun execBuildPython(args: List<String>) {
-            val buildVenv = project.file(buildVenv)
+            val buildVenv = file(buildVenv)
             val errorFile = buildVenv.resolve(ERROR_FILENAME)
             if (errorFile.exists()) {
                 throw ExecException(errorFile.readText())
@@ -583,11 +583,7 @@ internal class TaskBuilder(
         }
     }
 
-    fun registerTask(
-        verb: String, noun: String, configure: OutputDirTask.() -> Unit
-    ) = registerTask(verb, noun, OutputDirTask::class, configure)
-
-    fun <T: OutputDirTask> registerTask(
+    fun <T: Task> registerTask(
         verb: String, noun: String, cls: KClass<T>, configure: T.() -> Unit
     ): TaskProvider<T> {
         // This matches the format of the AGP's own task names.
@@ -614,8 +610,40 @@ internal class TaskBuilder(
 
 
 abstract class PythonTask : DefaultTask() {
+    @get:Inject abstract val objects: ObjectFactory
+    @get:Inject abstract val layout: ProjectLayout
     @get:Inject abstract val execOps: ExecOperations
     @get:Inject abstract val fsOps: FileSystemOperations
+    @get:Inject abstract val archiveOps: ArchiveOperations
+
+    // Replacements for Project methods, which aren't available at execution time when
+    // the configuration cache is enabled.
+    fun file(path: File) =
+        layout.projectDirectory.asFile.resolve(path)
+
+    fun file(path: String) =
+        file(File(path))
+
+    fun <T: FileSystemLocation> file(path: FileSystemLocationProperty<T>) =
+        file(path.get().asFile)
+
+    fun fileTree(path: Any) =
+        objects.fileTree().from(path)
+
+    fun mkdir(path: File) {
+        Files.createDirectories(path.toPath())
+    }
+
+    fun copy(configure: CopySpec.() -> Unit) {
+        fsOps.copy(configure)
+    }
+
+    fun delete(path: Any) {
+        fsOps.delete { delete(path) }
+    }
+
+    fun zipTree(path: Any) =
+        archiveOps.zipTree(path)
 }
 
 
@@ -637,7 +665,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
         super.run()
         val version = version.get()
         val bpSetting = bpSetting.getOrNull()
-        val outputDir = project.file(outputDir)
+        val outputDir = file(outputDir)
 
         val bps = sequence {
             if (bpSetting != null) {
@@ -690,7 +718,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
                 }
             }
         }
-        project.file(outputDir).resolve(ERROR_FILENAME).writeText(
+        outputDir.resolve(ERROR_FILENAME).writeText(
             if (bpSetting != null) {
                 "$bpSetting is not a valid Python $version command: $error. " +
                 BUILD_PYTHON_ADVICE
@@ -703,11 +731,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
     // To reduce differences between platforms, and make testing easier, we resolve
     // executables to absolute paths manually (#1411).
     fun findExecutable(executable: String): File {
-        var execFile = File(executable)
-        if (!execFile.isAbsolute) {
-            execFile = File(project.projectDir, executable)
-        }
-
+        var execFile = file(executable)
         if (execFile.exists()) {
             return execFile
         } else {
@@ -755,20 +779,21 @@ abstract class OutputDirTask : PythonTask() {
 
     @TaskAction
     open fun run() {
-        project.delete(outputDir)
-        project.mkdir(outputDir)
+        val outputDir = file(outputDir)
+        delete(outputDir)
+        mkdir(outputDir)
     }
 }
 
 abstract class AssetDirTask : OutputDirTask() {
     @get:Internal
     val assetDir
-        get() = project.file(outputDir).resolve(Common.ASSET_DIR)
+        get() = file(outputDir).resolve(Common.ASSET_DIR)
 
     @TaskAction
     override fun run() {
         super.run()
-        project.mkdir(assetDir)
+        mkdir(assetDir)
     }
 }
 
