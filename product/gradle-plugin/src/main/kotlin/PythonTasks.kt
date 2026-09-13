@@ -94,7 +94,7 @@ internal class TaskBuilder(
 
             val errorFile = findCommandDir.resolve(ERROR_FILENAME)
             if (errorFile.exists()) {
-                fsOps.copy {
+                copy {
                     from(errorFile)
                     into(outputDir)
                 }
@@ -103,7 +103,7 @@ internal class TaskBuilder(
 
             val command =
                 findCommandDir.resolve(COMMAND_FILENAME).readText().split("\n")
-            execOps.exec {
+            exec {
                 commandLine(command)
                 args("-m", "venv", "--without-pip", outputDir)
             }
@@ -117,7 +117,7 @@ internal class TaskBuilder(
 
             // Pre-generate the __pycache__ directories to avoid the outputDir
             // contents changing and breaking the up to date checks.
-            execOps.exec {
+            exec {
                 commandLine(command)
                 args("-Wignore", "-m", "compileall", "-qq", outputDir)
             }
@@ -544,7 +544,7 @@ internal class TaskBuilder(
                 throw ExecException(errorFile.readText())
             }
 
-            execOps.exec {
+            exec {
                 executable(
                     buildVenv.resolve(
                         if (osName() == "windows") "Scripts/python.exe" else "bin/python"
@@ -630,20 +630,20 @@ abstract class PythonTask : DefaultTask() {
     fun fileTree(path: Any) =
         objects.fileTree().from(path)
 
-    fun mkdir(path: File) {
-        Files.createDirectories(path.toPath())
-    }
+    fun mkdir(path: File) =
+        Files.createDirectories(path.toPath()).toFile()
 
-    fun copy(configure: CopySpec.() -> Unit) {
+    fun copy(configure: CopySpec.() -> Unit) =
         fsOps.copy(configure)
-    }
 
-    fun delete(path: Any) {
+    fun delete(path: Any) =
         fsOps.delete { delete(path) }
-    }
 
     fun zipTree(path: Any) =
         archiveOps.zipTree(path)
+
+    fun exec(configure: ExecSpec.() -> Unit) =
+        execOps.exec(configure)
 }
 
 
@@ -695,7 +695,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
                     add(findExecutable(bp[0]).toString())
                     addAll(bp.subList(1, bp.size))
                 }
-                execOps.exec {
+                exec {
                     commandLine(bpResolved)
                     args(checkScript, version)
                     standardOutput = stdout
@@ -891,10 +891,4 @@ fun MutableList<String>.args(args: Iterable<Any>) {
     for (arg in args) {
         add(arg.toString())
     }
-}
-
-
-fun warn(message: String) {
-    // This prefix causes Android Studio to show the line as a warning in tree view.
-    println("Warning: $message")
 }

@@ -327,3 +327,9 @@ fun pythonVersionInfo(python: PythonExtension): Map.Entry<String, String> {
     throw GradleException(
         "Failed to find information for Python version '$version'.")
 }
+
+
+fun warn(message: String) {
+    // This prefix causes Android Studio to show the line as a warning in tree view.
+    println("Warning: $message")
+}
