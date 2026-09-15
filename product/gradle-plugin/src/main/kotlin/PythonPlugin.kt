@@ -178,46 +178,45 @@ class PythonPlugin : Plugin<Project> {
         project.dependencies.add("api", project.files(runtimeJava))
     }
 
-    fun addDependency(configName: String, dep: Map<String, String>): Configuration {
+    fun addDependency(
+        configName: String,
+        group: String, name: String, version: String, classifier: String?, ext: String
+    ): Configuration {
         val config = configs.getOrPut(configName) {
             buildscript.configurations.detachedConfiguration()
         }
-        config.dependencies.add(buildscript.dependencies.create(dep))
+        config.dependencies.add(buildscript.dependencies.create(
+            listOf(group, name, version, classifier)
+                .filterNotNull().joinToString(":")
+            + "@$ext"
+        ))
         return config
     }
 
     fun addRuntimeDependency(
         config: String, filename: String, variant: Variant? = null,
         python: PythonExtension? = null, abi: String? = null
-    ) =
-        addDependency(
+    ): Configuration {
+        val dotPos = filename.lastIndexOf(".")
+        return addDependency(
             configName("runtime${config.capitalize()}", variant),
-            HashMap<String, String>().apply {
-                val dotPos = filename.lastIndexOf(".")
-                put("group", "com.chaquo.python.runtime")
-                put("name", filename.substring(0, dotPos))
-                put("version", chaquopyPluginInfo.version.toString())
-                put("ext", filename.substring(dotPos + 1))
-                if (python != null) {
-                    put("classifier", runtimeClassifier(python, abi))
-                }
-            }
+            "com.chaquo.python.runtime",
+            filename.substring(0, dotPos),
+            chaquopyPluginInfo.version.toString(),
+            if (python != null) runtimeClassifier(python, abi) else null,
+            filename.substring(dotPos + 1)
         )
+    }
 
     fun addTargetDependency(
         config: String, variant: Variant, python: PythonExtension, classifier: String
-    ) =
-        addDependency(
+    ): Configuration {
+        val (version, build) = pythonVersionInfo(python)
+        return addDependency(
             configName("target${config.capitalize()}", variant),
-            HashMap<String, String>().apply {
-                val (version, build) = pythonVersionInfo(python)
-                put("group", "com.chaquo.python")
-                put("name", "target")
-                put("version", "$version-$build")
-                put("classifier", classifier)
-                put("ext", "zip")
-            }
+            "com.chaquo.python", "target", "$version-$build", classifier, "zip"
         )
+    }
 
     fun getConfig(name: String, variant: Variant) =
         configs.get(configName(name, variant))!!
