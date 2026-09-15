@@ -6,7 +6,6 @@ import com.chaquo.python.internal.Common.assetZip
 import com.chaquo.python.internal.Common.osName
 import org.apache.commons.compress.archivers.zip.*
 import org.gradle.api.*
-import org.gradle.api.artifacts.*
 import org.gradle.api.file.*
 import org.gradle.api.model.*
 import org.gradle.api.provider.*
@@ -26,26 +25,30 @@ import javax.inject.*
 import kotlin.reflect.*
 
 
-internal class TaskBuilder(
-    val plugin: PythonPlugin, val variant: Variant, val python: PythonExtension,
-    val abis: List<String>
+class TaskBuilder(
+    val plugin: PythonPlugin, val variant: Variant, val python: PythonExtension
 ) {
     val project = plugin.project
-    lateinit var buildPackagesTask: Provider<BuildPackagesTask>
-    lateinit var srcTask: Provider<BuildPythonTask>
-    lateinit var reqsTask: Provider<BuildPythonTask>
 
     fun build() {
-        createConfigs()
-        buildPackagesTask = createBuildPackagesTask()
-        srcTask = createSrcTask()
-        reqsTask = createReqsTask()
-        createProxyTask()
-        createAssetsTasks()
-        createJniLibsTasks()
+        val abis = plugin.getAbis(variant, python)
+        createConfigs(abis)
+
+        val buildPackagesTask = registerBuildPackagesTask()
+        val srcTask = registerSrcTask(buildPackagesTask)
+        val reqsTask = registerReqsTask(buildPackagesTask, abis)
+        registerProxyTask(buildPackagesTask, srcTask, reqsTask)
+
+        val srcAssetsTask = registerZipTask("source", srcTask, SrcAssetsTask::class)
+        val reqsAssetsTask =
+            registerZipTask("requirements", reqsTask, ReqsAssetsTask::class)
+        val miscAssetsTask = registerMiscAssetsTask(abis)
+        registerBuildAssetsTask(srcAssetsTask, reqsAssetsTask, miscAssetsTask)
+
+        registerJniLibsTask(abis)
     }
 
-    fun createConfigs() {
+    fun createConfigs(abis: List<String>) {
         plugin.addRuntimeDependency(
             "bootstrap", assetZip(Common.ASSET_BOOTSTRAP), variant, python)
         plugin.addTargetDependency(
@@ -61,7 +64,7 @@ internal class TaskBuilder(
         }
     }
 
-    fun createBuildPackagesTask(): Provider<BuildPackagesTask> {
+    fun registerBuildPackagesTask(): Provider<BuildPackagesTask> {
         val findCommandTask = registerTask(
             "find", "command", FindPythonCommandTask::class
         ) {
@@ -84,14 +87,10 @@ internal class TaskBuilder(
     }
 
     abstract class BuildPackagesTask : OutputDirTask() {
-        @get:InputDirectory abstract val findCommandDir: DirectoryProperty
+        @get:InputFiles abstract val findCommandDir: DirectoryProperty
 
-        @TaskAction
-        override fun run() {
-            super.run()
+        override fun writeOutput(outputDir: File) {
             val findCommandDir = file(findCommandDir)
-            val outputDir = file(outputDir)
-
             val errorFile = findCommandDir.resolve(ERROR_FILENAME)
             if (errorFile.exists()) {
                 copy {
@@ -111,7 +110,7 @@ internal class TaskBuilder(
             val zipPath = extractResource("build-packages.zip", outputDir)
             copy {
                 from(zipTree(zipPath))
-                into(sitePackages)
+                into(findSitePackages(outputDir))
             }
             delete(zipPath)
 
@@ -123,14 +122,12 @@ internal class TaskBuilder(
             }
         }
 
-        @get:Internal
-        val sitePackages by lazy {
-            val outputDir = file(outputDir)
+        fun findSitePackages(outputDir: File): File {
             val libPythonDir = if (osName() == "windows") {
                 assertExists(outputDir.resolve("Lib"))
             } else {
-                val libDir = assertExists(outputDir.resolve("lib"))
-                val pythonDirs = libDir.listFiles()!!.filter {
+                val libDir = outputDir.resolve("lib")
+                val pythonDirs = listFiles(libDir).filter {
                     it.name.startsWith("python")
                 }
                 if (pythonDirs.size != 1) {
@@ -139,55 +136,55 @@ internal class TaskBuilder(
                 }
                 pythonDirs[0]
             }
-            libPythonDir.resolve("site-packages")
+            return assertIsDir(libPythonDir.resolve("site-packages"))
         }
     }
 
-    fun createSrcTask() =
-        registerTask("merge", "sources", BuildPythonTask::class) {
-            configure(python, buildPackagesTask.get())
-            inputs.property("pyc", python.pyc.src).optional(true)
+    fun registerSrcTask(buildPackagesTask: Provider<BuildPackagesTask>) =
+        registerTask("merge", "sources", SrcTask::class) {
+            configure(buildPackagesTask, python, python.pyc.src)
 
-            val dirSets = ArrayList<SourceDirectorySet>()
             for (name in sourceSetNames()) {
                 val dirSet = plugin.extension.sourceSets.findByName(name)
                 if (dirSet != null) {
-                    dirSets += dirSet
-                    inputs.files(dirSet)
+                    for (srcDir in dirSet.srcDirs) {
+                        srcTrees.add(fileTree(srcDir).apply {
+                            exclude(dirSet.excludes)
+                            include(dirSet.includes)
+                        })
+                    }
                 }
             }
-
             outputDir.set(plugin.buildSubdir("sources", variant))
-            doLast {
-                val outputDir = file(outputDir)
-                copy {
-                    for (dirSet in dirSets) {
-                        for (srcDir in dirSet.srcDirs) {
-                            from(srcDir) {
-                                exclude(dirSet.excludes)
-                                include(dirSet.includes)
-                            }
-                        }
-                    }
-                    duplicatesStrategy = DuplicatesStrategy.FAIL  // Overridden below
+        }
 
-                    exclude("**/*.pyc", "**/*.pyo")
-                    exclude("**/*.egg-info")  // See ExtractPackages.test_change
-                    into(outputDir)
+    abstract class SrcTask : BuildPythonTask() {
+        @get:InputFiles abstract val srcTrees: ListProperty<FileTree>
 
-                    // Allow duplicates for empty files (e.g. __init__.py)
-                    eachFile {
-                        if (file.length() == 0L) {
-                            val destFile = outputDir.resolve(path)
-                            if (destFile.exists() && destFile.length() == 0L) {
-                                duplicatesStrategy = DuplicatesStrategy.INCLUDE
-                            }
+        override fun writeOutput(outputDir: File) {
+            copy {
+                for (tree in srcTrees.get()) {
+                    from(tree)
+                }
+                duplicatesStrategy = DuplicatesStrategy.FAIL  // Overridden below
+
+                exclude("**/*.pyc", "**/*.pyo")
+                exclude("**/*.egg-info")  // See ExtractPackages.test_change
+                into(outputDir)
+
+                // Allow duplicates for empty files (e.g. __init__.py)
+                eachFile {
+                    if (file.length() == 0L) {
+                        val destFile = outputDir.resolve(path)
+                        if (destFile.exists() && destFile.length() == 0L) {
+                            duplicatesStrategy = DuplicatesStrategy.INCLUDE
                         }
                     }
                 }
-                compilePyc(python.pyc.src, outputDir)
             }
+            compilePyc()
         }
+    }
 
     fun sourceSetNames() = sequence {
         val buildType = variant.buildType!!
@@ -208,14 +205,13 @@ internal class TaskBuilder(
         }
     }
 
-    fun createReqsTask() =
-        registerTask("install", "requirements", BuildPythonTask::class) {
-            configure(python, buildPackagesTask.get())
-            inputs.property("pyc", python.pyc.pip).optional(true)
+    fun registerReqsTask(
+        buildPackagesTask: Provider<BuildPackagesTask>, abis: List<String>
+    ) = registerTask("install", "requirements", ReqsTask::class) {
+            configure(buildPackagesTask, python, python.pyc.pip)
 
             // Keep the path short to avoid the the Windows 260-character limit.
             outputDir.set(plugin.buildSubdir("pip", variant))
-            val outputDir = project.file(outputDir)
 
             val reqsArgs = ArrayList<String>()
             for (req in python.pip.reqs) {
@@ -236,39 +232,37 @@ internal class TaskBuilder(
                 } catch (_: FileNotFoundException) {}
             }
 
-            val args = ArrayList<String>().apply {
-                args("-m", "chaquopy.pip_install")
-                args("--target", outputDir)
-                args("--android-abis", *abis.toTypedArray())
-                args("--min-api-level", variant.minSdkVersion.apiLevel)
-                args(reqsArgs)
-                args("--")
-                args(python.pip.options)
+            if (!reqsArgs.isEmpty()) {
+                args.set(ArrayList<String>().apply {
+                    args("-m", "chaquopy.pip_install")
+                    args("--target", project.file(outputDir))
+                    args("--android-abis", *abis.toTypedArray())
+                    args("--min-api-level", variant.minSdkVersion.apiLevel)
+                    args(reqsArgs)
+                    args("--")
+                    args(python.pip.options)
+                })
             }
-            inputs.property("args", args)
+            this.abis.set(abis)
+        }
 
-            doLast {
-                if (!reqsArgs.isEmpty()) {
-                    execBuildPython(args)
-                    compilePyc(python.pyc.pip, outputDir)
-                }
+    abstract class ReqsTask : BuildPythonTask() {
+        @get:Input abstract val args: ListProperty<String>
+        @get:Input abstract val abis: ListProperty<String>
 
-                // In #250 it looks like someone used a buildPython which returned
-                // success without doing anything. This led to a runtime crash because
-                // the requirements ZIPs were missing from the app.
-                for (subdirName in listOf(Common.ABI_COMMON) + abis) {
-                    val subdir = outputDir.resolve(subdirName)
-                    if (!subdir.exists()) {
-                        if (reqsArgs.isEmpty()) {
-                            mkdir(subdir)
-                        } else {
-                            throw GradleException("$subdir was not created: please " +
-                                                  "check your buildPython setting")
-                        }
-                    }
+        override fun writeOutput(outputDir: File) {
+            val args = args.get()
+            if (!args.isEmpty()) {
+                execBuildPython(args)
+                compilePyc()
+            } else {
+                // Create empty directories so we have something to zip.
+                for (subdir in listOf(Common.ABI_COMMON) + abis.get()) {
+                    mkdir(outputDir.resolve(subdir))
                 }
             }
         }
+    }
 
     // TODO #719: Detect changes to indirect requirements or constraints files. The
     // `baseDir` argument will be useful for that, because pip resolves `-r` and `-c`
@@ -301,216 +295,259 @@ internal class TaskBuilder(
         }
     }
 
-    fun createProxyTask() {
-        registerGenerateTask(variant.sources.java!!, "proxies", BuildPythonTask::class) {
-            configure(python, buildPackagesTask.get())
+    fun registerProxyTask(
+        buildPackagesTask: Provider<BuildPackagesTask>,
+        srcTask: Provider<SrcTask>,
+        reqsTask: Provider<ReqsTask>
+    ) {
+        registerGenerateTask(variant.sources.java!!, "proxies", ProxyTask::class) {
+            configure(buildPackagesTask, python)
             inputs.files(reqsTask, srcTask)
             outputDir.set(plugin.buildSubdir("proxies", variant))
 
-            val args = ArrayList<String>().apply {
-                args("-m", "chaquopy.static_proxy")
-                args("--path",
-                     listOf(
-                         project.file(srcTask.get().outputDir),
-                         project.file(reqsTask.get().outputDir).resolve("common")
-                     ).joinToString(File.pathSeparator))
-                args("--java", project.file(outputDir))
-                args(python.staticProxy)
-            }
-            inputs.property("args", args)
-
-            doLast {
-                if (!python.staticProxy.isEmpty()) {
-                    execBuildPython(args)
-                }
+            if (!python.staticProxy.isEmpty()) {
+                args.set(ArrayList<String>().apply {
+                    args("-m", "chaquopy.static_proxy")
+                    args("--path",
+                        listOf(
+                            project.file(srcTask.get().outputDir),
+                            project.file(reqsTask.get().outputDir).resolve("common")
+                        ).joinToString(File.pathSeparator))
+                    args("--java", project.file(outputDir))
+                    args(python.staticProxy)
+                })
             }
         }
     }
 
-    fun createAssetsTasks() {
+    abstract class ProxyTask : BuildPythonTask() {
+        @get:Input abstract val args: ListProperty<String>
+
+        override fun writeOutput(outputDir: File) {
+            val args = args.get()
+            if (!args.isEmpty()) {
+                execBuildPython(args)
+            }
+        }
+    }
+
+    abstract class PythonZipTask : AssetDirTask() {
+        @get:InputFiles abstract val inputDir: DirectoryProperty
+        @get:Input abstract val extractPackages: SetProperty<String>
+
+        fun makeZip(dir: File, assetDir: File, zipName: String) {
+            makeZip(
+                fileTree(dir).matching { exclude(::excludePy) },
+                assetDir.resolve(zipName)
+            )
+        }
+
         // Exclude .py files which have a corresponding .pyc, unless unless they’re
         // included in extractPackages.
-        val excludePy = { fte: FileTreeElement ->
+        fun excludePy(fte: FileTreeElement) =
             if (fte.name.endsWith(".py") &&
                 File(fte.file.parent, fte.name + "c").exists()
             ) {
-                ! python.extractPackages.any {
+                ! extractPackages.get().any {
                     it == "*" || fte.path.replace("/", ".").startsWith(it + ".")
                 }
             } else false
+    }
+
+    fun <T: PythonZipTask> registerZipTask(
+        name: String, inputTask: Provider<out OutputDirTask>, cls: KClass<T>
+    ) = registerAssetTask(name, cls) {
+            inputDir.set(inputTask.get().outputDir)
+            extractPackages.set(python.extractPackages)
         }
 
-        val srcAssetsTask = registerAssetTask("source") {
-            inputs.files(srcTask)
-            inputs.property("extractPackages", python.extractPackages)
-            doLast {
-                makeZip(fileTree(srcTask.get().outputDir)
-                            .matching { exclude(excludePy) },
-                        File(assetDir, assetZip(Common.ASSET_APP)))
+    abstract class SrcAssetsTask : PythonZipTask() {
+        override fun writeAssets(assetDir: File) {
+            makeZip(file(inputDir), assetDir, assetZip(Common.ASSET_APP))
+        }
+    }
+
+    abstract class ReqsAssetsTask : PythonZipTask() {
+        override fun writeAssets(assetDir: File) {
+            for (subdir in listFiles(file(inputDir))) {
+                makeZip(
+                    subdir, assetDir, assetZip(Common.ASSET_REQUIREMENTS, subdir.name)
+                )
             }
         }
+    }
 
-        val reqsAssetsTask = registerAssetTask("requirements") {
-            inputs.files(reqsTask)
-            inputs.property("extractPackages", python.extractPackages)
-            doLast {
-                for (subdir in file(reqsTask.get().outputDir).listFiles()!!) {
-                    makeZip(
-                        fileTree(subdir).matching { exclude(excludePy) },
-                        File(assetDir, assetZip(Common.ASSET_REQUIREMENTS, subdir.name)))
+    fun registerMiscAssetsTask(abis: List<String>) =
+        registerAssetTask("misc", MiscAssetsTask::class) {
+            version.set(python.version)
+            this.abis.set(abis)
+            runtimeBootstrap.from(plugin.getConfig("runtimeBootstrap", variant))
+            runtimeModules.from(plugin.getConfig("runtimeModules", variant))
+            targetStdlib.from(plugin.getConfig("targetStdlib", variant))
+            targetNative.from(plugin.getConfig("targetNative", variant))
+        }
+
+    abstract class MiscAssetsTask : AssetDirTask() {
+        @get:Input abstract val version: Property<String>
+        @get:Input abstract val abis: ListProperty<String>
+        @get:InputFiles abstract val runtimeBootstrap: ConfigurableFileCollection
+        @get:InputFiles abstract val runtimeModules: ConfigurableFileCollection
+        @get:InputFiles abstract val targetStdlib: ConfigurableFileCollection
+        @get:InputFiles abstract val targetNative: ConfigurableFileCollection
+
+        override fun writeAssets(assetDir: File) {
+            copy {
+                fromRuntimeArtifact(runtimeBootstrap)
+                from(targetStdlib) {
+                    rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
                 }
+                into(assetDir)
             }
-        }
 
-        val miscAssetsTask = registerAssetTask("misc") {
-            val runtimeBootstrap = plugin.getConfig("runtimeBootstrap", variant)
-            val runtimeModules = plugin.getConfig("runtimeModules", variant)
-            val targetStdlib = plugin.getConfig("targetStdlib", variant)
-            val targetNative = plugin.getConfig("targetNative", variant)
-            inputs.files(runtimeBootstrap, runtimeModules, targetStdlib, targetNative)
+            // The following stdlib native modules are needed during bootstrap and are
+            // pre-extracted by AndroidPlatform so they can be loaded with the
+            // standard FileFinder. All other native modules are loaded from a .zip using
+            // AssetFinder.
+            //
+            // If this list changes, search for references to this variable name to
+            // find the tests that need to be updated.
+            val BOOTSTRAP_NATIVE_STDLIB = mutableListOf(
+                "_bz2.*",  // zipfile < importer
+                "_ctypes.*",  // java.primitive and importer
+                "_datetime.*",  // calendar < importer (see test_datetime)
+                "_lzma.*",  // zipfile < importer
+                "_random.*",  // random < tempfile < importer
+                "_sha512.*",  // random < tempfile < importer
+                "_struct.*",  // zipfile < importer
+                "binascii.*",  // zipfile < importer
+                "math.*",  // datetime < calendar < importer
+                "mmap.*",  // elftools < importer
+                "zlib.*"  // zipimport
+            )
 
-            doLast {
+            val versionParts = version.get().split(".")
+            val versionInt =
+                (versionParts[0].toInt() * 100) + versionParts[1].toInt()
+            if (versionInt >= 312) {
+                BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.*"))
+                BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                    "_sha2.*"  // random < tempfile < zipimport
+                ))
+            }
+            if (versionInt >= 313) {
+                BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.*"))
+                BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                    "_opcode.*"  // opcode < dis < inspect < importer
+                ))
+            }
+            if (versionInt >= 314) {
+                BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf(
+                    "_datetime.*", "_opcode.*"
+                ))
+            }
+
+            for (abi in abis.get()) {
                 copy {
-                    fromRuntimeArtifact(runtimeBootstrap)
-                    from(targetStdlib) {
-                        rename { assetZip(Common.ASSET_STDLIB, Common.ABI_COMMON) }
-                    }
+                    from(zipTree(resolveArtifact(targetNative, abi)))
+                    include("lib-dynload/**")
                     into(assetDir)
                 }
+                makeZip(fileTree("$assetDir/lib-dynload/$abi")
+                    .matching { exclude(BOOTSTRAP_NATIVE_STDLIB) },
+                    File(assetDir, assetZip(Common.ASSET_STDLIB, abi)))
 
-                // The following stdlib native modules are needed during bootstrap and are
-                // pre-extracted by AndroidPlatform so they can be loaded with the
-                // standard FileFinder. All other native modules are loaded from a .zip using
-                // AssetFinder.
-                //
-                // If this list changes, search for references to this variable name to
-                // find the tests that need to be updated.
-                val BOOTSTRAP_NATIVE_STDLIB = mutableListOf(
-                    "_bz2.*",  // zipfile < importer
-                    "_ctypes.*",  // java.primitive and importer
-                    "_datetime.*",  // calendar < importer (see test_datetime)
-                    "_lzma.*",  // zipfile < importer
-                    "_random.*",  // random < tempfile < importer
-                    "_sha512.*",  // random < tempfile < importer
-                    "_struct.*",  // zipfile < importer
-                    "binascii.*",  // zipfile < importer
-                    "math.*",  // datetime < calendar < importer
-                    "mmap.*",  // elftools < importer
-                    "zlib.*"  // zipimport
-                )
-
-                val versionParts = python.version!!.split(".")
-                val versionInt =
-                    (versionParts[0].toInt() * 100) + versionParts[1].toInt()
-                if (versionInt >= 312) {
-                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.*"))
-                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
-                        "_sha2.*"  // random < tempfile < zipimport
-                    ))
+                val bootstrapDir = "$assetDir/${Common.ASSET_BOOTSTRAP_NATIVE}/$abi"
+                copy {
+                    from("$assetDir/lib-dynload/$abi")
+                    include(BOOTSTRAP_NATIVE_STDLIB)
+                    into(bootstrapDir)
                 }
-                if (versionInt >= 313) {
-                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha2.*"))
-                    BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
-                        "_opcode.*"  // opcode < dis < inspect < importer
-                    ))
-                }
-                if (versionInt >= 314) {
-                    BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf(
-                        "_datetime.*", "_opcode.*"
-                    ))
-                }
+                delete("$assetDir/lib-dynload")
 
-                for (abi in abis) {
-                    copy {
-                        from(zipTree(resolveArtifact(targetNative, abi).file))
-                        include("lib-dynload/**")
-                        into(assetDir)
-                    }
-                    makeZip(fileTree("$assetDir/lib-dynload/$abi")
-                                .matching { exclude(BOOTSTRAP_NATIVE_STDLIB) },
-                            File(assetDir, assetZip(Common.ASSET_STDLIB, abi)))
-
-                    val bootstrapDir = "$assetDir/${Common.ASSET_BOOTSTRAP_NATIVE}/$abi"
-                    copy {
-                        from("$assetDir/lib-dynload/$abi")
-                        include(BOOTSTRAP_NATIVE_STDLIB)
-                        into(bootstrapDir)
-                    }
-                    delete("$assetDir/lib-dynload")
-
-                    copy {
-                        fromRuntimeArtifact(runtimeModules, abi)
-                        into("$bootstrapDir/java")
-                    }
+                copy {
+                    fromRuntimeArtifact(runtimeModules, abi)
+                    into("$bootstrapDir/java")
                 }
-                extractResource(Common.ASSET_CACERT, assetDir)
             }
+            extractResource(Common.ASSET_CACERT, assetDir)
+        }
+    }
+
+    fun registerBuildAssetsTask(vararg tasks: Provider<out AssetDirTask>) =
+        registerAssetTask("build", BuildAssetsTask::class) {
+            version.set(python.version)
+            for (task in tasks) {
+                inputDirs.from(task.get().outputDir)
+            }
+            extractPackages.set(python.extractPackages)
         }
 
-        registerAssetTask("build") {
-            val tasks = arrayOf(srcAssetsTask, reqsAssetsTask, miscAssetsTask)
-            inputs.files(*tasks)
-            doLast {
+        abstract class BuildAssetsTask : AssetDirTask() {
+            @get:Input abstract val version: Property<String>
+            @get:InputFiles abstract val inputDirs: ConfigurableFileCollection
+            @get:Input abstract val extractPackages: SetProperty<String>
+
+            override fun writeAssets(assetDir: File) {
                 val buildJson = JSONObject()
-                buildJson.put("python_version", python.version)
-                buildJson.put("assets", hashAssets(*tasks))
-                buildJson.put("extract_packages", JSONArray(python.extractPackages))
+                buildJson.put("python_version", version.get())
+                buildJson.put("assets", JSONObject().apply {
+                    for (dir in inputDirs) {
+                        hashAssets(this, dir.resolve(Common.ASSET_DIR), "")
+                    }
+                })
+                buildJson.put("extract_packages", JSONArray(extractPackages.get()))
                 File(assetDir, Common.ASSET_BUILD_JSON).writeText(buildJson.toString(4))
             }
         }
 
-    }
-
-    fun registerAssetTask(
-        name: String, configure: AssetDirTask.() -> Unit
+    fun <T: AssetDirTask> registerAssetTask(
+        name: String, cls: KClass<T>, configure: T.() -> Unit
     ) = registerGenerateTask(
-        variant.sources.assets!!, "${name}Assets", AssetDirTask::class
+        variant.sources.assets!!, "${name}Assets", cls
     ) {
         outputDir.set(plugin.buildSubdir("assets/$name", variant))
         configure()
     }
 
-    fun createJniLibsTasks() {
-        registerGenerateTask(variant.sources.jniLibs!!, "jniLibs") {
-            val runtimeJni = plugin.getConfig("runtimeJni", variant)
-            val targetNative = plugin.getConfig("targetNative", variant)
-            inputs.files(runtimeJni, targetNative)
-
+    fun registerJniLibsTask(abis: List<String>) =
+        registerGenerateTask(variant.sources.jniLibs!!, "jniLibs", JniLibsTask::class) {
+            this.abis.set(abis)
+            targetNative.from(plugin.getConfig("targetNative", variant))
+            runtimeJni.from(plugin.getConfig("runtimeJni", variant))
             outputDir.set(plugin.buildSubdir("jniLibs", variant))
-            doLast {
-                val artifacts = targetNative.resolvedConfiguration.resolvedArtifacts
-                for (art in artifacts) {
-                    // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in
-                    // the build directory.
-                    // (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
-                    copy {
-                        from(zipTree(art.file))
-                        include("jniLibs/**")
-                        into(outputDir)
-                        eachFile {
-                            relativePath = RelativePath(
-                                !file.isDirectory(),
-                                *relativePath.segments.let {
-                                    it.sliceArray(1 until it.size)
-                                })
-                        }
-                        includeEmptyDirs = false
+        }
+
+    abstract class JniLibsTask : OutputDirTask() {
+        @get:Input abstract val abis: ListProperty<String>
+        @get:InputFiles abstract val targetNative: ConfigurableFileCollection
+        @get:InputFiles abstract val runtimeJni: ConfigurableFileCollection
+
+        override fun writeOutput(outputDir: File) {
+            for (abi in abis.get()) {
+                // Copy jniLibs/<arch>/ in the ZIP to jniLibs/<variant>/<arch>/ in
+                // the build directory.
+                // (https://discuss.gradle.org/t/copyspec-support-for-moving-files-directories/7412/1)
+                copy {
+                    from(zipTree(resolveArtifact(targetNative, abi)))
+                    include("jniLibs/**")
+                    into(outputDir)
+                    eachFile {
+                        relativePath = RelativePath(
+                            !file.isDirectory(),
+                            *relativePath.segments.let {
+                                it.sliceArray(1 until it.size)
+                            })
                     }
+                    includeEmptyDirs = false
                 }
 
-                for (abi in abis) {
-                    copy {
-                        fromRuntimeArtifact(runtimeJni, abi)
-                        into(file(outputDir).resolve(abi))
-                    }
+                copy {
+                    fromRuntimeArtifact(runtimeJni, abi)
+                    into(outputDir.resolve(abi))
                 }
             }
         }
     }
-
-    fun registerGenerateTask(
-        sourceDirs: SourceDirectories, noun: String, configure: OutputDirTask.() -> Unit
-    ) = registerGenerateTask(sourceDirs, noun, OutputDirTask::class, configure)
 
     fun <T: OutputDirTask> registerGenerateTask(
         sourceDirs: SourceDirectories,
@@ -529,12 +566,18 @@ internal class TaskBuilder(
     }
 
     abstract class BuildPythonTask : OutputDirTask() {
+        @get:InputFiles abstract val buildVenv: DirectoryProperty
         @get:Input abstract val version: Property<String>
-        @get:InputDirectory abstract val buildVenv: DirectoryProperty
+        @get:Input @get:Optional abstract val pyc: Property<Boolean>
 
-        fun configure(python: PythonExtension, buildPackagesTask: BuildPackagesTask) {
+        fun configure(
+            buildPackagesTask: Provider<BuildPackagesTask>,
+            python: PythonExtension,
+            pyc: Boolean? = null
+        ) {
+            buildVenv.set(buildPackagesTask.get().outputDir)
             version.set(python.version)
-            buildVenv.set(buildPackagesTask.outputDir)
+            this.pyc.set(pyc)
         }
 
         fun execBuildPython(args: List<String>) {
@@ -556,7 +599,8 @@ internal class TaskBuilder(
 
         // We can't remove the .py files here because the static proxy generator needs
         // them. Instead, they'll be excluded when we call makeZip.
-        fun compilePyc(setting: Boolean?, dir: File) {
+        fun compilePyc() {
+            val setting = pyc.getOrNull()
             if (setting != false) {
                 try {
                     execBuildPython(ArrayList<String>().apply {
@@ -566,7 +610,7 @@ internal class TaskBuilder(
                         if (setting != true) {
                             args("--warning")
                         }
-                        args(dir)
+                        args(outputDir.get())
                     })
                 } catch (e: ExecException) {
                     if (setting == true) {
@@ -591,22 +635,45 @@ internal class TaskBuilder(
             "$verb${variant.name.capitalize()}Python${noun.capitalize()}",
             cls, configure)
     }
+}
 
-    fun resolveArtifact(config: Configuration, classifier: String): ResolvedArtifact {
-        return config.resolvedConfiguration.resolvedArtifacts.find {
-            it.classifier == classifier
-        }!!
+
+fun resolveArtifact(fc: FileCollection, abi: String? = null): File {
+    if (abi == null) {
+        return fc.singleFile
     }
-
-    fun CopySpec.fromRuntimeArtifact(
-        config: Configuration, abi: String? = null
-    ) {
-        val art = resolveArtifact(config, runtimeClassifier(python, abi))
-        from(art.file) {
-            rename { "${art.name}.${art.extension}" }
+    for (file in fc.files) {
+        if (!parseArtifact(file).versionClassifier.endsWith("-$abi")) {
+            continue
         }
+        return file
+    }
+    throw GradleException("artifact not found for ABI $abi)")
+}
+
+
+fun CopySpec.fromRuntimeArtifact(
+    fc: FileCollection, abi: String? = null
+) {
+    val file = resolveArtifact(fc, abi)
+    val parsed = parseArtifact(file)
+    from(file) {
+        rename { "${parsed.name}.${parsed.ext}" }
     }
 }
+
+
+fun parseArtifact(file: File): ParsedArtifact {
+    val match =
+        Regex("""(\w+)-(.+)\.(\w+)""").matchEntire(file.name)
+        ?: throw GradleException("Failed to parse artifact filename '${file.name}'")
+    val (name, versionClassifier, ext) = match.destructured
+    return ParsedArtifact(name, versionClassifier, ext)
+}
+
+data class ParsedArtifact(
+    val name: String, val versionClassifier: String, val ext: String
+)
 
 
 abstract class PythonTask : DefaultTask() {
@@ -624,7 +691,7 @@ abstract class PythonTask : DefaultTask() {
     fun file(path: String) =
         file(File(path))
 
-    fun <T: FileSystemLocation> file(path: FileSystemLocationProperty<T>) =
+    fun file(path: Provider<out FileSystemLocation>) =
         file(path.get().asFile)
 
     fun fileTree(path: Any) =
@@ -660,13 +727,9 @@ abstract class FindPythonCommandTask : OutputDirTask() {
     @get:Input abstract val version: Property<String>
     @get:Input @get:Optional abstract val bpSetting: ListProperty<String>
 
-    @TaskAction
-    override fun run() {
-        super.run()
+    override fun writeOutput(outputDir: File) {
         val version = version.get()
         val bpSetting = bpSetting.getOrNull()
-        val outputDir = file(outputDir)
-
         val bps = sequence {
             if (bpSetting != null) {
                 yield(bpSetting)
@@ -712,7 +775,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
                     error = stderr.toString().trim()
                     gotStderr = true
 
-                // Prefer an earlier error over a later one.
+                    // Prefer an earlier error over a later one.
                 } else if (error == null) {
                     error = e.message ?: e.javaClass.name
                 }
@@ -774,40 +837,32 @@ val COMMAND_FILENAME = "command.txt"
 val STDOUT_FILENAME = "stdout.txt"
 
 abstract class OutputDirTask : PythonTask() {
-    @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
-    @TaskAction
-    open fun run() {
+    @TaskAction fun run() {
         val outputDir = file(outputDir)
         delete(outputDir)
         mkdir(outputDir)
+        writeOutput(outputDir)
     }
+
+    abstract fun writeOutput(outputDir: File)
 }
+
 
 abstract class AssetDirTask : OutputDirTask() {
-    @get:Internal
-    val assetDir
-        get() = file(outputDir).resolve(Common.ASSET_DIR)
-
-    @TaskAction
-    override fun run() {
-        super.run()
+    final override fun writeOutput(outputDir: File) {
+        val assetDir = outputDir.resolve(Common.ASSET_DIR)
         mkdir(assetDir)
+        writeAssets(assetDir)
     }
+
+    abstract fun writeAssets(assetDir: File)
 }
 
-
-fun hashAssets(vararg tasks: Provider<AssetDirTask>): JSONObject {
-    val json = JSONObject()
-    for (task in tasks) {
-        hashAssets(json, task.get().assetDir, "")
-    }
-    return json
-}
 
 fun hashAssets(json: JSONObject, dir: File, prefix: String) {
-    for (file in dir.listFiles()!!) {
+    for (file in listFiles(dir)) {
         val path = prefix + file.name
         if (file.isDirectory()) {
             hashAssets(json, file, path + "/")
@@ -880,6 +935,19 @@ fun assertExists(f: File) : File {
         throw GradleException("$f does not exist")
     }
     return f
+}
+
+fun assertIsDir(f: File) : File {
+    assertExists(f)
+    if (!f.isDirectory()) {
+        throw GradleException("$f is not a directory")
+    }
+    return f
+}
+
+fun listFiles(dir: File): Array<File> {
+    assertIsDir(dir)
+    return dir.listFiles()!!
 }
 
 

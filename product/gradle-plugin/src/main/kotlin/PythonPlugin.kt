@@ -247,7 +247,7 @@ class PythonPlugin : Plugin<Project> {
         for ((_, flavor) in variant.productFlavors.reversed()) {
             python.mergeFrom(extension.productFlavors.getByName(flavor))
         }
-        TaskBuilder(this, variant, python, getAbis(variant, python)).build()
+        TaskBuilder(this, variant, python).build()
     }
 
     // variant.externalNativeBuild returns "null if no cmake external build is
