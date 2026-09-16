@@ -1695,7 +1695,8 @@ class RunGradle(object):
                     self.dump_run(f"check_apk failed for variant '{variant}'")
                 self.test.assertFalse(merged_kwargs.unused_kwargs)
 
-            # Run a second time to check all tasks are considered up to date.
+            # Run a second time with no changes - all tasks should be considered up to
+            # date except for FindPythonCommand.
             first_stdout = self.stdout
             status, second_stdout, second_stderr = \
                 self.run_gradle(variants, env, java_version)
@@ -1704,13 +1705,18 @@ class RunGradle(object):
                 self.dump_run("Second run: exit status {}".format(status))
 
             # I've occasionally seen Gradle print a task header twice: once without
-            # “UP-TO-DATE” and once with, even though the task was not re-run. So simply
-            # searching the second run output for "Python" tasks is not reliable.
+            # “UP-TO-DATE” and once with. In this case, the task was not re-run, so we
+            # treat it as up-to-date.
             num_tasks = 0
             for line in first_stdout.splitlines():
                 if match := re.search(r"^> Task (\S+Python\S+)", line):
-                    self.test.assertInLong(f"> Task {match[1]} UP-TO-DATE", second_stdout,
-                                           msg=("=== FIRST RUN ===\n" + first_stdout))
+                    task = match[1]
+                    assertion = (
+                        self.test.assertNotInLong if task.endswith("PythonCommand")
+                        else self.test.assertInLong
+                    )
+                    assertion(f"> Task {task} UP-TO-DATE", second_stdout,
+                              msg=("=== FIRST RUN ===\n" + first_stdout))
                     num_tasks += 1
             self.test.assertGreater(num_tasks, 0, msg=first_stdout)
 
