@@ -149,8 +149,10 @@ class TaskBuilder(
                 if (dirSet != null) {
                     for (srcDir in dirSet.srcDirs) {
                         srcTrees.add(fileTree(srcDir).apply {
-                            exclude(dirSet.excludes)
                             include(dirSet.includes)
+                            exclude(dirSet.excludes)
+                            exclude("**/*.pyc", "**/*.pyo")
+                            exclude("**/*.egg-info")  // See ExtractPackages.test_change
                         })
                     }
                 }
@@ -167,9 +169,6 @@ class TaskBuilder(
                     from(tree)
                 }
                 duplicatesStrategy = DuplicatesStrategy.FAIL  // Overridden below
-
-                exclude("**/*.pyc", "**/*.pyo")
-                exclude("**/*.egg-info")  // See ExtractPackages.test_change
                 into(outputDir)
 
                 // Allow duplicates for empty files (e.g. __init__.py)
