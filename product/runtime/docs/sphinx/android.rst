@@ -247,7 +247,7 @@ Or if you're using Briefcase, do the following:
 * Run `briefcase create android`.
 
 In :doc:`this version of Chaquopy <../versions>`, the default Python version is 3.10,
-and the other available versions are 3.11, 3.12, 3.13 and 3.14. Different Python
+and the other available versions are 3.11, 3.12, 3.13, 3.14 and 3.15. Different Python
 versions will support a different selection of :ref:`packages <android-requirements>`.
 
 Python 3.11 and older supports both :ref:`32-bit and 64-bit ABIs <android-abis>`. Python

@@ -430,7 +430,7 @@ class TaskBuilder(
             if (versionInt >= 312) {
                 BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf("_sha512.*"))
                 BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
-                    "_sha2.*"  // random < tempfile < zipimport
+                    "_sha2.*"  // random < tempfile < importer
                 ))
             }
             if (versionInt >= 313) {
@@ -442,6 +442,11 @@ class TaskBuilder(
             if (versionInt >= 314) {
                 BOOTSTRAP_NATIVE_STDLIB.removeAll(listOf(
                     "_datetime.*", "_opcode.*"
+                ))
+            }
+            if (versionInt >= 315) {
+                BOOTSTRAP_NATIVE_STDLIB.addAll(listOf(
+                    "_math_integer.*"  // random < tempfile < importer
                 ))
             }
 

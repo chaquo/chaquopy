@@ -104,7 +104,7 @@ ABIs, with at least one device being each of the following:
 
 ## Public release
 
-Use release/bundle.sh to create bundles for the following things, and [release them to
+Use release/bundle.sh to create a bundle with the following things, and [release it to
 Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
 
 * `com.chaquo.python.gradle.plugin`

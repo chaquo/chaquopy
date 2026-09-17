@@ -90,7 +90,6 @@ also be given here.
 
 Target:
 
-* Update Common.java.
 * Build the target packages as described in target/README.md.
 
 Product:
@@ -99,18 +98,20 @@ Product:
 * Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
 * Update .github/actions/setup-python/action.yml.
 * Update android.rst and versions.rst.
-
-Tests (this list is referenced from target/README.md):
-
 * Run `gradle:testPython`.
-* Run `Dsl` integration test, and update stdlib modules list as necessary.
-* Run pkgtest app with no packages, and verify you can get as far as the Python console.
-  This may require further updates to `BOOTSTRAP_NATIVE_STDLIB`.
-* Build, test and release any packages used by the demo app and integration tests.
+
+Tests (this list is also referenced from target/README.md):
+
+* Run the `Dsl` integration tests. This may require updates to the stdlib modules list
+  in test_gradle_plugin.py.
+* Temporarily change the Chaquopy and Python versions of the pkgtest app, and verify you
+  can run it and open the Python console. This may require updates to the bootstrap
+  modules lists in PythonTasks.kt, test_gradle_plugin.py and test_import.py.
 * Run all integration tests.
+* Build, test and release any packages used by the demo app.
 * Temporarily change the Python version of the demo app, and run the Python and Java
   unit tests on the full set of pre-release devices (see release/README.md).
-* Release the target packages to Maven Central (see release/README.md).
+* To support CI, release the target packages to Maven Central (see release/README.md).
 
 
 ## Removing a Python version
