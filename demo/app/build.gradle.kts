@@ -44,12 +44,6 @@ android {
         versionCode = verParsed[0] * 1000000 +
                       verParsed[1] * 1000 +
                       verParsed[2] * 10
-
-        ndk {
-            abiFilters += listOf(
-                "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
-            )
-        }
     }
 
     androidResources {
@@ -93,6 +87,12 @@ android {
 chaquopy {
     defaultConfig {
         version = "3.10"
+        android.defaultConfig.ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+            if (version in listOf("3.10", "3.11")) {
+                abiFilters += listOf("armeabi-v7a", "x86")
+            }
+        }
 
         // Android UI demo
         pip {
