@@ -286,7 +286,7 @@ class BuildWheel:
 
     def get_bootstrap_env(self, python_ver):
         bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{python_ver}"
-        pip_version = "23.2.1"
+        pip_version = "25.3"
 
         def check_bootstrap_env():
             if not run(
