@@ -119,7 +119,13 @@ else
     mkdir -p cross-build/build
     ln -s "$(which python$version_short)" cross-build/build/python
 
-    Android/android.py configure-host "$HOST"
-    Android/android.py make-host "$HOST"
+    if [ $version_int -le 314 ]; then
+        android_script="Android/android.py"
+    else
+        android_script="Platforms/Android"
+    fi
+
+    python$version_short "$android_script" configure-host "$HOST"
+    python$version_short "$android_script" make-host "$HOST"
     cp -a "cross-build/$HOST/prefix/"* "$PREFIX"
 fi
