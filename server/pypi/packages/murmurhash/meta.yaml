@@ -1,17 +1,12 @@
-# We also maintain an older version of this package to support the Chaquopy unit tests -
-# see the branch `murmurhash-0`.
-
 package:
   name: murmurhash
   version: 0.28.0
 
 build:
-  number: 10
+  number: 11
 
 requirements:
   build:
+    # The .cpp file in the sdist isn't compatible with current Python versions, so it
+    # needs to be regenerated.
     - Cython 3.0.11
-
-    # Newer versions removed msvccompiler, and ignore CFLAGS environment variable for
-    # some reason.
-    - setuptools 69.0.2

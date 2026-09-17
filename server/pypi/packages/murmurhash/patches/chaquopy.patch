@@ -1,14 +1,17 @@
 --- src-original/setup.py	2017-06-01 07:25:11.000000000 +0000
-+++ src/setup.py	2022-09-25 21:06:47.012175663 +0000
-@@ -7,6 +7,7 @@
++++ src/setup.py	2026-09-17 10:27:07.118721947 +0000
+@@ -6,7 +6,9 @@
+ import contextlib
  from distutils.command.build_ext import build_ext
  from distutils.sysconfig import get_python_inc
- from distutils import ccompiler, msvccompiler
+-from distutils import ccompiler, msvccompiler
++# Chaquopy: removed msvccompiler, which no longer exists in current versions of distutils.
++from distutils import ccompiler
 +from Cython.Build import cythonize  # Chaquopy: added
  
  try:
      from setuptools import Extension, setup
-@@ -106,7 +107,7 @@
+@@ -106,7 +108,7 @@
  
          ext_modules = []
          for mod_name in MOD_NAMES:
@@ -17,7 +20,7 @@
              ext_modules.append(
                  Extension(mod_name, [mod_path,
                                       'murmurhash/MurmurHash2.cpp',
-@@ -128,7 +129,9 @@
+@@ -128,7 +130,9 @@
              version=about['__version__'],
              url=about['__uri__'],
              license=about['__license__'],
