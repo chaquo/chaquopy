@@ -2,6 +2,9 @@ package:
   name: cryptography
   version: "42.0.8"
 
+build:
+  number: 1
+
 requirements:
   build:
     - rust

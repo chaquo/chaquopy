@@ -2,12 +2,12 @@ apply plugin: 'com.android.dynamic-feature'
 
 android {
     namespace "com.chaquo.python.dynamicfeature"
-    compileSdk 28
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.example.dynamicfeature"
         minSdk 24
-        targetSdk 28
+        targetSdk 33
         versionCode 1
         versionName "1.0"
     }

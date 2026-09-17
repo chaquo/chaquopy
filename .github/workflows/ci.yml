@@ -1,5 +1,6 @@
 name: CI
 on:
+  pull_request:
   push:
     branches: [master]
 
@@ -12,12 +13,11 @@ defaults:
     shell: bash
 
 jobs:
-
   product:
     runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+      - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069  # v1.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -46,7 +46,7 @@ jobs:
           ./gradlew publish -P cmakeBuildType=Release
 
       - name: Upload Maven repository
-        uses: actions/upload-artifact@v4.3.3
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: maven
           # There's a fairly large per-file overhead, so exclude the hash files.
@@ -75,8 +75,8 @@ jobs:
   docs:
     runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+      - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069  # v1.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -95,7 +95,7 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_11_X64
           ./gradlew docs
 
-      - uses: actions/upload-artifact@v4.3.3
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: docs
           path: |
@@ -107,8 +107,8 @@ jobs:
   gradlePython:
     runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+      - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069  # v1.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: ./.github/actions/setup-python
 
@@ -125,18 +125,19 @@ jobs:
     needs: [product]
     runs-on: ubuntu-22.04
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+      - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069  # v1.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: ./.github/actions/setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: maven
           path: maven
 
       - name: Get keystore
+        if: github.event_name != 'pull_request'
         env:
           CHAQUO_JKS: ${{ secrets.CHAQUO_JKS }}
         run: |
@@ -148,7 +149,7 @@ jobs:
           export JAVA_HOME=$JAVA_HOME_17_X64
           ./gradlew assembleRelease
 
-      - uses: actions/upload-artifact@v4.3.3
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: demo
           path: demo/app/build/outputs/apk/release
@@ -175,14 +176,14 @@ jobs:
 
     runs-on: ${{ matrix.runs-on }}
     steps:
-      - uses: smorimoto/tune-github-hosted-runner-network@v1.0.0
-      - uses: actions/checkout@v4.1.6
+      - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069  # v1.0.0
+      - uses: actions/checkout@v7.0.1
 
       - uses: ./.github/actions/setup-python
         id: setup-python
 
       - name: Download Maven repository
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v8.0.1
         with:
           name: maven
           path: maven

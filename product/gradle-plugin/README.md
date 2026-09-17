@@ -53,21 +53,22 @@ also be given here.
     version, and publish them to the website.
   * If it fails, plan to perform a Chaquopy release as soon as possible, because Android
     Studio's auto-updater will cause many users to move to the new AGP version.
-* Revert the changes to test_gradle_plugin.py, then run all integration tests against
-  the Chaquopy development version and the new AGP version.
+* Revert the changes to test_gradle_plugin.py.
 
 * Open the "product" project in the new Android Studio version, then:
-  * Consider updating the Gradle version, but first see the note in
-    product/gradle/wrapper/gradle-wrapper.properties.
   * Sync the project.
   * Test it by running the `publish` task.
 * Update the demo and pkgtest apps as follows. Leave the public apps alone for now: they
   will be dealt with during the next release (see release/README.md).
-  * In Android Studio, run Tools > AGP Upgrade Assistant.
+  * In Android Studio, run Tools > AGP Upgrade Assistant. If this applies any
+    compatibility settings which are no longer the default, try to use the recommended
+    settings instead.
   * Apply any other updates from the "base" directory above.
   * Test the app.
 * Close all projects to make sure .idea files are written.
 * Add .gitignore entries if necessary.
+* Commit and push to GitHub, and check that CI passes on all platforms with the Chaquopy
+  development version.
 
 
 ## Removing support for an Android Gradle plugin version
@@ -97,15 +98,19 @@ Product:
 * In test_gradle_plugin.py, update the `PYTHON_VERSIONS` assertion.
 * Update the `MAGIC` lists in test_gradle_plugin.py and pyc.py.
 * Update .github/actions/setup-python/action.yml.
-* Build any packages used by the demo app.
 * Update android.rst and versions.rst.
 
 Tests (this list is referenced from target/README.md):
 
 * Run `gradle:testPython`.
-* Run integration tests.
+* Run `Dsl` integration test, and update stdlib modules list as necessary.
+* Run pkgtest app with no packages, and verify you can get as far as the Python console.
+  This may require further updates to `BOOTSTRAP_NATIVE_STDLIB`.
+* Build, test and release any packages used by the demo app and integration tests.
+* Run all integration tests.
 * Temporarily change the Python version of the demo app, and run the Python and Java
   unit tests on the full set of pre-release devices (see release/README.md).
+* Release the target packages to Maven Central (see release/README.md).
 
 
 ## Removing a Python version
@@ -156,8 +161,12 @@ encouraging developers to test against it.
 * Go to the new Android version's page
   [here](https://developer.android.com/about/versions), and review the "Behavior
   changes" section to see if anything could affect the demo app or Chaquopy itself.
-* Update demo and pkgtest apps, and test all features on an emulator with the new
-  Android version.
+* Update `COMPILE_SDK_VERSION` in Common.java, and rebuild the `product` project.
+* In the demo and pkgtest apps:
+  * Update `compileSdk` and `targetSdk`. The IDE may prompt you to use the SDK Upgrade
+    Assistant, but all that does is show you the same content as the pages above,
+    filtered for what it believes is relevant to the current app.
+  * Test all features on an emulator with the new Android version.
 * Leave the public apps alone for now: they will be dealt with during the next release
   (see release/README.md).
 * Consider also updating the targetSdk in:

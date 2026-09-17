@@ -1,14 +1,14 @@
 #!/bin/bash
 set -eu
 
-export CROSS="1"
-export CROSS_SUFFIX=$(echo $CC | sed 's/gcc$//')  # Actually a prefix
-export HOSTCC="gcc"
+export HOSTCC="cc"
+export NOFORTRAN="1"
 
 # "If your application is already multi-threaded, it will conflict with OpenBLAS
 # multi-threading. Thus, you must set OpenBLAS to use single thread."
-# (https://github.com/xianyi/OpenBLAS/wiki/faq#multi-threaded)
+# https://www.openmathlib.org/OpenBLAS/docs/faq/#how-can-i-use-openblas-in-multi-threaded-applications
 export USE_THREAD=0
+export USE_LOCKING=1
 
 # "You are setting NUM_THREADS because eventually it is used to calculate NUM_BUFFERS,
 # regardless of OpenBLAS being single threaded or multithreaded. When you call an API like
@@ -20,11 +20,6 @@ export USE_THREAD=0
 # this limit will give the error "Program is Terminated. Because you tried to allocate too many
 # memory regions."
 export NUM_THREADS=8
-
-# Prevent large local variables silently being treated as static, thus destroying thread-safety
-# (http://wwwf.imperial.ac.uk/~mab201/20120814.html and
-# https://github.com/xianyi/OpenBLAS/issues/477#issuecomment-222378330).
-export FFLAGS="-frecursive"
 
 case $CHAQUOPY_ABI in
     armeabi-v7a)

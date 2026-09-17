@@ -9,7 +9,7 @@ class TestReflectKt {
         @JvmField val boundInstanceRef = ::getS
 
         companion object {
-            @JvmField val anon = object : TestReflect.Call.Function<String, String> {
+            @JvmField val anon = object : java.util.function.Function<String, String> {
                 override fun apply(s: String): String = "kt anon $s"
             }
 

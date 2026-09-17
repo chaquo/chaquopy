@@ -1,8 +1,0 @@
-# This file is symlinked from .dockerignore, so it may need to duplicate some things in
-# higher-level .gitignore files.
-
-/*-downloads-*.txt
-/*-downloads-*.csv
-/build/
-/log*/
-/src/local.properties

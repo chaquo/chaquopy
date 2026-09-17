@@ -1,13 +1,5 @@
 import os
-import platform
 import unittest
-
-try:
-    from android.os import Build
-except ImportError:
-    API_LEVEL = None
-else:
-    API_LEVEL = Build.VERSION.SDK_INT
 
 
 class TestPsutil(unittest.TestCase):

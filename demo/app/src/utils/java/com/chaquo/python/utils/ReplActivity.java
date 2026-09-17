@@ -1,22 +1,36 @@
 package com.chaquo.python.utils;
 
 import android.app.*;
+import android.os.*;
 import android.text.*;
+
+import androidx.activity.*;
 
 public class ReplActivity extends PythonConsoleActivity {
 
-    @Override protected Class<? extends Task> getTaskClass() {
-        return Task.class;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Maintain REPL state unless the loop has been terminated, e.g. by
+        // typing `exit()`. Requires the activity to be in its own task (see
+        // AndroidManifest).
+        getOnBackPressedDispatcher().addCallback(
+            new OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+                    if (task.getState() == Thread.State.RUNNABLE) {
+                        moveTaskToBack(true);
+                    } else {
+                        finish();
+                    }
+                }
+            }
+        );
     }
 
-    // Maintain REPL state unless the loop has been terminated, e.g. by typing `exit()`. Requires
-    // the activity to be in its own task (see AndroidManifest).
-    @Override public void onBackPressed() {
-        if (task.getState() == Thread.State.RUNNABLE) {
-            moveTaskToBack(true);
-        } else {
-            super.onBackPressed();
-        }
+    @Override protected Class<? extends Task> getTaskClass() {
+        return Task.class;
     }
 
     // =============================================================================================

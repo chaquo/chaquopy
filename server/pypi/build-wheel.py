@@ -286,7 +286,7 @@ class BuildWheel:
 
     def get_bootstrap_env(self, python_ver):
         bootstrap_env = f"{PYPI_DIR}/build/_bootstrap/{python_ver}"
-        pip_version = "23.2.1"
+        pip_version = "25.3"
 
         def check_bootstrap_env():
             if not run(
@@ -484,7 +484,7 @@ class BuildWheel:
         # create links from the other names so the compiler can find them.
         SONAME_PATTERNS = [
             (r"^(lib.*)\.so\..*$", r"\1.so"),
-            (r"^(lib.*?)[\d.]+\.so$", r"\1.so"),  # e.g. libpng
+            (r"^(lib.*?)-?[\d.]+\.so$", r"\1.so"),  # e.g. libpng, libyaml
             (r"^(lib.*)_(chaquopy|python)\.so$", r"\1.so"),  # e.g. libssl, libjpeg
         ]
         reqs_lib_dir = f"{self.host_env}/chaquopy/lib"
@@ -595,16 +595,19 @@ class BuildWheel:
 
         compiler_vars = ["CC", "CXX", "LD"]
         if "fortran" in self.non_python_build_reqs:
-            toolchain = self.abi if self.abi in ["x86", "x86_64"] else tool_prefix
-            gfortran = f"{PYPI_DIR}/fortran/{toolchain}-4.9/bin/{tool_prefix}-gfortran"
-            if not exists(gfortran):
-                raise CommandError(f"This package requries a Fortran compiler, but "
-                                   f"{gfortran} does not exist. See README.md.")
+            from cibuildwheel.platforms.android import setup_fortran
 
+            setup_fortran(env)
             compiler_vars += ["FC", "F77", "F90"]
-            env["FC"] = gfortran  # Used by OpenBLAS
-            env["F77"] = env["F90"] = gfortran  # Used by numpy.distutils
+            assert "FC" in env  # Used by OpenBLAS
+            env["F77"] = env["F90"] = env["FC"]  # Used by numpy.distutils
             env["FARCH"] = env["CFLAGS"]  # Used by numpy.distutils
+
+            # Install the Fortran compiler pre-emptively, because:
+            #   - It avoids confusion from the CC wrapper scripts below.
+            #   - It avoids a long pause during the build, whose cause may not be
+            #     obvious if the build system is capturing output.
+            run(f"{env['FC']} --version", env={**os.environ, **env})
 
         # Wrap compiler and linker commands with a script which removes include and
         # library directories which are not in known safe locations.
@@ -657,7 +660,11 @@ class BuildWheel:
         tool_prefix = ABIS[self.abi].tool_prefix
         run(f"rustup target add {tool_prefix}")
         env.update({
-            "RUSTFLAGS": f"-C linker={env['CC']} -L native={self.host_env}/chaquopy/lib",
+            "RUSTFLAGS": " ".join([
+                f"-C linker={env['CC']}",
+                f"-L native={self.host_env}/chaquopy/lib",
+                *[f"-C link-arg={arg}" for arg in env["LDFLAGS"].split() if arg.startswith("-Wl")],
+            ]),
             "CARGO_BUILD_TARGET": tool_prefix,
 
             # Normally PyO3 requires sysconfig modules, which are not currently
@@ -675,15 +682,15 @@ class BuildWheel:
     @contextmanager
     def env_vars(self):
         env = {}
-        self.get_common_env_vars(env)
-
         pypi_env = f"{PYPI_DIR}/env"
         env["PATH"] = os.pathsep.join([
             f"{pypi_env}/bin",
             f"{self.build_env}/bin",
             f"{self.host_env}/chaquopy/bin",  # For "-config" scripts.
             os.environ["PATH"]])
+        env["VIRTUAL_ENV"] = self.build_env
 
+        self.get_common_env_vars(env)
         if self.needs_python:
             self.get_python_env_vars(env, pypi_env)
         if "rust" in self.non_python_build_reqs:
@@ -728,20 +735,28 @@ class BuildWheel:
                     os.environ[key] = value
 
     def generate_cmake_toolchain(self, env):
-        ndk = abspath(f"{env['AR']}/../../../../../..")
-        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
-
         # This environment variable requires CMake 3.21 or later.
+        toolchain_filename = join(self.build_dir, "chaquopy.toolchain.cmake")
         env["CMAKE_TOOLCHAIN_FILE"] = toolchain_filename
 
         with open(toolchain_filename, "w") as toolchain_file:
             print(dedent(f"""\
-                set(ANDROID_ABI {self.abi})
-                set(ANDROID_PLATFORM {self.api_level})
-                set(ANDROID_STL c++_shared)
-                include({ndk}/build/cmake/android.toolchain.cmake)
+                # To support as many build systems as possible, we use environment
+                # variables as the single source of truth for compiler flags and paths,
+                # so they don't need to be specified here.
 
-                list(INSERT CMAKE_FIND_ROOT_PATH 0 {self.host_env}/chaquopy)
+                set(CMAKE_SYSTEM_NAME Android)
+                set(CMAKE_SYSTEM_PROCESSOR {ABIS[self.abi].uname_machine})
+
+                # Inhibit all of CMake's own NDK handling code.
+                set(CMAKE_SYSTEM_VERSION 1)
+
+                # Tell CMake where to look for headers and libraries.
+                set(CMAKE_FIND_ROOT_PATH "{self.host_env}/chaquopy")
+                set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+                set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+                set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE BOTH)
                 """), file=toolchain_file)
 
             if self.needs_python:

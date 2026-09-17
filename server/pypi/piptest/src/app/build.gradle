@@ -4,15 +4,17 @@ plugins {
 }
 
 android {
-    compileSdkVersion 23
+    namespace "com.chaquo.python.piptest"
+    compileSdkVersion 35
 
     defaultConfig {
         applicationId "com.chaquo.python.piptest"
-        minSdkVersion 21
-        targetSdkVersion 23
+        minSdkVersion 24
+        targetSdkVersion 35
         versionCode 1
         versionName "0.0.1"
         python {
+            version = "3.10"
             pip {
                 if (System.getenv("piptest_verbose").equals("True")) {
                     options "-v"

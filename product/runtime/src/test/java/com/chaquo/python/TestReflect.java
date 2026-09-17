@@ -2,6 +2,8 @@ package com.chaquo.python;
 
 import static org.junit.Assert.*;
 
+import java.util.function.*;
+
 
 @SuppressWarnings("unused")
 public class TestReflect {
@@ -121,15 +123,6 @@ public class TestReflect {
     }
 
     public static class Call {
-        
-        // java.util.function is not available until API level 24.
-        public interface Function<T,R> {
-            R apply(T t);
-        }
-        public interface Supplier<T> {
-            T get();
-        }
-
         public static Function<String,String> anon = new Function<String,String>() {
             @Override public String apply(String s) { return "anon " + s; }
         };

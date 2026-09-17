@@ -9,6 +9,20 @@ Download the `maven` artifact from GitHub Actions, and unpack it into the local 
 directory on all machines that will be used by the subsequent tests.
 
 
+## BeeWare compatibility tests
+
+Pull the current versions of briefcase, toga and briefcase-android-gradle-template.
+
+Edit briefcase-android-gradle-template to use the new Chaquopy version, and temporarily
+add a `repositories` entry pointing at the artifacts you downloaded above, e.g.:
+
+   maven { url "/Users/msmith/git/chaquo/chaquopy/maven" }
+
+Use that template to run the Toga testbed.
+
+We will create a Briefcase PR in the final step below.
+
+
 ## Unit tests
 
 Open the demo app in Android Studio, and run the Java and Python unit tests on any
@@ -31,6 +45,7 @@ device being each of the following:
 * A physical device (on all ABIs if possible)
 * minSdk (on all ABIs if possible)
 * targetSdk
+* 16 KB pages
 * A clean install
 * An upgrade from the previous public release, with the tests already run
 
@@ -46,8 +61,8 @@ Open the pkgtest app in Android Studio, and temporarily edit the top-level build
 file to use the local Chaquopy version.
 
 Record performance data in performance.md, and investigate if significantly worse than
-the previous version. Remember that the tests and the packages themselves may have
-changed.
+the previous version. Remember that the tests, the packages, and their dependencies may
+all have changed.
 
 
 ## Package tests
@@ -55,16 +70,18 @@ changed.
 Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
 file to use the local Chaquopy version.
 
-Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes,
-ordered by number of PyPI downloads, excluding TensorFlow (#1209):
+Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes for
+the default Python version, ordered by number of PyPI downloads:
 
-* Get the PyPI statistics as described in server/pypi/README-internal.md.
-* `cd server/pypi/packages`
-* `cat pypi-downloads.csv | cut -d, -f1 | while read name; do if [ -e $name ] && [ $name != tensorflow ]; then echo $name; fi; done | head -n40 | tr '\n' ' '`
+* Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
+* `cd /var/www/chaquo/pypi-13.1`
+* `cat path/to/top-pypi-packages.csv | tail -n +2 | head -n 2000 | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | grep -vE 'opencv.*(contrib|headless)|^argon2-cffi$' | head -n40 | tr '\n' ' '`
+* TODO: once the default version is 3.13 or later, also include data from
+  https://beeware.org/mobile-wheels.
 
-As of 2023-12, this is:
+As of 2025-11, this is:
 
-    numpy cryptography cffi pandas aiohttp yarl greenlet frozenlist grpcio lxml psutil multidict pillow scipy bcrypt matplotlib pynacl scikit-learn kiwisolver regex ruamel-yaml-clib google-crc32c pycryptodomex contourpy pyzmq pycryptodome zope-interface h5py tokenizers torch shapely numba llvmlite xgboost scikit-image statsmodels sentencepiece opencv-python torchvision brotli
+    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi-bindings sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
 
 Search the package test scripts for the word "Android", and consider adding any packages
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
@@ -76,6 +93,7 @@ case), and test on those ABIs, with at least one device being each of the follow
 * A physical device (on all ABIs if possible)
 * minSdk (on all ABIs if possible)
 * targetSdk
+* TODO: once the default version is 3.13 or later, include a device with 16 KB pages.
 * A clean install
 
 Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
@@ -138,11 +156,8 @@ Update:
 * `versions.rst`
 * `release` in `conf.py`
 
-Run `gradlew runtime:doc`, and upload to server.
-
-If major.minor version number has changed:
-* Update "current" symlink (`ln -sfT`).
-* Add link on WordPress documentation page.
+Run `gradlew runtime:doc`, and check the output. It will be released in the final step
+below.
 
 
 ## Version control
@@ -156,7 +171,11 @@ Increment the micro version number in VERSION.txt.
 Commit and push this repository.
 
 
-## User communication
+## Once the Maven Central release is live
+
+Upload documentation to the webserver. If the major.minor version number has changed:
+* Update the "current" symlink (`ln -sfT`).
+* Add a link on the WordPress documentation page.
 
 Create release page on GitHub with a link to the change log section.
 
@@ -166,7 +185,8 @@ Post link to X, and enable "only accounts you mention can reply", because it doe
 reliably send email notifications of replies. Enabling replies and apparently ignoring
 them would make us look worse than not enabling replies at all.
 
-Update any affected GitHub issues, StackOverflow questions, email threads, etc.
+Remove the temporary `maven` repository from briefcase-android-gradle-template, and
+create a PR.
 
-If there are any packages whose announcement was postponed until this release, go
-through the package release procedure in pypi/README-internal.md.
+On the Python wiki, update the Android and GuiProgramming pages, and remove obsolete
+projects.

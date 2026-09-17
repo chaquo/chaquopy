@@ -1,3 +1,14 @@
+--- src-original/psutil/_common.py	2025-10-23 21:01:06.000000000 +0000
++++ src/psutil/_common.py	2025-11-24 10:56:44.850195501 +0000
+@@ -76,7 +76,7 @@
+ 
+ POSIX = os.name == "posix"
+ WINDOWS = os.name == "nt"
+-LINUX = sys.platform.startswith("linux")
++LINUX = sys.platform.startswith(("linux", "android"))  # Chaquopy: added "android"
+ MACOS = sys.platform.startswith("darwin")
+ OSX = MACOS  # deprecated alias
+ FREEBSD = sys.platform.startswith(("freebsd", "midnightbsd"))
 --- src-original/psutil/_pslinux.py	2025-10-23 21:01:06.000000000 +0000
 +++ src/psutil/_pslinux.py	2025-11-05 18:37:13.930999156 +0000
 @@ -1248,6 +1248,10 @@

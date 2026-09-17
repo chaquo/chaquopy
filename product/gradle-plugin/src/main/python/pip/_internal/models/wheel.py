@@ -1,60 +1,39 @@
 """Represents a wheel file and provides access to the various parts of the
 name that have meaning.
 """
-import re
+
+from __future__ import annotations
+
+from collections.abc import Iterable
 
 from pip._vendor.packaging.tags import Tag
+from pip._vendor.packaging.utils import (
+    InvalidWheelFilename as _PackagingInvalidWheelFilename,
+)
+from pip._vendor.packaging.utils import parse_wheel_filename
 
 from pip._internal.exceptions import InvalidWheelFilename
-from pip._internal.utils.typing import MYPY_CHECK_RUNNING
-
-if MYPY_CHECK_RUNNING:
-    from typing import List
 
 
-class Wheel(object):
+class Wheel:
     """A wheel file"""
 
-    wheel_file_re = re.compile(
-        r"""^(?P<namever>(?P<name>.+?)-(?P<ver>.*?))
-        ((-(?P<build>\d[^-]*?))?-(?P<pyver>.+?)-(?P<abi>.+?)-(?P<plat>.+?)
-        \.whl|\.dist-info)$""",
-        re.VERBOSE
-    )
-
-    def __init__(self, filename):
-        # type: (str) -> None
-        """
-        :raises InvalidWheelFilename: when the filename is invalid for a wheel
-        """
-        wheel_info = self.wheel_file_re.match(filename)
-        if not wheel_info:
-            raise InvalidWheelFilename(
-                "{} is not a valid wheel filename.".format(filename)
-            )
+    def __init__(self, filename: str) -> None:
         self.filename = filename
-        self.name = wheel_info.group('name').replace('_', '-')
-        # we'll assume "_" means "-" due to wheel naming scheme
-        # (https://github.com/pypa/pip/issues/1150)
-        self.version = wheel_info.group('ver').replace('_', '-')
-        self.build_tag = wheel_info.group('build')
-        self.pyversions = wheel_info.group('pyver').split('.')
-        self.abis = wheel_info.group('abi').split('.')
-        self.plats = wheel_info.group('plat').split('.')
 
-        # All the tag combinations from this file
-        self.file_tags = {
-            Tag(x, y, z) for x in self.pyversions
-            for y in self.abis for z in self.plats
-        }
+        try:
+            wheel_info = parse_wheel_filename(filename)
+        except _PackagingInvalidWheelFilename as e:
+            raise InvalidWheelFilename(e.args[0]) from None
 
-    def get_formatted_file_tags(self):
-        # type: () -> List[str]
+        self.name, _version, self.build_tag, self.file_tags = wheel_info
+        self.version = str(_version)
+
+    def get_formatted_file_tags(self) -> list[str]:
         """Return the wheel's tags as a sorted list of strings."""
         return sorted(str(tag) for tag in self.file_tags)
 
-    def support_index_min(self, tags):
-        # type: (List[Tag]) -> int
+    def support_index_min(self, tags: list[Tag]) -> int:
         """Return the lowest index that one of the wheel's file_tag combinations
         achieves in the given list of supported tags.
 
@@ -67,10 +46,33 @@ class Wheel(object):
         :raises ValueError: If none of the wheel's file tags match one of
             the supported tags.
         """
-        return min(tags.index(tag) for tag in self.file_tags if tag in tags)
+        try:
+            return next(i for i, t in enumerate(tags) if t in self.file_tags)
+        except StopIteration:
+            raise ValueError()
 
-    def supported(self, tags):
-        # type: (List[Tag]) -> bool
+    def find_most_preferred_tag(
+        self, tags: list[Tag], tag_to_priority: dict[Tag, int]
+    ) -> int:
+        """Return the priority of the most preferred tag that one of the wheel's file
+        tag combinations achieves in the given list of supported tags using the given
+        tag_to_priority mapping, where lower priorities are more-preferred.
+
+        This is used in place of support_index_min in some cases in order to avoid
+        an expensive linear scan of a large list of tags.
+
+        :param tags: the PEP 425 tags to check the wheel against.
+        :param tag_to_priority: a mapping from tag to priority of that tag, where
+            lower is more preferred.
+
+        :raises ValueError: If none of the wheel's file tags match one of
+            the supported tags.
+        """
+        return min(
+            tag_to_priority[tag] for tag in self.file_tags if tag in tag_to_priority
+        )
+
+    def supported(self, tags: Iterable[Tag]) -> bool:
         """Return whether the wheel is compatible with one of the given tags.
 
         :param tags: the PEP 425 tags to check the wheel against.

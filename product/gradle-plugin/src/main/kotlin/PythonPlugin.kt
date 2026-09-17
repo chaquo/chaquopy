@@ -9,19 +9,15 @@ import org.gradle.api.initialization.dsl.*
 import org.gradle.api.internal.GradleInternal
 import org.gradle.api.plugins.*
 import org.gradle.kotlin.dsl.*
-import org.gradle.process.*
 import java.io.*
 import java.lang.module.ModuleDescriptor.Version
 import java.nio.file.*
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.util.*
-import javax.inject.*
 import kotlin.properties.Delegates.notNull
 
 
-class PythonPlugin @Inject constructor(
-    val execOps: ExecOperations
-) : Plugin<Project> {
+class PythonPlugin : Plugin<Project> {
 
     // Load dependencies from the same buildscript context as the Chaquopy plugin
     // itself, so they'll come from the same repository.
@@ -182,46 +178,45 @@ class PythonPlugin @Inject constructor(
         project.dependencies.add("api", project.files(runtimeJava))
     }
 
-    fun addDependency(configName: String, dep: Map<String, String>): Configuration {
+    fun addDependency(
+        configName: String,
+        group: String, name: String, version: String, classifier: String?, ext: String
+    ): Configuration {
         val config = configs.getOrPut(configName) {
             buildscript.configurations.detachedConfiguration()
         }
-        config.dependencies.add(buildscript.dependencies.create(dep))
+        config.dependencies.add(buildscript.dependencies.create(
+            listOf(group, name, version, classifier)
+                .filterNotNull().joinToString(":")
+            + "@$ext"
+        ))
         return config
     }
 
     fun addRuntimeDependency(
         config: String, filename: String, variant: Variant? = null,
         python: PythonExtension? = null, abi: String? = null
-    ) =
-        addDependency(
+    ): Configuration {
+        val dotPos = filename.lastIndexOf(".")
+        return addDependency(
             configName("runtime${config.capitalize()}", variant),
-            HashMap<String, String>().apply {
-                val dotPos = filename.lastIndexOf(".")
-                put("group", "com.chaquo.python.runtime")
-                put("name", filename.substring(0, dotPos))
-                put("version", chaquopyPluginInfo.version.toString())
-                put("ext", filename.substring(dotPos + 1))
-                if (python != null) {
-                    put("classifier", runtimeClassifier(python, abi))
-                }
-            }
+            "com.chaquo.python.runtime",
+            filename.substring(0, dotPos),
+            chaquopyPluginInfo.version.toString(),
+            if (python != null) runtimeClassifier(python, abi) else null,
+            filename.substring(dotPos + 1)
         )
+    }
 
     fun addTargetDependency(
         config: String, variant: Variant, python: PythonExtension, classifier: String
-    ) =
-        addDependency(
+    ): Configuration {
+        val (version, build) = pythonVersionInfo(python)
+        return addDependency(
             configName("target${config.capitalize()}", variant),
-            HashMap<String, String>().apply {
-                val (version, build) = pythonVersionInfo(python)
-                put("group", "com.chaquo.python")
-                put("name", "target")
-                put("version", "$version-$build")
-                put("classifier", classifier)
-                put("ext", "zip")
-            }
+            "com.chaquo.python", "target", "$version-$build", classifier, "zip"
         )
+    }
 
     fun getConfig(name: String, variant: Variant) =
         configs.get(configName(name, variant))!!
@@ -251,7 +246,7 @@ class PythonPlugin @Inject constructor(
         for ((_, flavor) in variant.productFlavors.reversed()) {
             python.mergeFrom(extension.productFlavors.getByName(flavor))
         }
-        TaskBuilder(this, variant, python, getAbis(variant, python)).build()
+        TaskBuilder(this, variant, python).build()
     }
 
     // variant.externalNativeBuild returns "null if no cmake external build is
@@ -286,20 +281,6 @@ class PythonPlugin @Inject constructor(
         return ArrayList(abis)
     }
 
-    fun extractResource(name: String, targetDir: File): File {
-        project.mkdir(targetDir)
-        val outFile = File(targetDir, File(name).name)
-        val tmpFile = File("${outFile.path}.tmp")
-        val stream = javaClass.getResourceAsStream(name)
-            ?: throw IOException("getResourceAsString failed for '$name'")
-        Files.copy(stream, tmpFile.toPath(), REPLACE_EXISTING)
-        project.delete(outFile)
-        if (! tmpFile.renameTo(outFile)) {
-            throw IOException("Failed to create '$outFile'")
-        }
-        return outFile
-    }
-
     fun buildSubdir(name: String? = null, variant: Variant? = null): File {
         var result = File(project.buildDir, "python")
         if (name != null) {
@@ -310,6 +291,17 @@ class PythonPlugin @Inject constructor(
         }
         return result
     }
+}
+
+
+fun extractResource(name: String, targetDir: File): File {
+    val outPath = Files.createDirectories(targetDir.toPath()).resolve(name)
+    val tmpPath = Path.of("$outPath.tmp")
+    val stream = PythonPlugin::class.java.getResourceAsStream(name)
+        ?: throw IOException("getResourceAsString failed for '$name'")
+    Files.copy(stream, tmpPath, REPLACE_EXISTING)
+    Files.move(tmpPath, outPath, REPLACE_EXISTING)
+    return outPath.toFile()
 }
 
 
@@ -333,4 +325,10 @@ fun pythonVersionInfo(python: PythonExtension): Map.Entry<String, String> {
     // should be impossible.
     throw GradleException(
         "Failed to find information for Python version '$version'.")
+}
+
+
+fun warn(message: String) {
+    // This prefix causes Android Studio to show the line as a warning in tree view.
+    println("Warning: $message")
 }

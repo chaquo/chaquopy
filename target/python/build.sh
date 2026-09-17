@@ -46,10 +46,6 @@ fi
 if [ $version_int -eq 312 ]; then
     patches+=" bldlibrary grp"
 fi
-if [ $version_int -eq 313 ]; then
-    # TODO: remove this once it's merged upstream.
-    patches+=" 3.13_pending"
-fi
 for name in $patches; do
     patch_file="$recipe_dir/patches/$name.patch"
     echo "$patch_file"
@@ -63,18 +59,16 @@ rm -rf $PREFIX/lib/libpython$version_short*
 if [ $version_int -le 312 ]; then
     # Download and unpack libraries needed to compile Python. For a given Python
     # version, we must maintain binary compatibility with existing wheels.
-    libs="bzip2-1.0.8-2 libffi-3.4.4-3 sqlite-3.45.3-3 xz-5.4.6-1"
-    if [ $version_int -le 308 ]; then
-        libs+=" openssl-1.1.1w-3"
-    else
-        libs+=" openssl-3.0.15-4"
-    fi
+    libs="bzip2-1.0.8-3 libffi-3.4.4-3 openssl-3.0.18-0 sqlite-3.50.4-0 xz-5.4.6-1"
 
     url_prefix="https://github.com/beeware/cpython-android-source-deps/releases/download"
     for name_ver in $libs; do
-        url="$url_prefix/$name_ver/$name_ver-$HOST.tar.gz"
+        filename="$name_ver-$HOST.tar.gz"
+        url="$url_prefix/$name_ver/$filename"
         echo "$url"
-        curl -Lf "$url" | tar -x -C $PREFIX
+        curl -Lf --retry 5 --retry-all-errors -O "$url"
+        tar -C $PREFIX -xf "$filename"
+        rm "$filename"
     done
 
     # Add sysroot paths, otherwise Python 3.8's setup.py will think libz is unavailable.

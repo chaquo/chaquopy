@@ -2,10 +2,10 @@
 
 package:
   name: chaquopy-libffi
-  version: {{ version }}
+  version: "{{ version }}"
 
 build:
-  number: 2
+  number: 3
 
 source:
   url: ftp://sourceware.org/pub/libffi/libffi-{{ version }}.tar.gz

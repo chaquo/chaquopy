@@ -55,7 +55,7 @@ tasks.register<Zip>("zipBuildPackages") {
 
 tasks.processResources {
     doFirst { delete(destinationDir) }
-    into("com/chaquo/python/gradle") {
+    into("com/chaquo/python") {
         from(tasks.named("zipBuildPackages"))
     }
 }

@@ -1,11 +1,12 @@
 from contextlib import contextmanager, nullcontext
-from java import jarray, jboolean, jbyte, jchar, jshort, jint, jlong, jfloat, jdouble
 import unittest
 
 try:
     from android.os import Build
 except ImportError:
     Build = None
+else:
+    from java import jarray, jboolean, jbyte, jchar, jshort, jint, jlong, jfloat, jdouble
 
 
 TEST_DATA = [2, 3, 5, 7]
