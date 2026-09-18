@@ -118,7 +118,7 @@ class TaskBuilder(
             // contents changing and breaking the up to date checks.
             exec {
                 commandLine(command)
-                args("-Wignore", "-m", "compileall", "-qq", outputDir)
+                args("-Wignore", "-m", "compileall", "-q", outputDir)
             }
         }
 
