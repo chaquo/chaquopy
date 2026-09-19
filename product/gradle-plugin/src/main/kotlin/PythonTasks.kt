@@ -118,7 +118,7 @@ class TaskBuilder(
             // contents changing and breaking the up to date checks.
             exec {
                 commandLine(command)
-                args("-Wignore", "-m", "compileall", "-qq", outputDir)
+                args("-Wignore", "-m", "compileall", "-q", outputDir)
             }
         }
 
@@ -799,7 +799,7 @@ abstract class FindPythonCommandTask : OutputDirTask() {
     // executables to absolute paths manually (#1411).
     fun findExecutable(executable: String): File {
         var execFile = file(executable)
-        if (execFile.exists()) {
+        if (existsNoFollow(execFile)) {
             return execFile
         } else {
             // If the executable contains no slashes, search the PATH.
@@ -813,23 +813,25 @@ abstract class FindPythonCommandTask : OutputDirTask() {
                 exts += listOf(".exe", ".bat")
             }
 
-            outer@ for (dir in System.getenv("PATH").split(File.pathSeparator)) {
+            for (dir in System.getenv("PATH").split(File.pathSeparator)) {
                 for (ext in exts) {
                     execFile = File(dir, executable + ext)
-                    if (execFile.exists()) {
-                        break@outer
+                    if (existsNoFollow(execFile)) {
+                        return execFile
                     }
                 }
             }
-            if (execFile.exists()) {
-                return execFile
-            } else {
-                throw ExecException(
-                    "Couldn't find '$executable' on the PATH " +
-                    "or in the project directory")
-            }
+            throw ExecException(
+                "Couldn't find '$executable' on the PATH or in the project directory"
+            )
         }
     }
+
+    // On Windows, the Microsoft Store version of Python uses app execution aliases, a
+    // kind of reparse point which returns false from File.exists but can still be
+    // executed (#1454).
+    fun existsNoFollow(file: File) =
+        Files.exists(file.toPath(), LinkOption.NOFOLLOW_LINKS)
 }
 
 
