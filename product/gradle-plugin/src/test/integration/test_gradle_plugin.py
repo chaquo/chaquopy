@@ -60,7 +60,7 @@ PYTHON_VERSIONS = {}
 for full_version in list_versions("micro").splitlines():
     version = full_version.rpartition(".")[0]
     PYTHON_VERSIONS[version] = full_version
-assert list(PYTHON_VERSIONS) == ["3.10", "3.11", "3.12", "3.13", "3.14"]
+assert list(PYTHON_VERSIONS) == ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 DEFAULT_PYTHON_VERSION_FULL = PYTHON_VERSIONS[DEFAULT_PYTHON_VERSION]
 
 MIN_PYTHON_VERSION, *_, MAX_PYTHON_VERSION = list(PYTHON_VERSIONS)
@@ -1855,6 +1855,7 @@ class RunGradle(object):
 
         python_version_info = tuple(int(x) for x in python_version.split("."))
         stdlib_bootstrap_expected = {
+            # This is the list from the minimum supported Python version.
             # For why each of these modules is needed, see BOOTSTRAP_NATIVE_STDLIB in
             # PythonTasks.kt.
             "java", "_bz2.so", "_ctypes.so", "_datetime.so", "_lzma.so",
@@ -1869,6 +1870,8 @@ class RunGradle(object):
             stdlib_bootstrap_expected |= {"_opcode.so"}
         if python_version_info >= (3, 14):
             stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
+        if python_version_info >= (3, 15):
+            stdlib_bootstrap_expected |= {"_math_integer.so"}
 
         bootstrap_native_dir = join(asset_dir, "bootstrap-native")
         self.test.assertCountEqual(abis, os.listdir(bootstrap_native_dir))
@@ -1932,6 +1935,9 @@ class RunGradle(object):
         if python_version_info >= (3, 14):
             stdlib_native_expected -= {"_contextvars.so"}
             stdlib_native_expected |= {"_hmac.so", "_remote_debugging.so", "_zstd.so"}
+        if python_version_info >= (3, 15):
+            stdlib_native_expected -= {"_asyncio.so", "_decimal.so"}
+            stdlib_native_expected |= {"xxlimited_3_13.so"}
 
         for abi in abis:
             stdlib_native_zip = ZipFile(join(asset_dir, f"stdlib-{abi}.imy"))
@@ -1943,7 +1949,7 @@ class RunGradle(object):
                 stdlib_native_zip.namelist(),
             )
             with TemporaryDirectory() as tmp_dir:
-                test_module = add_soabi(python_version_info, abi, "_asyncio.so")
+                test_module = add_soabi(python_version_info, abi, "_bisect.so")
                 stdlib_native_zip.extract(test_module, tmp_dir)
                 self.check_python_so(join(tmp_dir, test_module), python_version, abi)
 
@@ -1972,6 +1978,7 @@ class RunGradle(object):
             "3.12": 3531,
             "3.13": 3571,
             "3.14": 3627,
+            "3.15": 3666,
         }
         with zip_file.open(pyc_filename) as pyc_file:
             magic_actual = pyc_file.read(2)

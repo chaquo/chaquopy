@@ -88,6 +88,8 @@ class TestAndroidImport(FilterWarningsCase):
             stdlib_bootstrap_expected |= {"_opcode.so"}
         if sys.version_info >= (3, 14):
             stdlib_bootstrap_expected -= {"_datetime.so", "_opcode.so"}
+        if sys.version_info >= (3, 15):
+            stdlib_bootstrap_expected |= {"_math_integer.so"}
 
         for subdir, entries in [
             (ABI, [add_soabi(filename) for filename in stdlib_bootstrap_expected]),
