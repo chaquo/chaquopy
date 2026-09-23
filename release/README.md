@@ -40,12 +40,12 @@ device under the following conditions:
 Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
 
 Install the APK and run the Java and Python unit tests on all ABIs, with at least one
-device being each of the following:
+test covering each of the following:
 
-* A physical device (on all ABIs if possible)
-* minSdk (on all ABIs if possible)
+* A physical device
+* minSdk (or as close as possible, on all ABIs)
 * targetSdk
-* 16 KB pages
+* 16 KB pages (on all 64-bit ABIs)
 * A clean install
 * An upgrade from the previous public release, with the tests already run
 
