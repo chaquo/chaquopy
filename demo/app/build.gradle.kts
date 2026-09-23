@@ -44,6 +44,8 @@ android {
         versionCode = verParsed[0] * 1000000 +
                       verParsed[1] * 1000 +
                       verParsed[2] * 10
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     androidResources {
@@ -86,11 +88,16 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.10"
+        version = (findProperty("chaquopy.version") as String?) ?: "3.10"
         android.defaultConfig.ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
-            if (version in listOf("3.10", "3.11")) {
-                abiFilters += listOf("armeabi-v7a", "x86")
+            val abisProperty = findProperty("chaquopy.abis") as String?
+            if (abisProperty != null) {
+                abiFilters += (abisProperty.split(Regex("""\s+""")))
+            } else {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+                if (version in listOf("3.10", "3.11")) {
+                    abiFilters += listOf("armeabi-v7a", "x86")
+                }
             }
         }
 
@@ -148,4 +155,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-extensions:2.1.0")
     implementation("androidx.preference:preference:1.1.1")
     implementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:rules:1.5.0")
 }

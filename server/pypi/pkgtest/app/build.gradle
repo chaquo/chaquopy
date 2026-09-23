@@ -57,11 +57,11 @@ android {
 
         // To test packages, edit the following line to list their names, separated by
         // spaces. Each name must be a subdirectory of PACKAGES_DIR.
-        def PACKAGES = ""
+        def PACKAGES = findProperty("chaquopy.packages") ?: ""
         addPackages(delegate, PACKAGES.trim().split(/\s+/).toList())
 
         python {
-            version "3.10"
+            version findProperty("chaquopy.version") ?: "3.10"
 
             pip {
                 // After a package is tested, remember to move it to the public repository!
@@ -75,8 +75,18 @@ android {
         }
 
         ndk {
-            abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+            def abisProperty = findProperty("chaquopy.abis")
+            if (abisProperty != null) {
+                abiFilters.addAll(abisProperty.split(/\s+/))
+            } else {
+                abiFilters.addAll(["arm64-v8a", "x86_64"])
+                if (python.version in ["3.10", "3.11"]) {
+                    abiFilters.addAll(["armeabi-v7a", "x86"])
+                }
+            }
          }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -95,11 +105,15 @@ android {
     }
 
     sourceSets {
-        def utilsSrc = "../../../../demo/app/src/utils"
+        def demoSrc = "../../../../demo/app/src"
+        def utilsSrc = "$demoSrc/utils"
         main {
             java { srcDir "$utilsSrc/java" }
             python { srcDir "$utilsSrc/python" }
             res { srcDir "$utilsSrc/res" }
+        }
+        androidTest {
+            java { srcDir "$demoSrc/androidTest" }
         }
     }
 }
@@ -149,4 +163,6 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
     implementation 'androidx.lifecycle:lifecycle-extensions:2.1.0'
     implementation 'androidx.preference:preference:1.1.1'
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:rules:1.5.0")
 }

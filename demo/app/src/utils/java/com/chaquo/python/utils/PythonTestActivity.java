@@ -24,12 +24,16 @@ public class PythonTestActivity extends PythonConsoleActivity {
         }
 
         @Override public void run() {
-            PyObject unittest = py.getModule("unittest");
-            PyObject runner = unittest.callAttr("TextTestRunner", new Kwarg("verbosity", 2));
-            PyObject loader = unittest.get("defaultTestLoader");
-            PyObject suite = loader.callAttr("loadTestsFromModule", py.getModule("chaquopy.test"));
-            runner.callAttr("run", suite);
+            runTests();
         }
     }
 
+    public static PyObject runTests() {
+        Python py = Python.getInstance();
+        PyObject unittest = py.getModule("unittest");
+        PyObject runner = unittest.callAttr("TextTestRunner", new Kwarg("verbosity", 2));
+        PyObject loader = unittest.get("defaultTestLoader");
+        PyObject suite = loader.callAttr("loadTestsFromModule", py.getModule("chaquopy.test"));
+        return runner.callAttr("run", suite);
+    }
 }
