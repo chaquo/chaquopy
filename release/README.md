@@ -40,12 +40,12 @@ device under the following conditions:
 Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
 
 Install the APK and run the Java and Python unit tests on all ABIs, with at least one
-device being each of the following:
+test covering each of the following:
 
-* A physical device (on all ABIs if possible)
-* minSdk (on all ABIs if possible)
+* A physical device
+* minSdk (or as close as possible, on all ABIs)
 * targetSdk
-* 16 KB pages
+* 16 KB pages (on all 64-bit ABIs)
 * A clean install
 * An upgrade from the previous public release, with the tests already run
 
@@ -87,19 +87,10 @@ Search the package test scripts for the word "Android", and consider adding any 
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
 Chaquopy's own unit tests.
 
-Set `abiFilters` to each of `armeabi-v7a` and `arm64-v8a` (this tests the single-ABI
-case), and test on those ABIs, with at least one device being each of the following:
+Test on the full set of pre-release devices above, with the following modifications:
 
-* A physical device (on all ABIs if possible)
-* minSdk (on all ABIs if possible)
-* targetSdk
-* TODO: once the default version is 3.13 or later, include a device with 16 KB pages.
-* A clean install
-
-Set `abiFilters` to `"x86", "x86_64"` (this tests the multi-ABI case), and test on those
-ABIs, with at least one device being each of the following:
-
-* minSdk (on all ABIs if possible)
+* 16 KB pages aren't necessary until the default Python version is 3.13 or later.
+* There should be at least one test each for a single-ABI build, and a multi-ABI build.
 
 
 ## Public release

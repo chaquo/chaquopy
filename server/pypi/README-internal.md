@@ -22,14 +22,8 @@ which may be less stable. Include these packages in all the remaining tests.
 Once everything's working on this ABI, save any edits in the package's `patches`
 directory. Then run build-wheel for all other ABIs.
 
-Restore `abiFilters` to include all ABIs, and test them all, with at least one device
-being each of the following:
-
-* A physical device (on all ABIs if possible)
-* minSdk (on all ABIs if possible)
-* targetSdk
-* 16 KB pages
-* A clean install
+Restore `abiFilters` to include all ABIs, and test them all on the full set of
+pre-release devices (see release/README.md).
 
 Repeat the build and test on all other Python versions.
 
