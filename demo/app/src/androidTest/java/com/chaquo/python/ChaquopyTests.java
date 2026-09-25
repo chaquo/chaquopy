@@ -18,7 +18,20 @@ import org.junit.runner.*;
 @RunWith(AndroidJUnit4.class)
 public class ChaquopyTests {
     @Test public void testPython() {
-        PyObject result = PythonTestActivity.runTests();
-        assertTrue(result.callAttr("wasSuccessful").toBoolean());
+        long start = System.currentTimeMillis();
+
+        try {
+            PyObject result = PythonTestActivity.runTests();
+            assertTrue(result.callAttr("wasSuccessful").toBoolean());
+        } finally {
+            // Make sure the process lives long enough for the test script to
+            // detect it and read its logs.
+            long delay = 2000 - (System.currentTimeMillis() - start);
+            if (delay > 0) {
+                try {
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {}
+            }
+        }
     }
 }
