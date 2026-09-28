@@ -561,20 +561,16 @@ class TestReflect(FilterWarningsCase):
 @skipIf(not API_LEVEL, "Android only")
 class TestAndroidReflect(FilterWarningsCase):
 
-    MEMBERS = ["tcFieldPublic", "tcFieldProtected", "tcMethodPublic", "tcMethodProtected",
+    MEMBERS = ["coFieldPublic", "coFieldProtected", "coMethodPublic", "coMethodProtected",
                "iFieldPublic", "iFieldProtected", "iMethodPublic", "iMethodProtected",
                "finalize"]
 
     def test_android_reflect(self):
-        from com.chaquo.python.demo import TestAndroidReflect as TAR
+        from com.chaquo.python.demo import TestAndroidReflect
 
-        if API_LEVEL >= 26:
-            # TextClassifier is in the platform, so all members should be visible.
-            self.assertMembers(TAR, self.MEMBERS)
-        else:
-            # Overridden methods should be visible, plus public methods that don't involve
-            # TextClassifier.
-            self.assertMembers(TAR, ["iMethodPublic", "finalize"])
+        # Overridden methods should be visible, plus public methods that don't involve
+        # TextClassifier.
+        self.assertMembers(TestAndroidReflect, ["iMethodPublic", "finalize"])
 
     def assertMembers(self, cls, names):
         for name in names:
@@ -583,11 +579,6 @@ class TestAndroidReflect(FilterWarningsCase):
 
         for name in self.MEMBERS:
             if name not in names:
-                # With AGP 9.0, ProGuard causes this method to become visible for some
-                # reason. See also TestReflect.test_access.
-                if name == "iMethodProtected":
-                    continue
-
                 with self.subTest(name=name):
                     self.assertFalse(self.declares_member(cls, name))
 

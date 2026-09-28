@@ -1,14 +1,16 @@
 package com.chaquo.python.demo;
 
-import android.view.textclassifier.*;
 
+// Some of the members of this class refer to classes which don't exist at runtime
+// (see test_reflect.py). This is done by putting them in a compileOnly dependency in
+// build.gradle.kts.
 @SuppressWarnings("unused")
 public class TestAndroidReflect {
-    public TextClassifier tcFieldPublic;
-    protected TextClassifier tcFieldProtected;
+    public CompileOnly coFieldPublic;
+    protected CompileOnly coFieldProtected;
 
-    public TextClassifier tcMethodPublic() { return null; }
-    protected TextClassifier tcMethodProtected() { return null; }
+    public CompileOnly coMethodPublic() { return null; }
+    protected CompileOnly coMethodProtected() { return null; }
 
     public int iFieldPublic;
     protected int iFieldProtected;
