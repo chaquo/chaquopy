@@ -7,11 +7,11 @@ package:
   version: {{ version }}
 
 build:
-  number: 2
+  number: 3
 
 source:
   url: http://llvm.org/releases/{{ version }}/llvm-{{ version }}.src.tar.xz
 
 requirements:
   build:
-    - cmake
+    - cmake 3.28.1
