@@ -85,12 +85,11 @@ def initialize_os():
     # these result in an OSError, so the calling code will still work, but it generates
     # a log message like `avc: denied { ioctl } for path="pipe:[10138300]"`, which can
     # be a problem if the app is doing it repeatedly.
-    #
-    # TODO: remove once fixed upstream (https://github.com/python/cpython/pull/154885).
-    def get_terminal_size_override(*args, **kwargs):
-        error = errno.ENOTTY
-        raise OSError(error, os.strerror(error))
-    os.get_terminal_size = get_terminal_size_override
+    if sys.version_info < (3, 15):  # https://github.com/python/cpython/pull/154885
+        def get_terminal_size_override(*args, **kwargs):
+            error = errno.ENOTTY
+            raise OSError(error, os.strerror(error))
+        os.get_terminal_size = get_terminal_size_override
 
 
 def initialize_tempfile():
