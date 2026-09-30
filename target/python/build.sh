@@ -47,12 +47,18 @@ if [ $version_int -eq 312 ]; then
     patches+=" bldlibrary grp"
 fi
 
-# TODO: remove once included upstream.
+# TODO: remove once https://github.com/python/cpython/pull/155101 is released.
 if [ $version_int -eq 313 ]; then
-    patches+="sqlite-3.13"
+    patches+=" sqlite-3.13"
 fi
 if [ $version_int -eq 314 ]; then
-    patches+="sqlite-3.14"
+    patches+=" sqlite-3.14"
+fi
+
+# https://github.com/python/cpython/pull/158530
+# TODO: reduce to `-eq 313` once this is released in newer Python versions.
+if [ $version_int -ge 313 ]; then
+    patches+=" mimalloc"
 fi
 
 for name in $patches; do
