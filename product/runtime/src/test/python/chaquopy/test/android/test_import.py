@@ -13,6 +13,8 @@ from pathlib import Path, PosixPath
 import pkgutil
 import re
 from shutil import rmtree
+from stat import S_IMODE
+
 import sys
 from traceback import format_exc
 from unittest import skipIf
@@ -266,8 +268,8 @@ class TestAndroidImport(FilterWarningsCase):
                                           ("non_package_data/subdir", "subdirectory")]:
             with self.subTest(dir_name=dir_name):
                 extracted_dir = asset_path(APP_ZIP, dir_name)
-                self.assertCountEqual(
-                    [entry.name for entry in os.scandir(extracted_dir) if entry.is_file()],
+                self.check_non_package_data(
+                    extracted_dir,
                     [
                         # Should extract everything except .py and .pyc files.
                         "libnon_package_data.so.1",
@@ -286,12 +288,18 @@ class TestAndroidImport(FilterWarningsCase):
 
         # The chaquopy directory is also treated as non-package data.
         for dir_name, expected in [
-            ("chaquopy", ["lib"]),
+            ("chaquopy", []),
             ("chaquopy/lib", ["libc++_shared.so"]),
         ]:
-            self.assertCountEqual(
-                os.listdir(asset_path(REQS_ABI_ZIP, dir_name)), expected
-            )
+            self.check_non_package_data(asset_path(REQS_ABI_ZIP, dir_name), expected)
+
+    def check_non_package_data(self, extracted_dir, expected):
+        self.assertCountEqual(
+            [entry.name for entry in os.scandir(extracted_dir) if entry.is_file()],
+            expected,
+        )
+        for name in expected:
+            self.check_readonly(f"{extracted_dir}/{name}"),
 
     def test_package_data(self):
         # App ZIP
@@ -339,6 +347,7 @@ class TestAndroidImport(FilterWarningsCase):
             os.remove(cache_filename)
         mod = self.clean_reload(mod)
         self.assertPredicate(exists, cache_filename)
+        self.check_readonly(cache_filename)
 
         # An unchanged file should not be extracted again.
         with self.assertNotModifies(cache_filename):
@@ -350,6 +359,11 @@ class TestAndroidImport(FilterWarningsCase):
         with self.assertModifies(cache_filename):
             self.clean_reload(mod)
         self.assertEqual(original_mtime, os.stat(cache_filename).st_mtime)
+
+    def check_readonly(self, path):
+        actual = (S_IMODE(os.stat(path).st_mode) & 0o222) == 0
+        expected = bool(re.search(r"\.so(\.|$)", basename(path)))
+        self.assertEqual(actual, expected, path)
 
     def test_extract_packages(self):
         self.check_extract_packages("ep_alpha", [])  # Not extracted
