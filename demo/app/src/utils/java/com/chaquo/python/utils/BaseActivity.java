@@ -51,20 +51,21 @@ public class BaseActivity extends AppCompatActivity {
             view,
             (v, insets) -> {
                 // systemBars includes the status bar, navigation bar (which may be on
-                // the left or right on API level 28 and older), action bar, and display
-                // cutouts.
-                Insets systemBars =
-                    insets.getInsets(WindowInsetsCompat.Type.systemBars());
-                v.setPadding(
+                // the left or right on API level 28 and older), and action bar.
+                Insets systemBars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout()
+                );
+                ((ViewGroup.MarginLayoutParams) v.getLayoutParams()).setMargins(
                     systemBars.left, systemBars.top, systemBars.right, systemBars.bottom
                 );
 
-                ViewGroup.MarginLayoutParams lp =
+                ViewGroup.MarginLayoutParams statusLp =
                     (ViewGroup.MarginLayoutParams) statusBarBackground.getLayoutParams();
-                lp.height = systemBars.top;
-                lp.leftMargin = systemBars.left;
-                lp.rightMargin = systemBars.right;
+                statusLp.height = systemBars.top;
+                statusLp.setMargins(systemBars.left, 0, systemBars.right, 0);
                 statusBarBackground.requestLayout();
+
                 return insets;
             }
         );
