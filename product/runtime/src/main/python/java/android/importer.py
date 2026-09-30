@@ -13,6 +13,7 @@ from pkgutil import get_importer
 import re
 from shutil import copyfileobj, rmtree
 import site
+from stat import S_IMODE
 import sys
 from tempfile import NamedTemporaryFile
 import time
@@ -860,7 +861,7 @@ class AssetZipFile(ZipFile):
             # environment at runtime is certainly bad practice, it's usually possible,
             # so there's probably someone out there doing it.
             if re.search(r"\.so(\.|$)", basename(member.filename)):
-                os.chmod(out_filename, os.stat(out_filename).st_mode & ~0o222)
+                os.chmod(out_filename, S_IMODE(os.stat(out_filename).st_mode) & ~0o222)
 
         return out_filename
 
