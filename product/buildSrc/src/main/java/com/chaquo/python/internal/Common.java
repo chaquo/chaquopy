@@ -21,8 +21,8 @@ public class Common {
         PYTHON_VERSIONS.put("3.10.19", "0");
         PYTHON_VERSIONS.put("3.11.14", "0");
         PYTHON_VERSIONS.put("3.12.12", "0");
-        PYTHON_VERSIONS.put("3.13.9", "0");
-        PYTHON_VERSIONS.put("3.14.0", "0");
+        PYTHON_VERSIONS.put("3.13.16", "0");
+        PYTHON_VERSIONS.put("3.14.8", "0");
         PYTHON_VERSIONS.put("3.15.0rc2", "0");
     }
 
