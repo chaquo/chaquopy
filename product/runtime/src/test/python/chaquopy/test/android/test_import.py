@@ -9,7 +9,7 @@ import io
 import marshal
 import os
 from os.path import basename, dirname, exists, join, realpath, relpath
-from pathlib import Path, PosixPath
+from pathlib import PosixPath
 import pkgutil
 import re
 from shutil import rmtree
@@ -23,7 +23,7 @@ from warnings import catch_warnings, filterwarnings
 import zipfile
 
 from java._vendor.elftools.common.exceptions import ELFError
-from java.android import importer
+from java.android.importer import AssetLoader, AssetPath
 
 from ..test_utils import FilterWarningsCase
 from . import ABI, context
@@ -37,11 +37,10 @@ APP_ZIP = "app"
 REQS_COMMON_ZIP = REQS_ABI_ZIP = "requirements"
 STDLIB_ZIP = f"stdlib-{ABI}"
 
-def asset_path(zip_name, *paths):
+def asset_path(*paths):
     return join(
         realpath(context.getFilesDir().toString()),
         "chaquopy/AssetFinder",
-        zip_name,
         *paths,
     )
 
@@ -440,7 +439,7 @@ class TestAndroidImport(FilterWarningsCase):
             self.assertFalse(hasattr(mod, "__path__"))
             self.assertEqual(mod_name.rpartition(".")[0], mod.__package__)
         loader = mod.__loader__
-        self.assertIsInstance(loader, importer.AssetLoader)
+        self.assertIsInstance(loader, AssetLoader)
 
         # When importlib._bootstrap._init_module_attrs is passed an already-initialized
         # module with override=False, it sets __spec__ and leaves the other attributes
@@ -981,7 +980,7 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertEqual(file.read(), data)
 
     def check_resource_path(self, path, abs_filename, data, binary):
-        self.assertIs(type(path), PosixPath)
+        self.assertIsInstance(path, PosixPath)
         if not extracted(abs_filename):
             # Non-extracted files are copied to the temporary directory.
             self.assertEqual(dirname(path),
@@ -997,7 +996,13 @@ class TestAndroidImport(FilterWarningsCase):
         # App ZIP
         pkg = "android1"
         pkg_path = resources.files(pkg)
-        self.assertNotIsInstance(pkg_path, Path)
+        self.check_dir_path(pkg_path, AssetPath, APP_ZIP, "android1")
+
+        # Test traversal up out of the AssetFinder directory.
+        app_path = pkg_path.parent
+        self.check_dir_path(app_path, AssetPath, APP_ZIP)
+        asset_finder_path = app_path.parent
+        self.check_dir_path(asset_finder_path, PosixPath)
 
         names = ["subdir", "__init__.py", "a.txt", "b.so", "mod1.py"]
         self.check_resource_dir(pkg_path, names)
@@ -1018,7 +1023,7 @@ class TestAndroidImport(FilterWarningsCase):
         for filename in ["invalid.py", "subdir/nonexistent.txt"]:
             with self.subTest(filename=filename):
                 path = pkg_path / filename
-                self.assertNotIsInstance(path, Path)
+                self.assertIsInstance(path, AssetPath)
                 self.assertFalse(path.exists())
                 self.assertFalse(path.is_dir())
                 self.assertFalse(path.is_file())
@@ -1067,6 +1072,12 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertFalse(path.is_dir())
         self.assertPredicate(path.read_bytes().startswith, MAGIC_NUMBER)
 
+    def check_dir_path(self, path, cls, *segments):
+        self.assertIsInstance(path, cls)
+        self.assertEqual(str(path), asset_path(*segments))
+        self.assertTrue(path.exists())
+        self.assertTrue(path.is_dir())
+
     def check_resource_dir(self, path, children):
         self.assertTrue(path.exists())
         self.assertTrue(path.is_dir())
@@ -1088,11 +1099,7 @@ class TestAndroidImport(FilterWarningsCase):
 
             # We should get the same result when passing the whole filename at once.
             self.assertEqual(resources.files(package) / filename, path)
-
-            if not extracted(filename):
-                self.assertNotIsInstance(path, Path)
-            else:
-                self.assertIs(type(path), PosixPath)
+            self.assertIsInstance(path, PosixPath if extracted(filename) else AssetPath)
 
             self.assertTrue(path.exists())
             self.assertFalse(path.is_dir())
@@ -1127,6 +1134,9 @@ class TestAndroidImport(FilterWarningsCase):
         self.assertIsNone(dist.files)
         self.assertEqual("Matthew Honnibal", dist.metadata["Author"])
         self.assertIn("chaquopy-libcxx", [req.split()[0] for req in dist.requires])
+        self.check_dir_path(
+            dist.locate_file("murmurhash"), AssetPath, REQS_COMMON_ZIP, "murmurhash"
+        )
 
         # Distribution objects don't implement __eq__.
         def dist_attrs(dist):

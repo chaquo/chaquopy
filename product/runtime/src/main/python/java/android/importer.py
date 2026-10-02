@@ -347,8 +347,7 @@ class ChaquopyPathFinder(machinery.PathFinder):
         pattern = fr"^{name}(-.*)?\.(dist|egg)-info$"
 
         for entry in context.path:
-            path_cls = AssetPath if entry.startswith(ASSET_PREFIX + "/") else Path
-            entry_path = path_cls(entry)
+            entry_path = path_object(entry)
             try:
                 if entry_path.is_dir():
                     for sub_path in entry_path.iterdir():
@@ -358,9 +357,18 @@ class ChaquopyPathFinder(machinery.PathFinder):
                 pass  # Inaccessible path entries should be ignored.
 
 
+def path_object(path):
+    path_cls = AssetPath if path.startswith(ASSET_PREFIX + "/") else Path
+    return path_cls(path)
+
+
 # This does not inherit from PosixPath, because that would cause
 # importlib.resources.as_file to return it unchanged, rather than creating a temporary
 # file as it should.
+#
+# Although this meets the importlib.metadata.SimplePath protocol, it doesn't inherit
+# that either, because importlib.metadata and its dependencies are quite large, and
+# won't be used in most apps.
 class AssetPath(Traversable):
     def __init__(self, path):
         root_dir = path
@@ -371,7 +379,7 @@ class AssetPath(Traversable):
         self.zip_path = self.finder.zip_path(path)
 
     def __str__(self):
-        return join(self.finder.extract_root, self.zip_path)
+        return join(self.finder.extract_root, self.zip_path).rstrip("/")
 
     def __repr__(self):
         return f"{type(self).__name__}({str(self)!r})"
@@ -406,6 +414,10 @@ class AssetPath(Traversable):
         else:
             return type(self)(child_path)
 
+    @property
+    def parent(self):
+        return path_object(dirname(str(self)))
+
     # `buffering` has no effect because the whole file is read immediately.
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
         if "r" in mode:
@@ -416,8 +428,8 @@ class AssetPath(Traversable):
                 return bio
         raise ValueError(f"unsupported mode: {mode!r}")
 
-    # Traversable.read_text doesn't accept `errors`, which breaks the old importlib API
-    # (https://github.com/python/cpython/issues/127012).
+    # Until Python 3.15, Traversable.read_text didn't accept `errors`, which broke the
+    # old importlib API (https://github.com/python/cpython/issues/127012).
     def read_text(self, encoding=None, errors=None, newline=None):
         with self.open("r", -1, encoding, errors, newline) as strm:
             return strm.read()
