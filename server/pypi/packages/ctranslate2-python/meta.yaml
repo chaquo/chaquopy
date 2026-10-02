@@ -1,0 +1,17 @@
+package:
+  name: "ctranslate2-python"
+  version: "4.1.0"
+
+source:
+  path: /home/aryan/CTranslate2/python
+
+build:
+  number: 0
+  
+
+requirements:
+  build:
+    - pybind11 2.11.1
+  host:
+    - ctranslate2-lib 4.1.0 # Add dependency on the C++ library
+

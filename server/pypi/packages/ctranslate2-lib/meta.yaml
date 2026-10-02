@@ -1,0 +1,14 @@
+package:
+  name: "ctranslate2-lib"
+  version: "4.1.0"
+
+source:
+  path : ../../../../../../CTranslate2
+
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - cmake 3.30.2
