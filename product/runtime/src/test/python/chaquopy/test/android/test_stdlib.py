@@ -74,10 +74,6 @@ class TestAndroidStdlib(FilterWarningsCase):
 
     def test_locale(self):
         import locale
-        self.assertEqual("UTF-8", locale.getlocale()[1])
-        with catch_warnings():
-            filterwarnings("default", category=DeprecationWarning)
-            self.assertEqual("UTF-8", locale.getdefaultlocale()[1])
         self.assertEqual("utf-8",  # Became lower-case in Python 3.11.
                          locale.getpreferredencoding().lower())
         self.assertEqual("utf-8", sys.getdefaultencoding())

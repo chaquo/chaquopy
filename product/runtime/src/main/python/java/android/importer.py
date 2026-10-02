@@ -13,6 +13,7 @@ from pkgutil import get_importer
 import re
 from shutil import copyfileobj, rmtree
 import site
+from stat import S_IMODE
 import sys
 from tempfile import NamedTemporaryFile
 import time
@@ -850,7 +851,20 @@ class AssetZipFile(ZipFile):
         if need_extract:
             extracted_filename = self.extract(member, target_dir)
             assert extracted_filename == out_filename, (extracted_filename, out_filename)
+
+            # In API level 37, native libraries loaded using System.load must be
+            # read-only. This doesn't affect lower-level APIs yet, but it's likely
+            # they'll tighten this in the future.
+            #
+            # In theory we could apply this to all files, but while writing to a virtual
+            # environment at runtime is certainly bad practice, it's usually possible,
+            # so there's probably someone out there doing it.
+            if re.search(r"\.so(\.|$)", basename(member.filename)):
+                os.chmod(out_filename, S_IMODE(os.stat(out_filename).st_mode) & ~0o222)
+
+            # Do this last to indicate that the file is in its final state.
             os.utime(out_filename, (time.time(), timegm(member.date_time)))
+
         return out_filename
 
     def exists(self, path):
