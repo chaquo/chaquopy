@@ -1989,6 +1989,8 @@ class RunGradle(object):
 
     def check_lib(self, lib_dir, kwargs):
         python_version = kwargs["python_version"]
+        python_version_major = version.split(".")[0]
+
         abis = kwargs["abis"]
         self.test.assertCountEqual(abis, os.listdir(lib_dir))
         for abi in abis:
@@ -1998,6 +2000,7 @@ class RunGradle(object):
                     "libchaquopy_java.so",
                     "libcrypto_chaquopy.so",
                     "libcrypto_python.so",
+                    f"libpython{python_version_major}.so",
                     f"libpython{python_version}.so",
                     "libssl_chaquopy.so",
                     "libssl_python.so",
@@ -2005,7 +2008,9 @@ class RunGradle(object):
                     "libsqlite3_python.so",
                 ],
                 os.listdir(abi_dir))
-            self.check_python_so(join(abi_dir, "libchaquopy_java.so"), python_version, abi)
+
+            for name in ["chaquopy_java", f"python{python_version_major}"]:
+                self.check_python_so(f"{abi_dir}/lib{name}.so", python_version, abi)
 
     def check_python_so(self, filename_or_file, python_version, abi):
         if isinstance(filename_or_file, str):
