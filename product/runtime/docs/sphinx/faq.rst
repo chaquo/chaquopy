@@ -264,6 +264,30 @@ There are many ways of doing this: here's one example from the Electron Cash pro
   using normal Python syntax.
 
 
+Interrupt a Python call
+-----------------------
+
+Chaquopy runs Python within your main app process; there is no separate Python process.
+So your Python code will have to terminate itself, either by returning or throwing an
+exception.
+
+The simplest technique is to make the code regularly check a variable and return when
+the variable is set. Then run the code in a background thread, and set the variable from
+the foreground thread when you want to interrupt it.
+
+If you're unable to change the code to do this, then try using
+`PyThreadState_SetAsyncExc` to force the background thread to throw a Python exception,
+as shown `here
+<https://github.com/jmpty/matatacode-android/blob/ad46b0ad0bbd10aac954364a66af931d8b982971/app/src/main/python/hello.py#L14-L23>`__.
+
+If you need even more isolation between the app and the Python code, you could try
+running Python in a separate process using the `"process"
+<https://developer.android.com/guide/topics/manifest/activity-element.html#proc>`__
+option in AndroidManifest.xml. There's an example of this in the `chaquopy-jupyter
+<https://github.com/chaquo/chaquopy-jupyter>`__ repository. But this will significantly
+complicate your app.
+
+
 Build errors
 ============
 
