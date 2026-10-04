@@ -8,8 +8,7 @@ set -eu
 # There are undefined symbols in plugin modules, e.g lib/Transforms/Hello.
 LDFLAGS=$(echo $LDFLAGS | sed 's/-Wl,--no-undefined//')
 
-triple=$(basename $AR | sed 's/-ar$//')
-case $triple in
+case $HOST in
     arm-linux-androideabi)
         target="ARM"
         ;;
@@ -23,7 +22,7 @@ case $triple in
         target="X86"
         ;;
     *)
-        echo "Unknown triple '$triple'"
+        echo "Unknown HOST '$HOST'"
         exit 1
 esac
 
@@ -38,11 +37,10 @@ _cmake_config+=(-DCMAKE_BUILD_TYPE:STRING=Release)
 _cmake_config+=(-DLLVM_BUILD_LLVM_DYLIB=ON)
 _cmake_config+=(-DLLVM_TABLEGEN=$(realpath $build_tblgen/bin/llvm-tblgen))
 
-_cmake_config+=(-DCMAKE_TOOLCHAIN_FILE="../chaquopy.toolchain.cmake")
-_cmake_config+=(-DLLVM_HOST_TRIPLE=$triple)
+_cmake_config+=(-DLLVM_HOST_TRIPLE=$HOST)
 _cmake_config+=(-DLLVM_TARGETS_TO_BUILD=$target)
 _cmake_config+=(-DLLVM_TARGET_ARCH=$target)
-_cmake_config+=(-DLLVM_DEFAULT_TARGET_TRIPLE=$triple)
+_cmake_config+=(-DLLVM_DEFAULT_TARGET_TRIPLE=$HOST)
 
 _cmake_config+=(-DLLVM_ENABLE_ASSERTIONS:BOOL=ON)
 _cmake_config+=(-DLINK_POLLY_INTO_TOOLS:BOOL=ON)
