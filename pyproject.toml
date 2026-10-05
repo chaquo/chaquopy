@@ -4,9 +4,9 @@ filename = "product/runtime/docs/sphinx/changelog.rst"
 issue_format = "`#{issue} <https://github.com/chaquo/chaquopy/issues/{issue}>`__"
 wrap = true
 
-# Roughly in order of importance, but put the good news at the top.
+# In order of importance, corresponding to the 3 components of the version number.
 type = [
-    { directory = "feature", name = "Features", showcontent = true },
-    { directory = "removal", name = "Deprecations and Removals", showcontent = true },
-    { directory = "bugfix", name = "Bugfixes", showcontent = true },
+    { directory = "removal", name = "Incompatible changes"},
+    { directory = "feature", name = "Features"},
+    { directory = "bugfix", name = "Bugfixes"},
 ]

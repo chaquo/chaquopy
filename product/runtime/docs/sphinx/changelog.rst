@@ -8,6 +8,33 @@ Change log
 17.0.0 (2025-12-01)
 ===================
 
+Incompatible changes
+--------------------
+
+- Pip now uses the `--only-binary` option, so it will no longer install sdists
+  from PyPI or other indexes. Installing a local path to an sdist or source
+  directory is still possible, as long as it's a pure-Python package. (`#981
+  <https://github.com/chaquo/chaquopy/issues/981>`__)
+- Pip's `--extra-index-url` option no longer accepts local paths. Use
+  `--find-links` instead, but note that this option expects wheels to be
+  directly under the given directory, not in subdirectories named after each
+  package. (`#981 <https://github.com/chaquo/chaquopy/issues/981>`__)
+- :ref:`buildPython` must now have the same Python major and minor versions as
+  the app. (`#991 <https://github.com/chaquo/chaquopy/issues/991>`__)
+- The default Python version is now 3.10, and Python 3.8 and 3.9 are no longer
+  supported. Some packages are not available yet for Python 3.10 or later. If
+  you need any of those packages, please remain on the previous version of
+  Chaquopy for now. (`#1039
+  <https://github.com/chaquo/chaquopy/issues/1039>`__)
+- Android Gradle plugin versions 7.0 to 7.2 are no longer supported. (`#1373
+  <https://github.com/chaquo/chaquopy/issues/1373>`__)
+- :ref:`buildPython` commands with multiple arguments must now be passed as
+  multiple strings, not as a single space-separated string. (`#1411
+  <https://github.com/chaquo/chaquopy/issues/1411>`__)
+- Pip no longer prefers older Android wheels over newer pure-Python wheels.
+  (`#1417 <https://github.com/chaquo/chaquopy/issues/1417>`__)
+
+
 Features
 --------
 
@@ -39,33 +66,6 @@ Features
   <https://github.com/chaquo/chaquopy/issues/1411>`__)
 - Added the wildcard `*` to :ref:`extractPackages` to extract all packages at
   startup. (`#1424 <https://github.com/chaquo/chaquopy/issues/1424>`__)
-
-
-Deprecations and Removals
--------------------------
-
-- Pip now uses the `--only-binary` option, so it will no longer install sdists
-  from PyPI or other indexes. Installing a local path to an sdist or source
-  directory is still possible, as long as it's a pure-Python package. (`#981
-  <https://github.com/chaquo/chaquopy/issues/981>`__)
-- Pip's `--extra-index-url` option no longer accepts local paths. Use
-  `--find-links` instead, but note that this option expects wheels to be
-  directly under the given directory, not in subdirectories named after each
-  package. (`#981 <https://github.com/chaquo/chaquopy/issues/981>`__)
-- :ref:`buildPython` must now have the same Python major and minor versions as
-  the app. (`#991 <https://github.com/chaquo/chaquopy/issues/991>`__)
-- The default Python version is now 3.10, and Python 3.8 and 3.9 are no longer
-  supported. Some packages are not available yet for Python 3.10 or later. If
-  you need any of those packages, please remain on the previous version of
-  Chaquopy for now. (`#1039
-  <https://github.com/chaquo/chaquopy/issues/1039>`__)
-- Android Gradle plugin versions 7.0 to 7.2 are no longer supported. (`#1373
-  <https://github.com/chaquo/chaquopy/issues/1373>`__)
-- :ref:`buildPython` commands with multiple arguments must now be passed as
-  multiple strings, not as a single space-separated string. (`#1411
-  <https://github.com/chaquo/chaquopy/issues/1411>`__)
-- Pip no longer prefers older Android wheels over newer pure-Python wheels.
-  (`#1417 <https://github.com/chaquo/chaquopy/issues/1417>`__)
 
 
 Bugfixes
@@ -107,6 +107,17 @@ Bugfixes
 16.0.0 (2024-10-15)
 ===================
 
+Incompatible changes
+--------------------
+
+- `minSdk` must now be at least API level 24. This
+  still covers `97% of active devices
+  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
+  (`#718 <https://github.com/chaquo/chaquopy/issues/718>`__)
+- :ref:`buildPython` must now be at least Python 3.8. (`#1027
+  <https://github.com/chaquo/chaquopy/issues/1027>`__)
+
+
 Features
 --------
 
@@ -122,17 +133,6 @@ Features
   <https://github.com/chaquo/chaquopy/issues/1245>`__)
 
 
-Deprecations and Removals
--------------------------
-
-- `minSdk` must now be at least API level 24. This
-  still covers `97% of active devices
-  <https://dl.google.com/android/studio/metadata/distributions.json>`__.
-  (`#718 <https://github.com/chaquo/chaquopy/issues/718>`__)
-- :ref:`buildPython` must now be at least Python 3.8. (`#1027
-  <https://github.com/chaquo/chaquopy/issues/1027>`__)
-
-
 Bugfixes
 --------
 
@@ -146,6 +146,16 @@ Bugfixes
 
 15.0.1 (2023-12-24)
 ===================
+
+Incompatible changes
+--------------------
+
+- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
+  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
+- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
+  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
+  <https://github.com/chaquo/chaquopy/issues/840>`__)
+
 
 Features
 --------
@@ -180,16 +190,6 @@ Features
 - Update pkg_resources from setuptools version 68.2.2.
 
 
-Deprecations and Removals
--------------------------
-
-- The 32-bit ABIs `armeabi-v7a` and `x86` will no longer be supported on Python
-  3.12 and later. (`#709 <https://github.com/chaquo/chaquopy/issues/709>`__)
-- Android Gradle plugin versions 4.1 and 4.2 are no longer supported. (`#787
-  <https://github.com/chaquo/chaquopy/issues/787>`__, `#840
-  <https://github.com/chaquo/chaquopy/issues/840>`__)
-
-
 Bugfixes
 --------
 
@@ -207,6 +207,13 @@ Bugfixes
 
 14.0.2 (2023-01-29)
 ===================
+
+Incompatible changes
+--------------------
+
+- :ref:`buildPython` must now be at least Python 3.7. (`#713
+  <https://github.com/chaquo/chaquopy/issues/713>`__)
+
 
 Features
 --------
@@ -234,13 +241,6 @@ Features
   `minifyEnabled true` will need a workaround. (`#842
   <https://github.com/chaquo/chaquopy/issues/842>`__)
 - Update to pip version 20.1.
-
-
-Deprecations and Removals
--------------------------
-
-- :ref:`buildPython` must now be at least Python 3.7. (`#713
-  <https://github.com/chaquo/chaquopy/issues/713>`__)
 
 
 Bugfixes
