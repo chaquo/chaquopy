@@ -3,7 +3,7 @@ apply plugin: 'com.chaquo.python'
 
 android {
     namespace "com.chaquo.python.test_library1"
-    compileSdk 37
+    compileSdk 34
 
     defaultConfig {
         minSdk 24
