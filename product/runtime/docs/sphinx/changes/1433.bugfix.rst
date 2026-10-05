@@ -1,0 +1,1 @@
+The path-like objects returned from the importer to `importlib` now implement the complete `SimplePath` API, including `parent`.

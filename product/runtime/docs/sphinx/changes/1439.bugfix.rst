@@ -1,0 +1,1 @@
+When creating the build environment fails because of the Windows 260-character path limit, error messages are now displayed.

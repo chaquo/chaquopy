@@ -1,0 +1,1 @@
+.so files are now made read-only before loading them, in case this becomes compulsory in future versions of Android.
