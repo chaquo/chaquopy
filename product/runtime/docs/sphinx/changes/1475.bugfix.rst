@@ -1,0 +1,1 @@
+Fix a SYS_SECCOMP crash during startup, seen on x86_64 with API levels 27-28.

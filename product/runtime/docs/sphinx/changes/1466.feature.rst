@@ -1,0 +1,1 @@
+Enable several SQLite features including FTS5.
