@@ -1,4 +1,5 @@
-# Based on https://cython.readthedocs.io/en/stable/src/quickstart/build.html#building-a-cython-module-using-distutils
+# Based on
+# https://cython.readthedocs.io/en/stable/src/quickstart/build.html#building-a-cython-module-using-distutils
 
 from setuptools import setup
 from Cython.Build import cythonize

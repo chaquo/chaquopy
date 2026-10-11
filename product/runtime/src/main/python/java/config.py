@@ -24,13 +24,11 @@ def add_options(*opts):
     "Appends options to the list of VM options."
     if vm_running:
         raise ValueError("VM is already running, can't set options")
-    global options
     options.extend(opts)
 
 
 def get_options():
     "Retrieves the current list of VM options."
-    global options
     return list(options)
 
 
@@ -62,7 +60,6 @@ def get_classpath():
     "Retrieves the classpath the JVM will use."
     from os import environ
     from os.path import realpath
-    global classpath
 
     if classpath is not None:
         return list(classpath)

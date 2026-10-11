@@ -7,7 +7,7 @@ class TestSoxr(unittest.TestCase):
 
         inputSamplerate = 48000
         targetSamplerate = 16000
-        
+
         x = [1.0] * inputSamplerate
         y = soxr.resample(
             x,          # 1D(mono) or 2D(frames, channels) array input
