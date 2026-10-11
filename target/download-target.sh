@@ -13,8 +13,10 @@ target_dir=$(cd $1 && pwd)
 cd $target_dir
 version=$(basename $target_dir)
 
-# Set user-agent to circumvent Maven Central's block of wget.
+# To allow testing unreleased versions, we download from chaquo.com rather than Maven
+# Central. However, keep the anti-bot circumvention flags in case this changes.
+#
 # Redirect stderr to stdout, otherwise output gets mixed up in CI.
 wget -r -l1 --no-parent --no-directories --accept .zip --progress dot:giga \
     -e robots=off --user-agent Mozilla/5.0 \
-    https://repo.maven.apache.org/maven2/com/chaquo/python/target/$version/ 2>&1
+    https://chaquo.com/maven-central/com/chaquo/python/target/$version/ 2>&1

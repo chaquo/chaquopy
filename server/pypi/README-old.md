@@ -17,8 +17,8 @@ just fine.
 
 First, clone this repository.
 
-Then, go to [this Maven Central
-page](https://repo.maven.apache.org/maven2/com/chaquo/python/target/) and select which
+Then, go to [this
+page](https://chaquo.com/maven-central/com/chaquo/python/target/) and select which
 Python version you want to build for. Within a given Python minor version (e.g. 3.13),
 you should usually use the newest version available. Then use `download-target.sh` to
 download it into `maven` in the root of this repository. For example, to download
