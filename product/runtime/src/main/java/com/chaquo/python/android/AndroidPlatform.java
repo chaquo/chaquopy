@@ -272,7 +272,10 @@ public class AndroidPlatform extends Python.Platform {
             System.loadLibrary("sqlite3_" + suffix);
         }
 
-        System.loadLibrary("python" + buildJson.getString("python_version"));
+        String version = buildJson.getString("python_version");
+        String versionMajor = version.split("\\.")[0];
+        System.loadLibrary("python" + version);
+        System.loadLibrary("python" + versionMajor);
         System.loadLibrary("chaquopy_java");
     }
 

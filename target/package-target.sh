@@ -93,7 +93,7 @@ for prefix in $prefixes; do
 
     jniLibs_dir="jniLibs/$abi"
     mkdir -p "$jniLibs_dir"
-    cp $prefix/lib/libpython$version_short.so "$jniLibs_dir"
+    cp $prefix/lib/libpython{$version_major,$version_short}.so "$jniLibs_dir"
 
     for name in crypto ssl sqlite3; do
         # Add _chaquopy suffixed libraries for compatibility with existing wheels. We

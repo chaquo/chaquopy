@@ -180,6 +180,9 @@ class TestAndroidStdlib(FilterWarningsCase):
             cur = conn.execute("select b from test where a = 'bravo'")
             self.assertEqual([("two",)], cur.fetchall())
 
+            # Check FTS5 is available.
+            conn.execute("create virtual table fts_test using fts5(content)")
+
     def test_ssl(self):
         from urllib.request import urlopen
         resp = urlopen("https://chaquo.com/chaquopy/")

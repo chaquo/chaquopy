@@ -111,7 +111,7 @@ Tests (this list is also referenced from target/README.md):
 * Build, test and release any packages used by the demo app.
 * Temporarily change the Python version of the demo app, and run the Python and Java
   unit tests on the full set of pre-release devices (see release/README.md).
-* To support CI, release the target packages to Maven Central (see release/README.md).
+* To support CI, upload the target packages to https://chaquo.com/maven-central.
 
 
 ## Removing a Python version
