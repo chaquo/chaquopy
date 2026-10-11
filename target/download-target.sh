@@ -17,6 +17,6 @@ version=$(basename $target_dir)
 # Central. However, keep the anti-bot circumvention flags in case this changes.
 #
 # Redirect stderr to stdout, otherwise output gets mixed up in CI.
-wget -r -l1 --no-parent --no-directories --accept .zip --progress dot:giga \
+wget -r -l1 --no-parent --no-directories --accept .pom,.zip --progress dot:giga \
     -e robots=off --user-agent Mozilla/5.0 \
     https://chaquo.com/maven-central/com/chaquo/python/target/$version/ 2>&1
