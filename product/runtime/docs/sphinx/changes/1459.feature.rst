@@ -1,1 +1,0 @@
-Python version 3.15 is now supported.

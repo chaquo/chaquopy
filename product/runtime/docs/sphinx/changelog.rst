@@ -5,6 +5,47 @@ Change log
 
 .. towncrier release notes start
 
+17.1.0 (2026-10-12)
+===================
+
+Features
+--------
+
+- libpython3.so is now available at runtime, for packages built against the
+  stable ABI (`abi3`). (`#1380
+  <https://github.com/chaquo/chaquopy/issues/1380>`__)
+- The Gradle configuration cache is now supported. (`#1443
+  <https://github.com/chaquo/chaquopy/issues/1443>`__)
+- .so files are now made read-only before loading them, in case this becomes
+  compulsory in future versions of Android. (`#1444
+  <https://github.com/chaquo/chaquopy/issues/1444>`__)
+- Update CA bundle to certifi 2026.7.22. (`#1445
+  <https://github.com/chaquo/chaquopy/issues/1445>`__)
+- Python version 3.15 is now supported. (`#1459
+  <https://github.com/chaquo/chaquopy/issues/1459>`__)
+- Fixed some deprecation warnings to prepare for Gradle 10. (`#1463
+  <https://github.com/chaquo/chaquopy/issues/1463>`__)
+- Enable several SQLite features including FTS5. (`#1466
+  <https://github.com/chaquo/chaquopy/issues/1466>`__)
+- Update runtime Python versions to 3.10.22, 3.11.17, 3.12.15, 3.13.16, 3.14.8
+  and 3.15.0. (`#1467 <https://github.com/chaquo/chaquopy/issues/1467>`__)
+
+
+Bugfixes
+--------
+
+- The path-like objects returned from the importer to `importlib` now implement
+  the complete `SimplePath` API, including `parent`. (`#1433
+  <https://github.com/chaquo/chaquopy/issues/1433>`__)
+- When creating the build environment fails because of the Windows
+  260-character path limit, error messages are now displayed. (`#1439
+  <https://github.com/chaquo/chaquopy/issues/1439>`__)
+- Fixed detection of Python installed from the Microsoft Store on Windows.
+  (`#1454 <https://github.com/chaquo/chaquopy/issues/1454>`__)
+- Fix a SYS_SECCOMP crash during startup, seen on x86_64 with API levels 27-28.
+  (`#1475 <https://github.com/chaquo/chaquopy/issues/1475>`__)
+
+
 17.0.0 (2025-12-01)
 ===================
 
