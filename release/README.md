@@ -5,22 +5,34 @@
 These are fully automated in GitHub Actions. Check the most recent run succeeded, and
 make a note of its commit, because we'll be tagging it later.
 
-Download the `maven` artifact from GitHub Actions, and unpack it into the local `maven`
-directory on all machines that will be used by the subsequent tests.
+On all machines that will be used during the release:
+
+* Update to the head of the master branch, and make sure the repository is clean.
+* Download the `maven` artifact from GitHub Actions, and unpack it into the local
+  `maven` directory.
 
 
 ## BeeWare compatibility tests
 
-Pull the current versions of briefcase, toga and briefcase-android-gradle-template.
+Pull the current versions of briefcase, toga and briefcase-android-gradle-template, and
+make sure the repositories are clean.
+
+Activate a virtual environment with the current version of Briefcase installed.
 
 Edit briefcase-android-gradle-template to use the new Chaquopy version, and temporarily
 add a `repositories` entry pointing at the artifacts you downloaded above, e.g.:
 
-   maven { url "/Users/msmith/git/chaquo/chaquopy/maven" }
+    maven { url "/Users/msmith/git/chaquo/chaquopy/maven" }
 
-Use that template to run the Toga testbed.
+Use that template to run the Toga testbed on the default Briefcase emulator, e.g.:
 
-We will create a Briefcase PR in the final step below.
+   briefcase create android -C 'template="/Users/msmith/git/beeware/briefcase-android-gradle-template"'
+   briefcase run android -a testbed --test -ur
+
+It might be difficult to get a 100% pass on a local emulator, but at least make sure
+it's no worse than the previous version of the template.
+
+We will create a template PR in a later step below.
 
 
 ## Unit tests
@@ -37,22 +49,23 @@ device under the following conditions:
 * Change back to "debug" variant, and test a single-ABI build by temporarily changing
   abiFilters.
 
-Download the `demo` artifact from GitHub Actions, and unpack the APK from it.
-
-Install the APK and run the Java and Python unit tests on all ABIs, with at least one
-test covering each of the following:
+Using either Android Studio or the CPython testbed launcher, run the Python unit tests
+on all ABIs, with at least one test covering each of the following:
 
 * A physical device
 * minSdk (or as close as possible, on all ABIs)
 * targetSdk
 * 16 KB pages (on all 64-bit ABIs)
 * A clean install
-* An upgrade from the previous public release, with the tests already run
 
-Test all the UI elements of the app on both minSdkVersion and targetSdkVersion.
+Repeat for each of the non-default Python versions.
 
-For each of the non-default Python versions, run the Java and Python unit tests on the
-same devices.
+Download the `demo` artifact from GitHub Actions, and test its APK on both minSdk and
+targetSdk, including:
+
+* An upgrade from the previous Google Play release, with the tests already run.
+* All the UI elements of the app.
+* The Java and Python unit tests.
 
 
 ## Performance tests
@@ -67,21 +80,24 @@ all have changed.
 
 ## Package tests
 
-Open the pkgtest app in Android Studio, and temporarily edit the top-level build.gradle
-file to use the local Chaquopy version.
+On all machines that will be used for these tests:
+
+* Temporarily edit the top-level build.gradle file to use the local Chaquopy version.
 
 Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes for
 the default Python version, ordered by number of PyPI downloads:
 
 * Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
 * `cd /var/www/chaquo/pypi-13.1`
-* `cat path/to/top-pypi-packages.csv | tail -n +2 | head -n 2000 | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | grep -vE 'opencv.*(contrib|headless)|^argon2-cffi$' | head -n40 | tr '\n' ' '`
+* `cat path/to/top-pypi-packages.csv | tail -n +2 | head -n 2000 | cut -d, -f2 | tr -d '"' | while read name; do if ls $name/*cp310* &>/dev/null; then echo $name; fi; done | grep -vE '^opencv.*(contrib|headless)|^(argon2-cffi|aiohttp)$' | head -n40 | tr '\n' ' '`
+  * The `opencv` variants all use the same runtime package name.
+  * `argon2-cffi` and `aiohttp` have newer versions available as pure-Python wheels.
 * TODO: once the default version is 3.13 or later, also include data from
   https://beeware.org/mobile-wheels.
 
-As of 2025-11, this is:
+As of 2026-10, this is:
 
-    numpy cryptography cffi pandas aiohttp yarl multidict frozenlist greenlet pillow grpcio psutil scipy lxml regex pynacl scikit-learn bcrypt matplotlib zstandard google-crc32c kiwisolver contourpy ruamel-yaml-clib pyzmq shapely pycryptodome brotli lz4 zope-interface pycryptodomex argon2-cffi-bindings sentencepiece opencv-python gevent ujson statsmodels scikit-image spacy bitarray
+    cryptography cffi pyyaml numpy markupsafe pandas multidict yarl pillow frozenlist greenlet grpcio lxml regex scipy psutil scikit-learn pynacl matplotlib zstandard kiwisolver bcrypt google-crc32c contourpy tornado pyzmq brotli lz4 pycryptodome ruamel-yaml-clib argon2-cffi-bindings shapely zope-interface pycryptodomex statsmodels opencv-python ujson sentencepiece gevent scikit-image
 
 Search the package test scripts for the word "Android", and consider adding any packages
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
@@ -93,7 +109,7 @@ Test on the full set of pre-release devices above, with the following modificati
 * There should be at least one test each for a single-ABI build, and a multi-ABI build.
 
 
-## Public release
+## Maven Central release
 
 Use release/bundle.sh to create a bundle with the following things, and [release it to
 Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
@@ -106,34 +122,37 @@ Maven Central](https://central.sonatype.org/publish/publish-portal-upload/):
 As a backup, also upload them to <https://chaquo.com/maven-central>.
 
 
-## Demo apps
+## Example apps
 
-Make sure all public repositories are clean (`git clean -xdf`).
+Make sure all the target repositories are clean (`git clean -xdf`).
 
 Run `release/release_public.sh OLD_VER NEW_VER`, where `OLD_VER` is the label in *this*
-repository from which the public repositories were last updated.
+repository from which the target repositories were last updated.
 
-If the script reports any files which require manual merging (e.g. build.gradle), examine them
-and update all the public repositories as necessary.
-* The public apps should use an Android Gradle plugin version which is at least one year
+If the script reports any files which require manual merging (e.g. build.gradle),
+examine them and update all the target repositories as necessary.
+* The example apps should use an Android Gradle plugin version which is at least one year
   old, because new versions of AGP are incompatible with old versions of Android Studio
   (https://android-developers.googleblog.com/2020/12/announcing-android-gradle-plugin.html).
 * If updating the AGP version, also update to the corresponding versions of these things
   (see the integration tests):
   * Gradle
   * gradle.properties
-  * Kotlin plugin
 * If .gitignore has changed, git rm any newly-ignored files.
 
-Open each public app in Android Studio and test it on minSdk and targetSdk, with a clean
+Wait for the Maven Central release to be available.
+
+Open each app in Android Studio and test it on minSdk and targetSdk, with a clean
 install.
 
 Close the projects to make sure .idea files are written.
 
+Commit and push all example app repositories.
+
 Take the demo app APK which was tested above, and release it on Google Play, updating
 the description and screenshots if necessary.
 
-Set reminder to check for Google Play crash reports regularly over the next month.
+Set a reminder to check for Google Play crash reports regularly over the next month.
 
 
 ## Documentation
@@ -147,37 +166,34 @@ Update:
 * `versions.rst`
 * `release` in `conf.py`
 
-Run `gradlew runtime:doc`, and check the output. It will be released in the final step
-below.
-
-
-## Version control
-
-Commit and push all example app repositories.
-
-Tag the commit the GitHub Actions artifacts were built from, and push the tag.
-
-Increment the micro version number in VERSION.txt.
-
-Commit and push this repository.
-
-
-## Once the Maven Central release is live
+In the `product` directory, run `gradlew runtime:docs`, and check the output.
 
 Upload documentation to the webserver. If the major.minor version number has changed:
 * Update the "current" symlink (`ln -sfT`).
 * Add a link on the WordPress documentation page.
 
-Create release page on GitHub with a link to the change log section.
+
+## Version control
+
+Tag the commit the GitHub Actions artifacts were built from, and push the tag.
+
+Create a release page on GitHub with a link to the change log section.
+
+Close the GitHub milestone.
+
+Increment the micro version number in VERSION.txt. Then in the `product` directory, run
+`gradlew publish`.
+
+Commit and push this repository.
+
+Remove the temporary `maven` repository from briefcase-android-gradle-template, and
+create a PR.
+
+
+## Announcements
 
 Post blog entry to website.
 
 Post link to X, and enable "only accounts you mention can reply", because it doesn't
 reliably send email notifications of replies. Enabling replies and apparently ignoring
 them would make us look worse than not enabling replies at all.
-
-Remove the temporary `maven` repository from briefcase-android-gradle-template, and
-create a PR.
-
-On the Python wiki, update the Android and GuiProgramming pages, and remove obsolete
-projects.
