@@ -94,7 +94,7 @@ class TestAndroidStdlib(FilterWarningsCase):
                              pool.map(square_slowly, range(8), chunksize=1))
             duration = time.time() - start
             self.assertGreater(duration, 0.1)
-            self.assertLess(duration, 0.25)
+            self.assertLess(duration, 0.4)  # Some emulators are very slow.
 
         from multiprocessing import get_context, synchronize
         ctx = get_context()
