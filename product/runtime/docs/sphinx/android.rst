@@ -518,6 +518,13 @@ include:
 * :any:`tkinter`
 * :any:`turtle`
 
+The following modules are unsupported because they're quite large, and unlikely to be
+useful in an Android app:
+
+* :any:`ensurepip`
+* `pydoc_data`, which contains the text for the interactive :any:`help` function
+* :any:`test`
+
 multiprocessing
 ---------------
 
@@ -557,7 +564,7 @@ ssl
 ---
 
 The :any:`ssl` module is configured to use a copy of the CA bundle from `certifi
-<https://pypi.org/project/certifi/>`_ version 2026.7.22. The system CA store is
+<https://pypi.org/project/certifi/>`_ version 2026.10.23. The system CA store is
 not used.
 
 sys
