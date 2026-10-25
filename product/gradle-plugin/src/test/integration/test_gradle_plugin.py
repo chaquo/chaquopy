@@ -1004,11 +1004,8 @@ class PythonReqs(GradleTestCase):
             [DEFAULT_PYTHON_VERSION, MIN_PYTHON_VERSION, MAX_PYTHON_VERSION]
         ):
             with self.subTest(version=version):
-                # Our current version of pip shows the full URL for custom indexes, but
-                # only the filename for PyPI.
-                CHAQUO_URL = (r"https://chaquo.com/pypi-13.1/murmurhash/"
-                              r"murmurhash-0.28.0-.+-cp.+-cp.+-android_.+\.whl")
-                PYPI_URL = "six-1.14.0-py2.py3-none-any.whl"
+                CHAQUO_WHL = r"murmurhash-0.28.0-.+-cp.+-cp.+-android_.+\.whl"
+                PYPI_WHL = "six-1.14.0-py2.py3-none-any.whl"
 
                 common_reqs = (
                     ["murmurhash/" + name for name in
@@ -1035,15 +1032,15 @@ class PythonReqs(GradleTestCase):
                         ),
                         include_dist_info=True)
 
-                def assert_url(url):
+                def assert_whl(whl):
                     self.assertInStdout(
-                        fr"(Downloading|Using cached) {url}", run, re=True
+                        fr"(Downloading|Using cached) {whl}", run, re=True
                     )
 
                 run = self.RunGradle(
                     "base", "PythonReqs/download_wheel_1", **kwargs("arm64-v8a")
                 )
-                assert_url(CHAQUO_URL)
+                assert_whl(CHAQUO_WHL)
 
                 common_reqs += (
                     ["six.py"] +
@@ -1055,8 +1052,8 @@ class PythonReqs(GradleTestCase):
                 run.rerun(
                     "PythonReqs/download_wheel_2", **kwargs("arm64-v8a", "x86_64")
                 )
-                assert_url(CHAQUO_URL)
-                assert_url(PYPI_URL)
+                assert_whl(CHAQUO_WHL)
+                assert_whl(PYPI_WHL)
 
     def test_not_found(self):
         req = "numpy==1.9.9"

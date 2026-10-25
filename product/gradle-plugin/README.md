@@ -213,8 +213,10 @@ Delete pip from src/main/python, including the .dist-info directory.
 
 Download the wheel of the new version, and unpack it into src/main/python.
 
-Commit to upstream-pip, then merge to master.
+Commit to upstream-pip, and push it to GitHub.
+
+Create a PR branch, and merge upstream-pip into it.
 
 Run all integration tests.
 
-When finished, don't forget to push the upstream-pip branch.
+Merge the PR to master using a normal merge, NOT a squash merge.
