@@ -17,7 +17,7 @@ On all machines that will be used during the release:
 Pull the current versions of briefcase, toga and briefcase-android-gradle-template, and
 make sure the repositories are clean.
 
-Activate a virtual environment with the current version of Briefcase installed.
+In a virtual environment, install the Briefcase repository in editable mode.
 
 Edit briefcase-android-gradle-template to use the new Chaquopy version, and temporarily
 add a `repositories` entry pointing at the artifacts you downloaded above, e.g.:
@@ -26,7 +26,7 @@ add a `repositories` entry pointing at the artifacts you downloaded above, e.g.:
 
 Use that template to run the Toga testbed on the default Briefcase emulator, e.g.:
 
-   briefcase create android -C 'template="/Users/msmith/git/beeware/briefcase-android-gradle-template"'
+   briefcase create android -a testbed -C 'template="/Users/msmith/git/beeware/briefcase-android-gradle-template"'
    briefcase run android -a testbed --test -ur
 
 It might be difficult to get a 100% pass on a local emulator, but at least make sure
@@ -80,12 +80,16 @@ all have changed.
 
 ## Package tests
 
-On all machines that will be used for these tests:
+On all machines that will be used for these tests, temporarily edit the pkgtest app:
 
-* Temporarily edit the top-level build.gradle file to use the local Chaquopy version.
+* In the top-level build.gradle file, use the local Chaquopy version.
 
-Temporarily edit the app/build.gradle file to set `PACKAGES` to the top 40 recipes for
-the default Python version, ordered by number of PyPI downloads:
+* In the app/build.gradle file, set `PACKAGES` to the top 40 binary packages for the
+  default Python version, ordered by number of PyPI downloads. As of 2026-10, this is:
+
+    cryptography cffi pyyaml numpy markupsafe pandas multidict yarl pillow frozenlist greenlet grpcio lxml regex scipy psutil scikit-learn pynacl matplotlib zstandard kiwisolver bcrypt google-crc32c contourpy tornado pyzmq brotli lz4 pycryptodome ruamel-yaml-clib argon2-cffi-bindings shapely zope-interface pycryptodomex statsmodels opencv-python ujson sentencepiece gevent scikit-image
+
+To update this list:
 
 * Get the [PyPI statistics in CSV format](https://hugovk.github.io/top-pypi-packages/).
 * `cd /var/www/chaquo/pypi-13.1`
@@ -94,10 +98,6 @@ the default Python version, ordered by number of PyPI downloads:
   * `argon2-cffi` and `aiohttp` have newer versions available as pure-Python wheels.
 * TODO: once the default version is 3.13 or later, also include data from
   https://beeware.org/mobile-wheels.
-
-As of 2026-10, this is:
-
-    cryptography cffi pyyaml numpy markupsafe pandas multidict yarl pillow frozenlist greenlet grpcio lxml regex scipy psutil scikit-learn pynacl matplotlib zstandard kiwisolver bcrypt google-crc32c contourpy tornado pyzmq brotli lz4 pycryptodome ruamel-yaml-clib argon2-cffi-bindings shapely zope-interface pycryptodomex statsmodels opencv-python ujson sentencepiece gevent scikit-image
 
 Search the package test scripts for the word "Android", and consider adding any packages
 which test Chaquopy (as opposed to the package itself) in a way that isn't covered by
@@ -169,7 +169,7 @@ Update:
 In the `product` directory, run `gradlew runtime:docs`, and check the output.
 
 Upload documentation to the webserver. If the major.minor version number has changed:
-* Update the "current" symlink (`ln -sfT`).
+* Update the "current" symlink (`ln -sfn`).
 * Add a link on the WordPress documentation page.
 
 

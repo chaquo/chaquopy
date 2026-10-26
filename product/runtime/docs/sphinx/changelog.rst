@@ -5,6 +5,18 @@ Change log
 
 .. towncrier release notes start
 
+17.2.0 (2026-10-26)
+===================
+
+Features
+--------
+
+- Update CA bundle to certifi 2026.10.23. (`#1484
+  <https://github.com/chaquo/chaquopy/issues/1484>`__)
+- Update to pip version 26.2.2. (`#1484
+  <https://github.com/chaquo/chaquopy/issues/1484>`__)
+
+
 17.1.0 (2026-10-12)
 ===================
 
