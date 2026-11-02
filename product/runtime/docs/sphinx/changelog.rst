@@ -10,7 +10,7 @@ Change log
 
 Features
 --------
-
+- Android Gradle plugin version 9.5 is now supported.
 - Update CA bundle to certifi 2026.10.23. (`#1484
   <https://github.com/chaquo/chaquopy/issues/1484>`__)
 - Update to pip version 26.2.2. (`#1484
