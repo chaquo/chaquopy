@@ -3,12 +3,22 @@
 The recommended way to build Android-compatible wheels for Python 3.13 or later is to
 use [cibuildwheel](https://cibuildwheel.pypa.io/en/stable/platforms/#android). Despite
 the name, the tool is not limited to CI environments; it can be run locally on macOS and
-Linux machines.
+Linux machines. Many projects already use cibuildwheel, but even if they don't, it's
+easy to use it for Android alone.
 
-Many projects already use cibuildwheel to manage publication of binary wheels, but even
-if they don't, it's easy to use cibuildwheel for Android alone. For examples of how to
-add Android support to an existing package, see
-[here](https://github.com/chaquo/chaquopy/issues/1417#issuecomment-3564326948).
+For examples of how to add Android support to a package, see the [issues labeled
+"upstreamed"](https://github.com/chaquo/chaquopy/issues?q=is%3Aissue+label%3Aupstreamed)
+and search for the word "official".
+
+The following sections of cibuildwheel's documentation will also be useful:
+
+* [Android](https://cibuildwheel.pypa.io/en/stable/platforms/#android), for the
+  prerequisites you need to install.
+* [Getting started](https://cibuildwheel.pypa.io/en/stable/setup/): you'll want to use
+  the `--platform android` option, or
+  [`--only`](https://cibuildwheel.pypa.io/en/stable/options/#command-line) with one of
+  the [Android build
+  identifiers](https://cibuildwheel.pypa.io/en/stable/options/#build-skip).
 
 For Python 3.12 and older, there is also a Chaquopy-specific build tool documented in
 README-old.md.
