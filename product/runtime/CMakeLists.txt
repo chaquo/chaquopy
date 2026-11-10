@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.10.0)
 project(runtime LANGUAGES C)
 
 # Work around https://github.com/cython/cython/issues/4804.

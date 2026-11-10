@@ -109,7 +109,7 @@ String sdkPath(String path) {
 // CHAQUOPY_NO_BUILD is set
 // (https://github.com/actions/runner-images/issues/11111#issuecomment-2585484643).
 String cmakeExecutable(String name) {
-    return "${sdkPath("cmake/3.22.1")}/bin/$name"
+    return "${sdkPath("cmake/3.31.5")}/bin/$name"
 }
 
 // On Windows, some of the Python unit tests don't work on Java 11 yet (#1200). This
