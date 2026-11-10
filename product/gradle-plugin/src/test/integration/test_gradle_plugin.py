@@ -43,7 +43,7 @@ assert f"{sys.version_info.major}.{sys.version_info.minor}" == DEFAULT_PYTHON_VE
 
 # This should be as old as possible while still being available on all the CI runners
 # (see .github/actions/setup-python/action.yml).
-OLD_PYTHON_VERSION = "3.7"
+OLD_PYTHON_VERSION = "3.8"
 
 def run_build_python(args, **kwargs):
     for k, v in dict(check=True, capture_output=True, text=True).items():
