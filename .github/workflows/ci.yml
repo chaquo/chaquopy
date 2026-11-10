@@ -198,5 +198,5 @@ jobs:
       - name: Test
         run: |
           cd product
-          export JAVA_HOME=$JAVA_HOME_11_X64
+          export JAVA_HOME=${JAVA_HOME_11_X64:-$JAVA_HOME_11_arm64}
           CHAQUOPY_NO_BUILD=1 ./gradlew testIntegration-${{ matrix.agp-version }}

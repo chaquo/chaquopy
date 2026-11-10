@@ -6,16 +6,25 @@ runs:
   steps:
     - shell: bash
       run: |
+        if [ "$RUNNER_ARCH" = "ARM64" ]; then
+            arch="arm64"
+        else
+            arch="X64"
+        fi
+
         for version in 8 11 17 21 25; do
-            java_home_var=JAVA_HOME_${version}_X64
-            echo chaquopy.java.home.$version=${!java_home_var} | sed 's|\\|\\\\|g'
+            java_home_var=JAVA_HOME_${version}_${arch}
+            if [ -n "${!java_home_var}" ]; then
+                echo chaquopy.java.home.$version=${!java_home_var} | sed 's|\\|\\\\|g'
+            fi
         done > product/local.properties
 
-    - if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        py_version=$(py target/list-versions.py --default)
-        $CONDA/condabin/conda.bat create -n integration python=$py_version
-        echo "chaquopy.conda.env=$CONDA/envs/integration" \
-            | sed 's|\\|\\\\|g' \
-            >> product/local.properties
+        if [ "$RUNNER_OS" = "Windows" ]; then
+            py_version=$(py target/list-versions.py --default)
+            $CONDA/condabin/conda.bat create -n integration python=$py_version
+            echo "chaquopy.conda.env=$CONDA/envs/integration" \
+                | sed 's|\\|\\\\|g' \
+                >> product/local.properties
+        fi
+
+        cat product/local.properties
