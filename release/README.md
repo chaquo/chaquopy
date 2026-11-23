@@ -49,8 +49,9 @@ device under the following conditions:
 * Change back to "debug" variant, and test a single-ABI build by temporarily changing
   abiFilters.
 
-Using either Android Studio or the CPython testbed launcher, run the Python unit tests
-on all ABIs, with at least one test covering each of the following:
+Using either Android Studio or the CPython testbed launcher
+(https://github.com/chaquo/chaquopy/pull/1474), run the Python unit tests on all ABIs,
+with at least one test covering each of the following:
 
 * A physical device
 * minSdk (or as close as possible, on all ABIs)
