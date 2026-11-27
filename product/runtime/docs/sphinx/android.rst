@@ -334,9 +334,9 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
                 // An sdist or wheel filename, relative to the project directory:
                 install("MyPackage-1.2.3-py2.py3-none-any.whl")
 
-                // A directory containing a setup.py, relative to the project
-                // directory (must contain at least one slash):
-                install("./MyPackage")
+                // A directory containing a Python package source tree, relative
+                // to the project directory (must contain at least one slash):
+                install("../MyPackage")
 
                 // "-r"` followed by a requirements filename, relative to the
                 // project directory:
@@ -345,8 +345,8 @@ install <https://pip.pypa.io/en/stable/cli/pip_install/>`_. For example::
         }
     }
 
-Chaquopy can install almost all pure-Python packages, plus a large selection
-of packages with native components. If you have trouble installing a package, see
+Chaquopy can install most pure-Python packages, plus a large selection of
+packages with native components. If you have trouble installing a package, see
 :ref:`the FAQ <faq-pip>`.
 
 To pass options to `pip install`, give them as a comma-separated list to the `options`
